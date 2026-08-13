@@ -2,7 +2,7 @@ import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import {
   clinicalDataErrorResponse,
   getClinicalRoster,
-  toClinicalResidentSearchResult,
+  toClinicalResidentDirectoryResult,
 } from "@/lib/clinical/clinical-data";
 import { withApiLogging } from "@/lib/observability/api-logging";
 
@@ -21,16 +21,10 @@ export async function GET(request: Request) {
           limit: url.searchParams.get("limit") ?? undefined,
           cursor: url.searchParams.get("cursor") ?? undefined,
         });
-      const canViewClinicalDetails = auth.user.roles.some((role) =>
-        ["admin", "assessment_coordinator", "reviewer"].includes(role),
-      );
-
       return Response.json(
         {
           ...roster,
-          residents: canViewClinicalDetails
-            ? roster.residents
-            : roster.residents.map(toClinicalResidentSearchResult),
+          residents: roster.residents.map(toClinicalResidentDirectoryResult),
         },
         { headers: { "Cache-Control": "private, no-store, max-age=0", Vary: "Authorization" } },
       );

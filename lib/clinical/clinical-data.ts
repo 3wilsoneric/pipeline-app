@@ -27,6 +27,7 @@ import {
 export type {
   ClinicalCensusCommunity,
   ClinicalCensusResponse,
+  ClinicalResidentDirectoryResult,
   ClinicalFreshness,
   ClinicalHealthResponse,
   ClinicalMedicationSummaryResponse,
@@ -35,7 +36,7 @@ export type {
   ClinicalResidentSearchResult,
   ClinicalRosterResponse,
 } from "./clinical-contracts";
-export { toClinicalResidentSearchResult } from "./clinical-contracts";
+export { toClinicalResidentDirectoryResult, toClinicalResidentSearchResult } from "./clinical-contracts";
 
 export type ClinicalDataMode = "disconnected" | "demo_snapshot" | "alamo_api";
 export type ClinicalAuthMode = "client_credentials" | "delegated" | "bearer";

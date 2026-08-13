@@ -1519,6 +1519,121 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("link", { name: "Pipeline" })).toBeVisible();
   });
 
+  test("recovers a client profile after a temporary server failure", async ({ page }) => {
+    let serviceAvailable = false;
+
+    await page.route("**/api/clinical/roster**", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.roster) });
+    });
+    await page.route("**/api/profiles/**", async (route) => {
+      if (!serviceAvailable) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "Internal server error" }),
+        });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(unifiedProfileFixture) });
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await page.getByRole("button", { name: /Avery Example/ }).click();
+
+    const alert = page.getByRole("alert").filter({ hasText: "This client profile could not be loaded." });
+    await expect(alert).toContainText("This client profile could not be loaded.");
+    await expect(alert).toContainText("Pipeline's operational profile data is temporarily unavailable.");
+    await expect(alert).not.toContainText("Internal server error");
+    serviceAvailable = true;
+    await page.getByRole("button", { name: "Retry", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+  });
+
+  test("stacks admitted-client community, admission-date, and profile-data filters", async ({ page }) => {
+    const roster = clinicalFixture.roster as {
+      residents: Array<Record<string, unknown>>;
+      [key: string]: unknown;
+    };
+    const baseResident = roster.residents[0];
+    const residents = [
+      {
+        ...baseResident,
+        resident_id: "R-201",
+        resident_key: "337:R-201",
+        display_name: "Recent San Pablo",
+        community_id: "337",
+        community_name: "A & A Health Services San Pablo",
+        unit: "10A",
+        admit_date: "2026-07-08",
+      },
+      {
+        ...baseResident,
+        resident_id: "R-202",
+        resident_key: "337:R-202",
+        display_name: "Older San Pablo",
+        community_id: "337",
+        community_name: "A & A Health Services San Pablo",
+        unit: "10B",
+        admit_date: "2025-01-08",
+      },
+      {
+        ...baseResident,
+        resident_id: "R-203",
+        resident_key: "280:R-203",
+        display_name: "Recent Turlock",
+        community_id: "280",
+        community_name: "AHS Turlock OP LLC",
+        unit: null,
+        admit_date: "2026-06-08",
+      },
+    ];
+
+    await page.route("**/api/clinical/roster**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...roster,
+          residents,
+          total: residents.length,
+          next_cursor: null,
+          data_as_of: "2026-08-07",
+        }),
+      });
+    });
+
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
+
+    const addFilter = page.getByRole("button", { name: "Add profile filter" });
+    await addFilter.click();
+    await page.getByRole("menuitem", { name: /Admission date/ }).click();
+    await expect(page.getByLabel("Filter profiles by admission date")).toHaveValue("last_6_months");
+    await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
+    await expect(page.getByText("Recent Turlock", { exact: true })).toBeVisible();
+    await expect(page.getByText("Older San Pablo", { exact: true })).toHaveCount(0);
+
+    await addFilter.click();
+    await page.getByRole("menuitem", { name: /Community/ }).click();
+    await page.getByLabel("Filter profiles by community").selectOption("337");
+    await expect(page.getByText("1 of 1 matching", { exact: true })).toBeVisible();
+    await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
+    await expect(page.getByText("Recent Turlock", { exact: true })).toHaveCount(0);
+
+    await addFilter.click();
+    await page.getByRole("menuitem", { name: /Profile data/ }).click();
+    await page.getByLabel("Filter profiles by profile data").selectOption("complete");
+    await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Remove admitted filter" }).click();
+    await expect(page.getByText("Older San Pablo", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Clear all" }).click();
+    await expect(page.getByText("Recent Turlock", { exact: true })).toBeVisible();
+  });
+
   test("requires explicit human review before joining a referral to an admitted resident", async ({ page }) => {
     const linkId = "7d95fd3a-09c3-42a8-9412-dd58c71562cc";
     const resident = (clinicalFixture.resident as { resident: { resident_key: string; resident_number: string | null; community_id: string } }).resident;

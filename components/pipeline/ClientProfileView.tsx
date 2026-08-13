@@ -6,7 +6,7 @@ import { ArrowLeft, Check, CircleAlert, Database, Link2, Search, UserRound, X } 
 import type {
   ClinicalResident,
 } from "@/lib/clinical/clinical-contracts";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import type { ClientHistoryProjection } from "@/lib/pipeline/client-history-contracts";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -50,7 +50,7 @@ function ClientProfileLoader({ residentKey, onBack }: { residentKey: string; onB
       })
       .catch((loadError) => {
         if (!controller.signal.aborted) {
-          setError(loadError instanceof Error ? loadError.message : "The admitted-client profile is unavailable.");
+          setError(profileLoadMessage(loadError));
         }
       })
       .finally(() => {
@@ -71,7 +71,20 @@ function ClientProfileLoader({ residentKey, onBack }: { residentKey: string; onB
           <div className="font-black">This client profile could not be loaded.</div>
           <div className="mt-1">{error || "The admitted-client profile is unavailable."}</div>
         </div>
-        <BackButton onClick={onBack} />
+        <div className="mt-3 flex items-center gap-5">
+          <button
+            type="button"
+            className="h-8 text-[12px] font-black text-[#a63d2f] hover:text-[#7d2d23]"
+            onClick={() => {
+              setError("");
+              setIsLoading(true);
+              setReloadKey((value) => value + 1);
+            }}
+          >
+            Retry
+          </button>
+          <BackButton onClick={onBack} />
+        </div>
       </ProfileShell>
     );
   }
@@ -83,6 +96,13 @@ function ClientProfileLoader({ residentKey, onBack }: { residentKey: string; onB
       onConnectionChanged={() => setReloadKey((value) => value + 1)}
     />
   );
+}
+
+function profileLoadMessage(error: unknown) {
+  if (error instanceof PipelineApiError && error.status >= 500) {
+    return "Pipeline's operational profile data is temporarily unavailable. Retry, or return to Profiles; the admitted-client roster is unchanged.";
+  }
+  return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
 
 function ResidentProfile({

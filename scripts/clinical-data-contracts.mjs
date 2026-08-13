@@ -117,7 +117,11 @@ const results = await Promise.all([
     assert(!browserSearch.includes('from "@/lib/clinical/clinical-data"'), "Browser code must not import the server-only adapter");
     const profileDirectory = read("components/pipeline/ClientProfileDirectory.tsx");
     const profileView = read("components/pipeline/ClientProfileView.tsx");
+    const rosterRoute = read("app/api/clinical/roster/route.ts");
     assert(profileDirectory.includes("/api/clinical/roster"), "Profiles must come from the admitted-client roster");
+    assert(profileDirectory.includes("MAX_DIRECTORY_PAGES"), "Profile filters must use bounded complete-directory pagination");
+    assert(rosterRoute.includes("toClinicalResidentDirectoryResult"), "The profile directory must receive only its approved list projection");
+    assert(!rosterRoute.includes("canViewClinicalDetails"), "Directory requests must not expose full resident clinical detail by role");
     assert(profileView.includes("/api/profiles/"), "Profile detail must come from the governed unified-profile endpoint");
     assert(!profileView.includes("/api/clinical/residents/"), "Browser profile code must not bypass the reviewed Pipeline identity join");
     const unifiedProfile = read("lib/pipeline/unified-profile.ts");

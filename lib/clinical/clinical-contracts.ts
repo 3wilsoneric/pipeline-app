@@ -62,6 +62,11 @@ export type ClinicalResidentSearchResult = Pick<
   "resident_id" | "resident_key" | "resident_number" | "display_name" | "community_id" | "community_name" | "unit"
 >;
 
+export type ClinicalResidentDirectoryResult = ClinicalResidentSearchResult & Pick<
+  ClinicalResident,
+  "admit_date" | "care_level" | "length_of_stay_days"
+>;
+
 export type ClinicalRosterResponse = ClinicalMetadata & {
   residents: ClinicalResident[];
   total: number;
@@ -252,6 +257,15 @@ export function toClinicalResidentSearchResult(resident: ClinicalResident): Clin
     community_id: resident.community_id,
     community_name: resident.community_name,
     unit: resident.unit,
+  };
+}
+
+export function toClinicalResidentDirectoryResult(resident: ClinicalResident): ClinicalResidentDirectoryResult {
+  return {
+    ...toClinicalResidentSearchResult(resident),
+    admit_date: resident.admit_date,
+    care_level: resident.care_level,
+    length_of_stay_days: resident.length_of_stay_days,
   };
 }
 

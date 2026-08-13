@@ -14,6 +14,7 @@ const workspaceStateMigration = read("database/migrations/0006_user_workspace_st
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
 const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
 const databaseAdapter = read("lib/database/pipeline-database.ts");
+const healthRoute = read("app/api/health/route.ts");
 const referralStore = read("lib/pipeline/referral-store.ts");
 const assessmentStore = read("lib/assessment/assessment-store.ts");
 const linkStore = read("lib/pipeline/resident-link-store.ts");
@@ -82,6 +83,7 @@ check(
     migration.includes("on pipeline.resident_links(person_id, resident_key)"),
 );
 check("database adapter is server-only", databaseAdapter.includes('import "server-only"'));
+check("deployment readiness verifies the PostgreSQL login and migrations", healthRoute.includes("checkPipelineDatabaseConnection") && healthRoute.includes("connection_verified") && healthRoute.includes("databaseConnectionVerified"));
 check("referral adapter is server-only", referralStore.includes('import "server-only"'));
 check("assessment adapter is server-only", assessmentStore.includes('import "server-only"'));
 check("resident-link adapter is server-only", linkStore.includes('import "server-only"'));
@@ -134,6 +136,7 @@ check("migration runner serializes deployments", migrationRunner.includes("pg_ad
 check("migration runner rejects changed migration history", migrationRunner.includes("migration_checksum_mismatch"));
 check("migration runner backfills historical checksums atomically", migrationRunner.includes("checksum_sha256 is null"));
 check("production role passwords use PostgreSQL identifier and literal quoting", productionBootstrap.includes("'alter role %I password %L'") && productionBootstrap.includes("${role}::text") && productionBootstrap.includes("${password}::text") && !productionBootstrap.includes("alter role pipeline_migrator password ${"));
+check("production bootstrap decodes URL credentials before setting role passwords", productionBootstrap.includes("decodedPassword(migrationUrl)") && productionBootstrap.includes("decodedPassword(runtimeUrl)") && productionBootstrap.includes("decodeURIComponent(url.password)"));
 check("bootstrap migrator elevation is temporary and fail-safe", productionBootstrap.includes("grant create on database pipeline to pipeline_migrator") && (productionBootstrap.match(/revoke create on database pipeline from pipeline_migrator/g) ?? []).length === 2 && !productionBootstrap.includes("grant create on database pipeline to pipeline_runtime"));
 check("integration fixture is explicitly synthetic", integrationFixture.includes("pipeline-integration-fixture") && integrationFixture.includes("Synthetic integration fixture"));
 check("integration fixtures are transactionally rolled back", integrationFixtureRunner.includes("sql.begin(async (tx)") && integrationFixtureRunner.includes("fixture_rollback"));

@@ -32,8 +32,8 @@ try {
     if (!(await roleExists(sql, "pipeline_runtime"))) {
       await sql.unsafe("create role pipeline_runtime login");
     }
-    await setRolePassword(sql, "pipeline_migrator", migrationUrl.password);
-    await setRolePassword(sql, "pipeline_runtime", runtimeUrl.password);
+    await setRolePassword(sql, "pipeline_migrator", decodedPassword(migrationUrl));
+    await setRolePassword(sql, "pipeline_runtime", decodedPassword(runtimeUrl));
     await sql.unsafe("grant connect on database pipeline to pipeline_migrator, pipeline_runtime");
     await sql.unsafe("grant create on database pipeline to pipeline_migrator");
     await sql.unsafe("create extension if not exists pgcrypto");
@@ -153,6 +153,14 @@ function assertDatabaseIdentity(url, expected) {
 function assertSameDatabase(reference, candidate) {
   if (reference.hostname !== candidate.hostname || reference.pathname !== candidate.pathname) {
     throw new Error("database_target_mismatch");
+  }
+}
+
+function decodedPassword(url) {
+  try {
+    return decodeURIComponent(url.password);
+  } catch {
+    throw new Error("database_password_encoding_invalid");
   }
 }
 
