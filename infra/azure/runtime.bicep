@@ -35,6 +35,9 @@ param alamoTenantId string = ''
 param alamoClientId string = ''
 param alamoApiScope string = ''
 
+@description('Enable the metered daily clinical reconciliation job only after explicit approval.')
+param enableClinicalReconcileJob bool = false
+
 @minValue(0)
 @maxValue(3)
 param minimumReplicas int = environment == 'prod' ? 1 : 0
@@ -418,7 +421,7 @@ var scheduledJobs = [
     name: 'clinical-reconcile'
     schedule: '15 13 * * *'
     path: '/api/internal/clinical/reconcile'
-    enabled: clinicalDataMode == 'alamo_api'
+    enabled: clinicalDataMode == 'alamo_api' && enableClinicalReconcileJob
   }
   {
     name: 'retention'

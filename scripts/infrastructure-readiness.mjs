@@ -58,6 +58,13 @@ check("Azure scheduled jobs exist", runtime.includes("Microsoft.App/jobs@2025-01
 check("dispatch schedule exists", runtime.includes("'/api/internal/extraction/dispatch'") && runtime.includes("schedule: '* * * * *'"));
 check("reconciliation schedule exists", runtime.includes("'/api/internal/extraction/reconcile'") && runtime.includes("schedule: '*/5 * * * *'"));
 check("clinical backlog reconciliation schedule exists", runtime.includes("'/api/internal/clinical/reconcile'"));
+check(
+  "clinical reconciliation is opt-in to prevent unapproved metered executions",
+  runtime.includes("param enableClinicalReconcileJob bool = false")
+    && runtime.includes("clinicalDataMode == 'alamo_api' && enableClinicalReconcileJob")
+    && deployment.includes("enable_clinical_reconcile_job:")
+    && (deployment.match(/enableClinicalReconcileJob='\$\{\{ inputs\.enable_clinical_reconcile_job \}\}'/g) ?? []).length === 2,
+);
 check("retention is fail-closed by default", runtime.includes("param enableRetentionJob bool = false") && runtime.includes("enabled: enableRetentionJob"));
 check("runtime uses managed identity for Blob", runtime.includes("PIPELINE_AZURE_BLOB_AUTH_MODE") && runtime.includes("managed_identity"));
 check("runtime preserves browser-safe Entra readiness configuration", [
