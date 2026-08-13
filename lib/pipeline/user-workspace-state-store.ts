@@ -19,6 +19,10 @@ export type UserWorkspaceState<T = unknown> = {
   updated_at: string;
 };
 
+type PostgresUserWorkspaceState<T = unknown> = Omit<UserWorkspaceState<T>, "version"> & {
+  version: string | number | bigint;
+};
+
 type WorkspaceStateFile = { schema: 1; records: UserWorkspaceState[] };
 type StoreReadiness = {
   enabled: boolean;
@@ -98,7 +102,7 @@ export async function listUserWorkspaceState<T>(principalId: string, kind: UserW
   requireReady();
   if (getUserWorkspaceStateReadiness().mode === "postgres") {
     const sql = getPipelineSql();
-    return sql<UserWorkspaceState<T>[]>`
+    const rows = await sql<PostgresUserWorkspaceState<T>[]>`
       select principal_id, state_kind, state_key, payload, version,
         expires_at::text, created_at::text, updated_at::text
       from pipeline.user_workspace_state
@@ -108,6 +112,7 @@ export async function listUserWorkspaceState<T>(principalId: string, kind: UserW
       order by updated_at desc, state_key asc
       limit ${limit}
     `;
+    return rows.map(normalizePostgresState);
   }
 
   await ensureLocalLoaded();
@@ -122,7 +127,7 @@ export async function getUserWorkspaceState<T>(principalId: string, kind: UserWo
   requireReady();
   if (getUserWorkspaceStateReadiness().mode === "postgres") {
     const sql = getPipelineSql();
-    const rows = await sql<UserWorkspaceState<T>[]>`
+    const rows = await sql<PostgresUserWorkspaceState<T>[]>`
       select principal_id, state_kind, state_key, payload, version,
         expires_at::text, created_at::text, updated_at::text
       from pipeline.user_workspace_state
@@ -131,7 +136,7 @@ export async function getUserWorkspaceState<T>(principalId: string, kind: UserWo
         and state_key = ${key}
         and expires_at > now()
     `;
-    return rows[0] ?? null;
+    return rows[0] ? normalizePostgresState(rows[0]) : null;
   }
 
   await ensureLocalLoaded();
@@ -206,10 +211,10 @@ export async function deleteVersionedUserWorkspaceState(
     return sql.begin(async (transaction) => {
       await transaction`
         select pg_advisory_xact_lock(
-          hashtextextended(${`${principalId}\u0000${kind}\u0000${key}`}, 0)
+          hashtextextended(${postgresLockKey(principalId, kind, key)}, 0)
         )
       `;
-      const current = await transaction<UserWorkspaceState[]>`
+      const currentRows = await transaction<PostgresUserWorkspaceState[]>`
         select principal_id, state_kind, state_key, payload, version,
           expires_at::text, created_at::text, updated_at::text
         from pipeline.user_workspace_state
@@ -219,8 +224,9 @@ export async function deleteVersionedUserWorkspaceState(
           and expires_at > now()
         for update
       `;
-      if (!current[0]) return { ok: true as const, deleted: false };
-      if (current[0].version !== expectedVersion) return { ok: false as const, current: current[0] };
+      const current = currentRows[0] ? normalizePostgresState(currentRows[0]) : null;
+      if (!current) return { ok: true as const, deleted: false };
+      if (current.version !== expectedVersion) return { ok: false as const, current };
       await transaction`
         delete from pipeline.user_workspace_state
         where principal_id = ${principalId}
@@ -307,10 +313,10 @@ async function putPostgresState<T>(input: {
   return sql.begin(async (transaction) => {
     await transaction`
       select pg_advisory_xact_lock(
-        hashtextextended(${`${input.principalId}\u0000${input.kind}\u0000${input.key}`}, 0)
+        hashtextextended(${postgresLockKey(input.principalId, input.kind, input.key)}, 0)
       )
     `;
-    const current = await transaction<UserWorkspaceState<T>[]>`
+    const currentRows = await transaction<PostgresUserWorkspaceState<T>[]>`
       select principal_id, state_kind, state_key, payload, version,
         expires_at::text, created_at::text, updated_at::text
       from pipeline.user_workspace_state
@@ -320,11 +326,12 @@ async function putPostgresState<T>(input: {
         and expires_at > now()
       for update
     `;
-    if ((current[0]?.version ?? 0) !== input.expectedVersion) {
-      return { ok: false as const, current: current[0] ?? null };
+    const current = currentRows[0] ? normalizePostgresState(currentRows[0]) : null;
+    if ((current?.version ?? 0) !== input.expectedVersion) {
+      return { ok: false as const, current };
     }
 
-    const rows = await transaction<UserWorkspaceState<T>[]>`
+    const rows = await transaction<PostgresUserWorkspaceState<T>[]>`
       insert into pipeline.user_workspace_state (
         principal_id, state_kind, state_key, payload, version, expires_at
       ) values (
@@ -339,7 +346,7 @@ async function putPostgresState<T>(input: {
       returning principal_id, state_kind, state_key, payload, version,
         expires_at::text, created_at::text, updated_at::text
     `;
-    return { ok: true as const, state: rows[0] };
+    return { ok: true as const, state: normalizePostgresState(rows[0]) };
   });
 }
 
@@ -413,6 +420,18 @@ function isLocalRecord(value: unknown): value is UserWorkspaceState {
 
 function recordKey(principalId: string, kind: UserWorkspaceStateKind, key: string) {
   return `${principalId}\u0000${kind}\u0000${key}`;
+}
+
+function postgresLockKey(principalId: string, kind: UserWorkspaceStateKind, key: string) {
+  return [principalId, kind, key].map((part) => `${part.length}:${part}`).join("");
+}
+
+function normalizePostgresState<T>(row: PostgresUserWorkspaceState<T>): UserWorkspaceState<T> {
+  const version = Number(row.version);
+  if (!Number.isSafeInteger(version) || version < 1) {
+    throw new Error("Workspace state version is outside the supported range.");
+  }
+  return { ...row, version };
 }
 
 function isMissingFile(error: unknown) {

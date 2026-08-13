@@ -20,6 +20,7 @@ const assessmentStore = read("lib/assessment/assessment-store.ts");
 const linkStore = read("lib/pipeline/resident-link-store.ts");
 const workflowStore = read("lib/pipeline/workflow-store.ts");
 const presenceStore = read("lib/pipeline/editing-presence.ts");
+const workspaceStateStore = read("lib/pipeline/user-workspace-state-store.ts");
 const unifiedProfile = read("lib/pipeline/unified-profile.ts");
 const integrationFixture = read("database/fixtures/integration.sql");
 const integrationFixtureRunner = read("scripts/postgres-integration-fixtures.mjs");
@@ -131,6 +132,17 @@ check("editing presence uses expiring leases", collaborationMigration.includes("
 check("per-user workspace state has composite ownership", workspaceStateMigration.includes("primary key (principal_id, state_kind, state_key)"));
 check("per-user workspace state expires", workspaceStateMigration.includes("expires_at") && workspaceStateMigration.includes("user_workspace_state_expiry_idx"));
 check("per-user workspace state is typed", workspaceStateMigration.includes("recent_destination") && workspaceStateMigration.includes("referral_draft"));
+check(
+  "workspace-state PostgreSQL locks use text-safe collision-resistant keys",
+  workspaceStateStore.includes("postgresLockKey(principalId, kind, key)")
+    && workspaceStateStore.includes("postgresLockKey(input.principalId, input.kind, input.key)")
+    && workspaceStateStore.includes("`${part.length}:${part}`"),
+);
+check(
+  "workspace-state PostgreSQL versions are normalized before optimistic comparison",
+  workspaceStateStore.includes("normalizePostgresState")
+    && workspaceStateStore.includes("Number.isSafeInteger(version)"),
+);
 check("high-volume lists have keyset indexes", documentMigration.includes("referrals_updated_keyset_idx") && documentMigration.includes("documents_uploaded_keyset_idx"));
 check("migration runner serializes deployments", migrationRunner.includes("pg_advisory_lock"));
 check("migration runner rejects changed migration history", migrationRunner.includes("migration_checksum_mismatch"));
