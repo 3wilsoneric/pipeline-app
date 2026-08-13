@@ -5,7 +5,6 @@ test.describe("Stable visual surfaces", () => {
 
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
-    await page.addStyleTag({ content: "*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }" });
   });
 
   test("desktop home, referrals, profiles, and packet chart match their baselines", async ({ page }) => {
@@ -15,14 +14,17 @@ test.describe("Stable visual surfaces", () => {
 
     await page.getByRole("link", { name: "Open referrals" }).click();
     await expect(page.getByRole("main", { name: "Referral packets" })).toBeVisible();
+    await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-referrals.png", screenshotOptions());
 
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
+    await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-profiles.png", screenshotOptions());
 
     await page.getByRole("link", { name: "Create new packet" }).click();
     await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-new-packet.png", screenshotOptions());
   });
 
@@ -34,14 +36,23 @@ test.describe("Stable visual surfaces", () => {
 
     await page.getByRole("link", { name: "Create new packet" }).click();
     await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await settleStable(page);
     await expect(page).toHaveScreenshot("mobile-new-packet.png", screenshotOptions());
   });
 });
 
 async function openStable(page: Page, url: string) {
   await page.goto(url);
+  await settleStable(page);
+}
+
+async function settleStable(page: Page) {
   await page.waitForLoadState("networkidle");
   await page.evaluate(() => document.fonts.ready);
+  await page.addStyleTag({
+    content:
+      "*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }",
+  });
 }
 
 function screenshotOptions() {
