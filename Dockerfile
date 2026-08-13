@@ -1,0 +1,58 @@
+# syntax=docker/dockerfile:1.7
+
+FROM node:22-alpine AS dependencies
+
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
+
+ARG NEXT_PUBLIC_ENTRA_TENANT_ID
+ARG NEXT_PUBLIC_ENTRA_CLIENT_ID
+ARG NEXT_PUBLIC_PIPELINE_API_SCOPE
+ARG NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED=true
+ARG NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=true
+ARG PIPELINE_DEPLOYMENT_ID
+
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_ENTRA_TENANT_ID=${NEXT_PUBLIC_ENTRA_TENANT_ID} \
+    NEXT_PUBLIC_ENTRA_CLIENT_ID=${NEXT_PUBLIC_ENTRA_CLIENT_ID} \
+    NEXT_PUBLIC_PIPELINE_API_SCOPE=${NEXT_PUBLIC_PIPELINE_API_SCOPE} \
+    NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED=${NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED} \
+    NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=${NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED} \
+    PIPELINE_DEPLOYMENT_ID=${PIPELINE_DEPLOYMENT_ID}
+
+RUN --mount=type=secret,id=next_server_actions_encryption_key \
+    NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$(cat /run/secrets/next_server_actions_encryption_key)" \
+    npm run build
+
+FROM node:22-alpine AS runtime
+
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    HOSTNAME=0.0.0.0 \
+    PORT=3000
+
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/database ./database
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+
+USER nextjs
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health/live').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+
+CMD ["node", "server.js"]

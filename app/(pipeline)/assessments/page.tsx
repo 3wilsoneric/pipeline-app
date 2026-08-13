@@ -1,10 +1,5 @@
-"use client";
-
-import Assessments from "@/components/pipeline/Assessments";
-import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
+import { redirect } from "next/navigation";
 
 export default function AssessmentsPage() {
-  const { searchTerm } = usePipelineShell();
-
-  return <Assessments searchTerm={searchTerm} />;
+  redirect("/?view=reports&report=assessment-dashboard");
 }

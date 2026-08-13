@@ -1,5 +1,7 @@
 interface UserAvatarProps {
   size?: "sm" | "md" | "lg";
+  border?: boolean;
+  initials?: string;
 }
 
 const sizeClasses = {
@@ -8,14 +10,13 @@ const sizeClasses = {
   lg: "h-16 w-16",
 };
 
-export default function UserAvatar({ size = "md" }: UserAvatarProps) {
+export default function UserAvatar({ size = "md", border = true, initials = "" }: UserAvatarProps) {
   return (
     <div
-      className={`relative ${sizeClasses[size]} overflow-hidden rounded-full border border-slate-300 bg-slate-100`}
+      className={`flex ${sizeClasses[size]} shrink-0 items-center justify-center rounded-full bg-[#e7f3ee] text-[11px] font-black uppercase tracking-[0.04em] text-[#0f8b73] ${border ? "border border-[#b8dacf]" : ""}`}
       aria-hidden="true"
     >
-      <div className="absolute left-1/2 top-[22%] h-[30%] w-[30%] -translate-x-1/2 rounded-full bg-slate-400" />
-      <div className="absolute bottom-[-8%] left-1/2 h-[52%] w-[70%] -translate-x-1/2 rounded-t-[999px] bg-slate-400" />
+      {initials || "?"}
     </div>
   );
 }

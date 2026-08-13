@@ -1,0 +1,136 @@
+name: Pipeline CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipeline-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run check:licenses
+      - run: npm run check:supply-chain
+      - run: npm run check:route-policy
+      - run: npm run check:platform
+      - run: npm run release:evidence -- --out-dir /tmp/pipeline-release-evidence
+      - run: PIPELINE_REQUIRE_CLEAN_RELEASE=true npm run release:evidence:verify -- --dir /tmp/pipeline-release-evidence
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pipeline-release-evidence
+          path: /tmp/pipeline-release-evidence
+          retention-days: 30
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:e2e
+      - run: npm run test:e2e:desktop
+      - run: npm run test:e2e:cross-browser
+      - run: npm run test:e2e:visual
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pipeline_ci
+          POSTGRES_PASSWORD: pipeline_ci
+          POSTGRES_DB: pipeline_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pipeline_ci -d pipeline_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PIPELINE_DATABASE_URL: postgresql://pipeline_ci:pipeline_ci@127.0.0.1:5432/pipeline_ci
+      PIPELINE_TEST_DATABASE_URL: postgresql://pipeline_ci:pipeline_ci@127.0.0.1:5432/pipeline_ci
+      PIPELINE_DATABASE_SSL_MODE: disable
+      PIPELINE_DATABASE_MODE: postgres
+      PIPELINE_REFERRAL_STORE_MODE: postgres
+      PIPELINE_ASSESSMENT_STORE_MODE: postgres
+      PIPELINE_RESIDENT_LINK_STORE_MODE: postgres
+      PIPELINE_ALLOW_TEST_DATABASE_REUSE: "true"
+      PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL: "true"
+      PIPELINE_AUTH_MODE: headers
+      PIPELINE_TRUSTED_GATEWAY: "true"
+      PIPELINE_ALLOWED_EMAILS: pipeline-load-user-1@example.invalid,pipeline-load-user-2@example.invalid,pipeline-load-user-3@example.invalid,pipeline-load-user-4@example.invalid,pipeline-load-user-5@example.invalid,pipeline-load-user-6@example.invalid,pipeline-load-user-7@example.invalid,pipeline-load-user-8@example.invalid,pipeline-load-user-9@example.invalid,pipeline-load-user-10@example.invalid
+      PIPELINE_ADMIN_EMAILS: pipeline-load-user-1@example.invalid,pipeline-load-user-2@example.invalid,pipeline-load-user-3@example.invalid,pipeline-load-user-4@example.invalid,pipeline-load-user-5@example.invalid,pipeline-load-user-6@example.invalid,pipeline-load-user-7@example.invalid,pipeline-load-user-8@example.invalid,pipeline-load-user-9@example.invalid,pipeline-load-user-10@example.invalid
+      PIPELINE_EXTRACTION_BACKEND: mock
+      PIPELINE_ALLOW_PRODUCTION_MOCK_EXTRACTION: "true"
+      NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED: "true"
+      PIPELINE_DESKTOP_STATE_ENABLED: "true"
+      PORT: "3191"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run database:migrate
+      - run: npm run check:database:live
+      - run: npm run database:fixtures
+      - run: npm run database:rollback:drill
+      - run: npm run database:seed:production
+      - run: npm run build
+      - name: Ten-user PostgreSQL contention and load drill
+        run: |
+          npm run start > /tmp/pipeline-postgres-ci.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl --silent --output /dev/null http://127.0.0.1:3191/api/health; then
+              break
+            fi
+            sleep 1
+          done
+          PIPELINE_COLLABORATION_BASE_URL=http://127.0.0.1:3191 \
+          PIPELINE_COLLABORATION_REQUIRE_POSTGRES=true \
+          PIPELINE_COLLABORATION_REQUIRE_DESKTOP_STATE=true \
+          npm run check:collaboration-load
+          PIPELINE_LOAD_BASE_URL=http://127.0.0.1:3191 \
+          PIPELINE_LOAD_USER_EMAIL=pipeline-load-user-1@example.invalid \
+          PIPELINE_LOAD_REQUESTS=200 \
+          npm run check:load
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: postgres-ci-log
+          path: /tmp/pipeline-postgres-ci.log
+          retention-days: 7

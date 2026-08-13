@@ -1,0 +1,4 @@
+resident_id,resident_key,resident_number,display_name,first_name,last_name,date_of_birth,community_id,community_name,unit,age,admit_date,length_of_stay_days,status,care_level,payor,primary_diagnosis,physician,diet,data_as_of
+R-100,337:R-100,R-100,Avery Example,Avery,Example,1985-04-12,337,Sanitized San Pablo,A-1,41,2026-01-10,209,active,Level 2,Example Plan,Sanitized diagnosis,Example Clinician,Regular,2026-08-07
+R-101,337:R-101,R-101,Jordan Fixture,Jordan,Fixture,1974-03-01,337,Sanitized San Pablo,B-2,52,2025-11-01,279,active,Level 1,,,,,2026-08-07
+R-100,343:R-100,R-100,Morgan Sample,Morgan,Sample,1990-06-20,343,Sanitized Wallace,C-3,36,2026-02-15,173,active,Level 3,Example Plan,Sanitized diagnosis,Example Clinician,Vegetarian,2026-08-07

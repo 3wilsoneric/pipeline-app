@@ -17,11 +17,46 @@ The system should not silently write AI output into the referral profile. It sho
 
 ## Product Flow
 
+## Volume Model
+
+The system has two different workloads and they should not be treated the same.
+
+### One-Time Backlog
+
+- Estimated size: about 100,000 already digitized pages.
+- Purpose: convert historical packets into searchable, structured, reviewable records.
+- Processing style: controlled batch migration, not live intake.
+- Batch size: start with a 500-page pilot, then run 10,000-25,000 page waves.
+- Cost control: Document Intelligence baseline first; Claude only for low-confidence, handwritten, messy, or clinically ambiguous pages.
+- Human review: exceptions only, not every page.
+- Storage posture: keep raw files, normalized page images, OCR JSON, evidence crops, and merge outputs because storage is cheap relative to extraction/review.
+
+### Steady-State Intake
+
+- Estimated size: about 500 new pages per week.
+- Purpose: process new referral packets as they arrive.
+- Processing style: async per-packet jobs triggered by upload completion.
+- Latency target: minutes, not seconds.
+- Cost control: run Document Intelligence on the full packet, route only hard pages/fields to Claude, and human-review required/low-confidence fields.
+- Databricks role: useful for governance, Delta/Unity Catalog, auditability, and sharing the same pipeline as the backlog; not required for raw scale at 500 pages/week.
+
+### Practical Cost Assumptions
+
+- Azure Blob storage for 100,000 pages should be cheap enough to preserve all source/evidence artifacts.
+- The main cost variables are pages analyzed by Document Intelligence, percentage of pages routed to Claude vision, Databricks compute time, and human review labor.
+- Do not estimate the 100,000-page backlog from list prices alone. Run a 500-page pilot and calculate:
+  - page type distribution
+  - OCR success rate
+  - handwritten/messy percentage
+  - Claude fallback percentage
+  - critical-field review rate
+  - cost per 1,000 pages
+
 ### Current UI Entry Points
 
 - New referral modal packet dropzone.
 - Expanded referral card packet dropzone.
-- Kanban card packet drop.
+- Referral-list and canvas packet drop.
 
 ### Target UI After Drop
 
@@ -257,8 +292,8 @@ Recommended model routing:
 This is the target backend. Next.js owns the UI and lightweight orchestration. Azure Blob Storage, Databricks, Delta Lake, and Unity Catalog own packet processing, durable structured records, and PHI governance.
 
 ```text
-Vercel / Next.js              Azure / Databricks
-────────────────              ──────────────────────────────
+Azure Container Apps / Next.js  Azure Blob / Databricks
+──────────────────────────────  ──────────────────────────────
 Upload UI                     Azure Blob Storage: raw packets
 API Route ──POST─────────→    Databricks Job: extraction pipeline
 Poll / webhook ←─────────     Delta Lake: structured records
@@ -274,11 +309,85 @@ Rules:
 - Raw packet blobs are immutable. All processing is additive.
 - Full identifiable records live under Unity Catalog governance.
 
+### V1 Azure Resource Baseline
+
+V1 should provision these resources before real extraction begins:
+
+| Resource | Purpose | Required configuration |
+| --- | --- | --- |
+| ADLS Gen2 Storage Account | Raw packets, normalized pages, OCR JSON, evidence crops, artifacts | Hierarchical namespace, versioning, raw-container immutability/WORM, soft delete, CORS for the exact Pipeline production origin |
+| User Delegation SAS | Browser direct uploads | Per-blob write-only SAS, short TTL, content-type pinned |
+| Event Grid System Topic | Blob-created processing trigger | Filter to `.upload-complete` sentinel; dead-letter and retry enabled |
+| Azure Function | Databricks trigger | Managed identity, no binary handling, secrets from Key Vault |
+| Azure Databricks Workspace | Normalization, DI orchestration, Claude routing, merge, Delta writes | Unity Catalog enabled, job clusters, storage credential/external location |
+| Azure Document Intelligence | OCR/layout/table/checkbox extraction | `prebuilt-layout` and `prebuilt-document` first; private endpoint preferred |
+| Azure Key Vault | Secrets | Databricks, Document Intelligence, Claude keys/tokens |
+| Unity Catalog | PHI governance | Catalog `pipeline`; schemas `raw`, `silver`, `gold`; auditing and masking |
+
+### V1 Databricks Job DAG
+
+One multi-task Databricks Job runs per packet, parameterized by `packet_id` and raw blob prefix. Every task must be idempotent.
+
+| Task | Input | Output | Retry |
+| --- | --- | --- | --- |
+| `t1_ingest_manifest` | Raw blob prefix | Validated file list; packet `normalizing` | 2 retries |
+| `t2_normalize` | Raw files | 200 DPI PNGs, manifest, `packet_pages` | 2 retries |
+| `t3_document_intelligence` | Page PNGs | DI JSON, `document_intelligence_results` | 3 retries on 429/5xx |
+| `t4_route` | DI results + manifest | Claude routing decisions | 1 retry |
+| `t5_claude_fallback` | Selected page PNGs + field asks | Validated candidate fields; raw Claude artifacts | 2 retries, per-page isolation |
+| `t6_validate` | DI + Claude candidates | Pydantic-validated candidates | 0 retries |
+| `t7_merge` | Validated candidates | `extracted_fields`, `field_review_tasks` | 1 retry |
+| `t8_finalize` | Extracted fields | Packet `ready_for_review`; webhook/poll signal | 2 retries |
+
+### V1 Blob Layout
+
+```text
+raw/                                           IMMUTABLE
+  {submitting_facility}/{packet_id}/
+    original/{file_id}.{ext}
+    .upload-complete
+
+normalized/
+  {packet_id}/pages/page-{n:04d}.png
+  {packet_id}/manifest.json
+
+ocr/
+  {packet_id}/di/page-{n:04d}.json
+
+evidence/
+  {packet_id}/{field_key}/{candidate_id}.png
+
+artifacts/
+  {packet_id}/{job_run_id}/route.json
+  {packet_id}/{job_run_id}/claude/page-{n:04d}.json
+  {packet_id}/{job_run_id}/run.log
+```
+
+### V1 Governed Tables
+
+Initial Unity Catalog / Delta tables:
+
+- `referral_packets`
+- `packet_pages`
+- `document_intelligence_results`
+- `extraction_runs`
+- `extracted_fields`
+- `field_review_tasks`
+- `field_audit_events`
+- `ehr_export_queue`
+
+The full V1 source spec lives in [PIPELINE_V1_SPEC.md](./PIPELINE_V1_SPEC.md). The implementation checklist lives in [EXTRACTION_STACK_IMPLEMENTATION_CHECKLIST.md](./EXTRACTION_STACK_IMPLEMENTATION_CHECKLIST.md).
+
 ## Four-Stage Extraction Pipeline
+
+This pipeline supports both the backlog and steady-state intake. The difference is the trigger:
+
+- Backlog: Databricks reads a batch manifest and processes packets in waves.
+- Steady-state: Next.js upload completion triggers one packet job.
 
 ### 1. Ingest
 
-On drop:
+Steady-state upload:
 
 - Next.js API creates a packet shell record and signed Azure Blob upload URL.
 - Browser uploads the raw PDF/image directly to Azure Blob Storage.
@@ -292,6 +401,23 @@ On drop:
 - Store `job_run_id` on the packet record.
 - Set packet status to `queued`.
 - Attach packet to the referral record.
+
+Backlog upload:
+
+- Create a `batch_manifest.csv` or Delta table before extraction begins.
+- Required manifest fields:
+  - `batch_id`
+  - `packet_id`
+  - `raw_blob_path`
+  - `facility`
+  - `source_type`
+  - `received_at`
+  - `page_count_estimate`
+  - `content_hash`
+  - `priority`
+- Hash and dedupe before processing.
+- Process in waves of 10,000-25,000 pages after the 500-page pilot.
+- Store batch status separately from live referral status.
 
 Raw blobs are never transformed in place. If extraction improves later, reprocess from the immutable raw source.
 
@@ -313,7 +439,8 @@ Use Azure Document Intelligence and Claude vision together.
 
 Azure Document Intelligence:
 
-- Run on every page first.
+- Run on every steady-state packet page first.
+- For backlog waves, run on pages selected by the batch manifest/page classifier. Start broad during the pilot, then skip obvious non-useful pages if classification proves safe.
 - Use for typed/printed pages, structured forms, checkboxes, tables, and predictable layouts.
 - Persist OCR text, tables, key-value pairs, checkboxes, confidence, and page geometry.
 - Treat it as the cheap, fast, HIPAA-eligible baseline extractor.
@@ -324,6 +451,7 @@ Claude vision:
 - Escalate handwritten sections, ambiguous mixed layouts, unstructured clinical notes, messy scans, and low-confidence fields.
 - Pass base64 page images with a schema-anchored system prompt.
 - Claude must return only valid JSON matching the target schema.
+- Never send the entire backlog to Claude. Target exception pages/fields only.
 
 Routing logic:
 
@@ -333,6 +461,7 @@ Routing logic:
 - Prefer Document Intelligence for structured form fields.
 - Prefer Claude for free text, handwriting, clinical note reasoning, and ambiguous layouts.
 - Never let a model overwrite higher-confidence sourced data without recording a conflict.
+- For backlog pages, classify first: structured data sheet, handwritten form, clinical note, irrelevant attachment, unknown.
 
 ### 4. Parse, Validate & Output
 
@@ -491,6 +620,19 @@ Confidence should be explainable:
 - Conflict count.
 
 Do not show one fake “AI confidence” number unless it is composed from those signals.
+
+## V1 Next.js API Contracts
+
+All routes are authenticated in production. None accept or return packet binaries.
+
+- `POST /api/uploads/create-url`: create packet shell and signed direct-to-Blob upload URLs.
+- `POST /api/uploads/complete`: mark upload complete and trigger Databricks job or sentinel flow.
+- `GET /api/packets/{packet_id}/status`: return packet status, page count, job run, pending field counts, and failure reason.
+- `GET /api/packets/{packet_id}/fields`: return proposed fields, candidates, confidence, source evidence, completeness, and EHR readiness.
+- `POST /api/packets/{packet_id}/fields/{field_key}/review`: accept, edit, or reject one field and write audit event.
+- `POST /api/packets/{packet_id}/fields/{field_key}/retry`: queue field/page retry, optionally forcing Claude.
+
+The current repo scaffold implements these contracts as mock App Router handlers under `app/api/**`. The shared TypeScript contracts live in `lib/extraction/contracts.ts`.
 
 ## EHR Automation
 

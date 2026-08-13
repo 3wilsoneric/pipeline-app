@@ -1,20 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import PipelineAuthProvider from "@/components/auth/PipelineAuthProvider";
+import DesktopRuntime from "@/components/desktop/DesktopRuntime";
+import { isPipelineDesktopEnabled } from "@/lib/desktop/desktop-config";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Pipeline",
   description: "Pipeline admissions and referral management",
+  applicationName: "Pipeline",
+  manifest: isPipelineDesktopEnabled() ? "/desktop-manifest.webmanifest" : undefined,
 };
 
 export default function RootLayout({
@@ -23,11 +17,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full">{children}</body>
+    <html lang="en" className="h-full antialiased">
+      <body className="min-h-full">
+        <PipelineAuthProvider>
+          <DesktopRuntime />
+          {children}
+        </PipelineAuthProvider>
+      </body>
     </html>
   );
 }

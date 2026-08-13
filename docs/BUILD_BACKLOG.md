@@ -1,20 +1,40 @@
+## Active References
+
+The current product tenants are documented in
+[`docs/PRODUCT_TENETS.md`](./PRODUCT_TENETS.md). The active referral workflow
+resume plan is [`docs/WORKFLOW_BUILD_QUEUE.md`](./WORKFLOW_BUILD_QUEUE.md).
+Use those documents for new work; the older entries below are retained as
+historical backlog notes and may refer to components that have since moved or
+been removed.
+
 ## Core Improvements (P0)
-- Wire `NewReferralModal.tsx` submit flow to persistent referral creation instead of closing the modal only
-- Replace mock state in `Referrals.tsx` with real referral data loading
-- Replace mock state in `Assessments.tsx` with real packet data loading
-- Add env validation around `lib/supabase/client.ts` so missing Supabase keys fail clearly
-- Persist packet uploads from `NewReferralModal.tsx` and `Assessments.tsx` instead of mock extraction only
+- Keep `npm run check:platform` green before handoff or deployment.
+- Provision Azure resources, apply migrations `0001` through `0006`, and map
+  Key Vault references without placing PHI or service credentials in public variables.
+- Implement the Databricks processing job against the checked-in dispatch and
+  callback contracts, then validate it with a representative packet pilot.
+- Configure Entra user authentication and the separate Alamo clinical API
+  client-credential permission.
 
 ## Features In Progress / Next Up (P1)
-- Align route names and UI labels so `/referrals` maps cleanly to Intake and `/assessments` maps cleanly to Packets
-- Add referral-to-community routing handoff from `PipelineOverview.tsx` and `Communities.tsx`
-- Add packet checklist status to `Referrals.tsx` rows and quick review panel
-- Add save/reset handling for edited extracted fields in `Assessments.tsx`
-- Connect `PipelineHeader.tsx` search to real data-backed filtering across pages
+- Tune extraction mappings and confidence thresholds from the pilot without
+  changing the canonical schema.
+- Connect alert destinations and review retention/legal-hold policy.
+- Validate the supervisor exception definitions and extraction-quality
+  thresholds against the first live pilot; change definitions only through a
+  reviewed product/operations decision.
+
+## Completed Engineering Hardening
+
+- Canonical supervisor exceptions, including resident-link candidates and collisions.
+- Audited reassignment, requirement evidence, waiver, decline reason, and versioned EHR handoff state.
+- Section-scoped concurrency, presence leases, remote-change recovery, and ten-user contention tests.
+- File preview metadata, thumbnails, bounded range proxying, and large-document page pagination.
+- Property/fuzz checks, extraction quality scoring, and resumable 20-by-600-page orchestration rehearsal.
+- Append-only migration checksums, release manifests, CI, accessibility, broader browser coverage, and guarded backup/restore drills.
 
 ## Nice to Have (P2)
-- Add loading and empty states that match current page surfaces in `PipelineOverview.tsx`, `Referrals.tsx`, and `Assessments.tsx`
-- Add component-level tests for `NewReferralModal.tsx` packet-to-form flow
-- Add component-level tests for `pipeline-shell-context.tsx` search propagation
-- Add a lightweight file ownership map to `docs/FILE_MAP.md`
-- Expand `wiki/INDEX.md` with page-by-page workflow notes
+- Add saved supervisor views and operational exports after live data validates
+  the queue definitions.
+- Add user-delegation SAS signing so the app no longer needs a storage account key.
+- Expand page-level workflow documentation after the pilot stabilizes labels.

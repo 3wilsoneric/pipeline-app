@@ -1,0 +1,55 @@
+import { expect, test, type Page } from "@playwright/test";
+
+test.describe("Stable visual surfaces", () => {
+  test.skip(process.env.PIPELINE_VISUAL_REGRESSION !== "true", "Visual baselines run in the isolated visual gate.");
+
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
+    await page.addStyleTag({ content: "*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }" });
+  });
+
+  test("desktop home, referrals, profiles, and packet chart match their baselines", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openStable(page, "/");
+    await expect(page).toHaveScreenshot("desktop-home.png", screenshotOptions());
+
+    await page.getByRole("link", { name: "Open referrals" }).click();
+    await expect(page.getByRole("main", { name: "Referral packets" })).toBeVisible();
+    await expect(page).toHaveScreenshot("desktop-referrals.png", screenshotOptions());
+
+    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
+    await expect(page).toHaveScreenshot("desktop-profiles.png", screenshotOptions());
+
+    await page.getByRole("link", { name: "Create new packet" }).click();
+    await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await expect(page).toHaveScreenshot("desktop-new-packet.png", screenshotOptions());
+  });
+
+  test("mobile navigation and chart preserve their baselines", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openStable(page, "/?view=referrals");
+    await expect(page.getByRole("main", { name: "Referral packets" })).toBeVisible();
+    await expect(page).toHaveScreenshot("mobile-referrals.png", screenshotOptions());
+
+    await page.getByRole("link", { name: "Create new packet" }).click();
+    await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await expect(page).toHaveScreenshot("mobile-new-packet.png", screenshotOptions());
+  });
+});
+
+async function openStable(page: Page, url: string) {
+  await page.goto(url);
+  await page.waitForLoadState("networkidle");
+  await page.evaluate(() => document.fonts.ready);
+}
+
+function screenshotOptions() {
+  return {
+    animations: "disabled" as const,
+    caret: "hide" as const,
+    fullPage: false,
+    maxDiffPixelRatio: 0.002,
+    scale: "css" as const,
+  };
+}

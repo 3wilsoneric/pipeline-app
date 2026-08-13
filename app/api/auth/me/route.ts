@@ -1,0 +1,21 @@
+import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { withApiLogging } from "@/lib/observability/api-logging";
+
+export async function GET(request: Request) {
+  return withApiLogging(request, "/api/auth/me", async () => {
+    const auth = await requirePipelineUser(request);
+    if (!auth.ok) return auth.response;
+
+    return Response.json(
+      {
+        user: {
+          id: auth.user.id,
+          email: auth.user.email,
+          name: auth.user.name,
+          roles: auth.user.roles,
+        },
+      },
+      { headers: { "Cache-Control": "private, no-store, max-age=0" } },
+    );
+  });
+}

@@ -1,0 +1,180 @@
+{
+  "health": {
+    "source": "alamo_platform",
+    "snapshot_id": "fixture-2026-08-07T12:00:00.000Z",
+    "generated_at": "2026-08-07T12:00:00.000Z",
+    "data_as_of": "2026-08-07",
+    "retrieved_at": "2026-08-07T13:00:00.000Z",
+    "freshness": {
+      "status": "fresh",
+      "age_hours": 1,
+      "max_age_hours": 24,
+      "warning": null
+    },
+    "ready": true,
+    "status": "ready",
+    "contract_version": "1.0",
+    "checks": {
+      "snapshot_available": true,
+      "qa_approved": true,
+      "census_ready": true,
+      "roster_ready": true,
+      "medication_summary_ready": true
+    }
+  },
+  "census": {
+    "source": "alamo_platform",
+    "snapshot_id": "fixture-2026-08-07T12:00:00.000Z",
+    "generated_at": "2026-08-07T12:00:00.000Z",
+    "data_as_of": "2026-08-07",
+    "retrieved_at": "2026-08-07T13:00:00.000Z",
+    "freshness": {
+      "status": "fresh",
+      "age_hours": 1,
+      "max_age_hours": 24,
+      "warning": null
+    },
+    "communities": [
+      {
+        "community_id": "337",
+        "community_name": "A & A Health Services San Pablo",
+        "city": "San Pablo",
+        "state": "CA",
+        "current_census": 2,
+        "roster_count": 2,
+        "reconciliation_status": "matched",
+        "delta": 0
+      },
+      {
+        "community_id": "343",
+        "community_name": "JC Wallace House",
+        "city": "Fresno",
+        "state": "CA",
+        "current_census": null,
+        "roster_count": 1,
+        "reconciliation_status": "unavailable",
+        "delta": null
+      }
+    ],
+    "portfolio_census_total": null,
+    "roster_count": 3,
+    "reconciliation_status": "unavailable",
+    "delta": null
+  },
+  "roster": {
+    "source": "alamo_platform",
+    "snapshot_id": "fixture-2026-08-07T12:00:00.000Z",
+    "generated_at": "2026-08-07T12:00:00.000Z",
+    "data_as_of": "2026-08-07",
+    "retrieved_at": "2026-08-07T13:00:00.000Z",
+    "freshness": {
+      "status": "fresh",
+      "age_hours": 1,
+      "max_age_hours": 24,
+      "warning": null
+    },
+    "residents": [
+      {
+        "resident_id": "R-100",
+        "resident_key": "337:R-100",
+        "display_name": "Avery Example",
+        "first_name": "Avery",
+        "last_name": "Example",
+        "community_id": "337",
+        "community_name": "A & A Health Services San Pablo",
+        "unit": "A-1",
+        "age": 41,
+        "admit_date": "2026-01-10",
+        "length_of_stay_days": 209,
+        "care_level": "Level 2",
+        "payor": "Example Plan",
+        "primary_diagnosis": "Sanitized diagnosis",
+        "physician": "Example Clinician",
+        "diet": "Regular"
+      }
+    ],
+    "total": 1,
+    "limit": 50,
+    "next_cursor": null,
+    "query": "avery",
+    "community": null
+  },
+  "resident": {
+    "source": "alamo_platform",
+    "snapshot_id": "fixture-2026-08-07T12:00:00.000Z",
+    "generated_at": "2026-08-07T12:00:00.000Z",
+    "data_as_of": "2026-08-07",
+    "retrieved_at": "2026-08-07T13:00:00.000Z",
+    "freshness": {
+      "status": "fresh",
+      "age_hours": 1,
+      "max_age_hours": 24,
+      "warning": null
+    },
+    "resident": {
+      "resident_id": "R-100",
+      "resident_key": "337:R-100",
+      "display_name": "Avery Example",
+      "first_name": "Avery",
+      "last_name": "Example",
+      "community_id": "337",
+      "community_name": "A & A Health Services San Pablo",
+      "unit": "A-1",
+      "age": 41,
+      "admit_date": "2026-01-10",
+      "length_of_stay_days": 209,
+      "care_level": "Level 2",
+      "payor": "Example Plan",
+      "primary_diagnosis": "Sanitized diagnosis",
+      "physician": "Example Clinician",
+      "diet": "Regular"
+    }
+  },
+  "medications_summary": {
+    "source": "alamo_platform",
+    "snapshot_id": "fixture-2026-08-07T12:00:00.000Z",
+    "generated_at": "2026-08-07T12:00:00.000Z",
+    "data_as_of": "2026-08-07",
+    "retrieved_at": "2026-08-07T13:00:00.000Z",
+    "freshness": {
+      "status": "fresh",
+      "age_hours": 1,
+      "max_age_hours": 24,
+      "warning": null
+    },
+    "period": "2026-08",
+    "portfolio": {
+      "scheduled_count": 180,
+      "given_count": 172,
+      "compliance_pct": 95.56,
+      "refusal_count": 3,
+      "held_or_not_given_count": 8
+    },
+    "communities": [
+      {
+        "community_id": "337",
+        "community_name": "A & A Health Services San Pablo",
+        "scheduled_count": 100,
+        "given_count": 96,
+        "compliance_pct": 96,
+        "refusal_count": 2,
+        "held_or_not_given_count": 4
+      },
+      {
+        "community_id": "343",
+        "community_name": "JC Wallace House",
+        "scheduled_count": 80,
+        "given_count": 76,
+        "compliance_pct": 95,
+        "refusal_count": 1,
+        "held_or_not_given_count": 4
+      }
+    ],
+    "coverage": {
+      "complete": true,
+      "communities_expected": 2,
+      "communities_reported": 2
+    },
+    "detail_policy": "governed_summary_only"
+  }
+}

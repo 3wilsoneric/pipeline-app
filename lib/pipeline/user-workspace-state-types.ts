@@ -1,0 +1,161 @@
+import {
+  referralCanvasFieldKeys,
+  type ReferralCanvasFieldKey,
+} from "@/lib/pipeline/referral-types";
+
+export const pipelineRecentDestinationKinds = ["page", "profile", "referral"] as const;
+export const pipelineRecentDestinationScreens = [
+  "referrals",
+  "profiles",
+  "operations",
+  "packet",
+  "profile",
+] as const;
+
+export type PipelineRecentDestination =
+  | {
+      id: string;
+      kind: "page";
+      screen: "referrals" | "profiles" | "operations" | "packet";
+      title: string;
+      detail: string;
+      visitedAt: string;
+    }
+  | {
+      id: string;
+      kind: "profile";
+      screen: "profile";
+      title: string;
+      detail: string;
+      clientId: string;
+      visitedAt: string;
+    }
+  | {
+      id: string;
+      kind: "referral";
+      screen: "packet";
+      title: string;
+      detail: string;
+      referralId: number;
+      community: string;
+      visitedAt: string;
+    };
+
+export type RecentDestinationInput =
+  | Omit<Extract<PipelineRecentDestination, { kind: "page" }>, "visitedAt"> & { visitedAt?: string }
+  | Omit<Extract<PipelineRecentDestination, { kind: "profile" }>, "visitedAt"> & { visitedAt?: string }
+  | Omit<Extract<PipelineRecentDestination, { kind: "referral" }>, "visitedAt"> & { visitedAt?: string };
+
+export const referralDraftExtraKeys = ["conserved", "tags", "documents", "initialPacket"] as const;
+export type ReferralDraftDirtyKey = ReferralCanvasFieldKey | (typeof referralDraftExtraKeys)[number];
+
+export type PipelineReferralDraft = {
+  schema: 1;
+  savedAt: string;
+  baseVersion?: number;
+  baseValues?: Partial<Record<ReferralDraftDirtyKey, string>>;
+  dirtyKeys: ReferralDraftDirtyKey[];
+  fields: Record<ReferralCanvasFieldKey, { value: string; sourceFile?: string }>;
+  conserved: "yes" | "no" | "";
+  tagsInput: string;
+  documents: Record<string, string>;
+  initialPacketName?: string;
+};
+
+export function isReferralDraftDirtyKey(value: unknown): value is ReferralDraftDirtyKey {
+  return typeof value === "string" && (
+    (referralCanvasFieldKeys as readonly string[]).includes(value)
+    || (referralDraftExtraKeys as readonly string[]).includes(value)
+  );
+}
+
+export function isPipelineRecentDestination(value: unknown): value is PipelineRecentDestination {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const item = value as Partial<PipelineRecentDestination>;
+  const baseIsValid = (
+    isBoundedText(item.id, 160)
+    && isBoundedText(item.title, 200)
+    && isBoundedText(item.detail, 300, true)
+    && typeof item.visitedAt === "string"
+    && Number.isFinite(Date.parse(item.visitedAt))
+  );
+  if (!baseIsValid) return false;
+
+  if (item.kind === "page") {
+    return item.screen === "referrals" || item.screen === "profiles" || item.screen === "operations" || item.screen === "packet";
+  }
+  if (item.kind === "profile") {
+    return item.screen === "profile" && isBoundedText(item.clientId, 256);
+  }
+  if (item.kind === "referral") {
+    return item.screen === "packet"
+      && Number.isSafeInteger(item.referralId)
+      && Number(item.referralId) > 0
+      && isBoundedText(item.community, 120);
+  }
+  return false;
+}
+
+export function parsePipelineReferralDraft(value: unknown): PipelineReferralDraft | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Partial<PipelineReferralDraft>;
+  if (candidate.schema !== 1 || !validTimestamp(candidate.savedAt)) return null;
+  if (candidate.baseVersion !== undefined && (!Number.isSafeInteger(candidate.baseVersion) || candidate.baseVersion < 1)) return null;
+  if (!Array.isArray(candidate.dirtyKeys) || candidate.dirtyKeys.length > referralCanvasFieldKeys.length + referralDraftExtraKeys.length) return null;
+  const dirtyKeys = [...new Set(candidate.dirtyKeys.filter(isReferralDraftDirtyKey))];
+  if (dirtyKeys.length !== candidate.dirtyKeys.length) return null;
+  if (!candidate.fields || typeof candidate.fields !== "object" || Array.isArray(candidate.fields)) return null;
+
+  const fields = {} as PipelineReferralDraft["fields"];
+  for (const key of referralCanvasFieldKeys) {
+    const field = candidate.fields[key];
+    if (!field || typeof field !== "object" || Array.isArray(field) || !isBoundedText(field.value, 40_000, true)) return null;
+    if (field.sourceFile !== undefined && !isBoundedText(field.sourceFile, 255, true)) return null;
+    fields[key] = {
+      value: field.value,
+      ...(field.sourceFile ? { sourceFile: field.sourceFile } : {}),
+    };
+  }
+
+  const baseValues = parseBoundedStringRecord(candidate.baseValues, 24, 48_000);
+  if (candidate.baseValues !== undefined && !baseValues) return null;
+  const documents = parseBoundedStringRecord(candidate.documents, 64, 16_000);
+  if (!documents) return null;
+  if (candidate.conserved !== "yes" && candidate.conserved !== "no" && candidate.conserved !== "") return null;
+  if (!isBoundedText(candidate.tagsInput, 2_000, true)) return null;
+  if (candidate.initialPacketName !== undefined && !isBoundedText(candidate.initialPacketName, 255, true)) return null;
+
+  return {
+    schema: 1,
+    savedAt: candidate.savedAt,
+    ...(candidate.baseVersion ? { baseVersion: candidate.baseVersion } : {}),
+    ...(baseValues ? { baseValues: baseValues as Partial<Record<ReferralDraftDirtyKey, string>> } : {}),
+    dirtyKeys,
+    fields,
+    conserved: candidate.conserved,
+    tagsInput: candidate.tagsInput,
+    documents,
+    ...(candidate.initialPacketName ? { initialPacketName: candidate.initialPacketName } : {}),
+  };
+}
+
+function parseBoundedStringRecord(value: unknown, maximumEntries: number, maximumCharacters: number) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const entries = Object.entries(value);
+  if (entries.length > maximumEntries) return null;
+  let totalCharacters = 0;
+  for (const [key, entry] of entries) {
+    if (!isBoundedText(key, 160) || !isBoundedText(entry, maximumCharacters, true)) return null;
+    totalCharacters += key.length + entry.length;
+    if (totalCharacters > maximumCharacters) return null;
+  }
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
+function isBoundedText(value: unknown, maximum: number, allowEmpty = false): value is string {
+  return typeof value === "string" && value.length <= maximum && (allowEmpty || value.trim().length > 0);
+}
+
+function validTimestamp(value: unknown): value is string {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}

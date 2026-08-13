@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": { "value": "pipeline" },
+    "environment": { "value": "prod" },
+    "databaseServiceLevel": { "value": "pilot" },
+    "location": { "value": "SET_AT_DEPLOYMENT" },
+    "postgresAdministratorLogin": { "value": "pipelineadmin" },
+    "postgresAdministratorPassword": { "value": "SET_SECURELY_AT_DEPLOYMENT" },
+    "githubRepository": { "value": "3wilsoneric/pipeline-app" },
+    "githubBranch": { "value": "main" },
+    "virtualNetworkAddressPrefix": { "value": "10.40.0.0/16" },
+    "containerAppsSubnetPrefix": { "value": "10.40.0.0/23" },
+    "postgresSubnetPrefix": { "value": "10.40.2.0/24" },
+    "enableZoneRedundancy": { "value": false },
+    "alertActionGroupResourceIds": { "value": [] },
+    "enableOperationalAlerts": { "value": true }
+  }
+}

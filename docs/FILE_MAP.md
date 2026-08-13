@@ -1,22 +1,124 @@
-## Backend Files
-- `lib/supabase/client.ts` - browser client stub
-- Server/backend modules - unknown
+## Backend And Contracts
 
-## Key Modules
-- `components/pipeline/PipelineAppShell.tsx` - shared shell
-- `components/pipeline/PipelineHeader.tsx` - route header + search
-- `components/pipeline/PipelineSidebar.tsx` - nav + new intake entry
-- `components/pipeline/NewReferralModal.tsx` - packet-first intake modal
-- `components/pipeline/PipelineOverview.tsx` - overview / admissions board
-- `components/pipeline/Referrals.tsx` - intake queue
-- `components/pipeline/Assessments.tsx` - packets workspace
-- `components/pipeline/Communities.tsx` - community listing / detail
-- `components/pipeline/Settings.tsx` - app settings
+- `app/api/uploads/create-url/route.ts` - authenticated upload-target request route.
+- `app/api/uploads/complete/route.ts` - authenticated upload-completion route.
+- `app/api/packets/[packetId]/status/route.ts` - packet extraction status route.
+- `app/api/packets/[packetId]/fields/route.ts` - packet extracted-field review payload route.
+- `app/api/packets/[packetId]/fields/[fieldKey]/review/route.ts` - field review/audit route.
+- `app/api/packets/[packetId]/fields/[fieldKey]/retry/route.ts` - field retry/audit route.
+- `app/api/files/[documentId]/route.ts` - bounded authenticated file metadata and preview-page pagination.
+- `app/api/files/[documentId]/preview/route.ts` - malware-gated, range- and size-bounded asset proxy.
+- `lib/extraction/contracts.ts` - API payload shapes, request size limits, and validators.
+- `lib/extraction/http-byte-range.ts` - reusable strict single-range validator for preview assets.
+- `lib/extraction/backend-config.ts` - extraction backend mode and readiness guardrails.
+- `lib/extraction/mock-store.ts` - local-only mock extraction state.
+- `lib/observability/api-logging.ts` - structured API logging and request-id handling.
+- `lib/auth/pipeline-auth.ts` - Entra/header/mock auth mode and role gates.
+- `app/api/clinical/*` - authenticated Pipeline clinical health, census, roster, resident, and medication-summary routes.
+- `lib/clinical/clinical-data.ts` - server-only Alamo adapter and Entra client-credential/delegated-token handling.
+- `lib/clinical/demo-clinical-data.ts` - local-only, production-blocked adapter for a validated one-time Alamo roster export.
+- `lib/clinical/clinical-contracts.ts` - strict Pipeline-facing clinical response schemas.
+- `lib/assessment/assessment-tool-schema.ts` - canonical 52-field assessment registry, aliases, validation, and coverage.
+- `lib/assessment/assessment-store.ts` - server-only assessment persistence boundary with local-development and transactional PostgreSQL adapters.
+- `lib/assessment/assessment-validation.ts` - assessment create/update/import request validation.
+- `lib/assessment/assessment-file-parser.ts` - bounded deterministic CSV/JSON assessment import parser.
+- `app/api/referrals/[referralId]/assessments/*` - referral-scoped assessment history, creation, and import routes.
+- `app/api/assessments/*` - assessment retrieval, update, and resident-link history routes.
+- `database/migrations/0001_pipeline_core.sql` - first production relational schema and invariants.
+- `database/migrations/0002_workflow_engine.sql` - work-item evidence, decision actor metadata, and workflow revision migration.
+- `database/migrations/0003_operational_hardening.sql` - document preview/scan, retention, extraction leases, idempotency expiry, and audit request IDs.
+- `database/migrations/0004_document_processing.sql` - durable upload, extraction job, field candidate, review, and preview state.
+- `database/migrations/0005_collaboration.sql` - referral section versions and editing presence leases.
+- `database/migrations/0006_user_workspace_state.sql` - expiring, per-principal recents and recovery drafts.
+- `database/migration-checksums.json` - append-only migration integrity baseline.
+- `lib/database/pipeline-database.ts` - server-only bounded PostgreSQL connection/readiness adapter.
+- `scripts/apply-database-migrations.mjs` - ordered advisory-lock migration runner with checksum drift protection.
+- `lib/pipeline/referral-query.ts` - bounded referral list query parsing.
+- `app/api/referrals/facets/route.ts` - canonical server-side referral facet counts.
+- `lib/pipeline/resident-link-store.ts` - local-development and transactional PostgreSQL identity-link adapters.
+- `app/api/resident-links/*` - candidate creation, listing, and reviewer confirmation/rejection routes.
+- `lib/pipeline/clinical-backlog-reconciliation.ts` - daily, aggregate-only Alamo roster comparison that proposes Pipeline resident-link candidates without mutating referrals.
+- `app/api/internal/clinical/reconcile/route.ts` - worker-authenticated daily clinical backlog reconciliation endpoint.
+- `lib/pipeline/unified-profile.ts` - server-only Alamo/Pipeline joined profile read model.
+- `lib/pipeline/workflow-records.ts` - shared decision, requirement, and workflow-context contracts.
+- `lib/pipeline/workflow-store.ts` - server-only decision/work-item persistence and workflow snapshot boundary.
+- `app/api/referrals/[referralId]/transition/*` - guarded stage movement with optimistic versions and recovery blockers.
+- `app/api/referrals/[referralId]/decision/*` - admission decision retrieval and authenticated write.
+- `app/api/referrals/[referralId]/work-items/*` - versioned requirement retrieval and updates.
+- `app/api/referrals/[referralId]/ehr-handoff/*` - guarded queued/sent/failed EHR handoff commands.
+- `app/api/operations/supervisor-queue/*` - role-gated canonical supervisor exceptions.
+- `app/api/operations/referral-worklist/route.ts` - authenticated exception-first referral worklist projection and category counts.
+- `lib/pipeline/referral-worklist-filter.ts` - shared forgiving worklist search and action-category labels.
+- `lib/pipeline/referral-ownership.ts` - canonical assigned/unassigned owner normalization shared by UI and workflow gates.
+- `lib/pipeline/referral-activity.ts` and `app/api/referrals/[referralId]/activity/*` - bounded audit timeline projection.
+- `app/api/profiles/[residentKey]/route.ts` - authenticated unified profile endpoint.
 
-## Purpose Map
-- `/` -> overview
-- `/referrals` -> intake queue
-- `/assessments` -> packets workspace
-- `/communities` -> communities page
-- `/settings` -> settings page
-- `docs/*` -> AI workflow context
+## Pipeline UI
+
+- `components/pipeline/PipelineAppShell.tsx` - app shell, sidebar, header, and shared search state.
+- `components/pipeline/PipelineHeader.tsx` - top tab header, search, and signed-in avatar.
+- `components/pipeline/PipelineSidebar.tsx` - main nav, reports dropdown, recent, and month/community folders.
+- `components/pipeline/ReferralHome.tsx` - searchable, filterable, paginated referral and file directory.
+- `components/pipeline/ReferralActionWorklist.tsx` - default action-first referral table with deterministic exception categories.
+- `components/pipeline/UserAvatar.tsx` - authenticated user/avatar rendering.
+- `components/pipeline/AssessmentWorkspace.tsx` - assessment history, editing, import review, and completion flow.
+- `components/pipeline/ClientAssessmentSummary.tsx` - resident-linked assessment coverage and history summary.
+- `components/pipeline/ReferralRequirementsEditor.tsx` - compact versioned requirement completion and recovery editor.
+- `components/pipeline/OperationsDashboard.tsx` - canonical requirement queue, workload, flow, and readiness view.
+
+## Workflow And Reliability
+
+- `lib/pipeline/community-config.ts` - canonical community names and sidebar tones.
+- `lib/pipeline/referral-workflow.ts` - referral stage policy, status mapping, progress, and search.
+- `lib/reliability/referral-operating-model.ts` - deterministic operating envelopes, workflow blockers, duplicate/export readiness, and audit events.
+- `scripts/referral-reliability-replay.mjs` - static and deterministic reliability replays.
+- `scripts/api-behavior-fixtures.mjs` - API contract/auth/backend behavior fixtures.
+- `scripts/referral-journey-replay.mjs` - workflow journey replay fixtures.
+- `scripts/platform-readiness.mjs` - bundled platform readiness runner.
+- `scripts/clinical-data-contracts.mjs` - sanitized clinical contract and server-boundary verification.
+- `scripts/import-demo-clinical-roster.mjs` - PHI-safe aggregate-only importer for a private one-time roster and reconciliation export.
+- `scripts/import-master-client-history.mjs` - guarded real-data importer for private longitudinal resident episodes and census reconciliation.
+- `lib/pipeline/client-history-store.ts` - server-only exact-resident-number history projection with DOB conflict protection.
+- `scripts/demo-clinical-snapshot-contracts.mjs` - sanitized importer, pagination, ambiguity, fail-closed, and production-blocking checks.
+- `scripts/database-readiness.mjs` - PHI-safe migration and identity-link readiness verification.
+- `scripts/deployment-readiness.mjs` - presence-only production configuration inventory.
+- `scripts/security-boundary-check.mjs` - browser-secret, logging, auth, and upstream-boundary gate.
+- `scripts/failure-recovery-readiness.mjs` - bounded retry, timeout, fail-closed, offline, and contention contracts.
+- `scripts/build-artifact-audit.mjs` - aggregate browser bundle budgets and server-credential marker scan.
+- `scripts/workspace-retention-readiness.mjs` and `scripts/purge-user-workspace-state.mjs` - expiring state and guarded account cleanup.
+- `scripts/http-load-smoke.mjs` - bounded concurrent HTTP latency/error smoke test.
+- `scripts/collaboration-load-smoke.mjs` - ten-user polling, presence, merge, conflict, and database-contention harness.
+- `scripts/postgres-integration-fixtures.mjs` - rollback-only synthetic relational fixture validation.
+- `scripts/database-rollback-drill.mjs` - opt-in transactional migration rollback/recovery drill.
+- `scripts/seed-production-reference-data.mjs` - idempotent production reference-only seed.
+- `scripts/pilot-reset.mjs` - dry-run-first, doubly confirmed synthetic pilot reset.
+- `scripts/operational-metrics-readiness.mjs` - requested metrics and PHI-safe dimension gate.
+- `scripts/property-contracts.mjs` - deterministic generated checks for cursors, ranges, uploads, section contention, and transitions.
+- `scripts/extraction-quality-score.mjs` - golden-corpus field/evidence/correction quality scoring.
+- `scripts/backlog-rehearsal.mjs` - resumable synthetic 20-packet, 12,000-page orchestration rehearsal.
+- `scripts/database-backup.mjs` and `scripts/database-restore-verify.mjs` - guarded logical backup and disposable restore verification.
+- `scripts/release-compatibility.mjs` and `scripts/create-release-manifest.mjs` - release integrity and artifact identity.
+- `scripts/generate-sbom.mjs`, `scripts/create-release-evidence.mjs`, and `scripts/verify-release-evidence.mjs` - deterministic CycloneDX and checksummed release evidence.
+- `scripts/api-route-policy-audit.mjs` - exhaustive API method authorization, origin, role, and route-template audit.
+- `scripts/chaos-recovery-replay.mjs` - deterministic overload and dependency-failure recovery scenarios.
+- `scripts/license-policy-audit.mjs` and `scripts/supply-chain-readiness.mjs` - lockfile license, integrity, Actions, dependency-review, and CodeQL gates.
+- `scripts/alerting-readiness.mjs` and `infra/azure/operational-alerts.bicep` - PHI-safe Azure Monitor alert contracts.
+- `scripts/sample-packet-extraction-smoke.mjs` - local sample packet evidence/correction workflow exercise.
+- `tests/e2e/pipeline-smoke.spec.ts` - browser smoke tests for the integrated operator flows.
+- `tests/e2e/visual-regression.spec.ts` - reviewed desktop/mobile visual baselines with deterministic motion and color settings.
+
+## Docs
+
+- `docs/REFERRAL_PACKET_EXTRACTION_BUILD_SPEC.md` - extraction architecture and implementation spec.
+- `docs/REFERRAL_PACKET_INGESTION_RUNBOOK.md` - backlog and steady-state ingestion runbook.
+- `docs/REFERRAL_OPERATING_RELIABILITY_PLAN.md` - operating reliability plan.
+- `docs/PRODUCTION_HARDENING_AUDIT.md` - production hardening summary and remaining backend work.
+- `docs/CLINICAL_DATA_INTEGRATION.md` - Alamo clinical API, Entra permissions, failure behavior, and deployment runbook.
+- `docs/POSTGRES_DEPLOYMENT.md` - Azure PostgreSQL deployment order, server-only variables, and current adapter coverage.
+- `docs/PRODUCTION_DATA_OPERATIONS.md` - canvas recovery, previews, collaboration load, database drills, pilot reset, and metrics runbook.
+- `docs/DATABASE_RECOVERY.md` - backup cadence, restore drill, and recovery ownership.
+- `docs/RELEASE_OPERATIONS.md` - deployment order, compatibility rules, and rollback decision path.
+- `docs/PRODUCTION_READINESS.md` - canonical production runbook index and automated evidence map.
+- `docs/PRODUCTION_ACCEPTANCE_CHECKLIST.md` - operator release go/no-go evidence checklist.
+- `docs/SUPPLY_CHAIN_AND_RELEASE_EVIDENCE.md` - dependency, CI provenance, SBOM, and release-bundle procedure.
+- `docs/ABUSE_AND_ALERTING.md` - application overload limits, required edge limits, safe metrics, and alert delivery.

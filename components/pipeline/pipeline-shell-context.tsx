@@ -5,6 +5,10 @@ import { createContext, useContext } from "react";
 type PipelineShellContextValue = {
   searchTerm: string;
   setSearchTerm: (value: string) => void;
+  searchOpen: boolean;
+  setSearchOpen: (value: boolean | ((current: boolean) => boolean)) => void;
+  homeMode: "welcome" | "workspace";
+  setHomeMode: (value: "welcome" | "workspace") => void;
 };
 
 const PipelineShellContext = createContext<PipelineShellContextValue | null>(

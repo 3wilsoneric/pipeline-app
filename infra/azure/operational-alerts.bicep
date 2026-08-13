@@ -1,0 +1,174 @@
+targetScope = 'resourceGroup'
+
+param namePrefix string
+param environment string
+param location string
+param logAnalyticsWorkspaceId string
+param actionGroupResourceIds array = []
+param enabled bool = true
+
+var common = {
+  kind: 'LogAlert'
+  location: location
+  tags: {
+    application: 'pipeline'
+    environment: environment
+    dataClassification: 'phi-safe-metrics-only'
+  }
+}
+
+var alerts = [
+  {
+    key: 'save-conflicts'
+    displayName: 'Pipeline save conflicts'
+    description: 'Concurrent edits are producing repeated optimistic-version conflicts.'
+    severity: 2
+    frequency: 'PT5M'
+    window: 'PT15M'
+    threshold: 5
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) == 'pipeline.referral.save_conflicts'
+| summarize MetricValue = sum(todouble(payload.value))
+'''
+  }
+  {
+    key: 'queue-age'
+    displayName: 'Pipeline oldest queue item'
+    description: 'The oldest active referral action is more than 24 hours old.'
+    severity: 2
+    frequency: 'PT15M'
+    window: 'PT30M'
+    threshold: 86400000
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) == 'pipeline.queue.oldest_age'
+| summarize MetricValue = max(todouble(payload.value))
+'''
+  }
+  {
+    key: 'extraction-failures'
+    displayName: 'Pipeline extraction failures'
+    description: 'Referral packet extraction has failed or entered a dead-letter state.'
+    severity: 1
+    frequency: 'PT5M'
+    window: 'PT15M'
+    threshold: 0
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) == 'pipeline.extraction.failures'
+| summarize MetricValue = sum(todouble(payload.value))
+'''
+  }
+  {
+    key: 'authorization-failures'
+    displayName: 'Pipeline authorization failures'
+    description: 'Repeated 401 or 403 responses may indicate expired configuration or access abuse.'
+    severity: 2
+    frequency: 'PT5M'
+    window: 'PT15M'
+    threshold: 10
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.service) == 'pipeline-app' and toint(payload.status) in (401, 403)
+| summarize MetricValue = count()
+'''
+  }
+  {
+    key: 'response-latency'
+    displayName: 'Pipeline API latency'
+    description: 'The Pipeline API p95 response duration exceeds two seconds.'
+    severity: 2
+    frequency: 'PT5M'
+    window: 'PT15M'
+    threshold: 2000
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) == 'pipeline.api.duration'
+| summarize MetricValue = percentile(todouble(payload.value), 95)
+'''
+  }
+  {
+    key: 'overload-rejections'
+    displayName: 'Pipeline overload rejections'
+    description: 'An application instance rejected work because its concurrency capacity was exhausted.'
+    severity: 1
+    frequency: 'PT5M'
+    window: 'PT10M'
+    threshold: 0
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) == 'pipeline.api.overload_rejections'
+| summarize MetricValue = sum(todouble(payload.value))
+'''
+  }
+  {
+    key: 'clinical-upstream'
+    displayName: 'Pipeline clinical upstream failures'
+    description: 'The governed clinical API is returning repeated unavailable responses.'
+    severity: 1
+    frequency: 'PT5M'
+    window: 'PT15M'
+    threshold: 5
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.service) == 'pipeline-app'
+| where tostring(payload.route) startswith '/api/clinical/' and toint(payload.status) >= 500
+| summarize MetricValue = count()
+'''
+  }
+]
+
+resource operationalAlerts 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = [for alert in alerts: if (enabled) {
+  name: take('${namePrefix}-${environment}-${alert.key}', 260)
+  location: common.location
+  kind: common.kind
+  tags: common.tags
+  properties: {
+    actions: {
+      actionGroups: actionGroupResourceIds
+    }
+    autoMitigate: true
+    checkWorkspaceAlertsStorageConfigured: false
+    criteria: {
+      allOf: [
+        {
+          failingPeriods: {
+            minFailingPeriodsToAlert: 1
+            numberOfEvaluationPeriods: 1
+          }
+          metricMeasureColumn: 'MetricValue'
+          operator: alert.operator
+          query: alert.query
+          threshold: alert.threshold
+          timeAggregation: 'Maximum'
+        }
+      ]
+    }
+    description: alert.description
+    displayName: alert.displayName
+    enabled: true
+    evaluationFrequency: alert.frequency
+    scopes: [logAnalyticsWorkspaceId]
+    severity: alert.severity
+    // The Container Apps custom table is created only after the first runtime log arrives.
+    skipQueryValidation: true
+    windowSize: alert.window
+  }
+}]
+
+output alertRuleCount int = enabled ? length(alerts) : 0

@@ -1,0 +1,39 @@
+# Supply Chain and Release Evidence
+
+## Enforced controls
+
+- `package-lock.json` is required at lockfile version 3. Every registry package
+  must declare an approved SPDX license and an integrity hash.
+- CI runs `npm ci`, `npm audit --audit-level=high`, the license policy, the API
+  route policy, and the complete platform gate.
+- Every third-party GitHub Action is pinned to a reviewed 40-character commit
+  SHA. Dependabot covers npm and Actions. Pull requests run dependency review;
+  CodeQL runs on pull requests, `main`, and weekly.
+- Sanitized test fixtures never replace unavailable production services.
+
+## Release bundle
+
+Create and verify the bundle from a clean release checkout:
+
+```bash
+npm run release:evidence -- --out-dir /approved/path/pipeline-release-evidence
+PIPELINE_REQUIRE_CLEAN_RELEASE=true npm run release:evidence:verify -- --dir /approved/path/pipeline-release-evidence
+```
+
+The directory contains `release-manifest.json`, `pipeline.cdx.json`, and
+`SHA256SUMS.json`. The manifest binds the source revision, package lock,
+migration manifest, CI/security workflows, API policy, operational alerts, and
+desktop artifacts. The CycloneDX SBOM removes random serial and wall-clock
+metadata. Evidence timestamps use `SOURCE_DATE_EPOCH` when present, otherwise
+the source commit time.
+
+The bundle contains no credentials, environment values, URLs, client data, or
+packet content. Store it with the reviewed release record and operator smoke
+evidence. Do not edit an evidence file after generation; regenerate the whole
+bundle and re-run verification.
+
+## External verification
+
+GitHub dependency review, CodeQL upload, Dependabot updates, and immutable
+artifact retention run only after the revision is pushed. A local green gate
+does not claim those hosted jobs ran.

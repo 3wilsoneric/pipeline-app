@@ -1,10 +1,11 @@
-"use client";
+import { Suspense } from "react";
 
-import PipelineOverview from "@/components/pipeline/PipelineOverview";
-import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
+import PipelineOverviewRoute from "@/components/pipeline/PipelineOverviewRoute";
 
 export default function HomePage() {
-  const { searchTerm } = usePipelineShell();
-
-  return <PipelineOverview searchTerm={searchTerm} />;
+  return (
+    <Suspense fallback={null}>
+      <PipelineOverviewRoute />
+    </Suspense>
+  );
 }

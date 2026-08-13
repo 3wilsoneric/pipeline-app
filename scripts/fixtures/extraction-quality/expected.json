@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "documents": [
+    {
+      "fixture_id": "synthetic-referral-packet-001",
+      "fields": {
+        "resident_number": { "value": "SYN-1001", "page": 1, "required": true },
+        "resident_name": { "value": "Synthetic Resident", "page": 1, "required": true },
+        "date_of_birth": { "value": "1980-02-03", "page": 1, "required": true },
+        "community": { "value": "San Pablo", "page": 1, "required": true },
+        "primary_diagnosis": { "value": "Synthetic diagnosis", "page": 3, "required": false },
+        "secondary_diagnoses": { "value": ["Synthetic condition A", "Synthetic condition B"], "page": 3, "required": false },
+        "medications_at_intake": { "value": ["Synthetic medication 10 mg", "Synthetic medication 20 mg"], "page": 5, "required": false },
+        "assessment_notes": { "value": "Synthetic free-text detail retained.", "page": 7, "required": false }
+      }
+    }
+  ]
+}

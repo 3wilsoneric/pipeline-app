@@ -1,0 +1,485 @@
+import { pipelineCommunities } from "./community-config";
+import { boardStages } from "./referral-workflow";
+import type { ReferralPatch } from "./referral-store";
+import type {
+  AdmissionRequirement,
+  Referral,
+  Priority,
+} from "./referral-types";
+import { referralCanvasFieldKeys } from "./referral-types";
+
+type ValidationFailure = { ok: false; message: string; status?: number };
+type ValidationSuccess<T> = { ok: true; value: T };
+
+export type ReferralValidationResult<T> = ValidationSuccess<T> | ValidationFailure;
+
+const priorities: readonly Priority[] = ["urgent", "high", "standard"];
+const documentStatuses = ["Missing", "Uploaded", "Reviewed"] as const;
+const packetStatuses = [
+  "received",
+  "normalizing",
+  "extracting",
+  "ready_for_review",
+  "reviewed",
+  "failed",
+] as const;
+const postAssessmentDecisions = ["accepted", "not-accepted", "pending"] as const;
+const requirementTypes = [
+  "medication_list",
+  "tb_test",
+  "signed_admission_agreement",
+  "conservatorship_document",
+  "lic_602",
+  "lic_601_603",
+  "provider_form",
+  "face_sheet",
+  "payer_verification",
+  "responsible_party",
+  "no_admission_reason",
+] as const;
+const requirementStatuses = [
+  "needed",
+  "requested",
+  "received",
+  "reviewed",
+  "waived",
+  "expired",
+] as const;
+const requirementGates = ["pre_assessment", "admission_decision", "move_in", "ehr_export"] as const;
+
+const stringLimits = {
+  name: 200,
+  date: 40,
+  source: 200,
+  owner: 200,
+  note: 20_000,
+  createdAt: 80,
+  updatedAt: 80,
+  dob: 40,
+  gender: 80,
+  reportedAge: 40,
+  ssn: 32,
+  admissionDate: 40,
+  responsiblePerson: 500,
+  interview: 20_000,
+  phone: 80,
+  email: 320,
+  payer: 200,
+  documentName: 512,
+  documentHash: 64,
+  packetId: 256,
+  assessmentDocumentName: 512,
+  assessmentMessage: 2_000,
+  packetMessage: 2_000,
+  tag: 64,
+  clientId: 128,
+} as const;
+
+export function validateReferralCreateInput(
+  value: unknown,
+): ReferralValidationResult<Referral> {
+  if (!isPlainObject(value)) return invalid("The referral must be an object.");
+
+  if (
+    "id" in value
+    || "version" in value
+    || "sectionVersions" in value
+    || "updatedBy" in value
+    || "assessment" in value
+    || "admissionDecision" in value
+    || "ehrHandoff" in value
+  ) {
+    return invalid("Referral ids and workflow records are assigned by the server.");
+  }
+
+  const requiredStrings: Array<[keyof typeof stringLimits, string]> = [
+    ["name", "name"],
+    ["date", "date"],
+    ["source", "source"],
+    ["documentName", "documentName"],
+    ["owner", "owner"],
+    ["note", "note"],
+    ["createdAt", "createdAt"],
+    ["dob", "dob"],
+    ["phone", "phone"],
+    ["email", "email"],
+    ["payer", "payer"],
+  ];
+
+  for (const [field, label] of requiredStrings) {
+    const result = validateString(value[field], label, stringLimits[field], field === "name");
+    if (!result.ok) return result;
+  }
+
+  for (const field of ["gender", "reportedAge", "ssn", "admissionDate", "responsiblePerson", "interview"] as const) {
+    if (!(field in value) || value[field] === undefined) continue;
+    const result = validateString(value[field], field, stringLimits[field], false);
+    if (!result.ok) return result;
+  }
+
+  const enumChecks = [
+    validateEnum(value.stage, "stage", boardStages),
+    validateEnum(value.community, "community", pipelineCommunities),
+    validateEnum(value.priority, "priority", priorities),
+    validateEnum(value.documentStatus, "documentStatus", documentStatuses),
+  ];
+  for (const result of enumChecks) {
+    if (!result.ok) return result;
+  }
+  if (value.stage !== "New") {
+    return invalid("New referrals must start in the New stage.");
+  }
+
+  const timestampResult = validateTimestamp(value.createdAt, "createdAt");
+  if (!timestampResult.ok) return timestampResult;
+
+  const commonResult = validateCommonFields(value);
+  if (!commonResult.ok) return commonResult;
+
+  const requirementsResult = validateRequirements(value.requirements);
+  if (!requirementsResult.ok) return requirementsResult;
+
+  return { ok: true, value: value as unknown as Referral };
+}
+
+export function validateReferralPatch(
+  value: unknown,
+): ReferralValidationResult<ReferralPatch> {
+  if (!isPlainObject(value)) return invalid("The referral patch must be an object.");
+
+  for (const protectedField of ["id", "version", "clientId", "sectionVersions", "updatedBy", "ehrHandoff"] as const) {
+    if (protectedField in value) {
+      return invalid(`${protectedField} cannot be changed through a referral patch.`);
+    }
+  }
+
+  const stringFields: Array<[keyof typeof stringLimits, string]> = [
+    ["name", "name"],
+    ["date", "date"],
+    ["source", "source"],
+    ["documentName", "documentName"],
+    ["owner", "owner"],
+    ["note", "note"],
+    ["createdAt", "createdAt"],
+    ["updatedAt", "updatedAt"],
+    ["dob", "dob"],
+    ["gender", "gender"],
+    ["reportedAge", "reportedAge"],
+    ["ssn", "ssn"],
+    ["admissionDate", "admissionDate"],
+    ["responsiblePerson", "responsiblePerson"],
+    ["interview", "interview"],
+    ["phone", "phone"],
+    ["email", "email"],
+    ["payer", "payer"],
+    ["packetId", "packetId"],
+    ["packetMessage", "packetMessage"],
+    ["assessmentDocumentName", "assessmentDocumentName"],
+    ["assessmentMessage", "assessmentMessage"],
+  ];
+
+  for (const [field, label] of stringFields) {
+    if (!(field in value)) continue;
+    const result = validateString(value[field], label, stringLimits[field], false);
+    if (!result.ok) return result;
+  }
+
+  const enumChecks = [
+    optionalEnum(value.stage, "stage", boardStages),
+    optionalEnum(value.community, "community", pipelineCommunities),
+    optionalEnum(value.priority, "priority", priorities),
+    optionalEnum(value.documentStatus, "documentStatus", documentStatuses),
+    optionalEnum(value.packetStatus, "packetStatus", packetStatuses),
+  ];
+  for (const result of enumChecks) {
+    if (!result.ok) return result;
+  }
+
+  if ("createdAt" in value) {
+    const result = validateTimestamp(value.createdAt, "createdAt");
+    if (!result.ok) return result;
+  }
+  if ("updatedAt" in value) {
+    const result = validateTimestamp(value.updatedAt, "updatedAt");
+    if (!result.ok) return result;
+  }
+
+  const commonResult = validateCommonFields(value);
+  if (!commonResult.ok) return commonResult;
+
+  if ("assessment" in value) {
+    const result = validateAssessment(value.assessment);
+    if (!result.ok) return result;
+  }
+  if ("requirements" in value) {
+    const result = validateRequirements(value.requirements);
+    if (!result.ok) return result;
+  }
+  if ("admissionDecision" in value && value.admissionDecision !== undefined) {
+    const result = validateAdmissionDecision(value.admissionDecision);
+    if (!result.ok) return result;
+  }
+
+  return { ok: true, value: value as ReferralPatch };
+}
+
+function validateCommonFields(value: Record<string, unknown>): ValidationSuccess<true> | ValidationFailure {
+  if ("conserved" in value && value.conserved !== undefined) {
+    const result = validateEnum(value.conserved, "conserved", ["yes", "no", ""] as const);
+    if (!result.ok) return result;
+  }
+
+  if ("fieldSources" in value && value.fieldSources !== undefined) {
+    if (!isPlainObject(value.fieldSources)) return invalid("fieldSources must be an object.");
+    const entries = Object.entries(value.fieldSources);
+    if (entries.length > referralCanvasFieldKeys.length) return invalid("fieldSources contains too many values.");
+    for (const [key, source] of entries) {
+      if (!(referralCanvasFieldKeys as readonly string[]).includes(key)) {
+        return invalid("fieldSources contains an unsupported field.");
+      }
+      const result = validateString(source, `fieldSources.${key}`, stringLimits.documentName, false);
+      if (!result.ok) return result;
+    }
+  }
+
+  if ("clientId" in value && value.clientId !== undefined) {
+    const result = validateString(value.clientId, "clientId", stringLimits.clientId);
+    if (!result.ok) return result;
+    if (!/^[a-zA-Z0-9._:-]+$/.test(value.clientId as string)) {
+      return invalid("clientId contains unsupported characters.");
+    }
+  }
+
+  if ("documentHash" in value && value.documentHash !== undefined) {
+    const result = validateString(value.documentHash, "documentHash", stringLimits.documentHash);
+    if (!result.ok) return result;
+    if (!/^[a-f0-9]{64}$/.test(value.documentHash as string)) {
+      return invalid("documentHash must be a lowercase SHA-256 value.");
+    }
+  }
+
+  if ("tags" in value && value.tags !== undefined) {
+    if (!Array.isArray(value.tags) || value.tags.length > 20) {
+      return invalid("tags must contain at most 20 values.");
+    }
+    for (const tag of value.tags) {
+      const result = validateString(tag, "tag", stringLimits.tag, false);
+      if (!result.ok) return result;
+    }
+  }
+
+  for (const [field, maximum] of [
+    ["documentSizeBytes", 100 * 1024 * 1024],
+    ["assessmentDocumentSizeBytes", 100 * 1024 * 1024],
+  ] as const) {
+    if (!(field in value) || value[field] === undefined) continue;
+    if (!Number.isInteger(value[field]) || (value[field] as number) < 0 || (value[field] as number) > maximum) {
+      return invalid(`${field} must be a whole number between 0 and 100 MB.`);
+    }
+  }
+
+  if ("packetFields" in value && value.packetFields !== undefined) {
+    const result = validatePacketFields(value.packetFields);
+    if (!result.ok) return result;
+  }
+  if ("packetReadiness" in value && value.packetReadiness !== undefined) {
+    const result = validateReadiness(value.packetReadiness);
+    if (!result.ok) return result;
+  }
+  if ("packetCompleteness" in value && value.packetCompleteness !== undefined) {
+    const result = validateCompleteness(value.packetCompleteness);
+    if (!result.ok) return result;
+  }
+
+  return { ok: true, value: true };
+}
+
+function validateAssessment(value: unknown): ValidationSuccess<true> | ValidationFailure {
+  if (!isPlainObject(value)) return invalid("assessment must be an object.");
+
+  for (const field of ["requestedAt", "scheduledDate"] as const) {
+    const result = validateString(value[field], `assessment.${field}`, 80, false);
+    if (!result.ok) return result;
+  }
+  for (const field of ["startedAt", "completedAt"] as const) {
+    if (!(field in value) || value[field] === undefined) continue;
+    const result = validateString(value[field], `assessment.${field}`, 80, false);
+    if (!result.ok) return result;
+  }
+
+  if (!isPlainObject(value.preAssessment) || !isPlainObject(value.assessment) || !isPlainObject(value.postAssessment)) {
+    return invalid("assessment sections are incomplete.");
+  }
+
+  const preAssessment = value.preAssessment as Record<string, unknown>;
+  const assessment = value.assessment as Record<string, unknown>;
+  const postAssessment = value.postAssessment as Record<string, unknown>;
+
+  for (const field of ["demographics", "referralSource"] as const) {
+    const result = validateString(preAssessment[field], `assessment.preAssessment.${field}`, 20_000, false);
+    if (!result.ok) return result;
+  }
+  const estimatedLosDays = preAssessment.estimatedLosDays;
+  if (!Number.isInteger(estimatedLosDays) || (estimatedLosDays as number) < 0 || (estimatedLosDays as number) > 3_650) {
+    return invalid("assessment.preAssessment.estimatedLosDays must be a whole number between 0 and 3650.");
+  }
+
+  for (const field of ["carry", "careNeeds", "riskLevel"] as const) {
+    const result = validateString(assessment[field], `assessment.assessment.${field}`, 20_000, false);
+    if (!result.ok) return result;
+  }
+  const decisionResult = validateEnum(postAssessment.decision, "assessment.postAssessment.decision", postAssessmentDecisions);
+  if (!decisionResult.ok) return decisionResult;
+  const reasonResult = validateString(postAssessment.reason, "assessment.postAssessment.reason", 20_000, false);
+  if (!reasonResult.ok) return reasonResult;
+
+  return { ok: true, value: true };
+}
+
+function validateRequirements(value: unknown): ValidationSuccess<true> | ValidationFailure {
+  if (!Array.isArray(value) || value.length > 50) return invalid("requirements must contain at most 50 items.");
+
+  for (const requirement of value) {
+    if (!isPlainObject(requirement)) return invalid("Each requirement must be an object.");
+    const fields: Array<[keyof AdmissionRequirement, number]> = [
+      ["id", 128],
+      ["label", 300],
+      ["owner", 200],
+      ["dueAt", 80],
+      ["nextStep", 500],
+      ["updatedAt", 80],
+    ];
+    for (const [field, maximum] of fields) {
+      const result = validateString(requirement[field], `requirements.${field}`, maximum);
+      if (!result.ok) return result;
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(requirement.id))) {
+      return invalid("requirements.id must be a UUID.");
+    }
+    for (const field of ["dueAt", "updatedAt"] as const) {
+      const result = validateTimestamp(requirement[field], `requirements.${field}`);
+      if (!result.ok) return result;
+    }
+    for (const [field, values] of [
+      ["type", requirementTypes],
+      ["status", requirementStatuses],
+      ["requiredFor", requirementGates],
+    ] as const) {
+      const result = validateEnum(requirement[field], `requirements.${field}`, values);
+      if (!result.ok) return result;
+    }
+    if (typeof requirement.blocker !== "boolean") return invalid("requirements.blocker must be true or false.");
+    if ("version" in requirement && requirement.version !== undefined && (!Number.isInteger(requirement.version) || Number(requirement.version) < 1)) {
+      return invalid("requirements.version must be a positive whole number.");
+    }
+    for (const field of ["evidenceDocumentName", "waiverReason"] as const) {
+      if (!(field in requirement) || requirement[field] === undefined) continue;
+      const result = validateString(requirement[field], `requirements.${field}`, 2_000);
+      if (!result.ok) return result;
+    }
+  }
+
+  return { ok: true, value: true };
+}
+
+function validateAdmissionDecision(value: unknown): ValidationSuccess<true> | ValidationFailure {
+  if (!isPlainObject(value)) return invalid("admissionDecision must be an object.");
+  for (const [field, maximum] of [
+    ["decisionId", 128],
+    ["reasonCode", 128],
+    ["reasonNote", 20_000],
+    ["decidedBy", 200],
+    ["decidedByName", 200],
+    ["decidedAt", 80],
+  ] as const) {
+    const result = validateString(value[field], `admissionDecision.${field}`, maximum, field !== "reasonCode" && field !== "reasonNote");
+    if (!result.ok) return result;
+  }
+  const outcome = validateEnum(value.outcome, "admissionDecision.outcome", ["accepted", "declined"] as const);
+  if (!outcome.ok) return outcome;
+  if (!Number.isInteger(value.version) || Number(value.version) < 1) return invalid("admissionDecision.version must be a positive whole number.");
+  return validateTimestamp(value.decidedAt, "admissionDecision.decidedAt");
+}
+
+function validatePacketFields(value: unknown): ValidationSuccess<true> | ValidationFailure {
+  if (!Array.isArray(value) || value.length > 300) return invalid("packetFields must contain at most 300 fields.");
+  for (const field of value) {
+    if (!isPlainObject(field)) return invalid("Each packet field must be an object.");
+    for (const [key, maximum] of [["field_key", 256], ["source_page_no", 20]] as const) {
+      if (key === "source_page_no") continue;
+      const result = validateString(field[key], key, maximum);
+      if (!result.ok) return result;
+    }
+    for (const key of ["proposed_value", "final_value"] as const) {
+      if (!(key in field) || field[key] === null || field[key] === undefined) continue;
+      const result = validateString(field[key], key, 20_000);
+      if (!result.ok) return result;
+    }
+    const confidence = field.confidence;
+    if (typeof confidence !== "number" || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
+      return invalid("packet field confidence must be between 0 and 1.");
+    }
+    if (typeof field.review_status !== "string" || !["pending", "accepted", "edited", "rejected"].includes(field.review_status)) {
+      return invalid("packet field review_status is invalid.");
+    }
+    if (typeof field.is_conflict !== "boolean") return invalid("packet field is_conflict must be true or false.");
+    if (!Array.isArray(field.candidates) || field.candidates.length > 20) return invalid("packet field candidates are invalid.");
+  }
+  return { ok: true, value: true };
+}
+
+function validateReadiness(value: unknown): ValidationSuccess<true> | ValidationFailure {
+  if (!isPlainObject(value) || typeof value.ready !== "boolean" || !Array.isArray(value.blockers) || value.blockers.length > 50) {
+    return invalid("packetReadiness is invalid.");
+  }
+  for (const blocker of value.blockers) {
+    const result = validateString(blocker, "packetReadiness.blocker", 500, false);
+    if (!result.ok) return result;
+  }
+  return { ok: true, value: true };
+}
+
+function validateCompleteness(value: unknown): ValidationSuccess<true> | ValidationFailure {
+  if (!isPlainObject(value)) return invalid("packetCompleteness is invalid.");
+  for (const field of ["required_total", "required_ready"] as const) {
+    const count = value[field];
+    if (typeof count !== "number" || !Number.isInteger(count) || count < 0 || count > 10_000) return invalid(`packetCompleteness.${field} is invalid.`);
+  }
+  if (!Array.isArray(value.missing_items) || value.missing_items.length > 300) return invalid("packetCompleteness.missing_items is invalid.");
+  return { ok: true, value: true };
+}
+
+function validateString(value: unknown, field: string, maximum: number, required = true): ValidationSuccess<true> | ValidationFailure {
+  if (value === undefined || value === null) {
+    return invalid(required ? `${field} is required.` : `${field} must be text.`);
+  }
+  if (typeof value !== "string") return invalid(`${field} must be text.`);
+  if (required && value.trim().length === 0) return invalid(`${field} is required.`);
+  if (value.length > maximum) return invalid(`${field} must be ${maximum.toLocaleString()} characters or fewer.`);
+  return { ok: true, value: true };
+}
+
+function validateTimestamp(value: unknown, field: string) {
+  const result = validateString(value, field, 80);
+  if (!result.ok) return result;
+  if (Number.isNaN(Date.parse(value as string))) return invalid(`${field} must be a valid timestamp.`);
+  return result;
+}
+
+function validateEnum<T extends string>(value: unknown, field: string, allowed: readonly T[]) {
+  if (typeof value !== "string" || !allowed.includes(value as T)) return invalid(`${field} is invalid.`);
+  return { ok: true as const, value: true as const };
+}
+
+function optionalEnum<T extends string>(value: unknown, field: string, allowed: readonly T[]) {
+  if (value === undefined) return { ok: true as const, value: true as const };
+  return validateEnum(value, field, allowed);
+}
+
+function invalid(message: string, status = 400): ValidationFailure {
+  return { ok: false, message, status };
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}

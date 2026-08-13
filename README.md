@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pipeline
 
-## Getting Started
+Pipeline is a referral and assessment operations application for admissions teams. It captures referral packets, reviews extracted data with page evidence, manages assessments and admission decisions, tracks late requirements, joins admitted clients to the governed Alamo roster through reviewed identity links, and derives assessor/supervisor queues from canonical records.
 
-First, run the development server:
+## Local development
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Local mode uses clearly labeled development adapters. It is not suitable for multiple instances or production data.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Production boundaries
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Application hosting and scheduled work: Azure Container Apps and Container
+  Apps Jobs, deployed as immutable images from private ACR through GitHub OIDC.
+- Transactional state: Azure Database for PostgreSQL.
+- Original documents and derivatives: private Azure Blob containers.
+- Asynchronous packet processing: Databricks worker contract.
+- Current admitted-client/clinical context: server-only Alamo clinical API.
+- User identity: Microsoft Entra delegated sign-in.
+- Alamo service access: separate server-only Entra client credential.
 
-## Learn More
+Pipeline never connects directly to ElderMark and never exposes database, Blob, Databricks, Alamo service, or client-secret credentials to browser code.
 
-To learn more about Next.js, take a look at the following resources:
+## Verification
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run check:platform
+npm run check:desktop
+npm run check:route-policy
+npm run check:supply-chain
+PORT=3187 npm run test:e2e
+npm run test:e2e:desktop
+npm run test:e2e:cross-browser
+npm run test:e2e:visual
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`check:platform` runs release compatibility, generated properties, extraction quality, the 12,000-page orchestration rehearsal, recovery safeguards, contract replays, TypeScript, lint, and a production build.
 
-## Deploy on Vercel
+## Documentation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Exact Azure production setup](docs/AZURE_PRODUCTION_SETUP.md)
+- [Production readiness index](docs/PRODUCTION_READINESS.md)
+- [Production acceptance checklist](docs/PRODUCTION_ACCEPTANCE_CHECKLIST.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Current task and external dependencies](docs/CURRENT_TASK.md)
+- [Production deployment](docs/PRODUCTION_DEPLOYMENT_RUNBOOK.md)
+- [Production data operations](docs/PRODUCTION_DATA_OPERATIONS.md)
+- [Database recovery](docs/DATABASE_RECOVERY.md)
+- [Release operations](docs/RELEASE_OPERATIONS.md)
+- [Supply chain and release evidence](docs/SUPPLY_CHAIN_AND_RELEASE_EVIDENCE.md)
+- [Abuse controls and alerting](docs/ABUSE_AND_ALERTING.md)
+- [Clinical integration](docs/CLINICAL_DATA_INTEGRATION.md)
+- [Desktop/PWA and MSIX distribution](docs/DESKTOP_DISTRIBUTION.md)
