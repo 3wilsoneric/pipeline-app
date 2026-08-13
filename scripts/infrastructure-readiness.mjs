@@ -68,6 +68,16 @@ check("runtime preserves browser-safe Entra readiness configuration", [
   "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED",
 ].every((name) => runtime.includes(`name: '${name}'`)));
 check(
+  "runtime distinguishes the delegated API scope from its audience",
+  runtime.includes("var pipelineApiScope = '${pipelineApiAudience}/access_as_user'")
+    && runtime.includes("{ name: 'NEXT_PUBLIC_PIPELINE_API_SCOPE', value: pipelineApiScope }"),
+);
+check(
+  "runtime explicitly trusts preserved custom domains for browser mutations",
+  runtime.includes("PIPELINE_ALLOWED_MUTATION_ORIGINS")
+    && runtime.includes("join(map(customDomains, domain => 'https://${domain.name}'), ',')"),
+);
+check(
   "immutable runtime deployments preserve custom hostname bindings",
   runtime.includes("param customDomains array = []")
     && runtime.includes("customDomains: customDomains")

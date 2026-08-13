@@ -62,6 +62,7 @@ var databaseMigrationJobName = take('${namePrefix}-${environment}-database-migra
 var revisionSuffix = take(toLower(replace(deploymentId, '-', '')), 16)
 var pipelineApiAudience = 'api://${pipelineEntraClientId}'
 var pipelineApiScope = '${pipelineApiAudience}/access_as_user'
+var allowedMutationOrigins = join(map(customDomains, domain => 'https://${domain.name}'), ',')
 var keyVaultBaseUri = endsWith(keyVaultUri, '/') ? keyVaultUri : '${keyVaultUri}/'
 var keyVaultSecretIdentity = runtimeIdentityResourceId
 
@@ -146,9 +147,10 @@ var baseEnvironment = [
   { name: 'PIPELINE_ENTRA_API_SCOPE', value: 'access_as_user' }
   { name: 'NEXT_PUBLIC_ENTRA_TENANT_ID', value: entraTenantId }
   { name: 'NEXT_PUBLIC_ENTRA_CLIENT_ID', value: pipelineEntraClientId }
-  { name: 'NEXT_PUBLIC_PIPELINE_API_SCOPE', value: pipelineApiAudience }
+  { name: 'NEXT_PUBLIC_PIPELINE_API_SCOPE', value: pipelineApiScope }
   { name: 'NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED', value: 'true' }
   { name: 'PIPELINE_ENTRA_SESSION_SECRET', secretRef: 'entra-session-secret' }
+  { name: 'PIPELINE_ALLOWED_MUTATION_ORIGINS', value: allowedMutationOrigins }
   { name: 'PIPELINE_TRUSTED_GATEWAY', value: 'false' }
   { name: 'PIPELINE_ALLOW_UNVERIFIED_AUTH_HEADERS', value: 'false' }
   { name: 'PIPELINE_ALLOW_PRODUCTION_MOCK_AUTH', value: 'false' }

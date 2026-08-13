@@ -170,6 +170,7 @@ async function readSessionFailure(response: Response) {
   if (reason === "Insufficient role") return "This Microsoft identity is missing a Pipeline role.";
   if (reason.includes("permission to use Pipeline")) return "Microsoft sign-in did not grant Pipeline access. Try signing in again.";
   if (reason.includes("usable Pipeline identity")) return "Microsoft did not return a usable Pipeline identity.";
+  if (reason.includes("Pipeline application origin")) return "Pipeline could not validate this site address. Reload the page and try again.";
   if (response.status === 401) return "Your Microsoft session expired. Sign in again.";
   return "Pipeline could not establish your sign-in session.";
 }

@@ -28,6 +28,7 @@ PIPELINE_ENTRA_TENANT_ID=<tenant id>
 PIPELINE_ENTRA_API_AUDIENCE=api://<same app id>
 PIPELINE_ENTRA_API_SCOPE=access_as_user
 PIPELINE_ENTRA_SESSION_SECRET=<random value, at least 32 characters>
+PIPELINE_ALLOWED_MUTATION_ORIGINS=https://<pipeline-production-domain>
 ```
 
 Production Entra JWT authentication does not maintain a second local user
@@ -60,6 +61,8 @@ No client secret is needed for the browser SPA registration. The server session 
 
 - `proxy.ts` validates protected page and API requests before they reach the app.
 - Server routes validate issuer, audience, signature, and delegated scope.
+- Browser mutations use an explicit exact-origin list so Azure's reverse proxy
+  cannot make a valid custom-domain request appear cross-origin.
 - Entra enterprise-app assignment is the single admission boundary. App roles
   constrain privileged actions; local identity lists are used only by legacy
   trusted-gateway header mode.

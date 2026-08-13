@@ -11,7 +11,7 @@ const referralExtractionSchema = loadTypeScriptModule(root, "lib/extraction/refe
 const referralValidation = loadTypeScriptModule(root, "lib/pipeline/referral-validation.ts");
 const referralQuery = loadTypeScriptModule(root, "lib/pipeline/referral-query.ts");
 const residentLinkValidation = loadTypeScriptModule(root, "lib/pipeline/resident-link-validation.ts");
-const requestSecurity = loadTypeScriptModule(root, "lib/auth/request-security.ts");
+const requestSecurity = loadRequestSecurityModule({});
 const workspaceStateTypes = loadTypeScriptModule(root, "lib/pipeline/user-workspace-state-types.ts");
 
 const results = [
@@ -513,6 +513,30 @@ function referralHardeningResults() {
       assert(requestSecurity.requireSameOriginMutation(new Request("https://pipeline.local/api/referrals", { method: "POST", headers: { Origin: "https://pipeline.local" } })) === null, "Same-origin mutation should pass");
       assert(requestSecurity.requireSameOriginMutation(new Request("https://pipeline.local/api/referrals", { method: "POST" })) === null, "Headerless service mutation should pass");
     }),
+    run("mutation origin accepts configured custom domains behind a reverse proxy", () => {
+      const requestSecurity = loadRequestSecurityModule({
+        PIPELINE_ALLOWED_MUTATION_ORIGINS: "https://alamo-pipeline.com,https://www.alamo-pipeline.com",
+      });
+      const request = new Request("https://pipeline-prod.internal/api/auth/session", {
+        method: "POST",
+        headers: {
+          Origin: "https://www.alamo-pipeline.com",
+          "Sec-Fetch-Site": "same-origin",
+        },
+      });
+      assert(requestSecurity.requireSameOriginMutation(request) === null, "Configured custom origin should pass through the Azure proxy");
+    }),
+    run("mutation origin still rejects unconfigured domains behind a reverse proxy", () => {
+      const requestSecurity = loadRequestSecurityModule({
+        PIPELINE_ALLOWED_MUTATION_ORIGINS: "https://www.alamo-pipeline.com",
+      });
+      const request = new Request("https://pipeline-prod.internal/api/auth/session", {
+        method: "POST",
+        headers: { Origin: "https://evil.example" },
+      });
+      const response = requestSecurity.requireSameOriginMutation(request);
+      assert(response?.status === 403, "Unconfigured proxy origin should remain blocked");
+    }),
     run("mutation origin rejects cross-site requests", () => {
       const response = requestSecurity.requireSameOriginMutation(new Request("https://pipeline.local/api/referrals", { method: "POST", headers: { Origin: "https://evil.example" } }));
       assert(response?.status === 403, "Cross-site mutation should return 403");
@@ -748,6 +772,14 @@ function loadAuthModule(env) {
 
 function loadBackendModule(env) {
   return loadTypeScriptModule(root, "lib/extraction/backend-config.ts", {
+    process: {
+      env,
+    },
+  });
+}
+
+function loadRequestSecurityModule(env) {
+  return loadTypeScriptModule(root, "lib/auth/request-security.ts", {
     process: {
       env,
     },
