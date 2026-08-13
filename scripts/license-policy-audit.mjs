@@ -21,7 +21,7 @@ const allowed = new Set([
 const operators = new Set(["AND", "OR", "WITH"]);
 const packages = Object.entries(lock.packages ?? {}).filter(([packagePath]) => packagePath);
 const missingLicense = packages.filter(([, entry]) => !entry.license);
-const missingIntegrity = packages.filter(([, entry]) => !entry.link && !entry.integrity);
+const missingIntegrity = packages.filter(([, entry]) => !entry.link && !entry.inBundle && !entry.integrity);
 const unapproved = packages.filter(([, entry]) => {
   const identifiers = String(entry.license ?? "").match(/[A-Za-z0-9.+-]+/g) ?? [];
   return identifiers.some((identifier) => !operators.has(identifier) && !allowed.has(identifier));
