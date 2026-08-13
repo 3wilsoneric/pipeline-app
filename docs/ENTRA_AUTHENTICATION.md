@@ -25,7 +25,8 @@ NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED=true
 ```text
 PIPELINE_AUTH_MODE=entra_jwt
 PIPELINE_ENTRA_TENANT_ID=<tenant id>
-PIPELINE_ENTRA_API_AUDIENCE=api://<same app id>
+# v2 access-token aud claim: the plain application client ID GUID
+PIPELINE_ENTRA_API_AUDIENCE=<same app id>
 PIPELINE_ENTRA_API_SCOPE=access_as_user
 PIPELINE_ENTRA_SESSION_SECRET=<random value, at least 32 characters>
 PIPELINE_ALLOWED_MUTATION_ORIGINS=https://<pipeline-production-domain>
@@ -35,6 +36,10 @@ Production Entra JWT authentication does not maintain a second local user
 allowlist. The tenant-scoped delegated token and the enterprise application's
 **Assignment required** setting govern admission. `PIPELINE_ALLOWED_*` variables
 exist only for explicitly enabled legacy trusted-gateway header mode.
+
+The browser requests `api://<app id>/access_as_user`, but the server validates
+the v2 access token against `<app id>`. Microsoft emits the API client ID GUID
+as `aud` for v2 access tokens; the scope URI is not the token audience.
 
 `PIPELINE_ALAMO_*` variables remain server-only and belong to the separate clinical API adapter. Do not add any clinical secret or token to a `NEXT_PUBLIC_*` variable.
 

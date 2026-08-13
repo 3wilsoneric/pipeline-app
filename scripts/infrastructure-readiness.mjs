@@ -68,8 +68,10 @@ check("runtime preserves browser-safe Entra readiness configuration", [
   "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED",
 ].every((name) => runtime.includes(`name: '${name}'`)));
 check(
-  "runtime distinguishes the delegated API scope from its audience",
-  runtime.includes("var pipelineApiScope = '${pipelineApiAudience}/access_as_user'")
+  "runtime validates the v2 token audience separately from the delegated scope URI",
+  runtime.includes("var pipelineApiAudience = pipelineEntraClientId")
+    && runtime.includes("var pipelineApiScope = 'api://${pipelineEntraClientId}/access_as_user'")
+    && runtime.includes("{ name: 'PIPELINE_ENTRA_API_AUDIENCE', value: pipelineApiAudience }")
     && runtime.includes("{ name: 'NEXT_PUBLIC_PIPELINE_API_SCOPE', value: pipelineApiScope }"),
 );
 check(

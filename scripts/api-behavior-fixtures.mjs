@@ -383,7 +383,7 @@ function authBehaviorResults() {
         NEXT_PUBLIC_PIPELINE_API_SCOPE: "api://client-id/access_as_user",
         NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED: "true",
         PIPELINE_ENTRA_TENANT_ID: "tenant-id",
-        PIPELINE_ENTRA_API_AUDIENCE: "api://client-id",
+        PIPELINE_ENTRA_API_AUDIENCE: "client-id",
         PIPELINE_ENTRA_API_SCOPE: "access_as_user",
         PIPELINE_ENTRA_SESSION_SECRET: "a-secure-session-secret-of-sufficient-length",
       });

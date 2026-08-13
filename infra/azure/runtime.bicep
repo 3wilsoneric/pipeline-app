@@ -60,8 +60,10 @@ var webName = take('${namePrefix}-${environment}-web', 32)
 var databaseBootstrapJobName = take('${namePrefix}-${environment}-database-bootstrap', 32)
 var databaseMigrationJobName = take('${namePrefix}-${environment}-database-migrate', 32)
 var revisionSuffix = take(toLower(replace(deploymentId, '-', '')), 16)
-var pipelineApiAudience = 'api://${pipelineEntraClientId}'
-var pipelineApiScope = '${pipelineApiAudience}/access_as_user'
+// The app registration requests v2 access tokens. Their aud claim is the API
+// client ID GUID, while the delegated scope retains the api:// URI prefix.
+var pipelineApiAudience = pipelineEntraClientId
+var pipelineApiScope = 'api://${pipelineEntraClientId}/access_as_user'
 var allowedMutationOrigins = join(map(customDomains, domain => 'https://${domain.name}'), ',')
 var keyVaultBaseUri = endsWith(keyVaultUri, '/') ? keyVaultUri : '${keyVaultUri}/'
 var keyVaultSecretIdentity = runtimeIdentityResourceId
