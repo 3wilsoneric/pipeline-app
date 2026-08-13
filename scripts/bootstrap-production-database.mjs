@@ -93,7 +93,11 @@ async function roleExists(sql, role) {
 
 async function setRolePassword(sql, role, password) {
   const rows = await sql`
-    select format('alter role %I password %L', ${role}, ${password}) as statement
+    select format(
+      'alter role %I password %L',
+      ${role}::text,
+      ${password}::text
+    ) as statement
   `;
   const statement = rows[0]?.statement;
   if (typeof statement !== "string" || !statement.startsWith("alter role ")) {
