@@ -28,6 +28,7 @@ PIPELINE_ENTRA_TENANT_ID=<tenant id>
 PIPELINE_ENTRA_API_AUDIENCE=api://<same app id>
 PIPELINE_ENTRA_API_SCOPE=access_as_user
 PIPELINE_ENTRA_SESSION_SECRET=<random value, at least 32 characters>
+PIPELINE_ALLOWED_ENTRA_OBJECT_IDS=<authorized Entra user object IDs, comma separated>
 PIPELINE_ALLOWED_EMAILS=<authorized emails, comma separated>
 ```
 
@@ -55,6 +56,8 @@ No client secret is needed for the browser SPA registration. The server session 
 
 - `proxy.ts` validates protected page and API requests before they reach the app.
 - Server routes validate issuer, audience, signature, delegated scope, allowed email, and required role.
+- Authorization prefers immutable Entra user object IDs; email allowlisting is a
+  compatibility fallback for existing pilot accounts and aliases.
 - The browser stores MSAL state in `sessionStorage` and sends a bearer token through the authenticated fetch helper.
 - Interactive sign-in requests `select_account` so a browser with another active
   Microsoft session cannot silently choose the wrong Pipeline identity.

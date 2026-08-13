@@ -265,6 +265,23 @@ function authBehaviorResults() {
       assert(!result.ok, "Unallowed user should fail");
       assert(result.response.status === 403, "Unallowed user should return 403");
     }),
+    run("auth accepts an assigned Entra object across email aliases", () => {
+      const auth = loadAuthModule({
+        NODE_ENV: "production",
+        PIPELINE_AUTH_MODE: "headers",
+        PIPELINE_TRUSTED_GATEWAY: "true",
+        PIPELINE_ALLOWED_ENTRA_OBJECT_IDS: "entra-user-stable",
+      });
+      const principal = btoa(JSON.stringify({
+        userId: "ENTRA-USER-STABLE",
+        userDetails: "unexpected-alias@example.com",
+        claims: [{ typ: "roles", val: "Pipeline.Admin" }],
+      }));
+      const result = auth.requirePipelineUser(new Request("https://pipeline.local/referrals", {
+        headers: { "x-ms-client-principal": principal },
+      }));
+      assert(result.ok, "Stable Entra object ID should authorize independent of the email alias");
+    }),
     run("auth enforces role gates", () => {
       const auth = loadAuthModule({
         NODE_ENV: "production",

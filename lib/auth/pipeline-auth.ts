@@ -169,6 +169,7 @@ export function getPipelineAuthReadiness() {
     "PIPELINE_ENTRA_API_AUDIENCE",
     "PIPELINE_ENTRA_API_SCOPE",
     "PIPELINE_ENTRA_SESSION_SECRET",
+    "PIPELINE_ALLOWED_ENTRA_OBJECT_IDS",
     "PIPELINE_ALLOWED_EMAILS",
   ];
   const missing_env = required.filter((name) => !process.env[name]?.trim());
@@ -194,7 +195,7 @@ async function requireEntraPipelineUser(request: Request, allowedRoles: Pipeline
 function authorizeUser(user: PipelineUser | null, allowedRoles: PipelineRole[]): AuthSuccess | AuthFailure {
   if (!user) return authFailure(401, "Unauthorized");
 
-  if (!isAllowedUser(user.email)) {
+  if (!isAllowedUser(user)) {
     return authFailure(403, "Forbidden");
   }
 
@@ -422,10 +423,13 @@ function rolesForEmail(email: string): PipelineRole[] {
   return ["viewer"];
 }
 
-function isAllowedUser(email: string) {
+function isAllowedUser(user: Pick<PipelineUser, "id" | "email">) {
+  const allowedObjectIds = parseIdentifierList(process.env.PIPELINE_ALLOWED_ENTRA_OBJECT_IDS);
+  if (allowedObjectIds.includes(user.id.trim().toLowerCase())) return true;
+
   const allowed = parseEmailList(process.env.PIPELINE_ALLOWED_EMAILS);
   if (allowed.length === 0) return !isProductionRuntime();
-  return allowed.includes(normalizeEmail(email));
+  return allowed.includes(normalizeEmail(user.email));
 }
 
 function mapClaimRoles(claimRoles: string[]): PipelineRole[] {
@@ -450,6 +454,10 @@ function mapClaimRoles(claimRoles: string[]): PipelineRole[] {
 
 function parseEmailList(value: string | undefined) {
   return (value ?? "").split(",").map(normalizeEmail).filter(Boolean);
+}
+
+function parseIdentifierList(value: string | undefined) {
+  return (value ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
 }
 
 function parseRoleList(value: string | undefined): PipelineRole[] {

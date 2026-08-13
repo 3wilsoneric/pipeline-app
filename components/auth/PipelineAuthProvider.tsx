@@ -99,7 +99,11 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
           credentials: "same-origin",
         });
         if (!sessionResponse.ok) {
-          throw new Error(sessionResponse.status === 403 ? "Your account is not authorized for Pipeline." : "Pipeline could not establish your sign-in session.");
+          if (!cancelled) {
+            setStatus("error");
+            setError(await readSessionFailure(sessionResponse));
+          }
+          return;
         }
 
         if (!cancelled) {
@@ -156,6 +160,18 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
       {status === "initializing" ? <AuthenticationProgress /> : children}
     </PipelineAuthContext.Provider>
   );
+}
+
+async function readSessionFailure(response: Response) {
+  const payload = await response.json().catch(() => null) as { error?: unknown } | null;
+  const reason = typeof payload?.error === "string" ? payload.error : "";
+
+  if (reason === "Forbidden") return "This Microsoft identity is not assigned to Pipeline.";
+  if (reason === "Insufficient role") return "This Microsoft identity is missing a Pipeline role.";
+  if (reason.includes("permission to use Pipeline")) return "Microsoft sign-in did not grant Pipeline access. Try signing in again.";
+  if (reason.includes("usable Pipeline identity")) return "Microsoft did not return a usable Pipeline identity.";
+  if (response.status === 401) return "Your Microsoft session expired. Sign in again.";
+  return "Pipeline could not establish your sign-in session.";
 }
 
 export function usePipelineAuth() {
