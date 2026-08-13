@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 const configuredBaseUrl = process.env.PIPELINE_COLLABORATION_BASE_URL?.trim();
 if (!configuredBaseUrl) fail("Configure PIPELINE_COLLABORATION_BASE_URL before running the collaboration load check.");
 const baseUrl = new URL(configuredBaseUrl);
+if (baseUrl.hostname === "127.0.0.1") baseUrl.hostname = "localhost";
 if (!["localhost", "127.0.0.1", "::1"].includes(baseUrl.hostname) && !process.argv.includes("--allow-remote")) {
   fail("Remote collaboration checks require --allow-remote.");
 }
@@ -249,12 +250,21 @@ async function timedRequest(operation, userIndex, path, options) {
 }
 
 async function request(userIndex, path, options = {}) {
+  const user = users[userIndex];
+  const principal = Buffer.from(JSON.stringify({
+    userId: `pipeline-load-user-${userIndex + 1}`,
+    userDetails: user.email,
+    claims: [
+      { typ: "name", val: user.name },
+      { typ: "roles", val: "Pipeline.Admin" },
+    ],
+  })).toString("base64");
   return fetch(new URL(path, baseUrl), {
     method: options.method || "GET",
     headers: {
       Accept: "application/json",
       Origin: baseUrl.origin,
-      "x-ms-client-principal-name": users[userIndex].email,
+      "x-ms-client-principal": principal,
       ...(options.body ? { "Content-Type": "application/json" } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,

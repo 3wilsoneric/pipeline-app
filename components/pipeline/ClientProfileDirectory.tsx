@@ -374,7 +374,7 @@ export default function ClientProfileDirectory({
 
           {!isLoading && !error && filteredResidents.length === 0 ? (
             <div className="px-5 py-16 text-center text-[13px] text-[#737373]">
-              <div>{hasAppliedFilters ? "No admitted clients match these filters." : "The current Alamo roster is empty."}</div>
+              <div>{emptyRosterMessage(query, activeFilters)}</div>
               {activeFilters.length > 0 ? (
                 <button type="button" onClick={clearFilters} className="mt-3 font-black text-[#0f8b73] hover:underline">Clear filters</button>
               ) : null}
@@ -515,6 +515,13 @@ function daysBefore(value: string, days: number) {
 
 function isIsoDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function emptyRosterMessage(query: string, filters: FilterKey[]) {
+  if (query.trim() && filters.length > 0) return "No admitted clients match that search and those filters.";
+  if (query.trim()) return "No admitted clients match that search.";
+  if (filters.length > 0) return "No admitted clients match these filters.";
+  return "The current Alamo roster is empty.";
 }
 
 function formatDate(value: string) {
