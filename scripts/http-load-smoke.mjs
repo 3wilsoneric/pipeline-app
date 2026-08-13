@@ -19,6 +19,7 @@ const requestTarget = process.env.PIPELINE_LOAD_REQUESTS?.trim()
 const timeoutMs = boundedInteger("PIPELINE_LOAD_TIMEOUT_MS", 10_000, 1_000, 30_000);
 const p95LimitMs = boundedInteger("PIPELINE_LOAD_P95_LIMIT_MS", 2_000, 100, 30_000);
 const loadUserEmail = process.env.PIPELINE_LOAD_USER_EMAIL?.trim();
+const loadUserPrincipal = loadUserEmail ? syntheticEasyAuthPrincipal(loadUserEmail) : null;
 const missions = [
   { name: "referrals", path: "/api/referrals?limit=100&active=true" },
   { name: "files", path: "/api/files?limit=100" },
@@ -54,7 +55,7 @@ async function runWorker(worker) {
         cache: "no-store",
         headers: {
           Accept: "application/json",
-          ...(loadUserEmail ? { "x-ms-client-principal-name": loadUserEmail } : {}),
+          ...(loadUserPrincipal ? { "x-ms-client-principal": loadUserPrincipal } : {}),
         },
         signal: controller.signal,
       });
@@ -95,6 +96,17 @@ function boundedInteger(name, fallback, minimum, maximum) {
 
 function round(value) {
   return Math.round(value * 10) / 10;
+}
+
+function syntheticEasyAuthPrincipal(email) {
+  return Buffer.from(JSON.stringify({
+    userId: "pipeline-load-user",
+    userDetails: email,
+    claims: [
+      { typ: "name", val: "Pipeline Load User" },
+      { typ: "roles", val: "Pipeline.Admin" },
+    ],
+  })).toString("base64");
 }
 
 function fail(message) {

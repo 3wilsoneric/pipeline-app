@@ -32,6 +32,7 @@ const pilotReset = read("scripts/pilot-reset.mjs");
 const liveSmoke = read("scripts/postgres-live-smoke.mjs");
 const restoreVerify = read("scripts/database-restore-verify.mjs");
 const workspacePurge = read("scripts/purge-user-workspace-state.mjs");
+const httpLoadSmoke = read("scripts/http-load-smoke.mjs");
 const ci = read(".github/workflows/ci.yml");
 const envExample = read(".env.example");
 
@@ -162,6 +163,12 @@ check("live database smoke requires and writes through migration 0006", liveSmok
 check("restore verification includes workspace state", restoreVerify.includes("pipeline.user_workspace_state"));
 check("account-state purge is dry-run-first and identity-redacted", workspacePurge.includes('mode: execute ? "execute" : "dry_run"') && workspacePurge.includes("principal_configured: true"));
 check("CI exercises PostgreSQL migrations, rollback, fixtures, and contention", ["postgres:16", "database:migrate", "database:fixtures", "database:rollback:drill", "check:collaboration-load"].every((term) => ci.includes(term)));
+check(
+  "authenticated HTTP load smoke uses a complete synthetic EasyAuth principal",
+  httpLoadSmoke.includes('"x-ms-client-principal": loadUserPrincipal')
+    && httpLoadSmoke.includes('userId: "pipeline-load-user"')
+    && !httpLoadSmoke.includes('"x-ms-client-principal-name"'),
+);
 check("pilot reset defaults to dry run", pilotReset.includes('mode: "dry_run"') && pilotReset.includes("const execute = process.argv.includes(\"--execute\")"));
 check("pilot reset requires two-part confirmation", pilotReset.includes("PIPELINE_PILOT_RESET_ENABLED") && pilotReset.includes("--confirm=RESET_PIPELINE_PILOT"));
 check("pilot reset excludes confirmed clinical links", pilotReset.includes("confirmed_links > 0") && pilotReset.includes("l.status = 'confirmed'"));
