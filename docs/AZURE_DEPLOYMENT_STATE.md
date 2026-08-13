@@ -52,9 +52,16 @@ configured.
 
 The public `.com` registry confirms `alamo-pipeline.com` was registered through
 GoDaddy on 12 August 2026. The authoritative nameservers are
-`ns41.domaincontrol.com` and `ns42.domaincontrol.com`. The final Azure `A` and
-`asuid` ownership TXT values remain pending until the Container App runtime has
-a default hostname.
+`ns41.domaincontrol.com` and `ns42.domaincontrol.com`. Add these records at
+GoDaddy before binding the managed certificate:
+
+```text
+A    @      48.192.77.119
+TXT  asuid  FA03E93FC8735330D0F4ED514A466A01A12F9EA27D0D8D43C62DD7AB240C55AE
+```
+
+Keep the `asuid` TXT record after validation for ownership checks and
+certificate renewal.
 
 ## Existing Alamo resources
 
@@ -120,19 +127,43 @@ Entra identifiers. The first release uses `manual` packet processing: uploads
 are persisted to private Blob storage and chart data can be entered manually,
 but the app does not claim that OCR or extraction ran.
 
+## Deployed runtime
+
+GitHub Actions run `31667023980` deployed commit `54f2ed4` successfully. The
+healthy revision is `pipeline-prod-web--54f2ed480e70dc4b`; it receives 100% of
+traffic and scales from one to three replicas.
+
+```text
+https://pipeline-prod-web.delightfulfield-ea30179b.westus2.azurecontainerapps.io
+```
+
+Both `/api/health/live` and `/api/health` return `200`. PostgreSQL, referral,
+assessment, resident-link, authentication, durable upload, and user-workspace
+state checks are ready and multi-instance safe where applicable. The sign-in
+page and exact Azure-hostname Entra redirect are active for testing while DNS
+propagates. Blob CORS allows only the generated Azure origin and
+`https://alamo-pipeline.com`.
+
+The one-time PostgreSQL bootstrap succeeded, invalidated its administrator
+credential, and was finalized. The administrator URL and bootstrap job were
+removed. Routine releases use only the checksum-guarded migrator.
+
+Clinical access is explicitly disconnected and optional for this pilot release.
+Clinical routes continue to fail closed; the app does not claim live census or
+EHR data. Packet processing is `manual`, so private uploads and manual charting
+work, while automatic OCR/extraction remains disabled.
+
 ## Remaining gates
 
-1. Push the reviewed release and run the Azure deployment workflow with manual
-   extraction, disconnected clinical data, and initial database bootstrap.
-2. Run the one-time PostgreSQL bootstrap and immediately finalize/revoke the
-   administrator credential.
-3. Generate the clinical client credential only at the local hidden prompt and
+1. Add the two generated GoDaddy records, wait for DNS propagation, then run
+   `scripts/configure-azure-domain.sh alamo-pipeline.com apex` to bind the
+   managed certificate.
+2. Generate the clinical client credential only at the local hidden prompt and
    store it directly in Key Vault.
-4. Configure role groups or the final pilot user list. Do not leave the app open
+3. Configure role groups or the final pilot user list. Do not leave the app open
    to the tenant.
-5. Add the generated GoDaddy DNS records, then bind the managed certificate.
-6. Create the dedicated Databricks extraction principal and production worker
+4. Create the dedicated Databricks extraction principal and production worker
    before switching packet processing to `azure_databricks`.
-7. Add an Azure Monitor action group after alert recipients are approved.
-8. Confirm Microsoft agreement/BAA coverage and name the retention/deletion
+5. Add an Azure Monitor action group after alert recipients are approved.
+6. Confirm Microsoft agreement/BAA coverage and name the retention/deletion
    approver before real PHI is uploaded.

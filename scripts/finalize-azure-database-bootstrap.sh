@@ -16,7 +16,7 @@ done
 
 foundation_outputs="$(az deployment group show \
   --resource-group "$resource_group" \
-  --name pipeline-foundation \
+  --name pipeline-foundation-state \
   --query properties.outputs \
   --output json)"
 runtime_outputs="$(az deployment group show \

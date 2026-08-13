@@ -11,6 +11,7 @@ const workerAuth = read("lib/auth/internal-worker-auth.ts");
 const alerts = read("infra/azure/operational-alerts.bicep");
 const databaseBootstrap = read("scripts/bootstrap-production-database.mjs");
 const initialConfiguration = read("scripts/configure-azure-production.sh");
+const databaseFinalization = read("scripts/finalize-azure-database-bootstrap.sh");
 const domainConfiguration = read("scripts/configure-azure-domain.sh");
 const blobAdapter = read("lib/extraction/azure-blob.ts");
 const dockerfile = read("Dockerfile");
@@ -73,10 +74,13 @@ check("database bootstrap is one-time and explicit", runtime.includes("param ini
 check("routine database migrations use the migrator-only job", runtime.includes("databaseMigrationJob") && runtime.includes("pipeline-database-migration-url"));
 check("bootstrap revokes the administrator credential", databaseBootstrap.includes("administrator_credential_revoked: true") && databaseBootstrap.includes("alter role"));
 check("initial setup cannot rotate database URLs after finalization", initialConfiguration.includes("Initial database setup is already finalized"));
+check("database finalization reads stable output-only foundation state", databaseFinalization.includes("--name pipeline-foundation-state"));
 check("operational alert module is deployed", bicep.includes("operational-alerts.bicep"));
 check("operational alert recipients are explicit parameters", bicep.includes("alertActionGroupResourceIds") && alerts.includes("actionGroups: actionGroupResourceIds"));
 check("seven PHI-safe alert rules are declared", (alerts.match(/key:\s*'/g) ?? []).length === 7 && alerts.includes("dataClassification: 'phi-safe-metrics-only'"));
 check("custom-domain automation distinguishes apex and subdomain records", domainConfiguration.includes('record_mode="apex"') && domainConfiguration.includes("validation_method=\"HTTP\"") && domainConfiguration.includes("validation_method=\"CNAME\""));
+check("custom-domain automation reads stable output-only foundation state", domainConfiguration.includes("--name pipeline-foundation-state"));
+check("custom-domain Blob CORS preserves existing service properties", domainConfiguration.includes("blob_service=\"$(az rest --method GET") && domainConfiguration.includes("--method PUT") && domainConfiguration.includes(".properties.cors = $cors"));
 check("custom-domain automation preserves CAA and exact Entra redirect safety", domainConfiguration.includes("digicert\\.com") && domainConfiguration.includes('redirect_uri="https://${custom_hostname}/sign-in"') && domainConfiguration.indexOf("az containerapp hostname bind") < domainConfiguration.indexOf("redirect_uri="));
 
 const failed = checks.filter((item) => !item.ok);

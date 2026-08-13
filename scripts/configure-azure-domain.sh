@@ -44,7 +44,7 @@ runtime_outputs="$(az deployment group show \
   --output json)"
 foundation_outputs="$(az deployment group show \
   --resource-group "$resource_group" \
-  --name pipeline-foundation \
+  --name pipeline-foundation-state \
   --query properties.outputs \
   --output json)"
 
@@ -122,25 +122,24 @@ storage_id="$(az storage account show \
   --name "$storage_account" \
   --query id \
   --output tsv)"
-cors_body="$(jq -n \
+cors_rules="$(jq -n \
   --arg productionOrigin "https://${custom_hostname}" \
   --arg generatedOrigin "https://${generated_fqdn}" \
   '{
-    properties: {
-      cors: {
-        corsRules: [{
-          allowedOrigins: [$productionOrigin, $generatedOrigin],
-          allowedMethods: ["PUT", "OPTIONS"],
-          allowedHeaders: ["content-type", "x-ms-blob-type"],
-          exposedHeaders: ["etag", "x-ms-request-id"],
-          maxAgeInSeconds: 3600
-        }]
-      }
-    }
+    corsRules: [{
+      allowedOrigins: [$productionOrigin, $generatedOrigin],
+      allowedMethods: ["PUT", "OPTIONS"],
+      allowedHeaders: ["content-type", "x-ms-blob-type"],
+      exposedHeaders: ["etag", "x-ms-request-id"],
+      maxAgeInSeconds: 3600
+    }]
   }')"
+blob_service_url="https://management.azure.com${storage_id}/blobServices/default?api-version=2025-01-01"
+blob_service="$(az rest --method GET --url "$blob_service_url" --output json)"
+cors_body="$(jq --argjson cors "$cors_rules" '.properties.cors = $cors | {properties: .properties}' <<<"$blob_service")"
 az rest \
-  --method PATCH \
-  --url "https://management.azure.com${storage_id}/blobServices/default?api-version=2025-01-01" \
+  --method PUT \
+  --url "$blob_service_url" \
   --body "$cors_body" \
   --output none
 
