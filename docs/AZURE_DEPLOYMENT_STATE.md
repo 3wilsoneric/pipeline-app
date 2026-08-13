@@ -132,8 +132,8 @@ but the app does not claim that OCR or extraction ran.
 
 ## Deployed runtime
 
-GitHub Actions run `31667023980` deployed commit `54f2ed4` successfully. The
-healthy revision is `pipeline-prod-web--54f2ed480e70dc4b`; it receives 100% of
+GitHub Actions run `31670713359` deployed commit `fd4ecec` successfully. The
+healthy revision is `pipeline-prod-web--fd4ecec2e486b19b`; it receives 100% of
 traffic and scales from one to three replicas.
 
 ```text
