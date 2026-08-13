@@ -44,6 +44,7 @@ check("Databricks has managed-identity Blob access", bicep.includes("storageData
 check("IaC does not silently buy a duplicate Databricks workspace", !bicep.includes("Microsoft.Databricks/workspaces@"));
 check("Document Intelligence local keys are disabled", bicep.includes("disableLocalAuth: true") && bicep.includes("documentIntelligenceDatabricksRole"));
 check("PostgreSQL public access is disabled", bicep.includes("publicNetworkAccess: 'Disabled'"));
+check("PostgreSQL allows only required application extensions", bicep.includes("name: 'azure.extensions'") && bicep.includes("value: 'PGCRYPTO,PG_TRGM'"));
 check("Container Apps uses a dedicated VNet", bicep.includes("infrastructureSubnetId: containerAppsSubnet.id"));
 check("Container Apps peer traffic is encrypted", bicep.includes("peerTrafficConfiguration") && bicep.includes("mtls"));
 check("GitHub deployment uses main-branch-bound OIDC", bicep.includes("token.actions.githubusercontent.com") && bicep.includes("ref:refs/heads/${githubBranch}") && deployment.includes("id-token: write") && deployment.includes("github.ref == 'refs/heads/main'"));

@@ -22,6 +22,7 @@ const admin = postgres(adminUrl.toString(), {
   prepare: false,
   onnotice: () => undefined,
 });
+let temporaryCreateGranted = false;
 
 try {
   await admin.begin(async (sql) => {
@@ -34,6 +35,7 @@ try {
     await setRolePassword(sql, "pipeline_migrator", migrationUrl.password);
     await setRolePassword(sql, "pipeline_runtime", runtimeUrl.password);
     await sql.unsafe("grant connect on database pipeline to pipeline_migrator, pipeline_runtime");
+    await sql.unsafe("grant create on database pipeline to pipeline_migrator");
     await sql.unsafe("create extension if not exists pgcrypto");
     await sql.unsafe("create extension if not exists pg_trgm");
     await sql.unsafe("create schema if not exists pipeline authorization pipeline_migrator");
@@ -43,10 +45,13 @@ try {
     await sql.unsafe("alter default privileges for role pipeline_migrator in schema pipeline grant usage, select, update on sequences to pipeline_runtime");
     await sql.unsafe("alter default privileges for role pipeline_migrator in schema pipeline grant execute on functions to pipeline_runtime");
   });
+  temporaryCreateGranted = true;
 
   await runMigrations(migrationUrl.toString());
 
   await admin.begin(async (sql) => {
+    await sql.unsafe("revoke create on database pipeline from pipeline_migrator");
+    temporaryCreateGranted = false;
     await sql.unsafe("grant usage on schema pipeline to pipeline_runtime");
     await sql.unsafe("grant select, insert, update, delete on all tables in schema pipeline to pipeline_runtime");
     await sql.unsafe("grant usage, select, update on all sequences in schema pipeline to pipeline_runtime");
@@ -71,6 +76,13 @@ try {
     },
   }, null, 2));
 } catch (error) {
+  if (temporaryCreateGranted) {
+    try {
+      await admin.unsafe("revoke create on database pipeline from pipeline_migrator");
+    } catch {
+      // The failed bootstrap is surfaced below; the next run repeats the revoke.
+    }
+  }
   console.error(JSON.stringify({
     ok: false,
     operation: "production_database_bootstrap",

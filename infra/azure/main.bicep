@@ -258,6 +258,15 @@ resource pipelineDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2
   }
 }
 
+resource postgresExtensions 'Microsoft.DBforPostgreSQL/flexibleServers/configurations@2025-08-01' = {
+  parent: postgres
+  name: 'azure.extensions'
+  properties: {
+    source: 'user-override'
+    value: 'PGCRYPTO,PG_TRGM'
+  }
+}
+
 resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
   name: keyVaultName
   location: location
