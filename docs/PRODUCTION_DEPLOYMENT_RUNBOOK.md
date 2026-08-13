@@ -24,7 +24,9 @@ The authoritative operator guide is `docs/AZURE_PRODUCTION_SETUP.md`.
 - Runtime secrets are Key Vault references resolved through managed identity.
 - Blob signing uses user-delegation SAS. Storage shared-key access is disabled.
 - PostgreSQL is private and the web uses the least-privilege runtime role.
-- Clinical data comes only from the governed Alamo API.
+- Clinical data comes only from the governed Alamo API. Before that connection
+  is configured, the adapter is explicitly optional, reports disconnected, and
+  every clinical route fails closed.
 
 ## Rollback
 

@@ -171,6 +171,7 @@ var baseEnvironment = [
   { name: 'PIPELINE_WORKER_SHARED_SECRET', secretRef: 'worker-shared-secret' }
   { name: 'CRON_SECRET', secretRef: 'worker-shared-secret' }
   { name: 'PIPELINE_CLINICAL_DATA_MODE', value: clinicalDataMode }
+  { name: 'PIPELINE_CLINICAL_DATA_REQUIRED', value: clinicalDataMode == 'alamo_api' ? 'true' : 'false' }
   { name: 'PIPELINE_CLIENT_HISTORY_MODE', value: 'disconnected' }
   { name: 'PIPELINE_CLINICAL_TIMEOUT_MS', value: '10000' }
   { name: 'PIPELINE_CLINICAL_MAX_RESPONSE_BYTES', value: '2097152' }

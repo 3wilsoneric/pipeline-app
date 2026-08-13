@@ -95,15 +95,20 @@ export function getClinicalAuthMode(): ClinicalAuthMode {
 export function getClinicalDataReadiness(): ClinicalDataReadiness {
   const mode = getClinicalDataMode();
   const authMode = getClinicalAuthMode();
-  const required = isProductionLikeRuntime();
-  const demoBlocked = required && mode === "demo_snapshot";
+  const configuredRequirement = process.env.PIPELINE_CLINICAL_DATA_REQUIRED?.trim();
+  const required = configuredRequirement === "false"
+    ? false
+    : configuredRequirement === "true"
+      ? true
+      : isProductionLikeRuntime();
+  const demoBlocked = isProductionLikeRuntime() && mode === "demo_snapshot";
   const missingEnv = mode === "alamo_api"
     ? getMissingClinicalEnvironment(authMode)
     : mode === "demo_snapshot" && !demoClinicalSnapshotExists()
       ? ["PIPELINE_CLINICAL_DEMO_SNAPSHOT_PATH"]
       : [];
   if (demoBlocked) missingEnv.push("PIPELINE_CLINICAL_DATA_MODE=alamo_api");
-  const productionBearerBlocked = required && authMode === "bearer";
+  const productionBearerBlocked = isProductionLikeRuntime() && authMode === "bearer";
   if (productionBearerBlocked) missingEnv.push("PIPELINE_ALAMO_AUTH_MODE=client_credentials|delegated");
   const connected = mode !== "disconnected" && missingEnv.length === 0;
 

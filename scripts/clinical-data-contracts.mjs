@@ -157,6 +157,20 @@ const results = await Promise.all([
     assert(!serialized.includes("fixture-secret"), "Readiness must never expose secret values");
     assert(!serialized.includes("fixture-client"), "Readiness must never expose client IDs");
   }),
+  run("an explicitly optional disconnected adapter is deployable but still fails closed", async () => {
+    const adapter = loadClinicalAdapter(async () => jsonResponse(fixture.health), {
+      PIPELINE_CLINICAL_DATA_MODE: "disconnected",
+      PIPELINE_CLINICAL_DATA_REQUIRED: "false",
+    });
+    const readiness = adapter.getClinicalDataReadiness();
+    assert(readiness.required === false && readiness.ready === true, "Optional disconnected clinical data must not block app readiness");
+    assert(readiness.connected === false, "Disconnected clinical data must never claim a connection");
+    await assertRejects(
+      () => adapter.getClinicalCensus(),
+      (error) => assert(error.status === 503 && error.code === "clinical_data_not_connected", "Disconnected clinical routes must fail closed"),
+      "Expected disconnected clinical access to fail closed",
+    );
+  }),
   run("clinical health and stale data remain governed and explicit", async () => {
     const stale = structuredClone(fixture.census);
     stale.freshness = {

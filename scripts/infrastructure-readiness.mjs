@@ -65,6 +65,7 @@ check("runtime preserves browser-safe Entra readiness configuration", [
   "NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED",
   "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED",
 ].every((name) => runtime.includes(`name: '${name}'`)));
+check("clinical readiness is explicit for connected and disconnected deployments", runtime.includes("name: 'PIPELINE_CLINICAL_DATA_REQUIRED'") && runtime.includes("clinicalDataMode == 'alamo_api' ? 'true' : 'false'"));
 check("Databricks API uses OAuth M2M rather than a PAT", runtime.includes("PIPELINE_DATABRICKS_AUTH_MODE") && runtime.includes("oauth_m2m") && !runtime.includes("DATABRICKS_TOKEN"));
 check("Blob adapter has no shared-key credential path", blobAdapter.includes("DefaultAzureCredential") && !blobAdapter.includes("StorageSharedKeyCredential") && !blobAdapter.includes("AZURE_STORAGE_ACCOUNT_KEY"));
 check("runtime reads secrets from Key Vault", runtime.includes("keyVaultUrl") && runtime.includes("identity: keyVaultSecretIdentity"));
