@@ -19,6 +19,7 @@ test.describe("Stable visual surfaces", () => {
 
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
+    await expect(page.getByRole("alert")).toContainText("Admitted-client profiles are unavailable.");
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-profiles.png", screenshotOptions());
 
@@ -49,10 +50,6 @@ async function openStable(page: Page, url: string) {
 async function settleStable(page: Page) {
   await page.waitForLoadState("networkidle");
   await page.evaluate(() => document.fonts.ready);
-  await page.addStyleTag({
-    content:
-      "*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }",
-  });
 }
 
 function screenshotOptions() {
