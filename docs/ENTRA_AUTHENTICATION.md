@@ -56,6 +56,8 @@ No client secret is needed for the browser SPA registration. The server session 
 - `proxy.ts` validates protected page and API requests before they reach the app.
 - Server routes validate issuer, audience, signature, delegated scope, allowed email, and required role.
 - The browser stores MSAL state in `sessionStorage` and sends a bearer token through the authenticated fetch helper.
+- Interactive sign-in requests `select_account` so a browser with another active
+  Microsoft session cannot silently choose the wrong Pipeline identity.
 - The short-lived HttpOnly Pipeline session cookie is encrypted server-side and is only a continuity mechanism; it is not a replacement for JWT validation.
 - Errors are generic and logs never include tokens, query strings, names, diagnoses, medication data, resident IDs, secrets, or upstream response bodies.
 

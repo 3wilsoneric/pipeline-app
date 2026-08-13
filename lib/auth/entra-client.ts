@@ -51,6 +51,9 @@ export const msalInstance = new PublicClientApplication(msalConfig);
 
 export const loginRequest: RedirectRequest = {
   scopes: ["openid", "profile", "email", ...(pipelineApiScope ? [pipelineApiScope] : [])],
+  // Pipeline users can have multiple Microsoft sessions and external aliases.
+  // Always make the chosen identity explicit instead of silently reusing one.
+  prompt: "select_account",
 };
 
 let initializePromise: Promise<void> | null = null;

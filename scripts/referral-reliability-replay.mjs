@@ -286,6 +286,7 @@ function checkApiObservabilityGuardrails() {
 
 function checkAuthGuardrails() {
   const auth = readText("lib/auth/pipeline-auth.ts");
+  const entraClient = readText("lib/auth/entra-client.ts");
   const proxy = readText("proxy.ts");
   const signInPage = readText("app/sign-in/page.tsx");
   const authMeRoute = readText("app/api/auth/me/route.ts");
@@ -322,6 +323,10 @@ function checkAuthGuardrails() {
     signInPage.includes("PipelineSignIn") &&
       signInPage.includes("normalizePostLoginPath"),
     "Sign-in page should use the Entra sign-in surface and safe return path",
+  );
+  assert(
+    entraClient.includes('prompt: "select_account"'),
+    "Interactive Entra sign-in should require explicit account selection",
   );
   assert(
     authMeRoute.includes("requirePipelineUser") && authMeRoute.includes("roles: auth.user.roles"),
