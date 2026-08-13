@@ -11,6 +11,7 @@ const workerAuth = read("lib/auth/internal-worker-auth.ts");
 const alerts = read("infra/azure/operational-alerts.bicep");
 const databaseBootstrap = read("scripts/bootstrap-production-database.mjs");
 const initialConfiguration = read("scripts/configure-azure-production.sh");
+const entraConfiguration = read("scripts/configure-entra-identities.sh");
 const databaseFinalization = read("scripts/finalize-azure-database-bootstrap.sh");
 const domainConfiguration = read("scripts/configure-azure-domain.sh");
 const blobAdapter = read("lib/extraction/azure-blob.ts");
@@ -66,6 +67,12 @@ check("runtime preserves browser-safe Entra readiness configuration", [
   "NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED",
   "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED",
 ].every((name) => runtime.includes(`name: '${name}'`)));
+check(
+  "Entra setup grants and verifies delegated Pipeline consent",
+  entraConfiguration.includes('az ad app permission admin-consent --id "$pipeline_app_id"')
+    && entraConfiguration.includes('and .consentType == "AllPrincipals"')
+    && entraConfiguration.includes('index("access_as_user") != null'),
+);
 check("clinical readiness is explicit for connected and disconnected deployments", runtime.includes("name: 'PIPELINE_CLINICAL_DATA_REQUIRED'") && runtime.includes("clinicalDataMode == 'alamo_api' ? 'true' : 'false'"));
 check("Databricks API uses OAuth M2M rather than a PAT", runtime.includes("PIPELINE_DATABRICKS_AUTH_MODE") && runtime.includes("oauth_m2m") && !runtime.includes("DATABRICKS_TOKEN"));
 check("Blob adapter has no shared-key credential path", blobAdapter.includes("DefaultAzureCredential") && !blobAdapter.includes("StorageSharedKeyCredential") && !blobAdapter.includes("AZURE_STORAGE_ACCOUNT_KEY"));

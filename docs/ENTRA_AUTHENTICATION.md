@@ -62,7 +62,9 @@ No client secret is needed for the browser SPA registration. The server session 
 ## Deployment order
 
 1. Create/configure the Entra app registration and exact redirect/logout URIs.
-2. Expose `access_as_user`, assign permissions, and grant admin consent.
+2. Expose `access_as_user`, assign permissions, and grant tenant-wide admin
+   consent. `scripts/configure-entra-identities.sh` fails closed if the
+   resulting delegated permission grant cannot be verified.
 3. Bake the browser-safe identifiers into the immutable container image and map server-only secrets from Azure Key Vault through the runtime managed identity.
 4. Add the existing `PIPELINE_ALAMO_*` clinical adapter variables separately when the Alamo API is ready.
 5. Deploy, open `/sign-in`, complete a real sign-in, and verify a protected API request returns the signed-in Pipeline user.

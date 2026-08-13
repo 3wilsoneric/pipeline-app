@@ -49,6 +49,8 @@ No browser secret exists. No service secret has been generated or stored yet.
 The configured SPA redirects are the localhost sign-in route and the exact
 sign-in routes for the generated Azure hostname, `alamo-pipeline.com`, and
 `www.alamo-pipeline.com`. No wildcard redirect or browser secret is configured.
+Tenant-wide admin consent is granted only for the human application's
+`access_as_user` delegated scope.
 
 The public `.com` registry confirms `alamo-pipeline.com` was registered through
 GoDaddy on 12 August 2026. The authoritative nameservers are

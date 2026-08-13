@@ -148,6 +148,28 @@ az rest \
   --body "@$api_body" \
   --output none
 
+# Pre-authorization suppresses an interactive consent prompt, but the tenant
+# still needs the delegated grant before an assigned user can receive a token.
+az ad app permission admin-consent --id "$pipeline_app_id"
+delegated_grants="$(az rest \
+  --method GET \
+  --url "https://graph.microsoft.com/v1.0/oauth2PermissionGrants" \
+  --output json)"
+if ! jq -e \
+  --arg client_id "$pipeline_sp_object_id" \
+  --arg resource_id "$pipeline_sp_object_id" \
+  '.value[]?
+    | select(
+        .clientId == $client_id
+        and .resourceId == $resource_id
+        and .consentType == "AllPrincipals"
+        and ((.scope // "") | split(" ") | index("access_as_user") != null)
+      )' \
+  <<<"$delegated_grants" >/dev/null; then
+  printf 'Tenant-wide admin consent for Pipeline access_as_user was not created.\n' >&2
+  exit 2
+fi
+
 az rest \
   --method PATCH \
   --url "https://graph.microsoft.com/v1.0/servicePrincipals/${pipeline_sp_object_id}" \
