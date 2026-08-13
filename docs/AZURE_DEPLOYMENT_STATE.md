@@ -46,21 +46,22 @@ api://40283155-592b-4565-bd3c-c730a34feaaa/.default
 ```
 
 No browser secret exists. No service secret has been generated or stored yet.
-The configured SPA redirects are `http://localhost:3000/sign-in` and
-`https://alamo-pipeline.com/sign-in`. No wildcard redirect or browser secret is
-configured.
+The configured SPA redirects are the localhost sign-in route and the exact
+sign-in routes for the generated Azure hostname, `alamo-pipeline.com`, and
+`www.alamo-pipeline.com`. No wildcard redirect or browser secret is configured.
 
 The public `.com` registry confirms `alamo-pipeline.com` was registered through
 GoDaddy on 12 August 2026. The authoritative nameservers are
-`ns41.domaincontrol.com` and `ns42.domaincontrol.com`. Add these records at
-GoDaddy before binding the managed certificate:
+`ns41.domaincontrol.com` and `ns42.domaincontrol.com`. These records are active:
 
 ```text
 A    @      48.192.77.119
 TXT  asuid  FA03E93FC8735330D0F4ED514A466A01A12F9EA27D0D8D43C62DD7AB240C55AE
+CNAME www    alamo-pipeline.com
+TXT  asuid.www  FA03E93FC8735330D0F4ED514A466A01A12F9EA27D0D8D43C62DD7AB240C55AE
 ```
 
-Keep the `asuid` TXT record after validation for ownership checks and
+Keep both `asuid` TXT records after validation for ownership checks and
 certificate renewal.
 
 ## Existing Alamo resources
@@ -135,14 +136,19 @@ traffic and scales from one to three replicas.
 
 ```text
 https://pipeline-prod-web.delightfulfield-ea30179b.westus2.azurecontainerapps.io
+https://alamo-pipeline.com
+https://www.alamo-pipeline.com
 ```
 
 Both `/api/health/live` and `/api/health` return `200`. PostgreSQL, referral,
 assessment, resident-link, authentication, durable upload, and user-workspace
 state checks are ready and multi-instance safe where applicable. The sign-in
-page and exact Azure-hostname Entra redirect are active for testing while DNS
-propagates. Blob CORS allows only the generated Azure origin and
-`https://alamo-pipeline.com`.
+page and exact custom-domain Entra redirect are active. Azure validated the
+hostnames and issued managed certificates
+`mc-pipeline-prod--alamo-pipeline-c-7484` and
+`mc-pipeline-prod--www-alamo-pipeli-3834`, currently valid through 13 February
+2027. Blob CORS allows only the generated Azure origin and the two production
+custom-domain origins.
 
 The one-time PostgreSQL bootstrap succeeded, invalidated its administrator
 credential, and was finalized. The administrator URL and bootstrap job were
@@ -155,15 +161,12 @@ work, while automatic OCR/extraction remains disabled.
 
 ## Remaining gates
 
-1. Add the two generated GoDaddy records, wait for DNS propagation, then run
-   `scripts/configure-azure-domain.sh alamo-pipeline.com apex` to bind the
-   managed certificate.
-2. Generate the clinical client credential only at the local hidden prompt and
+1. Generate the clinical client credential only at the local hidden prompt and
    store it directly in Key Vault.
-3. Configure role groups or the final pilot user list. Do not leave the app open
+2. Configure role groups or the final pilot user list. Do not leave the app open
    to the tenant.
-4. Create the dedicated Databricks extraction principal and production worker
+3. Create the dedicated Databricks extraction principal and production worker
    before switching packet processing to `azure_databricks`.
-5. Add an Azure Monitor action group after alert recipients are approved.
-6. Confirm Microsoft agreement/BAA coverage and name the retention/deletion
+4. Add an Azure Monitor action group after alert recipients are approved.
+5. Confirm Microsoft agreement/BAA coverage and name the retention/deletion
    approver before real PHI is uploaded.
