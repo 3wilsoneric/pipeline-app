@@ -11,15 +11,20 @@ export async function GET(request: Request, context: { params: Promise<{ documen
     const { documentId } = await context.params;
     if (!isDocumentId(documentId)) return Response.json({ error: "Preview not found." }, { status: 404 });
     const rawPage = new URL(request.url).searchParams.get("page");
+    const variant = new URL(request.url).searchParams.get("variant");
     const page = rawPage && /^\d{1,5}$/.test(rawPage) && Number(rawPage) > 0 ? Number(rawPage) : undefined;
     if (rawPage && page === undefined) return Response.json({ error: "page is invalid." }, { status: 400 });
+    if (variant && variant !== "thumbnail") return Response.json({ error: "variant is invalid." }, { status: 400 });
+    if (variant === "thumbnail" && page === undefined) {
+      return Response.json({ error: "A page is required for a thumbnail." }, { status: 400 });
+    }
     if (!getPipelineDatabaseReadiness().ready) {
       return Response.json({ error: "File storage is temporarily unavailable." }, { status: 503 });
     }
     try {
       const asset = await getDocumentPreviewAsset(documentId, page);
       if (!asset) return Response.json({ error: "Preview not found." }, { status: 404 });
-      return proxyDocumentAsset(request, asset);
+      return proxyDocumentAsset(request, asset, { thumbnail: variant === "thumbnail" });
     } catch (error) {
       if (error instanceof DocumentProcessingError) return Response.json({ error: error.message, code: error.code }, { status: error.status });
       throw error;

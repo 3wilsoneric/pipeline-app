@@ -65,6 +65,14 @@ type FilePreviewMetadata = {
     preview_url: string;
     thumbnail_url: string;
   }>;
+  pagination: {
+    after_page: number;
+    limit: number;
+    returned: number;
+    has_more: boolean;
+    first_page: number | null;
+    last_page: number | null;
+  };
   next_page_after?: number;
 };
 
@@ -770,7 +778,7 @@ function FilePreviewDialog({ file, onClose }: { file: ReferralFile; onClose: () 
               {isLocalPacket
                 ? `${file.category} · ${file.sizeBytes === undefined ? "Size unavailable" : formatFileSize(file.sizeBytes)}`
                 : metadata
-                ? `${metadata.category} · ${formatFileSize(metadata.byte_size)} · ${metadata.page_count ?? metadata.pages.length} page${metadata.page_count === 1 ? "" : "s"}`
+                ? `${formatDocumentCategory(metadata.category)} · ${formatFileSize(metadata.byte_size)} · ${metadata.page_count ?? metadata.pages.length} page${metadata.page_count === 1 ? "" : "s"}`
                 : `${file.category} · Loading metadata`}
             </p>
           </div>
@@ -860,6 +868,14 @@ function FilePreviewDialog({ file, onClose }: { file: ReferralFile; onClose: () 
       </section>
     </div>
   );
+}
+
+function formatDocumentCategory(value: string) {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word === "lic" ? "LIC" : word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function getMonthKey(value: string) {

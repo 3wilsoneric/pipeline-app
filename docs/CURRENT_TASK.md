@@ -91,7 +91,10 @@ and changed-file inventory are in
   link. Alamo clinical access remains server-only. Governed DOB is displayed
   when the approved contract supplies it.
 - The profile supports explicit referral selection and role-aware candidate
-  confirmation/rejection. It never proposes or confirms a name-only join.
+  confirmation/rejection. Unlinked profiles can show explained resident-number
+  or name-plus-DOB suggestions, but suggestions never join records. A user must
+  submit a candidate and a reviewer must confirm it; rejected and duplicate
+  resident/person links remain blocked.
 - Referral browsing now uses stable keyset paging, server-side search, filters,
   and canonical facets. The kanban board is intentionally removed. Guarded
   workflow transitions remain available through the work surface.
@@ -99,6 +102,25 @@ and changed-file inventory are in
   `My work`, `Unassigned`, `Packet review`, `Assessment`, and `Decision` views.
   These views query canonical owner, stage, packet, assessment, and decision
   state; they do not persist a second queue or accept drag-and-drop stage moves.
+- The `Needs action` worklist now presents the operating truth directly: client,
+  next action, blocker or missing-data summary, owner, due date, last activity,
+  and completion. Search includes blocker and missing-data labels. The worklist
+  is horizontally contained on narrow screens and never widens the page.
+- Durable uploads now carry an explicit governed document category. File
+  metadata exposes bounded page pagination, separate authenticated preview and
+  thumbnail URLs, dimensions, scan/processing state, and human-readable
+  categories. Thumbnail generation is image-only, byte- and pixel-bounded, and
+  remains private/no-store.
+- The sample-packet smoke is local-only unless a remote non-production target is
+  explicitly authorized. It verifies populated extraction values, page/evidence
+  references, correction history, referral linkage, and reopening the saved
+  extraction. The supplied short and 48-page face sheets both completed this
+  rehearsal without printing extracted values.
+- The local ten-user collaboration smoke passed with ten distinct leases,
+  twenty change polls, disjoint section saves, and exactly one winner plus nine
+  `409` conflicts for same-section contention. PostgreSQL contention and durable
+  per-user workspace-state checks still require a disposable
+  `PIPELINE_TEST_DATABASE_URL`; never point those drills at production.
 - Packet review supports an explicit, reversible confirmation step for
   non-conflicting values at 90% confidence or higher. Lower-confidence,
   missing, and conflicted values remain individual review work. Owner and

@@ -14,12 +14,28 @@ export type ReviewAction = "accept" | "edit" | "reject";
 
 export type ExtractorSource = "document_intelligence" | "claude" | "human";
 
+export const documentCategories = [
+  "referral_packet",
+  "face_sheet",
+  "assessment",
+  "medication_list",
+  "tb_test",
+  "signed_admission_agreement",
+  "conservatorship_document",
+  "lic_602",
+  "lic_601_603",
+  "provider_form",
+  "other",
+] as const;
+export type DocumentCategory = (typeof documentCategories)[number];
+
 export type UploadFileDescriptor = {
   file_id: string;
   filename: string;
   content_type: string;
   size: number;
   sha256?: string;
+  category?: DocumentCategory;
 };
 
 export type CreateUploadUrlRequest = {
@@ -289,6 +305,10 @@ export function validateCreateUploadUrlRequest(
 
     if (file.sha256 !== undefined && !/^[a-f0-9]{64}$/.test(file.sha256)) {
       return invalid("sha256 must be a lowercase hexadecimal SHA-256 digest.");
+    }
+
+    if (file.category !== undefined && !documentCategories.includes(file.category)) {
+      return invalid("File category is not supported.");
     }
 
     if (file.size > maxUploadFileBytes) {

@@ -121,15 +121,19 @@ export async function createDurableUploadTargets(
         if (Number(existing[0].referral_id) !== referralId) {
           throw new DocumentProcessingError("packet_id_conflict", 409, "This packet id belongs to another referral.");
         }
-        const existingFiles = await tx<{ file_id: string; expected_sha256: string }[]>`
-          select file_id, expected_sha256 from pipeline.packet_upload_files
-          where packet_id = ${packetId}::uuid order by file_id
+        const existingFiles = await tx<{ file_id: string; expected_sha256: string; category: string }[]>`
+          select pf.file_id, pf.expected_sha256, d.category
+          from pipeline.packet_upload_files pf
+          join pipeline.documents d on d.document_id = pf.document_id
+          where pf.packet_id = ${packetId}::uuid order by pf.file_id
         `;
         const requestFiles = [...input.files].sort((a, b) => a.file_id.localeCompare(b.file_id));
         if (
           existingFiles.length !== requestFiles.length ||
           existingFiles.some((file, index) =>
-            file.file_id !== requestFiles[index]?.file_id || file.expected_sha256 !== requestFiles[index]?.sha256
+            file.file_id !== requestFiles[index]?.file_id
+              || file.expected_sha256 !== requestFiles[index]?.sha256
+              || file.category !== (requestFiles[index]?.category ?? "referral_packet")
           )
         ) {
           throw new DocumentProcessingError("packet_payload_conflict", 409, "The packet id was already used with different files.");
@@ -154,7 +158,7 @@ export async function createDurableUploadTargets(
             referral_id, person_id, category, file_name, content_type, byte_size, sha256,
             blob_container, blob_key, processing_status, uploaded_by, retention_until
           ) values (
-            ${referralId}, ${referrals[0].person_id}::uuid, 'referral_packet', ${file.filename},
+            ${referralId}, ${referrals[0].person_id}::uuid, ${file.category ?? "referral_packet"}, ${file.filename},
             ${file.content_type.toLowerCase()}, ${file.size}, ${file.sha256!}, ${rawContainer},
             ${target.blob_path}, 'reserved', ${actor.id}, now() + interval '7 years'
           ) returning document_id

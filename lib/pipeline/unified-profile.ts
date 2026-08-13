@@ -8,6 +8,8 @@ import {
 import { getAssessmentToolCoverage } from "@/lib/assessment/assessment-tool-schema";
 import { getClinicalResident } from "@/lib/clinical/clinical-data";
 import { getClientHistoryForResident } from "./client-history-store";
+import { pipelineCommunityFromClinicalName } from "./community-config";
+import { findClinicalResidentMatch } from "./referral-clinical-reconciliation";
 import type {
   AdmissionRequirement,
   Referral,
@@ -16,6 +18,7 @@ import {
   getReferral,
   getReferralStoreReadiness,
   listReferralFilesByClient,
+  listReferrals,
   listReferralsByClient,
 } from "./referral-store";
 import type { PipelineResidentLink } from "./resident-link-records";
@@ -23,6 +26,7 @@ import { listResidentLinks } from "./resident-link-store";
 import type {
   UnifiedClientProfileResponse,
   UnifiedProfileConnection,
+  UnifiedProfileLinkSuggestion,
 } from "./unified-profile-contracts";
 
 export type {
@@ -74,7 +78,17 @@ export async function getUnifiedClientProfile(
     );
   }
   const candidates = links.filter((link) => link.status === "candidate");
-  const connection = buildConnection(confirmed[0] ?? null, candidates);
+  let suggestions: UnifiedProfileLinkSuggestion[] = [];
+  if (confirmed.length === 0 && candidates.length === 0) {
+    try {
+      suggestions = await loadReferralSuggestions(resident, links);
+    } catch {
+      // Suggestions are optional. The governed clinical profile must remain
+      // available even when operational search is temporarily unavailable.
+      suggestions = [];
+    }
+  }
+  const connection = buildConnection(confirmed[0] ?? null, candidates, suggestions);
   if (!connection.confirmed_link) {
     return {
       ...clinical,
@@ -141,12 +155,14 @@ export function unifiedProfileErrorResponse(error: unknown) {
 function buildConnection(
   confirmedLink: PipelineResidentLink | null,
   candidates: PipelineResidentLink[],
+  suggestions: UnifiedProfileLinkSuggestion[],
 ): UnifiedProfileConnection {
   if (confirmedLink) {
     return {
       status: "confirmed",
       confirmed_link: confirmedLink,
       candidates,
+      suggestions: [],
       message: "Pipeline operational records are joined through a reviewed resident link.",
     };
   }
@@ -155,6 +171,7 @@ function buildConnection(
       status: "candidate",
       confirmed_link: null,
       candidates,
+      suggestions: [],
       message: "A possible Pipeline identity match needs human review before operational records can be joined.",
     };
   }
@@ -162,8 +179,89 @@ function buildConnection(
     status: "unlinked",
     confirmed_link: null,
     candidates: [],
-    message: "No reviewed Pipeline identity link exists. This profile will not be matched by name.",
+    suggestions,
+    message: "No reviewed Pipeline identity link exists. Residents will not be matched by name, and suggestions never join records automatically.",
   };
+}
+
+async function loadReferralSuggestions(
+  resident: UnifiedClientProfileResponse["resident"],
+  links: PipelineResidentLink[],
+): Promise<UnifiedProfileLinkSuggestion[]> {
+  if (!getReferralStoreReadiness().ready) return [];
+  const query = normalizeNameTokens(resident.display_name).at(-1);
+  if (!query) return [];
+
+  const rejectedReferralIds = new Set(
+    links
+      .filter((link) => link.status === "rejected" && link.resident_key === resident.resident_key)
+      .map((link) => link.referral_id)
+      .filter((value): value is number => value !== null),
+  );
+  const result = await listReferrals({ query, limit: 100 });
+  const clinicalCommunity = pipelineCommunityFromClinicalName(resident.community_name);
+  const suggestions = result.referrals.flatMap((referral) => {
+    if (!referral.clientId || rejectedReferralIds.has(referral.id)) return [];
+    const reviewedNumber = reviewedResidentNumber(referral);
+    const residentNumber = normalizeIdentifier(resident.resident_number);
+    const residentNumberMatch = Boolean(reviewedNumber && residentNumber && reviewedNumber === residentNumber);
+    const nameDobMatch = findClinicalResidentMatch(referral, [resident]);
+    if (!residentNumberMatch && !nameDobMatch) return [];
+
+    const matchMethod = residentNumberMatch
+      ? "resident_number_exact" as const
+      : nameDobMatch!.method;
+    const reasons = [
+      residentNumberMatch
+        ? "Reviewed resident number matches exactly"
+        : nameDobMatch!.method === "exact_name_dob"
+          ? "Name and date of birth match exactly"
+          : "Name is compatible and date of birth matches exactly",
+      ...(clinicalCommunity === referral.community ? ["Community matches the current census"] : []),
+    ];
+    return [{
+      referral_id: referral.id,
+      pipeline_client_id: referral.clientId,
+      client_name: referral.name,
+      community: referral.community,
+      stage: referral.stage,
+      received_at: referral.date,
+      confidence: residentNumberMatch ? 1 : nameDobMatch!.confidence,
+      match_method: matchMethod,
+      reasons,
+    }];
+  });
+
+  const latestByClient = new Map<string, UnifiedProfileLinkSuggestion>();
+  for (const suggestion of suggestions.sort(compareSuggestions)) {
+    if (!latestByClient.has(suggestion.pipeline_client_id)) {
+      latestByClient.set(suggestion.pipeline_client_id, suggestion);
+    }
+  }
+  return [...latestByClient.values()].slice(0, 5);
+}
+
+function reviewedResidentNumber(referral: Referral) {
+  const field = referral.packetFields?.find((candidate) => {
+    const key = candidate.field_key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return ["residentnumber", "eldermarkresidentnumber"].includes(key)
+      && ["accepted", "edited"].includes(candidate.review_status);
+  });
+  return normalizeIdentifier(field?.final_value ?? field?.proposed_value);
+}
+
+function compareSuggestions(left: UnifiedProfileLinkSuggestion, right: UnifiedProfileLinkSuggestion) {
+  return right.confidence - left.confidence
+    || right.received_at.localeCompare(left.received_at)
+    || right.referral_id - left.referral_id;
+}
+
+function normalizeNameTokens(value: string) {
+  return value.normalize("NFKD").toLowerCase().match(/[a-z0-9]+/g) ?? [];
+}
+
+function normalizeIdentifier(value: string | null | undefined) {
+  return value?.trim().toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
 }
 
 function emptyPipelineProjection(

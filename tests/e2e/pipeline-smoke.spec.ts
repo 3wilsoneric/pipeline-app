@@ -22,7 +22,8 @@ const unifiedProfileFixture = {
       status: "unlinked",
       confirmed_link: null,
       candidates: [],
-      message: "No reviewed Pipeline identity link exists. This profile will not be matched by name.",
+      suggestions: [],
+      message: "No reviewed Pipeline identity link exists. Suggestions never join records automatically.",
     },
     referrals: [],
     assessments: [],
@@ -343,7 +344,12 @@ test.describe("Referral home and packet canvas", () => {
     expect((await page.request.get("/api/referrals?queue=my_work&limit=10")).ok()).toBeTruthy();
     const worklistResponse = await page.request.get("/api/operations/referral-worklist");
     expect(worklistResponse.ok()).toBeTruthy();
-    await expect(worklistResponse.json()).resolves.toMatchObject({
+    const worklist = await worklistResponse.json() as {
+      total: number;
+      counts: Record<string, number>;
+      items: Array<Record<string, unknown>>;
+    };
+    expect(worklist).toMatchObject({
       total: expect.any(Number),
       counts: {
         all_actionable: expect.any(Number),
@@ -356,6 +362,17 @@ test.describe("Referral home and packet canvas", () => {
       },
       items: expect.any(Array),
     });
+    if (worklist.items[0]) {
+      expect(worklist.items[0]).toMatchObject({
+        next_action: expect.any(String),
+        blockers: expect.any(Array),
+        missing_data: expect.any(Array),
+        owner: expect.any(String),
+        last_activity_at: expect.any(String),
+        completion_pct: expect.any(Number),
+      });
+      expect(worklist.items[0].due_at === null || typeof worklist.items[0].due_at === "string").toBeTruthy();
+    }
     expect((await page.request.get("/api/referrals?cursor=-1")).status()).toBe(400);
     expect((await page.request.get("/api/files?limit=500")).status()).toBe(400);
   });
@@ -623,6 +640,8 @@ test.describe("Referral home and packet canvas", () => {
     expect((await page.request.get(`/api/files/${documentId}?after_page=50001`)).status()).toBe(400);
     expect((await page.request.get(`/api/files/${documentId}/preview?page=0`)).status()).toBe(400);
     expect((await page.request.get(`/api/files/${documentId}/preview?page=100000`)).status()).toBe(400);
+    expect((await page.request.get(`/api/files/${documentId}/preview?variant=thumbnail`)).status()).toBe(400);
+    expect((await page.request.get(`/api/files/${documentId}/preview?page=1&variant=full`)).status()).toBe(400);
     expect((await page.request.get(`/api/files/${documentId}?limit=24`)).status()).toBe(503);
     expect((await page.request.get(`/api/files/${documentId}/preview?page=1`)).status()).toBe(503);
   });
@@ -1700,20 +1719,46 @@ test.describe("Pipeline home", () => {
         status: string;
         confirmed_link: typeof candidate | null;
         candidates: Array<typeof candidate>;
+        suggestions: Array<{
+          referral_id: number;
+          pipeline_client_id: string;
+          client_name: string;
+          community: string;
+          stage: string;
+          received_at: string;
+          confidence: number;
+          match_method: string;
+          reasons: string[];
+        }>;
         message: string;
       } = connectionStatus === "unlinked"
-        ? unifiedProfileFixture.pipeline.connection
+        ? {
+            ...unifiedProfileFixture.pipeline.connection,
+            suggestions: [{
+              referral_id: referral.id,
+              pipeline_client_id: referral.clientId,
+              client_name: referral.name,
+              community: referral.community,
+              stage: referral.stage,
+              received_at: referral.date,
+              confidence: 1,
+              match_method: "exact_name_dob",
+              reasons: ["Name and date of birth match exactly", "Community matches the current census"],
+            }],
+          }
         : connectionStatus === "candidate"
           ? {
               status: "candidate",
               confirmed_link: null,
               candidates: [candidate],
+              suggestions: [],
               message: "A possible Pipeline identity match needs human review before operational records can be joined.",
             }
           : {
               status: "confirmed",
               confirmed_link: { ...candidate, status: "confirmed", version: 2 },
               candidates: [],
+              suggestions: [],
               message: "Pipeline operational records are joined through a reviewed resident link.",
             };
       (profile.pipeline as unknown as { connection: typeof connection }).connection = connection;
@@ -1729,7 +1774,12 @@ test.describe("Pipeline home", () => {
     await page.route("**/api/resident-links", async (route) => {
       expect(route.request().method()).toBe("POST");
       const body = route.request().postDataJSON() as { referral_id: number; resident_key: string; match_method: string };
-      expect(body).toMatchObject({ referral_id: referral.id, resident_key: resident.resident_key, match_method: "manual" });
+      expect(body).toMatchObject({
+        referral_id: referral.id,
+        resident_key: resident.resident_key,
+        match_method: "manual",
+        match_confidence: 1,
+      });
       connectionStatus = "candidate";
       await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ ok: true, link: candidate, revision: 1 }) });
     });
@@ -1744,8 +1794,9 @@ test.describe("Pipeline home", () => {
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await page.getByRole("button", { name: /Avery Example/ }).click();
     await page.getByRole("button", { name: "Choose Pipeline referral" }).click();
-    await page.getByPlaceholder("Find the exact referral").fill("Avery");
-    await page.getByRole("button", { name: /Avery Example.*#101/ }).click();
+    await expect(page.getByText("Suggested matches", { exact: true })).toBeVisible();
+    await expect(page.getByText("Name and date of birth match exactly", { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: /Avery Example.*#101.*Name and date of birth match exactly/ }).click();
     await page.getByRole("button", { name: "Send match for review" }).click();
     await expect(page.getByText("Identity review needed", { exact: true }).first()).toBeVisible();
     await page.getByRole("button", { name: "Review" }).click();

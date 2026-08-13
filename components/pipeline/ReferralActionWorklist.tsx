@@ -87,13 +87,14 @@ export default function ReferralActionWorklist({
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <div className="min-w-[960px]">
-            <div className="grid grid-cols-[minmax(210px,1.15fr)_minmax(280px,1.55fr)_150px_135px_125px_120px_36px] items-center border-b border-[#d9d9d9] bg-[#fafafa] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">
+          <div className="min-w-[1120px]">
+            <div className="grid grid-cols-[minmax(190px,1fr)_minmax(240px,1.25fr)_minmax(190px,1fr)_125px_105px_110px_100px_36px] items-center border-b border-[#d9d9d9] bg-[#fafafa] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">
               <span>Client</span>
               <span>Next action</span>
-              <span>Queue</span>
+              <span>Blockers / missing</span>
               <span>Owner</span>
-              <span>Due / age</span>
+              <span>Due</span>
+              <span>Last activity</span>
               <span>Complete</span>
               <span className="sr-only">Open</span>
             </div>
@@ -121,7 +122,7 @@ function WorklistRow({
       type="button"
       onClick={() => onOpenPacket({ id: item.referral_id, name: item.client_name, community: item.community })}
       aria-label={`Open ${item.client_name} referral packet`}
-      className="grid w-full grid-cols-[minmax(210px,1.15fr)_minmax(280px,1.55fr)_150px_135px_125px_120px_36px] items-center px-4 py-3 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
+      className="grid w-full grid-cols-[minmax(190px,1fr)_minmax(240px,1.25fr)_minmax(190px,1fr)_125px_105px_110px_100px_36px] items-center px-4 py-3 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
     >
       <span className="min-w-0 pr-4">
         <span className="block truncate text-[12px] font-black text-[#111111]">{item.client_name}</span>
@@ -133,17 +134,25 @@ function WorklistRow({
           {item.urgency !== "normal" ? <CircleAlert size={13} className={`mt-0.5 shrink-0 ${urgencyText(item.urgency)}`} /> : null}
           <span className="truncate">{item.next_action}</span>
         </span>
-        <span className="mt-1 block truncate text-[9px] text-[#737373]">
-          {secondaryDetail(item)}
+        <span className="mt-1 flex min-w-0 items-center gap-2">
+          <span className={categoryClass(item.primary_category)}>{referralWorklistCategoryLabel(item.primary_category)}</span>
+          {item.categories.length > 1 ? <span className="truncate text-[9px] text-[#737373]">+{item.categories.length - 1} need{item.categories.length === 2 ? "" : "s"}</span> : null}
         </span>
       </span>
 
-      <span>
-        <span className={categoryClass(item.primary_category)}>{referralWorklistCategoryLabel(item.primary_category)}</span>
-        {item.categories.length > 1 ? <span className="mt-1 block text-[9px] text-[#737373]">+{item.categories.length - 1} other need{item.categories.length === 2 ? "" : "s"}</span> : null}
+      <span className="min-w-0 pr-4">
+        <span className={`block truncate text-[10px] font-semibold ${item.blockers.length > 0 ? "text-[#a4473c]" : "text-[#595959]"}`}>
+          {needsSummary(item)}
+        </span>
+        {item.blockers.length > 0 && item.missing_data.length > item.blockers.length ? (
+          <span className="mt-1 block truncate text-[9px] text-[#737373]">
+            {item.missing_data.length} incomplete items total
+          </span>
+        ) : null}
       </span>
       <span className={`truncate text-[10px] font-semibold ${item.owner === "Unassigned" ? "text-[#a4473c]" : "text-[#404040]"}`}>{item.owner}</span>
       <span className="text-[10px] text-[#595959]">{dueOrAge(item)}</span>
+      <span className="text-[10px] text-[#595959]">{lastActivity(item.last_activity_at, item.age_hours)}</span>
       <span className="pr-4">
         <span className="flex items-center justify-between text-[10px]">
           <span className="font-black text-[#111111]">{item.completion_pct}%</span>
@@ -167,20 +176,26 @@ function emptyLabel(bucket: ReferralWorklistBucket) {
   return "No referrals are blocked";
 }
 
-function secondaryDetail(item: ReferralWorklistItem) {
-  if (item.missing_document_count > 0) {
-    return `${item.missing_document_count} missing document${item.missing_document_count === 1 ? "" : "s"}`;
-  }
-  if (item.priority !== "standard") return `${item.priority} priority`;
-  return `${Math.max(0, Math.round(item.age_hours))} hours since update`;
+function needsSummary(item: ReferralWorklistItem) {
+  const needs = item.blockers.length > 0 ? item.blockers : item.missing_data;
+  if (needs.length === 0) return "No recorded gap";
+  const first = needs[0];
+  return needs.length === 1 ? first : `${first} +${needs.length - 1}`;
 }
 
 function dueOrAge(item: ReferralWorklistItem) {
-  if (!item.due_at) return ageLabel(item.age_hours);
+  if (!item.due_at) return "No due date";
   const due = new Date(item.due_at);
   if (Number.isNaN(due.getTime())) return ageLabel(item.age_hours);
   const overdue = due.getTime() < Date.now();
   return `${overdue ? "Overdue" : "Due"} ${due.toLocaleDateString([], { month: "short", day: "numeric" })}`;
+}
+
+function lastActivity(value: string, fallbackHours: number) {
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) return ageLabel(fallbackHours);
+  const hours = Math.max(0, (Date.now() - timestamp.getTime()) / 36e5);
+  return ageLabel(hours);
 }
 
 function ageLabel(hours: number) {

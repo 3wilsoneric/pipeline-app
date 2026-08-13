@@ -8,10 +8,23 @@ import type {
 import type { PipelineResidentLink } from "./resident-link-records";
 import type { ClientHistoryProjection } from "./client-history-contracts";
 
+export type UnifiedProfileLinkSuggestion = {
+  referral_id: number;
+  pipeline_client_id: string;
+  client_name: string;
+  community: Referral["community"];
+  stage: Referral["stage"];
+  received_at: string;
+  confidence: number;
+  match_method: "resident_number_exact" | "exact_name_dob" | "compatible_name_dob";
+  reasons: string[];
+};
+
 export type UnifiedProfileConnection = {
   status: "unlinked" | "candidate" | "confirmed";
   confirmed_link: PipelineResidentLink | null;
   candidates: PipelineResidentLink[];
+  suggestions: UnifiedProfileLinkSuggestion[];
   message: string;
 };
 

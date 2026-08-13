@@ -1,11 +1,20 @@
 import "server-only";
 
+import { createCanvas, loadImage } from "@napi-rs/canvas";
+
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
 import { DocumentProcessingError } from "@/lib/extraction/document-processing";
 import { isValidHttpByteRange } from "@/lib/extraction/http-byte-range";
 
-type Asset = { container: string; blobKey: string; contentType: string; byteSize?: number };
+type Asset = {
+  container: string;
+  blobKey: string;
+  contentType: string;
+  byteSize?: number;
+  width?: number | null;
+  height?: number | null;
+};
 
 export type DocumentPreviewPage = {
   page_number: number;
@@ -30,6 +39,14 @@ export type DocumentFileMetadata = {
   uploaded_at: string;
   updated_at: string;
   pages: DocumentPreviewPage[];
+  pagination: {
+    after_page: number;
+    limit: number;
+    returned: number;
+    has_more: boolean;
+    first_page: number | null;
+    last_page: number | null;
+  };
   next_page_after?: number;
 };
 
@@ -96,8 +113,16 @@ export async function getDocumentFileMetadata(
       width: page.width,
       height: page.height,
       preview_url: `/api/files/${documentId}/preview?page=${page.page_number}`,
-      thumbnail_url: `/api/files/${documentId}/preview?page=${page.page_number}`,
+      thumbnail_url: `/api/files/${documentId}/preview?page=${page.page_number}&variant=thumbnail`,
     })),
+    pagination: {
+      after_page: afterPage,
+      limit,
+      returned: visiblePages.length,
+      has_more: pageRows.length > limit,
+      first_page: visiblePages[0]?.page_number ?? null,
+      last_page: visiblePages.at(-1)?.page_number ?? null,
+    },
     ...(pageRows.length > limit && visiblePages.at(-1)
       ? { next_page_after: visiblePages.at(-1)!.page_number }
       : {}),
@@ -110,9 +135,10 @@ export async function getDocumentPreviewAsset(documentId: string, pageNumber?: n
   if (pageNumber !== undefined) {
     const pages = await sql<{
       blob_container: string; blob_key: string; content_type: string; byte_size: number | string | null;
-      malware_scan_status: string;
+      width: number | null; height: number | null; malware_scan_status: string;
     }[]>`
-      select p.blob_container, p.blob_key, p.content_type, p.byte_size, d.malware_scan_status
+      select p.blob_container, p.blob_key, p.content_type, p.byte_size, p.width, p.height,
+        d.malware_scan_status
       from pipeline.document_preview_pages p join pipeline.documents d on d.document_id = p.document_id
       where p.document_id = ${documentId}::uuid and p.page_number = ${pageNumber}
         and d.deleted_at is null limit 1
@@ -124,6 +150,8 @@ export async function getDocumentPreviewAsset(documentId: string, pageNumber?: n
       blobKey: pages[0].blob_key,
       contentType: pages[0].content_type,
       byteSize: pages[0].byte_size === null ? undefined : Number(pages[0].byte_size),
+      width: pages[0].width,
+      height: pages[0].height,
     };
   }
   const rows = await sql<{
@@ -173,7 +201,11 @@ export async function getFieldEvidenceAsset(packetId: string, fieldKey: string):
   };
 }
 
-export async function proxyDocumentAsset(request: Request, asset: Asset) {
+export async function proxyDocumentAsset(
+  request: Request,
+  asset: Asset,
+  options: { thumbnail?: boolean } = {},
+) {
   const maximumBytes = maxAssetBytes();
   if (asset.byteSize !== undefined && asset.byteSize > maximumBytes) {
     return Response.json({ error: "Preview exceeds the display size limit. Use page previews instead." }, { status: 413 });
@@ -181,6 +213,9 @@ export async function proxyDocumentAsset(request: Request, asset: Asset) {
   const signer = getAzureBlobUploadSigner();
   const url = await signer.createReadUrl(asset.container, asset.blobKey, 300);
   const range = request.headers.get("range");
+  if (options.thumbnail && range) {
+    return Response.json({ error: "Byte ranges are not supported for thumbnails." }, { status: 416 });
+  }
   if (range && !isValidHttpByteRange(range)) {
     return Response.json({ error: "Invalid byte range." }, { status: 416 });
   }
@@ -205,6 +240,7 @@ export async function proxyDocumentAsset(request: Request, asset: Asset) {
   if (Number.isFinite(declared) && declared > maximumBytes) {
     return Response.json({ error: "Preview exceeds the display size limit. Use page previews instead." }, { status: 413 });
   }
+  if (options.thumbnail) return renderThumbnail(upstream, asset, maximumBytes);
   const headers = new Headers({
     "Content-Type": asset.contentType,
     "Cache-Control": "private, no-store, max-age=0",
@@ -219,6 +255,67 @@ export async function proxyDocumentAsset(request: Request, asset: Asset) {
     if (value) headers.set(name, value);
   }
   return new Response(boundedBody(upstream.body, maximumBytes), { status: upstream.status, headers });
+}
+
+async function renderThumbnail(upstream: Response, asset: Asset, maximumBytes: number) {
+  if (!asset.contentType.startsWith("image/")) {
+    throw new DocumentProcessingError("thumbnail_not_available", 409, "A page thumbnail is not available for this file.");
+  }
+  if (asset.width && asset.height && asset.width * asset.height > 50_000_000) {
+    throw new DocumentProcessingError("thumbnail_source_too_large", 413, "The page image is too large to thumbnail safely.");
+  }
+  const bytes = await readBoundedBytes(upstream.body, Math.min(maximumBytes, 20 * 1024 * 1024));
+  let image: Awaited<ReturnType<typeof loadImage>>;
+  try {
+    image = await loadImage(bytes);
+  } catch {
+    throw new DocumentProcessingError("thumbnail_decode_failed", 502, "The page thumbnail could not be generated.");
+  }
+  if (image.width <= 0 || image.height <= 0 || image.width * image.height > 50_000_000) {
+    throw new DocumentProcessingError("thumbnail_dimensions_invalid", 413, "The page image dimensions are not safe to thumbnail.");
+  }
+  const width = Math.min(280, image.width);
+  const height = Math.max(1, Math.round(image.height * (width / image.width)));
+  const canvas = createCanvas(width, height);
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+  const thumbnail = canvas.toBuffer("image/png");
+  const body = Uint8Array.from(thumbnail).buffer;
+  return new Response(body, {
+    headers: {
+      "Content-Type": "image/png",
+      "Content-Length": String(thumbnail.byteLength),
+      "Cache-Control": "private, no-store, max-age=0",
+      "Content-Disposition": "inline",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self' data:",
+      "Cross-Origin-Resource-Policy": "same-origin",
+    },
+  });
+}
+
+async function readBoundedBytes(body: ReadableStream<Uint8Array> | null, maximumBytes: number) {
+  if (!body) return Buffer.alloc(0);
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const result = await reader.read();
+      if (result.done) break;
+      total += result.value.byteLength;
+      if (total > maximumBytes) {
+        await reader.cancel("thumbnail_source_size_limit");
+        throw new DocumentProcessingError("thumbnail_source_too_large", 413, "The page image is too large to thumbnail safely.");
+      }
+      chunks.push(result.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
 }
 
 function requireClean(value: string) {

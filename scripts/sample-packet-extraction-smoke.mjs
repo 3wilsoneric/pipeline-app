@@ -6,8 +6,12 @@ import { readFile, stat } from "node:fs/promises";
 
 const samplePath = process.env.PIPELINE_SAMPLE_PACKET_PATH?.trim();
 const baseUrl = (process.env.PIPELINE_SAMPLE_BASE_URL?.trim() || "http://127.0.0.1:3000").replace(/\/$/, "");
+const parsedBaseUrl = new URL(baseUrl);
 const timeoutMs = boundedInteger("PIPELINE_SAMPLE_EXTRACTION_TIMEOUT_MS", 5 * 60_000, 5_000, 20 * 60_000);
 if (!samplePath) fail("Set PIPELINE_SAMPLE_PACKET_PATH to a local PDF before running this smoke check.");
+if (!isLoopback(parsedBaseUrl.hostname) && process.env.PIPELINE_SAMPLE_ALLOW_REMOTE !== "true") {
+  fail("Sample packet validation is local-only. Set PIPELINE_SAMPLE_ALLOW_REMOTE=true only for an isolated non-production environment.");
+}
 
 const metadata = await stat(samplePath).catch(() => null);
 if (!metadata?.isFile()) fail("The configured sample packet is not a readable file.");
@@ -61,6 +65,7 @@ const reservation = await json("/api/uploads/create-url", {
       content_type: "application/pdf",
       size: metadata.size,
       sha256: digest,
+      category: "referral_packet",
     }],
   },
 });
@@ -80,14 +85,16 @@ const status = await waitForReviewableStatus(reservation.packet_id, timeoutMs);
 const fieldsPayload = await json(`/api/packets/${encodeURIComponent(reservation.packet_id)}/fields`);
 const fields = Array.isArray(fieldsPayload.fields) ? fieldsPayload.fields : [];
 if (fields.length === 0) fail("Extraction returned no reviewable fields.");
-if (!fields.every((field) => Number.isInteger(field.source_page_no) && field.source_page_no > 0)) {
-  fail("Every extracted field must identify a positive source page.");
+const populatedFields = fields.filter(hasExtractedValue);
+if (populatedFields.length === 0) fail("Extraction returned no populated fields.");
+if (!populatedFields.every((field) => Number.isInteger(field.source_page_no) && field.source_page_no > 0)) {
+  fail("Every populated extracted field must identify a positive source page.");
 }
-if (!fields.some((field) => typeof field.evidence_url === "string" && field.evidence_url.length > 0)) {
+if (!populatedFields.some((field) => typeof field.evidence_url === "string" && field.evidence_url.length > 0)) {
   fail("At least one extracted field must expose an authenticated evidence reference.");
 }
 
-const correctedField = fields[0];
+const correctedField = populatedFields[0];
 await json(`/api/packets/${encodeURIComponent(reservation.packet_id)}/fields/${encodeURIComponent(correctedField.field_key)}/review`, {
   method: "POST",
   body: {
@@ -121,6 +128,14 @@ const linked = await json(`/api/referrals/${referral.id}`, {
   },
 });
 if (!linked.referral?.packetId) fail("The reviewed extraction was not linked to the referral.");
+const reopened = await json(`/api/referrals/${referral.id}`);
+if (
+  reopened.referral?.packetId !== reservation.packet_id
+  || !Array.isArray(reopened.referral?.packetFields)
+  || reopened.referral.packetFields.length !== correctedPayload.fields.length
+) {
+  fail("The saved extraction could not be reopened from the referral record.");
+}
 
 console.log(JSON.stringify({
   ok: true,
@@ -132,9 +147,11 @@ console.log(JSON.stringify({
   extraction: {
     status: status.status,
     field_count: fields.length,
-    evidence_field_count: fields.filter((field) => field.evidence_url).length,
-    referenced_pages: [...new Set(fields.map((field) => field.source_page_no))].sort((left, right) => left - right),
+    populated_field_count: populatedFields.length,
+    evidence_field_count: populatedFields.filter((field) => field.evidence_url).length,
+    referenced_pages: [...new Set(populatedFields.map((field) => field.source_page_no))].sort((left, right) => left - right),
     correction_history_count: auditEvents.length,
+    reopened: true,
   },
 }, null, 2));
 
@@ -152,7 +169,7 @@ async function json(path, options = {}) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const detail = typeof payload.error === "string" && payload.error.length <= 300 ? ` ${payload.error}` : "";
-    fail(`Pipeline returned HTTP ${response.status} for ${new URL(path, baseUrl).pathname}.${detail}`);
+    fail(`Pipeline returned HTTP ${response.status} for ${routeLabel(path)}.${detail}`);
   }
   return payload;
 }
@@ -186,6 +203,21 @@ function readPdfPageCount(path) {
 function boundedInteger(name, fallback, minimum, maximum) {
   const parsed = Number.parseInt(process.env[name] ?? "", 10);
   return Number.isInteger(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
+}
+
+function hasExtractedValue(field) {
+  const value = field.final_value ?? field.proposed_value;
+  return typeof value === "string" ? value.trim().length > 0 : value !== null && value !== undefined;
+}
+
+function isLoopback(hostname) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function routeLabel(path) {
+  return new URL(path, baseUrl).pathname
+    .replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, "[id]")
+    .replace(/\/referrals\/\d+/g, "/referrals/[id]");
 }
 
 function fail(message) {

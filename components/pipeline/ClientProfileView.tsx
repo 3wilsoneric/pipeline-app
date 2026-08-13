@@ -11,7 +11,10 @@ import type { ClientHistoryProjection } from "@/lib/pipeline/client-history-cont
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records";
-import type { UnifiedClientProfileResponse } from "@/lib/pipeline/unified-profile-contracts";
+import type {
+  UnifiedClientProfileResponse,
+  UnifiedProfileLinkSuggestion,
+} from "@/lib/pipeline/unified-profile-contracts";
 import ClientAssessmentSummary from "@/components/pipeline/ClientAssessmentSummary";
 
 export default function ClientProfileView({
@@ -425,10 +428,11 @@ function IdentityLinkControls({
   const { connection } = profile.pipeline;
   const canCreate = profile.pipeline.permissions?.can_create_identity_candidate ?? false;
   const canReview = profile.pipeline.permissions?.can_review_identity ?? false;
+  const suggestions = connection.suggestions ?? [];
   const [isChoosing, setIsChoosing] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Referral[]>([]);
-  const [selected, setSelected] = useState<Referral | null>(null);
+  const [selected, setSelected] = useState<IdentityReferralChoice | null>(null);
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [rejectionNote, setRejectionNote] = useState("");
   const [isBusy, setIsBusy] = useState(false);
@@ -436,6 +440,10 @@ function IdentityLinkControls({
 
   useEffect(() => {
     if (!isChoosing) return;
+    if (query.trim().length < 2) {
+      setResults([]);
+      return;
+    }
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams({ limit: "25" });
@@ -471,8 +479,8 @@ function IdentityLinkControls({
           resident_key: profile.resident.resident_key,
           resident_number: profile.resident.resident_number,
           community_id: profile.resident.community_id,
-          match_method: "manual",
-          match_confidence: null,
+          match_method: selected.matchMethod === "resident_number_exact" ? "resident_number_exact" : "manual",
+          match_confidence: selected.confidence,
           client_mutation_id: crypto.randomUUID(),
         }),
       });
@@ -525,6 +533,36 @@ function IdentityLinkControls({
             </button>
             {isChoosing ? (
               <div className="mt-4 border-t border-[#d9d9d9] pt-4">
+                {suggestions.length > 0 ? (
+                  <div className="mb-4">
+                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Suggested matches</div>
+                    <p className="mt-1 text-[10px] leading-4 text-[#737373]">Suggestions are evidence-based, but a person must still submit and confirm the connection.</p>
+                    <div className="mt-2 border-y border-[#d9d9d9]">
+                      {suggestions.map((suggestion) => {
+                        const choice = suggestionChoice(suggestion);
+                        const active = selected?.id === choice.id;
+                        return (
+                          <button
+                            key={suggestion.referral_id}
+                            type="button"
+                            onClick={() => setSelected(choice)}
+                            className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-3 py-3 text-left last:border-b-0 ${active ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-[12px] font-black text-[#111111]">{suggestion.client_name}</span>
+                              <span className="mt-1 block truncate text-[10px] text-[#737373]">#{suggestion.referral_id} · {suggestion.community} · {suggestion.stage}</span>
+                              <span className="mt-1 block truncate text-[10px] font-semibold text-[#356759]">{suggestion.reasons.join(" · ")}</span>
+                            </span>
+                            <span className="shrink-0 text-right">
+                              <span className="block text-[10px] font-black text-[#0f8b73]">{Math.round(suggestion.confidence * 100)}%</span>
+                              {active ? <Check size={15} className="ml-auto mt-1 text-[#0f8b73]" /> : null}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
                 <label className="flex h-10 items-center gap-2 border border-[#bdbdbd] px-3 focus-within:border-[#0f8b73]">
                   <Search size={14} className="shrink-0 text-[#737373]" />
                   <input
@@ -535,21 +573,27 @@ function IdentityLinkControls({
                   />
                 </label>
                 <div className="mt-2 max-h-56 overflow-y-auto border-y border-[#e5e5e5]">
-                  {results.length > 0 ? results.map((referral) => (
+                  {results.length > 0 ? results.map((referral) => {
+                    const choice = referralChoice(referral);
+                    const active = selected?.id === choice.id;
+                    return (
                     <button
                       key={referral.id}
                       type="button"
-                      onClick={() => setSelected(referral)}
-                      className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-3 py-3 text-left last:border-b-0 ${selected?.id === referral.id ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}
+                      onClick={() => setSelected(choice)}
+                      className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-3 py-3 text-left last:border-b-0 ${active ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-[12px] font-black text-[#111111]">{referral.name}</span>
                         <span className="mt-1 block truncate text-[10px] text-[#737373]">#{referral.id} · {referral.community} · {referral.stage}</span>
                       </span>
-                      {selected?.id === referral.id ? <Check size={15} className="shrink-0 text-[#0f8b73]" /> : null}
+                      {active ? <Check size={15} className="shrink-0 text-[#0f8b73]" /> : null}
                     </button>
-                  )) : (
-                    <div className="px-3 py-5 text-center text-[11px] text-[#737373]">No matching referrals.</div>
+                    );
+                  }) : (
+                    <div className="px-3 py-5 text-center text-[11px] text-[#737373]">
+                      {query.trim().length < 2 ? "Type at least two characters to search all referrals." : "No matching referrals."}
+                    </div>
                   )}
                 </div>
                 <button
@@ -604,6 +648,40 @@ function IdentityLinkControls({
       {error ? <div className="mt-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-3 py-2 text-[11px] text-[#59332d]" role="alert">{error}</div> : null}
     </div>
   );
+}
+
+type IdentityReferralChoice = {
+  id: number;
+  clientId: string;
+  name: string;
+  community: Referral["community"];
+  stage: Referral["stage"];
+  matchMethod: UnifiedProfileLinkSuggestion["match_method"] | "manual";
+  confidence: number | null;
+};
+
+function suggestionChoice(suggestion: UnifiedProfileLinkSuggestion): IdentityReferralChoice {
+  return {
+    id: suggestion.referral_id,
+    clientId: suggestion.pipeline_client_id,
+    name: suggestion.client_name,
+    community: suggestion.community,
+    stage: suggestion.stage,
+    matchMethod: suggestion.match_method,
+    confidence: suggestion.confidence,
+  };
+}
+
+function referralChoice(referral: Referral): IdentityReferralChoice {
+  return {
+    id: referral.id,
+    clientId: referral.clientId ?? "",
+    name: referral.name,
+    community: referral.community,
+    stage: referral.stage,
+    matchMethod: "manual",
+    confidence: null,
+  };
 }
 
 function SummaryCell({ label, value, detail }: { label: string; value: number; detail: string }) {

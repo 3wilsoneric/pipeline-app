@@ -11,6 +11,8 @@ export type OperationsWorkItem = {
   owner: string;
   priority: string;
   blocker_count: number;
+  blockers: string[];
+  missing_data: string[];
   next_action: string | null;
   age_hours: number;
   stale: boolean;
@@ -59,8 +61,11 @@ export type ReferralWorklistItem = {
   categories: Exclude<ReferralWorklistBucket, "all_actionable">[];
   primary_category: Exclude<ReferralWorklistBucket, "all_actionable">;
   next_action: string;
+  blockers: string[];
+  missing_data: string[];
   urgency: MyQueueUrgency;
   due_at: string | null;
+  last_activity_at: string;
   age_hours: number;
   completion_pct: number;
   missing_document_count: number;

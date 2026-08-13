@@ -45,6 +45,8 @@ export function matchesReferralWorklistItem(
     item.owner,
     item.stage,
     item.next_action,
+    item.blockers.join(" "),
+    item.missing_data.join(" "),
     item.priority,
     item.urgency,
     categoryText,

@@ -3043,6 +3043,7 @@ async function uploadReferralPacket(referral: Referral, file: File, sha256: stri
           content_type: getPacketContentType(file),
           size: file.size,
           sha256,
+          category: "referral_packet",
         },
       ],
     }),

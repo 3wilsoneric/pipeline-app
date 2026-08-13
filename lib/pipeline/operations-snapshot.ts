@@ -457,6 +457,12 @@ function toWorkItem(
     owner: normalizeOwnerName(referral.owner),
     priority: referral.priority,
     blocker_count: progress.blockers.length,
+    blockers: progress.blockers,
+    missing_data: progress.sections.flatMap((section) =>
+      section.items
+        .filter((item) => item.status !== "complete")
+        .map((item) => item.label),
+    ),
     next_action: progress.next_action,
     age_hours: ageHours,
     stale: ageHours > staleLimit,
@@ -594,8 +600,11 @@ function toReferralWorklistItem(
     categories,
     primary_category: primaryCategory,
     next_action: nextAction,
+    blockers: work.blockers,
+    missing_data: work.missing_data,
     urgency,
     due_at: dueAt,
+    last_activity_at: referral.updatedAt ?? referral.createdAt,
     age_hours: work.age_hours,
     completion_pct: work.completion_pct,
     missing_document_count: missingDocuments.length + Number(referral.documentStatus === "Missing"),
