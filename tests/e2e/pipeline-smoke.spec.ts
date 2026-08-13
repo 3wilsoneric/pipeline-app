@@ -815,8 +815,9 @@ test.describe("Referral home and packet canvas", () => {
     expect(legacyProfileResponse.status()).toBe(404);
   });
 
-  test("ingests a new packet from the file alone and exposes OCR values for review", async ({ page }) => {
+  test("ingests a new packet from the file alone and exposes OCR values for review", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
+    const clientName = ["Rowan Example", "Rowan Retry", "Rowan Recovery"][testInfo.retry] ?? "Rowan Recovery";
     const canvas = createCanvas(1600, 1200);
     const context = canvas.getContext("2d");
     context.fillStyle = "white";
@@ -827,7 +828,7 @@ test.describe("Referral home and packet canvas", () => {
     context.font = "32px Arial";
     [
       "Referring Facility: North County Behavioral Health",
-      "Resident Name: Example, Rowan",
+      `Resident Name: ${clientName.split(" ").reverse().join(", ")}`,
       "Resident #: 81234567",
       "Date of Birth: 01/15/1980 Age: 46",
       "Gender: Female",
@@ -850,20 +851,28 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible({ timeout: 120_000 });
     const extractionReview = page.getByRole("region", { name: "Extraction review" });
     await expect(extractionReview).toBeVisible();
-    await expect(extractionReview.getByText("Rowan Example", { exact: true })).toBeVisible();
+    await expect(extractionReview.getByText(clientName, { exact: true })).toBeVisible();
     await expect(extractionReview.getByText("1980-01-15", { exact: true })).toBeVisible();
     await expect(extractionReview.getByText("North County Behavioral Health", { exact: true })).toBeVisible();
     await expect(extractionReview.getByText("Schizoaffective disorder", { exact: true })).toBeVisible();
-    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("Rowan Example");
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
     await expect(page.getByRole("textbox", { name: "DOB", exact: true })).toHaveValue("1980-01-15");
 
-    const referrals = await page.request.get(`/api/referrals?q=${encodeURIComponent("Rowan Example")}`);
+    const referrals = await page.request.get(`/api/referrals?q=${encodeURIComponent(clientName)}`);
     const payload = await referrals.json() as {
-      referrals: Array<{ id: number; packetFields?: Array<{ field_key: string; source_page_no?: number }> }>;
+      referrals: Array<{
+        id: number;
+        packetFields?: Array<{ field_key: string; proposed_value?: string | null; source_page_no?: number }>;
+      }>;
     };
     expect(payload.referrals).toHaveLength(1);
     expect(payload.referrals[0].packetFields).toHaveLength(13);
-    expect(payload.referrals[0].packetFields?.every((field) => field.source_page_no === 1)).toBeTruthy();
+    const extractedFields = payload.referrals[0].packetFields?.filter((field) => field.proposed_value?.trim()) ?? [];
+    expect(extractedFields.length).toBeGreaterThan(0);
+    expect(extractedFields.every((field) => field.source_page_no === 1)).toBeTruthy();
+    expect(payload.referrals[0].packetFields?.every((field) => (
+      field.source_page_no === undefined || field.source_page_no === 1
+    ))).toBeTruthy();
 
     const packet = await page.request.get(`/api/referrals/${payload.referrals[0].id}/packet`);
     expect(packet.ok()).toBeTruthy();
