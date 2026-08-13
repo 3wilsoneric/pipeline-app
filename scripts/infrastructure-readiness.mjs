@@ -11,6 +11,7 @@ const workerAuth = read("lib/auth/internal-worker-auth.ts");
 const alerts = read("infra/azure/operational-alerts.bicep");
 const databaseBootstrap = read("scripts/bootstrap-production-database.mjs");
 const initialConfiguration = read("scripts/configure-azure-production.sh");
+const clinicalConfiguration = read("scripts/configure-azure-clinical.sh");
 const entraConfiguration = read("scripts/configure-entra-identities.sh");
 const databaseFinalization = read("scripts/finalize-azure-database-bootstrap.sh");
 const domainConfiguration = read("scripts/configure-azure-domain.sh");
@@ -108,6 +109,11 @@ check("routine database migrations use the migrator-only job", runtime.includes(
 check("bootstrap revokes the administrator credential", databaseBootstrap.includes("administrator_credential_revoked: true") && databaseBootstrap.includes("alter role"));
 check("initial setup cannot rotate database URLs after finalization", initialConfiguration.includes("Initial database setup is already finalized"));
 check("database finalization reads stable output-only foundation state", databaseFinalization.includes("--name pipeline-foundation-state"));
+check(
+  "clinical configuration reads stable output-only foundation state",
+  clinicalConfiguration.includes("PIPELINE_FOUNDATION_DEPLOYMENT_NAME:-pipeline-foundation-state")
+    && clinicalConfiguration.includes('--name "$foundation_deployment_name"'),
+);
 check("operational alert module is deployed", bicep.includes("operational-alerts.bicep"));
 check("operational alert recipients are explicit parameters", bicep.includes("alertActionGroupResourceIds") && alerts.includes("actionGroups: actionGroupResourceIds"));
 check("seven PHI-safe alert rules are declared", (alerts.match(/key:\s*'/g) ?? []).length === 7 && alerts.includes("dataClassification: 'phi-safe-metrics-only'"));

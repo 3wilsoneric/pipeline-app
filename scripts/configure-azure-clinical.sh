@@ -35,6 +35,7 @@ fi
 
 repository="${PIPELINE_GITHUB_REPOSITORY:-3wilsoneric/pipeline-app}"
 api_base_url="${PIPELINE_ALAMO_API_BASE_URL:-https://www.alamoplatform.com}"
+foundation_deployment_name="${PIPELINE_FOUNDATION_DEPLOYMENT_NAME:-pipeline-foundation-state}"
 if ! [[ "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
   printf 'PIPELINE_GITHUB_REPOSITORY must use owner/repository format.\n' >&2
   exit 2
@@ -46,7 +47,7 @@ fi
 
 foundation_outputs="$(az deployment group show \
   --resource-group "$PIPELINE_AZURE_RESOURCE_GROUP" \
-  --name pipeline-foundation \
+  --name "$foundation_deployment_name" \
   --query properties.outputs \
   --output json)"
 key_vault_name="$(jq -r '.keyVaultName.value' <<<"$foundation_outputs")"
