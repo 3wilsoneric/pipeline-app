@@ -171,8 +171,6 @@ export function getPipelineAuthReadiness() {
     "PIPELINE_ENTRA_API_AUDIENCE",
     "PIPELINE_ENTRA_API_SCOPE",
     "PIPELINE_ENTRA_SESSION_SECRET",
-    "PIPELINE_ALLOWED_ENTRA_OBJECT_IDS",
-    "PIPELINE_ALLOWED_EMAILS",
   ];
   const missing_env = required.filter((name) => !process.env[name]?.trim());
 
@@ -429,6 +427,11 @@ function rolesForEmail(email: string): PipelineRole[] {
 }
 
 function isAllowedUser(user: Pick<PipelineUser, "id" | "email" | "entraAppRoleAssigned">) {
+  // A tenant-scoped, audience-checked delegated token is the production
+  // admission boundary. Entra's enterprise-app assignment controls who can
+  // obtain it; local lists remain only for trusted legacy header mode.
+  if (getPipelineAuthMode() === "entra_jwt") return true;
+
   if (user.entraAppRoleAssigned === true) return true;
 
   const allowedObjectIds = parseIdentifierList(process.env.PIPELINE_ALLOWED_ENTRA_OBJECT_IDS);

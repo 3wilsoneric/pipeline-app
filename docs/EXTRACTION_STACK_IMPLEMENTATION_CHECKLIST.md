@@ -68,8 +68,7 @@
   trusted gateway headers are an explicit fallback only:
   - `x-ms-client-principal` for a trusted Azure EasyAuth gateway, or
   - `x-pipeline-user-email` from the platform gateway.
-- Configure role allowlists:
-  - `PIPELINE_ALLOWED_EMAILS`
+- Configure trusted-gateway role mappings only when legacy header mode is enabled:
   - `PIPELINE_ADMIN_EMAILS`
   - `PIPELINE_COORDINATOR_EMAILS`
   - `PIPELINE_REVIEWER_EMAILS`

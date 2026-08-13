@@ -86,11 +86,6 @@ if [[ "$extraction_backend" != "manual" && "$extraction_backend" != "azure_datab
   exit 2
 fi
 
-allowed_emails="${PIPELINE_ALLOWED_EMAILS_INPUT:-}"
-if [[ -z "$allowed_emails" ]]; then
-  read -r -p 'Comma-separated authorized Pipeline user emails: ' allowed_emails
-fi
-allowed_entra_object_ids="${PIPELINE_ALLOWED_ENTRA_OBJECT_IDS_INPUT:-$(az ad signed-in-user show --query id --output tsv)}"
 pipeline_entra_client_id="${PIPELINE_ENTRA_CLIENT_ID:-}"
 if [[ -z "$pipeline_entra_client_id" ]]; then
   read -r -p 'Pipeline Entra application client ID: ' pipeline_entra_client_id
@@ -108,7 +103,7 @@ if [[ "$extraction_backend" == "azure_databricks" ]]; then
   printf '\n'
 fi
 
-required_values=(postgres_admin_password allowed_emails allowed_entra_object_ids pipeline_entra_client_id)
+required_values=(postgres_admin_password pipeline_entra_client_id)
 if [[ "$extraction_backend" == "azure_databricks" ]]; then
   required_values+=(databricks_host databricks_job_id databricks_client_id databricks_client_secret)
 fi
@@ -123,12 +118,6 @@ if ! [[ "$pipeline_entra_client_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
   printf 'Pipeline Entra application client ID must be a UUID.\n' >&2
   exit 2
 fi
-while IFS= read -r object_id; do
-  if ! [[ "$object_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
-    printf 'Each authorized Entra object ID must be a UUID.\n' >&2
-    exit 2
-  fi
-done < <(tr ',' '\n' <<<"$allowed_entra_object_ids" | sed '/^[[:space:]]*$/d')
 if [[ "$extraction_backend" == "azure_databricks" ]] && ! [[ "$databricks_host" =~ ^https://[A-Za-z0-9.-]+\.azuredatabricks\.net/?$ ]]; then
   printf 'Databricks workspace URL must be an Azure Databricks HTTPS hostname with no path.\n' >&2
   exit 2
@@ -180,8 +169,6 @@ set_secret pipeline-database-admin-url "$admin_url"
 set_secret pipeline-database-migration-url "$migration_url"
 set_secret pipeline-database-url "$runtime_url"
 set_secret pipeline-entra-session-secret "$session_secret"
-set_secret pipeline-allowed-emails "$allowed_emails"
-set_secret pipeline-allowed-entra-object-ids "$allowed_entra_object_ids"
 if [[ "$extraction_backend" == "azure_databricks" ]]; then
   set_secret pipeline-databricks-client-secret "$databricks_client_secret"
 fi
@@ -220,7 +207,7 @@ if [[ -n "${PIPELINE_ALAMO_CLIENT_ID:-}" ]]; then set_github_variable PIPELINE_A
 if [[ -n "${PIPELINE_ALAMO_API_SCOPE:-}" ]]; then set_github_variable PIPELINE_ALAMO_API_SCOPE "$PIPELINE_ALAMO_API_SCOPE"; fi
 unset postgres_admin_password migration_password runtime_password session_secret worker_secret
 unset admin_url migration_url runtime_url databricks_client_secret
-unset allowed_emails allowed_entra_object_ids pipeline_entra_client_id databricks_host databricks_job_id databricks_client_id
+unset pipeline_entra_client_id databricks_host databricks_job_id databricks_client_id
 
 printf '\nAzure Key Vault and the main-branch-bound GitHub deployment variables are configured.\n'
-printf 'Next: configure Entra redirect URIs and app-role assignments, then run the Deploy Pipeline to Azure workflow.\n'
+printf 'Next: configure Entra redirect URIs and enterprise-app assignments, then run the Deploy Pipeline to Azure workflow.\n'

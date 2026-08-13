@@ -28,9 +28,12 @@ PIPELINE_ENTRA_TENANT_ID=<tenant id>
 PIPELINE_ENTRA_API_AUDIENCE=api://<same app id>
 PIPELINE_ENTRA_API_SCOPE=access_as_user
 PIPELINE_ENTRA_SESSION_SECRET=<random value, at least 32 characters>
-PIPELINE_ALLOWED_ENTRA_OBJECT_IDS=<authorized Entra user object IDs, comma separated>
-PIPELINE_ALLOWED_EMAILS=<authorized emails, comma separated>
 ```
+
+Production Entra JWT authentication does not maintain a second local user
+allowlist. The tenant-scoped delegated token and the enterprise application's
+**Assignment required** setting govern admission. `PIPELINE_ALLOWED_*` variables
+exist only for explicitly enabled legacy trusted-gateway header mode.
 
 `PIPELINE_ALAMO_*` variables remain server-only and belong to the separate clinical API adapter. Do not add any clinical secret or token to a `NEXT_PUBLIC_*` variable.
 
@@ -48,16 +51,18 @@ ID and the exposed API application ID URI:
 4. Add the exact production logout redirect URI `https://<pipeline-production-domain>/sign-in`. For local testing, register `http://localhost:3000/sign-in` as both redirect and logout URI.
 5. Under **Expose an API**, define `access_as_user` with the application ID URI represented by `api://<same app id>`.
 6. Grant the SPA delegated permission to that `access_as_user` scope and grant admin consent.
-7. If role-based access is needed, define `Pipeline.Admin`, `Pipeline.AssessmentCoordinator`, `Pipeline.Reviewer`, and `Pipeline.Viewer` app roles as allowed member types for users/groups, then assign them to the authorized users or groups.
+7. Set **Assignment required** on the enterprise application and assign every authorized user or group.
+8. If role-based access is needed, define `Pipeline.Admin`, `Pipeline.AssessmentCoordinator`, `Pipeline.Reviewer`, and `Pipeline.Viewer` app roles as allowed member types for users/groups, then assign them to the authorized users or groups.
 
 No client secret is needed for the browser SPA registration. The server session secret is generated locally and stored in Azure Key Vault.
 
 ## Request behavior
 
 - `proxy.ts` validates protected page and API requests before they reach the app.
-- Server routes validate issuer, audience, signature, delegated scope, allowed email, and required role.
-- Authorization prefers immutable Entra user object IDs; email allowlisting is a
-  compatibility fallback for existing pilot accounts and aliases.
+- Server routes validate issuer, audience, signature, and delegated scope.
+- Entra enterprise-app assignment is the single admission boundary. App roles
+  constrain privileged actions; local identity lists are used only by legacy
+  trusted-gateway header mode.
 - The browser stores MSAL state in `sessionStorage` and sends a bearer token through the authenticated fetch helper.
 - Interactive sign-in requests `select_account` so a browser with another active
   Microsoft session cannot silently choose the wrong Pipeline identity.

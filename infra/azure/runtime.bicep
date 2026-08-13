@@ -77,16 +77,6 @@ var requiredSecrets = [
     identity: keyVaultSecretIdentity
   }
   {
-    name: 'allowed-emails'
-    keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-allowed-emails'
-    identity: keyVaultSecretIdentity
-  }
-  {
-    name: 'allowed-entra-object-ids'
-    keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-allowed-entra-object-ids'
-    identity: keyVaultSecretIdentity
-  }
-  {
     name: 'worker-shared-secret'
     keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-worker-shared-secret'
     identity: keyVaultSecretIdentity
@@ -159,8 +149,6 @@ var baseEnvironment = [
   { name: 'NEXT_PUBLIC_PIPELINE_API_SCOPE', value: pipelineApiAudience }
   { name: 'NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED', value: 'true' }
   { name: 'PIPELINE_ENTRA_SESSION_SECRET', secretRef: 'entra-session-secret' }
-  { name: 'PIPELINE_ALLOWED_EMAILS', secretRef: 'allowed-emails' }
-  { name: 'PIPELINE_ALLOWED_ENTRA_OBJECT_IDS', secretRef: 'allowed-entra-object-ids' }
   { name: 'PIPELINE_TRUSTED_GATEWAY', value: 'false' }
   { name: 'PIPELINE_ALLOW_UNVERIFIED_AUTH_HEADERS', value: 'false' }
   { name: 'PIPELINE_ALLOW_PRODUCTION_MOCK_AUTH', value: 'false' }

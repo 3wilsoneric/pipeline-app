@@ -172,11 +172,10 @@ adapter. Pipeline stores referral episodes, operational work, and reviewed
 
 For the first rollout, configure Entra app roles or groups that map to the
 existing Pipeline roles: `admin`, `assessment_coordinator`, `reviewer`, and
-`viewer`. Keep `PIPELINE_AUTH_MODE=entra_jwt` in production. Production also
-requires the Entra tenant, audience, delegated scope, and a populated
-`PIPELINE_ALLOWED_EMAILS` allowlist; all role mappings stay server-side. Legacy
-EasyAuth headers are supported only behind an explicitly configured trusted
-gateway.
+`viewer`. Keep `PIPELINE_AUTH_MODE=entra_jwt` in production. Production requires
+the Entra tenant, audience, delegated scope, and enterprise-app assignment; all
+role mappings stay server-side. Legacy EasyAuth headers and their local
+allowlists are supported only behind an explicitly configured trusted gateway.
 
 ## Your Required Actions
 

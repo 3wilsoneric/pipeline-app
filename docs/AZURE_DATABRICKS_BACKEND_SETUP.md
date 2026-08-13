@@ -30,7 +30,6 @@ PIPELINE_ENTRA_TENANT_ID=
 PIPELINE_ENTRA_API_AUDIENCE=api://<PIPELINE_APP_ID>
 PIPELINE_ENTRA_API_SCOPE=access_as_user
 PIPELINE_ENTRA_SESSION_SECRET=
-PIPELINE_ALLOWED_EMAILS=
 PIPELINE_ADMIN_EMAILS=
 PIPELINE_COORDINATOR_EMAILS=
 PIPELINE_REVIEWER_EMAILS=
@@ -56,15 +55,14 @@ ANTHROPIC_API_KEY=
 
 - Put the deployed app behind Entra ID or the existing platform gateway.
 - In production, set `PIPELINE_AUTH_MODE=entra_jwt` and configure the Entra
-  tenant, Pipeline API audience, delegated scope, session secret, and a
-  populated `PIPELINE_ALLOWED_EMAILS` list.
+  tenant, Pipeline API audience, delegated scope, session secret, and
+  enterprise-app assignment.
 - Legacy header mode is supported only when `PIPELINE_TRUSTED_GATEWAY=true`.
 - Entra owns staff identity and role assignment. Client profiles are Pipeline
   records, not Entra users.
 - The browser signs in with Authorization Code + PKCE and sends a bearer token
   to Pipeline. Pipeline validates the token with the Entra JWKS endpoint.
   Never trust browser-supplied identity headers.
-- Keep `PIPELINE_ALLOWED_EMAILS` populated for the first internal rollout.
 - Use role envs to separate admin, assessment coordinator, reviewer, and viewer permissions.
 - Prefer Entra app roles or groups that map to those Pipeline roles. The server
   derives the operator identity and role from the authenticated boundary; the

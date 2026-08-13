@@ -374,6 +374,22 @@ function authBehaviorResults() {
       assert(readiness.missing_env.includes("PIPELINE_ENTRA_TENANT_ID"), "Expected tenant configuration to be reported missing");
       assert(!serialized.includes("this-value-must-never-be-returned"), "Readiness must never expose secret values");
     }),
+    run("production Entra readiness has no duplicate local identity-list dependency", () => {
+      const auth = loadAuthModule({
+        NODE_ENV: "production",
+        PIPELINE_AUTH_MODE: "entra_jwt",
+        NEXT_PUBLIC_ENTRA_TENANT_ID: "tenant-id",
+        NEXT_PUBLIC_ENTRA_CLIENT_ID: "client-id",
+        NEXT_PUBLIC_PIPELINE_API_SCOPE: "api://client-id/access_as_user",
+        NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED: "true",
+        PIPELINE_ENTRA_TENANT_ID: "tenant-id",
+        PIPELINE_ENTRA_API_AUDIENCE: "api://client-id",
+        PIPELINE_ENTRA_API_SCOPE: "access_as_user",
+        PIPELINE_ENTRA_SESSION_SECRET: "a-secure-session-secret-of-sufficient-length",
+      });
+      const readiness = auth.getPipelineAuthReadiness();
+      assert(readiness.ready, "A complete Entra JWT configuration should not require local identity lists");
+    }),
   ];
 }
 
