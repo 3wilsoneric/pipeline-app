@@ -282,6 +282,22 @@ function authBehaviorResults() {
       }));
       assert(result.ok, "Stable Entra object ID should authorize independent of the email alias");
     }),
+    run("auth accepts an assigned Entra app role without a duplicate local identity match", () => {
+      const auth = loadAuthModule({
+        NODE_ENV: "production",
+        PIPELINE_AUTH_MODE: "headers",
+        PIPELINE_TRUSTED_GATEWAY: "true",
+      });
+      const principal = btoa(JSON.stringify({
+        userId: "entra-assigned-user",
+        userDetails: "changed-alias@example.com",
+        claims: [{ typ: "roles", val: "Pipeline.Admin" }],
+      }));
+      const result = auth.requirePipelineUser(new Request("https://pipeline.local/referrals", {
+        headers: { "x-ms-client-principal": principal },
+      }));
+      assert(result.ok, "A governed Entra app-role assignment should be sufficient authorization");
+    }),
     run("auth enforces role gates", () => {
       const auth = loadAuthModule({
         NODE_ENV: "production",

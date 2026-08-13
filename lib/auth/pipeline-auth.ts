@@ -9,6 +9,7 @@ export type PipelineUser = {
   email: string;
   name: string;
   roles: PipelineRole[];
+  entraAppRoleAssigned?: boolean;
 };
 
 type ParsedHeaderUser = Omit<PipelineUser, "roles"> & {
@@ -109,6 +110,7 @@ export function getPipelineUserFromHeaders(headers: Headers): PipelineUser | nul
   return {
     ...headerUser,
     roles: rolesForUser(headerUser.email, headerUser.claimRoles),
+    entraAppRoleAssigned: hasMappedClaimRole(headerUser.claimRoles),
   };
 }
 
@@ -242,6 +244,7 @@ async function verifyEntraAccessToken(token: string) {
     email,
     name,
     roles: rolesForUser(email, claimRoles),
+    entraAppRoleAssigned: hasMappedClaimRole(claimRoles),
   } satisfies PipelineUser;
 }
 
@@ -300,13 +303,15 @@ async function readSessionUser(cookieHeader: string | null) {
       typeof user.id !== "string" ||
       typeof user.email !== "string" ||
       typeof user.name !== "string" ||
-      !Array.isArray(user.roles)
+      !Array.isArray(user.roles) ||
+      (user.entraAppRoleAssigned !== undefined && typeof user.entraAppRoleAssigned !== "boolean")
     ) return null;
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       roles: user.roles.filter((role): role is PipelineRole => rolePriority.includes(role as PipelineRole)),
+      entraAppRoleAssigned: user.entraAppRoleAssigned === true,
     } satisfies PipelineUser;
   } catch {
     return null;
@@ -423,13 +428,19 @@ function rolesForEmail(email: string): PipelineRole[] {
   return ["viewer"];
 }
 
-function isAllowedUser(user: Pick<PipelineUser, "id" | "email">) {
+function isAllowedUser(user: Pick<PipelineUser, "id" | "email" | "entraAppRoleAssigned">) {
+  if (user.entraAppRoleAssigned === true) return true;
+
   const allowedObjectIds = parseIdentifierList(process.env.PIPELINE_ALLOWED_ENTRA_OBJECT_IDS);
   if (allowedObjectIds.includes(user.id.trim().toLowerCase())) return true;
 
   const allowed = parseEmailList(process.env.PIPELINE_ALLOWED_EMAILS);
   if (allowed.length === 0) return !isProductionRuntime();
   return allowed.includes(normalizeEmail(user.email));
+}
+
+function hasMappedClaimRole(claimRoles: string[] | undefined) {
+  return mapClaimRoles(claimRoles ?? []).length > 0;
 }
 
 function mapClaimRoles(claimRoles: string[]): PipelineRole[] {

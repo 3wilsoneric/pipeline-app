@@ -166,7 +166,7 @@ async function readSessionFailure(response: Response) {
   const payload = await response.json().catch(() => null) as { error?: unknown } | null;
   const reason = typeof payload?.error === "string" ? payload.error : "";
 
-  if (reason === "Forbidden") return "This Microsoft identity is not assigned to Pipeline.";
+  if (reason === "Forbidden" || reason === "Identity not assigned") return "This Microsoft identity is not assigned to Pipeline.";
   if (reason === "Insufficient role") return "This Microsoft identity is missing a Pipeline role.";
   if (reason.includes("permission to use Pipeline")) return "Microsoft sign-in did not grant Pipeline access. Try signing in again.";
   if (reason.includes("usable Pipeline identity")) return "Microsoft did not return a usable Pipeline identity.";
