@@ -122,20 +122,22 @@ storage_id="$(az storage account show \
   --name "$storage_account" \
   --query id \
   --output tsv)"
+blob_service_url="https://management.azure.com${storage_id}/blobServices/default?api-version=2025-01-01"
+blob_service="$(az rest --method GET --url "$blob_service_url" --output json)"
+existing_origins="$(jq -c '.properties.cors.corsRules[0].allowedOrigins // []' <<<"$blob_service")"
 cors_rules="$(jq -n \
   --arg productionOrigin "https://${custom_hostname}" \
   --arg generatedOrigin "https://${generated_fqdn}" \
+  --argjson existingOrigins "$existing_origins" \
   '{
     corsRules: [{
-      allowedOrigins: [$productionOrigin, $generatedOrigin],
+      allowedOrigins: ($existingOrigins + [$productionOrigin, $generatedOrigin] | unique),
       allowedMethods: ["PUT", "OPTIONS"],
       allowedHeaders: ["content-type", "x-ms-blob-type"],
       exposedHeaders: ["etag", "x-ms-request-id"],
       maxAgeInSeconds: 3600
     }]
   }')"
-blob_service_url="https://management.azure.com${storage_id}/blobServices/default?api-version=2025-01-01"
-blob_service="$(az rest --method GET --url "$blob_service_url" --output json)"
 cors_body="$(jq --argjson cors "$cors_rules" '.properties.cors = $cors | {properties: .properties}' <<<"$blob_service")"
 az rest \
   --method PUT \

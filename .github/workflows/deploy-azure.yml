@@ -80,6 +80,28 @@ jobs:
           echo "key_vault_uri=$(jq -r '.keyVaultUri.value' <<<"$outputs")" >> "$GITHUB_OUTPUT"
           echo "storage_account=$(jq -r '.storageAccountName.value' <<<"$outputs")" >> "$GITHUB_OUTPUT"
 
+      - name: Preserve existing custom hostname bindings
+        id: custom-domains
+        shell: bash
+        run: |
+          set -euo pipefail
+          web_name="$(printf '%s-%s-web' \
+            '${{ steps.foundation.outputs.name_prefix }}' \
+            '${{ steps.foundation.outputs.environment }}' | cut -c1-32)"
+          if az containerapp show \
+            --resource-group '${{ vars.AZURE_RESOURCE_GROUP }}' \
+            --name "$web_name" \
+            --output none 2>/dev/null; then
+            custom_domains="$(az containerapp show \
+              --resource-group '${{ vars.AZURE_RESOURCE_GROUP }}' \
+              --name "$web_name" \
+              --query 'properties.configuration.ingress.customDomains' \
+              --output json | jq -c '. // []')"
+          else
+            custom_domains='[]'
+          fi
+          echo "json=$custom_domains" >> "$GITHUB_OUTPUT"
+
       - name: Sign in to Azure Container Registry
         shell: bash
         run: az acr login --name '${{ steps.foundation.outputs.registry_name }}'
@@ -137,6 +159,7 @@ jobs:
               storageAccountName='${{ steps.foundation.outputs.storage_account }}' \
               entraTenantId='${{ vars.PIPELINE_ENTRA_TENANT_ID }}' \
               pipelineEntraClientId='${{ vars.PIPELINE_ENTRA_CLIENT_ID }}' \
+              customDomains='${{ steps.custom-domains.outputs.json }}' \
               extractionBackend='${{ inputs.extraction_backend }}' \
               databricksHost='${{ vars.PIPELINE_DATABRICKS_HOST }}' \
               databricksJobId='${{ vars.PIPELINE_DATABRICKS_JOB_ID }}' \
@@ -172,6 +195,7 @@ jobs:
               storageAccountName='${{ steps.foundation.outputs.storage_account }}' \
               entraTenantId='${{ vars.PIPELINE_ENTRA_TENANT_ID }}' \
               pipelineEntraClientId='${{ vars.PIPELINE_ENTRA_CLIENT_ID }}' \
+              customDomains='${{ steps.custom-domains.outputs.json }}' \
               extractionBackend='${{ inputs.extraction_backend }}' \
               databricksHost='${{ vars.PIPELINE_DATABRICKS_HOST }}' \
               databricksJobId='${{ vars.PIPELINE_DATABRICKS_JOB_ID }}' \

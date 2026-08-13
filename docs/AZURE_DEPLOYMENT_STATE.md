@@ -151,6 +151,10 @@ hostnames and issued managed certificates
 `mc-pipeline-prod--www-alamo-pipeli-3834`, currently valid through 13 February
 2027. Blob CORS allows only the generated Azure origin and the two production
 custom-domain origins.
+Runtime deployments read the active Container App hostname bindings and pass
+them back through Bicep, so immutable image revisions do not clear the custom
+domains. Domain setup also merges Blob CORS origins instead of replacing an
+already-authorized production origin.
 
 The one-time PostgreSQL bootstrap succeeded, invalidated its administrator
 credential, and was finalized. The administrator URL and bootstrap job were

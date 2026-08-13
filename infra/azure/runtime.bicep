@@ -18,6 +18,8 @@ param keyVaultUri string
 param storageAccountName string
 param entraTenantId string
 param pipelineEntraClientId string
+@description('Existing custom hostname bindings that must survive immutable runtime revisions.')
+param customDomains array = []
 param databricksHost string = ''
 param databricksJobId string = ''
 param databricksClientId string = ''
@@ -222,6 +224,7 @@ resource web 'Microsoft.App/containerApps@2025-01-01' = {
       maxInactiveRevisions: 10
       ingress: {
         allowInsecure: false
+        customDomains: customDomains
         external: true
         targetPort: 3000
         transport: 'auto'

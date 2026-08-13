@@ -68,6 +68,13 @@ check("runtime preserves browser-safe Entra readiness configuration", [
   "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED",
 ].every((name) => runtime.includes(`name: '${name}'`)));
 check(
+  "immutable runtime deployments preserve custom hostname bindings",
+  runtime.includes("param customDomains array = []")
+    && runtime.includes("customDomains: customDomains")
+    && deployment.includes("Preserve existing custom hostname bindings")
+    && (deployment.match(/customDomains='\$\{\{ steps\.custom-domains\.outputs\.json \}\}'/g) ?? []).length === 2,
+);
+check(
   "Entra setup grants and verifies delegated Pipeline consent",
   entraConfiguration.includes('az ad app permission admin-consent --id "$pipeline_app_id"')
     && entraConfiguration.includes('and .consentType == "AllPrincipals"')
@@ -87,7 +94,7 @@ check("operational alert recipients are explicit parameters", bicep.includes("al
 check("seven PHI-safe alert rules are declared", (alerts.match(/key:\s*'/g) ?? []).length === 7 && alerts.includes("dataClassification: 'phi-safe-metrics-only'"));
 check("custom-domain automation distinguishes apex and subdomain records", domainConfiguration.includes('record_mode="apex"') && domainConfiguration.includes("validation_method=\"HTTP\"") && domainConfiguration.includes("validation_method=\"CNAME\""));
 check("custom-domain automation reads stable output-only foundation state", domainConfiguration.includes("--name pipeline-foundation-state"));
-check("custom-domain Blob CORS preserves existing service properties", domainConfiguration.includes("blob_service=\"$(az rest --method GET") && domainConfiguration.includes("--method PUT") && domainConfiguration.includes(".properties.cors = $cors"));
+check("custom-domain Blob CORS preserves existing service properties and origins", domainConfiguration.includes("blob_service=\"$(az rest --method GET") && domainConfiguration.includes("existing_origins=") && domainConfiguration.includes("$existingOrigins + [$productionOrigin, $generatedOrigin] | unique") && domainConfiguration.includes("--method PUT") && domainConfiguration.includes(".properties.cors = $cors"));
 check("custom-domain automation preserves CAA and exact Entra redirect safety", domainConfiguration.includes("digicert\\.com") && domainConfiguration.includes('redirect_uri="https://${custom_hostname}/sign-in"') && domainConfiguration.indexOf("az containerapp hostname bind") < domainConfiguration.indexOf("redirect_uri="));
 
 const failed = checks.filter((item) => !item.ok);
