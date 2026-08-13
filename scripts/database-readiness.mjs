@@ -12,6 +12,7 @@ const documentMigration = read("database/migrations/0004_document_processing.sql
 const collaborationMigration = read("database/migrations/0005_collaboration.sql");
 const workspaceStateMigration = read("database/migrations/0006_user_workspace_state.sql");
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
+const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
 const databaseAdapter = read("lib/database/pipeline-database.ts");
 const referralStore = read("lib/pipeline/referral-store.ts");
 const assessmentStore = read("lib/assessment/assessment-store.ts");
@@ -132,6 +133,7 @@ check("high-volume lists have keyset indexes", documentMigration.includes("refer
 check("migration runner serializes deployments", migrationRunner.includes("pg_advisory_lock"));
 check("migration runner rejects changed migration history", migrationRunner.includes("migration_checksum_mismatch"));
 check("migration runner backfills historical checksums atomically", migrationRunner.includes("checksum_sha256 is null"));
+check("production role passwords use PostgreSQL identifier and literal quoting", productionBootstrap.includes("format('alter role %I password %L'") && !productionBootstrap.includes("alter role pipeline_migrator password ${"));
 check("integration fixture is explicitly synthetic", integrationFixture.includes("pipeline-integration-fixture") && integrationFixture.includes("Synthetic integration fixture"));
 check("integration fixtures are transactionally rolled back", integrationFixtureRunner.includes("sql.begin(async (tx)") && integrationFixtureRunner.includes("fixture_rollback"));
 check("integration fixtures require a separate test database", integrationFixtureRunner.includes("PIPELINE_TEST_DATABASE_URL") && integrationFixtureRunner.includes("PIPELINE_ALLOW_TEST_DATABASE_REUSE"));

@@ -31,8 +31,8 @@ try {
     if (!(await roleExists(sql, "pipeline_runtime"))) {
       await sql.unsafe("create role pipeline_runtime login");
     }
-    await sql`alter role pipeline_migrator password ${migrationUrl.password}`;
-    await sql`alter role pipeline_runtime password ${runtimeUrl.password}`;
+    await setRolePassword(sql, "pipeline_migrator", migrationUrl.password);
+    await setRolePassword(sql, "pipeline_runtime", runtimeUrl.password);
     await sql.unsafe("grant connect on database pipeline to pipeline_migrator, pipeline_runtime");
     await sql.unsafe("create extension if not exists pgcrypto");
     await sql.unsafe("create extension if not exists pg_trgm");
@@ -56,7 +56,7 @@ try {
       throw new Error("database_administrator_role_invalid");
     }
     const revokedPassword = randomBytes(48).toString("base64url");
-    await sql.unsafe(`alter role "${administratorRole}" password '${revokedPassword}'`);
+    await setRolePassword(sql, administratorRole, revokedPassword);
   });
 
   console.log(JSON.stringify({
@@ -89,6 +89,17 @@ try {
 async function roleExists(sql, role) {
   const rows = await sql`select exists(select 1 from pg_roles where rolname = ${role}) as exists`;
   return Boolean(rows[0]?.exists);
+}
+
+async function setRolePassword(sql, role, password) {
+  const rows = await sql`
+    select format('alter role %I password %L', ${role}, ${password}) as statement
+  `;
+  const statement = rows[0]?.statement;
+  if (typeof statement !== "string" || !statement.startsWith("alter role ")) {
+    throw new Error("database_password_statement_invalid");
+  }
+  await sql.unsafe(statement);
 }
 
 function runMigrations(databaseUrl) {
