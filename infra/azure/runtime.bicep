@@ -141,11 +141,16 @@ var baseEnvironment = [
   { name: 'PIPELINE_ASSESSMENT_STORE_MODE', value: 'postgres' }
   { name: 'PIPELINE_RESIDENT_LINK_STORE_MODE', value: 'postgres' }
   { name: 'PIPELINE_DESKTOP_STATE_ENABLED', value: 'true' }
+  { name: 'NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED', value: 'true' }
   { name: 'PIPELINE_ALLOW_LOCAL_DESKTOP_STATE_STORE', value: 'false' }
   { name: 'PIPELINE_AUTH_MODE', value: 'entra_jwt' }
   { name: 'PIPELINE_ENTRA_TENANT_ID', value: entraTenantId }
   { name: 'PIPELINE_ENTRA_API_AUDIENCE', value: pipelineApiAudience }
   { name: 'PIPELINE_ENTRA_API_SCOPE', value: 'access_as_user' }
+  { name: 'NEXT_PUBLIC_ENTRA_TENANT_ID', value: entraTenantId }
+  { name: 'NEXT_PUBLIC_ENTRA_CLIENT_ID', value: pipelineEntraClientId }
+  { name: 'NEXT_PUBLIC_PIPELINE_API_SCOPE', value: pipelineApiAudience }
+  { name: 'NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED', value: 'true' }
   { name: 'PIPELINE_ENTRA_SESSION_SECRET', secretRef: 'entra-session-secret' }
   { name: 'PIPELINE_ALLOWED_EMAILS', secretRef: 'allowed-emails' }
   { name: 'PIPELINE_TRUSTED_GATEWAY', value: 'false' }

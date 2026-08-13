@@ -58,6 +58,13 @@ check("reconciliation schedule exists", runtime.includes("'/api/internal/extract
 check("clinical backlog reconciliation schedule exists", runtime.includes("'/api/internal/clinical/reconcile'"));
 check("retention is fail-closed by default", runtime.includes("param enableRetentionJob bool = false") && runtime.includes("enabled: enableRetentionJob"));
 check("runtime uses managed identity for Blob", runtime.includes("PIPELINE_AZURE_BLOB_AUTH_MODE") && runtime.includes("managed_identity"));
+check("runtime preserves browser-safe Entra readiness configuration", [
+  "NEXT_PUBLIC_ENTRA_TENANT_ID",
+  "NEXT_PUBLIC_ENTRA_CLIENT_ID",
+  "NEXT_PUBLIC_PIPELINE_API_SCOPE",
+  "NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED",
+  "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED",
+].every((name) => runtime.includes(`name: '${name}'`)));
 check("Databricks API uses OAuth M2M rather than a PAT", runtime.includes("PIPELINE_DATABRICKS_AUTH_MODE") && runtime.includes("oauth_m2m") && !runtime.includes("DATABRICKS_TOKEN"));
 check("Blob adapter has no shared-key credential path", blobAdapter.includes("DefaultAzureCredential") && !blobAdapter.includes("StorageSharedKeyCredential") && !blobAdapter.includes("AZURE_STORAGE_ACCOUNT_KEY"));
 check("runtime reads secrets from Key Vault", runtime.includes("keyVaultUrl") && runtime.includes("identity: keyVaultSecretIdentity"));
