@@ -14,7 +14,7 @@ on:
       clinical_data_mode:
         description: Clinical adapter mode
         required: true
-        default: disconnected
+        default: alamo_api
         type: choice
         options:
           - disconnected
