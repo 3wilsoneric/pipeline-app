@@ -1636,23 +1636,19 @@ test.describe("Pipeline home", () => {
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
 
-    const addFilter = page.getByRole("button", { name: "Add profile filter" });
-    await addFilter.click();
-    await page.getByRole("menuitem", { name: /Admission date/ }).click();
+    await page.getByRole("button", { name: "Add admission date filter" }).click();
     await expect(page.getByLabel("Filter profiles by admission date")).toHaveValue("last_6_months");
     await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
     await expect(page.getByText("Recent Turlock", { exact: true })).toBeVisible();
     await expect(page.getByText("Older San Pablo", { exact: true })).toHaveCount(0);
 
-    await addFilter.click();
-    await page.getByRole("menuitem", { name: /Community/ }).click();
+    await page.getByRole("button", { name: "Add community filter" }).click();
     await page.getByLabel("Filter profiles by community").selectOption("337");
     await expect(page.getByText("1 of 1 matching", { exact: true })).toBeVisible();
     await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
     await expect(page.getByText("Recent Turlock", { exact: true })).toHaveCount(0);
 
-    await addFilter.click();
-    await page.getByRole("menuitem", { name: /Profile data/ }).click();
+    await page.getByRole("button", { name: "Add profile data filter" }).click();
     await page.getByLabel("Filter profiles by profile data").selectOption("complete");
     await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
 

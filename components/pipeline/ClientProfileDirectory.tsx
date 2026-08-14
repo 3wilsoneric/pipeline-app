@@ -27,11 +27,6 @@ type CommunityOption = { id: string; name: string };
 const PAGE_SIZE = 200;
 const DISPLAY_INCREMENT = 100;
 const MAX_DIRECTORY_PAGES = 50;
-const filterDefinitions: Array<{ key: FilterKey; label: string; description: string }> = [
-  { key: "community", label: "Community", description: "Show clients at one community" },
-  { key: "admitted", label: "Admission date", description: "Filter the current stay by admission window" },
-  { key: "profile_data", label: "Profile data", description: "Find missing current-stay details" },
-];
 
 export default function ClientProfileDirectory({
   onOpenProfile,
@@ -54,9 +49,7 @@ export default function ClientProfileDirectory({
   const [communityFilter, setCommunityFilter] = useState("");
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("last_6_months");
   const [profileDataFilter, setProfileDataFilter] = useState<ProfileDataFilter>("missing_any");
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const loadedQuery = useRef("");
-  const filterMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -137,22 +130,6 @@ export default function ClientProfileDirectory({
     };
   }, [query, reloadKey]);
 
-  useEffect(() => {
-    if (!filterMenuOpen) return;
-    const closeMenu = (event: MouseEvent) => {
-      if (!filterMenuRef.current?.contains(event.target as Node)) setFilterMenuOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setFilterMenuOpen(false);
-    };
-    document.addEventListener("mousedown", closeMenu);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("mousedown", closeMenu);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [filterMenuOpen]);
-
   const filteredResidents = useMemo(
     () => residents.filter((resident) => {
       if (activeFilters.includes("community") && communityFilter && resident.community_id !== communityFilter) return false;
@@ -163,7 +140,6 @@ export default function ClientProfileDirectory({
     [activeFilters, admissionFilter, communityFilter, dataAsOf, profileDataFilter, residents],
   );
   const visibleResidents = filteredResidents.slice(0, displayLimit);
-  const availableFilters = filterDefinitions.filter((definition) => !activeFilters.includes(definition.key));
   const hasAppliedFilters = activeFilters.length > 0 || Boolean(query.trim());
   const countLabel = isLoading && residents.length === 0
     ? "Loading roster..."
@@ -174,9 +150,8 @@ export default function ClientProfileDirectory({
         : `${visibleResidents.length} of ${total} admitted clients`;
 
   const addFilter = (key: FilterKey) => {
-    setActiveFilters((current) => [...current, key]);
+    setActiveFilters((current) => current.includes(key) ? current : [...current, key]);
     setDisplayLimit(DISPLAY_INCREMENT);
-    setFilterMenuOpen(false);
   };
 
   const removeFilter = (key: FilterKey) => {
@@ -209,38 +184,6 @@ export default function ClientProfileDirectory({
             />
           </label>
 
-          <div ref={filterMenuRef} className="relative">
-            <button
-              type="button"
-              aria-label="Add profile filter"
-              aria-expanded={filterMenuOpen}
-              aria-haspopup="menu"
-              title={!directoryComplete ? "Wait for the complete directory before filtering" : "Add filter"}
-              onClick={() => setFilterMenuOpen((current) => !current)}
-              disabled={!directoryComplete || availableFilters.length === 0}
-              className="flex h-11 items-center gap-2 border border-[#b3b3b3] px-3 text-[11px] font-black uppercase tracking-[0.08em] text-[#333333] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:border-[#e0e0e0] disabled:text-[#a3a3a3]"
-            >
-              <Plus size={16} />
-              Filter
-            </button>
-            {filterMenuOpen ? (
-              <div role="menu" aria-label="Profile filters" className="absolute left-0 top-[calc(100%+6px)] z-20 w-[250px] border border-[#cfcfcf] bg-white py-1 shadow-[0_12px_28px_rgba(0,0,0,0.12)]">
-                {availableFilters.map((definition) => (
-                  <button
-                    key={definition.key}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => addFilter(definition.key)}
-                    className="block w-full px-3 py-2.5 text-left hover:bg-[#f3f7f5] focus-visible:bg-[#f3f7f5] focus-visible:outline-none"
-                  >
-                    <span className="block text-[12px] font-black text-[#222222]">{definition.label}</span>
-                    <span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">{definition.description}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
           <div className="ml-auto flex items-center gap-3 text-[12px] text-[#737373]">
             <span className="min-w-[154px] text-right tabular-nums">{countLabel}</span>
             <button
@@ -256,69 +199,92 @@ export default function ClientProfileDirectory({
           </div>
         </div>
 
-        {activeFilters.length > 0 ? (
-          <div aria-label="Active profile filters" className="flex flex-wrap items-center gap-2 py-2">
-            {activeFilters.includes("community") ? (
-              <FilterControl label="Community" icon={<MapPin size={14} />} onRemove={() => removeFilter("community")}>
-                <select
-                  aria-label="Filter profiles by community"
-                  value={communityFilter}
-                  onChange={(event) => {
-                    setCommunityFilter(event.target.value);
-                    setDisplayLimit(DISPLAY_INCREMENT);
-                  }}
-                  className="h-7 w-full min-w-0 bg-transparent pr-2 text-[11px] font-semibold outline-none sm:min-w-[170px]"
-                >
-                  <option value="">Choose community</option>
-                  {knownCommunities.map((community) => (
-                    <option key={community.id} value={community.id}>{community.name}</option>
-                  ))}
-                </select>
-              </FilterControl>
-            ) : null}
-            {activeFilters.includes("admitted") ? (
-              <FilterControl label="Admitted" icon={<CalendarDays size={14} />} onRemove={() => removeFilter("admitted")}>
-                <select
-                  aria-label="Filter profiles by admission date"
-                  value={admissionFilter}
-                  onChange={(event) => {
-                    setAdmissionFilter(event.target.value as AdmissionFilter);
-                    setDisplayLimit(DISPLAY_INCREMENT);
-                  }}
-                  className="h-7 w-full min-w-0 bg-transparent pr-2 text-[11px] font-semibold outline-none sm:min-w-[150px]"
-                >
-                  <option value="last_30_days">Last 30 days</option>
-                  <option value="last_3_months">Last 3 months</option>
-                  <option value="last_6_months">Last 6 months</option>
-                  <option value="last_12_months">Last 12 months</option>
-                  <option value="older_than_12_months">More than 12 months ago</option>
-                  <option value="missing">Admission date missing</option>
-                </select>
-              </FilterControl>
-            ) : null}
-            {activeFilters.includes("profile_data") ? (
-              <FilterControl label="Profile data" icon={<CircleAlert size={14} />} onRemove={() => removeFilter("profile_data")}>
-                <select
-                  aria-label="Filter profiles by profile data"
-                  value={profileDataFilter}
-                  onChange={(event) => {
-                    setProfileDataFilter(event.target.value as ProfileDataFilter);
-                    setDisplayLimit(DISPLAY_INCREMENT);
-                  }}
-                  className="h-7 w-full min-w-0 bg-transparent pr-2 text-[11px] font-semibold outline-none sm:min-w-[155px]"
-                >
-                  <option value="missing_any">Missing stay details</option>
-                  <option value="missing_unit">Unit missing</option>
-                  <option value="missing_admit_date">Admission date missing</option>
-                  <option value="complete">Current stay complete</option>
-                </select>
-              </FilterControl>
-            ) : null}
-            <button type="button" onClick={clearFilters} className="h-8 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#a63d2f]">
+        <div aria-label="Profile filters" className="flex flex-wrap items-center gap-2 py-2">
+          {activeFilters.includes("community") ? (
+            <FilterControl label="Community" icon={<MapPin size={14} />} onRemove={() => removeFilter("community")}>
+              <select
+                aria-label="Filter profiles by community"
+                value={communityFilter}
+                onChange={(event) => {
+                  setCommunityFilter(event.target.value);
+                  setDisplayLimit(DISPLAY_INCREMENT);
+                }}
+                className="h-7 w-full min-w-0 bg-transparent pr-2 text-[11px] font-semibold outline-none sm:min-w-[170px]"
+              >
+                <option value="">Choose community</option>
+                {knownCommunities.map((community) => (
+                  <option key={community.id} value={community.id}>{community.name}</option>
+                ))}
+              </select>
+            </FilterControl>
+          ) : (
+            <AddFilterButton
+              label="Community"
+              icon={<MapPin size={14} />}
+              onClick={() => addFilter("community")}
+              disabled={!directoryComplete}
+            />
+          )}
+          {activeFilters.includes("admitted") ? (
+            <FilterControl label="Admitted" icon={<CalendarDays size={14} />} onRemove={() => removeFilter("admitted")}>
+              <select
+                aria-label="Filter profiles by admission date"
+                value={admissionFilter}
+                onChange={(event) => {
+                  setAdmissionFilter(event.target.value as AdmissionFilter);
+                  setDisplayLimit(DISPLAY_INCREMENT);
+                }}
+                className="h-7 w-full min-w-0 bg-transparent pr-2 text-[11px] font-semibold outline-none sm:min-w-[150px]"
+              >
+                <option value="last_30_days">Last 30 days</option>
+                <option value="last_3_months">Last 3 months</option>
+                <option value="last_6_months">Last 6 months</option>
+                <option value="last_12_months">Last 12 months</option>
+                <option value="older_than_12_months">More than 12 months ago</option>
+                <option value="missing">Admission date missing</option>
+              </select>
+            </FilterControl>
+          ) : (
+            <AddFilterButton
+              label="Admitted: last 6 months"
+              accessibleLabel="Admission date"
+              icon={<CalendarDays size={14} />}
+              onClick={() => addFilter("admitted")}
+              disabled={!directoryComplete}
+            />
+          )}
+          {activeFilters.includes("profile_data") ? (
+            <FilterControl label="Profile data" icon={<CircleAlert size={14} />} onRemove={() => removeFilter("profile_data")}>
+              <select
+                aria-label="Filter profiles by profile data"
+                value={profileDataFilter}
+                onChange={(event) => {
+                  setProfileDataFilter(event.target.value as ProfileDataFilter);
+                  setDisplayLimit(DISPLAY_INCREMENT);
+                }}
+                className="h-7 w-full min-w-0 bg-transparent pr-2 text-[11px] font-semibold outline-none sm:min-w-[155px]"
+              >
+                <option value="missing_any">Missing stay details</option>
+                <option value="missing_unit">Unit missing</option>
+                <option value="missing_admit_date">Admission date missing</option>
+                <option value="complete">Current stay complete</option>
+              </select>
+            </FilterControl>
+          ) : (
+            <AddFilterButton
+              label="Missing profile data"
+              accessibleLabel="Profile data"
+              icon={<CircleAlert size={14} />}
+              onClick={() => addFilter("profile_data")}
+              disabled={!directoryComplete}
+            />
+          )}
+          {activeFilters.length > 0 ? (
+            <button type="button" onClick={clearFilters} className="h-9 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#a63d2f]">
               Clear all
             </button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         {freshness?.status === "stale" || freshness?.warning ? (
           <div className="mt-3 border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#5d4925]" role="status">
@@ -332,7 +298,7 @@ export default function ClientProfileDirectory({
               <div className="font-black">Admitted-client profiles are unavailable.</div>
               <div className="mt-1">{error}</div>
             </div>
-            <button type="button" onClick={() => setReloadKey((current) => current + 1)} className="shrink-0 font-black text-[#0f8b73]">
+            <button type="button" onClick={() => setReloadKey((current) => current + 1)} className="shrink-0 font-black text-[#086b5b]">
               Retry
             </button>
           </div>
@@ -401,6 +367,35 @@ export default function ClientProfileDirectory({
         ) : null}
       </div>
     </main>
+  );
+}
+
+function AddFilterButton({
+  label,
+  accessibleLabel = label,
+  icon,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  accessibleLabel?: string;
+  icon: ReactNode;
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`Add ${accessibleLabel.toLowerCase()} filter`}
+      title={disabled ? "Wait for the complete directory before filtering" : `Add ${accessibleLabel.toLowerCase()} filter`}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-9 items-center gap-2 border border-[#d4d4d4] bg-white px-3 text-[10px] font-black uppercase tracking-[0.06em] text-[#4d4d4d] transition-colors hover:border-[#0f8b73] hover:bg-[#f5faf8] hover:text-[#0f8b73] focus-visible:border-[#0f8b73] focus-visible:outline-none disabled:border-[#e8e8e8] disabled:text-[#b3b3b3]"
+    >
+      <Plus size={13} />
+      {icon}
+      <span>{label}</span>
+    </button>
   );
 }
 

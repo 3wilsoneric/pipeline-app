@@ -25,6 +25,13 @@ test.describe("Responsive and accessible application shell", () => {
     await expect(page.getByRole("heading", { name: "Referral packets", exact: true })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
+
+    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await expect(page.getByRole("button", { name: "Add community filter" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add admission date filter" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add profile data filter" })).toBeVisible();
+    await expectNoPageOverflow(page);
+    await expectNoSeriousAxeViolations(page);
   });
 
   test("keeps packet steps operable at the configured viewport", async ({ page }) => {
