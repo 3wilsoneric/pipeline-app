@@ -27,6 +27,8 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoSeriousAxeViolations(page);
 
     await page.getByRole("button", { name: "Open client profiles" }).click();
+    const loadingRoster = page.getByRole("status", { name: "Loading admitted clients" });
+    if (await loadingRoster.count()) await expect(loadingRoster).toHaveAttribute("aria-busy", "true");
     await expect(page.getByRole("button", { name: "Add community filter" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add admission date filter" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add profile data filter" })).toBeVisible();

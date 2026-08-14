@@ -426,7 +426,7 @@ function FilterControl({
 
 function RosterSkeleton() {
   return (
-    <div aria-label="Loading admitted clients" aria-busy="true" className="divide-y divide-[#e5e5e5]">
+    <div role="status" aria-label="Loading admitted clients" aria-busy="true" className="divide-y divide-[#e5e5e5]">
       {Array.from({ length: 7 }, (_, index) => (
         <div
           key={index}
