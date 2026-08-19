@@ -11,6 +11,8 @@
   review when the repository feature is available and
   `PIPELINE_DEPENDENCY_REVIEW_ENABLED=true`; CodeQL runs on pull requests,
   `main`, and weekly.
+- Browser CI runs in the official Playwright image that matches the locked npm
+  package version, pinned by immutable multi-architecture digest.
 - Sanitized test fixtures never replace unavailable production services.
 
 ## Release bundle
