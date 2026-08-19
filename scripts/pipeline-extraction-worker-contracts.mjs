@@ -25,6 +25,7 @@ check("bundle uses a service principal run identity", bundle.includes("service_p
 check("bundle uses pinned worker dependencies", ["azure-storage-blob==", "PyMuPDF==", "requests=="].every((value) => bundle.includes(value)));
 check("setup is plan-first and deletion-free", setup.includes('mode="plan"') && !/\bdelete\b|\bdestroy\b|\bremove\b/.test(setup));
 check("setup cannot activate the production backend", !setup.includes("gh variable set PIPELINE_EXTRACTION_BACKEND"));
+check("setup remains compatible with macOS Bash 3.2", !setup.includes(",,"));
 check("all successful worker callbacks require digest and malware status", processingWorker.includes('if (!input.verified_sha256)') && processingWorker.includes('if (!input.malware_scan_status)'));
 
 const failed = checks.filter((item) => !item.ok);

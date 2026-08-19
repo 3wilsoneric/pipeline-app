@@ -64,7 +64,9 @@ principal_application_id="$(jq -r '.[0].applicationId // empty' <<<"$principal_j
 credential_json="$(databricks credentials get-credential "$service_credential" -o json 2>/dev/null || true)"
 if [[ -n "$credential_json" ]]; then
   configured_connector="$(jq -r '.azure_managed_identity.access_connector_id // empty' <<<"$credential_json")"
-  if [[ "${configured_connector,,}" != "${access_connector_id,,}" ]]; then
+  configured_connector_lc="$(printf '%s' "$configured_connector" | tr '[:upper:]' '[:lower:]')"
+  access_connector_id_lc="$(printf '%s' "$access_connector_id" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$configured_connector_lc" != "$access_connector_id_lc" ]]; then
     printf 'Refusing to continue: the existing Pipeline service credential points to another connector.\n' >&2
     exit 1
   fi
@@ -134,7 +136,7 @@ jq -n \
   --arg principal "$principal_application_id" \
   '{changes:[{principal:$principal,add:["ACCESS"]}]}' \
   > "$temporary_directory/credential-grant.json"
-databricks grants update SERVICE_CREDENTIAL "$service_credential" \
+databricks grants update CREDENTIAL "$service_credential" \
   --json "@$temporary_directory/credential-grant.json" \
   >/dev/null
 
