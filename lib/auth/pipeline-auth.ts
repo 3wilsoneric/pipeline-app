@@ -163,7 +163,6 @@ export function getPipelineAuthReadiness() {
   }
 
   const required = [
-    "NEXT_PUBLIC_PIPELINE_BASE_PATH",
     "NEXT_PUBLIC_ENTRA_TENANT_ID",
     "NEXT_PUBLIC_ENTRA_CLIENT_ID",
     "NEXT_PUBLIC_PIPELINE_API_SCOPE",

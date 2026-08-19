@@ -453,6 +453,26 @@ function authBehaviorResults() {
       const readiness = auth.getPipelineAuthReadiness();
       assert(readiness.ready, "A complete Entra JWT configuration should not require local identity lists");
     }),
+    run("standalone production readiness permits the intentional root base path", () => {
+      const auth = loadAuthModule({
+        NODE_ENV: "production",
+        PIPELINE_AUTH_MODE: "entra_jwt",
+        NEXT_PUBLIC_ENTRA_TENANT_ID: "tenant-id",
+        NEXT_PUBLIC_ENTRA_CLIENT_ID: "client-id",
+        NEXT_PUBLIC_PIPELINE_API_SCOPE: "api://client-id/access_as_user",
+        NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED: "true",
+        PIPELINE_ENTRA_TENANT_ID: "tenant-id",
+        PIPELINE_ENTRA_API_AUDIENCE: "client-id",
+        PIPELINE_ENTRA_API_SCOPE: "access_as_user",
+        PIPELINE_ENTRA_SESSION_SECRET: "a-secure-session-secret-of-sufficient-length",
+      });
+      const readiness = auth.getPipelineAuthReadiness();
+      assert(readiness.ready, "The standalone root deployment must not require a compatibility base path");
+      assert(
+        !readiness.missing_env.includes("NEXT_PUBLIC_PIPELINE_BASE_PATH"),
+        "The optional base path must not be reported as missing",
+      );
+    }),
   ];
 }
 
