@@ -122,11 +122,11 @@ databricks secrets put-acl "$secret_scope" "$principal_application_id" READ >/de
 
 if [[ -z "$credential_json" ]]; then
   jq -n \
+    --arg name "$service_credential" \
     --arg connector "$access_connector_id" \
-    '{purpose:"SERVICE", comment:"Pipeline-only access to existing Blob and Document Intelligence resources", azure_managed_identity:{access_connector_id:$connector}}' \
+    '{name:$name, purpose:"SERVICE", comment:"Pipeline-only access to existing Blob and Document Intelligence resources", azure_managed_identity:{access_connector_id:$connector}}' \
     > "$temporary_directory/service-credential.json"
-  databricks credentials create-credential "$service_credential" \
-    --purpose SERVICE \
+  databricks credentials create-credential \
     --json "@$temporary_directory/service-credential.json" \
     >/dev/null
 fi
