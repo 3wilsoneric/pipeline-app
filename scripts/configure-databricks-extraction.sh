@@ -100,7 +100,7 @@ fi
 }
 
 if ! az keyvault secret show --vault-name "$key_vault_name" --name pipeline-databricks-client-secret --output none 2>/dev/null; then
-  oauth_json="$(databricks service-principal-secrets-proxy create "$principal_id" --lifetime 31536000 -o json)"
+  oauth_json="$(databricks service-principal-secrets-proxy create "$principal_id" --lifetime 8760h -o json)"
   oauth_secret="$(jq -r '.secret // empty' <<<"$oauth_json")"
   [[ -n "$oauth_secret" ]] || {
     printf 'Databricks did not return a service-principal OAuth secret.\n' >&2
