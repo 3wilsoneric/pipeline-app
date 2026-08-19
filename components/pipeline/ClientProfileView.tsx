@@ -1,16 +1,24 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Private no-store thumbnails require the signed-in browser request. */
+
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, CircleAlert, Database, Link2, Search, UserRound, X } from "lucide-react";
+import { ArrowLeft, Check, CircleAlert, Database, ExternalLink, FileText, ImageOff, Link2, Search, UserRound, X } from "lucide-react";
 
 import type {
   ClinicalClientRecord,
+  ClinicalClientSourceDocument,
   ClinicalJsonValue,
 } from "@/lib/clinical/clinical-contracts";
+import {
+  hasReadableClinicalValue,
+  humanizeClinicalField,
+  presentClinicalValue,
+} from "@/lib/clinical/clinical-value-presentation";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import type { ClientHistoryProjection } from "@/lib/pipeline/client-history-contracts";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
-import type { Referral } from "@/lib/pipeline/referral-types";
+import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records";
 import type {
   UnifiedClientProfileResponse,
@@ -192,6 +200,15 @@ function ResidentProfile({
               <EnhancedClientRecord profile={profile} />
             </ProfileSection>
 
+            {client.source_documents.length > 0 ? (
+              <ProfileSection title="Governed source files" detail={`${client.source_documents.length} attached to canonical client ID`}>
+                <ClinicalSourceDocumentGallery
+                  canonicalClientId={client.canonical_client_id}
+                  documents={client.source_documents}
+                />
+              </ProfileSection>
+            ) : null}
+
             <ProfileSection title="Resident episode history" detail="Joined by canonical client identifier">
               <GovernedEpisodeHistory episodes={client.resident_episode_history} />
             </ProfileSection>
@@ -199,6 +216,12 @@ function ResidentProfile({
             <ProfileSection title="Pipeline work" detail="Available only through a reviewed identity link">
               <PipelineWorkSummary profile={profile} onConnectionChanged={onConnectionChanged} />
             </ProfileSection>
+
+            {profile.pipeline.connection.status === "confirmed" ? (
+              <ProfileSection title="Client files" detail={`${profile.pipeline.documents.length} linked through reviewed identity`}>
+                <ClientDocumentGallery documents={profile.pipeline.documents} />
+              </ProfileSection>
+            ) : null}
 
             <ProfileSection title="Assessments" detail="Separate dated records; latest shown first">
               <ClientAssessmentSummary
@@ -299,10 +322,10 @@ function EnhancedClientRecord({ profile }: { profile: UnifiedClientProfileRespon
           </summary>
           <div className="grid gap-x-7 gap-y-5 pb-5 sm:grid-cols-2 xl:grid-cols-3">
             {group.fields.map((field) => (
-              <DataPoint
+              <ClinicalDataPoint
                 key={field.key}
-                label={humanizeField(field.key)}
-                value={formatClinicalValue(field.value)}
+                fieldKey={field.key}
+                value={field.value}
               />
             ))}
           </div>
@@ -338,7 +361,7 @@ function GovernedEpisodeHistory({ episodes }: { episodes: ClinicalClientRecord[]
             </summary>
             <div className="grid gap-x-7 gap-y-5 pb-5 sm:grid-cols-2 xl:grid-cols-3">
               {Object.entries(episode).map(([key, value]) => (
-                <DataPoint key={key} label={humanizeField(key)} value={formatClinicalValue(value)} />
+                <ClinicalDataPoint key={key} fieldKey={key} value={value} />
               ))}
             </div>
           </details>
@@ -370,7 +393,7 @@ function groupEnhancedFields(fields: string[], enrichment: ClinicalClientRecord)
     return groupedFields.length === 0 ? [] : [{
       name,
       fields: groupedFields,
-      populated: groupedFields.filter((field) => hasClinicalValue(field.value)).length,
+      populated: groupedFields.filter((field) => hasReadableClinicalValue(field.value, field.key)).length,
     }];
   });
 }
@@ -389,15 +412,6 @@ function enhancedFieldGroup(key: string) {
   return "Other";
 }
 
-function humanizeField(value: string) {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^./, (letter) => letter.toUpperCase());
-}
-
 function firstClinicalText(record: ClinicalClientRecord, keys: string[]) {
   for (const key of keys) {
     const value = record[key];
@@ -405,26 +419,6 @@ function firstClinicalText(record: ClinicalClientRecord, keys: string[]) {
     if (typeof value === "number" && Number.isFinite(value)) return String(value);
   }
   return "";
-}
-
-function formatClinicalValue(value: ClinicalJsonValue | undefined): string {
-  if (!hasClinicalValue(value)) return "Not reported";
-  if (Array.isArray(value)) return value.map((entry) => formatClinicalValue(entry)).join(" · ");
-  if (value && typeof value === "object") {
-    return Object.entries(value)
-      .map(([key, entry]) => `${humanizeField(key)}: ${formatClinicalValue(entry)}`)
-      .join(" · ");
-  }
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  return String(value);
-}
-
-function hasClinicalValue(value: ClinicalJsonValue | undefined): boolean {
-  if (value === null || value === undefined) return false;
-  if (typeof value === "string") return value.trim().length > 0;
-  if (Array.isArray(value)) return value.some(hasClinicalValue);
-  if (typeof value === "object") return Object.values(value).some(hasClinicalValue);
-  return true;
 }
 
 function formatLooseDate(value: string) {
@@ -591,6 +585,180 @@ function PipelineWorkSummary({
         </div>
       )}
     </div>
+  );
+}
+
+function ClientDocumentGallery({ documents }: { documents: ReferralFile[] }) {
+  if (documents.length === 0) {
+    return (
+      <div className="border-l-2 border-[#d9d9d9] bg-[#f8f8f8] px-4 py-3 text-[12px] leading-5 text-[#595959]">
+        No Pipeline files are attached to this canonical client through a reviewed referral link.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {documents.map((document) => (
+        <article key={document.id} className="min-w-0 overflow-hidden border border-[#d9d9d9] bg-white">
+          <DocumentThumbnail document={document} />
+          <div className="p-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">{document.category}</span>
+              <span className="text-[9px] font-black uppercase text-[#737373]">{document.status}</span>
+            </div>
+            <div className="mt-2 break-words text-[12px] font-black leading-5 text-[#111111]">{document.name}</div>
+            <div className="mt-2 text-[10px] leading-4 text-[#737373]">
+              Referral #{document.referralId} · {document.community}
+              {document.pageCount ? ` · ${document.pageCount} page${document.pageCount === 1 ? "" : "s"}` : ""}
+            </div>
+            <div className="mt-1 text-[10px] text-[#737373]">Uploaded {formatDate(document.uploadedAt)}</div>
+            {document.previewUrl ? (
+              <a
+                href={document.previewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58]"
+              >
+                Open file <ExternalLink size={12} />
+              </a>
+            ) : (
+              <div className="mt-3 text-[10px] font-semibold text-[#8a6118]">Preview is still processing</div>
+            )}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ClinicalSourceDocumentGallery({
+  canonicalClientId,
+  documents,
+}: {
+  canonicalClientId: string;
+  documents: ClinicalClientSourceDocument[];
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {documents.map((document) => {
+        const basePath = `/api/profiles/${encodeURIComponent(canonicalClientId)}/source-documents/${encodeURIComponent(document.document_id)}`;
+        const thumbnailUrl = document.thumbnail_available ? `${basePath}/thumbnail` : null;
+        const previewUrl = document.preview_available ? `${basePath}/preview` : null;
+        return (
+          <article key={document.document_id} className="min-w-0 overflow-hidden border border-[#d9d9d9] bg-white">
+            <ClinicalSourceThumbnail
+              document={document}
+              thumbnailUrl={thumbnailUrl}
+              previewUrl={previewUrl}
+            />
+            <div className="p-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Alamo source</span>
+                <span className="text-[9px] font-black uppercase text-[#737373]">
+                  {document.content_type.includes("pdf") ? "PDF" : "Image"}
+                </span>
+              </div>
+              <div className="mt-2 break-words text-[12px] font-black leading-5 text-[#111111]">{document.display_name}</div>
+              <div className="mt-2 text-[10px] leading-4 text-[#737373]">
+                {document.page_count ? `${document.page_count} page${document.page_count === 1 ? "" : "s"}` : "Page count not reported"}
+                {document.link_source ? ` · ${humanizeClinicalField(document.link_source)}` : ""}
+              </div>
+              {document.linked_at ? <div className="mt-1 text-[10px] text-[#737373]">Linked {formatDate(document.linked_at)}</div> : null}
+              {previewUrl ? (
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58]"
+                >
+                  Open file <ExternalLink size={12} />
+                </a>
+              ) : (
+                <div className="mt-3 text-[10px] font-semibold text-[#737373]">Thumbnail only</div>
+              )}
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function ClinicalSourceThumbnail({
+  document,
+  thumbnailUrl,
+  previewUrl,
+}: {
+  document: ClinicalClientSourceDocument;
+  thumbnailUrl: string | null;
+  previewUrl: string | null;
+}) {
+  const [failed, setFailed] = useState(false);
+  const content = thumbnailUrl && !failed ? (
+    <img
+      src={thumbnailUrl}
+      alt={`First-page thumbnail for ${document.display_name}`}
+      loading="lazy"
+      className="h-full w-full object-cover object-top"
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#f2f5f3] text-[#737373]">
+      {failed ? <ImageOff size={24} strokeWidth={1.5} /> : <FileText size={28} strokeWidth={1.5} />}
+      <span className="text-[9px] font-black uppercase tracking-[0.1em]">
+        {failed ? "Thumbnail unavailable" : "No thumbnail published"}
+      </span>
+    </div>
+  );
+
+  return previewUrl ? (
+    <a
+      href={previewUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="block h-40 border-b border-[#d9d9d9] bg-[#f2f5f3] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0f8b73]"
+      aria-label={`Open ${document.display_name}`}
+    >
+      {content}
+    </a>
+  ) : (
+    <div className="h-40 border-b border-[#d9d9d9] bg-[#f2f5f3]">{content}</div>
+  );
+}
+
+function DocumentThumbnail({ document }: { document: ReferralFile }) {
+  const [failed, setFailed] = useState(false);
+  const available = Boolean(document.thumbnailUrl) && !failed;
+  const content = available ? (
+    <img
+      src={document.thumbnailUrl}
+      alt={`First-page thumbnail for ${document.name}`}
+      loading="lazy"
+      className="h-full w-full object-cover object-top"
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#f2f5f3] text-[#737373]">
+      {failed ? <ImageOff size={24} strokeWidth={1.5} /> : <FileText size={28} strokeWidth={1.5} />}
+      <span className="text-[9px] font-black uppercase tracking-[0.1em]">
+        {failed ? "Thumbnail unavailable" : document.previewStatus === "ready" ? "File preview" : "Processing"}
+      </span>
+    </div>
+  );
+
+  return document.previewUrl ? (
+    <a
+      href={document.previewUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="block h-40 border-b border-[#d9d9d9] bg-[#f2f5f3] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0f8b73]"
+      aria-label={`Open ${document.name}`}
+    >
+      {content}
+    </a>
+  ) : (
+    <div className="h-40 border-b border-[#d9d9d9] bg-[#f2f5f3]">{content}</div>
   );
 }
 
@@ -894,7 +1062,7 @@ function connectionBadgeClass(status: UnifiedClientProfileResponse["pipeline"]["
 function getCompleteness(profile: UnifiedClientProfileResponse) {
   const total = profile.client_database.fields.length;
   const complete = profile.client_database.fields.filter((field) =>
-    hasClinicalValue(profile.client.enrichment[field]),
+    hasReadableClinicalValue(profile.client.enrichment[field], field),
   ).length;
   return {
     complete,
@@ -970,6 +1138,46 @@ function DataPoint({ label, value }: { label: string; value: string | number | n
   const display = typeof value === "number" ? String(value) : value?.trim() || "Not reported";
   const present = display !== "Not reported";
   return <div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#737373]">{label}</div><div className={`mt-1 break-words text-[13px] font-semibold ${present ? "text-[#111111]" : "text-[#9a6a18]"}`}>{display}</div></div>;
+}
+
+function ClinicalDataPoint({
+  fieldKey,
+  value,
+}: {
+  fieldKey: string;
+  value: ClinicalJsonValue | undefined;
+}) {
+  const presentation = presentClinicalValue(value, fieldKey);
+  const label = humanizeClinicalField(fieldKey);
+
+  return (
+    <div className="min-w-0">
+      <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#737373]">{label}</div>
+      {presentation.kind === "missing" ? (
+        <div className="mt-1 text-[13px] font-semibold text-[#9a6a18]">{presentation.text}</div>
+      ) : presentation.kind === "list" ? (
+        <ul className="mt-2 space-y-1.5">
+          {presentation.items.map((item, index) => (
+            <li key={`${index}-${item}`} className="flex items-start gap-2 text-[13px] font-semibold leading-5 text-[#111111]">
+              <span className="mt-[8px] h-1 w-1 shrink-0 rounded-full bg-[#0f8b73]" aria-hidden="true" />
+              <span className="min-w-0 break-words">{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : presentation.kind === "record" ? (
+        <dl className="mt-2 space-y-2 border-l border-[#d9dfdb] pl-3">
+          {presentation.entries.map((entry) => (
+            <div key={`${entry.label}-${entry.value}`}>
+              <dt className="text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">{entry.label}</dt>
+              <dd className="mt-0.5 break-words text-[12px] font-semibold leading-5 text-[#111111]">{entry.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <div className="mt-1 break-words text-[13px] font-semibold leading-5 text-[#111111]">{presentation.text}</div>
+      )}
+    </div>
+  );
 }
 
 function getInitials(name: string) {

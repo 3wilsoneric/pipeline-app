@@ -117,6 +117,17 @@ export type ClinicalClientDatabaseDetail = ClinicalClientDatabaseSummary & {
   fields: string[];
 };
 
+export type ClinicalClientSourceDocument = {
+  document_id: string;
+  display_name: string;
+  content_type: string;
+  page_count: number | null;
+  linked_at: string | null;
+  link_source: string | null;
+  thumbnail_available: boolean;
+  preview_available: boolean;
+};
+
 export type ClinicalClientDirectoryResponse = ClinicalMetadata & {
   clients: ClinicalClientDirectoryItem[];
   total: number;
@@ -132,6 +143,7 @@ export type ClinicalClientDetail = ClinicalClientDirectoryItem & {
   resident_profiles: ClinicalClientRecord[];
   resident_episode_history: ClinicalClientRecord[];
   enrichment: ClinicalClientRecord;
+  source_documents: ClinicalClientSourceDocument[];
 };
 
 export type ClinicalClientResponse = ClinicalMetadata & {
@@ -306,6 +318,11 @@ export function parseClinicalClientResponse(value: unknown): ClinicalClientRespo
         parseClinicalRecord(episode, `client.resident_episode_history[${index}]`),
       ),
       enrichment: parseClinicalRecord(client.enrichment, "client.enrichment"),
+      source_documents: client.source_documents === undefined
+        ? []
+        : array(client.source_documents, "client.source_documents").map((document, index) =>
+          parseClientSourceDocument(document, `client.source_documents[${index}]`),
+        ),
     },
     client_database: parseClientDatabaseSummary(row.client_database, true),
   };
@@ -438,6 +455,26 @@ function parseClientDirectoryItem(value: unknown, label: string): ClinicalClient
     admit_date: nullableDate(row.admit_date, `${label}.admit_date`),
     care_level: nullableString(row.care_level, `${label}.care_level`, 500),
     episode_count: integer(row.episode_count, `${label}.episode_count`, 0, 10000),
+  };
+}
+
+function parseClientSourceDocument(value: unknown, label: string): ClinicalClientSourceDocument {
+  const row = record(value, label);
+  const contentType = stringValue(row.content_type, `${label}.content_type`, 128).toLowerCase();
+  if (!contentType.startsWith("application/pdf") && !contentType.startsWith("image/")) {
+    throw new Error(`Clinical response has an invalid ${label}.content_type.`);
+  }
+  return {
+    document_id: stringValue(row.document_id, `${label}.document_id`, 256),
+    display_name: stringValue(row.display_name, `${label}.display_name`, 500),
+    content_type: contentType,
+    page_count: nullableInteger(row.page_count, `${label}.page_count`, 1, 10_000),
+    linked_at: row.linked_at === null || row.linked_at === undefined
+      ? null
+      : timestamp(row.linked_at, `${label}.linked_at`),
+    link_source: nullableString(row.link_source, `${label}.link_source`, 128),
+    thumbnail_available: booleanValue(row.thumbnail_available, `${label}.thumbnail_available`),
+    preview_available: booleanValue(row.preview_available, `${label}.preview_available`),
   };
 }
 
