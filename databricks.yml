@@ -20,7 +20,7 @@ targets:
     mode: production
     workspace:
       host: https://adb-7405608024417459.19.azuredatabricks.net
-      root_path: /Workspace/Production/.bundle/${bundle.name}/${bundle.target}
+      root_path: /Workspace/Users/${var.pipeline_service_principal}/.bundle/${bundle.name}/${bundle.target}
     run_as:
       service_principal_name: ${var.pipeline_service_principal}
 

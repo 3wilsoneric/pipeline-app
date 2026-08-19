@@ -111,9 +111,10 @@ to `azure_databricks`. It is metered and is therefore a separate cost approval.
 
 - Pipeline calls the Databricks Jobs API with a dedicated Databricks service
   principal and OAuth M2M. Do not create or store a personal access token.
-- Create the service principal in Databricks, assign it to the Pipeline
-  workspace, grant only `CAN VIEW` and `CAN MANAGE RUN` on the extraction job,
-  then generate a bounded-lifetime OAuth secret.
+- The setup creates the job while authenticated as that same Pipeline service
+  principal. The job is therefore self-owned and self-run without granting a
+  human user the Service Principal User role. Its OAuth secret has a bounded
+  lifetime and stays in Pipeline Key Vault.
 - The Azure Databricks Access Connector emitted by `main.bicep` owns data-plane
   access to Pipeline ADLS Gen2 and Document Intelligence. Configure it as the
   Unity Catalog storage credential; do not mount storage with a key or SAS.

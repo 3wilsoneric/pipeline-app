@@ -50,7 +50,7 @@ done
 
 export DATABRICKS_HOST="$databricks_host"
 export DATABRICKS_TOKEN="$(az account get-access-token --resource 2ff814a6-3304-4ab8-85cb-cd0e6f879c1d --query accessToken -o tsv)"
-trap 'unset DATABRICKS_TOKEN' EXIT
+trap 'unset DATABRICKS_TOKEN DATABRICKS_CLIENT_ID DATABRICKS_CLIENT_SECRET DATABRICKS_AUTH_TYPE databricks_client_secret' EXIT
 
 principal_json="$(databricks service-principals list --filter "displayName eq '$principal_name'" -o json)"
 principal_count="$(jq 'length' <<<"$principal_json")"
@@ -88,7 +88,7 @@ if [[ "$mode" == "plan" ]]; then
 fi
 
 temporary_directory="$(mktemp -d -t pipeline-extraction.XXXXXX)"
-trap 'rm -rf "$temporary_directory"; unset DATABRICKS_TOKEN' EXIT
+trap 'rm -rf "$temporary_directory"; unset DATABRICKS_TOKEN DATABRICKS_CLIENT_ID DATABRICKS_CLIENT_SECRET DATABRICKS_AUTH_TYPE databricks_client_secret' EXIT
 chmod 700 "$temporary_directory"
 
 if [[ -z "$principal_id" ]]; then
@@ -140,6 +140,20 @@ databricks grants update CREDENTIAL "$service_credential" \
   --json "@$temporary_directory/credential-grant.json" \
   >/dev/null
 
+databricks_client_secret="$(az keyvault secret show \
+  --vault-name "$key_vault_name" \
+  --name pipeline-databricks-client-secret \
+  --query value \
+  -o tsv)"
+[[ -n "$databricks_client_secret" ]] || {
+  printf 'The Pipeline Databricks OAuth secret could not be read from Key Vault.\n' >&2
+  exit 1
+}
+unset DATABRICKS_TOKEN
+export DATABRICKS_CLIENT_ID="$principal_application_id"
+export DATABRICKS_CLIENT_SECRET="$databricks_client_secret"
+export DATABRICKS_AUTH_TYPE="oauth-m2m"
+
 bundle_variables=(
   --var "pipeline_service_principal=$principal_application_id"
   --var "storage_account=$storage_account"
@@ -154,6 +168,7 @@ job_id="$(jq -r '.resources.jobs.pipeline_extraction.id // empty' <<<"$bundle_su
   printf 'The deployed Pipeline extraction job ID could not be resolved.\n' >&2
   exit 1
 }
+unset DATABRICKS_CLIENT_ID DATABRICKS_CLIENT_SECRET DATABRICKS_AUTH_TYPE databricks_client_secret
 
 printf '%s' "$databricks_host" | gh variable set PIPELINE_DATABRICKS_HOST --repo "$repository"
 printf '%s' "$job_id" | gh variable set PIPELINE_DATABRICKS_JOB_ID --repo "$repository"

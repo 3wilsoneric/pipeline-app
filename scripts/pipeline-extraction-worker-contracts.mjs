@@ -22,10 +22,12 @@ check("worker logs only bounded operational identifiers", worker.includes("safe_
 check("worker callback is size bounded", worker.includes("MAX_CALLBACK_BYTES") && worker.includes("callback_payload_too_large"));
 check("bundle owns one Pipeline-only job", bundle.includes("name: pipeline-referral-extraction") && (bundle.match(/^\s{4}pipeline_extraction:/gm) ?? []).length === 1);
 check("bundle uses a service principal run identity", bundle.includes("service_principal_name: ${var.pipeline_service_principal}"));
+check("bundle files stay in the Pipeline principal workspace home", bundle.includes("/Workspace/Users/${var.pipeline_service_principal}/.bundle/"));
 check("bundle uses pinned worker dependencies", ["azure-storage-blob==", "PyMuPDF==", "requests=="].every((value) => bundle.includes(value)));
 check("setup is plan-first and deletion-free", setup.includes('mode="plan"') && !/\bdelete\b|\bdestroy\b|\bremove\b/.test(setup));
 check("setup cannot activate the production backend", !setup.includes("gh variable set PIPELINE_EXTRACTION_BACKEND"));
 check("setup remains compatible with macOS Bash 3.2", !setup.includes(",,"));
+check("bundle deployment authenticates as the Pipeline principal", setup.includes('DATABRICKS_AUTH_TYPE="oauth-m2m"'));
 check("all successful worker callbacks require digest and malware status", processingWorker.includes('if (!input.verified_sha256)') && processingWorker.includes('if (!input.malware_scan_status)'));
 
 const failed = checks.filter((item) => !item.ok);
