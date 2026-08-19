@@ -39,6 +39,8 @@ jobs:
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      HOME: /root
     container:
       image: mcr.microsoft.com/playwright@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48 # v1.61.1-noble
     steps:

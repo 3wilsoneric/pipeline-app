@@ -12,6 +12,7 @@ const uses = [...workflows.matchAll(/uses:\s*([^\s#]+)(?:\s*#.*)?$/gm)].map((mat
 const checks = [
   { name: "every GitHub Action is pinned to an immutable SHA", ok: uses.length > 0 && uses.every((item) => /@[a-f0-9]{40}$/.test(item)) },
   { name: "browser CI uses a digest-pinned Playwright image", ok: /mcr\.microsoft\.com\/playwright@sha256:[a-f0-9]{64}/.test(workflows) },
+  { name: "browser CI gives root-owned HOME to containerized Firefox", ok: /browser:[\s\S]*?env:\s*\n\s+HOME:\s*\/root[\s\S]*?container:/m.test(workflows) },
   { name: "Dependabot covers npm and GitHub Actions", ok: dependabot.includes("package-ecosystem: npm") && dependabot.includes("package-ecosystem: github-actions") },
   { name: "dependency review blocks high-severity changes", ok: dependencyReview.includes("fail-on-severity: high") && dependencyReview.includes("warn-only: false") },
   { name: "CodeQL scans JavaScript and TypeScript", ok: workflows.includes("javascript-typescript") && workflows.includes("security-extended") },
