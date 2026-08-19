@@ -101,7 +101,7 @@ test.describe("desktop feature enabled", () => {
 
   test("stores recents and versioned recovery drafts per signed-in user", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "Open referrals" }).click();
+    await page.getByRole("button", { name: "Open referrals" }).click();
     await expect.poll(async () => {
       const response = await page.request.get("/api/me/recents");
       const payload = await response.json() as { recents?: Array<{ id?: string }> };

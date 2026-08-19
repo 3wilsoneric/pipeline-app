@@ -37,9 +37,9 @@ try {
   const migrations = await sql`
     select migration_id
     from pipeline.schema_migrations
-    where migration_id in ('0001_pipeline_core', '0002_workflow_engine', '0003_operational_hardening', '0004_document_processing', '0005_collaboration', '0006_user_workspace_state')
+    where migration_id in ('0001_pipeline_core', '0002_workflow_engine', '0003_operational_hardening', '0004_document_processing', '0005_collaboration', '0006_user_workspace_state', '0007_canonical_client_assessments')
   `;
-  checks.push({ name: "required migrations are applied", ok: migrations.length === 6 });
+  checks.push({ name: "required migrations are applied", ok: migrations.length === 7 });
 
   try {
     await sql.begin(async (tx) => {
@@ -73,12 +73,21 @@ try {
       `;
       await tx`
         insert into pipeline.assessments (
-          assessment_id, referral_id, status, data,
+          assessment_id, referral_id, canonical_client_id, status, data,
           created_by, created_by_name, updated_by, updated_by_name
         ) values (
-          ${assessmentId}, ${referrals[0].referral_id}, 'needs_review',
+          ${assessmentId}, ${referrals[0].referral_id}, ${`smoke-client-${suffix}`}, 'needs_review',
           ${tx.json({ resident_number: `SMOKE-${suffix}` })},
           'smoke', 'Pipeline smoke', 'smoke', 'Pipeline smoke'
+        )
+      `;
+      await tx`
+        insert into pipeline.client_update_outbox (
+          update_type, canonical_client_id, assessment_id, source_baseline_date,
+          payload, idempotency_key, created_by
+        ) values (
+          'assessment', ${`smoke-client-${suffix}`}, ${assessmentId}, date '2026-08-18',
+          ${tx.json({ synthetic: true })}, ${`smoke-${suffix}`}, 'smoke'
         )
       `;
       await tx`
@@ -146,11 +155,12 @@ try {
           (select count(*) from pipeline.work_items where referral_id = ${referrals[0].referral_id}) as work_items,
           (select count(*) from pipeline.admission_decisions where referral_id = ${referrals[0].referral_id}) as decisions
           ,(select count(*) from pipeline.documents where document_id = ${documents[0].document_id}::uuid and preview_status = 'ready' and malware_scan_status = 'clean') as documents,
-          (select count(*) from pipeline.user_workspace_state where principal_id = ${`smoke-user-${suffix}`}) as workspace_state
+          (select count(*) from pipeline.user_workspace_state where principal_id = ${`smoke-user-${suffix}`}) as workspace_state,
+          (select count(*) from pipeline.client_update_outbox where assessment_id = ${assessmentId}) as client_update_outbox
       `;
       checks.push({
         name: "runtime role can transact across workflow records",
-        ok: ["assessments", "provenance", "unmapped", "audits", "work_items", "decisions", "documents", "workspace_state"].every((key) => Number(stored[0][key]) === 1),
+        ok: ["assessments", "provenance", "unmapped", "audits", "work_items", "decisions", "documents", "workspace_state", "client_update_outbox"].every((key) => Number(stored[0][key]) === 1),
       });
 
       await tx`

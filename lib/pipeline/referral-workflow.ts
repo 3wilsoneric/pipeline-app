@@ -27,14 +27,14 @@ export const referralStageDefinitions: readonly ReferralStageDefinition[] = [
     status: "new",
     label: "Email Received",
     tone: "bg-[#f0f0ea]",
-    description: "Inbound county or facility email is routed to admissions.",
+    description: "Inbound county or facility email is routed to the referral team.",
   },
   {
     stage: "Packet Needed",
     status: "packet_needed",
     label: "Referral Created",
     tone: "bg-[#fff1e3]",
-    description: "Admissions creates the referral shell and attaches ownership.",
+    description: "Pipeline creates the referral shell and attaches ownership.",
   },
   {
     stage: "Packet Review",

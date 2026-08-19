@@ -20,7 +20,9 @@ const allowedPublicVariables = new Set([
   "NEXT_PUBLIC_ENTRA_CLIENT_ID",
   "NEXT_PUBLIC_PIPELINE_API_SCOPE",
   "NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED",
+  "NEXT_PUBLIC_PIPELINE_BASE_PATH",
   "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED",
+  "NEXT_PUBLIC_ALAMO_PLATFORM_URL",
 ]);
 const publicVariablePattern = /NEXT_PUBLIC_[A-Z0-9_]+/g;
 const publicVariables = new Set(sourceFiles.flatMap((file) => read(file).match(publicVariablePattern) ?? []));
@@ -60,6 +62,8 @@ const serverBoundaryFiles = [
   "lib/pipeline/user-workspace-state-store.ts",
   "lib/desktop/desktop-server-config.ts",
   "lib/assessment/assessment-store.ts",
+  "lib/assessment/assessment-client-identity.ts",
+  "lib/integration/client-update-outbox.ts",
   "lib/clinical/clinical-data.ts",
   "lib/clinical/demo-clinical-data.ts",
   "lib/extraction/backend-config.ts",
@@ -90,7 +94,7 @@ check("CI audits every API method policy", ci.includes("npm run check:route-poli
 check("all third-party CI actions are immutable", !/uses:\s*[^\s]+@v\d+/m.test(ci));
 
 const clinicalAdapter = read(path.join(root, "lib/clinical/clinical-data.ts"));
-for (const endpoint of ["/health", "/census", "/roster", "/residents/", "/medications/summary"]) {
+for (const endpoint of ["/health", "/census", "/roster", "/residents/", "/clients", "/medications/summary"]) {
   check(`clinical adapter permits ${endpoint}`, clinicalAdapter.includes(endpoint));
 }
 check("clinical adapter uses only the dedicated integration prefix", clinicalAdapter.includes('const CLINICAL_API_PREFIX = "/api/integrations/pipeline/clinical"'));

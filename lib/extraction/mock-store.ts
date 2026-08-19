@@ -14,6 +14,8 @@ import {
   UploadTarget,
 } from "./contracts";
 import { DocumentProcessingError } from "./document-processing";
+import { registerMockPacketReferral, unregisterMockPacketReferral } from "./packet-referral";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 type MockExtractionState = {
   packets: Map<string, PacketRecord>;
@@ -87,6 +89,7 @@ function pruneMockState() {
     fields.delete(oldestPacketId);
     auditEvents.delete(oldestPacketId);
     uploadDescriptors.delete(oldestPacketId);
+    unregisterMockPacketReferral(oldestPacketId);
   }
 }
 
@@ -101,7 +104,7 @@ function seedFields(packetId: string) {
       confidence: 0.94,
       review_status: "pending",
       source_page_no: 1,
-      evidence_url: `/api/packets/${packetId}/evidence/demographics.first_name`,
+      evidence_url: toPipelinePath(`/api/packets/${packetId}/evidence/demographics.first_name`),
       is_conflict: false,
       candidates: [
         {
@@ -110,7 +113,7 @@ function seedFields(packetId: string) {
           value: "Robert",
           confidence: 0.94,
           source_page_no: 1,
-          evidence_url: `/api/packets/${packetId}/evidence/demographics.first_name`,
+          evidence_url: toPipelinePath(`/api/packets/${packetId}/evidence/demographics.first_name`),
         },
       ],
     },
@@ -121,7 +124,7 @@ function seedFields(packetId: string) {
       confidence: 0.82,
       review_status: "pending",
       source_page_no: 1,
-      evidence_url: `/api/packets/${packetId}/evidence/demographics.date_of_birth`,
+      evidence_url: toPipelinePath(`/api/packets/${packetId}/evidence/demographics.date_of_birth`),
       is_conflict: true,
       candidates: [
         {
@@ -216,6 +219,7 @@ export function createUploadTargets(
     created_at: timestamp,
     updated_at: timestamp,
   });
+  registerMockPacketReferral(packetId, input.referral_id);
   uploadDescriptors.set(packetId, input.files.map((file) => ({ ...file })));
   pruneMockState();
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import PipelineActionNav from "@/components/pipeline/PipelineActionNav";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import {
@@ -24,7 +23,6 @@ import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 export default function PipelineWelcome({
   onOpenPacket,
   onOpenRecent,
-  onOpenProfiles,
   onOpenProfile,
   onOpenOperations,
   onOpenSearchDestination,
@@ -32,7 +30,6 @@ export default function PipelineWelcome({
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenRecent: (destination: PipelineRecentDestination) => void;
-  onOpenProfiles: () => void;
   onOpenProfile: (residentKey: string) => void;
   onOpenOperations: () => void;
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
@@ -43,7 +40,7 @@ export default function PipelineWelcome({
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeResolved, setWelcomeResolved] = useState(false);
   const [recentItems, setRecentItems] = useState<PipelineRecentDestination[]>([]);
-  const { searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
+  const { searchOpen, setHomeMode } = usePipelineShell();
 
   useEffect(() => {
     let cancelled = false;
@@ -107,19 +104,8 @@ export default function PipelineWelcome({
           </div>
         ) : null}
 
-        {welcomeResolved && !searchOpen && showWelcome ? (
-          <div className="pipeline-nav-launch-enter mt-9 flex justify-center md:justify-start">
-            <PipelineActionNav
-              size="welcome"
-              onOpenProfiles={onOpenProfiles}
-              onOpenSearch={() => setSearchOpen((current) => !current)}
-              onNavigate={() => setSearchOpen(false)}
-            />
-          </div>
-        ) : null}
-
-        {welcomeResolved && !showWelcome && !searchOpen ? (
-          <div className="mt-1 grid min-w-0 gap-5 lg:grid-cols-[minmax(340px,0.82fr)_minmax(0,1.18fr)]">
+        {welcomeResolved && !searchOpen ? (
+          <div className={`${showWelcome ? "mt-8 md:mt-10" : "mt-1"} grid min-w-0 gap-5 lg:grid-cols-[minmax(340px,0.82fr)_minmax(0,1.18fr)]`}>
             <MyQueue
               ownerName={welcomeName}
               onOpenPacket={onOpenPacket}
@@ -153,9 +139,6 @@ function WelcomeSkeleton() {
     <div aria-label="Loading home" aria-busy="true" className="min-h-[300px] animate-pulse pt-1">
       <div className="h-12 w-full max-w-[520px] rounded bg-[#f0f2f1]" />
       <div className="mt-4 h-5 w-full max-w-[430px] rounded bg-[#f5f6f5]" />
-      <div className="mt-9 grid max-w-[830px] grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-[68px] rounded-lg bg-[#f2f4f3]" />)}
-      </div>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizePipelineBasePath } from "./shared/pipeline-base-path.mjs";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
+const basePath = normalizePipelineBasePath(process.env.NEXT_PUBLIC_PIPELINE_BASE_PATH);
 const isDevelopment = process.env.NODE_ENV !== "production";
 const connectSources = isDevelopment
   ? "'self' https://login.microsoftonline.com https://*.msauth.net https://*.msftauth.net ws://localhost:* ws://127.0.0.1:*"
@@ -12,6 +14,7 @@ const scriptSources = isDevelopment
   : "'self' 'unsafe-inline'";
 
 const nextConfig: NextConfig = {
+  basePath: basePath || undefined,
   output: "standalone",
   deploymentId: process.env.PIPELINE_DEPLOYMENT_ID?.trim() || undefined,
   devIndicators: false,

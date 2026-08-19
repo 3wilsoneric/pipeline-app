@@ -55,6 +55,7 @@ export type AssessmentListResponse = {
 
 export type AssessmentCreateInput = {
   referral_id: number;
+  canonical_client_id?: string | null;
   resident_key?: string | null;
   data: AssessmentToolData;
   status?: AssessmentWorkflowStatus;
@@ -64,7 +65,21 @@ export type AssessmentCreateInput = {
 
 export type AssessmentPatchInput = {
   data?: Partial<AssessmentToolData>;
+  /** Server-resolved only. A canonical identity can be attached once and never changed. */
+  canonical_client_id?: string | null;
   resident_key?: string | null;
   status?: AssessmentWorkflowStatus;
   accept_pending?: boolean;
 };
+
+export function preserveCanonicalClientId(
+  current: string | null | undefined,
+  incoming: string | null | undefined,
+) {
+  const currentValue = current?.trim() || null;
+  const incomingValue = incoming?.trim() || null;
+  if (currentValue && incomingValue && currentValue !== incomingValue) {
+    throw new Error("An assessment's canonical client identity cannot be changed.");
+  }
+  return currentValue ?? incomingValue;
+}

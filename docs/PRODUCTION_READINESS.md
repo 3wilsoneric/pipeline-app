@@ -52,3 +52,19 @@ The repository cannot prove production connectivity without externally managed
 Azure, Entra, Alamo, Blob/extraction, DNS, and signing configuration. Runtime
 readiness must remain false until those services pass their live health checks.
 Never substitute fixtures or local stores for a missing production service.
+
+## Execution checkpoint: 2026-08-19
+
+| Stage | Status | Evidence or blocker |
+| --- | --- | --- |
+| Baseline inventory and pre-change tests | Complete | Existing Azure resources, adapters, environment, and dirty worktree recorded without purchases. |
+| Durable PostgreSQL persistence | Complete | Migrations `0001` through `0007` applied and verified; backup and rollback evidence retained. |
+| Entra role and stable assessor ownership | Code complete | Assessor access is assignment-scoped by immutable principal ID; four assessor and one supervisor role assignments still require external Entra configuration. |
+| Durable packet upload and extraction | Partially complete | Azure Blob upload is durable. Production extraction remains honestly `manual`; no approved Pipeline extraction worker exists to activate. |
+| Enhanced Alamo client and census integration | Code complete, live configuration pending | Canonical client search, 141-field detail, current profile, episode history, census/roster, freshness, and role-aware Pipeline joins are implemented and contract-tested. |
+| Pilot data | Pending | Requires approved referrals, four assessor identities, supervisor identity, and one approved packet. No synthetic production records were created. |
+| Application hardening | Complete | `check:platform` passed all 31 gates; Playwright passed 41 tests with 7 intentionally skipped. Upload, OCR, duplicate, assessment recall, collaboration, failure, scale, security, type, lint, build, and artifact checks are green. |
+| Release candidate and go/no-go | Pending | Do not deploy until live Alamo permission/configuration and the extraction decision are complete. |
+
+The assessment form remains frozen. New-client creation and incremental
+Databricks updates remain prepared but disabled pending explicit approval.

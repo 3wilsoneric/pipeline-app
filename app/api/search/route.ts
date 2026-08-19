@@ -2,8 +2,7 @@ import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import {
   ClinicalDataError,
   getClinicalDataReadiness,
-  getClinicalRoster,
-  toClinicalResidentSearchResult,
+  getClinicalClients,
 } from "@/lib/clinical/clinical-data";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import {
@@ -14,6 +13,7 @@ import {
 import { getReferralWorklistReferrals } from "@/lib/pipeline/operations-snapshot";
 import type { ReferralWorklistBucket } from "@/lib/pipeline/operations-types";
 import { searchSiteDestinations } from "@/lib/pipeline/site-search";
+import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -85,9 +85,11 @@ export async function GET(request: Request) {
       const bucket = questionWorklistBucket(mode);
       const [referralResult, fileResult] = await Promise.all([
         bucket
-          ? getReferralWorklistReferrals(bucket, 200)
+          ? getReferralWorklistReferrals(bucket, 200, auth.user)
           : Promise.resolve({ referrals: [], total: 0 }),
-        mode === "files" ? listReferralFiles({ limit: 200 }) : Promise.resolve({ files: [], total: 0 }),
+        mode === "files"
+          ? listReferralFiles(scopeReferralListOptions(auth.user, { limit: 200 }))
+          : Promise.resolve({ files: [], total: 0 }),
       ]);
       const referrals = referralResult.referrals;
       const referralTotal = referralResult.total;
@@ -99,12 +101,12 @@ export async function GET(request: Request) {
           interpreted_query: mode,
           referrals,
           files,
-          residents: [],
+          clients: [],
           destinations: [],
           counts: {
             referrals: referralTotal,
             files: fileResult.total,
-            residents: 0,
+            clients: 0,
             destinations: 0,
             total: referralTotal + fileResult.total,
           },
@@ -121,15 +123,15 @@ export async function GET(request: Request) {
         interpreted_query: "",
         referrals: [],
         files: [],
-        residents: [],
+        clients: [],
         destinations: [],
-        counts: { referrals: 0, files: 0, residents: 0, destinations: 0, total: 0 },
+        counts: { referrals: 0, files: 0, clients: 0, destinations: 0, total: 0 },
       });
     }
 
     const [referrals, files, clinical] = await Promise.all([
-      listReferrals({ query, limit: 12 }),
-      listReferralFiles({ query, limit: 12 }),
+      listReferrals(scopeReferralListOptions(auth.user, { query, limit: 12 })),
+      listReferralFiles(scopeReferralListOptions(auth.user, { query, limit: 12 })),
       searchClinical(query, request),
     ]);
     const destinations = searchSiteDestinations(query);
@@ -140,13 +142,13 @@ export async function GET(request: Request) {
         interpreted_query: query,
         referrals: referrals.referrals,
         files: files.files,
-        residents: clinical.residents,
+        clients: clinical.clients,
         destinations,
         clinical_warning: clinical.warning,
         counts: {
           referrals: referrals.total,
           files: files.total,
-          residents: clinical.total,
+          clients: clinical.total,
           destinations: destinations.length,
           total: referrals.total + files.total + clinical.total + destinations.length,
         },
@@ -159,24 +161,24 @@ export async function GET(request: Request) {
 
 async function searchClinical(query: string, request: Request) {
   if (!getClinicalDataReadiness().connected) {
-    return { residents: [], total: 0, warning: null };
+    return { clients: [], total: 0, warning: null };
   }
 
   try {
-    const result = await getClinicalRoster(request, { query, limit: 12 });
+    const result = await getClinicalClients(request, { query, limit: 12 });
     return {
-      residents: result.residents.map(toClinicalResidentSearchResult),
+      clients: result.clients,
       total: result.total,
       warning: result.total > 0 ? result.freshness.warning : null,
     };
   } catch (error) {
     return {
-      residents: [],
+      clients: [],
       total: 0,
       warning:
         error instanceof ClinicalDataError
-          ? "Clinical roster search is unavailable right now."
-          : "Clinical roster search is unavailable right now.",
+          ? "Enhanced client search is unavailable right now."
+          : "Enhanced client search is unavailable right now.",
     };
   }
 }

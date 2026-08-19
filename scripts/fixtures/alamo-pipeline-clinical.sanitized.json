@@ -19,6 +19,7 @@
       "qa_approved": true,
       "census_ready": true,
       "roster_ready": true,
+      "client_database_ready": true,
       "medication_summary_ready": true
     }
   },
@@ -77,6 +78,7 @@
       {
         "resident_id": "R-100",
         "resident_key": "337:R-100",
+        "canonical_client_id": "client-sanitized-100",
         "display_name": "Avery Example",
         "first_name": "Avery",
         "last_name": "Example",
@@ -114,6 +116,7 @@
     "resident": {
       "resident_id": "R-100",
       "resident_key": "337:R-100",
+      "canonical_client_id": "client-sanitized-100",
       "display_name": "Avery Example",
       "first_name": "Avery",
       "last_name": "Example",
@@ -128,6 +131,136 @@
       "primary_diagnosis": "Sanitized diagnosis",
       "physician": "Example Clinician",
       "diet": "Regular"
+    }
+  },
+  "clients": {
+    "source": "alamo_platform",
+    "snapshot_id": "fixture-2026-08-07T12:00:00.000Z",
+    "generated_at": "2026-08-07T12:00:00.000Z",
+    "data_as_of": "2026-08-07",
+    "retrieved_at": "2026-08-07T13:00:00.000Z",
+    "freshness": {
+      "status": "fresh",
+      "age_hours": 1,
+      "max_age_hours": 24,
+      "warning": null
+    },
+    "clients": [
+      {
+        "canonical_client_id": "client-sanitized-100",
+        "display_name": "Avery Example",
+        "resident_numbers": ["R-100"],
+        "current_resident": true,
+        "community_names": ["A & A Health Services San Pablo"],
+        "current_community": "A & A Health Services San Pablo",
+        "unit": "A-1",
+        "admit_date": "2026-01-10",
+        "care_level": "Level 2",
+        "episode_count": 2
+      }
+    ],
+    "total": 1,
+    "limit": 50,
+    "next_cursor": null,
+    "query": "R-100",
+    "community": null,
+    "client_database": {
+      "dataset": "platform_client_database",
+      "version": 1,
+      "baseline_date": "2026-08-18",
+      "generated_at": "2026-08-18T12:00:00.000Z",
+      "client_count": 1300,
+      "field_count": 10
+    }
+  },
+  "client": {
+    "source": "alamo_platform",
+    "snapshot_id": "fixture-2026-08-07T12:00:00.000Z",
+    "generated_at": "2026-08-07T12:00:00.000Z",
+    "data_as_of": "2026-08-07",
+    "retrieved_at": "2026-08-07T13:00:00.000Z",
+    "freshness": {
+      "status": "fresh",
+      "age_hours": 1,
+      "max_age_hours": 24,
+      "warning": null
+    },
+    "client": {
+      "canonical_client_id": "client-sanitized-100",
+      "display_name": "Avery Example",
+      "resident_numbers": ["R-100"],
+      "current_resident": true,
+      "community_names": ["A & A Health Services San Pablo"],
+      "current_community": "A & A Health Services San Pablo",
+      "unit": "A-1",
+      "admit_date": "2026-01-10",
+      "care_level": "Level 2",
+      "episode_count": 2,
+      "resident_profile": {
+        "canonical_client_id": "client-sanitized-100",
+        "res_number": "R-100",
+        "facility_id": "337",
+        "facility_name": "A & A Health Services San Pablo",
+        "admit_date": "2026-01-10"
+      },
+      "resident_profiles": [
+        {
+          "canonical_client_id": "client-sanitized-100",
+          "res_number": "R-100",
+          "facility_id": "337",
+          "facility_name": "A & A Health Services San Pablo"
+        }
+      ],
+      "resident_episode_history": [
+        {
+          "canonical_client_id": "client-sanitized-100",
+          "resident_id": "R-090",
+          "facility_name": "JC Wallace House",
+          "admit_date": "2024-01-01",
+          "discharge_date": "2025-01-01",
+          "episode_status": "discharged"
+        },
+        {
+          "canonical_client_id": "client-sanitized-100",
+          "resident_id": "R-100",
+          "facility_name": "A & A Health Services San Pablo",
+          "admit_date": "2026-01-10",
+          "discharge_date": null,
+          "episode_status": "current"
+        }
+      ],
+      "enrichment": {
+        "canonical_client_id": "client-sanitized-100",
+        "resident_name": "Avery Example",
+        "resident_numbers": ["R-100"],
+        "communities": ["JC Wallace House", "A & A Health Services San Pablo"],
+        "prior_placements": "Sanitized prior placement",
+        "hospitalization_count": 2,
+        "mobility": "Independent",
+        "conservatorship_type": null,
+        "family_involvement": "Sanitized support context",
+        "assessment_notes": null
+      }
+    },
+    "client_database": {
+      "dataset": "platform_client_database",
+      "version": 1,
+      "baseline_date": "2026-08-18",
+      "generated_at": "2026-08-18T12:00:00.000Z",
+      "client_count": 1300,
+      "field_count": 10,
+      "fields": [
+        "canonical_client_id",
+        "resident_name",
+        "resident_numbers",
+        "communities",
+        "prior_placements",
+        "hospitalization_count",
+        "mobility",
+        "conservatorship_type",
+        "family_involvement",
+        "assessment_notes"
+      ]
     }
   },
   "medications_summary": {

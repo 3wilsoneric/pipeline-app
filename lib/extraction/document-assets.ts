@@ -6,6 +6,7 @@ import { getPipelineSql } from "@/lib/database/pipeline-database";
 import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
 import { DocumentProcessingError } from "@/lib/extraction/document-processing";
 import { isValidHttpByteRange } from "@/lib/extraction/http-byte-range";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 type Asset = {
   container: string;
@@ -112,8 +113,8 @@ export async function getDocumentFileMetadata(
       byte_size: page.byte_size === null ? null : Number(page.byte_size),
       width: page.width,
       height: page.height,
-      preview_url: `/api/files/${documentId}/preview?page=${page.page_number}`,
-      thumbnail_url: `/api/files/${documentId}/preview?page=${page.page_number}&variant=thumbnail`,
+      preview_url: toPipelinePath(`/api/files/${documentId}/preview?page=${page.page_number}`),
+      thumbnail_url: toPipelinePath(`/api/files/${documentId}/preview?page=${page.page_number}&variant=thumbnail`),
     })),
     pagination: {
       after_page: afterPage,
@@ -127,6 +128,17 @@ export async function getDocumentFileMetadata(
       ? { next_page_after: visiblePages.at(-1)!.page_number }
       : {}),
   };
+}
+
+export async function getDocumentReferralId(documentId: string) {
+  if (!isDocumentId(documentId)) return null;
+  const sql = getPipelineSql();
+  const rows = await sql<{ referral_id: number | string }[]>`
+    select referral_id from pipeline.documents
+    where document_id = ${documentId}::uuid and deleted_at is null
+    limit 1
+  `;
+  return rows[0] ? Number(rows[0].referral_id) : null;
 }
 
 export async function getDocumentPreviewAsset(documentId: string, pageNumber?: number): Promise<Asset | null> {

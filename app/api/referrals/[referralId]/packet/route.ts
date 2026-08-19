@@ -1,7 +1,8 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { readLocalReferralPacket } from "@/lib/pipeline/local-document-store";
-import { getReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -15,8 +16,10 @@ export async function GET(request: Request, context: { params: Promise<{ referra
     const { referralId: rawId } = await context.params;
     const id = Number(rawId);
     if (!Number.isInteger(id) || id <= 0) return Response.json({ error: "Packet not found." }, { status: 404 });
-    const referral = await getReferral(id);
-    if (!referral?.documentHash) return Response.json({ error: "Packet not found." }, { status: 404 });
+    const access = await requireReferralAccess(auth.user, id);
+    if (!access.ok) return access.response;
+    const referral = access.referral;
+    if (!referral.documentHash) return Response.json({ error: "Packet not found." }, { status: 404 });
     const packet = await readLocalReferralPacket(referral.documentHash);
     if (!packet) return Response.json({ error: "Packet not found." }, { status: 404 });
 

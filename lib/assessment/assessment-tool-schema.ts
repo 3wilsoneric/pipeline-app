@@ -108,6 +108,8 @@ export type UnmappedAssessmentField = AssessmentFieldProvenance & {
 export type AssessmentToolRecord = AssessmentToolData & {
   /** Server-generated primary key. Repeated assessments never overwrite one another. */
   assessment_id: string;
+  /** Immutable Alamo client identity when this assessment belongs to an existing client. */
+  canonical_client_id: string | null;
   /** Confirmed Alamo community-qualified key. Never derive this from a name. */
   resident_key: string | null;
   version: number;

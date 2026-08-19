@@ -14,6 +14,7 @@ test.describe("Responsive and accessible application shell", () => {
     await expect(page.getByRole("heading", { name: "Welcome, Playwright QA." })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
+    await expect(page.getByRole("navigation", { name: "Platform pages" })).toBeVisible();
 
     await page.getByRole("button", { name: "Open search" }).click();
     await expect(page.getByLabel("Search or ask")).toBeVisible();
@@ -21,7 +22,7 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
 
-    await page.getByRole("link", { name: "Open referrals" }).click();
+    await page.getByRole("button", { name: "Open referrals" }).click();
     await expect(page.getByRole("heading", { name: "Referral packets", exact: true })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);

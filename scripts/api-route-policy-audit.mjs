@@ -19,8 +19,9 @@ const personalStateWrites = new Set([
   "app/api/me/recents/route.ts#DELETE",
 ]);
 const roleRestrictedReads = new Map([
-  ["app/api/operations/supervisor-queue/route.ts#GET", ["admin", "reviewer"]],
-  ["app/api/profiles/[residentKey]/route.ts#GET", ["admin", "assessment_coordinator", "reviewer"]],
+  ["app/api/operations/supervisor-queue/route.ts#GET", ["admin", "assessment_coordinator"]],
+  ["app/api/profiles/[residentKey]/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
+  ["app/api/clinical/clients/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
   ["app/api/clinical/residents/[residentId]/route.ts#GET", ["admin", "assessment_coordinator", "reviewer"]],
 ]);
 
@@ -73,6 +74,18 @@ for (const absoluteFile of routeFiles) {
     }
     if (!isMutation) {
       check(`${key} does not apply mutation-origin checks to reads`, !body.includes("requireSameOriginMutation("));
+    }
+    if (route.includes("/referrals/[referralId]")) {
+      check(`${key} enforces referral-record access`, body.includes("requireReferralAccess("));
+    }
+    if (route.includes("/packets/[packetId]")) {
+      check(`${key} enforces packet ownership access`, body.includes("requirePacketAccess("));
+    }
+    if (route.includes("/files/[documentId]")) {
+      check(`${key} resolves document ownership before access`, body.includes("requireReferralAccess("));
+    }
+    if (route.includes("/assessments/[assessmentId]")) {
+      check(`${key} resolves assessment ownership before access`, body.includes("requireReferralAccess("));
     }
     if (isMutation && !isInternal && !isPublic && !personalStateWrites.has(key)) {
       check(`${key} excludes the viewer role from writes`, roleList.length > 0 && !roleList.includes("viewer"));

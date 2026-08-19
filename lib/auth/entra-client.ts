@@ -7,6 +7,7 @@ import {
   type Configuration,
   type RedirectRequest,
 } from "@azure/msal-browser";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 const tenantId = process.env.NEXT_PUBLIC_ENTRA_TENANT_ID?.trim() ?? "";
 const clientId = process.env.NEXT_PUBLIC_ENTRA_CLIENT_ID?.trim() ?? "";
@@ -24,8 +25,8 @@ const msalConfig: Configuration = {
   auth: {
     clientId: clientId || "00000000-0000-0000-0000-000000000000",
     authority: `https://login.microsoftonline.com/${tenantId || "common"}`,
-    redirectUri: `${getOrigin()}/sign-in`,
-    postLogoutRedirectUri: `${getOrigin()}/sign-in`,
+    redirectUri: `${getOrigin()}${toPipelinePath("/sign-in")}`,
+    postLogoutRedirectUri: `${getOrigin()}${toPipelinePath("/sign-in")}`,
     navigateToLoginRequestUrl: false,
   },
   cache: {

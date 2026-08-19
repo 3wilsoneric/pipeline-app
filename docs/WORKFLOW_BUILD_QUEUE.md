@@ -113,11 +113,13 @@ Engineering handoff: [`docs/ENGINEERING_DATA_ARCHITECTURE.md`](./ENGINEERING_DAT
 - Added the first canonical transition guardrail for stage changes, including
   packet review, assessment completion, admission decision, decline reason, and
   move-in requirement checks.
-- Profiles use `GET /api/clinical/roster` for the directory and
-  `GET /api/profiles/{residentKey}` for detail. The unified route calls Alamo
-  server-side and exposes Pipeline work only through a confirmed resident link.
-- Added a paginated admitted-client directory and a governed resident profile
-  with explicit freshness and source-field completeness.
+- Profiles use `GET /api/clinical/clients` for the canonical directory and
+  `GET /api/profiles/{canonicalClientId}` for detail. The unified route calls
+  Alamo server-side, loads only one enhanced record, and exposes Pipeline work
+  only through a confirmed resident link.
+- Added paginated name/resident-number search across current and historical
+  clients, the complete governed enrichment schema, joined resident profiles,
+  episode history, explicit freshness, and baseline-field completeness.
 - Added local referral creation from the packet canvas, with an explicit
   community selector and comma-separated tags that are persisted with the
   referral and used by list search and filters.

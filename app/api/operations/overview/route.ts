@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
 
-    const snapshot = await getOperationsSnapshot();
+    const snapshot = await getOperationsSnapshot(auth.user);
     return Response.json(snapshot, {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     });

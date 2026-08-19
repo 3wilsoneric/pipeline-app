@@ -135,9 +135,10 @@ PHI-safe logs rather than guessing from local development.
   assessment provenance, and an unmapped-value bank.
 - Role-aware identity review in the admitted-client profile. Staff explicitly
   choose a referral; reviewers/admins confirm or reject the candidate.
-- `GET /api/profiles/{residentKey}` joins governed Alamo data to Pipeline work
-  only through a confirmed reviewed link. Unlinked records are never joined by
-  name.
+- `GET /api/profiles/{canonicalClientId}` loads one governed enhanced Alamo
+  record and joins Pipeline work only through a confirmed reviewed link.
+  Unlinked records are never joined by name, and assessor-visible Pipeline work
+  is filtered to the signed-in assessor's stable referral assignments.
 - Extracted packet values displayed above the referral form with explicit
   confirm/edit review actions.
 - Derived data completeness and blocker state.
@@ -165,8 +166,8 @@ operator object ID, email, display name, and role/group claims through a signed
 JWT. Pipeline validates that JWT server-side and uses the identity for permissions,
 ownership, audit events, and assessor/supervisor views.
 
-Client profiles are not Entra accounts. Current admitted-client profiles remain
-governed by Alamo and are read through the existing server-only clinical
+Client profiles are not Entra accounts. Current and historical enhanced client
+profiles remain governed by Alamo and are read through the server-only clinical
 adapter. Pipeline stores referral episodes, operational work, and reviewed
 `resident_links`; it does not create or directly edit the Alamo clinical record.
 

@@ -13,6 +13,7 @@ import { parseReferralListQuery } from "@/lib/pipeline/referral-query";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 import { getReferralWorkflowContexts } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { assignedOwnerForCreate, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -31,9 +32,10 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const query = parseReferralListQuery(url.searchParams);
     if (!query.ok) return jsonError(query.message);
-    const options = query.value.queue === "my_work"
-      ? { ...query.value, queue: undefined, owner: auth.user.name, activeOnly: true }
+    const requestedOptions = query.value.queue === "my_work"
+      ? { ...query.value, queue: undefined, activeOnly: true }
       : query.value;
+    const options = scopeReferralListOptions(auth.user, requestedOptions);
     const result = await listReferrals(options);
     const contexts = await getReferralWorkflowContexts(result.referrals);
     const progress = Object.fromEntries(result.referrals.map((referral) => [
@@ -71,7 +73,8 @@ export async function POST(request: Request) {
 
     const referralResult = validateReferralCreateInput(body.value.referral);
     if (!referralResult.ok) return jsonError(referralResult.message, referralResult.status);
-    const referral = referralResult.value;
+    const assignment = assignedOwnerForCreate(auth.user, referralResult.value.owner);
+    const referral = { ...referralResult.value, ...assignment };
 
     if (
       body.value.client_mutation_id !== undefined &&

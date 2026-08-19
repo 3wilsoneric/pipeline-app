@@ -6,11 +6,14 @@ const root = process.cwd();
 
 const contracts = loadTypeScriptModule(root, "lib/extraction/contracts.ts");
 const assessmentSchema = loadTypeScriptModule(root, "lib/assessment/assessment-tool-schema.ts");
+const assessmentRecords = loadTypeScriptModule(root, "lib/assessment/assessment-records.ts");
 const assessmentValidation = loadTypeScriptModule(root, "lib/assessment/assessment-validation.ts");
+const clientUpdateContracts = loadTypeScriptModule(root, "lib/integration/client-update-contracts.ts");
 const referralExtractionSchema = loadTypeScriptModule(root, "lib/extraction/referral-intake-schema.ts");
 const referralValidation = loadTypeScriptModule(root, "lib/pipeline/referral-validation.ts");
 const referralQuery = loadTypeScriptModule(root, "lib/pipeline/referral-query.ts");
 const residentLinkValidation = loadTypeScriptModule(root, "lib/pipeline/resident-link-validation.ts");
+const referralAccess = loadTypeScriptModule(root, "lib/pipeline/referral-access.ts");
 const requestSecurity = loadRequestSecurityModule({});
 const workspaceStateTypes = loadTypeScriptModule(root, "lib/pipeline/user-workspace-state-types.ts");
 
@@ -21,16 +24,25 @@ const results = [
   }),
   run("create upload rejects invalid source type", () => {
     const result = contracts.validateCreateUploadUrlRequest({
-      referral_id: "ref_001",
+      referral_id: "1",
       submitting_facility: "County General ED",
       source_type: "sms",
       files: [validFile()],
     });
     assertInvalid(result, "source_type must be fax, email, portal, or manual.");
   }),
-  run("create upload rejects empty files", () => {
+  run("create upload requires a numeric referral identity", () => {
     const result = contracts.validateCreateUploadUrlRequest({
       referral_id: "ref_001",
+      submitting_facility: "County General ED",
+      source_type: "fax",
+      files: [validFile()],
+    });
+    assertInvalid(result, "referral_id must be a positive integer.");
+  }),
+  run("create upload rejects empty files", () => {
+    const result = contracts.validateCreateUploadUrlRequest({
+      referral_id: "1",
       submitting_facility: "County General ED",
       source_type: "fax",
       files: [],
@@ -39,7 +51,7 @@ const results = [
   }),
   run("create upload rejects oversized files", () => {
     const result = contracts.validateCreateUploadUrlRequest({
-      referral_id: "ref_001",
+      referral_id: "1",
       submitting_facility: "County General ED",
       source_type: "fax",
       files: [{ ...validFile(), size: 101 * 1024 * 1024 }],
@@ -49,7 +61,7 @@ const results = [
   run("create upload rejects too many files and duplicate file ids", () => {
     assertInvalid(
       contracts.validateCreateUploadUrlRequest({
-        referral_id: "ref_001",
+        referral_id: "1",
         submitting_facility: "County General ED",
         source_type: "fax",
         files: Array.from({ length: 26 }, (_, index) => ({
@@ -62,7 +74,7 @@ const results = [
     );
     assertInvalid(
       contracts.validateCreateUploadUrlRequest({
-        referral_id: "ref_001",
+        referral_id: "1",
         submitting_facility: "County General ED",
         source_type: "fax",
         files: [validFile(), validFile()],
@@ -73,7 +85,7 @@ const results = [
   run("create upload rejects unsupported file types and huge reservations", () => {
     assertInvalid(
       contracts.validateCreateUploadUrlRequest({
-        referral_id: "ref_001",
+        referral_id: "1",
         submitting_facility: "County General ED",
         source_type: "fax",
         files: [{ ...validFile(), content_type: "text/plain" }],
@@ -83,7 +95,7 @@ const results = [
     );
     assertInvalid(
       contracts.validateCreateUploadUrlRequest({
-        referral_id: "ref_001",
+        referral_id: "1",
         submitting_facility: "County General ED",
         source_type: "fax",
         files: Array.from({ length: 11 }, (_, index) => ({
@@ -98,7 +110,7 @@ const results = [
   }),
   run("create upload accepts valid descriptors", () => {
     const result = contracts.validateCreateUploadUrlRequest({
-      referral_id: "ref_001",
+      referral_id: "1",
       submitting_facility: "County General ED",
       source_type: "fax",
       files: [validFile()],
@@ -179,6 +191,7 @@ const results = [
   ...referralHardeningResults(),
   ...assessmentSchemaResults(),
   ...assessmentValidationResults(),
+  ...canonicalClientIntegrationResults(),
   ...residentLinkValidationResults(),
   ...workspaceStateValidationResults(),
 ];
@@ -353,7 +366,56 @@ function authBehaviorResults() {
         }),
       );
       const user = auth.getPipelineUserFromHeaders(new Headers({ "x-ms-client-principal": principal }));
-      assert(user?.roles.includes("assessment_coordinator"), "Expected assessor role mapping");
+      assert(user?.roles.includes("reviewer"), "Expected assessor role mapping");
+      assert(!user?.roles.includes("assessment_coordinator"), "Assessors must not inherit supervisor access");
+    }),
+    run("auth maps Alamo Admissions app roles", () => {
+      const auth = loadAuthModule({
+        NODE_ENV: "production",
+        PIPELINE_AUTH_MODE: "headers",
+      });
+      const cases = [
+        ["Alamo.Admissions.Assessor", "reviewer"],
+        ["Alamo.Admissions.Supervisor", "assessment_coordinator"],
+        ["Alamo.Admissions.Admin", "admin"],
+      ];
+      for (const [claimRole, expectedRole] of cases) {
+        const principal = btoa(JSON.stringify({
+          userId: `entra-${claimRole}`,
+          userDetails: `${claimRole}@example.com`,
+          claims: [{ typ: "roles", val: claimRole }],
+        }));
+        const user = auth.getPipelineUserFromHeaders(
+          new Headers({ "x-ms-client-principal": principal }),
+        );
+        assert(user?.roles.includes(expectedRole), `Expected ${claimRole} to map to ${expectedRole}`);
+      }
+    }),
+    run("referral access uses stable assessor assignments", () => {
+      const assessor = {
+        id: "entra-assessor-1",
+        email: "assessor@example.com",
+        name: "Assessor User",
+        roles: ["reviewer", "viewer"],
+      };
+      const owned = { ...validReferral(), id: 1, ownerId: assessor.id };
+      const other = { ...validReferral(), id: 2, owner: assessor.name, ownerId: "entra-assessor-2" };
+      const legacy = { ...validReferral(), id: 3, owner: assessor.name };
+      assert(referralAccess.canAccessReferral(assessor, owned), "Stable owner id should grant access");
+      assert(!referralAccess.canAccessReferral(assessor, other), "A different stable owner id must override a matching name");
+      assert(referralAccess.canAccessReferral(assessor, legacy), "Legacy owner names should remain accessible during backfill");
+    }),
+    run("supervisors retain portfolio referral access", () => {
+      const supervisor = {
+        id: "entra-supervisor-1",
+        email: "supervisor@example.com",
+        name: "Supervisor User",
+        roles: ["assessment_coordinator", "reviewer", "viewer"],
+      };
+      assert(referralAccess.canAccessReferral(
+        supervisor,
+        { ...validReferral(), id: 4, owner: "Another Assessor", ownerId: "entra-assessor-9" },
+      ), "Supervisors should retain portfolio access");
     }),
     run("auth fails closed without trusted principal or allowlist", () => {
       const auth = loadAuthModule({
@@ -378,6 +440,7 @@ function authBehaviorResults() {
       const auth = loadAuthModule({
         NODE_ENV: "production",
         PIPELINE_AUTH_MODE: "entra_jwt",
+        NEXT_PUBLIC_PIPELINE_BASE_PATH: "/admissions",
         NEXT_PUBLIC_ENTRA_TENANT_ID: "tenant-id",
         NEXT_PUBLIC_ENTRA_CLIENT_ID: "client-id",
         NEXT_PUBLIC_PIPELINE_API_SCOPE: "api://client-id/access_as_user",
@@ -678,6 +741,44 @@ function assessmentValidationResults() {
   ];
 }
 
+function canonicalClientIntegrationResults() {
+  return [
+    run("assessment canonical identity can be attached once but never replaced", () => {
+      assert(
+        assessmentRecords.preserveCanonicalClientId(null, "client-1001") === "client-1001",
+        "Expected canonical identity attachment",
+      );
+      assert(
+        assessmentRecords.preserveCanonicalClientId("client-1001", null) === "client-1001",
+        "A later empty value must not remove canonical identity",
+      );
+      assertThrows(
+        () => assessmentRecords.preserveCanonicalClientId("client-1001", "client-2002"),
+        "Expected canonical identity replacement to fail",
+      );
+    }),
+    run("future client updates preserve the August 18 baseline and remain prepared records", () => {
+      const newClient = clientUpdateContracts.prepareNewClientUpdate(
+        { display_name: "Sanitized New Client" },
+        "new-client-1001",
+      );
+      assert(newClient.source_baseline_date === "2026-08-18", "Expected immutable baseline reference");
+      assert(newClient.update_type === "new_client", "Expected new-client update type");
+      const assessment = clientUpdateContracts.prepareAssessmentUpdate(
+        "client-1001",
+        "asm-1001",
+        { status: "complete" },
+        "assessment-1001",
+      );
+      assert(assessment.canonical_client_id === "client-1001", "Expected canonical assessment identity");
+      assertThrows(
+        () => clientUpdateContracts.prepareAssessmentUpdate("", "asm-1001", {}, "assessment-invalid"),
+        "Expected assessment update without canonical identity to fail",
+      );
+    }),
+  ];
+}
+
 function residentLinkValidationResults() {
   const validCandidate = {
     pipeline_client_id: "client-1001",
@@ -855,6 +956,15 @@ function assertInvalid(result, message, status) {
   if (status !== undefined) {
     assert(result.status === status, `Expected status ${status}, got ${result.status}`);
   }
+}
+
+function assertThrows(fn, message) {
+  try {
+    fn();
+  } catch {
+    return;
+  }
+  throw new Error(message);
 }
 
 function assert(condition, message) {

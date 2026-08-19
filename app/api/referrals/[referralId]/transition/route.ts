@@ -5,6 +5,7 @@ import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { isReferralStage } from "@/lib/pipeline/referral-workflow";
 import { transitionReferral } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,8 @@ export async function POST(
 
     const referralId = await parseReferralId(context);
     if (!referralId) return jsonError("referralId is invalid.");
+    const access = await requireReferralAccess(auth.user, referralId);
+    if (!access.ok) return access.response;
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
     if (!isRecord(body.value)) return jsonError("The request body must be an object.");

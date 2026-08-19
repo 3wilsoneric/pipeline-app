@@ -13,11 +13,16 @@ ElderMark -> Alamo ingestion/QA/snapshot -> Alamo clinical API -> Pipeline
 
 Pipeline never connects directly to ElderMark, Databricks SQL, or Alamo snapshot storage. Clinical records fail closed when Alamo is unavailable; sanitized fixtures are test-only.
 
+In the integrated product, Alamo exposes Pipeline as the first-party
+`/admissions` application zone. Path composition preserves Pipeline's
+transactional runtime while the browser remains on the Alamo origin. See
+`docs/ALAMO_ADMISSIONS_ZONE.md`.
+
 ## Canonical state
 
 - `pipeline.people` owns stable Pipeline client identity.
 - `pipeline.referrals` owns referral episode state, assignment, tags, section versions, extraction projection, and EHR handoff state.
-- `pipeline.assessments` and provenance tables own assessment history and field evidence.
+- `pipeline.assessments` and provenance tables own append-only assessment history and field evidence. Existing-client assessments carry Alamo's immutable `canonical_client_id` after a reviewed resident link.
 - `pipeline.work_items` owns independent follow-up requirements, evidence references, owners, due dates, and waivers.
 - `pipeline.admission_decisions` owns the authenticated Yes/No decision and decline reason.
 - `pipeline.resident_links` owns reviewed joins between Pipeline identity and governed Alamo resident keys.
@@ -35,7 +40,9 @@ The application reserves opaque Blob paths, verifies upload size and SHA-256, an
 
 ## Identity and clinical data
 
-The active admitted-client roster comes from Alamo. Pipeline adds referral, assessment, requirement, and document context only after a human-reviewed resident link. Names are display values and never identity keys. `resident_number` is the preferred ElderMark join key when governed data supplies it.
+The active admitted-client roster and enhanced static client database come from Alamo. Alamo indexes the static database by `canonical_client_id` and joins current profile and episode history on that key. Pipeline adds referral, assessment, requirement, and document context only after a human-reviewed resident link. Names are display values and never identity keys; `canonical_client_id` is the durable cross-product key and `resident_number` remains a governed lookup alias.
+
+The August 18, 2026 client-database baseline is immutable. Future new-client and assessment increments are represented only by a disabled, approval-gated outbox; no Databricks publisher is active.
 
 ## Operational projections
 

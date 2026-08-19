@@ -7,8 +7,12 @@
 - CI runs `npm ci`, `npm audit --audit-level=high`, the license policy, the API
   route policy, and the complete platform gate.
 - Every third-party GitHub Action is pinned to a reviewed 40-character commit
-  SHA. Dependabot covers npm and Actions. Pull requests run dependency review;
-  CodeQL runs on pull requests, `main`, and weekly.
+  SHA. Dependabot covers npm and Actions. Pull requests run native dependency
+  review when the repository feature is available and
+  `PIPELINE_DEPENDENCY_REVIEW_ENABLED=true`; CodeQL runs on pull requests,
+  `main`, and weekly.
+- Browser CI runs in the official Playwright image that matches the locked npm
+  package version, pinned by immutable multi-architecture digest.
 - Sanitized test fixtures never replace unavailable production services.
 
 ## Release bundle
@@ -34,6 +38,8 @@ bundle and re-run verification.
 
 ## External verification
 
-GitHub dependency review, CodeQL upload, Dependabot updates, and immutable
-artifact retention run only after the revision is pushed. A local green gate
-does not claim those hosted jobs ran.
+GitHub dependency review, CodeQL, Dependabot updates, and immutable artifact
+retention run only after the revision is pushed. Native dependency review is a
+separately enabled GitHub repository feature; when unavailable, CI records the
+skip while the blocking audit, license, lockfile-integrity, CodeQL, and platform
+checks still run. A local green gate does not claim those hosted jobs ran.

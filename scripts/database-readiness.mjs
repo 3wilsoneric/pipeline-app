@@ -11,7 +11,9 @@ const hardeningMigration = read("database/migrations/0003_operational_hardening.
 const documentMigration = read("database/migrations/0004_document_processing.sql");
 const collaborationMigration = read("database/migrations/0005_collaboration.sql");
 const workspaceStateMigration = read("database/migrations/0006_user_workspace_state.sql");
+const canonicalClientMigration = read("database/migrations/0007_canonical_client_assessments.sql");
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
+const canonicalClientVerifier = read("scripts/verify-database-migration-0007.mjs");
 const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
 const databaseAdapter = read("lib/database/pipeline-database.ts");
 const healthRoute = read("app/api/health/route.ts");
@@ -26,6 +28,7 @@ const integrationFixture = read("database/fixtures/integration.sql");
 const integrationFixtureRunner = read("scripts/postgres-integration-fixtures.mjs");
 const collaborationRollback = read("database/rollbacks/0005_collaboration.sql");
 const workspaceStateRollback = read("database/rollbacks/0006_user_workspace_state.sql");
+const canonicalClientRollback = read("database/rollbacks/0007_canonical_client_assessments.sql");
 const rollbackDrill = read("scripts/database-rollback-drill.mjs");
 const productionSeed = read("scripts/seed-production-reference-data.mjs");
 const pilotReset = read("scripts/pilot-reset.mjs");
@@ -106,6 +109,8 @@ check("assessment writes create audit events", assessmentStore.includes("writeAs
 check("workflow writes create audit events", workflowStore.includes("writeWorkflowAudit"));
 check("assessment provenance is persisted", assessmentStore.includes("insertAssessmentProvenance"));
 check("unmapped assessment values are retained", assessmentStore.includes("insertAssessmentUnmapped"));
+check("assessments persist canonical client identity", canonicalClientMigration.includes("canonical_client_id") && assessmentStore.includes("canonical_client_id"));
+check("future client updates are approval gated", canonicalClientMigration.includes("client_update_outbox") && canonicalClientMigration.includes("pending_approval"));
 check(
   "packet hashes cannot duplicate within the referral store",
   migration.includes("referrals_document_sha256_unique_idx"),
@@ -148,6 +153,7 @@ check("high-volume lists have keyset indexes", documentMigration.includes("refer
 check("migration runner serializes deployments", migrationRunner.includes("pg_advisory_lock"));
 check("migration runner rejects changed migration history", migrationRunner.includes("migration_checksum_mismatch"));
 check("migration runner backfills historical checksums atomically", migrationRunner.includes("checksum_sha256 is null"));
+check("canonical-client production verification is PHI-safe", canonicalClientVerifier.includes("information_schema") && canonicalClientVerifier.includes("role_table_grants") && !canonicalClientVerifier.includes("select *"));
 check("production role passwords use PostgreSQL identifier and literal quoting", productionBootstrap.includes("'alter role %I password %L'") && productionBootstrap.includes("${role}::text") && productionBootstrap.includes("${password}::text") && !productionBootstrap.includes("alter role pipeline_migrator password ${"));
 check("production bootstrap decodes URL credentials before setting role passwords", productionBootstrap.includes("decodedPassword(migrationUrl)") && productionBootstrap.includes("decodedPassword(runtimeUrl)") && productionBootstrap.includes("decodeURIComponent(url.password)"));
 check("bootstrap migrator elevation is temporary and fail-safe", productionBootstrap.includes("grant create on database pipeline to pipeline_migrator") && (productionBootstrap.match(/revoke create on database pipeline from pipeline_migrator/g) ?? []).length === 2 && !productionBootstrap.includes("grant create on database pipeline to pipeline_runtime"));
@@ -156,10 +162,11 @@ check("integration fixtures are transactionally rolled back", integrationFixture
 check("integration fixtures require a separate test database", integrationFixtureRunner.includes("PIPELINE_TEST_DATABASE_URL") && integrationFixtureRunner.includes("PIPELINE_ALLOW_TEST_DATABASE_REUSE"));
 check("collaboration rollback removes only migration 0005 objects", collaborationRollback.includes("editing_presence") && collaborationRollback.includes("0005_collaboration") && !collaborationRollback.includes("drop schema"));
 check("workspace-state rollback removes only migration 0006 objects", workspaceStateRollback.includes("user_workspace_state") && workspaceStateRollback.includes("0006_user_workspace_state") && !workspaceStateRollback.includes("drop schema"));
-check("rollback drill is transactional and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
+check("canonical-client rollback removes only migration 0007 objects", canonicalClientRollback.includes("client_update_outbox") && canonicalClientRollback.includes("canonical_client_id") && canonicalClientRollback.includes("0007_canonical_client_assessments") && !canonicalClientRollback.includes("drop schema"));
+check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("canonicalClientRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
 check("production seed creates reference rows only", productionSeed.includes("synthetic_client_rows: 0") && !productionSeed.includes("insert into pipeline.people") && !productionSeed.includes("insert into pipeline.referrals"));
-check("production seed requires the latest workspace-state migration", productionSeed.includes("0006_user_workspace_state") && productionSeed.includes("migrations.length !== 6"));
-check("live database smoke requires and writes through migration 0006", liveSmoke.includes("0006_user_workspace_state") && liveSmoke.includes("pipeline.user_workspace_state"));
+check("production seed requires the latest canonical-client migration", productionSeed.includes("0007_canonical_client_assessments") && productionSeed.includes("migrations.length !== 7"));
+check("live database smoke requires and writes through migration 0007", liveSmoke.includes("0007_canonical_client_assessments") && liveSmoke.includes("pipeline.client_update_outbox"));
 check("restore verification includes workspace state", restoreVerify.includes("pipeline.user_workspace_state"));
 check("account-state purge is dry-run-first and identity-redacted", workspacePurge.includes('mode: execute ? "execute" : "dry_run"') && workspacePurge.includes("principal_configured: true"));
 check("CI exercises PostgreSQL migrations, rollback, fixtures, and contention", ["postgres:16", "database:migrate", "database:fixtures", "database:rollback:drill", "check:collaboration-load"].every((term) => ci.includes(term)));
@@ -188,7 +195,7 @@ const configuration = Object.fromEntries(
 
 console.log(JSON.stringify({
   ok: failed.length === 0,
-  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state"],
+  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments"],
   checks,
   configuration_present: configuration,
   note: "Configuration reports presence only; values are never printed.",

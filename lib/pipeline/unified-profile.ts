@@ -6,7 +6,13 @@ import {
   listAssessments,
 } from "@/lib/assessment/assessment-store";
 import { getAssessmentToolCoverage } from "@/lib/assessment/assessment-tool-schema";
-import { getClinicalResident } from "@/lib/clinical/clinical-data";
+import type { PipelineUser } from "@/lib/auth/pipeline-auth";
+import {
+  getClinicalClient,
+  getClinicalResident,
+  type ClinicalClientDetail,
+  type ClinicalResident,
+} from "@/lib/clinical/clinical-data";
 import { getClientHistoryForResident } from "./client-history-store";
 import { pipelineCommunityFromClinicalName } from "./community-config";
 import { findClinicalResidentMatch } from "./referral-clinical-reconciliation";
@@ -20,9 +26,18 @@ import {
   listReferralFilesByClient,
   listReferrals,
   listReferralsByClient,
+  type ReferralListOptions,
 } from "./referral-store";
 import type { PipelineResidentLink } from "./resident-link-records";
-import { listResidentLinks } from "./resident-link-store";
+import {
+  getResidentLinkStoreReadiness,
+  listResidentLinks,
+} from "./resident-link-store";
+import {
+  canAccessReferral,
+  isAssessorUser,
+  scopeReferralListOptions,
+} from "./referral-access";
 import type {
   UnifiedClientProfileResponse,
   UnifiedProfileConnection,
@@ -47,99 +62,131 @@ export class UnifiedProfileError extends Error {
 
 export async function getUnifiedClientProfile(
   request: Request,
-  residentKey: string,
+  canonicalClientId: string,
   permissions: UnifiedClientProfileResponse["pipeline"]["permissions"] = {
     can_create_identity_candidate: false,
     can_review_identity: false,
   },
+  user?: PipelineUser,
 ): Promise<UnifiedClientProfileResponse> {
-  const clinical = await getClinicalResident(request, residentKey);
-  const resident = clinical.resident;
-  const history = await getClientHistoryForResident(
-    resident.resident_number,
-    resident.date_of_birth,
-  );
-  const linkResults = await Promise.all([
-    listResidentLinks({ residentKey: resident.resident_key, limit: 100 }),
-    resident.resident_number
-      ? listResidentLinks({ residentNumber: resident.resident_number, limit: 100 })
-      : Promise.resolve(null),
-  ]);
-  const links = dedupeLinks([
-    ...linkResults[0].links,
-    ...(linkResults[1]?.links ?? []),
-  ]);
-  const confirmed = links.filter((link) => link.status === "confirmed");
-  if (confirmed.length > 1) {
-    throw new UnifiedProfileError(
-      409,
-      "resident_link_conflict",
-      "More than one confirmed Pipeline identity link exists for this resident. Resolve the link conflict before loading operational data.",
-    );
-  }
-  const candidates = links.filter((link) => link.status === "candidate");
-  let suggestions: UnifiedProfileLinkSuggestion[] = [];
-  if (confirmed.length === 0 && candidates.length === 0) {
-    try {
-      suggestions = await loadReferralSuggestions(resident, links);
-    } catch {
-      // Suggestions are optional. The governed clinical profile must remain
-      // available even when operational search is temporarily unavailable.
-      suggestions = [];
-    }
-  }
-  const connection = buildConnection(confirmed[0] ?? null, candidates, suggestions);
-  if (!connection.confirmed_link) {
+  const clinical = await getClinicalClient(request, canonicalClientId);
+  const resident = await loadCurrentResident(request, clinical.client);
+  const history = resident
+    ? await getClientHistoryForResident(resident.resident_number, resident.date_of_birth)
+    : unavailableHistoricalProjection();
+  const residentLinkReadiness = getResidentLinkStoreReadiness();
+  if (!residentLinkReadiness.ready) {
     return {
       ...clinical,
+      resident,
       history,
-      pipeline: emptyPipelineProjection(connection, permissions),
+      pipeline: unavailablePipelineProjection(
+        "Pipeline work data is not configured in this runtime. The governed Alamo client record remains available.",
+        permissions,
+      ),
     };
   }
 
-  const referralReadiness = getReferralStoreReadiness();
-  const assessmentReadiness = getAssessmentStoreReadiness();
-  if (!referralReadiness.ready || !assessmentReadiness.ready) {
-    throw new UnifiedProfileError(
-      503,
-      "pipeline_operational_store_unavailable",
-      "The resident identity is linked, but Pipeline operational storage is unavailable.",
-    );
-  }
+  try {
+    const linkResults = await loadClientLinks(clinical.client, resident);
+    const links = await filterLinksForUser(linkResults, user);
+    const confirmed = links.filter((link) => link.status === "confirmed");
+    if (confirmed.length > 1) {
+      return {
+        ...clinical,
+        resident,
+        history,
+        pipeline: unavailablePipelineProjection(
+          "Multiple reviewed Pipeline identity links exist for this resident. The Alamo client record is available, but an administrator must resolve the link conflict before Pipeline work can be shown.",
+          permissions,
+        ),
+      };
+    }
+    const candidates = links.filter((link) => link.status === "candidate");
+    let suggestions: UnifiedProfileLinkSuggestion[] = [];
+    if (confirmed.length === 0 && candidates.length === 0) {
+      try {
+        suggestions = await loadReferralSuggestions(clinical.client, resident, links, user);
+      } catch {
+        // Suggestions are optional. The governed clinical profile must remain
+        // available even when operational search is temporarily unavailable.
+        suggestions = [];
+      }
+    }
+    const connection = buildConnection(confirmed[0] ?? null, candidates, suggestions);
+    if (!connection.confirmed_link) {
+      return {
+        ...clinical,
+        resident,
+        history,
+        pipeline: emptyPipelineProjection(connection, permissions),
+      };
+    }
 
-  const link = connection.confirmed_link;
-  const referrals = await loadLinkedReferrals(link);
-  const assessments = await loadLinkedAssessments(link, referrals);
-  const documents = await loadLinkedDocuments(link, referrals);
-  const requirements = referrals.flatMap((referral) => referral.requirements ?? []);
-  const latestAssessment = assessments[0] ?? null;
-  const latestCoverage = latestAssessment ? getAssessmentToolCoverage(latestAssessment) : null;
-  const openRequirements = requirements.filter((item) => !["reviewed", "waived"].includes(item.status));
-  const blockers = openRequirements.filter((item) => item.blocker);
+    const referralReadiness = getReferralStoreReadiness();
+    const assessmentReadiness = getAssessmentStoreReadiness();
+    if (!referralReadiness.ready || !assessmentReadiness.ready) {
+      return {
+        ...clinical,
+        resident,
+        history,
+        pipeline: unavailablePipelineProjection(
+          "The Alamo client record is available, but linked Pipeline work cannot be loaded until operational storage is restored.",
+          permissions,
+        ),
+      };
+    }
 
-  return {
-    ...clinical,
-    history,
-    pipeline: {
-      permissions,
-      connection,
+    const link = connection.confirmed_link;
+    const referrals = await loadLinkedReferrals(link, user);
+    const assessments = await loadLinkedAssessments(
+      link,
       referrals,
-      assessments,
-      requirements,
-      documents,
-      summary: {
-        referral_count: referrals.length,
-        active_referral_count: referrals.filter((referral) => !["Accepted / Admitted", "Declined"].includes(referral.stage)).length,
-        assessment_count: assessments.length,
-        latest_assessment_status: latestAssessment?.status ?? null,
-        latest_assessment_completion_pct: latestCoverage?.percent ?? null,
-        open_requirement_count: openRequirements.length,
-        blocker_count: blockers.length,
-        document_count: documents.length,
-        actions_needed: getActionsNeeded(referrals, assessments, blockers),
+      clinical.client.canonical_client_id,
+      user,
+    );
+    const documents = await loadLinkedDocuments(link, referrals);
+    const requirements = referrals.flatMap((referral) => referral.requirements ?? []);
+    const latestAssessment = assessments[0] ?? null;
+    const latestCoverage = latestAssessment ? getAssessmentToolCoverage(latestAssessment) : null;
+    const openRequirements = requirements.filter((item) => !["reviewed", "waived"].includes(item.status));
+    const blockers = openRequirements.filter((item) => item.blocker);
+
+    return {
+      ...clinical,
+      resident,
+      history,
+      pipeline: {
+        permissions,
+        connection,
+        referrals,
+        assessments,
+        requirements,
+        documents,
+        summary: {
+          referral_count: referrals.length,
+          active_referral_count: referrals.filter((referral) => !["Accepted / Admitted", "Declined"].includes(referral.stage)).length,
+          assessment_count: assessments.length,
+          latest_assessment_status: latestAssessment?.status ?? null,
+          latest_assessment_completion_pct: latestCoverage?.percent ?? null,
+          open_requirement_count: openRequirements.length,
+          blocker_count: blockers.length,
+          document_count: documents.length,
+          actions_needed: getActionsNeeded(referrals, assessments, blockers),
+        },
       },
-    },
-  };
+    };
+  } catch {
+    return {
+      ...clinical,
+      resident,
+      history,
+      pipeline: unavailablePipelineProjection(
+        "The governed Alamo client record loaded, but Pipeline work data is temporarily unavailable. Retry later without losing access to the client profile.",
+        permissions,
+      ),
+    };
+  }
 }
 
 export function unifiedProfileErrorResponse(error: unknown) {
@@ -163,7 +210,7 @@ function buildConnection(
       confirmed_link: confirmedLink,
       candidates,
       suggestions: [],
-      message: "Pipeline operational records are joined through a reviewed resident link.",
+      message: "Pipeline records are joined through a reviewed resident link.",
     };
   }
   if (candidates.length > 0) {
@@ -172,7 +219,7 @@ function buildConnection(
       confirmed_link: null,
       candidates,
       suggestions: [],
-      message: "A possible Pipeline identity match needs human review before operational records can be joined.",
+      message: "A possible Pipeline identity match needs human review before records can be joined.",
     };
   }
   return {
@@ -185,27 +232,31 @@ function buildConnection(
 }
 
 async function loadReferralSuggestions(
-  resident: UnifiedClientProfileResponse["resident"],
+  client: ClinicalClientDetail,
+  resident: ClinicalResident | null,
   links: PipelineResidentLink[],
+  user?: PipelineUser,
 ): Promise<UnifiedProfileLinkSuggestion[]> {
   if (!getReferralStoreReadiness().ready) return [];
-  const query = normalizeNameTokens(resident.display_name).at(-1);
+  const query = normalizeNameTokens(client.display_name).at(-1);
   if (!query) return [];
 
   const rejectedReferralIds = new Set(
     links
-      .filter((link) => link.status === "rejected" && link.resident_key === resident.resident_key)
+      .filter((link) => link.status === "rejected" && (!resident || link.resident_key === resident.resident_key))
       .map((link) => link.referral_id)
       .filter((value): value is number => value !== null),
   );
-  const result = await listReferrals({ query, limit: 100 });
-  const clinicalCommunity = pipelineCommunityFromClinicalName(resident.community_name);
+  const result = await listReferrals(scopeReferralListOptionsIfUser(user, { query, limit: 100 }));
+  const clinicalCommunity = pipelineCommunityFromClinicalName(
+    resident?.community_name ?? client.current_community ?? "",
+  );
   const suggestions = result.referrals.flatMap((referral) => {
     if (!referral.clientId || rejectedReferralIds.has(referral.id)) return [];
     const reviewedNumber = reviewedResidentNumber(referral);
-    const residentNumber = normalizeIdentifier(resident.resident_number);
-    const residentNumberMatch = Boolean(reviewedNumber && residentNumber && reviewedNumber === residentNumber);
-    const nameDobMatch = findClinicalResidentMatch(referral, [resident]);
+    const residentNumbers = new Set(client.resident_numbers.map(normalizeIdentifier).filter(Boolean));
+    const residentNumberMatch = Boolean(reviewedNumber && residentNumbers.has(reviewedNumber));
+    const nameDobMatch = resident ? findClinicalResidentMatch(referral, [resident]) : null;
     if (!residentNumberMatch && !nameDobMatch) return [];
 
     const matchMethod = residentNumberMatch
@@ -289,24 +340,68 @@ function emptyPipelineProjection(
   };
 }
 
-async function loadLinkedReferrals(link: PipelineResidentLink) {
+function unavailablePipelineProjection(
+  message: string,
+  permissions: UnifiedClientProfileResponse["pipeline"]["permissions"],
+): UnifiedClientProfileResponse["pipeline"] {
+  return {
+    permissions,
+    connection: {
+      status: "unavailable",
+      confirmed_link: null,
+      candidates: [],
+      suggestions: [],
+      message,
+    },
+    referrals: [],
+    assessments: [],
+    requirements: [],
+    documents: [],
+    summary: {
+      referral_count: 0,
+      active_referral_count: 0,
+      assessment_count: 0,
+      latest_assessment_status: null,
+      latest_assessment_completion_pct: null,
+      open_requirement_count: 0,
+      blocker_count: 0,
+      document_count: 0,
+      actions_needed: [],
+    },
+  };
+}
+
+async function loadLinkedReferrals(link: PipelineResidentLink, user?: PipelineUser) {
   const referrals = await listReferralsByClient(link.pipeline_client_id);
   if (link.referral_id && !referrals.some((referral) => referral.id === link.referral_id)) {
     const explicit = await getReferral(link.referral_id);
     if (explicit) referrals.push(explicit);
   }
-  return referrals.sort(compareReferrals);
+  return referrals
+    .filter((referral) => !user || canAccessReferral(user, referral))
+    .sort(compareReferrals);
 }
 
-async function loadLinkedAssessments(link: PipelineResidentLink, referrals: Referral[]) {
+async function loadLinkedAssessments(
+  link: PipelineResidentLink,
+  referrals: Referral[],
+  canonicalClientId: string | null,
+  user?: PipelineUser,
+) {
   const results = await Promise.all([
     ...referrals.map((referral) => listAssessments({ referralId: referral.id, limit: 100 })),
+    ...(canonicalClientId ? [listAssessments({ canonicalClientId, limit: 100 })] : []),
     listAssessments({ residentKey: link.resident_key, limit: 100 }),
     ...(link.resident_number ? [listAssessments({ residentNumber: link.resident_number, limit: 100 })] : []),
   ]);
   const byId = new Map<string, PipelineAssessmentRecord>();
+  const visibleReferralIds = new Set(referrals.map((referral) => referral.id));
   for (const result of results) {
-    for (const assessment of result.assessments) byId.set(assessment.assessment_id, assessment);
+    if (!result) continue;
+    for (const assessment of result.assessments) {
+      if (user && isAssessorUser(user) && !visibleReferralIds.has(assessment.referral_id)) continue;
+      byId.set(assessment.assessment_id, assessment);
+    }
   }
   return [...byId.values()].sort((left, right) =>
     (right.assessment_date ?? right.created_at).localeCompare(left.assessment_date ?? left.created_at) ||
@@ -335,6 +430,79 @@ function getActionsNeeded(
 
 function dedupeLinks(links: PipelineResidentLink[]) {
   return [...new Map(links.map((link) => [link.link_id, link])).values()];
+}
+
+async function loadCurrentResident(request: Request, client: ClinicalClientDetail) {
+  if (!client.current_resident) return null;
+  const residentKey = currentResidentKey(client.resident_profile);
+  if (!residentKey) return null;
+  try {
+    const response = await getClinicalResident(request, residentKey);
+    return response.resident.canonical_client_id === client.canonical_client_id
+      ? response.resident
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function currentResidentKey(profile: ClinicalClientDetail["resident_profile"]) {
+  if (!profile) return null;
+  const facilityId = scalarString(profile.facility_id);
+  const residentId = scalarString(profile.res_number ?? profile.resident_id);
+  return facilityId && residentId ? `${facilityId}:${residentId}` : null;
+}
+
+function scalarString(value: unknown) {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+
+async function loadClientLinks(client: ClinicalClientDetail, resident: ClinicalResident | null) {
+  const requests = [
+    ...(resident ? [listResidentLinks({ residentKey: resident.resident_key, limit: 100 })] : []),
+    ...client.resident_numbers.map((residentNumber) =>
+      listResidentLinks({ residentNumber, limit: 100 }),
+    ),
+  ];
+  if (requests.length === 0) return [];
+  const results = await Promise.all(requests);
+  return dedupeLinks(results.flatMap((result) => result.links));
+}
+
+async function filterLinksForUser(links: PipelineResidentLink[], user?: PipelineUser) {
+  if (!user || !isAssessorUser(user)) return links;
+  const visible = await Promise.all(links.map(async (link) => {
+    if (!link.referral_id) return null;
+    const referral = await getReferral(link.referral_id);
+    return referral && canAccessReferral(user, referral) ? link : null;
+  }));
+  return visible.filter((link): link is PipelineResidentLink => Boolean(link));
+}
+
+function scopeReferralListOptionsIfUser<T extends ReferralListOptions>(
+  user: PipelineUser | undefined,
+  options: T,
+) {
+  return user ? scopeReferralListOptions(user, options) : options;
+}
+
+function unavailableHistoricalProjection(): Awaited<ReturnType<typeof getClientHistoryForResident>> {
+  return {
+    status: "unavailable",
+    source: null,
+    data_as_of: null,
+    imported_at: null,
+    warning: "No current resident identity is available for the legacy placement-history projection.",
+    episode_count: 0,
+    current_episode_count: 0,
+    discharged_episode_count: 0,
+    first_admit_date: null,
+    latest_admit_date: null,
+    quality_flags: [],
+    episodes: [],
+  };
 }
 
 function compareReferrals(left: Referral, right: Referral) {

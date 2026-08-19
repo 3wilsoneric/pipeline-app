@@ -12,6 +12,7 @@
 - `lib/extraction/http-byte-range.ts` - reusable strict single-range validator for preview assets.
 - `lib/extraction/backend-config.ts` - extraction backend mode and readiness guardrails.
 - `lib/extraction/mock-store.ts` - local-only mock extraction state.
+- `lib/extraction/packet-referral.ts` - server-only packet-reservation ownership lookup used before packet-level authorization.
 - `lib/observability/api-logging.ts` - structured API logging and request-id handling.
 - `lib/auth/pipeline-auth.ts` - Entra/header/mock auth mode and role gates.
 - `app/api/clinical/*` - authenticated Pipeline clinical health, census, roster, resident, and medication-summary routes.
@@ -20,10 +21,14 @@
 - `lib/clinical/clinical-contracts.ts` - strict Pipeline-facing clinical response schemas.
 - `lib/assessment/assessment-tool-schema.ts` - canonical 52-field assessment registry, aliases, validation, and coverage.
 - `lib/assessment/assessment-store.ts` - server-only assessment persistence boundary with local-development and transactional PostgreSQL adapters.
+- `lib/assessment/assessment-client-identity.ts` - fail-closed server resolver from reviewed resident links to governed Alamo canonical client IDs.
 - `lib/assessment/assessment-validation.ts` - assessment create/update/import request validation.
 - `lib/assessment/assessment-file-parser.ts` - bounded deterministic CSV/JSON assessment import parser.
 - `app/api/referrals/[referralId]/assessments/*` - referral-scoped assessment history, creation, and import routes.
 - `app/api/assessments/*` - assessment retrieval, update, and resident-link history routes.
+- `lib/integration/client-update-contracts.ts` - inert, baseline-preserving payload contracts for future incremental client updates.
+- `lib/integration/client-update-outbox.ts` - approval-gated server outbox boundary; no Databricks publisher is active.
+- `database/migrations/0007_canonical_client_assessments.sql` - additive canonical assessment identity and disabled future-update outbox.
 - `database/migrations/0001_pipeline_core.sql` - first production relational schema and invariants.
 - `database/migrations/0002_workflow_engine.sql` - work-item evidence, decision actor metadata, and workflow revision migration.
 - `database/migrations/0003_operational_hardening.sql` - document preview/scan, retention, extraction leases, idempotency expiry, and audit request IDs.
@@ -50,8 +55,10 @@
 - `app/api/operations/referral-worklist/route.ts` - authenticated exception-first referral worklist projection and category counts.
 - `lib/pipeline/referral-worklist-filter.ts` - shared forgiving worklist search and action-category labels.
 - `lib/pipeline/referral-ownership.ts` - canonical assigned/unassigned owner normalization shared by UI and workflow gates.
+- `lib/pipeline/referral-access.ts` - referral and packet access enforcement using stable assessor assignments.
 - `lib/pipeline/referral-activity.ts` and `app/api/referrals/[referralId]/activity/*` - bounded audit timeline projection.
 - `app/api/profiles/[residentKey]/route.ts` - authenticated unified profile endpoint.
+- `app/api/clinical/clients/route.ts` - authenticated bounded proxy for the governed canonical client directory.
 
 ## Pipeline UI
 

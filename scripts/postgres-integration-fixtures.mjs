@@ -18,9 +18,9 @@ try {
     await sql.begin(async (tx) => {
       const migrations = await tx`
         select migration_id from pipeline.schema_migrations
-        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state')
+        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments')
       `;
-      checks.push({ name: "all migrations applied", ok: migrations.length === 6 });
+      checks.push({ name: "all migrations applied", ok: migrations.length === 7 });
       await tx`
         insert into pipeline.user_workspace_state (
           principal_id, state_kind, state_key, payload, expires_at

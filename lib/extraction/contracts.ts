@@ -245,6 +245,9 @@ export function validateCreateUploadUrlRequest(
   if (!isNonEmptyString(body.referral_id)) {
     return invalid("referral_id is required.");
   }
+  if (!/^\d+$/.test(body.referral_id) || !Number.isSafeInteger(Number(body.referral_id)) || Number(body.referral_id) < 1) {
+    return invalid("referral_id must be a positive integer.");
+  }
 
   if (!isNonEmptyString(body.submitting_facility)) {
     return invalid("submitting_facility is required.");

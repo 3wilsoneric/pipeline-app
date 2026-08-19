@@ -9,6 +9,7 @@ import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { requireExtractionBackend } from "@/lib/extraction/backend-config";
 import { completePacketUpload, extractionErrorResponse } from "@/lib/extraction/extraction-service";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { requirePacketAccess } from "@/lib/pipeline/referral-access";
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/uploads/complete", async () => {
@@ -25,6 +26,8 @@ export async function POST(request: Request) {
 
     const validation = validateCompleteUploadRequest(body.value);
     if (!validation.ok) return jsonError(validation.message, validation.status);
+    const access = await requirePacketAccess(auth.user, validation.value.packet_id);
+    if (!access.ok) return access.response;
 
     let result;
     try {

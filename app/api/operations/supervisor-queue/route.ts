@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/operations/supervisor-queue", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "reviewer"]);
+    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
     if (!auth.ok) return auth.response;
     const snapshot = await getSupervisorExceptionSnapshot();
     return Response.json(snapshot, {

@@ -1,0 +1,76 @@
+bundle:
+  name: pipeline-referral-extraction
+
+variables:
+  pipeline_service_principal:
+    description: Application ID of the Pipeline-only Databricks service principal.
+  storage_account:
+    description: Existing Pipeline Azure Storage account name.
+  callback_url:
+    description: Exact HTTPS Pipeline worker callback URL.
+  document_intelligence_endpoint:
+    description: Existing Pipeline Azure Document Intelligence endpoint.
+
+sync:
+  include:
+    - databricks/pipeline_extraction_worker.py
+
+targets:
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-7405608024417459.19.azuredatabricks.net
+      root_path: /Workspace/Users/${var.pipeline_service_principal}/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      service_principal_name: ${var.pipeline_service_principal}
+
+resources:
+  jobs:
+    pipeline_extraction:
+      name: pipeline-referral-extraction
+      description: Scan-gated deterministic extraction for Pipeline-owned referral packets.
+      max_concurrent_runs: 8
+      queue:
+        enabled: true
+      permissions:
+        - level: CAN_MANAGE_RUN
+          service_principal_name: ${var.pipeline_service_principal}
+      parameters:
+        - name: packet_id
+          default: document-only
+        - name: raw_blob_prefix
+          default: ''
+        - name: extraction_job_id
+          default: ''
+        - name: attempt_count
+          default: '1'
+        - name: attempt_token
+          default: ''
+        - name: job_type
+          default: referral_packet
+      tasks:
+        - task_key: extract_packet
+          environment_key: pipeline_worker
+          spark_python_task:
+            python_file: ./databricks/pipeline_extraction_worker.py
+            parameters:
+              - --packet-id={{job.parameters.packet_id}}
+              - --raw-blob-prefix={{job.parameters.raw_blob_prefix}}
+              - --extraction-job-id={{job.parameters.extraction_job_id}}
+              - --attempt-count={{job.parameters.attempt_count}}
+              - --attempt-token={{job.parameters.attempt_token}}
+              - --job-type={{job.parameters.job_type}}
+              - --storage-account=${var.storage_account}
+              - --callback-url=${var.callback_url}
+              - --document-intelligence-endpoint=${var.document_intelligence_endpoint}
+              - --service-credential=pipeline_extraction_service
+              - --secret-scope=pipeline-extraction
+              - --callback-secret-key=worker-shared-secret
+      environments:
+        - environment_key: pipeline_worker
+          spec:
+            environment_version: '3'
+            dependencies:
+              - azure-storage-blob==12.30.0
+              - PyMuPDF==1.28.2
+              - requests==2.34.2

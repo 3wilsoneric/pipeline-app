@@ -14,7 +14,11 @@ export function loadTypeScriptModule(root, filePath, globals = {}) {
       module: ts.ModuleKind.CommonJS,
       target: ts.ScriptTarget.ES2020,
     },
-    fileName: filePath,
+    // TypeScript preserves native ESM syntax for .mjs filenames even when the
+    // requested module target is CommonJS. Contract fixtures execute modules
+    // in a CommonJS VM, so transpile shared .mjs sources through a virtual .ts
+    // filename while keeping their real path for resolution and diagnostics.
+    fileName: filePath.endsWith(".mjs") ? `${filePath.slice(0, -4)}.ts` : filePath,
   }).outputText;
 
   const commonjsModule = { exports: {} };
@@ -45,6 +49,7 @@ export function loadTypeScriptModule(root, filePath, globals = {}) {
     URLSearchParams,
     TextEncoder,
     TextDecoder,
+    process,
     exports: commonjsModule.exports,
     module: commonjsModule,
     require: localRequire,

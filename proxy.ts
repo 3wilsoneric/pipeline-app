@@ -1,23 +1,25 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { requirePipelineUser, isProtectedPath } from "@/lib/auth/pipeline-auth";
+import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const applicationPathname = fromPipelinePath(pathname);
 
-  if (!isProtectedPath(pathname)) {
+  if (!isProtectedPath(applicationPathname)) {
     return withSecurityHeaders(NextResponse.next(), request);
   }
 
   const auth = await requirePipelineUser(request);
 
   if (!auth.ok) {
-    if (!pathname.startsWith("/api/")) {
+    if (!applicationPathname.startsWith("/api/")) {
       const signInUrl = request.nextUrl.clone();
-      signInUrl.pathname = "/sign-in";
+      signInUrl.pathname = toPipelinePath("/sign-in");
       signInUrl.search = "";
       signInUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
-    return withSecurityHeaders(NextResponse.redirect(signInUrl), request);
+      return withSecurityHeaders(NextResponse.redirect(signInUrl), request);
     }
 
     return withSecurityHeaders(auth.response, request);
@@ -28,7 +30,9 @@ export async function proxy(request: NextRequest) {
 
 function withSecurityHeaders(response: Response, request: NextRequest) {
   response.headers.set("X-Content-Type-Options", "nosniff");
-  const sameOriginPacketPreview = /^\/api\/referrals\/\d+\/packet$/.test(request.nextUrl.pathname);
+  const sameOriginPacketPreview = /^\/api\/referrals\/\d+\/packet$/.test(
+    fromPipelinePath(request.nextUrl.pathname),
+  );
   response.headers.set("X-Frame-Options", sameOriginPacketPreview ? "SAMEORIGIN" : "DENY");
   response.headers.set("Referrer-Policy", "no-referrer");
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");

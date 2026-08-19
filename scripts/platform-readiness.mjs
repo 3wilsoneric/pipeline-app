@@ -7,6 +7,11 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Alamo Admissions zone contracts",
+    command: "node",
+    args: ["scripts/admissions-zone-contracts.mjs"],
+  },
+  {
     name: "Release compatibility",
     command: "node",
     args: ["scripts/release-compatibility.mjs"],
@@ -105,6 +110,11 @@ const checks = [
     name: "Document processing state machine",
     command: "node",
     args: ["scripts/extraction-state-machine-replay.mjs"],
+  },
+  {
+    name: "Databricks extraction worker contracts",
+    command: "node",
+    args: ["scripts/pipeline-extraction-worker-contracts.mjs"],
   },
   {
     name: "High-volume query audit",

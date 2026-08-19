@@ -5,7 +5,6 @@ import {
 } from "@/lib/clinical/clinical-data";
 import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requireResidentLinkStore } from "@/lib/pipeline/resident-link-store";
 import {
   getUnifiedClientProfile,
   unifiedProfileErrorResponse,
@@ -18,22 +17,20 @@ export async function GET(
   context: { params: Promise<{ residentKey: string }> },
 ) {
   return withApiLogging(request, "/api/profiles/[residentKey]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer", "viewer"]);
     if (!auth.ok) return auth.response;
-    const linkStore = requireResidentLinkStore();
-    if (!linkStore.ok) return linkStore.response;
-    const residentKey = await parseResidentKey(context);
-    if (!residentKey) return jsonError("residentKey is invalid.");
+    const canonicalClientId = await parseCanonicalClientId(context);
+    if (!canonicalClientId) return jsonError("canonical client identifier is invalid.");
     try {
       return Response.json(
-        await getUnifiedClientProfile(request, residentKey, {
+        await getUnifiedClientProfile(request, canonicalClientId, {
           can_create_identity_candidate: auth.user.roles.some((role) =>
             ["admin", "assessment_coordinator", "reviewer"].includes(role),
           ),
           can_review_identity: auth.user.roles.some((role) =>
             ["admin", "reviewer"].includes(role),
           ),
-        }),
+        }, auth.user),
         { headers: privateHeaders() },
       );
     } catch (error) {
@@ -45,7 +42,7 @@ export async function GET(
   });
 }
 
-async function parseResidentKey(context: { params: Promise<{ residentKey: string }> }) {
+async function parseCanonicalClientId(context: { params: Promise<{ residentKey: string }> }) {
   const { residentKey } = await context.params;
   try {
     const decoded = decodeURIComponent(residentKey).trim();

@@ -12,7 +12,7 @@ test.describe("Stable visual surfaces", () => {
     await openStable(page, "/");
     await expect(page).toHaveScreenshot("desktop-home.png", screenshotOptions());
 
-    await page.getByRole("link", { name: "Open referrals" }).click();
+    await page.getByRole("button", { name: "Open referrals" }).click();
     await expect(page.getByRole("main", { name: "Referral packets" })).toBeVisible();
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-referrals.png", screenshotOptions());
@@ -25,7 +25,7 @@ test.describe("Stable visual surfaces", () => {
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-profiles.png", screenshotOptions());
 
-    await page.getByRole("link", { name: "Create new packet" }).click();
+    await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-new-packet.png", screenshotOptions());
@@ -37,7 +37,7 @@ test.describe("Stable visual surfaces", () => {
     await expect(page.getByRole("main", { name: "Referral packets" })).toBeVisible();
     await expect(page).toHaveScreenshot("mobile-referrals.png", screenshotOptions());
 
-    await page.getByRole("link", { name: "Create new packet" }).click();
+    await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
     await settleStable(page);
     await expect(page).toHaveScreenshot("mobile-new-packet.png", screenshotOptions());

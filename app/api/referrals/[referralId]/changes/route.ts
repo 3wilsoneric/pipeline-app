@@ -3,6 +3,7 @@ import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { listEditingPresence } from "@/lib/pipeline/editing-presence";
 import { getReferralChangeMetadata, requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,8 @@ export async function GET(
     const { referralId } = await context.params;
     const id = Number.parseInt(referralId, 10);
     if (!Number.isSafeInteger(id) || id < 1) return jsonError("referralId is invalid.");
+    const access = await requireReferralAccess(auth.user, id);
+    if (!access.ok) return access.response;
 
     const url = new URL(request.url);
     const after = Number.parseInt(url.searchParams.get("after") ?? "0", 10);

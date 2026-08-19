@@ -9,10 +9,27 @@ const clinicalFixture = JSON.parse(
 ) as {
   roster: Record<string, unknown>;
   resident: Record<string, unknown>;
+  clients: Record<string, unknown>;
+  client: Record<string, unknown>;
 };
 
 const unifiedProfileFixture = {
-  ...clinicalFixture.resident,
+  ...clinicalFixture.client,
+  resident: clinicalFixture.resident.resident,
+  history: {
+    status: "unavailable",
+    source: null,
+    data_as_of: null,
+    imported_at: null,
+    warning: "No legacy placement history fixture is loaded.",
+    episode_count: 0,
+    current_episode_count: 0,
+    discharged_episode_count: 0,
+    first_admit_date: null,
+    latest_admit_date: null,
+    quality_flags: [],
+    episodes: [],
+  },
   pipeline: {
     permissions: {
       can_create_identity_candidate: true,
@@ -61,13 +78,24 @@ test.describe("Referral home and packet canvas", () => {
   test("keeps the opening surface focused on finding or creating a packet", async ({
     page,
   }) => {
-    await expect(page.getByRole("link", { name: "Pipeline" })).toBeVisible();
-    await expect(page.getByTitle("Home")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toBeVisible();
+    const platformPages = page.getByRole("navigation", { name: "Platform pages" });
+    await expect(platformPages).toHaveAttribute("data-platform-page-current", "pipeline");
+    await expect(platformPages.locator('[data-platform-page-target="analytics"][data-platform-page-side="right"]')).toBeVisible();
+    await expect(platformPages.locator('[data-platform-page-target="questions"]')).toHaveCount(0);
+    const [homePosition, pipelinePosition, analyticsPosition] = await Promise.all([
+      page.locator('[data-platform-page-target="home"]').boundingBox(),
+      page.locator('[data-platform-page-active="pipeline"]').boundingBox(),
+      platformPages.locator('[data-platform-page-target="analytics"]').boundingBox(),
+    ]);
+    expect(homePosition?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(pipelinePosition?.x ?? 0);
+    expect(analyticsPosition?.x ?? 0).toBeGreaterThan(pipelinePosition?.x ?? Number.POSITIVE_INFINITY);
     await expect(page.getByText("Referral packets", { exact: true }).last()).toBeVisible();
     await expect(page.getByLabel("Select referral packet")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Referral workflow", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "All packets", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Create new packet" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Referral workflow tracker" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Action categories" })).toHaveCount(0);
     await page.getByRole("button", { name: "Needs action", exact: true }).click();
@@ -77,7 +105,7 @@ test.describe("Referral home and packet canvas", () => {
       await expect(workQueues.getByRole("button", { name: queueName, exact: true })).toBeVisible();
     }
     await expect(page.getByRole("region", { name: "Referral action worklist" })).toBeVisible();
-    const activeReferrals = page.getByRole("link", { name: "Open referrals" });
+    const activeReferrals = page.getByRole("button", { name: "Open referrals" });
     await expect(activeReferrals).toHaveAttribute("aria-current", "page");
     await expect(activeReferrals).toHaveAttribute("data-active", "true");
     await expect(activeReferrals).toHaveClass(/bg-\[#e7f3ee\]/);
@@ -90,7 +118,7 @@ test.describe("Referral home and packet canvas", () => {
       page.getByRole("button", { name: "Open search" }),
       activeReferrals,
       inactiveProfiles,
-      page.getByRole("link", { name: "Create new packet" }),
+      page.getByRole("button", { name: "Create new referral" }),
     ]) {
       await expect(navItem).toHaveCSS("width", "168px");
       await expect(navItem).toHaveCSS("height", "54px");
@@ -114,16 +142,16 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await expect(page.getByText("Referral packets", { exact: true }).last()).toBeVisible();
     await page.getByRole("button", { name: "Open search" }).click();
-    await page.getByRole("link", { name: "Open referrals" }).click();
+    await page.getByRole("button", { name: "Open referrals" }).click();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await expect(page.getByText("Referral packets", { exact: true }).last()).toBeVisible();
   });
 
-  test("opens a new packet and returns through the Pipeline header", async ({ page }) => {
-    await page.getByRole("link", { name: "Create new packet" }).click();
+  test("opens a new referral and returns through the Pipeline header", async ({ page }) => {
+    await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByText("Referral packet", { exact: true }).last()).toBeVisible();
     await expect.poll(async () => (await page.getByTestId("packet-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1200);
-    const activePacket = page.getByRole("link", { name: "Create new packet" });
+    const activePacket = page.getByRole("button", { name: "Create new referral" });
     await expect(activePacket).toHaveAttribute("aria-current", "page");
     await expect(activePacket).toHaveCSS("background-color", "rgb(255, 240, 237)");
     await expect(activePacket).toHaveCSS("border-color", "rgb(200, 91, 77)");
@@ -137,10 +165,11 @@ test.describe("Referral home and packet canvas", () => {
     expect(stepsBox).not.toBeNull();
     expect(saveBox).not.toBeNull();
     expect(Math.abs((stepsBox?.y ?? 0) - (saveBox?.y ?? 0))).toBeLessThan(1);
-    await expect(page.getByRole("link", { name: "Pipeline" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
-    await expect.poll(async () => (await page.getByRole("link", { name: "Open referrals" }).boundingBox())?.width ?? 0).toBeGreaterThan(100);
-    await page.getByRole("link", { name: "Pipeline" }).click();
+    await expect.poll(async () => (await page.getByRole("button", { name: "Open referrals" }).boundingBox())?.width ?? 0).toBeGreaterThan(100);
+    await page.getByRole("button", { name: "Pipeline home" }).click();
+    await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("heading", { name: /Welcome( back)?, / })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Search and ask" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "My queue" })).toBeVisible();
@@ -162,7 +191,7 @@ test.describe("Referral home and packet canvas", () => {
 
   test("creates and recalls a chart entered without an imported packet", async ({ page }) => {
     const clientName = `Manual chart ${randomUUID().slice(0, 8)}`;
-    await page.getByRole("link", { name: "Create new packet" }).click();
+    await page.getByRole("button", { name: "Create new referral" }).click();
 
     await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
     await expect(page.getByRole("complementary", { name: "Chart completion and documents" })).toBeVisible();
@@ -214,7 +243,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(profilesMain).toBeVisible();
     expect((await profilesMain.boundingBox())?.y).toBe(82);
 
-    await page.getByRole("link", { name: "Create new packet" }).click();
+    await page.getByRole("button", { name: "Create new referral" }).click();
     const packetSteps = page.getByRole("navigation", { name: "Referral packet steps" });
     const savePacket = page.getByRole("button", { name: /^(Create referral|Save chart)$/ });
     const firstPacketPage = page.getByRole("region", { name: "Chart", exact: true });
@@ -240,6 +269,34 @@ test.describe("Referral home and packet canvas", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   });
 
+  test("keeps rapid header navigation deterministic", async ({ page }) => {
+    const destinations = [
+      { name: "Open client profiles", parameter: "screen", value: "profiles", landmark: "Client profiles" },
+      { name: "Create new referral", parameter: "screen", value: "packet", landmark: "Referral packet steps" },
+      { name: "Open referrals", parameter: "view", value: "referrals", landmark: "Referral workflow tracker" },
+    ] as const;
+
+    for (let pass = 0; pass < 3; pass += 1) {
+      for (const destination of destinations) {
+        await page.getByRole("button", { name: destination.name }).click();
+        await expect.poll(() => new URL(page.url()).searchParams.get(destination.parameter)).toBe(destination.value);
+        if (destination.value === "profiles") {
+          await expect(page.getByRole("main", { name: destination.landmark })).toBeVisible();
+        } else if (destination.value === "packet") {
+          await expect(page.getByRole("navigation", { name: destination.landmark })).toBeVisible();
+        } else {
+          await expect(page.getByRole("region", { name: destination.landmark })).toBeVisible();
+        }
+      }
+    }
+
+    await page.getByRole("button", { name: "Open search" }).click();
+    await expect(page.getByLabel("Search or ask")).toBeVisible();
+    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await expect(page.getByLabel("Search or ask")).toHaveCount(0);
+    await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
+  });
+
   test("deduplicates startup identity and retries a transient referral read", async ({ page }) => {
     let identityRequests = 0;
     await page.route("**/api/auth/me", async (route) => {
@@ -261,7 +318,7 @@ test.describe("Referral home and packet canvas", () => {
       await route.continue();
     });
 
-    await page.getByRole("link", { name: "Open referrals" }).click();
+    await page.getByRole("button", { name: "Open referrals" }).click();
     await expect(page.getByRole("region", { name: "Referral workflow tracker" })).toBeVisible();
     await expect.poll(() => referralRequests).toBeGreaterThanOrEqual(2);
     await expect(page.getByText("Pipeline returned an unreadable response.", { exact: true })).toHaveCount(0);
@@ -651,7 +708,7 @@ test.describe("Referral home and packet canvas", () => {
   }) => {
     const clientName = `Workflow ${randomUUID().slice(0, 8)}`;
     const packetBytes = Buffer.from(`packet-${randomUUID()}`);
-    await page.getByRole("link", { name: "Create new packet" }).click();
+    await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("textbox", { name: "GENDER", exact: true }).fill("Synthetic gender");
     await page.getByRole("textbox", { name: "AGE", exact: true }).fill("74");
@@ -859,7 +916,7 @@ test.describe("Referral home and packet canvas", () => {
       "Legal Status: Voluntary",
     ].forEach((line, index) => context.fillText(line, 80, 180 + index * 75));
 
-    await page.getByRole("link", { name: "Create new packet" }).click();
+    await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "rowan-example-face-sheet.png",
       mimeType: "image/png",
@@ -903,7 +960,7 @@ test.describe("Referral home and packet canvas", () => {
     const firstClient = `First ${randomUUID().slice(0, 8)}`;
     const secondClient = `Second ${randomUUID().slice(0, 8)}`;
 
-    await page.getByRole("link", { name: "Create new packet" }).click();
+    await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(firstClient);
     await page.getByRole("combobox", { name: "County:" }).selectOption("San Pablo");
     await page.getByTestId("initial-packet-input").setInputFiles({
@@ -933,7 +990,7 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("switches packet steps without stacking the sections", async ({ page }) => {
-    await page.getByRole("link", { name: "Create new packet" }).click();
+    await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByRole("button", { name: "1 Chart" })).toHaveAttribute("aria-current", "page");
     await page.getByRole("button", { name: "2 Required files" }).click();
     await expect(page.getByRole("button", { name: "2 Required files" })).toHaveAttribute("aria-current", "page");
@@ -961,7 +1018,7 @@ test.describe("Referral home and packet canvas", () => {
 
   test("creates, imports, reviews, completes, and recalls an assessment", async ({ page }) => {
     const clientName = `Assessment ${randomUUID().slice(0, 8)}`;
-    await page.getByRole("link", { name: "Create new packet" }).click();
+    await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("combobox", { name: "County:" }).selectOption("San Pablo");
     await page.getByRole("textbox", { name: "Owner (@name):" }).fill("Playwright QA");
@@ -1281,23 +1338,26 @@ test.describe("Pipeline home", () => {
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Welcome, Playwright QA." })).toBeVisible();
+    await expect(page.getByRole("region", { name: "My queue" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Pipeline" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toBeVisible();
     await expect(page.getByText("Referrals", { exact: true })).toBeVisible();
-    await expect(page.getByText("New packet", { exact: true })).toBeVisible();
-    await page.getByRole("link", { name: "Create new packet" }).hover();
-    await expect(page.getByText("New packet", { exact: true })).toBeVisible();
+    await expect(page.getByText("New referral", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Create new referral" }).hover();
+    await expect(page.getByText("New referral", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Open search" }).hover();
-    await expect(page.getByText("New packet", { exact: true })).toBeVisible();
-    await page.getByRole("link", { name: "Create new packet" }).hover();
-    await expect(page.getByText("New packet", { exact: true })).toBeVisible();
+    await expect(page.getByText("New referral", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Create new referral" }).hover();
+    await expect(page.getByText("New referral", { exact: true })).toBeVisible();
     await expect(page.getByText("Referral packets", { exact: true })).toHaveCount(0);
     const signedInProfile = page.getByRole("button", { name: "Open profile menu for Playwright QA" });
     await signedInProfile.click();
     await expect(page.getByRole("dialog", { name: "Profile menu" }).getByText("Playwright QA", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Operations Queue, ownership, and data gaps" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Pipeline operations Queue, ownership, and record gaps" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open operations" })).toHaveCount(0);
-    const referralsLink = page.getByRole("link", { name: "Open referrals" });
+    const referralsLink = page.getByRole("button", { name: "Open referrals" });
     await expect(referralsLink).toBeVisible();
     await referralsLink.hover();
     await expect(page.getByText("Referrals", { exact: true })).toBeVisible();
@@ -1368,15 +1428,15 @@ test.describe("Pipeline home", () => {
     }
   });
 
-  test("opens an admitted client from search and restores it from Recents", async ({ page }) => {
-    const resident = (clinicalFixture.roster as {
-      residents: Array<{
-        resident_key: string;
+  test("opens a canonical client from search and restores it from Recents", async ({ page }) => {
+    const client = (clinicalFixture.clients as {
+      clients: Array<{
+        canonical_client_id: string;
         display_name: string;
-        community_name: string;
+        current_community: string | null;
         unit: string | null;
       }>;
-    }).residents[0];
+    }).clients[0];
 
     await page.addInitScript(() => {
       window.sessionStorage.setItem("pipeline.recent-destinations.v1", JSON.stringify([{
@@ -1398,9 +1458,9 @@ test.describe("Pipeline home", () => {
           interpreted_query: "Avery",
           referrals: [],
           files: [],
-          residents: [resident],
+          clients: [client],
           clinical_warning: null,
-          counts: { referrals: 0, files: 0, residents: 1, total: 1 },
+          counts: { referrals: 0, files: 0, clients: 1, total: 1 },
         }),
       });
     });
@@ -1414,14 +1474,14 @@ test.describe("Pipeline home", () => {
     await page.getByLabel("Search or ask").fill("Avery");
     await page.getByLabel("Search or ask").press("Enter");
 
-    const residentResult = page.getByRole("button", { name: /Avery Example/ });
-    await expect(residentResult).toBeVisible();
-    await residentResult.click();
+    const clientResult = page.getByRole("button", { name: /Avery Example/ });
+    await expect(clientResult).toBeVisible();
+    await clientResult.click();
     await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/\?screen=profile&clientId=/);
     expect(new URL(page.url()).searchParams.has("view")).toBeFalsy();
 
-    await page.getByRole("link", { name: "Pipeline" }).click();
+    await page.getByRole("button", { name: "Pipeline home" }).click();
     const recent = page.getByRole("region", { name: "Recent" });
     await expect(recent.getByText("Broken recent", { exact: true })).toHaveCount(0);
     await expect(recent.getByRole("button", { name: /Avery Example/ })).toBeVisible();
@@ -1430,25 +1490,23 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
   });
 
-  test("searches site destinations and the admitted roster while typing", async ({ page }) => {
-    const roster = clinicalFixture.roster as {
-      residents: Array<{
-        resident_key: string;
+  test("searches site destinations and the enhanced client directory while typing", async ({ page }) => {
+    const directory = clinicalFixture.clients as {
+      clients: Array<{
+        canonical_client_id: string;
         display_name: string;
-        community_name: string;
-        unit: string | null;
       }>;
       [key: string]: unknown;
     };
-    const resident = roster.residents[0];
+    const client = directory.clients[0];
 
-    await page.route("**/api/clinical/roster**", async (route) => {
+    await page.route("**/api/clinical/clients**", async (route) => {
       const query = new URL(route.request().url()).searchParams.get("q")?.trim().toLowerCase() ?? "";
-      const residents = query && !resident.display_name.toLowerCase().includes(query) ? [] : [resident];
+      const clients = query && !client.display_name.toLowerCase().includes(query) ? [] : [client];
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ ...roster, residents, total: residents.length, next_cursor: null }),
+        body: JSON.stringify({ ...directory, clients, total: clients.length, next_cursor: null }),
       });
     });
 
@@ -1462,24 +1520,26 @@ test.describe("Pipeline home", () => {
     await profilesResult.click();
 
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
-    const rosterSearch = page.getByLabel("Search admitted clients");
-    await rosterSearch.fill("Avery");
-    await expect(page.getByRole("button", { name: `Open profile for ${resident.display_name}` })).toBeVisible();
-    await rosterSearch.fill("No matching resident");
-    await expect(page.getByText("No admitted clients match that search.", { exact: true })).toBeVisible();
+    const clientSearch = page.getByLabel("Search clients");
+    await clientSearch.fill("Avery");
+    await expect(page.getByRole("button", { name: `Open profile for ${client.display_name}` })).toBeVisible();
+    await clientSearch.fill("No matching client");
+    await expect(page.getByText("No clients match that search.", { exact: true })).toBeVisible();
   });
 
   test("shows the welcome once, then returns to the home workspace", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: "Welcome, Playwright QA." })).toBeVisible();
+    await expect(page.getByRole("region", { name: "My queue" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
 
-    await page.getByRole("link", { name: "Open referrals" }).click();
+    await page.getByRole("button", { name: "Open referrals" }).click();
     await expect(page.getByRole("heading", { name: "Referral packets", exact: true })).toBeVisible();
-    await page.getByRole("link", { name: "Pipeline" }).click();
+    await page.getByRole("button", { name: "Pipeline home" }).click();
 
     await expect(page.getByRole("heading", { name: /Welcome( back)?, / })).toHaveCount(0);
-    await expect(page.getByTitle("Home")).toBeVisible();
+    await expect(page.getByTitle("Pipeline home")).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Search and ask" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "My queue" })).toBeVisible();
@@ -1509,9 +1569,9 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("heading", { name: "Welcome back, Playwright QA." })).toBeVisible();
   });
 
-  test("opens the Alamo admitted-client roster and governed profile", async ({ page }) => {
-    await page.route("**/api/clinical/roster**", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.roster) });
+  test("opens the Alamo enhanced client directory and governed profile", async ({ page }) => {
+    await page.route("**/api/clinical/clients**", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.clients) });
     });
     await page.route("**/api/profiles/**", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(unifiedProfileFixture) });
@@ -1529,7 +1589,7 @@ test.describe("Pipeline home", () => {
     await expect(activeProfiles).toHaveClass(/bg-\[#eef1ff\]/);
     await expect(activeProfiles).toHaveCSS("background-color", "rgb(238, 241, 255)");
     await expect(activeProfiles).toHaveCSS("border-color", "rgb(75, 104, 173)");
-    await expect(page.getByText("1 of 1 admitted clients", { exact: true })).toBeVisible();
+    await expect(page.getByText("1 of 1 clients", { exact: true })).toBeVisible();
     await expect(page.getByText("Avery Example", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: /Avery Example/ }).click();
@@ -1540,18 +1600,20 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Clinical snapshot", { exact: true })).toBeVisible();
     await expect(page.getByText("Pipeline work", { exact: true })).toBeVisible();
     await expect(page.getByText("Assessments", { exact: true })).toBeVisible();
-    await expect(page.getByText("Pipeline identity not connected", { exact: true })).toBeVisible();
-    await expect(page.getByText("Pipeline not connected", { exact: true }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Choose Pipeline referral" })).toBeVisible();
+    await expect(page.getByText("Enhanced client record", { exact: true })).toBeVisible();
+    await expect(page.getByText("Resident episode history", { exact: true })).toBeVisible();
+    await expect(page.getByText("Pipeline record not linked", { exact: true })).toBeVisible();
+    await expect(page.getByText("Pipeline not linked", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Choose matching referral" })).toBeVisible();
     await expect(page.getByText("Open referral packet", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Pipeline" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
   });
 
   test("recovers a client profile after a temporary server failure", async ({ page }) => {
     let serviceAvailable = false;
 
-    await page.route("**/api/clinical/roster**", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.roster) });
+    await page.route("**/api/clinical/clients**", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.clients) });
     });
     await page.route("**/api/profiles/**", async (route) => {
       if (!serviceAvailable) {
@@ -1571,60 +1633,90 @@ test.describe("Pipeline home", () => {
 
     const alert = page.getByRole("alert").filter({ hasText: "This client profile could not be loaded." });
     await expect(alert).toContainText("This client profile could not be loaded.");
-    await expect(alert).toContainText("Pipeline's operational profile data is temporarily unavailable.");
+    await expect(alert).toContainText("Pipeline work data is temporarily unavailable.");
     await expect(alert).not.toContainText("Internal server error");
     serviceAvailable = true;
     await page.getByRole("button", { name: "Retry", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
   });
 
-  test("stacks admitted-client community, admission-date, and profile-data filters", async ({ page }) => {
-    const roster = clinicalFixture.roster as {
-      residents: Array<Record<string, unknown>>;
+  test("keeps the governed client profile available when Pipeline work storage is unavailable", async ({ page }) => {
+    const profile = structuredClone(unifiedProfileFixture);
+    profile.pipeline.permissions = {
+      can_create_identity_candidate: false,
+      can_review_identity: false,
+    };
+    profile.pipeline.connection = {
+      status: "unavailable",
+      confirmed_link: null,
+      candidates: [],
+      suggestions: [],
+      message: "Pipeline work data is not configured in this runtime. The governed Alamo client record remains available.",
+    };
+
+    await page.route("**/api/profiles/**", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(profile) });
+    });
+    const canonicalClientId = (clinicalFixture.client.client as { canonical_client_id: string }).canonical_client_id;
+    await page.goto(`/?screen=profile&clientId=${encodeURIComponent(canonicalClientId)}`);
+
+    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    const unavailableNotice = page.getByRole("status").filter({ hasText: "Pipeline work unavailable" });
+    await expect(unavailableNotice).toBeVisible();
+    await expect(unavailableNotice).toContainText("Pipeline work data is not configured in this runtime.");
+    await expect(page.getByRole("button", { name: "Choose matching referral" })).toHaveCount(0);
+  });
+
+  test("stacks client community, admission-date, and profile-data filters", async ({ page }) => {
+    const directory = clinicalFixture.clients as {
+      clients: Array<Record<string, unknown>>;
       [key: string]: unknown;
     };
-    const baseResident = roster.residents[0];
-    const residents = [
+    const baseClient = directory.clients[0];
+    const clients = [
       {
-        ...baseResident,
-        resident_id: "R-201",
-        resident_key: "337:R-201",
+        ...baseClient,
+        canonical_client_id: "client-recent-san-pablo",
+        resident_numbers: ["R-201"],
         display_name: "Recent San Pablo",
-        community_id: "337",
-        community_name: "A & A Health Services San Pablo",
+        community_names: ["A & A Health Services San Pablo"],
+        current_community: "A & A Health Services San Pablo",
+        current_resident: true,
         unit: "10A",
         admit_date: "2026-07-08",
       },
       {
-        ...baseResident,
-        resident_id: "R-202",
-        resident_key: "337:R-202",
+        ...baseClient,
+        canonical_client_id: "client-older-san-pablo",
+        resident_numbers: ["R-202"],
         display_name: "Older San Pablo",
-        community_id: "337",
-        community_name: "A & A Health Services San Pablo",
+        community_names: ["A & A Health Services San Pablo"],
+        current_community: "A & A Health Services San Pablo",
+        current_resident: true,
         unit: "10B",
         admit_date: "2025-01-08",
       },
       {
-        ...baseResident,
-        resident_id: "R-203",
-        resident_key: "280:R-203",
+        ...baseClient,
+        canonical_client_id: "client-recent-turlock",
+        resident_numbers: ["R-203"],
         display_name: "Recent Turlock",
-        community_id: "280",
-        community_name: "AHS Turlock OP LLC",
+        community_names: ["AHS Turlock OP LLC"],
+        current_community: "AHS Turlock OP LLC",
+        current_resident: true,
         unit: null,
         admit_date: "2026-06-08",
       },
     ];
 
-    await page.route("**/api/clinical/roster**", async (route) => {
+    await page.route("**/api/clinical/clients**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          ...roster,
-          residents,
-          total: residents.length,
+          ...directory,
+          clients,
+          total: clients.length,
           next_cursor: null,
           data_as_of: "2026-08-07",
         }),
@@ -1643,7 +1735,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Older San Pablo", { exact: true })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Add community filter" }).click();
-    await page.getByLabel("Filter profiles by community").selectOption("337");
+    await page.getByLabel("Filter profiles by community").selectOption("A & A Health Services San Pablo");
     await expect(page.getByText("1 of 1 matching", { exact: true })).toBeVisible();
     await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
     await expect(page.getByText("Recent Turlock", { exact: true })).toHaveCount(0);
@@ -1706,8 +1798,8 @@ test.describe("Pipeline home", () => {
     };
     let connectionStatus: "unlinked" | "candidate" | "confirmed" = "unlinked";
 
-    await page.route("**/api/clinical/roster**", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.roster) });
+    await page.route("**/api/clinical/clients**", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.clients) });
     });
     await page.route("**/api/profiles/**", async (route) => {
       const profile = structuredClone(unifiedProfileFixture);
@@ -1748,14 +1840,14 @@ test.describe("Pipeline home", () => {
               confirmed_link: null,
               candidates: [candidate],
               suggestions: [],
-              message: "A possible Pipeline identity match needs human review before operational records can be joined.",
+              message: "A possible Pipeline identity match needs human review before records can be joined.",
             }
           : {
               status: "confirmed",
               confirmed_link: { ...candidate, status: "confirmed", version: 2 },
               candidates: [],
               suggestions: [],
-              message: "Pipeline operational records are joined through a reviewed resident link.",
+              message: "Pipeline records are joined through a reviewed resident link.",
             };
       (profile.pipeline as unknown as { connection: typeof connection }).connection = connection;
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(profile) });
@@ -1789,7 +1881,7 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await page.getByRole("button", { name: /Avery Example/ }).click();
-    await page.getByRole("button", { name: "Choose Pipeline referral" }).click();
+    await page.getByRole("button", { name: "Choose matching referral" }).click();
     await expect(page.getByText("Suggested matches", { exact: true })).toBeVisible();
     await expect(page.getByText("Name and date of birth match exactly", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: /Avery Example.*#101.*Name and date of birth match exactly/ }).click();
@@ -1797,7 +1889,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Identity review needed", { exact: true }).first()).toBeVisible();
     await page.getByRole("button", { name: "Review" }).click();
     await page.getByRole("button", { name: "Confirm connection" }).click();
-    await expect(page.getByText("Pipeline connected", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Pipeline linked", { exact: true }).first()).toBeVisible();
   });
 
   test("opens the lightweight operations overview from the profile menu", async ({ page }) => {
@@ -1805,15 +1897,21 @@ test.describe("Pipeline home", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Open profile menu for Playwright QA" }).click();
-    await page.getByRole("link", { name: "Operations Queue, ownership, and data gaps" }).click();
+    await page.getByRole("link", { name: "Pipeline operations Queue, ownership, and record gaps" }).click();
     await expect(page.getByRole("heading", { name: "Operations", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Operations summary" })).toBeVisible();
     await expect(page.getByText("Active referrals", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Work queue", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Team", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Data gaps", exact: true })).toBeVisible();
-    await expect(page.getByRole("option", { name: /^Referral has no owner \(\d+\)$/ })).toBeAttached();
-    await expect(page.getByRole("option", { name: /^Requirement has no owner \(\d+\)$/ })).toBeAttached();
+    const exceptionFilter = page.getByRole("combobox", { name: "Filter supervisor exceptions" });
+    await expect(exceptionFilter.getByRole("option", { name: "All exceptions" })).toBeAttached();
+    const exceptionOptionCount = await exceptionFilter.getByRole("option").count();
+    if (exceptionOptionCount === 1) {
+      await expect(page.getByText("No open exceptions", { exact: true })).toBeVisible();
+    } else {
+      expect(exceptionOptionCount).toBeGreaterThan(1);
+    }
     await expect(page.getByText("Referral flow", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Data health", { exact: true })).toHaveCount(0);
   });

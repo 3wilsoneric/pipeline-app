@@ -4,15 +4,15 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CircleAlert, MapPin, Plus, RefreshCw, Search, X } from "lucide-react";
 
 import type {
+  ClinicalClientDirectoryItem,
   ClinicalFreshness,
-  ClinicalResidentDirectoryResult,
 } from "@/lib/clinical/clinical-contracts";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 
-type RosterResident = ClinicalResidentDirectoryResult;
+type DirectoryClient = ClinicalClientDirectoryItem;
 
-type RosterPayload = {
-  residents: RosterResident[];
+type ClientDirectoryPayload = {
+  clients: DirectoryClient[];
   total: number;
   next_cursor: string | null;
   data_as_of: string;
@@ -33,7 +33,7 @@ export default function ClientProfileDirectory({
 }: {
   onOpenProfile: (residentKey: string) => void;
 }) {
-  const [residents, setResidents] = useState<RosterResident[]>([]);
+  const [clients, setClients] = useState<DirectoryClient[]>([]);
   const [query, setQuery] = useState("");
   const [total, setTotal] = useState(0);
   const [dataAsOf, setDataAsOf] = useState("");
@@ -61,19 +61,19 @@ export default function ClientProfileDirectory({
       setDirectoryComplete(false);
       setError("");
       setDisplayLimit(DISPLAY_INCREMENT);
-      if (loadedQuery.current !== normalizedQuery) setResidents([]);
+      if (loadedQuery.current !== normalizedQuery) setClients([]);
 
       void (async () => {
         try {
-          let payload = await fetchRosterPage(normalizedQuery, null, controller.signal);
+          let payload = await fetchClientPage(normalizedQuery, null, controller.signal);
           if (controller.signal.aborted) return;
           loadedFirstPage = true;
-          let merged = mergeResidents([], payload.residents ?? []);
+          let merged = mergeClients([], payload.clients ?? []);
           let cursor = payload.next_cursor ?? null;
           const seenCursors = new Set<string>();
           let pageCount = 1;
 
-          setResidents(merged);
+          setClients(merged);
           setTotal(Number.isInteger(payload.total) ? payload.total : merged.length);
           setDataAsOf(payload.data_as_of ?? "");
           setFreshness(payload.freshness ?? null);
@@ -84,15 +84,15 @@ export default function ClientProfileDirectory({
 
           while (cursor) {
             if (seenCursors.has(cursor) || pageCount >= MAX_DIRECTORY_PAGES) {
-              throw new Error("The admitted-client directory exceeded its safe pagination limit.");
+              throw new Error("The client directory exceeded its safe pagination limit.");
             }
             seenCursors.add(cursor);
-            payload = await fetchRosterPage(normalizedQuery, cursor, controller.signal);
+            payload = await fetchClientPage(normalizedQuery, cursor, controller.signal);
             if (controller.signal.aborted) return;
-            merged = mergeResidents(merged, payload.residents ?? []);
+            merged = mergeClients(merged, payload.clients ?? []);
             cursor = payload.next_cursor ?? null;
             pageCount += 1;
-            setResidents(merged);
+            setClients(merged);
             setTotal(Number.isInteger(payload.total) ? payload.total : merged.length);
             setDataAsOf(payload.data_as_of ?? "");
             setFreshness(payload.freshness ?? null);
@@ -105,13 +105,13 @@ export default function ClientProfileDirectory({
           setDirectoryComplete(false);
           setError(
             loadedFirstPage
-              ? "The first roster page loaded, but the complete directory could not be retrieved. Refresh before applying filters."
+              ? "The first client page loaded, but the complete directory could not be retrieved. Refresh before applying filters."
               : loadError instanceof Error
                 ? loadError.message
-                : "The admitted-client roster is unavailable.",
+                : "The enhanced client directory is unavailable.",
           );
           if (!loadedFirstPage) {
-            setResidents([]);
+            setClients([]);
             setTotal(0);
             setFreshness(null);
           }
@@ -130,24 +130,24 @@ export default function ClientProfileDirectory({
     };
   }, [query, reloadKey]);
 
-  const filteredResidents = useMemo(
-    () => residents.filter((resident) => {
-      if (activeFilters.includes("community") && communityFilter && resident.community_id !== communityFilter) return false;
-      if (activeFilters.includes("admitted") && !matchesAdmissionFilter(resident.admit_date, admissionFilter, dataAsOf)) return false;
-      if (activeFilters.includes("profile_data") && !matchesProfileDataFilter(resident, profileDataFilter)) return false;
+  const filteredClients = useMemo(
+    () => clients.filter((client) => {
+      if (activeFilters.includes("community") && communityFilter && !client.community_names.includes(communityFilter)) return false;
+      if (activeFilters.includes("admitted") && !matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf)) return false;
+      if (activeFilters.includes("profile_data") && !matchesProfileDataFilter(client, profileDataFilter)) return false;
       return true;
     }),
-    [activeFilters, admissionFilter, communityFilter, dataAsOf, profileDataFilter, residents],
+    [activeFilters, admissionFilter, clients, communityFilter, dataAsOf, profileDataFilter],
   );
-  const visibleResidents = filteredResidents.slice(0, displayLimit);
+  const visibleClients = filteredClients.slice(0, displayLimit);
   const hasAppliedFilters = activeFilters.length > 0 || Boolean(query.trim());
-  const countLabel = isLoading && residents.length === 0
-    ? "Loading roster..."
+  const countLabel = isLoading && clients.length === 0
+    ? "Loading clients..."
     : isCompletingRoster
-      ? `Loading ${residents.length} of ${total} clients...`
+      ? `Loading ${clients.length} of ${total} clients...`
       : hasAppliedFilters
-        ? `${visibleResidents.length} of ${filteredResidents.length} matching`
-        : `${visibleResidents.length} of ${total} admitted clients`;
+        ? `${visibleClients.length} of ${filteredClients.length} matching`
+        : `${visibleClients.length} of ${total} clients`;
 
   const addFilter = (key: FilterKey) => {
     setActiveFilters((current) => current.includes(key) ? current : [...current, key]);
@@ -173,13 +173,13 @@ export default function ClientProfileDirectory({
       <div data-testid="profiles-workspace" className="mx-auto w-full max-w-[1040px] px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center gap-3 pb-2">
           <label className="relative min-w-[260px] flex-1 md:max-w-[620px]">
-            <span className="sr-only">Search admitted clients</span>
+            <span className="sr-only">Search clients</span>
             <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#737373]" />
             <input
-              aria-label="Search admitted clients"
+              aria-label="Search clients"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search admitted clients or communities..."
+              placeholder="Search by client name or resident number..."
               className="h-11 w-full border border-[#b3b3b3] bg-white pl-10 pr-3 text-[13px] outline-none placeholder:text-[#8a8a8a] focus:border-[#0f8b73]"
             />
           </label>
@@ -188,8 +188,8 @@ export default function ClientProfileDirectory({
             <span className="min-w-[154px] text-right tabular-nums">{countLabel}</span>
             <button
               type="button"
-              aria-label="Refresh admitted-client roster"
-              title="Refresh roster"
+              aria-label="Refresh client directory"
+              title="Refresh client directory"
               onClick={() => setReloadKey((current) => current + 1)}
               disabled={isLoading || isCompletingRoster}
               className="flex h-9 w-9 items-center justify-center border border-[#d9d9d9] text-[#0f8b73] hover:border-[#0f8b73] disabled:text-[#b3b3b3]"
@@ -288,7 +288,7 @@ export default function ClientProfileDirectory({
 
         {freshness?.status === "stale" || freshness?.warning ? (
           <div className="mt-3 border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#5d4925]" role="status">
-            {freshness.warning || "The Alamo roster is older than its target freshness window."}
+            {freshness.warning || "The Alamo client directory is older than its target freshness window."}
           </div>
         ) : null}
 
@@ -304,41 +304,47 @@ export default function ClientProfileDirectory({
           </div>
         ) : null}
 
-        <section className="mt-3 border-y border-[#d9d9d9]" aria-label="Admitted client list">
+        <section className="mt-3 border-y border-[#d9d9d9]" aria-label="Client list">
           <div className="hidden grid-cols-[minmax(220px,1fr)_minmax(180px,0.8fr)_minmax(150px,0.6fr)] gap-5 border-b border-[#d9d9d9] bg-[#fbfcfb] px-5 py-2.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373] md:grid">
             <span>Client</span>
             <span>Community</span>
             <span className="text-right">Current stay</span>
           </div>
-          {isLoading && residents.length === 0 ? <RosterSkeleton /> : null}
-          {visibleResidents.map((resident) => (
+          {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
+          {visibleClients.map((client) => (
             <button
-              key={resident.resident_key}
+              key={client.canonical_client_id}
               type="button"
-              aria-label={`Open profile for ${resident.display_name}`}
-              onClick={() => onOpenProfile(resident.resident_key)}
+              aria-label={`Open profile for ${client.display_name}`}
+              onClick={() => onOpenProfile(client.canonical_client_id)}
               className="grid w-full grid-cols-[minmax(0,1fr)] gap-5 border-b border-l-[3px] border-b-[#e5e5e5] border-l-transparent px-5 py-3.5 text-left transition-colors last:border-b-0 hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-l-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none md:grid-cols-[minmax(220px,1fr)_minmax(180px,0.8fr)_minmax(150px,0.6fr)]"
             >
               <span className="min-w-0">
-                <span className="block truncate text-[15px] font-black leading-5 text-[#111111]">{resident.display_name}</span>
+                <span className="block truncate text-[15px] font-black leading-5 text-[#111111]">{client.display_name}</span>
                 <span className="mt-1 block truncate text-[11px] leading-4 text-[#737373] md:hidden">
-                  {resident.community_name}{resident.unit ? ` · Unit ${resident.unit}` : ""}
+                  {client.current_community || client.community_names.join(" · ") || "No community reported"}
                 </span>
               </span>
               <span className="hidden min-w-0 md:block">
-                <span className="block truncate text-[12px] font-semibold text-[#333333]">{resident.community_name}</span>
-                <span className="mt-1 block truncate text-[10px] text-[#737373]">{resident.unit ? `Unit ${resident.unit}` : "Unit not reported"}</span>
+                <span className="block truncate text-[12px] font-semibold text-[#333333]">{client.current_community || client.community_names.join(" · ") || "Not reported"}</span>
+                <span className="mt-1 block truncate text-[10px] text-[#737373]">{client.resident_numbers.length ? `Resident ${client.resident_numbers.join(" · ")}` : "Resident number not reported"}</span>
               </span>
               <span className="hidden min-w-0 text-right md:block">
                 <span className="block text-[11px] text-[#595959]">
-                  {resident.admit_date ? `Admitted ${formatDate(resident.admit_date)}` : "Admission date not reported"}
+                  {client.current_resident
+                    ? client.admit_date ? `Admitted ${formatDate(client.admit_date)}` : "Current resident"
+                    : "Historical client"}
                 </span>
-                {resident.care_level ? <span className="mt-1 block truncate text-[10px] text-[#737373]">{resident.care_level}</span> : null}
+                <span className="mt-1 block truncate text-[10px] text-[#737373]">
+                  {client.current_resident && client.care_level
+                    ? client.care_level
+                    : `${client.episode_count} episode${client.episode_count === 1 ? "" : "s"}`}
+                </span>
               </span>
             </button>
           ))}
 
-          {!isLoading && !error && filteredResidents.length === 0 ? (
+          {!isLoading && !error && filteredClients.length === 0 ? (
             <div className="px-5 py-16 text-center text-[13px] text-[#737373]">
               <div>{emptyRosterMessage(query, activeFilters)}</div>
               {activeFilters.length > 0 ? (
@@ -348,7 +354,7 @@ export default function ClientProfileDirectory({
           ) : null}
         </section>
 
-        {visibleResidents.length < filteredResidents.length ? (
+        {visibleClients.length < filteredClients.length ? (
           <div className="flex justify-center py-6">
             <button
               type="button"
@@ -426,7 +432,7 @@ function FilterControl({
 
 function RosterSkeleton() {
   return (
-    <div role="status" aria-label="Loading admitted clients" aria-busy="true" className="divide-y divide-[#e5e5e5]">
+    <div role="status" aria-label="Loading clients" aria-busy="true" className="divide-y divide-[#e5e5e5]">
       {Array.from({ length: 7 }, (_, index) => (
         <div
           key={index}
@@ -449,27 +455,29 @@ function RosterSkeleton() {
   );
 }
 
-async function fetchRosterPage(query: string, cursor: string | null, signal: AbortSignal) {
+async function fetchClientPage(query: string, cursor: string | null, signal: AbortSignal) {
   const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
   if (query) params.set("q", query);
   if (cursor) params.set("cursor", cursor);
-  return fetchPipelineJson<RosterPayload>(`/api/clinical/roster?${params}`, {
+  return fetchPipelineJson<ClientDirectoryPayload>(`/api/clinical/clients?${params}`, {
     cache: "no-store",
     signal,
   });
 }
 
-function collectCommunities(residents: RosterResident[]) {
-  const communities = new Map<string, string>();
-  for (const resident of residents) communities.set(resident.community_id, resident.community_name);
-  return [...communities.entries()]
-    .map(([id, name]) => ({ id, name }))
+function collectCommunities(clients: DirectoryClient[]) {
+  const communities = new Set<string>();
+  for (const client of clients) {
+    for (const community of client.community_names) communities.add(community);
+  }
+  return [...communities]
+    .map((name) => ({ id: name, name }))
     .sort((left, right) => left.name.localeCompare(right.name, "en"));
 }
 
-function mergeResidents(current: RosterResident[], incoming: RosterResident[]) {
-  const merged = new Map(current.map((resident) => [resident.resident_key, resident]));
-  for (const resident of incoming) merged.set(resident.resident_key, resident);
+function mergeClients(current: DirectoryClient[], incoming: DirectoryClient[]) {
+  const merged = new Map(current.map((client) => [client.canonical_client_id, client]));
+  for (const client of incoming) merged.set(client.canonical_client_id, client);
   return [...merged.values()];
 }
 
@@ -483,9 +491,10 @@ function matchesAdmissionFilter(admitDate: string | null, filter: AdmissionFilte
   return filter === "older_than_12_months" ? admitDate < threshold : admitDate >= threshold;
 }
 
-function matchesProfileDataFilter(resident: RosterResident, filter: ProfileDataFilter) {
-  const missingUnit = !resident.unit?.trim();
-  const missingAdmitDate = !resident.admit_date;
+function matchesProfileDataFilter(client: DirectoryClient, filter: ProfileDataFilter) {
+  if (!client.current_resident) return false;
+  const missingUnit = client.current_resident && !client.unit?.trim();
+  const missingAdmitDate = client.current_resident && !client.admit_date;
   if (filter === "missing_unit") return missingUnit;
   if (filter === "missing_admit_date") return missingAdmitDate;
   if (filter === "complete") return !missingUnit && !missingAdmitDate;
@@ -513,10 +522,10 @@ function isIsoDate(value: string) {
 }
 
 function emptyRosterMessage(query: string, filters: FilterKey[]) {
-  if (query.trim() && filters.length > 0) return "No admitted clients match that search and those filters.";
-  if (query.trim()) return "No admitted clients match that search.";
-  if (filters.length > 0) return "No admitted clients match these filters.";
-  return "The current Alamo roster is empty.";
+  if (query.trim() && filters.length > 0) return "No clients match that search and those filters.";
+  if (query.trim()) return "No clients match that search.";
+  if (filters.length > 0) return "No clients match these filters.";
+  return "The governed Alamo client directory is empty.";
 }
 
 function formatDate(value: string) {

@@ -33,7 +33,7 @@ export default function ClientAssessmentSummary({
         <ClipboardList size={17} className="mt-0.5 shrink-0 text-[#0f8b73]" />
         <div>
           <div className="text-[12px] font-black">
-            {connection.status === "confirmed" ? "No Pipeline assessments yet" : "Pipeline identity not connected"}
+            {connection.status === "confirmed" ? "No Pipeline assessments yet" : "Pipeline record not linked"}
           </div>
           <div className="mt-1 max-w-xl text-[11px] leading-5 text-[#737373]">
             {connection.status === "confirmed"

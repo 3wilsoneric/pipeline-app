@@ -219,14 +219,12 @@ export async function reportExtractionJob(input: WorkerReport) {
     if (outcome === "stale") throw new DocumentProcessingError("stale_job_attempt", 409);
     return { status: outcome };
   }
-  if (job.job_type !== "document_preview") {
-    if (!input.verified_sha256) throw new DocumentProcessingError("verified_sha256_required", 400, "The worker must report the verified file digest.");
-    if (input.verified_sha256 !== job.sha256) {
-      await failOrRetry(job, "uploaded_blob_digest_mismatch", false);
-      throw new DocumentProcessingError("uploaded_blob_digest_mismatch", 409, "The uploaded file digest does not match its reservation.");
-    }
-    if (!input.malware_scan_status) throw new DocumentProcessingError("malware_scan_status_required", 400, "The worker must report the file safety scan.");
+  if (!input.verified_sha256) throw new DocumentProcessingError("verified_sha256_required", 400, "The worker must report the verified file digest.");
+  if (input.verified_sha256 !== job.sha256) {
+    await failOrRetry(job, "uploaded_blob_digest_mismatch", false);
+    throw new DocumentProcessingError("uploaded_blob_digest_mismatch", 409, "The uploaded file digest does not match its reservation.");
   }
+  if (!input.malware_scan_status) throw new DocumentProcessingError("malware_scan_status_required", 400, "The worker must report the file safety scan.");
 
   await sql.begin(async (tx) => {
     const completed = await tx<{ extraction_job_id: string }[]>`
@@ -482,6 +480,9 @@ function validateWorkerReport(input: WorkerReport) {
   if (input.verified_sha256 !== undefined && !/^[a-f0-9]{64}$/.test(input.verified_sha256)) {
     throw new DocumentProcessingError("verified_sha256_invalid", 400);
   }
+  if (input.malware_scan_status !== undefined && !["clean", "infected", "failed"].includes(input.malware_scan_status)) {
+    throw new DocumentProcessingError("malware_scan_status_invalid", 400);
+  }
   if ((input.fields?.length ?? 0) > 1_000) throw new DocumentProcessingError("too_many_fields", 413);
   if ((input.artifacts?.length ?? 0) > 10_000) throw new DocumentProcessingError("too_many_artifacts", 413);
   for (const artifact of input.artifacts ?? []) {
@@ -501,7 +502,12 @@ function validateWorkerReport(input: WorkerReport) {
     if (!/^[a-z][a-z0-9_.-]{1,127}$/i.test(field.field_key)) throw new DocumentProcessingError("field_key_invalid", 400);
     validateConfidence(field.confidence);
     if ((field.candidates?.length ?? 0) > 20) throw new DocumentProcessingError("too_many_candidates", 413);
-    field.candidates?.forEach((candidate) => validateConfidence(candidate.confidence));
+    field.candidates?.forEach((candidate) => {
+      if (!["document_intelligence", "claude", "human"].includes(candidate.source)) {
+        throw new DocumentProcessingError("candidate_source_invalid", 400);
+      }
+      validateConfidence(candidate.confidence);
+    });
     if (field.evidence_blob_key) safeBlobKey(field.evidence_blob_key);
   }
   if (input.preview) {

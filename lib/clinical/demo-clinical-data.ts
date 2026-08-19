@@ -83,6 +83,7 @@ export async function getDemoClinicalHealth(): Promise<ClinicalHealthResponse> {
       qa_approved: true,
       census_ready: true,
       roster_ready: true,
+      client_database_ready: false,
       medication_summary_ready: false,
     },
   });

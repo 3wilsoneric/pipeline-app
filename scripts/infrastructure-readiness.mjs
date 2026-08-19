@@ -16,6 +16,7 @@ const entraConfiguration = read("scripts/configure-entra-identities.sh");
 const databaseFinalization = read("scripts/finalize-azure-database-bootstrap.sh");
 const domainConfiguration = read("scripts/configure-azure-domain.sh");
 const blobAdapter = read("lib/extraction/azure-blob.ts");
+const azureDatabaseBackup = read("scripts/database-backup-to-azure-blob.mjs");
 const dockerfile = read("Dockerfile");
 const checks = [];
 const check = (name, ok) => checks.push({ name, ok: Boolean(ok) });
@@ -53,6 +54,7 @@ check("Container Apps peer traffic is encrypted", bicep.includes("peerTrafficCon
 check("GitHub deployment uses main-branch-bound OIDC", bicep.includes("token.actions.githubusercontent.com") && bicep.includes("ref:refs/heads/${githubBranch}") && deployment.includes("id-token: write") && deployment.includes("github.ref == 'refs/heads/main'"));
 check("image build receives an ephemeral server-action key through BuildKit secrets", dockerfile.includes("--mount=type=secret,id=next_server_actions_encryption_key") && deployment.includes("next_server_actions_encryption_key=${{ steps.build-key.outputs.value }}") && deployment.includes("openssl rand -base64 32") && !dockerfile.includes("ARG NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"));
 check("runtime image carries database maintenance dependencies", dockerfile.includes("/app/node_modules/postgres ./node_modules/postgres"));
+check("runtime image can create PostgreSQL logical backups", dockerfile.includes("postgresql16-client") && azureDatabaseBackup.includes("pg_advisory_lock") && azureDatabaseBackup.includes("IDENTITY_ENDPOINT") && !azureDatabaseBackup.includes("AZURE_STORAGE_ACCOUNT_KEY"));
 check("worker uses constant-time bearer authentication", workerAuth.includes("timingSafeEqual") && workerAuth.includes("CRON_SECRET"));
 check("Azure web runtime exists", runtime.includes("Microsoft.App/containerApps@2025-01-01"));
 check("Azure scheduled jobs exist", runtime.includes("Microsoft.App/jobs@2025-01-01"));

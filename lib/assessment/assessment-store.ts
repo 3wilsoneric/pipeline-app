@@ -27,14 +27,15 @@ import {
   type AssessmentToolFieldKey,
   type UnmappedAssessmentField,
 } from "./assessment-tool-schema";
-import type {
-  AssessmentActor,
-  AssessmentAuditAction,
-  AssessmentAuditEvent,
-  AssessmentCreateInput,
-  AssessmentListResponse,
-  AssessmentPatchInput,
-  PipelineAssessmentRecord,
+import {
+  preserveCanonicalClientId,
+  type AssessmentActor,
+  type AssessmentAuditAction,
+  type AssessmentAuditEvent,
+  type AssessmentCreateInput,
+  type AssessmentListResponse,
+  type AssessmentPatchInput,
+  type PipelineAssessmentRecord,
 } from "./assessment-records";
 
 type AssessmentStoreState = {
@@ -58,6 +59,7 @@ type AssessmentStoreFile = {
 
 export type AssessmentListOptions = {
   referralId?: number;
+  canonicalClientId?: string;
   residentNumber?: string;
   residentKey?: string;
   limit?: number;
@@ -83,6 +85,8 @@ export type AssessmentMutation =
 
 export type AssessmentImportInput = {
   referralId: number;
+  canonicalClientId?: string | null;
+  residentKey?: string | null;
   assessmentId?: string;
   expectedVersion?: number;
   fields: AssessmentExtractionField[];
@@ -288,8 +292,10 @@ async function listLocalAssessments(options: AssessmentListOptions = {}): Promis
   await ensureLoaded();
   const residentNumber = normalize(options.residentNumber ?? "");
   const residentKey = options.residentKey?.trim() ?? "";
+  const canonicalClientId = options.canonicalClientId?.trim() ?? "";
   const matching = state.assessments
     .filter((assessment) => options.referralId === undefined || assessment.referral_id === options.referralId)
+    .filter((assessment) => !canonicalClientId || assessment.canonical_client_id === canonicalClientId)
     .filter((assessment) => !residentNumber || normalize(assessment.resident_number ?? "") === residentNumber)
     .filter((assessment) => !residentKey || assessment.resident_key === residentKey)
     .sort(compareAssessments);
@@ -346,6 +352,7 @@ async function createLocalAssessment(
       ...data,
       assessment_id: assessmentId,
       referral_id: input.referral_id,
+      canonical_client_id: input.canonical_client_id?.trim() || null,
       resident_key: input.resident_key?.trim() || null,
       status,
       completed_at: status === "complete" ? now : null,
@@ -424,6 +431,7 @@ async function patchLocalAssessment(
     const candidate: PipelineAssessmentRecord = {
       ...current,
       ...nextData,
+      canonical_client_id: preserveCanonicalClientId(current.canonical_client_id, patch.canonical_client_id),
       resident_key: patch.resident_key === undefined
         ? current.resident_key
         : patch.resident_key?.trim() || null,
@@ -501,7 +509,8 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
       ...merged.data,
       assessment_id: assessmentId,
       referral_id: input.referralId,
-      resident_key: current?.resident_key ?? null,
+      canonical_client_id: preserveCanonicalClientId(current?.canonical_client_id, input.canonicalClientId),
+      resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
       status: "needs_review",
       completed_at: null,
       version: current ? current.version + 1 : 1,
@@ -526,6 +535,7 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
 type AssessmentRow = {
   assessment_id: string;
   referral_id: number | string;
+  canonical_client_id: string | null;
   resident_key: string | null;
   resident_number: string | null;
   assessment_date: Date | string | null;
@@ -591,12 +601,14 @@ async function listPostgresAssessments(options: AssessmentListOptions = {}): Pro
   const cursorKey = cursor?.key ?? null;
   const residentNumber = options.residentNumber?.trim() || null;
   const residentKey = options.residentKey?.trim() || null;
+  const canonicalClientId = options.canonicalClientId?.trim() || null;
   const referralId = options.referralId ?? null;
   const rows = await sql<AssessmentRow[]>`
     with filtered as (
       select a.*, count(*) over() as total_count
       from pipeline.assessments a
       where (${referralId}::bigint is null or a.referral_id = ${referralId})
+        and (${canonicalClientId}::text is null or a.canonical_client_id = ${canonicalClientId})
         and (${residentNumber}::text is null or a.resident_number = ${residentNumber})
         and (${residentKey}::text is null or a.resident_key = ${residentKey})
     )
@@ -675,6 +687,7 @@ async function createPostgresAssessment(
     ...data,
     assessment_id: assessmentId,
     referral_id: input.referral_id,
+    canonical_client_id: input.canonical_client_id?.trim() || null,
     resident_key: input.resident_key?.trim() || null,
     status,
     completed_at: status === "complete" ? now : null,
@@ -758,6 +771,7 @@ async function patchPostgresAssessment(
     const candidate: PipelineAssessmentRecord = {
       ...current,
       ...nextData,
+      canonical_client_id: preserveCanonicalClientId(current.canonical_client_id, patch.canonical_client_id),
       resident_key: patch.resident_key === undefined ? current.resident_key : patch.resident_key?.trim() || null,
       status: nextStatus,
       completed_at: nextStatus === "complete" ? current.completed_at ?? now : null,
@@ -822,7 +836,8 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
       ...merged.data,
       assessment_id: assessmentId,
       referral_id: input.referralId,
-      resident_key: current?.resident_key ?? null,
+      canonical_client_id: preserveCanonicalClientId(current?.canonical_client_id, input.canonicalClientId),
+      resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
       status: "needs_review",
       completed_at: null,
       version: current ? current.version + 1 : 1,
@@ -940,6 +955,7 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
       ...data,
       assessment_id: row.assessment_id,
       referral_id: Number(row.referral_id),
+      canonical_client_id: row.canonical_client_id,
       resident_key: row.resident_key,
       status: row.status,
       completed_at: row.completed_at ? isoTimestamp(row.completed_at) : null,
@@ -958,11 +974,11 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
 async function insertAssessmentRow(tx: TransactionSql, assessment: PipelineAssessmentRecord) {
   await tx`
     insert into pipeline.assessments (
-      assessment_id, referral_id, resident_key, resident_number, assessment_date,
+      assessment_id, referral_id, canonical_client_id, resident_key, resident_number, assessment_date,
       assessor_id, assessor_name, status, data, version, completed_at,
       created_by, created_by_name, updated_by, updated_by_name, created_at, updated_at
     ) values (
-      ${assessment.assessment_id}, ${assessment.referral_id}, ${assessment.resident_key},
+      ${assessment.assessment_id}, ${assessment.referral_id}, ${assessment.canonical_client_id}, ${assessment.resident_key},
       ${assessment.resident_number}, ${assessment.assessment_date}::date,
       ${assessment.assessor === assessment.updated_by.name ? assessment.updated_by.id : null},
       ${assessment.assessor}, ${assessment.status},
@@ -980,7 +996,8 @@ async function updateAssessmentRow(
 ) {
   const rows = await tx<{ assessment_id: string }[]>`
     update pipeline.assessments
-    set resident_key = ${assessment.resident_key},
+    set canonical_client_id = ${assessment.canonical_client_id},
+        resident_key = ${assessment.resident_key},
         resident_number = ${assessment.resident_number},
         assessment_date = ${assessment.assessment_date}::date,
         assessor_id = case
@@ -1251,6 +1268,7 @@ function normalizeAssessmentRecord(value: PipelineAssessmentRecord): PipelineAss
     ...value,
     ...data,
     version: Number.isInteger(value.version) && value.version > 0 ? value.version : 1,
+    canonical_client_id: value.canonical_client_id?.trim() || null,
     resident_key: value.resident_key?.trim() || null,
     status: ["draft", "needs_review", "complete"].includes(value.status) ? value.status : "draft",
     completed_at: value.completed_at ?? null,

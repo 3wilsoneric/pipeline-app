@@ -6,7 +6,7 @@ const manifest: MetadataRoute.Manifest = {
   id: "/",
   name: "Pipeline",
   short_name: "Pipeline",
-  description: "Admissions, referral packets, assessments, and client records.",
+  description: "Pipeline referral packets, assessments, and client records.",
   start_url: "/",
   scope: "/",
   display: "standalone",

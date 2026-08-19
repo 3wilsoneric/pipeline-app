@@ -8,6 +8,7 @@ import {
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { getReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
+import { canAccessReferral, isAssessorUser, requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { isKeysetCursor } from "@/lib/pipeline/keyset-cursor";
 import {
   createResidentLink,
@@ -43,9 +44,12 @@ export async function GET(request: Request) {
     if (pipelineClientId === false) return jsonError("pipeline_client_id must be 128 characters or fewer.");
     const cursor = optionalBounded(url.searchParams.get("cursor"), 512);
     if (cursor === false || (cursor && !isKeysetCursor(cursor))) return jsonError("cursor is invalid.");
+    if (referralId) {
+      const access = await requireReferralAccess(auth.user, referralId);
+      if (!access.ok) return access.response;
+    }
 
-    return Response.json(
-      await listResidentLinks({
+    const result = await listResidentLinks({
         residentKey: residentKey || undefined,
         residentNumber: residentNumber || undefined,
         pipelineClientId: pipelineClientId || undefined,
@@ -53,9 +57,16 @@ export async function GET(request: Request) {
         status: status as "candidate" | "confirmed" | "rejected" | undefined,
         limit: limit || undefined,
         cursor: cursor || undefined,
-      }),
-      { headers: privateHeaders() },
-    );
+      });
+    if (!isAssessorUser(auth.user)) {
+      return Response.json(result, { headers: privateHeaders() });
+    }
+    const visible = (await Promise.all(result.links.map(async (link) => {
+      if (!link.referral_id) return null;
+      const referral = await getReferral(link.referral_id);
+      return referral && canAccessReferral(auth.user, referral) ? link : null;
+    }))).filter((link): link is NonNullable<typeof link> => Boolean(link));
+    return Response.json({ ...result, links: visible, total: visible.length }, { headers: privateHeaders() });
   });
 }
 
@@ -77,8 +88,9 @@ export async function POST(request: Request) {
     if (!validated.value.referral_id) {
       return jsonError("referral_id is required so the Pipeline identity being linked is explicit.");
     }
-    const referral = await getReferral(validated.value.referral_id);
-    if (!referral) return jsonError("Referral not found.", 404);
+    const access = await requireReferralAccess(auth.user, validated.value.referral_id);
+    if (!access.ok) return access.response;
+    const referral = access.referral;
     if (referral.clientId !== validated.value.pipeline_client_id) {
       return Response.json(
         { error: "The referral does not belong to the supplied Pipeline client identity." },
@@ -96,7 +108,9 @@ export async function POST(request: Request) {
       }
       if (
         validated.value.resident_number &&
-        clinical.resident.resident_number !== validated.value.resident_number
+        ![clinical.resident.resident_number, clinical.resident.resident_id]
+          .filter(Boolean)
+          .includes(validated.value.resident_number)
       ) {
         return Response.json(
           { error: "The resident number does not match the governed Alamo resident." },
@@ -108,7 +122,9 @@ export async function POST(request: Request) {
           ...validated.value,
           display_name: referral.name,
           date_of_birth: referral.dob || null,
-          resident_number: clinical.resident.resident_number,
+          resident_number: clinical.resident.resident_number
+            ?? validated.value.resident_number
+            ?? clinical.resident.resident_id,
         },
         { id: auth.user.id, name: auth.user.name },
         validated.value.client_mutation_id,
