@@ -27,6 +27,7 @@
     "check:collaboration-load": "node scripts/collaboration-load-smoke.mjs",
     "check:scale": "node scripts/synthetic-scale-benchmark.mjs",
     "check:extraction": "node scripts/extraction-state-machine-replay.mjs",
+    "check:extraction-worker": "node scripts/pipeline-extraction-worker-contracts.mjs",
     "check:sample-packet": "node scripts/sample-packet-extraction-smoke.mjs",
     "check:queries": "node scripts/query-plan-audit.mjs",
     "check:infrastructure": "node scripts/infrastructure-readiness.mjs",

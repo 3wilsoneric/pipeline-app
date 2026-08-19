@@ -112,6 +112,11 @@ const checks = [
     args: ["scripts/extraction-state-machine-replay.mjs"],
   },
   {
+    name: "Databricks extraction worker contracts",
+    command: "node",
+    args: ["scripts/pipeline-extraction-worker-contracts.mjs"],
+  },
+  {
     name: "High-volume query audit",
     command: "node",
     args: ["scripts/query-plan-audit.mjs"],
