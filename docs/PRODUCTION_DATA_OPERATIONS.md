@@ -98,8 +98,9 @@ npm run database:rollback:drill
 ```
 
 The rollback drill acquires the migration advisory lock, removes migration
-`0005` objects inside one transaction, validates their absence, rolls back, and
-validates the original schema. It never persists a rollback.
+`0007`, `0006`, and `0005` objects inside one transaction, validates their
+absence, rolls back, and validates the original schema. It never persists a
+rollback.
 
 After production migrations, run the idempotent reference-only seed. It creates
 store revision rows and no users, referrals, residents, assessments, documents,

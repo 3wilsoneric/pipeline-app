@@ -1,9 +1,10 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { getPipelineDatabaseReadiness } from "@/lib/database/pipeline-database";
-import { getDocumentFileMetadata, isDocumentId } from "@/lib/extraction/document-assets";
+import { getDocumentFileMetadata, getDocumentReferralId, isDocumentId } from "@/lib/extraction/document-assets";
 import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,10 @@ export async function GET(request: Request, context: { params: Promise<{ documen
     if (!getPipelineDatabaseReadiness().ready) {
       return jsonError("File storage is temporarily unavailable.", 503);
     }
+    const referralId = await getDocumentReferralId(documentId);
+    if (!referralId) return jsonError("File not found.", 404);
+    const access = await requireReferralAccess(auth.user, referralId);
+    if (!access.ok) return access.response;
 
     const file = await getDocumentFileMetadata(documentId, { afterPage, limit });
     if (!file) return jsonError("File not found.", 404);

@@ -5,7 +5,8 @@ import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { reconcileReferralToClinicalRoster } from "@/lib/pipeline/referral-clinical-reconciliation";
 import { createResidentLink, requireResidentLinkStore } from "@/lib/pipeline/resident-link-store";
-import { getReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -26,8 +27,9 @@ export async function POST(
     const { referralId } = await context.params;
     const id = Number.parseInt(referralId, 10);
     if (!Number.isInteger(id) || id < 1) return jsonError("referralId is invalid.");
-    const referral = await getReferral(id);
-    if (!referral) return jsonError("Referral not found.", 404);
+    const access = await requireReferralAccess(auth.user, id);
+    if (!access.ok) return access.response;
+    const referral = access.referral;
     if (!referral.clientId) {
       return jsonError("Referral client identity is missing. Save the referral before matching census data.", 409);
     }

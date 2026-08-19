@@ -4,6 +4,7 @@ import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot, recordAdmissionDecision } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,8 @@ export async function GET(
     if (!readiness.ok) return readiness.response;
     const referralId = await parseReferralId(context);
     if (!referralId) return jsonError("referralId is invalid.");
+    const access = await requireReferralAccess(auth.user, referralId);
+    if (!access.ok) return access.response;
     const snapshot = await getReferralWorkflowSnapshot(referralId);
     if (!snapshot) return jsonError("Referral not found.", 404);
     return Response.json({ decision: snapshot.decision }, { headers: privateHeaders() });
@@ -37,6 +40,8 @@ export async function PUT(
     if (!readiness.ok) return readiness.response;
     const referralId = await parseReferralId(context);
     if (!referralId) return jsonError("referralId is invalid.");
+    const access = await requireReferralAccess(auth.user, referralId);
+    if (!access.ok) return access.response;
 
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);

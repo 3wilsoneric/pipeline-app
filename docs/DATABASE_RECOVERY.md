@@ -21,6 +21,22 @@ npm run database:backup -- --out /secure/recovery/pipeline-YYYYMMDD.dump
 
 The command prints only output paths, byte size, and migration count. It does not print the database URL, credentials, record values, or PHI.
 
+For a VNet-private production database, run the Azure variant from the existing
+migrator job. It acquires the migration lock, creates the same schema-only custom
+dump, and uploads the dump plus checksum manifest to a private Blob container
+using managed identity. Backup bytes never pass through an operator workstation.
+
+```bash
+PIPELINE_BACKUP_STORAGE_ACCOUNT='<approved-account>' \
+PIPELINE_BACKUP_CONTAINER='<approved-private-container>' \
+PIPELINE_BACKUP_REASON='pre-migration' \
+npm run database:backup:azure
+```
+
+The runtime image includes the PostgreSQL client needed for this operation. The
+managed identity needs `Storage Blob Data Contributor` only on the approved
+backup scope; storage account keys and connection strings are not supported.
+
 ## Restore drill
 
 Restore only into a disposable database whose name contains `test`, `drill`, `disposable`, or `ci`. The command replaces the `pipeline` schema in that database.

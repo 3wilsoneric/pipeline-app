@@ -46,7 +46,7 @@ for (let index = 0; index < 2_000; index += 1) {
     size: integer(1, uploads.maxUploadFileBytes),
   }));
   const result = uploads.validateCreateUploadUrlRequest({
-    referral_id: `synthetic-${index}`,
+    referral_id: String(index + 1),
     submitting_facility: "Synthetic fixture",
     source_type: "manual",
     files,

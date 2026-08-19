@@ -163,6 +163,7 @@ export function getPipelineAuthReadiness() {
   }
 
   const required = [
+    "NEXT_PUBLIC_PIPELINE_BASE_PATH",
     "NEXT_PUBLIC_ENTRA_TENANT_ID",
     "NEXT_PUBLIC_ENTRA_CLIENT_ID",
     "NEXT_PUBLIC_PIPELINE_API_SCOPE",
@@ -450,11 +451,11 @@ function mapClaimRoles(claimRoles: string[]): PipelineRole[] {
   const mapped = new Set<PipelineRole>();
   for (const role of claimRoles) {
     const normalized = role.trim().toLowerCase().replace(/[._\s-]/g, "");
-    const mappedRole = normalized === "admin" || normalized === "pipelineadmin"
+    const mappedRole = normalized === "admin" || normalized === "pipelineadmin" || normalized === "alamoadmissionsadmin"
       ? "admin"
-      : normalized === "assessmentcoordinator" || normalized === "pipelineassessmentcoordinator" || normalized === "assessor" || normalized === "pipelineassessor"
+      : normalized === "assessmentcoordinator" || normalized === "pipelineassessmentcoordinator" || normalized === "alamoadmissionssupervisor"
         ? "assessment_coordinator"
-        : normalized === "reviewer" || normalized === "pipelinereviewer"
+        : normalized === "reviewer" || normalized === "pipelinereviewer" || normalized === "assessor" || normalized === "pipelineassessor" || normalized === "alamoadmissionsassessor"
           ? "reviewer"
           : normalized === "viewer" || normalized === "pipelineviewer"
             ? "viewer"

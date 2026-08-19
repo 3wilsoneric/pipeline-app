@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowRight, Search } from "lucide-react";
 
-import type { ClinicalResidentSearchResult } from "@/lib/clinical/clinical-contracts";
+import type { ClinicalClientDirectoryItem } from "@/lib/clinical/clinical-contracts";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineSiteDestination, PipelineSiteScreen } from "@/lib/pipeline/site-search";
@@ -22,13 +22,13 @@ type SearchResult = {
   interpreted_query: string;
   referrals: Referral[];
   files: ReferralFile[];
-  residents: ClinicalResidentSearchResult[];
+  clients: ClinicalClientDirectoryItem[];
   destinations?: PipelineSiteDestination[];
   clinical_warning?: string | null;
   counts: {
     referrals: number;
     files: number;
-    residents: number;
+    clients: number;
     destinations?: number;
     total: number;
   };
@@ -82,7 +82,7 @@ export default function PipelineSearchPanel({
   className = "",
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
-  onOpenProfile: (residentKey: string) => void;
+  onOpenProfile: (canonicalClientId: string) => void;
   onOpenDestination: (screen: PipelineSiteScreen) => void;
   autoFocus?: boolean;
   resting?: boolean;
@@ -273,7 +273,7 @@ function SearchResponse({
 }: {
   result: SearchResult;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
-  onOpenProfile: (residentKey: string) => void;
+  onOpenProfile: (canonicalClientId: string) => void;
   onOpenDestination: (screen: PipelineSiteScreen) => void;
 }) {
   if (result.counts.total === 0) {
@@ -321,14 +321,16 @@ function SearchResponse({
             onClick={() => onOpenPacket({ id: file.referralId, name: file.referralName, community: file.community })}
           />
         ))}
-        {result.residents.map((resident) => (
+        {result.clients.map((client) => (
           <SearchResultRow
-            key={`resident-${resident.resident_key}`}
-            title={resident.display_name}
-            detail={`${resident.community_name}${resident.unit ? ` · Unit ${resident.unit}` : ""}`}
+            key={`client-${client.canonical_client_id}`}
+            title={client.display_name}
+            detail={client.current_resident
+              ? `${client.current_community || "Current resident"}${client.unit ? ` · Unit ${client.unit}` : ""}`
+              : `${client.community_names.join(" · ") || "Community not reported"} · Historical client`}
             kind="Profile"
-            ariaLabel={`Open profile for ${resident.display_name}`}
-            onClick={() => onOpenProfile(resident.resident_key)}
+            ariaLabel={`Open profile for ${client.display_name}`}
+            onClick={() => onOpenProfile(client.canonical_client_id)}
           />
         ))}
       </div>

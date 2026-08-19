@@ -8,23 +8,29 @@ medications, substance use, support, and extraction quality.
 ## Identity And History
 
 - `assessment_id` is the server-generated technical primary key.
+- `canonical_client_id` is the immutable Alamo client identity for a confirmed
+  existing client. Pipeline resolves it server-side from the reviewed resident
+  link; the browser does not submit or guess it.
 - `resident_number` is the ElderMark business join key and is required for a
   completed assessment.
 - `resident_key` is the reviewed, community-qualified Alamo identity link.
 - `assessment_date` is required and is never collapsed into a single current
   assessment.
 - Query assessment history with an index on
-  `(resident_number, assessment_date DESC, created_at DESC)`.
+  `(canonical_client_id, assessment_date DESC, created_at DESC)` when a
+  canonical identity exists, with resident number/key retained as rollout and
+  compatibility lookups.
 - Do not make `(resident_number, assessment_date)` unique. A correction or a
   second same-day assessment must not overwrite history. Use a job/source
   idempotency key to suppress a retried import of the same source artifact.
 - Never infer `resident_number` or `resident_key` from a name. Ambiguous or
   missing identity remains a visible review blocker.
 
-The current Alamo contract already supplies `resident_id` and `resident_key`.
-It now accepts nullable `resident_number`, but Alamo must add the governed
-ElderMark number to roster and resident responses before automatic joins can
-be enabled. Pipeline must not assume `resident_id` is the ElderMark number.
+The governed Alamo contract supplies `resident_id`, `resident_key`, nullable
+`resident_number`, and nullable `canonical_client_id`. A confirmed Pipeline
+resident link is required before assessment writes attach a canonical ID. If
+the link is ambiguous, the ID is missing, or identity services are unavailable,
+the mutation fails closed instead of linking by name.
 
 ## Implemented Pipeline Boundary
 
@@ -34,7 +40,8 @@ following authenticated server routes:
 - `GET/POST /api/referrals/{referralId}/assessments`
 - `POST /api/referrals/{referralId}/assessments/import`
 - `GET/PATCH /api/assessments/{assessmentId}`
-- `GET /api/assessments?resident_number=...` or `resident_key=...`
+- `GET /api/assessments?canonical_client_id=...`, `resident_number=...`, or
+  `resident_key=...`
 
 Mutations enforce same-origin requests, role gates, idempotency keys, optimistic
 record versions, append-only audit events, and review before completion. Runtime
@@ -65,6 +72,11 @@ Each assessment also stores:
 - `assessment_notes`: reviewed rich text that does not fit a canonical field.
 - `version`, `created_at`, and `updated_at` for optimistic concurrency and audit.
 
+Every assessment has its own `assessment_id`; same-day or corrected assessments
+remain separate history records. The August 18, 2026 client-database baseline
+is never updated by an assessment save. Assessment values and evidence remain
+Pipeline-owned records joined to the Alamo client at read time.
+
 Large source files and rendered evidence pages remain in Azure Blob. Database
 rows store authorized object references, checksums, and processing status.
 
@@ -81,11 +93,16 @@ rows store authorized object references, checksums, and processing status.
 7. Completion is derived from the required identity fields, not a stored
    percentage.
 
-## Required Production Tables
+## Prepared Incremental Updates
 
-The durable migration still needs separate `assessments`,
-`assessment_field_provenance`, and `assessment_unmapped_fields` records (or an
-equivalent normalized design), plus foreign keys to the referral, reviewed
-resident link, source document, extraction job, and audit event. The existing
-local adapter is a working contract/test implementation; it is not the
-production database.
+Migration `0007_canonical_client_assessments` adds canonical assessment identity
+and a `client_update_outbox` for future new-client and incremental assessment
+publication. The outbox is inert by default, accepts only `pending_approval`
+records, preserves `source_baseline_date=2026-08-18`, and has no Databricks
+publisher or active API route.
+
+Do not set both `PIPELINE_CLIENT_INCREMENTAL_UPDATES_ENABLED=true` and
+`PIPELINE_CLIENT_INCREMENTAL_UPDATES_APPROVAL=APPROVED` until the payload
+contract, Databricks merge notebook, rollback procedure, cost, and owner
+approval have been reviewed. Enabling those flags alone still does not publish;
+a separately approved worker is required.

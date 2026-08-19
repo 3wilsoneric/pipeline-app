@@ -7,6 +7,11 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Alamo Admissions zone contracts",
+    command: "node",
+    args: ["scripts/admissions-zone-contracts.mjs"],
+  },
+  {
     name: "Release compatibility",
     command: "node",
     args: ["scripts/release-compatibility.mjs"],

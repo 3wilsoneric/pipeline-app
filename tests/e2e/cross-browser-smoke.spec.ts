@@ -4,11 +4,11 @@ test("core Pipeline surfaces render and navigate", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Welcome, Playwright QA." })).toBeVisible();
 
-  await page.getByRole("link", { name: "Open referrals" }).click();
+  await page.getByRole("button", { name: "Open referrals" }).click();
   await expect(page.getByRole("heading", { name: "Referral packets", exact: true })).toBeVisible();
 
   await page.goto("/?screen=profiles");
-  await expect(page.getByLabel("Search admitted clients")).toBeVisible();
+  await expect(page.getByLabel("Search clients")).toBeVisible();
 
   await page.goto("/?screen=operations");
   await expect(page.getByTestId("operations-workspace")).toBeVisible();

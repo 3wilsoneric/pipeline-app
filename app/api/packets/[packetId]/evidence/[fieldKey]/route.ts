@@ -3,6 +3,7 @@ import { getFieldEvidenceAsset, proxyDocumentAsset } from "@/lib/extraction/docu
 import { DocumentProcessingError } from "@/lib/extraction/document-processing";
 import { decodeRouteParam } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { requirePacketAccess } from "@/lib/pipeline/referral-access";
 
 export async function GET(
   request: Request,
@@ -12,6 +13,8 @@ export async function GET(
     const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
     const { packetId, fieldKey } = await context.params;
+    const access = await requirePacketAccess(auth.user, packetId);
+    if (!access.ok) return access.response;
     const decoded = decodeRouteParam(fieldKey);
     if (!decoded) return Response.json({ error: "fieldKey is invalid." }, { status: 400 });
     try {

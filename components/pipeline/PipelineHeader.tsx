@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, ArrowRight, LogOut, UserRound } from "lucide-react";
+import { Activity, ArrowLeft, ArrowRight, LogOut, UserRound } from "lucide-react";
 
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
 import UserAvatar from "@/components/pipeline/UserAvatar";
@@ -11,7 +11,11 @@ import { fetchCurrentPipelineUser, type PipelineCurrentUser } from "@/lib/auth/a
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { getAccountDisplayName } from "@/lib/auth/entra-client";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
+
+const ALAMO_PLATFORM_URL = (process.env.NEXT_PUBLIC_ALAMO_PLATFORM_URL?.trim() || "https://www.alamoplatform.com")
+  .replace(/\/+$/, "");
 
 export default function PipelineHeader() {
   const [user, setUser] = useState<PipelineCurrentUser | null>(null);
@@ -20,22 +24,8 @@ export default function PipelineHeader() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const auth = usePipelineAuth();
-  const { searchOpen, setSearchOpen, homeMode, setHomeMode } = usePipelineShell();
-  const [manualRouteSearch, setManualRouteSearch] = useState<string | null>(null);
-  // Search is a temporary mode. While it is open, it owns the expanded slot
-  // so the page we came from collapses immediately instead of competing with it.
-  const effectiveSearchParams = manualRouteSearch === null ? searchParams : new URLSearchParams(manualRouteSearch);
-  const activeNav = searchOpen ? null : getActiveNavTarget(effectiveSearchParams, pathname);
-
-  useEffect(() => {
-    setManualRouteSearch(searchParams.toString());
-  }, [searchParams]);
-
-  useEffect(() => {
-    const syncFromLocation = () => setManualRouteSearch(window.location.search);
-    window.addEventListener("popstate", syncFromLocation);
-    return () => window.removeEventListener("popstate", syncFromLocation);
-  }, []);
+  const { searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
+  const activeNav = searchOpen ? null : getActiveNavTarget(searchParams, pathname);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,56 +65,82 @@ export default function PipelineHeader() {
 
   const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : "Eric Wilson");
   const signedInInitials = getInitials(signedInName);
-  const operationsActive = effectiveSearchParams.get("screen") === "operations";
+  const operationsActive = searchParams.get("screen") === "operations";
 
-  // The nav remains visible on work surfaces even when every item is compact.
-  // Home is the only screen that omits the header home tile.
-  const isHomeRoute = !effectiveSearchParams.get("view") && !effectiveSearchParams.get("screen");
-  const showHomeTile = !isHomeRoute || homeMode === "workspace" || searchOpen;
-  const showHeaderNav = showHomeTile || searchOpen;
+  const navigateTo = (target: "home" | Exclude<PipelineNavTarget, null> | "operations") => {
+    setSearchOpen(false);
+    setHomeMode("workspace");
+    const destination = target === "referrals"
+      ? "/?view=referrals"
+      : target === "profiles"
+        ? "/?screen=profiles"
+        : target === "packet"
+          ? "/?view=referrals&screen=packet"
+          : target === "operations"
+            ? "/?screen=operations"
+            : "/";
+    window.history.pushState(null, "", toPipelinePath(destination));
+  };
 
   return (
-    <header className="relative flex h-[82px] shrink-0 items-center overflow-visible bg-white px-3 sm:px-5 md:px-8">
-      {showHomeTile ? (
-        <div className="relative z-10 flex shrink-0 items-center">
-          <Link
-            href="/"
-            onClick={(event) => {
-              event.preventDefault();
-              setSearchOpen(false);
-              setHomeMode("workspace");
-              window.history.pushState({}, "", "/");
-              window.dispatchEvent(new PopStateEvent("popstate"));
-            }}
-            aria-label="Pipeline"
-            title="Home"
-            className="flex h-10 items-center whitespace-nowrap px-1 text-[14px] font-black tracking-[0.1em] text-[#0c705f] outline-none transition-colors hover:text-[#095a4c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current sm:text-[17px] sm:tracking-[0.12em]"
-          >
-            PIPELINE
-          </Link>
-          <span aria-hidden="true" className="ml-2 h-7 w-px bg-[#d9d9d9] sm:ml-4" />
-        </div>
-      ) : null}
+    <header className="relative flex h-[82px] shrink-0 items-center overflow-visible bg-white px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 flex shrink-0 items-center">
+        <a
+          href={`${ALAMO_PLATFORM_URL}/home`}
+          aria-label="Back to Alamo Platform"
+          title="Alamo Platform"
+          data-platform-page-target="home"
+          data-platform-page-side="left"
+          className="flex h-12 items-center gap-2 whitespace-nowrap text-[17px] font-semibold text-[#595959] outline-none hover:text-[#111111] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
+        >
+          <ArrowLeft size={16} className="shrink-0" aria-hidden="true" />
+          <span className="hidden sm:inline"><span className="font-black text-[#08745f]">Alamo</span><span className="ml-1">Health</span></span>
+        </a>
+        <span aria-hidden="true" className="mx-4 hidden h-8 w-px bg-[#d9d9d9] sm:block" />
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            navigateTo("home");
+          }}
+          aria-label="Pipeline home"
+          aria-current="page"
+          title="Pipeline home"
+          data-platform-page-active="pipeline"
+          className="flex h-12 items-center whitespace-nowrap px-1 text-[16px] font-black text-[#111111] outline-none hover:text-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
+        >
+          Pipeline
+        </button>
+      </div>
 
-      {showHeaderNav ? (
-        <div className={`pipeline-nav-dock-enter min-w-0 flex-1 overflow-x-auto ${showHomeTile ? "ml-2 sm:ml-6" : "ml-0"}`}>
-          <div className="pointer-events-auto w-max">
-            <PipelineActionNav
-              active={activeNav}
-              searchOpen={searchOpen}
-              onOpenProfiles={() => {
-                setSearchOpen(false);
-                window.history.pushState({}, "", "/?screen=profiles");
-                window.dispatchEvent(new PopStateEvent("popstate"));
-              }}
-              onOpenSearch={() => setSearchOpen((current) => !current)}
-              onNavigate={() => setSearchOpen(false)}
-            />
-          </div>
+      <div className="pipeline-nav-dock-enter ml-3 min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-3 sm:ml-6">
+        <div className="pointer-events-auto w-max">
+          <PipelineActionNav
+            active={activeNav}
+            searchOpen={searchOpen}
+            onOpenSearch={() => setSearchOpen((current) => !current)}
+            onNavigate={navigateTo}
+          />
         </div>
-      ) : null}
+      </div>
 
       <div className="relative z-10 ml-auto flex items-center">
+        <nav
+          aria-label="Platform pages"
+          data-platform-page-navigation="true"
+          data-platform-page-current="pipeline"
+          className="absolute right-0 top-[58px] flex items-center gap-3 whitespace-nowrap bg-white/95 px-1.5 py-2 text-[12px] font-black text-[#315b54] shadow-[0_8px_18px_rgba(17,17,17,0.06)] backdrop-blur-sm lg:static lg:mr-3 lg:bg-transparent lg:p-0 lg:shadow-none"
+        >
+          <a
+            href={`${ALAMO_PLATFORM_URL}/analytics`}
+            data-platform-page-target="analytics"
+            data-platform-page-side="right"
+            className="group inline-flex items-center gap-1.5 outline-none transition-colors hover:text-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
+          >
+            <span>Analytics</span>
+            <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          </a>
+        </nav>
         <div ref={profileMenuRef} className="relative">
           <button
             type="button"
@@ -134,7 +150,7 @@ export default function PipelineHeader() {
             title={user ? `${user.name} · ${user.email}` : signedInName}
             data-profile-scope="signed-in-user"
             onClick={() => setIsProfileMenuOpen((open) => !open)}
-            className="flex h-10 max-w-[190px] shrink-0 items-center gap-2 rounded-md border border-transparent px-2 text-[#595959] outline-none transition-colors hover:bg-[#f7faf9] hover:text-[#111111] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 aria-expanded:border-[#b8dacf] aria-expanded:bg-[#effaf5]"
+            className="flex h-12 max-w-[190px] shrink-0 items-center gap-2 rounded-md border border-transparent px-3 text-[#595959] outline-none transition-colors hover:bg-[#f7faf9] hover:text-[#111111] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 aria-expanded:border-[#b8dacf] aria-expanded:bg-[#effaf5]"
           >
             <UserRound size={18} strokeWidth={1.8} className="shrink-0 text-[#0f8b73]" />
             <span className="hidden truncate text-[12px] font-black uppercase tracking-[0.1em] xl:inline">{signedInName}</span>
@@ -157,15 +173,17 @@ export default function PipelineHeader() {
                 <Link
                   href="/?screen=operations"
                   aria-current={operationsActive ? "page" : undefined}
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.preventDefault();
                     setIsProfileMenuOpen(false);
                     recordRecentDestination({
                       id: "page:operations",
                       kind: "page",
                       screen: "operations",
-                      title: "Operations",
-                      detail: "Queue, ownership, and data gaps",
+                      title: "Pipeline operations",
+                      detail: "Queue, ownership, and record gaps",
                     });
+                    navigateTo("operations");
                   }}
                   className={`group flex items-center gap-3 rounded-md border px-3 py-3 text-left transition-colors ${
                     operationsActive
@@ -177,8 +195,8 @@ export default function PipelineHeader() {
                     <Activity size={17} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-black text-[#111111]">Operations</span>
-                    <span className="mt-0.5 block text-[11px] text-[#595959]">Queue, ownership, and data gaps</span>
+                    <span className="block text-[13px] font-black text-[#111111]">Pipeline operations</span>
+                    <span className="mt-0.5 block text-[11px] text-[#595959]">Queue, ownership, and record gaps</span>
                   </span>
                   <ArrowRight size={15} className="shrink-0 text-[#0f8b73] transition-transform group-hover:translate-x-1" />
                 </Link>

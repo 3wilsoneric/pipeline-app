@@ -159,6 +159,8 @@ export type Referral = {
   /** SHA-256 of the original packet bytes. Used to stop exact duplicate intake. */
   documentHash?: string;
   documentStatus: "Missing" | "Uploaded" | "Reviewed";
+  /** Stable Entra object id for assignment enforcement. */
+  ownerId?: string;
   owner: string;
   note: string;
   createdAt: string;

@@ -85,6 +85,7 @@ export function validateReferralCreateInput(
     || "version" in value
     || "sectionVersions" in value
     || "updatedBy" in value
+    || "ownerId" in value
     || "assessment" in value
     || "admissionDecision" in value
     || "ehrHandoff" in value
@@ -147,7 +148,7 @@ export function validateReferralPatch(
 ): ReferralValidationResult<ReferralPatch> {
   if (!isPlainObject(value)) return invalid("The referral patch must be an object.");
 
-  for (const protectedField of ["id", "version", "clientId", "sectionVersions", "updatedBy", "ehrHandoff"] as const) {
+  for (const protectedField of ["id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId", "ehrHandoff"] as const) {
     if (protectedField in value) {
       return invalid(`${protectedField} cannot be changed through a referral patch.`);
     }

@@ -8,6 +8,7 @@ export type OperationsWorkItem = {
   client_name: string;
   community: string;
   stage: ReferralStage;
+  owner_id?: string;
   owner: string;
   priority: string;
   blocker_count: number;

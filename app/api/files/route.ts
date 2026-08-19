@@ -6,6 +6,7 @@ import {
   requireReferralStore,
 } from "@/lib/pipeline/referral-store";
 import { isKeysetCursor } from "@/lib/pipeline/keyset-cursor";
+import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -24,11 +25,11 @@ export async function GET(request: Request) {
     if (query.length > 200) return jsonError("q must be 200 characters or fewer.");
     if (cursor && !isKeysetCursor(cursor)) return jsonError("cursor is invalid.");
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) return jsonError("limit must be a whole number between 1 and 200.");
-    const result = await listReferralFiles({
+    const result = await listReferralFiles(scopeReferralListOptions(auth.user, {
       query,
       limit,
       cursor,
-    });
+    }));
 
     return Response.json(result, {
       headers: {

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
@@ -36,36 +36,15 @@ type ReferralSelection = { id: number; name?: string; community?: Referral["comm
 
 export default function PipelineOverviewRoute() {
   const { searchTerm, searchOpen, setSearchOpen, homeMode } = usePipelineShell();
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const [screen, setScreen] = useState<PipelineScreen>(() => getScreenFromParams(searchParams));
-  const [selectedReferral, setSelectedReferral] = useState<ReferralSelection | undefined>(() => getReferralFromParams(searchParams));
-  const [selectedClientId, setSelectedClientId] = useState<string | undefined>(() => searchParams.get("screen") === "profile" ? searchParams.get("clientId") ?? undefined : undefined);
-
-  useEffect(() => {
-    const nextScreen = getScreenFromParams(searchParams);
-    const nextClientId = nextScreen === "profile" ? searchParams.get("clientId") ?? undefined : undefined;
-    const nextReferral = nextScreen === "packet" ? getReferralFromParams(searchParams) : undefined;
-    const frame = window.requestAnimationFrame(() => {
-      setScreen(nextScreen);
-      setSelectedClientId(nextClientId);
-      if (nextScreen !== "packet" || nextReferral) setSelectedReferral(nextReferral);
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [searchParams]);
-
-  useEffect(() => {
-    const syncFromLocation = () => {
-      const params = new URLSearchParams(window.location.search);
-      const nextScreen = getScreenFromParams(params);
-      setScreen(nextScreen);
-      setSelectedClientId(nextScreen === "profile" ? params.get("clientId") ?? undefined : undefined);
-      setSelectedReferral(nextScreen === "packet" ? getReferralFromParams(params) : undefined);
-    };
-
-    window.addEventListener("popstate", syncFromLocation);
-    return () => window.removeEventListener("popstate", syncFromLocation);
-  }, []);
+  const screen = getScreenFromParams(searchParams);
+  const selectedClientId = screen === "profile" ? searchParams.get("clientId") ?? undefined : undefined;
+  const routeReferral = screen === "packet" ? getReferralFromParams(searchParams) : undefined;
+  const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
+  const selectedReferral = routeReferral && referralDetails?.id === routeReferral.id
+    ? referralDetails
+    : routeReferral;
 
   const navigate = (
     nextScreen: "home" | "referrals" | "packet" | "profile" | "profiles" | "operations",
@@ -73,35 +52,33 @@ export default function PipelineOverviewRoute() {
     clientId?: string,
   ) => {
     setSearchOpen(false);
-    const url = new URL(window.location.href);
+    const params = new URLSearchParams(searchParams.toString());
     if (nextScreen === "referrals") {
-      url.searchParams.set("view", "referrals");
-      url.searchParams.delete("screen");
+      params.set("view", "referrals");
+      params.delete("screen");
     } else if (nextScreen === "packet") {
-      url.searchParams.set("view", "referrals");
-      url.searchParams.set("screen", "packet");
+      params.set("view", "referrals");
+      params.set("screen", "packet");
     } else if (nextScreen === "profile" || nextScreen === "profiles" || nextScreen === "operations") {
-      url.searchParams.delete("view");
-      url.searchParams.set("screen", nextScreen);
+      params.delete("view");
+      params.set("screen", nextScreen);
     } else {
-      url.searchParams.delete("view");
-      url.searchParams.delete("screen");
+      params.delete("view");
+      params.delete("screen");
     }
     if (nextScreen === "profile" && clientId) {
-      url.searchParams.set("clientId", clientId);
+      params.set("clientId", clientId);
     } else {
-      url.searchParams.delete("clientId");
+      params.delete("clientId");
     }
     if (nextScreen === "packet" && referral?.id) {
-      url.searchParams.set("referralId", String(referral.id));
+      params.set("referralId", String(referral.id));
     } else {
-      url.searchParams.delete("referralId");
+      params.delete("referralId");
     }
-    window.history.pushState({}, "", `${url.pathname}${url.search}`);
+    router.push(params.size ? `/?${params.toString()}` : "/");
     recordNavigation(nextScreen, referral);
-    setSelectedReferral(referral);
-    setSelectedClientId(nextScreen === "profile" ? clientId : undefined);
-    setScreen(nextScreen);
+    setReferralDetails(referral);
   };
 
   const openRecent = (destination: PipelineRecentDestination) => {
@@ -142,7 +119,6 @@ export default function PipelineOverviewRoute() {
         initialMode={homeMode}
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenRecent={openRecent}
-        onOpenProfiles={() => navigate("profiles")}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenOperations={() => navigate("operations")}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
@@ -156,12 +132,12 @@ export default function PipelineOverviewRoute() {
       <ReferralPacketCanvas
         referral={selectedReferral}
         onReferralSaved={(savedReferral) => {
-          setSelectedReferral(savedReferral);
-          const url = new URL(window.location.href);
-          url.searchParams.set("view", "referrals");
-          url.searchParams.set("screen", "packet");
-          url.searchParams.set("referralId", String(savedReferral.id));
-          window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+          setReferralDetails(savedReferral);
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("view", "referrals");
+          params.set("screen", "packet");
+          params.set("referralId", String(savedReferral.id));
+          router.replace(`/?${params.toString()}`);
         }}
       />
     );

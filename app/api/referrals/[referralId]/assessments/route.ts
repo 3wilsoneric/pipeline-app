@@ -7,8 +7,13 @@ import {
 } from "@/lib/assessment/assessment-store";
 import { createEmptyAssessmentToolData, pickAssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
 import { validateAssessmentCreateRequest } from "@/lib/assessment/assessment-validation";
+import {
+  assessmentClientIdentityErrorResponse,
+  resolveAssessmentClientIdentity,
+} from "@/lib/assessment/assessment-client-identity";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
-import { getReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { withApiLogging } from "@/lib/observability/api-logging";
 
 export const runtime = "nodejs";
@@ -25,6 +30,8 @@ export async function GET(
 
     const referralId = await parseReferralId(context);
     if (!referralId) return jsonError("referralId is invalid.");
+    const access = await requireReferralAccess(auth.user, referralId);
+    if (!access.ok) return access.response;
     const result = await listAssessments({ referralId, limit: 100 });
     return Response.json(result, { headers: privateHeaders() });
   });
@@ -46,8 +53,9 @@ export async function POST(
 
     const referralId = await parseReferralId(context);
     if (!referralId) return jsonError("referralId is invalid.");
-    const referral = await getReferral(referralId);
-    if (!referral) return jsonError("Referral not found.", 404);
+    const access = await requireReferralAccess(auth.user, referralId);
+    if (!access.ok) return access.response;
+    const referral = access.referral;
 
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
@@ -63,8 +71,15 @@ export async function POST(
     const data = pickAssessmentToolData({ ...defaults, ...validated.value.data });
 
     try {
+      const identity = await resolveAssessmentClientIdentity(request, referralId);
       const result = await createAssessment(
-        { referral_id: referralId, data, status: "draft" },
+        {
+          referral_id: referralId,
+          canonical_client_id: identity.canonicalClientId,
+          resident_key: identity.residentKey,
+          data,
+          status: "draft",
+        },
         { id: auth.user.id, name: auth.user.name },
         validated.value.client_mutation_id,
       );
@@ -73,6 +88,8 @@ export async function POST(
       }
       return Response.json(result, { status: 201, headers: privateHeaders() });
     } catch (error) {
+      const identityResponse = assessmentClientIdentityErrorResponse(error);
+      if (identityResponse) return identityResponse;
       return jsonError(error instanceof Error ? error.message : "Could not create assessment.", 400);
     }
   });

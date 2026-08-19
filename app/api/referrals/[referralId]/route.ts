@@ -2,7 +2,6 @@ import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
-  getReferral,
   patchReferral,
   requireReferralStore,
   DuplicateReferralPacketError,
@@ -13,6 +12,10 @@ import { getReferralPatchSections, isReferralSection } from "@/lib/pipeline/refe
 import type { ReferralSectionVersions } from "@/lib/pipeline/referral-types";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
+import {
+  assignedOwnerForPatch,
+  requireReferralAccess,
+} from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -36,10 +39,10 @@ export async function GET(
     const id = Number.parseInt(referralId, 10);
     if (!Number.isInteger(id) || id < 1) return jsonError("referralId is invalid.");
 
-    const referral = await getReferral(id);
-    if (!referral) return jsonError("Referral not found.", 404);
+    const access = await requireReferralAccess(auth.user, id);
+    if (!access.ok) return access.response;
 
-    return Response.json({ referral }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    return Response.json({ referral: access.referral }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   });
 }
 
@@ -62,6 +65,8 @@ export async function PATCH(
     const { referralId } = await context.params;
     const id = Number.parseInt(referralId, 10);
     if (!Number.isInteger(id) || id < 1) return jsonError("referralId is invalid.");
+    const access = await requireReferralAccess(auth.user, id);
+    if (!access.ok) return access.response;
 
     const body = await readJsonBody<PatchReferralBody>(request);
     if (!body.ok) return jsonError(body.message, body.status);
@@ -73,9 +78,15 @@ export async function PATCH(
     }
     const patchResult = validateReferralPatch(body.value.patch);
     if (!patchResult.ok) return jsonError(patchResult.message, patchResult.status);
+    const assignment = assignedOwnerForPatch(auth.user, access.referral, patchResult.value.owner);
+    if (!assignment.ok) return assignment.response;
+    const patch = {
+      ...patchResult.value,
+      ...(patchResult.value.owner === undefined ? {} : assignment),
+    };
     const sectionVersions = validateSectionVersions(
       body.value.if_match_sections,
-      getReferralPatchSections(patchResult.value),
+      getReferralPatchSections(patch),
     );
     if (!sectionVersions.ok) return jsonError(sectionVersions.message);
 
@@ -83,7 +94,7 @@ export async function PATCH(
     try {
       result = await patchReferral(
         id,
-        patchResult.value,
+        patch,
         body.value.if_match,
         { id: auth.user.id, name: auth.user.name },
         sectionVersions.value,

@@ -25,6 +25,7 @@ import {
   savePostLoginPath,
 } from "@/lib/auth/post-login-path";
 import { REAUTHENTICATION_KEY } from "@/lib/auth/authenticated-fetch";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 type AuthStatus = "disabled" | "initializing" | "signed_out" | "redirecting" | "signed_in" | "error";
 
@@ -93,7 +94,7 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
         }
 
         const tokenResult = await instance.acquireTokenSilent({ account: activeAccount, scopes: [pipelineApiScope] });
-        const sessionResponse = await fetch("/api/auth/session", {
+        const sessionResponse = await fetch(toPipelinePath("/api/auth/session"), {
           method: "POST",
           headers: { Authorization: `Bearer ${tokenResult.accessToken}` },
           credentials: "same-origin",
@@ -150,8 +151,8 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
     },
     signOut: async () => {
       clearPostLoginPath();
-      await fetch("/api/auth/session", { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
-      await instance.logoutRedirect({ postLogoutRedirectUri: `${window.location.origin}/sign-in` });
+      await fetch(toPipelinePath("/api/auth/session"), { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
+      await instance.logoutRedirect({ postLogoutRedirectUri: `${window.location.origin}${toPipelinePath("/sign-in")}` });
     },
   }), [account, error, instance, status]);
 

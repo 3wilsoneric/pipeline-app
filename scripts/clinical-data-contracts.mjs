@@ -27,6 +27,7 @@ const results = await Promise.all([
     const health = contracts.parseClinicalHealthResponse(fixture.health);
     assert(health.ready === true, "Expected ready health fixture");
     assert(health.checks.qa_approved === true, "Expected governed QA approval");
+    assert(health.checks.client_database_ready === true, "Expected enhanced client database readiness");
   }),
   run("census keeps missing observations distinct from zero", () => {
     const census = contracts.parseClinicalCensusResponse(fixture.census);
@@ -38,6 +39,7 @@ const results = await Promise.all([
     const roster = contracts.parseClinicalRosterResponse(fixture.roster);
     const resident = contracts.parseClinicalResidentResponse(fixture.resident);
     assert(roster.residents[0].resident_key === "337:R-100", "Expected community-qualified key");
+    assert(roster.residents[0].canonical_client_id === "client-sanitized-100", "Expected canonical client identity");
     assert(roster.residents[0].resident_number === null, "Missing resident number must remain null");
     assert(resident.resident.unit === "A-1", "Expected governed unit field");
     assert(resident.resident.length_of_stay_days === 209, "Expected governed length of stay");
@@ -65,6 +67,26 @@ const results = await Promise.all([
     }));
     assertThrows(() => contracts.parseClinicalRosterResponse(oversized), "Expected oversized roster rejection");
   }),
+  run("canonical client search and enhanced detail preserve governed fields", () => {
+    const directory = contracts.parseClinicalClientDirectoryResponse(fixture.clients);
+    const detail = contracts.parseClinicalClientResponse(fixture.client);
+    assert(directory.clients[0].canonical_client_id === "client-sanitized-100", "Expected canonical client identity");
+    assert(directory.clients[0].resident_numbers[0] === "R-100", "Expected resident-number search projection");
+    assert(detail.client.enrichment.prior_placements === "Sanitized prior placement", "Expected governed enrichment");
+    assert(detail.client.resident_episode_history.length === 2, "Expected canonical episode history join");
+    assert(detail.client_database.baseline_date === "2026-08-18", "Expected immutable baseline date");
+  }),
+  run("enhanced client contract supports the full 141-field schema without guessing values", () => {
+    const expanded = structuredClone(fixture.client);
+    expanded.client_database.fields = Array.from({ length: 141 }, (_, index) => `sanitized_field_${index + 1}`);
+    expanded.client_database.field_count = 141;
+    expanded.client.enrichment = Object.fromEntries(
+      expanded.client_database.fields.map((field, index) => [field, index % 3 === 0 ? null : `value-${index + 1}`]),
+    );
+    const parsed = contracts.parseClinicalClientResponse(expanded);
+    assert(parsed.client_database.fields.length === 141, "Expected all 141 governed field definitions");
+    assert(parsed.client.enrichment.sanitized_field_1 === null, "Missing enrichment must remain null");
+  }),
   run("medication summary rejects raw detail fields", () => {
     const summary = contracts.parseClinicalMedicationSummaryResponse(fixture.medications_summary);
     assert(summary.portfolio.refusal_count === 3, "Expected governed refusal total");
@@ -88,7 +110,7 @@ const results = await Promise.all([
     assert(adapter.includes('import "server-only"'), "Clinical adapter must be server-only");
     assert(adapter.includes("/api/integrations/pipeline/clinical"), "Expected dedicated Alamo namespace");
     assert(!adapter.includes("/api/platform/bootstrap"), "Adapter must not request full Alamo bootstrap");
-    for (const endpoint of ["/health", "/census", "/roster", "/residents/", "/medications/summary"]) {
+    for (const endpoint of ["/health", "/census", "/roster", "/residents/", "/clients", "/medications/summary"]) {
       assert(adapter.includes(endpoint), `Expected dedicated clinical endpoint ${endpoint}`);
     }
     assert(adapter.includes("client_credentials"), "Expected service-to-service Entra support");
@@ -100,6 +122,7 @@ const results = await Promise.all([
       "app/api/clinical/health/route.ts",
       "app/api/clinical/census/route.ts",
       "app/api/clinical/roster/route.ts",
+      "app/api/clinical/clients/route.ts",
       "app/api/clinical/residents/[residentId]/route.ts",
       "app/api/clinical/medications/summary/route.ts",
     ]) {
@@ -118,22 +141,30 @@ const results = await Promise.all([
     const profileDirectory = read("components/pipeline/ClientProfileDirectory.tsx");
     const profileView = read("components/pipeline/ClientProfileView.tsx");
     const rosterRoute = read("app/api/clinical/roster/route.ts");
-    assert(profileDirectory.includes("/api/clinical/roster"), "Profiles must come from the admitted-client roster");
+    assert(profileDirectory.includes("/api/clinical/clients"), "Profiles must come from the canonical client directory");
     assert(profileDirectory.includes("MAX_DIRECTORY_PAGES"), "Profile filters must use bounded complete-directory pagination");
-    assert(rosterRoute.includes("toClinicalResidentDirectoryResult"), "The profile directory must receive only its approved list projection");
+    assert(rosterRoute.includes("toClinicalResidentDirectoryResult"), "The active roster must keep its approved list projection");
     assert(!rosterRoute.includes("canViewClinicalDetails"), "Directory requests must not expose full resident clinical detail by role");
     assert(profileView.includes("/api/profiles/"), "Profile detail must come from the governed unified-profile endpoint");
     assert(!profileView.includes("/api/clinical/residents/"), "Browser profile code must not bypass the reviewed Pipeline identity join");
     const unifiedProfile = read("lib/pipeline/unified-profile.ts");
     assert(unifiedProfile.includes('import "server-only"'), "Unified profile assembly must remain server-only");
-    assert(unifiedProfile.includes("getClinicalResident"), "Unified profiles must start from governed Alamo resident data");
+    assert(unifiedProfile.includes("getClinicalClient"), "Unified profiles must start from the governed canonical client database");
+    assert(unifiedProfile.includes("getClinicalResident"), "Current clients must retain the governed census resident projection");
+    assert(unifiedProfile.includes("filterLinksForUser"), "Profile identity links must be scoped to the signed-in assessor");
+    assert(unifiedProfile.includes("canAccessReferral(user, referral)"), "Profile work must enforce stable referral ownership");
+    const profileRoute = read("app/api/profiles/[residentKey]/route.ts");
+    assert(profileRoute.includes("}, auth.user)"), "Unified profile assembly must receive the authenticated user");
     assert(unifiedProfile.includes('link.status === "confirmed"'), "Operational data must require a confirmed resident link");
     assert(unifiedProfile.includes("will not be matched by name"), "Unlinked profiles must reject implicit name matching");
-    assert(!profileDirectory.includes("/api/clients"), "Referral-backed client profiles must not populate the admitted roster");
+    assert(!profileDirectory.includes("/api/clients"), "Referral-backed client profiles must not populate the governed directory");
     assert(!profileView.includes("/api/clients"), "Resident detail must not use the referral store");
     assert(!existsSync(path.join(root, "app/api/clients/route.ts")), "The alternate client-profile API must remain removed");
     const envExample = read(".env.example");
-    assert(!/NEXT_PUBLIC_.*(?:CLINICAL|ALAMO|ELDERMARK|CLIENT_SECRET|TOKEN|DATABRICKS|DOCUMENT_INTELLIGENCE)/i.test(envExample), "Clinical credentials must not be browser-prefixed");
+    assert(
+      !/NEXT_PUBLIC_.*(?:CLINICAL|ELDERMARK|CLIENT_SECRET|TOKEN|DATABRICKS|DOCUMENT_INTELLIGENCE|ALAMO_.*(?:SECRET|TOKEN|TENANT|CLIENT_ID|SCOPE))/i.test(envExample),
+      "Clinical credentials must not be browser-prefixed",
+    );
   }),
   run("daily Pipeline backlog joining stays server-only and independent from packet intake", () => {
     const reconciliation = read("lib/pipeline/clinical-backlog-reconciliation.ts");
@@ -286,6 +317,35 @@ const results = await Promise.all([
       () => adapter.getClinicalRoster(undefined, { limit: 201 }),
       (error) => assert(error.status === 400 && error.code === "clinical_limit_invalid", "Invalid page size must be rejected locally"),
       "Expected invalid roster page size rejection",
+    );
+  }),
+  run("client search forwards name or resident-number queries through the governed Alamo endpoint", async () => {
+    let observedUrl = "";
+    const adapter = loadClinicalAdapter(
+      createClinicalFetch((url) => {
+        observedUrl = url;
+        return jsonResponse(fixture.clients);
+      }),
+    );
+    const directory = await adapter.getClinicalClients(new Request("http://pipeline.test/api/clinical/clients"), {
+      query: "R-100",
+      limit: 50,
+    });
+    const parsedUrl = new URL(observedUrl);
+    assert(parsedUrl.pathname.endsWith("/api/integrations/pipeline/clinical/clients"), "Client search must use the dedicated endpoint");
+    assert(parsedUrl.searchParams.get("q") === "R-100", "Resident-number search must be encoded and forwarded");
+    assert(directory.clients[0].canonical_client_id === "client-sanitized-100", "Expected canonical client result");
+
+    const detailAdapter = loadClinicalAdapter(
+      createClinicalFetch((url) => {
+        observedUrl = url;
+        return jsonResponse(fixture.client);
+      }),
+    );
+    await detailAdapter.getClinicalClient(undefined, "client-sanitized-100");
+    assert(
+      new URL(observedUrl).pathname.endsWith("/api/integrations/pipeline/clinical/clients/client-sanitized-100"),
+      "Client detail must use the canonical identifier endpoint",
     );
   }),
   run("response-size limits apply to streamed clinical payloads", async () => {

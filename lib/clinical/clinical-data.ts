@@ -2,6 +2,8 @@ import "server-only";
 
 import {
   parseClinicalCensusResponse,
+  parseClinicalClientDirectoryResponse,
+  parseClinicalClientResponse,
   parseClinicalHealthResponse,
   parseClinicalMedicationSummaryResponse,
   parseClinicalResidentResponse,
@@ -9,6 +11,8 @@ import {
 } from "./clinical-contracts";
 import type {
   ClinicalCensusResponse,
+  ClinicalClientDirectoryResponse,
+  ClinicalClientResponse,
   ClinicalHealthResponse,
   ClinicalMedicationSummaryResponse,
   ClinicalResidentResponse,
@@ -27,6 +31,13 @@ import {
 export type {
   ClinicalCensusCommunity,
   ClinicalCensusResponse,
+  ClinicalClientDatabaseDetail,
+  ClinicalClientDatabaseSummary,
+  ClinicalClientDetail,
+  ClinicalClientDirectoryItem,
+  ClinicalClientDirectoryResponse,
+  ClinicalClientRecord,
+  ClinicalClientResponse,
   ClinicalResidentDirectoryResult,
   ClinicalFreshness,
   ClinicalHealthResponse,
@@ -195,6 +206,51 @@ export async function getClinicalResident(
     `/residents/${encodeURIComponent(normalized)}`,
     request,
     parseClinicalResidentResponse,
+  );
+}
+
+export async function getClinicalClients(
+  request: Request | undefined,
+  options: { query?: string; community?: string; limit?: number | string; cursor?: string } = {},
+): Promise<ClinicalClientDirectoryResponse> {
+  const query = boundedParameter(options.query, "q", 128);
+  const community = boundedParameter(options.community, "community", 128);
+  const cursor = boundedParameter(options.cursor, "cursor", 2048);
+  const limit = parsePageSize(options.limit);
+  if (getClinicalDataMode() === "demo_snapshot") {
+    throw new ClinicalDataError(
+      503,
+      "client_database_unavailable",
+      "The enhanced client database is not available in demo snapshot mode.",
+    );
+  }
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  if (community) params.set("community", community);
+  if (cursor) params.set("cursor", cursor);
+  params.set("limit", String(limit));
+  return requestClinicalEndpoint(`/clients?${params}`, request, parseClinicalClientDirectoryResponse);
+}
+
+export async function getClinicalClient(
+  request: Request | undefined,
+  canonicalClientId: string,
+): Promise<ClinicalClientResponse> {
+  const normalized = boundedParameter(canonicalClientId, "canonicalClientId", 256);
+  if (!normalized) {
+    throw new ClinicalDataError(400, "client_identifier_invalid", "A canonical client identifier is required.");
+  }
+  if (getClinicalDataMode() === "demo_snapshot") {
+    throw new ClinicalDataError(
+      503,
+      "client_database_unavailable",
+      "The enhanced client database is not available in demo snapshot mode.",
+    );
+  }
+  return requestClinicalEndpoint(
+    `/clients/${encodeURIComponent(normalized)}`,
+    request,
+    parseClinicalClientResponse,
   );
 }
 
@@ -477,7 +533,9 @@ function upstreamError(status: number, payload: unknown) {
   const sourceCode = typeof source?.code === "string" ? source.code : "";
   const details = parseAmbiguityDetails(source?.details);
   if (status === 404) {
-    return new ClinicalDataError(404, "resident_not_found", "Resident was not found in the current governed roster.");
+    return sourceCode === "client_not_found"
+      ? new ClinicalDataError(404, "client_not_found", "Client was not found in the governed client database.")
+      : new ClinicalDataError(404, "resident_not_found", "Resident was not found in the current governed roster.");
   }
   if (status === 409) {
     return new ClinicalDataError(

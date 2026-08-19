@@ -13,6 +13,7 @@ if (databaseUrl === process.env.PIPELINE_DATABASE_URL?.trim() && process.env.PIP
 }
 const collaborationRollback = await readFile("database/rollbacks/0005_collaboration.sql", "utf8");
 const workspaceStateRollback = await readFile("database/rollbacks/0006_user_workspace_state.sql", "utf8");
+const canonicalClientRollback = await readFile("database/rollbacks/0007_canonical_client_assessments.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -30,9 +31,36 @@ try {
   const before = await connection`
     select to_regclass('pipeline.editing_presence') is not null as presence,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='section_versions') as sections,
-      to_regclass('pipeline.user_workspace_state') is not null as workspace_state
+      to_regclass('pipeline.user_workspace_state') is not null as workspace_state,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='canonical_client_id') as canonical_client,
+      to_regclass('pipeline.client_update_outbox') is not null as client_update_outbox,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0007_canonical_client_assessments') as canonical_client_history
   `;
-  checks.push({ name: "latest migrations exist before drill", ok: Boolean(before[0].presence && before[0].sections && before[0].workspace_state) });
+  checks.push({
+    name: "latest migrations exist before drill",
+    ok: Boolean(
+      before[0].presence
+      && before[0].sections
+      && before[0].workspace_state
+      && before[0].canonical_client
+      && before[0].client_update_outbox
+      && before[0].canonical_client_history
+    ),
+  });
+  await connection.unsafe(canonicalClientRollback);
+  const canonicalClientDuring = await connection`
+    select to_regclass('pipeline.client_update_outbox') is null as client_update_outbox_removed,
+      not exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='canonical_client_id') as canonical_client_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0007_canonical_client_assessments') as history_removed
+  `;
+  checks.push({
+    name: "rollback removes canonical-client objects",
+    ok: Boolean(
+      canonicalClientDuring[0].client_update_outbox_removed
+      && canonicalClientDuring[0].canonical_client_removed
+      && canonicalClientDuring[0].history_removed
+    ),
+  });
   await connection.unsafe(workspaceStateRollback);
   const workspaceDuring = await connection`
     select to_regclass('pipeline.user_workspace_state') is null as workspace_state_removed,
@@ -52,11 +80,23 @@ try {
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='section_versions') as sections,
       exists(select 1 from pipeline.schema_migrations where migration_id='0005_collaboration') as collaboration_history,
       to_regclass('pipeline.user_workspace_state') is not null as workspace_state,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0006_user_workspace_state') as workspace_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0006_user_workspace_state') as workspace_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='canonical_client_id') as canonical_client,
+      to_regclass('pipeline.client_update_outbox') is not null as client_update_outbox,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0007_canonical_client_assessments') as canonical_client_history
   `;
   checks.push({
     name: "drill transaction restores original schema",
-    ok: Boolean(after[0].presence && after[0].sections && after[0].collaboration_history && after[0].workspace_state && after[0].workspace_history),
+    ok: Boolean(
+      after[0].presence
+      && after[0].sections
+      && after[0].collaboration_history
+      && after[0].workspace_state
+      && after[0].workspace_history
+      && after[0].canonical_client
+      && after[0].client_update_outbox
+      && after[0].canonical_client_history
+    ),
   });
   const failed = checks.filter((check) => !check.ok);
   console.log(JSON.stringify({ ok: failed.length === 0, checks, transactional: true }, null, 2));

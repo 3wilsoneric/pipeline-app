@@ -9,6 +9,7 @@ import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { requireExtractionBackend } from "@/lib/extraction/backend-config";
 import { createPacketUpload, extractionErrorResponse } from "@/lib/extraction/extraction-service";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/uploads/create-url", async () => {
@@ -25,6 +26,8 @@ export async function POST(request: Request) {
 
     const validation = validateCreateUploadUrlRequest(body.value);
     if (!validation.ok) return jsonError(validation.message, validation.status);
+    const access = await requireReferralAccess(auth.user, Number(validation.value.referral_id));
+    if (!access.ok) return access.response;
 
     try {
       return Response.json(await createPacketUpload(validation.value, auth.user), {

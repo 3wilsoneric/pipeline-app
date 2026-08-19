@@ -8,6 +8,7 @@ import {
   reviewResidentLink,
 } from "@/lib/pipeline/resident-link-store";
 import { validateResidentLinkReview } from "@/lib/pipeline/resident-link-validation";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,10 @@ export async function GET(
     if (!linkId) return jsonError("linkId is invalid.");
     const link = await getResidentLink(linkId);
     if (!link) return jsonError("Resident link not found.", 404);
+    if (link.referral_id) {
+      const access = await requireReferralAccess(auth.user, link.referral_id);
+      if (!access.ok) return access.response;
+    }
     return Response.json({ link }, { headers: privateHeaders() });
   });
 }
@@ -33,7 +38,7 @@ export async function PATCH(
   context: { params: Promise<{ linkId: string }> },
 ) {
   return withApiLogging(request, "/api/resident-links/[linkId]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "reviewer"]);
+    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -41,6 +46,12 @@ export async function PATCH(
     if (!store.ok) return store.response;
     const linkId = await parseLinkId(context);
     if (!linkId) return jsonError("linkId is invalid.");
+    const link = await getResidentLink(linkId);
+    if (!link) return jsonError("Resident link not found.", 404);
+    if (link.referral_id) {
+      const access = await requireReferralAccess(auth.user, link.referral_id);
+      if (!access.ok) return access.response;
+    }
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const validated = validateResidentLinkReview(body.value);

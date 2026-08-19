@@ -6,8 +6,13 @@ import {
   requireAssessmentStore,
 } from "@/lib/assessment/assessment-store";
 import { validateAssessmentPatchRequest } from "@/lib/assessment/assessment-validation";
+import {
+  assessmentClientIdentityErrorResponse,
+  resolveAssessmentClientIdentity,
+} from "@/lib/assessment/assessment-client-identity";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -24,6 +29,8 @@ export async function GET(
     if (!safeAssessmentId(assessmentId)) return jsonError("assessmentId is invalid.");
     const assessment = await getAssessment(assessmentId);
     if (!assessment) return jsonError("Assessment not found.", 404);
+    const access = await requireReferralAccess(auth.user, assessment.referral_id);
+    if (!access.ok) return access.response;
     return Response.json({ assessment }, { headers: privateHeaders() });
   });
 }
@@ -48,9 +55,18 @@ export async function PATCH(
     if (!validated.ok) return jsonError(validated.message, validated.status);
 
     try {
+      const current = await getAssessment(assessmentId);
+      if (!current) return jsonError("Assessment not found.", 404);
+      const access = await requireReferralAccess(auth.user, current.referral_id);
+      if (!access.ok) return access.response;
+      const identity = await resolveAssessmentClientIdentity(request, current.referral_id);
       const result = await patchAssessment(
         assessmentId,
-        validated.value.patch,
+        {
+          ...validated.value.patch,
+          canonical_client_id: identity.canonicalClientId,
+          resident_key: identity.residentKey ?? validated.value.patch.resident_key,
+        },
         { id: auth.user.id, name: auth.user.name },
         validated.value.if_match,
       );
@@ -69,6 +85,8 @@ export async function PATCH(
       }
       return Response.json(result, { headers: privateHeaders() });
     } catch (error) {
+      const identityResponse = assessmentClientIdentityErrorResponse(error);
+      if (identityResponse) return identityResponse;
       return jsonError(error instanceof Error ? error.message : "Could not update assessment.", 400);
     }
   });

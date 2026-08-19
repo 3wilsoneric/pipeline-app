@@ -3,6 +3,7 @@ import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireExtractionBackend } from "@/lib/extraction/backend-config";
 import { readPacketStatus } from "@/lib/extraction/extraction-service";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { requirePacketAccess } from "@/lib/pipeline/referral-access";
 
 export async function GET(
   request: Request,
@@ -16,6 +17,8 @@ export async function GET(
     if (!backend.ok) return backend.response;
 
     const { packetId } = await context.params;
+    const access = await requirePacketAccess(auth.user, packetId);
+    if (!access.ok) return access.response;
     const status = await readPacketStatus(packetId);
 
     if (!status) {

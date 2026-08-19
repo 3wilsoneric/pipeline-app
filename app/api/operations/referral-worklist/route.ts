@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
 
-    return Response.json(await getReferralWorklistSnapshot(), {
+    return Response.json(await getReferralWorklistSnapshot(auth.user), {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     });
   });

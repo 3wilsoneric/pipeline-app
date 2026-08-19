@@ -1,5 +1,8 @@
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
-import type { ClinicalResidentResponse } from "@/lib/clinical/clinical-contracts";
+import type {
+  ClinicalClientResponse,
+  ClinicalResident,
+} from "@/lib/clinical/clinical-contracts";
 import type {
   AdmissionRequirement,
   Referral,
@@ -21,14 +24,15 @@ export type UnifiedProfileLinkSuggestion = {
 };
 
 export type UnifiedProfileConnection = {
-  status: "unlinked" | "candidate" | "confirmed";
+  status: "unavailable" | "unlinked" | "candidate" | "confirmed";
   confirmed_link: PipelineResidentLink | null;
   candidates: PipelineResidentLink[];
   suggestions: UnifiedProfileLinkSuggestion[];
   message: string;
 };
 
-export type UnifiedClientProfileResponse = ClinicalResidentResponse & {
+export type UnifiedClientProfileResponse = ClinicalClientResponse & {
+  resident: ClinicalResident | null;
   history: ClientHistoryProjection;
   pipeline: {
     permissions: {

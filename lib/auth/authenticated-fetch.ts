@@ -12,6 +12,7 @@ import {
   sanitizeMicrosoftError,
 } from "@/lib/auth/entra-client";
 import { normalizePostLoginPath, savePostLoginPath } from "@/lib/auth/post-login-path";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 const defaultTimeoutMs = 15_000;
 const defaultMaxResponseBytes = 8 * 1024 * 1024;
@@ -118,7 +119,7 @@ export async function fetchPipelineApi(
   init.signal?.addEventListener("abort", abortFromCaller, { once: true });
 
   try {
-    return await fetch(input, {
+    return await fetch(toPipelinePath(input), {
       ...init,
       headers,
       credentials: "same-origin",

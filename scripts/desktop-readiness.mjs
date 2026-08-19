@@ -28,7 +28,10 @@ const browserTests = read("tests/e2e/desktop-readiness.spec.ts");
 check("desktop public flag defaults off", env.includes("NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=false"));
 check("desktop server-state flag defaults off", env.includes("PIPELINE_DESKTOP_STATE_ENABLED=false"));
 check("desktop flag has one browser-safe source of truth", config.includes('NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED === "true"'));
-check("manifest is linked only behind the public flag", layout.includes("isPipelineDesktopEnabled() ? \"/desktop-manifest.webmanifest\" : undefined"));
+check(
+  "manifest is linked only behind the public flag and respects the application base path",
+  layout.includes('isPipelineDesktopEnabled() ? toPipelinePath("/desktop-manifest.webmanifest") : undefined'),
+);
 check("worker registration is feature gated", runtime.includes("if (!isPipelineDesktopEnabled())") && runtime.includes("serviceWorker.register"));
 check("disabled runtime unregisters Pipeline worker", runtime.includes("registration.unregister()") && runtime.includes("PIPELINE_DESKTOP_CACHE_PREFIX"));
 check("worker has a versioned Pipeline-only cache", worker.includes('CACHE_NAME = `${CACHE_PREFIX}v1`') && worker.includes('CACHE_PREFIX = "pipeline-static-"'));

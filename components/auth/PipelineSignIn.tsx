@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import AuthenticationProgress from "@/components/auth/AuthenticationProgress";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { clearPostLoginPath, normalizePostLoginPath, readPostLoginPath } from "@/lib/auth/post-login-path";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 function MicrosoftMark() {
   return (
@@ -19,7 +20,9 @@ function MicrosoftMark() {
 
 export default function PipelineSignIn({ nextPath }: { nextPath: string }) {
   const auth = usePipelineAuth();
-  const safeNextPath = normalizePostLoginPath(nextPath !== "/" ? nextPath : readPostLoginPath());
+  const safeNextPath = toPipelinePath(
+    normalizePostLoginPath(nextPath !== "/" ? nextPath : readPostLoginPath()),
+  );
 
   useEffect(() => {
     if (auth.status !== "signed_in") return;
@@ -36,7 +39,7 @@ export default function PipelineSignIn({ nextPath }: { nextPath: string }) {
       <section aria-labelledby="sign-in-heading" className="w-full max-w-[460px] border border-[#d9d9d9] bg-white px-7 py-8 sm:px-9 sm:py-9">
         <div className="border-b border-[#d9d9d9] pb-6">
           <p className="text-[12px] font-black uppercase tracking-[0.24em] text-[#0f8b73]">Pipeline</p>
-          <p className="mt-2 text-[13px] text-[#737373]">Alamo Health admissions</p>
+          <p className="mt-2 text-[13px] text-[#737373]">Alamo Health · Pipeline</p>
         </div>
 
         <div className="pt-7">

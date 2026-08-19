@@ -9,6 +9,7 @@ import type { JSONValue, TransactionSql } from "postgres";
 import { listAssessments } from "@/lib/assessment/assessment-store";
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from "@/lib/pipeline/keyset-cursor";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { isUnassignedOwner, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import type {
   AdmissionDecision,
@@ -65,6 +66,10 @@ export type ReferralListOptions = {
   month?: string;
   activeOnly?: boolean;
   queue?: ReferralQueueView;
+  /** Internal access-control filter. Never populated from query parameters. */
+  assignedOwnerId?: string;
+  /** Legacy fallback while older rows are backfilled with stable owner ids. */
+  assignedOwnerNames?: string[];
 };
 
 export type ReferralFacetValue = {
@@ -94,6 +99,8 @@ export type ReferralFileListOptions = {
   limit?: number;
   cursor?: string;
   clientId?: string;
+  assignedOwnerId?: string;
+  assignedOwnerNames?: string[];
 };
 
 export type ReferralFileListResult = {
@@ -146,7 +153,7 @@ export type ReferralChangeMetadata = {
 
 interface ReferralStore {
   list(options?: ReferralListOptions): Promise<ReferralListResult>;
-  facets(query?: string): Promise<ReferralFacets>;
+  facets(query?: string, access?: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames">): Promise<ReferralFacets>;
   get(id: number): Promise<Referral | null>;
   getByPacketId(packetId: string): Promise<Referral | null>;
   changeMetadata(id: number): Promise<ReferralChangeMetadata | null>;
@@ -264,8 +271,11 @@ export async function listReferrals(options: ReferralListOptions = {}) {
   return getReferralStore().list(options);
 }
 
-export async function listReferralFacets(query = "") {
-  return getReferralStore().facets(query);
+export async function listReferralFacets(
+  query = "",
+  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames"> = {},
+) {
+  return getReferralStore().facets(query, access);
 }
 
 export async function getReferral(id: number) {
@@ -444,11 +454,15 @@ async function listLocalReferrals(
   };
 }
 
-async function listLocalReferralFacets(query = ""): Promise<ReferralFacets> {
+async function listLocalReferralFacets(
+  query = "",
+  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames"> = {},
+): Promise<ReferralFacets> {
   await ensureLoaded();
   const queryTokens = normalizedSearchTokens(query);
   const referrals = state.referrals.filter(
-    (referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens),
+    (referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens)
+      && matchesAssignmentScope(referral, access),
   );
   return buildReferralFacets(referrals);
 }
@@ -502,6 +516,7 @@ async function listLocalReferralFiles(
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const matching = state.referrals
     .filter((referral) => !options.clientId || referral.clientId === options.clientId)
+    .filter((referral) => matchesAssignmentScope(referral, options))
     .flatMap(getReferralFiles)
     .filter((file) => matchesSearchTokens(searchableFileText(file), queryTokens))
     .sort(compareFiles);
@@ -683,6 +698,8 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const stage = options.stage ?? null;
   const community = options.community?.trim() || null;
   const owner = options.owner ? normalizeOwnerName(options.owner) : null;
+  const assignedOwnerId = options.assignedOwnerId?.trim() || null;
+  const assignedOwnerNames = options.assignedOwnerNames ?? [];
   const priority = options.priority ?? null;
   const tag = options.tag?.trim() || null;
   const month = options.month?.trim() || null;
@@ -709,6 +726,8 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
             then 'Unassigned'
           else trim(r.owner_name)
         end = ${owner})
+        and (${assignedOwnerId}::text is null or r.owner_id = ${assignedOwnerId}
+          or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${assignedOwnerNames}::text[])))
         and (${priority}::text is null or r.priority = ${priority})
         and (${tag}::text is null or ${tag} = any(r.tags))
         and (${month}::text is null or to_char(r.created_at at time zone 'UTC', 'YYYY-MM') = ${month})
@@ -745,13 +764,19 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
 
 type FacetRow = { value: string; count: number | string };
 
-async function listPostgresReferralFacets(query = ""): Promise<ReferralFacets> {
+async function listPostgresReferralFacets(
+  query = "",
+  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames"> = {},
+): Promise<ReferralFacets> {
   const sql = getPipelineSql();
   const queryTokens = normalizedSearchTokens(query);
+  const assignedOwnerId = access.assignedOwnerId?.trim() || null;
+  const assignedOwnerNames = access.assignedOwnerNames ?? [];
   const searchClause = sql`(${queryTokens.length === 0} or not exists (
     select 1 from unnest(${queryTokens}::text[]) as search_term(value)
     where r.search_text not ilike ('%' || search_term.value || '%')
-  ))`;
+  )) and (${assignedOwnerId}::text is null or r.owner_id = ${assignedOwnerId}
+    or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${assignedOwnerNames}::text[])))`;
   const [communities, stages, owners, priorities, tags, months] = await Promise.all([
     sql<FacetRow[]>`
       select r.community as value, count(*) as count
@@ -819,6 +844,10 @@ async function getPostgresReferralByPacketId(packetId: string) {
     from pipeline.referrals r
     join pipeline.people p on p.person_id = r.person_id
     where r.data->>'packetId' = ${packetId}
+      or exists (
+        select 1 from pipeline.packet_uploads pu
+        where pu.referral_id = r.referral_id and pu.packet_id::text = ${packetId}
+      )
     order by r.updated_at desc, r.referral_id desc
     limit 1
   `;
@@ -866,6 +895,8 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
   const sql = getPipelineSql();
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const clientId = options.clientId?.trim() || null;
+  const assignedOwnerId = options.assignedOwnerId?.trim() || null;
+  const assignedOwnerNames = options.assignedOwnerNames ?? [];
   const cursor = decodeKeysetCursor(options.cursor);
   const limit = clampPageSize(options.limit);
   const rows = await sql<ReferralFileRow[]>`
@@ -879,6 +910,8 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         p.external_client_id,
         p.display_name as referral_name,
         r.community,
+        r.owner_id,
+        r.owner_name,
         d.uploaded_at,
         d.byte_size as size_bytes,
         case when d.processing_status = 'reviewed' then 'Reviewed' else 'Uploaded' end::text as status,
@@ -898,6 +931,8 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         p.external_client_id,
         p.display_name as referral_name,
         r.community,
+        r.owner_id,
+        r.owner_name,
         r.updated_at as uploaded_at,
         case when coalesce(r.data->>'documentSizeBytes', '') ~ '^\\d+$'
           then (r.data->>'documentSizeBytes')::bigint else null end as size_bytes,
@@ -923,6 +958,8 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         p.external_client_id,
         p.display_name,
         r.community,
+        r.owner_id,
+        r.owner_name,
         r.updated_at,
         case when coalesce(r.data->>'assessmentDocumentSizeBytes', '') ~ '^\\d+$'
           then (r.data->>'assessmentDocumentSizeBytes')::bigint else null end,
@@ -948,6 +985,8 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
           where lower(concat_ws(' ', name, category, referral_name, community, status)) not ilike ('%' || search_term.value || '%')
         ))
         and (${clientId}::text is null or external_client_id = ${clientId})
+        and (${assignedOwnerId}::text is null or owner_id = ${assignedOwnerId}
+          or (owner_id is null and lower(trim(coalesce(owner_name, ''))) = any(${assignedOwnerNames}::text[])))
     )
     select filtered_rows.*, (select count(*) from filtered_rows) as total_count
     from filtered_rows
@@ -1018,11 +1057,11 @@ async function createPostgresReferral(
     const payload = { ...input, clientId };
     const rows = await tx<ReferralRow[]>`
       insert into pipeline.referrals (
-        person_id, stage, community, owner_name, priority, source, received_date,
+        person_id, stage, community, owner_id, owner_name, priority, source, received_date,
         tags, summary, document_sha256, search_text, data,
         closed_at, created_by, created_by_name, updated_by, updated_by_name
       ) values (
-        ${people[0].person_id}::uuid, ${input.stage}, ${input.community}, ${input.owner || null},
+        ${people[0].person_id}::uuid, ${input.stage}, ${input.community}, ${input.ownerId || null}, ${input.owner || null},
         ${input.priority}, ${input.source}, ${dateToSql(input.date)}::date, ${input.tags ?? []},
         ${input.note || null}, ${input.documentHash ?? null}, ${referralSearchText(payload)}, ${tx.json(payload)},
         ${isClosedStage(input.stage) ? new Date() : null}, ${actor.id}, ${actor.name}, ${actor.id}, ${actor.name}
@@ -1108,6 +1147,7 @@ async function patchPostgresReferral(
       update pipeline.referrals r
       set stage = ${next.stage},
           community = ${next.community},
+          owner_id = ${next.ownerId || null},
           owner_name = ${next.owner || null},
           priority = ${next.priority},
           source = ${next.source},
@@ -1388,6 +1428,7 @@ function mapReferralRow(row: ReferralRow): Referral {
     stage: row.stage,
     community: row.community,
     owner: row.owner_name ?? data.owner ?? "",
+    ownerId: row.owner_id ?? data.ownerId ?? undefined,
     priority: row.priority,
     source: row.source,
     tags: row.tags ?? [],
@@ -1414,8 +1455,8 @@ function mapReferralFileRow(row: ReferralFileRow): ReferralFile {
     ...(row.page_count === null ? {} : { pageCount: Number(row.page_count) }),
     ...(row.preview_status === "ready" && /^[0-9a-f-]{36}$/i.test(row.id)
       ? {
-          previewUrl: `/api/files/${row.id}/preview`,
-          ...(Number(row.page_count ?? 0) > 0 ? { thumbnailUrl: `/api/files/${row.id}/preview?page=1` } : {}),
+          previewUrl: toPipelinePath(`/api/files/${row.id}/preview`),
+          ...(Number(row.page_count ?? 0) > 0 ? { thumbnailUrl: toPipelinePath(`/api/files/${row.id}/preview?page=1`) } : {}),
         }
       : {}),
   };
@@ -1474,6 +1515,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "documentHash",
     "documentStatus",
     "owner",
+    "ownerId",
     "note",
     "createdAt",
     "dob",
@@ -1543,6 +1585,7 @@ function normalizeReferral(input: Referral): Referral {
       ? input.version
       : 1,
     sectionVersions: normalizeReferralSectionVersions(input.sectionVersions),
+    ownerId: input.ownerId?.trim() || undefined,
     gender: input.gender ?? "",
     reportedAge: input.reportedAge ?? "",
     ssn: input.ssn ?? "",
@@ -1586,7 +1629,20 @@ function matchesReferralFilters(referral: Referral, options: ReferralListOptions
   if (options.month && monthKey(referral.createdAt) !== options.month) return false;
   if (options.activeOnly && isClosedStage(referral.stage)) return false;
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
+  if (!matchesAssignmentScope(referral, options)) return false;
   return true;
+}
+
+function matchesAssignmentScope(
+  referral: Referral,
+  options: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames">,
+) {
+  const assignedOwnerId = options.assignedOwnerId?.trim();
+  if (!assignedOwnerId) return true;
+  if (referral.ownerId?.trim()) {
+    return referral.ownerId.trim().toLowerCase() === assignedOwnerId.toLowerCase();
+  }
+  return (options.assignedOwnerNames ?? []).includes(normalizeOwnerName(referral.owner).toLowerCase());
 }
 
 function matchesReferralQueue(referral: Referral, queue: ReferralQueueView) {
@@ -1664,7 +1720,7 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
       status: referral.documentStatus,
       previewStatus: referral.documentHash ? "ready" : "unavailable",
       ...(referral.documentHash
-        ? { previewUrl: `/api/referrals/${referral.id}/packet` }
+        ? { previewUrl: toPipelinePath(`/api/referrals/${referral.id}/packet`) }
         : {}),
     });
   }

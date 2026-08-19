@@ -77,6 +77,7 @@ const checks = [
   checkRequestValidationRails,
   checkApiObservabilityGuardrails,
   checkAuthGuardrails,
+  checkProfileResilience,
   checkCommunityLabels,
   checkWorkflowGuardrails,
   checkMissingInfoEnvelope,
@@ -260,6 +261,7 @@ function checkApiObservabilityGuardrails() {
     "app/api/clinical/health/route.ts",
     "app/api/clinical/census/route.ts",
     "app/api/clinical/roster/route.ts",
+    "app/api/clinical/clients/route.ts",
     "app/api/clinical/residents/[residentId]/route.ts",
     "app/api/clinical/medications/summary/route.ts",
   ];
@@ -316,9 +318,10 @@ function checkAuthGuardrails() {
     "Proxy must preserve protected-path routing and public sign-in/health escape hatches",
   );
   assert(
-    proxy.includes('signInUrl.pathname = "/sign-in"') &&
-      proxy.includes('pathname.startsWith("/api/")'),
-    "Browser auth failures should redirect to sign-in while API auth failures stay JSON 401s",
+    proxy.includes('signInUrl.pathname = toPipelinePath("/sign-in")') &&
+      proxy.includes("fromPipelinePath(pathname)") &&
+      proxy.includes('applicationPathname.startsWith("/api/")'),
+    "Browser auth failures should redirect to the composed sign-in path while API auth failures stay JSON 401s",
   );
   assert(
     signInPage.includes("PipelineSignIn") &&
@@ -336,6 +339,33 @@ function checkAuthGuardrails() {
   assert(
     header.includes("fetchCurrentPipelineUser") && !header.includes(">EW<"),
     "Pipeline header should read authenticated identity instead of displaying fixed initials",
+  );
+}
+
+function checkProfileResilience() {
+  const profileRoute = readText("app/api/profiles/[residentKey]/route.ts");
+  const profileService = readText("lib/pipeline/unified-profile.ts");
+  const profileContracts = readText("lib/pipeline/unified-profile-contracts.ts");
+  const profileView = readText("components/pipeline/ClientProfileView.tsx");
+
+  assert(
+    !profileRoute.includes("requireResidentLinkStore"),
+    "Governed Alamo profiles must not be blocked at the route boundary by Pipeline operational storage",
+  );
+  assert(
+    profileRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer", "viewer"])'),
+    "Authenticated roster viewers should be able to open the corresponding governed client profile",
+  );
+  assert(
+    profileContracts.includes('"unavailable" | "unlinked" | "candidate" | "confirmed"') &&
+      profileService.includes("unavailablePipelineProjection") &&
+      profileService.includes("getResidentLinkStoreReadiness"),
+    "Profiles must represent unavailable Pipeline work separately from the governed Alamo client record",
+  );
+  assert(
+    profileView.includes('connection.status === "unavailable" ? null') &&
+      profileView.includes('return "Pipeline work unavailable"'),
+    "Unavailable Pipeline work must be visible without exposing unusable identity-link actions",
   );
 }
 

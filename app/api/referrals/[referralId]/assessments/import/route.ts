@@ -6,8 +6,13 @@ import {
 } from "@/lib/assessment/assessment-store";
 import { createEmptyAssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
 import { validateAssessmentImportRequest } from "@/lib/assessment/assessment-validation";
+import {
+  assessmentClientIdentityErrorResponse,
+  resolveAssessmentClientIdentity,
+} from "@/lib/assessment/assessment-client-identity";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
-import { getReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { withApiLogging } from "@/lib/observability/api-logging";
 
 export const runtime = "nodejs";
@@ -29,8 +34,9 @@ export async function POST(
     const { referralId: rawReferralId } = await context.params;
     const referralId = Number.parseInt(rawReferralId, 10);
     if (!Number.isInteger(referralId) || referralId < 1) return jsonError("referralId is invalid.");
-    const referral = await getReferral(referralId);
-    if (!referral) return jsonError("Referral not found.", 404);
+    const access = await requireReferralAccess(auth.user, referralId);
+    if (!access.ok) return access.response;
+    const referral = access.referral;
 
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
@@ -45,8 +51,11 @@ export async function POST(
     defaults.assessor = auth.user.name;
 
     try {
+      const identity = await resolveAssessmentClientIdentity(request, referralId);
       const result = await importAssessmentExtraction({
         referralId,
+        canonicalClientId: identity.canonicalClientId,
+        residentKey: identity.residentKey,
         assessmentId: validated.value.assessment_id,
         expectedVersion: validated.value.if_match,
         fields: validated.value.fields,
@@ -65,6 +74,8 @@ export async function POST(
       if (!result.ok) return Response.json({ error: "Assessment import is blocked.", ...result }, { status: 422 });
       return Response.json(result, { status: validated.value.assessment_id ? 200 : 201, headers: privateHeaders() });
     } catch (error) {
+      const identityResponse = assessmentClientIdentityErrorResponse(error);
+      if (identityResponse) return identityResponse;
       return jsonError(error instanceof Error ? error.message : "Could not import assessment values.", 400);
     }
   });

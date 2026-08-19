@@ -1,9 +1,11 @@
 import "server-only";
 
+import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getClinicalDataReadiness } from "@/lib/clinical/clinical-data";
 import { getExtractionBackendReadiness } from "@/lib/extraction/backend-config";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
-import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
+import { isAssignedToUser, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
+import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { referralWorklistBuckets } from "@/lib/pipeline/referral-worklist-filter";
 import {
   getReferralStoreReadiness,
@@ -41,8 +43,8 @@ import type {
   SupervisorExceptionSnapshot,
 } from "@/lib/pipeline/operations-types";
 
-export async function getOperationsSnapshot(): Promise<OperationsSnapshot> {
-  const operational = await loadOperationalWork();
+export async function getOperationsSnapshot(user?: PipelineUser): Promise<OperationsSnapshot> {
+  const operational = await loadOperationalWork(user);
   const {
     activeWork,
     now,
@@ -104,9 +106,14 @@ export async function getOperationsSnapshot(): Promise<OperationsSnapshot> {
 
 export async function getMyQueueSnapshot(user: { id: string; name: string }): Promise<MyQueueSnapshot> {
   const { activeWork, now, openRequirements } = await loadOperationalWork();
-  const owner = normalizeOwner(user.name);
-  const ownedWork = activeWork.filter((item) => normalizeOwner(item.owner) === owner);
-  const ownedRequirements = openRequirements.filter((item) => normalizeOwner(item.owner) === owner);
+  const ownedWork = activeWork.filter((item) => isAssignedToUser({
+    ownerId: item.owner_id,
+    owner: item.owner,
+  }, user));
+  const ownedReferralIds = new Set(ownedWork.map((item) => item.referral_id));
+  const ownedRequirements = openRequirements.filter((item) =>
+    ownedReferralIds.has(item.referral_id) && isAssignedToUser({ owner: item.owner }, user),
+  );
   const workByReferral = new Map(ownedWork.map((item) => [item.referral_id, item]));
   const requirementsByReferral = new Map<number, OperationsRequirementItem[]>();
 
@@ -155,8 +162,8 @@ export async function getMyQueueSnapshot(user: { id: string; name: string }): Pr
   };
 }
 
-export async function getReferralWorklistSnapshot(): Promise<ReferralWorklistSnapshot> {
-  const { operational, allItems } = await loadReferralWorklistData();
+export async function getReferralWorklistSnapshot(user?: PipelineUser): Promise<ReferralWorklistSnapshot> {
+  const { operational, allItems } = await loadReferralWorklistData(user);
   const buckets = referralWorklistBuckets.map(({ value }) => value);
   const counts = Object.fromEntries(buckets.map((bucket) => [
     bucket,
@@ -174,8 +181,9 @@ export async function getReferralWorklistSnapshot(): Promise<ReferralWorklistSna
 export async function getReferralWorklistReferrals(
   bucket: ReferralWorklistBucket,
   limit = 200,
+  user?: PipelineUser,
 ) {
-  const { operational, allItems, referralsById } = await loadReferralWorklistData();
+  const { operational, allItems, referralsById } = await loadReferralWorklistData(user);
   const selected = allItems.filter((item) => matchesReferralWorklistBucket(item, bucket));
   const boundedLimit = Math.max(1, Math.min(200, Math.floor(limit)));
   return {
@@ -188,8 +196,8 @@ export async function getReferralWorklistReferrals(
   };
 }
 
-async function loadReferralWorklistData() {
-  const operational = await loadOperationalWork();
+async function loadReferralWorklistData(user?: PipelineUser) {
+  const operational = await loadOperationalWork(user);
   const referralsById = new Map(operational.referrals.map((referral) => [referral.id, referral]));
   const requirementsByReferral = new Map<number, OperationsRequirementItem[]>();
   for (const requirement of operational.openRequirements) {
@@ -284,13 +292,13 @@ export async function getSupervisorExceptionSnapshot(): Promise<SupervisorExcept
   };
 }
 
-async function loadOperationalWork() {
+async function loadOperationalWork(user?: PipelineUser) {
   const referralReadiness = getReferralStoreReadiness();
   let referrals: Referral[] = [];
   let source: OperationsSnapshot["source"] = "unavailable";
 
   if (referralReadiness.ready) {
-    referrals = await loadOperationalReferrals();
+    referrals = await loadOperationalReferrals(user);
     source = "referral_store";
   }
 
@@ -425,10 +433,6 @@ function queueUrgencyRank(urgency: MyQueueUrgency) {
   }[urgency];
 }
 
-function normalizeOwner(value: string) {
-  return normalizeOwnerName(value).toLocaleLowerCase();
-}
-
 function toWorkItem(
   referral: Referral,
   now: Date,
@@ -454,6 +458,7 @@ function toWorkItem(
     client_name: referral.name,
     community: referral.community,
     stage: referral.stage,
+    owner_id: referral.ownerId,
     owner: normalizeOwnerName(referral.owner),
     priority: referral.priority,
     blocker_count: progress.blockers.length,
@@ -474,16 +479,17 @@ function toWorkItem(
   };
 }
 
-async function loadOperationalReferrals() {
+async function loadOperationalReferrals(user?: PipelineUser) {
+  const scope = user ? scopeReferralListOptions(user, {}) : {};
   const [active, accepted] = await Promise.all([
-    loadReferralPages({ activeOnly: true }),
-    loadReferralPages({ stage: "Accepted / Admitted" }),
+    loadReferralPages({ ...scope, activeOnly: true }),
+    loadReferralPages({ ...scope, stage: "Accepted / Admitted" }),
   ]);
   return [...new Map([...active, ...accepted].map((referral) => [referral.id, referral])).values()];
 }
 
 async function loadReferralPages(
-  filter: { activeOnly?: true; stage?: Referral["stage"] },
+  filter: Parameters<typeof listReferrals>[0],
 ) {
   const referrals: Referral[] = [];
   let cursor: string | undefined;

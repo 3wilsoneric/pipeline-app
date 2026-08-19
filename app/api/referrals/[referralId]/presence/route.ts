@@ -7,8 +7,9 @@ import {
   listEditingPresence,
   releaseEditingPresence,
 } from "@/lib/pipeline/editing-presence";
-import { getReferralChangeMetadata, requireReferralStore } from "@/lib/pipeline/referral-store";
+import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { isReferralSection } from "@/lib/pipeline/referral-sections";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,8 @@ export async function GET(
     if (!auth.ok) return auth.response;
     const parsed = await parseReferralId(context);
     if (!parsed.ok) return parsed.response;
-    if (!await getReferralChangeMetadata(parsed.id)) return jsonError("Referral not found.", 404);
+    const access = await requireReferralAccess(auth.user, parsed.id);
+    if (!access.ok) return access.response;
 
     const presence = await listEditingPresence(parsed.id);
     return Response.json({
@@ -50,7 +52,8 @@ export async function POST(
     if (!body.ok) return jsonError(body.message, body.status);
     if (!validLeaseId(body.value?.lease_id)) return jsonError("lease_id must be a UUID.");
     if (!body.value?.section || !isReferralSection(body.value.section)) return jsonError("section is invalid.");
-    if (!await getReferralChangeMetadata(parsed.id)) return jsonError("Referral not found.", 404);
+    const access = await requireReferralAccess(auth.user, parsed.id);
+    if (!access.ok) return access.response;
 
     const presence = await heartbeatEditingPresence({
       leaseId: body.value.lease_id,
@@ -77,6 +80,8 @@ export async function DELETE(
     const body = await readJsonBody<PresenceBody>(request);
     if (!body.ok) return jsonError(body.message, body.status);
     if (!validLeaseId(body.value?.lease_id)) return jsonError("lease_id must be a UUID.");
+    const access = await requireReferralAccess(auth.user, parsed.id);
+    if (!access.ok) return access.response;
 
     const released = await releaseEditingPresence(body.value.lease_id, parsed.id, auth.user.id);
     return Response.json({ released }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });

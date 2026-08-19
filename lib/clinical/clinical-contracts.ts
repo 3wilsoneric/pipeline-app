@@ -38,6 +38,7 @@ export type ClinicalCensusResponse = ClinicalMetadata & {
 export type ClinicalResident = {
   resident_id: string;
   resident_key: string;
+  canonical_client_id: string | null;
   /** ElderMark business key. Nullable until the Alamo contract supplies it. */
   resident_number: string | null;
   display_name: string;
@@ -78,6 +79,64 @@ export type ClinicalRosterResponse = ClinicalMetadata & {
 
 export type ClinicalResidentResponse = ClinicalMetadata & {
   resident: ClinicalResident;
+};
+
+export type ClinicalJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ClinicalJsonValue[]
+  | { [key: string]: ClinicalJsonValue };
+
+export type ClinicalClientRecord = { [key: string]: ClinicalJsonValue };
+
+export type ClinicalClientDirectoryItem = {
+  canonical_client_id: string;
+  display_name: string;
+  resident_numbers: string[];
+  current_resident: boolean;
+  community_names: string[];
+  current_community: string | null;
+  unit: string | null;
+  admit_date: string | null;
+  care_level: string | null;
+  episode_count: number;
+};
+
+export type ClinicalClientDatabaseSummary = {
+  dataset: string;
+  version: string | number;
+  baseline_date: string;
+  generated_at: string;
+  client_count: number;
+  field_count: number;
+};
+
+export type ClinicalClientDatabaseDetail = ClinicalClientDatabaseSummary & {
+  fields: string[];
+};
+
+export type ClinicalClientDirectoryResponse = ClinicalMetadata & {
+  clients: ClinicalClientDirectoryItem[];
+  total: number;
+  limit: number;
+  next_cursor: string | null;
+  query: string;
+  community: string | null;
+  client_database: ClinicalClientDatabaseSummary;
+};
+
+export type ClinicalClientDetail = ClinicalClientDirectoryItem & {
+  resident_profile: ClinicalClientRecord | null;
+  resident_profiles: ClinicalClientRecord[];
+  resident_episode_history: ClinicalClientRecord[];
+  enrichment: ClinicalClientRecord;
+};
+
+export type ClinicalClientResponse = ClinicalMetadata & {
+  client: ClinicalClientDetail;
+  client_database: ClinicalClientDatabaseDetail;
 };
 
 export type ClinicalMedicationCommunity = {
@@ -123,6 +182,7 @@ export type ClinicalHealthResponse = {
     qa_approved: boolean;
     census_ready: boolean;
     roster_ready: boolean;
+    client_database_ready: boolean;
     medication_summary_ready: boolean;
   };
 };
@@ -152,6 +212,7 @@ export function parseClinicalHealthResponse(value: unknown): ClinicalHealthRespo
       qa_approved: booleanValue(checks.qa_approved, "checks.qa_approved"),
       census_ready: booleanValue(checks.census_ready, "checks.census_ready"),
       roster_ready: booleanValue(checks.roster_ready, "checks.roster_ready"),
+      client_database_ready: booleanValue(checks.client_database_ready, "checks.client_database_ready"),
       medication_summary_ready: booleanValue(checks.medication_summary_ready, "checks.medication_summary_ready"),
     },
   };
@@ -204,6 +265,49 @@ export function parseClinicalResidentResponse(value: unknown): ClinicalResidentR
   return {
     ...parseMetadata(row),
     resident: parseResident(row.resident, 0),
+  };
+}
+
+export function parseClinicalClientDirectoryResponse(value: unknown): ClinicalClientDirectoryResponse {
+  const row = record(value, "clinical client directory response");
+  const limit = integer(row.limit, "limit", 1, 200);
+  const clients = array(row.clients, "clients").map((client, index) =>
+    parseClientDirectoryItem(client, `clients[${index}]`),
+  );
+  if (clients.length > limit || clients.length > 200) {
+    throw new Error("Clinical client directory response exceeds its declared page size.");
+  }
+  return {
+    ...parseMetadata(row),
+    clients,
+    total: integer(row.total, "total"),
+    limit,
+    next_cursor: nullableString(row.next_cursor, "next_cursor", 2048),
+    query: stringValue(row.query, "query", 128, true),
+    community: nullableString(row.community, "community", 128),
+    client_database: parseClientDatabaseSummary(row.client_database, false),
+  };
+}
+
+export function parseClinicalClientResponse(value: unknown): ClinicalClientResponse {
+  const row = record(value, "clinical client response");
+  const client = record(row.client, "client");
+  return {
+    ...parseMetadata(row),
+    client: {
+      ...parseClientDirectoryItem(client, "client"),
+      resident_profile: client.resident_profile === null
+        ? null
+        : parseClinicalRecord(client.resident_profile, "client.resident_profile"),
+      resident_profiles: array(client.resident_profiles, "client.resident_profiles").map((profile, index) =>
+        parseClinicalRecord(profile, `client.resident_profiles[${index}]`),
+      ),
+      resident_episode_history: array(client.resident_episode_history, "client.resident_episode_history").map((episode, index) =>
+        parseClinicalRecord(episode, `client.resident_episode_history[${index}]`),
+      ),
+      enrichment: parseClinicalRecord(client.enrichment, "client.enrichment"),
+    },
+    client_database: parseClientDatabaseSummary(row.client_database, true),
   };
 }
 
@@ -295,6 +399,9 @@ function parseResident(value: unknown, index: number): ClinicalResident {
   return {
     resident_id: stringValue(row.resident_id, "resident_id", 128),
     resident_key: stringValue(row.resident_key, "resident_key", 256),
+    canonical_client_id: row.canonical_client_id === undefined
+      ? null
+      : nullableString(row.canonical_client_id, "canonical_client_id", 256),
     resident_number: row.resident_number === undefined
       ? null
       : nullableString(row.resident_number, "resident_number", 128),
@@ -316,6 +423,102 @@ function parseResident(value: unknown, index: number): ClinicalResident {
     physician: nullableString(row.physician, "physician"),
     diet: nullableString(row.diet, "diet", 2000),
   };
+}
+
+function parseClientDirectoryItem(value: unknown, label: string): ClinicalClientDirectoryItem {
+  const row = record(value, label);
+  return {
+    canonical_client_id: stringValue(row.canonical_client_id, `${label}.canonical_client_id`, 256),
+    display_name: stringValue(row.display_name, `${label}.display_name`, 400),
+    resident_numbers: boundedStringArray(row.resident_numbers, `${label}.resident_numbers`, 100, 128),
+    current_resident: booleanValue(row.current_resident, `${label}.current_resident`),
+    community_names: boundedStringArray(row.community_names, `${label}.community_names`, 25, 200),
+    current_community: nullableString(row.current_community, `${label}.current_community`, 200),
+    unit: nullableString(row.unit, `${label}.unit`, 200),
+    admit_date: nullableDate(row.admit_date, `${label}.admit_date`),
+    care_level: nullableString(row.care_level, `${label}.care_level`, 500),
+    episode_count: integer(row.episode_count, `${label}.episode_count`, 0, 10000),
+  };
+}
+
+function parseClientDatabaseSummary(
+  value: unknown,
+  includeFields: false,
+): ClinicalClientDatabaseSummary;
+function parseClientDatabaseSummary(
+  value: unknown,
+  includeFields: true,
+): ClinicalClientDatabaseDetail;
+function parseClientDatabaseSummary(
+  value: unknown,
+  includeFields: boolean,
+): ClinicalClientDatabaseSummary | ClinicalClientDatabaseDetail {
+  const row = record(value, "client_database");
+  const version = typeof row.version === "number"
+    ? numberValue(row.version, "client_database.version", 0)
+    : stringValue(row.version, "client_database.version", 128);
+  const summary: ClinicalClientDatabaseSummary = {
+    dataset: stringValue(row.dataset, "client_database.dataset", 256),
+    version,
+    baseline_date: date(row.baseline_date, "client_database.baseline_date"),
+    generated_at: timestamp(row.generated_at, "client_database.generated_at"),
+    client_count: integer(row.client_count, "client_database.client_count", 0, 1_000_000),
+    field_count: integer(row.field_count, "client_database.field_count", 0, 1000),
+  };
+  if (!includeFields) return summary;
+  const fields = boundedStringArray(row.fields, "client_database.fields", 1000, 256);
+  if (fields.length !== summary.field_count) {
+    throw new Error("Clinical client database field metadata is inconsistent.");
+  }
+  return { ...summary, fields };
+}
+
+function parseClinicalRecord(value: unknown, label: string): ClinicalClientRecord {
+  return parseClinicalJsonValue(value, label, 0, true) as ClinicalClientRecord;
+}
+
+function parseClinicalJsonValue(
+  value: unknown,
+  label: string,
+  depth: number,
+  requireObject = false,
+): ClinicalJsonValue {
+  if (depth > 4) throw new Error(`Clinical response has an invalid ${label}.`);
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.length > 20_000) throw new Error(`Clinical response has an invalid ${label}.`);
+    return value;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error(`Clinical response has an invalid ${label}.`);
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (requireObject || value.length > 200) throw new Error(`Clinical response has an invalid ${label}.`);
+    return value.map((entry, index) => parseClinicalJsonValue(entry, `${label}[${index}]`, depth + 1));
+  }
+  if (!value || typeof value !== "object") throw new Error(`Clinical response has an invalid ${label}.`);
+  const entries = Object.entries(value);
+  if (entries.length > 1000) throw new Error(`Clinical response has an invalid ${label}.`);
+  const parsed: ClinicalClientRecord = {};
+  for (const [key, entry] of entries) {
+    if (!key || key.length > 256 || ["__proto__", "constructor", "prototype"].includes(key)) {
+      throw new Error(`Clinical response has an invalid ${label}.`);
+    }
+    parsed[key] = parseClinicalJsonValue(entry, `${label}.${key}`, depth + 1);
+  }
+  return parsed;
+}
+
+function boundedStringArray(
+  value: unknown,
+  label: string,
+  maximumItems: number,
+  maximumLength: number,
+) {
+  const values = array(value, label);
+  if (values.length > maximumItems) throw new Error(`Clinical response has an invalid ${label}.`);
+  return values.map((entry, index) => stringValue(entry, `${label}[${index}]`, maximumLength));
 }
 
 function assertNoMedicationDetailKeys(value: unknown) {

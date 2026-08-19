@@ -22,6 +22,8 @@ GET /api/integrations/pipeline/clinical/health
 GET /api/integrations/pipeline/clinical/census
 GET /api/integrations/pipeline/clinical/roster?q=&community=&limit=&cursor=
 GET /api/integrations/pipeline/clinical/residents/{residentId}
+GET /api/integrations/pipeline/clinical/clients?q=&community=&limit=&cursor=
+GET /api/integrations/pipeline/clinical/clients/{canonicalClientId}
 GET /api/integrations/pipeline/clinical/medications/summary
 ```
 
@@ -57,11 +59,26 @@ Resident IDs are only unique when paired with a community. A bare identifier
 that matches multiple residents returns `409` plus the matching
 community-qualified keys. A missing identifier returns `404`.
 
-Assessment history joins on the ElderMark business key `resident_number`.
-Roster and resident responses may return it as a nullable field while the
-upstream contract is rolling out. Alamo must govern and populate that field
-before Pipeline enables automatic assessment-to-resident joins. Pipeline never
-assumes `resident_id` is an ElderMark resident number and never links by name.
+The roster and resident contracts expose nullable `canonical_client_id` and
+`resident_number`. Alamo separately exposes a protected, bounded client
+directory at `/api/integrations/pipeline/clinical/clients` and client detail at
+`/api/integrations/pipeline/clinical/clients/{canonicalClientId}`. Pipeline
+proxies only the bounded directory projection at `/api/clinical/clients`; it
+never sends the 141-field database in bulk. The authenticated unified profile
+requests one canonical client detail server-to-server and returns only that
+client's enrichment, current profile, and episode history.
+
+Alamo loads the static object referenced by `clientDatabase.path` once per
+pointer identity, indexes it by `canonical_client_id`, and joins it to governed
+resident profile and episode history on that key only. Client search supports
+name, canonical ID, and resident number; client detail returns the complete
+published enrichment record plus current profiles and episode history.
+
+Pipeline assessments attach `canonical_client_id` only after the server resolves
+a reviewed existing-client identity through Alamo. Assessment history preserves
+every dated record, including the August 18 baseline, and prefers canonical ID
+while retaining resident-number/key lookups for compatibility. Neither system
+silently links by name.
 
 Medication output is summary-only: compliance, refusals, and combined
 held/not-given counts by community and portfolio. The Pipeline schema rejects
@@ -201,6 +218,8 @@ PIPELINE_ALAMO_CLIENT_SECRET=<server-only-secret>
 PIPELINE_ALAMO_API_SCOPE=api://<ALAMO_API_APP_ID>/.default
 PIPELINE_CLINICAL_TIMEOUT_MS=10000
 PIPELINE_CLINICAL_MAX_RESPONSE_BYTES=2097152
+PIPELINE_CLIENT_INCREMENTAL_UPDATES_ENABLED=false
+PIPELINE_CLIENT_INCREMENTAL_UPDATES_APPROVAL=
 ```
 
 `PIPELINE_ALAMO_AUTH_MODE=delegated` forwards a request bearer token intended
@@ -209,6 +228,8 @@ for short-lived local verification only and are rejected in production.
 
 No variable above is browser-prefixed. ElderMark credentials must exist only
 in Alamo's governed ingestion environment and must never be copied to Pipeline.
+The two incremental-update variables are intentionally disabled. They prepare
+an approval gate only; no Databricks write worker is active.
 
 ## Readiness And Failure Behavior
 

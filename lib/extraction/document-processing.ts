@@ -19,6 +19,7 @@ import type {
   ReviewFieldRequest,
   ReviewFieldResponse,
 } from "@/lib/extraction/contracts";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 type Actor = { id: string; name: string };
 
@@ -583,7 +584,7 @@ function mapCandidate(packetId: string, row: CandidateRow): FieldCandidate {
 }
 
 function evidenceUrl(packetId: string, fieldKey: string) {
-  return `/api/packets/${packetId}/evidence/${encodeURIComponent(fieldKey)}`;
+  return toPipelinePath(`/api/packets/${packetId}/evidence/${encodeURIComponent(fieldKey)}`);
 }
 
 function contractReviewStatus(value: string): "pending" | "accepted" | "edited" | "rejected" {
