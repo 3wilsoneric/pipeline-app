@@ -1,9 +1,19 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import PipelineAuthProvider from "@/components/auth/PipelineAuthProvider";
 import DesktopRuntime from "@/components/desktop/DesktopRuntime";
 import { isPipelineDesktopEnabled } from "@/lib/desktop/desktop-config";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import "./globals.css";
+
+const pipelineSans = localFont({
+  src: "./fonts/geist-latin.woff2",
+  variable: "--font-pipeline-sans",
+  display: "swap",
+  fallback: ["Arial", "Helvetica", "sans-serif"],
+  adjustFontFallback: "Arial",
+  weight: "100 900",
+});
 
 export const metadata: Metadata = {
   title: "Pipeline",
@@ -18,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className={`${pipelineSans.variable} h-full antialiased`}>
       <body className="min-h-full">
         <PipelineAuthProvider>
           <DesktopRuntime />

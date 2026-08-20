@@ -143,9 +143,22 @@ export function isProtectedPath(pathname: string) {
   );
 }
 
-export function getPipelineAuthReadiness() {
+export function getPipelineAuthReadiness(request?: Request) {
   const mode = getPipelineAuthMode();
   if (isProductionRuntime() && mode !== "entra_jwt") {
+    if (
+      mode === "mock"
+      && process.env.PIPELINE_LOCAL_CERTIFICATION === "true"
+      && request
+      && isMockRequestAllowed(request)
+    ) {
+      return {
+        required: false,
+        mode,
+        ready: true,
+        missing_env: [] as string[],
+      };
+    }
     return {
       required: true,
       mode,

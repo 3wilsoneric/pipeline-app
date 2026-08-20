@@ -78,7 +78,7 @@ for (const absoluteFile of routeFiles) {
       check(`${key} does not apply mutation-origin checks to reads`, !body.includes("requireSameOriginMutation("));
     }
     if (route.includes("/referrals/[referralId]")) {
-      check(`${key} enforces referral-record access`, body.includes("requireReferralAccess("));
+      check(`${key} enforces referral-record access`, enforcesReferralAccess(body));
     }
     if (route.includes("/packets/[packetId]")) {
       check(`${key} enforces packet ownership access`, body.includes("requirePacketAccess("));
@@ -156,6 +156,13 @@ function pipelineRoles(body) {
   const match = body.match(/requirePipelineUser\(\s*request\s*,\s*\[([\s\S]*?)\]\s*\)/);
   if (!match) return [];
   return [...match[1].matchAll(/"(admin|assessment_coordinator|reviewer|viewer)"/g)].map((item) => item[1]);
+}
+
+function enforcesReferralAccess(body) {
+  return body.includes("requireReferralAccess(") || (
+    body.includes("canAccessReferral(auth.user, snapshot.referral)") &&
+    body.includes("getReferralWorkflowSnapshot(")
+  );
 }
 
 function sameItems(actual, expected) {

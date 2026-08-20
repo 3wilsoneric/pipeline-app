@@ -89,7 +89,6 @@ export default function PipelineSearchPanel({
   className?: string;
 }) {
   const [searchText, setSearchText] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState<string>();
   const [result, setResult] = useState<SearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -97,11 +96,6 @@ export default function PipelineSearchPanel({
   const [isFocused, setIsFocused] = useState(autoFocus);
   const [searchNonce, setSearchNonce] = useState(0);
   const submitRequestedRef = useRef(false);
-
-  useEffect(() => {
-    if (!autoFocus) return;
-    window.requestAnimationFrame(() => searchInputRef.current?.focus());
-  }, [autoFocus]);
 
   const visibleSuggestions = suggestedSearches;
   const normalizedQuery = searchText.trim();
@@ -118,7 +112,9 @@ export default function PipelineSearchPanel({
     }
 
     const controller = new AbortController();
-    const delay = submitRequestedRef.current ? 0 : 220;
+    // Keep keystroke coalescing short enough that search still feels immediate.
+    // Superseded requests are aborted below, so a long debounce only adds delay.
+    const delay = submitRequestedRef.current ? 0 : 40;
     submitRequestedRef.current = false;
     const timeout = window.setTimeout(() => {
       setIsSearching(true);
@@ -186,7 +182,7 @@ export default function PipelineSearchPanel({
       <form onSubmit={submitSearch} className={`relative flex items-center bg-transparent ${resting ? "border-b border-[#b3b3b3]" : ""}`}>
         <Search size={resting ? 22 : 20} className="shrink-0 text-[#c4832c]" />
         <input
-          ref={searchInputRef}
+          autoFocus={autoFocus}
           aria-label="Search or ask"
           value={searchText}
           onChange={(event) => {

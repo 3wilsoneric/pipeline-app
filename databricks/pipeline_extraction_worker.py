@@ -15,7 +15,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Iterable
 from urllib.parse import quote, urlparse
 
@@ -34,6 +34,7 @@ SUPPORTED_CONTENT_TYPES = {
     "image/tiff",
     "image/heic",
 }
+UTC = timezone.utc
 DATE_PATTERN = re.compile(r"\b(0?[1-9]|1[0-2])[/\-](0?[1-9]|[12]\d|3[01])[/\-]((?:19|20)\d{2})\b")
 
 

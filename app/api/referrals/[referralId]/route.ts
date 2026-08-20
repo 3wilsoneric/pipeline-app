@@ -16,6 +16,7 @@ import {
   assignedOwnerForPatch,
   requireReferralAccess,
 } from "@/lib/pipeline/referral-access";
+import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
 
 export const runtime = "nodejs";
 
@@ -80,9 +81,13 @@ export async function PATCH(
     if (!patchResult.ok) return jsonError(patchResult.message, patchResult.status);
     const assignment = assignedOwnerForPatch(auth.user, access.referral, patchResult.value.owner);
     if (!assignment.ok) return assignment.response;
+    const knownOwner = patchResult.value.owner !== undefined && !assignment.ownerId
+      ? await resolveKnownPipelineUser(assignment.owner)
+      : null;
     const patch = {
       ...patchResult.value,
       ...(patchResult.value.owner === undefined ? {} : assignment),
+      ...(knownOwner ? { owner: knownOwner.name, ownerId: knownOwner.id } : {}),
     };
     const sectionVersions = validateSectionVersions(
       body.value.if_match_sections,

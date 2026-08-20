@@ -152,6 +152,7 @@ export type ReferralChangeMetadata = {
 };
 
 interface ReferralStore {
+  revision(): Promise<number>;
   list(options?: ReferralListOptions): Promise<ReferralListResult>;
   facets(query?: string, access?: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames">): Promise<ReferralFacets>;
   get(id: number): Promise<Referral | null>;
@@ -233,6 +234,7 @@ export function getReferralStoreReadiness(): ReferralStoreReadiness {
 }
 
 const localReferralStore: ReferralStore = {
+  revision: getLocalReferralRevision,
   list: listLocalReferrals,
   facets: listLocalReferralFacets,
   get: getLocalReferral,
@@ -247,6 +249,7 @@ const localReferralStore: ReferralStore = {
 };
 
 const postgresReferralStore: ReferralStore = {
+  revision: getPostgresReferralRevision,
   list: listPostgresReferrals,
   facets: listPostgresReferralFacets,
   get: getPostgresReferral,
@@ -269,6 +272,10 @@ function systemActor(): ReferralActor {
 
 export async function listReferrals(options: ReferralListOptions = {}) {
   return getReferralStore().list(options);
+}
+
+export async function getReferralStoreRevision() {
+  return getReferralStore().revision();
 }
 
 export async function listReferralFacets(
@@ -452,6 +459,11 @@ async function listLocalReferrals(
         : undefined,
     generated_at: new Date().toISOString(),
   };
+}
+
+async function getLocalReferralRevision() {
+  await ensureLoaded();
+  return state.revision;
 }
 
 async function listLocalReferralFacets(

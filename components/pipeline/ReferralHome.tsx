@@ -110,9 +110,11 @@ export default function ReferralHome({
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const workflowRefreshInFlight = useRef(false);
+  const referralRevision = useRef(0);
+  const summaryQuery = useRef<string | null>(null);
   const successfulReferralRequest = useRef("");
   const [worklist, setWorklist] = useState<ReferralWorklistSnapshot | null>(null);
-  const [worklistLoading, setWorklistLoading] = useState(true);
+  const [worklistLoading, setWorklistLoading] = useState(false);
   const [worklistError, setWorklistError] = useState("");
   const [showAllTags, setShowAllTags] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -153,19 +155,32 @@ export default function ReferralHome({
     try {
       const params = buildReferralParams(filter, searchTerm, referralCursors[referralPage]);
       requestKey = params.toString();
+      const normalizedSearch = searchTerm.trim();
+      const includeSummary = referralPage === 0 && (background || summaryQuery.current !== normalizedSearch);
       const payload = await fetchPipelineJson<{
         referrals?: Referral[];
         total?: number;
+        revision?: number;
         next_cursor?: string;
         progress?: Record<number, ReferralProgress>;
-      }>(`/api/referrals?${params.toString()}`, { cache: "no-store", signal });
+        facets?: ReferralFacets;
+        file_total?: number;
+      }>(`${includeSummary ? "/api/referrals/directory" : "/api/referrals"}?${params.toString()}`, { cache: "no-store", signal });
       setReferrals(Array.isArray(payload.referrals) ? payload.referrals : []);
       setProgressByReferral(payload.progress ?? {});
       setReferralTotal(typeof payload.total === "number" ? payload.total : 0);
+      if (Number.isSafeInteger(payload.revision) && Number(payload.revision) >= 0) {
+        referralRevision.current = Number(payload.revision);
+      }
       if (filter.kind === "workflow") {
         setWorkflowTotal(typeof payload.total === "number" ? payload.total : 0);
       }
       setReferralNextCursor(payload.next_cursor);
+      if (includeSummary) {
+        setFacets(payload.facets ?? emptyFacets);
+        setAllFileTotal(typeof payload.file_total === "number" ? payload.file_total : 0);
+        summaryQuery.current = normalizedSearch;
+      }
       setLastRefreshedAt(Date.now());
       successfulReferralRequest.current = requestKey;
     } catch (error) {
@@ -195,31 +210,38 @@ export default function ReferralHome({
   useEffect(() => {
     if (filter.kind !== "workflow") return;
     let controller: AbortController | null = null;
-    const refresh = () => {
+    const refresh = async () => {
       if (document.visibilityState !== "visible") return;
       controller?.abort();
       controller = new AbortController();
-      void loadReferrals(controller.signal, true);
+      try {
+        const payload = await fetchPipelineJson<{ changed?: boolean; sequence?: number }>(
+          `/api/referrals/changes?after=${referralRevision.current}`,
+          { cache: "no-store", signal: controller.signal },
+        );
+        if (Number.isSafeInteger(payload.sequence) && Number(payload.sequence) >= 0) {
+          referralRevision.current = Number(payload.sequence);
+        }
+        if (payload.changed) await loadReferrals(controller.signal, true);
+        else setLastRefreshedAt(Date.now());
+      } catch {
+        // The last successful list remains visible; the next heartbeat retries.
+      }
     };
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState === "visible") void refresh();
     };
-    const interval = window.setInterval(refresh, 8000);
-    window.addEventListener("focus", refresh);
+    const interval = window.setInterval(() => void refresh(), 3000);
+    const refreshOnFocus = () => void refresh();
+    window.addEventListener("focus", refreshOnFocus);
     document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
       window.clearInterval(interval);
       controller?.abort();
-      window.removeEventListener("focus", refresh);
+      window.removeEventListener("focus", refreshOnFocus);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [filter.kind, loadReferrals]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void loadWorklist(controller.signal);
-    return () => controller.abort();
-  }, [loadWorklist]);
 
   useEffect(() => {
     if (filter.kind !== "work") return;
@@ -229,33 +251,9 @@ export default function ReferralHome({
   }, [filter.kind, loadWorklist]);
 
   useEffect(() => {
-    setReferralPage(0);
-    setReferralCursors([""]);
+    setReferralPage((current) => current === 0 ? current : 0);
+    setReferralCursors((current) => current.length === 1 && current[0] === "" ? current : [""]);
   }, [filter, searchTerm]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const params = new URLSearchParams();
-    if (searchTerm.trim()) params.set("q", searchTerm.trim());
-    fetchPipelineJson<{ facets?: ReferralFacets }>(`/api/referrals/facets?${params.toString()}`, { cache: "no-store", signal: controller.signal })
-      .then((payload) => setFacets(payload.facets ?? emptyFacets))
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, [searchTerm]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    fetchPipelineJson<{ total?: number }>("/api/files?limit=1", { cache: "no-store" })
-      .then((payload: { total?: number } | null) => {
-        if (!cancelled) setAllFileTotal(typeof payload?.total === "number" ? payload.total : 0);
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (filter.kind !== "files") return;
@@ -446,7 +444,7 @@ export default function ReferralHome({
             >
               <CircleAlert size={15} />
               Needs action
-              <span className="ml-2 text-[11px] md:ml-auto">{worklist?.total ?? 0}</span>
+              {worklist ? <span className="ml-2 text-[11px] md:ml-auto">{worklist.total}</span> : null}
             </button>
             <button
               type="button"

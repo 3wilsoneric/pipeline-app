@@ -413,17 +413,17 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
     let cancelled = false;
     setProgressLoading(true);
     if (usesServerReferralDrafts()) setDraftRecoveryLoading(true);
-    Promise.all([
-      fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}`, { cache: "no-store" }).catch(() => null),
-      fetchPipelineJson<ReferralProgress>(`/api/referrals/${referral.id}/progress`, { cache: "no-store" }).catch(() => null),
-      fetchPipelineJson<{ decision?: AdmissionDecision | null }>(`/api/referrals/${referral.id}/decision`, { cache: "no-store" }).catch(() => null),
-    ]).then(([recordPayload, progressPayload, decisionPayload]) => {
+    fetchPipelineJson<{
+      referral?: Referral;
+      progress?: ReferralProgress;
+      decision?: AdmissionDecision | null;
+    }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" }).then((canvasPayload) => {
       if (cancelled) return;
-      const savedRecord = (recordPayload as { referral?: Referral } | null)?.referral ?? null;
-      const decision = (decisionPayload as { decision?: AdmissionDecision | null } | null)?.decision;
+      const savedRecord = canvasPayload.referral ?? null;
+      const decision = canvasPayload.decision;
       const record = savedRecord && decision ? { ...savedRecord, admissionDecision: decision } : savedRecord;
       setLoadedReferral(record);
-      setProgress((progressPayload as ReferralProgress | null) ?? null);
+      setProgress(canvasPayload.progress ?? null);
       if (record) {
         recordRecentDestination({
           id: `referral:${record.id}`,
@@ -852,7 +852,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
               fieldsRef.current,
               upload.fields.fields,
               initialPacket.name,
-              new Set(),
+              dirtyKeys,
             )
           : fieldsRef.current;
         const extractedKeys = new Set<PersistedFieldKey>(persistedFieldKeys.filter((key) => (

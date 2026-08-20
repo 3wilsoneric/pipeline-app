@@ -2,6 +2,9 @@
   "name": "pipeline-app",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
@@ -33,6 +36,12 @@
     "check:queries": "node scripts/query-plan-audit.mjs",
     "check:infrastructure": "node scripts/infrastructure-readiness.mjs",
     "check:metrics": "node scripts/operational-metrics-readiness.mjs",
+    "check:performance": "node scripts/pipeline-performance-scorecard.mjs",
+    "check:mcmaster:matrix": "node scripts/mcmaster-certification-matrix.mjs",
+    "check:mcmaster:contracts": "node scripts/mcmaster-performance-contracts.mjs",
+    "check:mcmaster": "npm run check:mcmaster:matrix && npm run check:mcmaster:contracts",
+    "certify:mcmaster:performance": "node scripts/mcmaster-certification-runner.mjs",
+    "certify:mcmaster": "npm run check:mcmaster && npm run check:platform:fast && npm run build && npm run check:artifacts && npm run test:e2e && npm run certify:mcmaster:performance && npm run test:e2e:desktop && npm run test:e2e:cross-browser && npm run test:e2e:visual",
     "check:alerts": "node scripts/alerting-readiness.mjs",
     "check:properties": "node scripts/property-contracts.mjs",
     "check:extraction-quality": "node scripts/extraction-quality-score.mjs",
@@ -60,7 +69,7 @@
     "check:failures": "node scripts/failure-recovery-readiness.mjs",
     "check:chaos": "node scripts/chaos-recovery-replay.mjs",
     "manifest:packets": "node scripts/create-batch-manifest.mjs",
-    "start": "next start",
+    "start": "node scripts/start-standalone.mjs",
     "test:e2e": "playwright test",
     "test:e2e:desktop": "PIPELINE_NEXT_DIST_DIR=.next-desktop-e2e PIPELINE_DESKTOP_E2E=true PORT=3189 playwright test tests/e2e/desktop-readiness.spec.ts --project=chromium",
     "test:e2e:cross-browser": "PIPELINE_CROSS_BROWSER=true playwright test tests/e2e/cross-browser-smoke.spec.ts",

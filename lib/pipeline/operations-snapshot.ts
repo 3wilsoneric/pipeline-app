@@ -45,6 +45,25 @@ import type {
 
 export async function getOperationsSnapshot(user?: PipelineUser): Promise<OperationsSnapshot> {
   const operational = await loadOperationalWork(user);
+  return buildOperationsSnapshot(operational);
+}
+
+export async function getOperationsDashboardSnapshot(
+  user: PipelineUser,
+  includeSupervisorQueue: boolean,
+) {
+  const operational = await loadOperationalWork(user);
+  return {
+    snapshot: buildOperationsSnapshot(operational),
+    supervisorQueue: includeSupervisorQueue
+      ? await buildSupervisorExceptionSnapshot(operational)
+      : null,
+  };
+}
+
+function buildOperationsSnapshot(
+  operational: Awaited<ReturnType<typeof loadOperationalWork>>,
+): OperationsSnapshot {
   const {
     activeWork,
     now,
@@ -220,6 +239,12 @@ function matchesReferralWorklistBucket(item: ReferralWorklistItem, bucket: Refer
 
 export async function getSupervisorExceptionSnapshot(): Promise<SupervisorExceptionSnapshot> {
   const operational = await loadOperationalWork();
+  return buildSupervisorExceptionSnapshot(operational);
+}
+
+async function buildSupervisorExceptionSnapshot(
+  operational: Awaited<ReturnType<typeof loadOperationalWork>>,
+): Promise<SupervisorExceptionSnapshot> {
   const items: SupervisorExceptionItem[] = [];
   const referralById = new Map(operational.referrals.map((referral) => [referral.id, referral]));
 

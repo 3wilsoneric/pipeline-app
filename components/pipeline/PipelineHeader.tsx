@@ -11,7 +11,7 @@ import { fetchCurrentPipelineUser, type PipelineCurrentUser } from "@/lib/auth/a
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { getAccountDisplayName } from "@/lib/auth/entra-client";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
-import { toPipelinePath } from "@/lib/pipeline/base-path";
+import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/client-navigation";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 
 const ALAMO_PLATFORM_URL = (process.env.NEXT_PUBLIC_ALAMO_PLATFORM_URL?.trim() || "https://www.alamoplatform.com")
@@ -23,9 +23,10 @@ export default function PipelineHeader() {
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const activeSearchParams = new URLSearchParams(usePipelineLocationSearch(searchParams.toString()));
   const auth = usePipelineAuth();
   const { searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
-  const activeNav = searchOpen ? null : getActiveNavTarget(searchParams, pathname);
+  const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +66,7 @@ export default function PipelineHeader() {
 
   const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : "Eric Wilson");
   const signedInInitials = getInitials(signedInName);
-  const operationsActive = searchParams.get("screen") === "operations";
+  const operationsActive = activeSearchParams.get("screen") === "operations";
 
   const navigateTo = (target: "home" | Exclude<PipelineNavTarget, null> | "operations") => {
     setSearchOpen(false);
@@ -79,7 +80,7 @@ export default function PipelineHeader() {
           : target === "operations"
             ? "/?screen=operations"
             : "/";
-    window.history.pushState(null, "", toPipelinePath(destination));
+    pushPipelineHistory(destination);
   };
 
   return (
