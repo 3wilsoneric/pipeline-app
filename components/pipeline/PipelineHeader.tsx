@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, ArrowRight, LogOut, UserRound } from "lucide-react";
+import { Activity, ArrowLeft, ArrowRight, LogOut, UserRound } from "lucide-react";
 
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
 import UserAvatar from "@/components/pipeline/UserAvatar";
@@ -83,6 +83,16 @@ export default function PipelineHeader() {
   return (
     <header className="relative flex h-[82px] shrink-0 items-center overflow-visible bg-white px-4 sm:px-6 lg:px-8">
       <div className="relative z-10 flex shrink-0 items-center">
+        <div
+          role="img"
+          aria-label="Alamo Platform"
+          data-platform-brand="alamo"
+          className="flex h-12 cursor-default items-center gap-2 whitespace-nowrap text-[17px] font-semibold text-[#595959]"
+        >
+          <ArrowLeft size={16} className="shrink-0" aria-hidden="true" />
+          <span className="hidden sm:inline"><span className="font-black text-[#08745f]">Alamo</span><span className="ml-1">Health</span></span>
+        </div>
+        <span aria-hidden="true" className="mx-4 hidden h-8 w-px bg-[#d9d9d9] sm:block" />
         <button
           type="button"
           onClick={(event) => {
@@ -92,7 +102,8 @@ export default function PipelineHeader() {
           aria-label="Pipeline home"
           title="Pipeline home"
           data-pipeline-home="true"
-          className="flex h-12 items-center whitespace-nowrap px-1 text-[17px] font-black uppercase tracking-[0.12em] text-[#08745f] outline-none transition-colors hover:text-[#111111] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
+          data-platform-page-active="pipeline"
+          className="flex h-12 items-center whitespace-nowrap px-1 text-[16px] font-black text-[#111111] outline-none hover:text-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
         >
           Pipeline
         </button>

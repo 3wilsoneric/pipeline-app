@@ -79,6 +79,7 @@ test.describe("Referral home and packet canvas", () => {
     page,
   }) => {
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Alamo Platform" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
@@ -1371,6 +1372,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Alamo Platform" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
     await expect(page.getByText("Referrals", { exact: true })).toBeVisible();

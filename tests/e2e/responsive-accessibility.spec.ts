@@ -15,6 +15,7 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
+    await expect(page.getByRole("img", { name: "Alamo Platform" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
 
     await page.getByRole("button", { name: "Open search" }).click();
