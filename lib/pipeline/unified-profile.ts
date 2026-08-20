@@ -9,7 +9,6 @@ import { getAssessmentToolCoverage } from "@/lib/assessment/assessment-tool-sche
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import {
   getClinicalClient,
-  getClinicalResident,
   type ClinicalClientDetail,
   type ClinicalResident,
 } from "@/lib/clinical/clinical-data";
@@ -70,12 +69,13 @@ export async function getUnifiedClientProfile(
   user?: PipelineUser,
 ): Promise<UnifiedClientProfileResponse> {
   const clinical = await getClinicalClient(request, canonicalClientId);
-  const resident = await loadCurrentResident(request, clinical.client);
-  const history = resident
-    ? await getClientHistoryForResident(resident.resident_number, resident.date_of_birth)
-    : unavailableHistoricalProjection();
+  const resident = currentResidentFromClient(clinical.client);
   const residentLinkReadiness = getResidentLinkStoreReadiness();
+  const historyPromise = resident
+    ? getClientHistoryForResident(resident.resident_number, resident.date_of_birth)
+    : Promise.resolve(unavailableHistoricalProjection());
   if (!residentLinkReadiness.ready) {
+    const history = await historyPromise;
     return {
       ...clinical,
       resident,
@@ -87,8 +87,13 @@ export async function getUnifiedClientProfile(
     };
   }
 
+  let history = unavailableHistoricalProjection();
   try {
-    const linkResults = await loadClientLinks(clinical.client, resident);
+    const [loadedHistory, linkResults] = await Promise.all([
+      historyPromise,
+      loadClientLinks(clinical.client, resident),
+    ]);
+    history = loadedHistory;
     const links = await filterLinksForUser(linkResults, user);
     const confirmed = links.filter((link) => link.status === "confirmed");
     if (confirmed.length > 1) {
@@ -432,31 +437,60 @@ function dedupeLinks(links: PipelineResidentLink[]) {
   return [...new Map(links.map((link) => [link.link_id, link])).values()];
 }
 
-async function loadCurrentResident(request: Request, client: ClinicalClientDetail) {
+function currentResidentFromClient(client: ClinicalClientDetail): ClinicalResident | null {
   if (!client.current_resident) return null;
-  const residentKey = currentResidentKey(client.resident_profile);
-  if (!residentKey) return null;
-  try {
-    const response = await getClinicalResident(request, residentKey);
-    return response.resident.canonical_client_id === client.canonical_client_id
-      ? response.resident
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function currentResidentKey(profile: ClinicalClientDetail["resident_profile"]) {
+  const profile = client.resident_profile;
   if (!profile) return null;
   const facilityId = scalarString(profile.facility_id);
   const residentId = scalarString(profile.res_number ?? profile.resident_id);
-  return facilityId && residentId ? `${facilityId}:${residentId}` : null;
+  const communityName = client.current_community || scalarString(profile.facility_name);
+  if (!facilityId || !residentId || !communityName) return null;
+  const profileClientId = scalarString(profile.canonical_client_id);
+  if (profileClientId && profileClientId !== client.canonical_client_id) return null;
+
+  return {
+    resident_id: residentId,
+    resident_key: `${facilityId}:${residentId}`,
+    canonical_client_id: client.canonical_client_id,
+    resident_number: residentId,
+    display_name: client.display_name,
+    first_name: null,
+    last_name: null,
+    date_of_birth: isoDateOrNull(client.enrichment.date_of_birth),
+    community_id: facilityId,
+    community_name: communityName,
+    unit: client.unit,
+    age: boundedIntegerOrNull(client.enrichment.age, 0, 125),
+    admit_date: client.admit_date,
+    length_of_stay_days: null,
+    care_level: client.care_level,
+    payor: scalarOrNull(client.enrichment.payor ?? client.enrichment.payer),
+    primary_diagnosis: scalarOrNull(client.enrichment.primary_diagnosis),
+    physician: scalarOrNull(client.enrichment.primary_physician),
+    diet: scalarOrNull(client.enrichment.diet),
+  };
 }
 
 function scalarString(value: unknown) {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return "";
+}
+
+function scalarOrNull(value: unknown) {
+  const normalized = scalarString(value);
+  return normalized || null;
+}
+
+function isoDateOrNull(value: unknown) {
+  const normalized = scalarString(value).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+}
+
+function boundedIntegerOrNull(value: unknown, minimum: number, maximum: number) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : null;
 }
 
 async function loadClientLinks(client: ClinicalClientDetail, resident: ClinicalResident | null) {

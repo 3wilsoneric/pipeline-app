@@ -1573,7 +1573,7 @@ test.describe("Pipeline home", () => {
     const profile = structuredClone(unifiedProfileFixture) as typeof unifiedProfileFixture & {
       client: { enrichment: Record<string, unknown> };
     };
-    profile.client.enrichment.prior_placements = '["Sanitized hospital","Sanitized residential program"]';
+    profile.client.enrichment.prior_setting_enriched_json = '["Sanitized hospital","Sanitized residential program"]';
     const thumbnail = createCanvas(320, 200);
     const thumbnailContext = thumbnail.getContext("2d");
     thumbnailContext.fillStyle = "#f2f8f6";
@@ -1614,12 +1614,12 @@ test.describe("Pipeline home", () => {
     await page.getByRole("button", { name: /Avery Example/ }).click();
     await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
     await expect.poll(async () => (await page.getByTestId("profile-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1200);
-    await expect(page.getByText("Data completeness", { exact: true })).toBeVisible();
+    await expect(page.getByText("Record status", { exact: true })).toBeVisible();
     await expect(page.getByText("Identity and residence", { exact: true })).toBeVisible();
     await expect(page.getByText("Clinical snapshot", { exact: true })).toBeVisible();
     await expect(page.getByText("Pipeline work", { exact: true })).toBeVisible();
     await expect(page.getByText("Assessments", { exact: true })).toBeVisible();
-    await expect(page.getByText("Enhanced client record", { exact: true })).toBeVisible();
+    await expect(page.getByText("Key client context", { exact: true })).toBeVisible();
     await expect(page.getByText("Governed source files", { exact: true })).toBeVisible();
     await expect(page.getByText("Sanitized referral packet.pdf", { exact: true })).toBeVisible();
     await expect(page.getByRole("img", { name: "First-page thumbnail for Sanitized referral packet.pdf" })).toBeVisible();
@@ -1629,7 +1629,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("button", { name: "Choose matching referral" })).toBeVisible();
     await expect(page.getByText("Open referral packet", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
-    await page.getByText("Placement and referral", { exact: true }).click();
+    await expect(page.getByText("Placement and coverage", { exact: true })).toBeVisible();
     await expect(page.getByText("Sanitized hospital", { exact: true })).toBeVisible();
     await expect(page.getByText("Sanitized residential program", { exact: true })).toBeVisible();
     await expect(page.getByText('["Sanitized hospital","Sanitized residential program"]', { exact: true })).toHaveCount(0);

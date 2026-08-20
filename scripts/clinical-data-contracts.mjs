@@ -159,7 +159,8 @@ const results = await Promise.all([
     const unifiedProfile = read("lib/pipeline/unified-profile.ts");
     assert(unifiedProfile.includes('import "server-only"'), "Unified profile assembly must remain server-only");
     assert(unifiedProfile.includes("getClinicalClient"), "Unified profiles must start from the governed canonical client database");
-    assert(unifiedProfile.includes("getClinicalResident"), "Current clients must retain the governed census resident projection");
+    assert(unifiedProfile.includes("currentResidentFromClient"), "Current clients must retain the governed current-stay projection");
+    assert(!unifiedProfile.includes("getClinicalResident"), "A client profile must not wait on a redundant second Alamo request");
     assert(unifiedProfile.includes("filterLinksForUser"), "Profile identity links must be scoped to the signed-in assessor");
     assert(unifiedProfile.includes("canAccessReferral(user, referral)"), "Profile work must enforce stable referral ownership");
     const profileRoute = read("app/api/profiles/[residentKey]/route.ts");
@@ -177,6 +178,9 @@ const results = await Promise.all([
     assert(unifiedProfile.includes("will not be matched by name"), "Unlinked profiles must reject implicit name matching");
     assert(!profileDirectory.includes("/api/clients"), "Referral-backed client profiles must not populate the governed directory");
     assert(!profileView.includes("/api/clients"), "Resident detail must not use the referral store");
+    assert(profileView.includes("Key client context"), "Profiles must present a curated operational client summary");
+    assert(!profileView.includes("Data completeness"), "Profiles must not lead with engineering completeness metadata");
+    assert(!profileView.includes("Object.entries(episode)"), "Episode history must not render raw governed records");
     assert(!existsSync(path.join(root, "app/api/clients/route.ts")), "The alternate client-profile API must remain removed");
     const envExample = read(".env.example");
     assert(

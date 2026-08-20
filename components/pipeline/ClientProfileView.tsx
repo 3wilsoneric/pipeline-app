@@ -2,8 +2,8 @@
 
 /* eslint-disable @next/next/no-img-element -- Private no-store thumbnails require the signed-in browser request. */
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, CircleAlert, Database, ExternalLink, FileText, ImageOff, Link2, Search, UserRound, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, Check, CircleAlert, ExternalLink, FileText, ImageOff, Link2, Search, UserRound, X } from "lucide-react";
 
 import type {
   ClinicalClientRecord,
@@ -131,7 +131,6 @@ function ResidentProfile({
   const client = profile.client;
   const resident = profile.resident;
   const history = profile.history ?? UNAVAILABLE_CLIENT_HISTORY;
-  const completeness = useMemo(() => getCompleteness(profile), [profile]);
 
   return (
     <main aria-label={`Client profile for ${client.display_name}`} className="h-full overflow-y-auto bg-white text-[#111111]">
@@ -166,10 +165,10 @@ function ResidentProfile({
         </header>
 
         <section className="mt-4 grid gap-px border-b border-[#d9d9d9] bg-[#d9d9d9] md:grid-cols-4" aria-label="Profile summary">
-          <Metric label="Enhanced fields" value={`${completeness.complete} / ${completeness.total}`} detail={`${completeness.percent}% populated`} />
           <Metric label="Resident number" value={client.resident_numbers[0] || "Not reported"} detail={client.resident_numbers.length > 1 ? `${client.resident_numbers.length} recorded identifiers` : "Governed identifier"} />
-          <Metric label="Current status" value={client.current_resident ? "Current resident" : "Historical client"} detail={client.current_community || client.community_names.at(-1) || "Community not reported"} />
-          <Metric label="Episodes" value={String(client.episode_count)} detail={`Baseline ${formatDate(profile.client_database.baseline_date)}`} />
+          <Metric label="Community" value={client.current_community || client.community_names.at(-1) || "Not reported"} detail={client.unit ? `Unit ${client.unit}` : client.current_resident ? "Current resident" : "Historical client"} />
+          <Metric label="Admitted" value={formatDate(client.admit_date)} detail={client.care_level || "Care level not reported"} />
+          <Metric label="Recorded stays" value={String(client.episode_count)} detail={client.current_resident ? "Includes current stay" : "Historical record"} />
         </section>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(310px,0.65fr)]">
@@ -196,8 +195,8 @@ function ResidentProfile({
               </ProfileSection>
             ) : null}
 
-            <ProfileSection title="Enhanced client record" detail={`${profile.client_database.field_count} governed fields · baseline ${formatDate(profile.client_database.baseline_date)}`}>
-              <EnhancedClientRecord profile={profile} />
+            <ProfileSection title="Key client context" detail="Most relevant verified history and clinical details">
+              <KeyClientContext client={client} />
             </ProfileSection>
 
             {client.source_documents.length > 0 ? (
@@ -238,48 +237,14 @@ function ResidentProfile({
           </div>
 
           <aside className="min-w-0 space-y-5">
-            <ProfileSection title="Data completeness" detail={`${completeness.complete} of ${completeness.total}`}>
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <div className="text-[30px] font-black text-[#111111]">{completeness.percent}%</div>
-                  <div className="mt-1 text-[11px] text-[#737373]">Enhanced fields populated</div>
-                </div>
-                <div className="text-right text-[10px] font-black uppercase text-[#737373]">
-                  {completeness.total - completeness.complete} missing
-                </div>
-              </div>
-              <div className="mt-4 h-2 bg-[#e8eeeb]"><div className="h-full bg-[#0f8b73]" style={{ width: `${completeness.percent}%` }} /></div>
-              <div className="mt-5 space-y-3">
-                {completeness.total - completeness.complete > 0 ? (
-                  <div className="flex items-start gap-2 text-[12px] text-[#6d5428]">
-                    <CircleAlert size={15} className="mt-0.5 shrink-0 text-[#b07b21]" />
-                    <span>{completeness.total - completeness.complete} enhanced fields are not reported in the baseline.</span>
-                  </div>
-                ) : null}
-                {completeness.complete === completeness.total ? (
-                  <div className="flex items-start gap-2 text-[12px] text-[#356759]">
-                    <Check size={15} className="mt-0.5 shrink-0 text-[#0f8b73]" />
-                    <span>All governed fields are available.</span>
-                  </div>
-                ) : null}
-              </div>
-            </ProfileSection>
-
-            <ProfileSection title="Source">
-              <div className="flex gap-3">
-                <Database size={17} className="mt-0.5 shrink-0 text-[#0f8b73]" />
-                <div className="space-y-3 text-[12px] text-[#595959]">
-                  <div><span className="font-black text-[#111111]">Alamo Platform</span><br />Governed enhanced client database</div>
-                  <div>Data through {formatDate(profile.data_as_of)}</div>
-                  <div>Freshness: {profile.freshness.status}</div>
-                  <div>Database version: {String(profile.client_database.version)}</div>
-                  {history.data_as_of ? (
-                    <div className="border-t border-[#d9d9d9] pt-3">
-                      Placement history through {formatDate(history.data_as_of)}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+            <ProfileSection title="Record status">
+              <dl className="space-y-4 text-[12px]">
+                <StatusPoint label="Client status" value={client.current_resident ? "Current resident" : "Historical client"} />
+                <StatusPoint label="Clinical data through" value={formatDate(profile.data_as_of)} />
+                <StatusPoint label="Profile baseline" value={formatDate(profile.client_database.baseline_date)} />
+                <StatusPoint label="Attached source files" value={String(client.source_documents.length)} />
+                {history.data_as_of ? <StatusPoint label="Placement history through" value={formatDate(history.data_as_of)} /> : null}
+              </dl>
             </ProfileSection>
           </aside>
         </div>
@@ -303,33 +268,69 @@ const UNAVAILABLE_CLIENT_HISTORY: ClientHistoryProjection = {
   episodes: [],
 };
 
-function EnhancedClientRecord({ profile }: { profile: UnifiedClientProfileResponse }) {
-  const groups = useMemo(
-    () => groupEnhancedFields(profile.client_database.fields, profile.client.enrichment),
-    [profile.client.enrichment, profile.client_database.fields],
-  );
+type CuratedClinicalField = { label: string; keys: string[] };
+
+const CURATED_CLIENT_CONTEXT: Array<{ name: string; fields: CuratedClinicalField[] }> = [
+  {
+    name: "Placement and coverage",
+    fields: [
+      { label: "Prior setting", keys: ["prior_setting_enriched_json", "prior_setting_bucket", "structured_prior_setting_buckets_json", "previous_living_status_values_json"] },
+      { label: "Referring facility", keys: ["referring_facilities_enriched_json", "referring_facility"] },
+      { label: "County", keys: ["county_enriched_json", "county"] },
+      { label: "Payor", keys: ["payer_values_enriched_json", "payer_values_json"] },
+      { label: "Discharge destination", keys: ["discharge_destination_values_json"] },
+    ],
+  },
+  {
+    name: "Clinical and safety",
+    fields: [
+      { label: "Primary diagnosis", keys: ["primary_diagnosis"] },
+      { label: "Other diagnoses", keys: ["diagnoses_enriched_json", "structured_diagnoses_json", "secondary_diagnoses"] },
+      { label: "Active allergies", keys: ["active_allergies_json"] },
+      { label: "Active medications", keys: ["active_medication_count"] },
+      { label: "Psychotropic medications", keys: ["active_psychotropic_medication_count"] },
+      { label: "Substance use", keys: ["substance_use_enriched_json", "substance_use", "substances"] },
+      { label: "Conservatorship", keys: ["conservatorship_enriched_json", "conservatorship", "conservatorship_type"] },
+      { label: "Code status", keys: ["code_status_values_json"] },
+    ],
+  },
+  {
+    name: "Personal and care contacts",
+    fields: [
+      { label: "Date of birth", keys: ["date_of_birth"] },
+      { label: "Primary language", keys: ["primary_language_values_json"] },
+      { label: "Primary physician", keys: ["primary_physician_values_json"] },
+      { label: "Advance directive", keys: ["advance_directive_values_json"] },
+      { label: "Emergency contacts", keys: ["emergency_contact_count"] },
+      { label: "Legal contacts", keys: ["legal_contact_count"] },
+    ],
+  },
+];
+
+function KeyClientContext({ client }: { client: UnifiedClientProfileResponse["client"] }) {
+  const groups = CURATED_CLIENT_CONTEXT.flatMap((group) => {
+    const fields = group.fields.flatMap((field) => {
+      const selected = selectClinicalField(client.enrichment, field);
+      return selected ? [{ ...field, ...selected }] : [];
+    });
+    return fields.length > 0 ? [{ name: group.name, fields }] : [];
+  });
+
+  if (groups.length === 0) {
+    return <div className="text-[12px] text-[#737373]">No additional verified client context is available yet.</div>;
+  }
 
   return (
-    <div className="space-y-3">
-      <div className="border-l-2 border-[#0f8b73] bg-[#f2f8f6] px-4 py-3 text-[11px] leading-5 text-[#315b51]">
-        This is the QA-approved {formatDate(profile.client_database.baseline_date)} baseline joined on the immutable canonical client identifier. Missing values remain visibly unreported and are never inferred.
-      </div>
-      {groups.map((group, index) => (
-        <details key={group.name} open={index === 0} className="border-b border-[#d9d9d9]">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-3 text-[11px] font-black uppercase tracking-[0.08em] text-[#0f8b73]">
-            <span>{group.name}</span>
-            <span className="text-[10px] text-[#737373]">{group.populated} of {group.fields.length} populated</span>
-          </summary>
-          <div className="grid gap-x-7 gap-y-5 pb-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="space-y-6">
+      {groups.map((group) => (
+        <section key={group.name}>
+          <h3 className="border-b border-[#d9d9d9] pb-2 text-[11px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">{group.name}</h3>
+          <div className="mt-4 grid gap-x-7 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
             {group.fields.map((field) => (
-              <ClinicalDataPoint
-                key={field.key}
-                fieldKey={field.key}
-                value={field.value}
-              />
+              <ClinicalDataPoint key={field.label} label={field.label} fieldKey={field.key} value={field.value} />
             ))}
           </div>
-        </details>
+        </section>
       ))}
     </div>
   );
@@ -360,9 +361,12 @@ function GovernedEpisodeHistory({ episodes }: { episodes: ClinicalClientRecord[]
               </span>
             </summary>
             <div className="grid gap-x-7 gap-y-5 pb-5 sm:grid-cols-2 xl:grid-cols-3">
-              {Object.entries(episode).map(([key, value]) => (
-                <ClinicalDataPoint key={key} fieldKey={key} value={value} />
-              ))}
+              {EPISODE_CONTEXT_FIELDS.flatMap((field) => {
+                const selected = selectClinicalField(episode, field);
+                return selected ? [
+                  <ClinicalDataPoint key={field.label} label={field.label} fieldKey={selected.key} value={selected.value} />,
+                ] : [];
+              })}
             </div>
           </details>
         );
@@ -371,45 +375,21 @@ function GovernedEpisodeHistory({ episodes }: { episodes: ClinicalClientRecord[]
   );
 }
 
-function groupEnhancedFields(fields: string[], enrichment: ClinicalClientRecord) {
-  const ordered = [
-    "Identity",
-    "Placement and referral",
-    "History and trajectory",
-    "Functional and clinical",
-    "Legal and conservatorship",
-    "Social and support",
-    "Medication at intake",
-    "Substance use",
-    "Assessment notes",
-    "Other",
-  ];
-  const groups = new Map(ordered.map((name) => [name, [] as { key: string; value: ClinicalJsonValue | undefined }[]]));
-  for (const key of fields) {
-    groups.get(enhancedFieldGroup(key))!.push({ key, value: enrichment[key] });
-  }
-  return ordered.flatMap((name) => {
-    const groupedFields = groups.get(name) ?? [];
-    return groupedFields.length === 0 ? [] : [{
-      name,
-      fields: groupedFields,
-      populated: groupedFields.filter((field) => hasReadableClinicalValue(field.value, field.key)).length,
-    }];
-  });
-}
+const EPISODE_CONTEXT_FIELDS: CuratedClinicalField[] = [
+  { label: "Status", keys: ["resident_status", "status"] },
+  { label: "Prior setting", keys: ["prior_setting_bucket", "prior_setting"] },
+  { label: "Referring facility", keys: ["referring_facility", "facility_canonical"] },
+  { label: "Primary diagnosis", keys: ["primary_diagnosis"] },
+  { label: "Conservatorship", keys: ["conservatorship"] },
+  { label: "Discharge reason", keys: ["discharge_reason"] },
+];
 
-function enhancedFieldGroup(key: string) {
-  const normalized = key.toLowerCase();
-  if (/(name|client_id|resident_number|birth|gender|language|identity)/.test(normalized)) return "Identity";
-  if (/(referr|prior_setting|prior_placement|source_file|match_confidence|county)/.test(normalized)) return "Placement and referral";
-  if (/(hospital|5150|5250|crisis|emergency|\ber\b|awol|trajectory|episode|utilization|failed_placement)/.test(normalized)) return "History and trajectory";
-  if (/(adl|mobility|behavior|trigger|risk|cognition|orientation|diagnos|clinical|functional|elopement|aggression|suicid|homicid)/.test(normalized)) return "Functional and clinical";
-  if (/(conserv|legal|court|probation|parole|justice|hold_type)/.test(normalized)) return "Legal and conservatorship";
-  if (/(family|housing|benefit|income|support|discharge_goal|living_situation|social)/.test(normalized)) return "Social and support";
-  if (/(medication|meds_|adherence|injectable|\blai\b|\bprn\b)/.test(normalized)) return "Medication at intake";
-  if (/(substance|alcohol|drug|treatment_history)/.test(normalized)) return "Substance use";
-  if (/(assessment_note|full_text|notes)/.test(normalized)) return "Assessment notes";
-  return "Other";
+function selectClinicalField(record: ClinicalClientRecord, field: CuratedClinicalField) {
+  for (const key of field.keys) {
+    const value = record[key];
+    if (hasReadableClinicalValue(value, key)) return { key, value };
+  }
+  return null;
 }
 
 function firstClinicalText(record: ClinicalClientRecord, keys: string[]) {
@@ -1059,18 +1039,6 @@ function connectionBadgeClass(status: UnifiedClientProfileResponse["pipeline"]["
   return `${common} border-[#d9d9d9] bg-[#f8f8f8] text-[#737373]`;
 }
 
-function getCompleteness(profile: UnifiedClientProfileResponse) {
-  const total = profile.client_database.fields.length;
-  const complete = profile.client_database.fields.filter((field) =>
-    hasReadableClinicalValue(profile.client.enrichment[field], field),
-  ).length;
-  return {
-    complete,
-    total,
-    percent: total === 0 ? 0 : Math.round((complete / total) * 100),
-  };
-}
-
 function ProfileShell({ children }: { children: React.ReactNode }) {
   return <main className="h-full overflow-y-auto bg-white text-[#111111]"><div className="mx-auto w-full max-w-[1480px] px-4 py-4 sm:px-6 lg:px-8">{children}</div></main>;
 }
@@ -1141,14 +1109,15 @@ function DataPoint({ label, value }: { label: string; value: string | number | n
 }
 
 function ClinicalDataPoint({
+  label,
   fieldKey,
   value,
 }: {
+  label: string;
   fieldKey: string;
   value: ClinicalJsonValue | undefined;
 }) {
   const presentation = presentClinicalValue(value, fieldKey);
-  const label = humanizeClinicalField(fieldKey);
 
   return (
     <div className="min-w-0">
@@ -1176,6 +1145,15 @@ function ClinicalDataPoint({
       ) : (
         <div className="mt-1 break-words text-[13px] font-semibold leading-5 text-[#111111]">{presentation.text}</div>
       )}
+    </div>
+  );
+}
+
+function StatusPoint({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-b border-[#e5e5e5] pb-3 last:border-b-0 last:pb-0">
+      <dt className="text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">{label}</dt>
+      <dd className="mt-1 break-words font-semibold text-[#111111]">{value}</dd>
     </div>
   );
 }
