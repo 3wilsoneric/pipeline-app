@@ -21,6 +21,8 @@ const personalStateWrites = new Set([
 const roleRestrictedReads = new Map([
   ["app/api/operations/supervisor-queue/route.ts#GET", ["admin", "assessment_coordinator"]],
   ["app/api/profiles/[residentKey]/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
+  ["app/api/profiles/[residentKey]/source-documents/[documentId]/thumbnail/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
+  ["app/api/profiles/[residentKey]/source-documents/[documentId]/preview/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
   ["app/api/clinical/clients/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
   ["app/api/clinical/residents/[residentId]/route.ts#GET", ["admin", "assessment_coordinator", "reviewer"]],
 ]);

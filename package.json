@@ -10,6 +10,7 @@
     "check:admissions-zone": "node scripts/admissions-zone-contracts.mjs",
     "check:api": "node scripts/api-behavior-fixtures.mjs",
     "check:clinical": "node scripts/clinical-data-contracts.mjs && node scripts/demo-clinical-snapshot-contracts.mjs && node scripts/client-history-contracts.mjs",
+    "check:clinical-presentation": "node scripts/clinical-value-presentation-contracts.mjs",
     "clinical:demo:import": "node scripts/import-demo-clinical-roster.mjs",
     "client-history:import": "node scripts/import-master-client-history.mjs",
     "data:local:reset-synthetic": "node scripts/reset-local-synthetic-data.mjs",

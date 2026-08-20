@@ -1570,11 +1570,30 @@ test.describe("Pipeline home", () => {
   });
 
   test("opens the Alamo enhanced client directory and governed profile", async ({ page }) => {
+    const profile = structuredClone(unifiedProfileFixture) as typeof unifiedProfileFixture & {
+      client: { enrichment: Record<string, unknown> };
+    };
+    profile.client.enrichment.prior_placements = '["Sanitized hospital","Sanitized residential program"]';
+    const thumbnail = createCanvas(320, 200);
+    const thumbnailContext = thumbnail.getContext("2d");
+    thumbnailContext.fillStyle = "#f2f8f6";
+    thumbnailContext.fillRect(0, 0, 320, 200);
+    thumbnailContext.fillStyle = "#0f8b73";
+    thumbnailContext.fillRect(28, 24, 264, 10);
+    thumbnailContext.fillStyle = "#d9dfdb";
+    thumbnailContext.fillRect(28, 58, 210, 7);
+    thumbnailContext.fillRect(28, 80, 244, 7);
+    thumbnailContext.fillRect(28, 102, 188, 7);
+
     await page.route("**/api/clinical/clients**", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.clients) });
     });
     await page.route("**/api/profiles/**", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(unifiedProfileFixture) });
+      if (route.request().url().includes("/source-documents/")) {
+        await route.fulfill({ status: 200, contentType: "image/png", body: thumbnail.toBuffer("image/png") });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(profile) });
     });
     await page.goto("/");
     await page.waitForLoadState("networkidle");
@@ -1601,12 +1620,19 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Pipeline work", { exact: true })).toBeVisible();
     await expect(page.getByText("Assessments", { exact: true })).toBeVisible();
     await expect(page.getByText("Enhanced client record", { exact: true })).toBeVisible();
+    await expect(page.getByText("Governed source files", { exact: true })).toBeVisible();
+    await expect(page.getByText("Sanitized referral packet.pdf", { exact: true })).toBeVisible();
+    await expect(page.getByRole("img", { name: "First-page thumbnail for Sanitized referral packet.pdf" })).toBeVisible();
     await expect(page.getByText("Resident episode history", { exact: true })).toBeVisible();
     await expect(page.getByText("Pipeline record not linked", { exact: true })).toBeVisible();
     await expect(page.getByText("Pipeline not linked", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Choose matching referral" })).toBeVisible();
     await expect(page.getByText("Open referral packet", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
+    await page.getByText("Placement and referral", { exact: true }).click();
+    await expect(page.getByText("Sanitized hospital", { exact: true })).toBeVisible();
+    await expect(page.getByText("Sanitized residential program", { exact: true })).toBeVisible();
+    await expect(page.getByText('["Sanitized hospital","Sanitized residential program"]', { exact: true })).toHaveCount(0);
   });
 
   test("recovers a client profile after a temporary server failure", async ({ page }) => {

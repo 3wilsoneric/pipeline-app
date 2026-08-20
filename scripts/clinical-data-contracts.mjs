@@ -74,7 +74,16 @@ const results = await Promise.all([
     assert(directory.clients[0].resident_numbers[0] === "R-100", "Expected resident-number search projection");
     assert(detail.client.enrichment.prior_placements === "Sanitized prior placement", "Expected governed enrichment");
     assert(detail.client.resident_episode_history.length === 2, "Expected canonical episode history join");
+    assert(detail.client.source_documents.length === 1, "Expected governed client-document metadata");
+    assert(detail.client.source_documents[0].thumbnail_available === true, "Expected explicit thumbnail readiness");
     assert(detail.client_database.baseline_date === "2026-08-18", "Expected immutable baseline date");
+
+    const legacyDetail = structuredClone(fixture.client);
+    delete legacyDetail.client.source_documents;
+    assert(
+      contracts.parseClinicalClientResponse(legacyDetail).client.source_documents.length === 0,
+      "Older Alamo client payloads must remain backward compatible",
+    );
   }),
   run("enhanced client contract supports the full 141-field schema without guessing values", () => {
     const expanded = structuredClone(fixture.client);
@@ -155,6 +164,15 @@ const results = await Promise.all([
     assert(unifiedProfile.includes("canAccessReferral(user, referral)"), "Profile work must enforce stable referral ownership");
     const profileRoute = read("app/api/profiles/[residentKey]/route.ts");
     assert(profileRoute.includes("}, auth.user)"), "Unified profile assembly must receive the authenticated user");
+    for (const documentRoute of [
+      "app/api/profiles/[residentKey]/source-documents/[documentId]/thumbnail/route.ts",
+      "app/api/profiles/[residentKey]/source-documents/[documentId]/preview/route.ts",
+    ]) {
+      const source = read(documentRoute);
+      assert(source.includes("requirePipelineUser"), `${documentRoute} must require Pipeline identity`);
+      assert(source.includes("withApiLogging"), `${documentRoute} must use PHI-safe route logging`);
+      assert(source.includes("getClinicalClientDocumentAsset"), `${documentRoute} must use the server-only Alamo adapter`);
+    }
     assert(unifiedProfile.includes('link.status === "confirmed"'), "Operational data must require a confirmed resident link");
     assert(unifiedProfile.includes("will not be matched by name"), "Unlinked profiles must reject implicit name matching");
     assert(!profileDirectory.includes("/api/clients"), "Referral-backed client profiles must not populate the governed directory");

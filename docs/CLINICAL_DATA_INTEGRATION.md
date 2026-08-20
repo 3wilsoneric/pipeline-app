@@ -218,6 +218,8 @@ PIPELINE_ALAMO_CLIENT_SECRET=<server-only-secret>
 PIPELINE_ALAMO_API_SCOPE=api://<ALAMO_API_APP_ID>/.default
 PIPELINE_CLINICAL_TIMEOUT_MS=10000
 PIPELINE_CLINICAL_MAX_RESPONSE_BYTES=2097152
+PIPELINE_CLINICAL_THUMBNAIL_MAX_BYTES=1048576
+PIPELINE_CLINICAL_DOCUMENT_MAX_BYTES=12582912
 PIPELINE_CLIENT_INCREMENTAL_UPDATES_ENABLED=false
 PIPELINE_CLIENT_INCREMENTAL_UPDATES_APPROVAL=
 ```
@@ -230,6 +232,19 @@ No variable above is browser-prefixed. ElderMark credentials must exist only
 in Alamo's governed ingestion environment and must never be copied to Pipeline.
 The two incremental-update variables are intentionally disabled. They prepare
 an approval gate only; no Databricks write worker is active.
+
+Enhanced client values are normalized only for presentation. JSON-encoded and
+legacy bracket-encoded arrays render as readable lists, status slugs render as
+ordinary labels, and missing values remain `Not reported`; the governed August
+18 source values are not rewritten.
+
+Client detail may include `source_documents`, a bounded metadata list joined by
+`canonical_client_id`. Browser thumbnail and preview requests always terminate
+at authenticated Pipeline routes, which fetch the corresponding private Alamo
+asset server-to-server. Neither response exposes Allo paths, Azure blob paths,
+credentials, or signed storage URLs. The initial publisher is thumbnail-only;
+`preview_available` remains false until full-file disclosure is separately
+approved.
 
 ## Readiness And Failure Behavior
 

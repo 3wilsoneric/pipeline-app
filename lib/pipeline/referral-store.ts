@@ -1456,7 +1456,9 @@ function mapReferralFileRow(row: ReferralFileRow): ReferralFile {
     ...(row.preview_status === "ready" && /^[0-9a-f-]{36}$/i.test(row.id)
       ? {
           previewUrl: toPipelinePath(`/api/files/${row.id}/preview`),
-          ...(Number(row.page_count ?? 0) > 0 ? { thumbnailUrl: toPipelinePath(`/api/files/${row.id}/preview?page=1`) } : {}),
+          ...(Number(row.page_count ?? 0) > 0
+            ? { thumbnailUrl: toPipelinePath(`/api/files/${row.id}/preview?page=1&variant=thumbnail`) }
+            : {}),
         }
       : {}),
   };

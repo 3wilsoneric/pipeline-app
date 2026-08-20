@@ -229,6 +229,18 @@
           "episode_status": "current"
         }
       ],
+      "source_documents": [
+        {
+          "document_id": "doc-sanitized-100",
+          "display_name": "Sanitized referral packet.pdf",
+          "content_type": "application/pdf",
+          "page_count": 4,
+          "linked_at": "2026-08-18T12:00:00.000Z",
+          "link_source": "governed_client_document_link",
+          "thumbnail_available": true,
+          "preview_available": false
+        }
+      ],
       "enrichment": {
         "canonical_client_id": "client-sanitized-100",
         "resident_name": "Avery Example",

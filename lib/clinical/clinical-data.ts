@@ -38,6 +38,7 @@ export type {
   ClinicalClientDirectoryResponse,
   ClinicalClientRecord,
   ClinicalClientResponse,
+  ClinicalClientSourceDocument,
   ClinicalResidentDirectoryResult,
   ClinicalFreshness,
   ClinicalHealthResponse,
@@ -85,6 +86,8 @@ export class ClinicalDataError extends Error {
 const CLINICAL_API_PREFIX = "/api/integrations/pipeline/clinical";
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+const DEFAULT_DOCUMENT_MAX_BYTES = 12 * 1024 * 1024;
+const DEFAULT_THUMBNAIL_MAX_BYTES = 1024 * 1024;
 const MAX_TOKEN_RESPONSE_BYTES = 64 * 1024;
 const clinicalModes: readonly ClinicalDataMode[] = ["disconnected", "demo_snapshot", "alamo_api"];
 const authModes: readonly ClinicalAuthMode[] = ["client_credentials", "delegated", "bearer"];
@@ -254,6 +257,27 @@ export async function getClinicalClient(
   );
 }
 
+export async function getClinicalClientDocumentAsset(
+  request: Request | undefined,
+  canonicalClientId: string,
+  documentId: string,
+  variant: "thumbnail" | "preview",
+) {
+  const normalizedClientId = boundedParameter(canonicalClientId, "canonicalClientId", 256);
+  const normalizedDocumentId = boundedParameter(documentId, "documentId", 256);
+  if (!normalizedClientId || !normalizedDocumentId) {
+    throw new ClinicalDataError(400, "client_document_identifier_invalid", "A client and document identifier are required.");
+  }
+  if (getClinicalDataMode() === "demo_snapshot") {
+    throw new ClinicalDataError(503, "client_document_unavailable", "Governed client files are unavailable in demo mode.");
+  }
+  return requestClinicalAsset(
+    `/clients/${encodeURIComponent(normalizedClientId)}/documents/${encodeURIComponent(normalizedDocumentId)}/${variant}`,
+    request,
+    variant,
+  );
+}
+
 export async function getClinicalMedicationSummary(
   request?: Request,
 ): Promise<ClinicalMedicationSummaryResponse> {
@@ -359,6 +383,84 @@ async function requestClinicalEndpoint<T>(
       throw new ClinicalDataError(503, "clinical_upstream_timeout", "The Alamo Platform clinical request timed out.");
     }
     throw new ClinicalDataError(503, "clinical_upstream_unavailable", "The Alamo Platform clinical API could not be reached.");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function requestClinicalAsset(
+  endpoint: string,
+  request: Request | undefined,
+  variant: "thumbnail" | "preview",
+) {
+  assertClinicalReady();
+  const baseUrl = getAlamoBaseUrl();
+  const authorization = await getUpstreamAuthorization(request);
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    getBoundedIntegerEnv("PIPELINE_CLINICAL_TIMEOUT_MS", DEFAULT_TIMEOUT_MS, 1_000, 30_000),
+  );
+
+  try {
+    const response = await fetch(`${baseUrl}${CLINICAL_API_PREFIX}${endpoint}`, {
+      method: "GET",
+      headers: {
+        Accept: variant === "thumbnail" ? "image/png,image/jpeg,image/webp" : "application/pdf,image/*",
+        Authorization: authorization,
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const payload = await readBoundedJson(response, 64 * 1024);
+      if (response.status === 404) {
+        throw new ClinicalDataError(404, "client_document_not_found", "The governed client file was not found.");
+      }
+      throw upstreamError(response.status, payload);
+    }
+
+    const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+    const allowed = variant === "thumbnail"
+      ? ["image/png", "image/jpeg", "image/webp"].includes(contentType)
+      : contentType === "application/pdf" || ["image/png", "image/jpeg", "image/webp"].includes(contentType);
+    if (!allowed) {
+      throw new ClinicalDataError(502, "client_document_type_invalid", "The governed client file has an unapproved content type.");
+    }
+
+    const maximumBytes = variant === "thumbnail"
+      ? getBoundedIntegerEnv(
+        "PIPELINE_CLINICAL_THUMBNAIL_MAX_BYTES",
+        DEFAULT_THUMBNAIL_MAX_BYTES,
+        64 * 1024,
+        4 * 1024 * 1024,
+      )
+      : getBoundedIntegerEnv(
+        "PIPELINE_CLINICAL_DOCUMENT_MAX_BYTES",
+        DEFAULT_DOCUMENT_MAX_BYTES,
+        1024 * 1024,
+        32 * 1024 * 1024,
+      );
+    const body = await readBoundedBytes(response, maximumBytes);
+    return new Response(body, {
+      status: 200,
+      headers: {
+        "Cache-Control": "private, no-store, max-age=0, must-revalidate",
+        "Content-Disposition": `inline; filename="client-${variant}.${contentType === "application/pdf" ? "pdf" : contentType.split("/")[1]}"`,
+        "Content-Length": String(body.byteLength),
+        "Content-Security-Policy": "sandbox; default-src 'none'",
+        "Content-Type": contentType,
+        Pragma: "no-cache",
+        Vary: "Authorization",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    if (error instanceof ClinicalDataError) throw error;
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ClinicalDataError(503, "client_document_timeout", "The governed client file request timed out.");
+    }
+    throw new ClinicalDataError(503, "client_document_unavailable", "The governed client file could not be reached.");
   } finally {
     clearTimeout(timeout);
   }
@@ -526,6 +628,35 @@ async function readBoundedJson(response: Response, maximumBytes: number): Promis
   } catch {
     throw new ClinicalDataError(502, "clinical_payload_invalid", "The Alamo Platform returned invalid JSON.");
   }
+}
+
+async function readBoundedBytes(response: Response, maximumBytes: number) {
+  const contentLength = Number(response.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > maximumBytes) {
+    throw new ClinicalDataError(502, "client_document_too_large", "The governed client file exceeds its configured size limit.");
+  }
+  if (!response.body) return new Uint8Array();
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    received += chunk.value.byteLength;
+    if (received > maximumBytes) {
+      await reader.cancel();
+      throw new ClinicalDataError(502, "client_document_too_large", "The governed client file exceeds its configured size limit.");
+    }
+    chunks.push(chunk.value);
+  }
+  const body = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
 }
 
 function upstreamError(status: number, payload: unknown) {
