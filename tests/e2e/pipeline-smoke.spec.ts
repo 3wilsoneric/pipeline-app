@@ -309,7 +309,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(identityRequests).toBe(1);
 
     let referralRequests = 0;
-    await page.route(/\/api\/referrals\?/, async (route) => {
+    await page.route(/\/api\/referrals\/directory\?/, async (route) => {
       referralRequests += 1;
       if (referralRequests === 1) {
         await route.fulfill({ status: 503, contentType: "text/plain", body: "gateway unavailable" });
@@ -359,7 +359,7 @@ test.describe("Referral home and packet canvas", () => {
     const rowsBefore = await workflow.getByRole("button").count();
     expect(rowsBefore).toBeGreaterThan(0);
 
-    await page.route(/\/api\/referrals\?/, async (route) => {
+    await page.route(/\/api\/referrals\/directory\?/, async (route) => {
       await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Referral refresh unavailable." }) });
     });
     await page.getByRole("button", { name: "Refresh referral workflow" }).click();
@@ -429,6 +429,28 @@ test.describe("Referral home and packet canvas", () => {
         completion_pct: expect.any(Number),
       });
       expect(worklist.items[0].due_at === null || typeof worklist.items[0].due_at === "string").toBeTruthy();
+    }
+    const firstReferralResponse = await page.request.get("/api/referrals?limit=1");
+    expect(firstReferralResponse.ok()).toBeTruthy();
+    const firstReferral = await firstReferralResponse.json() as { referrals: Array<{ id: number }> };
+    if (firstReferral.referrals[0]) {
+      const activityResponse = await page.request.get(`/api/referrals/${firstReferral.referrals[0].id}/activity`);
+      expect(activityResponse.ok()).toBeTruthy();
+      const activity = await activityResponse.json() as Record<string, unknown>;
+      expect(activity).toMatchObject({
+        events: expect.any(Array),
+        metadata: {
+          contributors: expect.any(Array),
+          assessment: {
+            status: expect.stringMatching(/^(not_started|draft|needs_review|complete)$/),
+            completed_count: expect.any(Number),
+          },
+          timing: {
+            total_minutes: expect.any(Number),
+            decision_recorded: expect.any(Boolean),
+          },
+        },
+      });
     }
     expect((await page.request.get("/api/referrals?cursor=-1")).status()).toBe(400);
     expect((await page.request.get("/api/files?limit=500")).status()).toBe(400);
@@ -855,14 +877,20 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.goto("/?view=referrals");
     await expect(page.getByRole("region", { name: "Referral workflow tracker" })).toBeVisible();
-    const tagFilter = page.getByRole("button", { name: "Filter by tag urgent-review, 1 packet" });
-    if (!await tagFilter.isVisible()) {
-      await page.getByRole("button", { name: /^Show \d+ more$/ }).click();
+    const tagFilter = page.getByRole("button", { name: /^Filter by tag urgent-review, \d+ packets?$/ });
+    const showMoreTags = page.getByRole("button", { name: /^Show \d+ more$/ });
+    await expect.poll(async () => (await tagFilter.count()) + (await showMoreTags.count())).toBeGreaterThan(0);
+    if (await tagFilter.count() === 0) {
+      await showMoreTags.click();
     }
+    await tagFilter.scrollIntoViewIfNeeded();
     await expect(tagFilter).toBeVisible();
     await tagFilter.click();
     await expect(page.getByText(clientName, { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("#urgent-review · #county-intake", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `Open ${clientName} referral packet` })
+        .getByText("#urgent-review · #county-intake", { exact: true }),
+    ).toBeVisible();
     const taggedReferralsResponse = await page.request.get("/api/referrals?tag=urgent-review&limit=25");
     expect(taggedReferralsResponse.status()).toBe(200);
     const taggedReferrals = await taggedReferralsResponse.json() as { referrals: Array<{ tags?: string[] }> };
@@ -1073,6 +1101,11 @@ test.describe("Referral home and packet canvas", () => {
     expect(workItemPayload.work_items.find((item) => item.type === "tb_test")).toMatchObject({ status: "needed", version: 1 });
 
     await page.getByRole("button", { name: "5 Review" }).click();
+    const activityPanel = page.getByRole("region", { name: "Referral ownership and activity" });
+    await expect(activityPanel).toBeVisible();
+    await expect(activityPanel.getByText("Ownership and timing", { exact: true })).toBeVisible();
+    await expect(activityPanel.getByText("Playwright QA", { exact: true }).first()).toBeVisible();
+    await expect(activityPanel.getByText("Assessment time", { exact: true })).toBeVisible();
     const requirementsEditor = page.getByRole("region", { name: "Follow-up requirements" });
     await expect(requirementsEditor).toBeVisible();
     await requirementsEditor.getByRole("button", { name: /TB test result/ }).click();
@@ -1614,24 +1647,28 @@ test.describe("Pipeline home", () => {
     await page.getByRole("button", { name: /Avery Example/ }).click();
     await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
     await expect.poll(async () => (await page.getByTestId("profile-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1200);
-    await expect(page.getByText("Data completeness", { exact: true })).toBeVisible();
-    await expect(page.getByText("Identity and residence", { exact: true })).toBeVisible();
-    await expect(page.getByText("Clinical snapshot", { exact: true })).toBeVisible();
+    await expect(page.getByText("Current resident", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Client information", { exact: true })).toBeVisible();
+    await expect(page.getByText("Personal details", { exact: true })).toBeVisible();
+    await expect(page.getByText("Admission and placement", { exact: true })).toBeVisible();
+    await expect(page.getByText("Clinical overview", { exact: true })).toBeVisible();
+    await expect(page.getByText("Legal and support", { exact: true })).toBeVisible();
     await expect(page.getByText("Pipeline work", { exact: true })).toBeVisible();
-    await expect(page.getByText("Assessments", { exact: true })).toBeVisible();
-    await expect(page.getByText("Enhanced client record", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Assessments", exact: true })).toBeVisible();
     await expect(page.getByText("Governed source files", { exact: true })).toBeVisible();
     await expect(page.getByText("Sanitized referral packet.pdf", { exact: true })).toBeVisible();
     await expect(page.getByRole("img", { name: "First-page thumbnail for Sanitized referral packet.pdf" })).toBeVisible();
-    await expect(page.getByText("Resident episode history", { exact: true })).toBeVisible();
+    await expect(page.getByText("Stay history", { exact: true })).toBeVisible();
+    await expect(page.getByText("Canonical client id", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("client-sanitized-100", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("141 governed fields", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Pipeline record not linked", { exact: true })).toBeVisible();
     await expect(page.getByText("Pipeline not linked", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Choose matching referral" })).toBeVisible();
     await expect(page.getByText("Open referral packet", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
-    await page.getByText("Placement and referral", { exact: true }).click();
-    await expect(page.getByText("Sanitized hospital", { exact: true })).toBeVisible();
-    await expect(page.getByText("Sanitized residential program", { exact: true })).toBeVisible();
+    await expect(page.getByText("Admission and placement", { exact: true })).toBeVisible();
+    await expect(page.getByText("Sanitized hospital · Sanitized residential program", { exact: true })).toBeVisible();
     await expect(page.getByText('["Sanitized hospital","Sanitized residential program"]', { exact: true })).toHaveCount(0);
   });
 

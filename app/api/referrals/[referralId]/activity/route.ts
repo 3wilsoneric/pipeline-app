@@ -1,7 +1,7 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { jsonError } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { listReferralActivity } from "@/lib/pipeline/referral-activity";
+import { getReferralActivitySnapshot } from "@/lib/pipeline/referral-activity";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
@@ -21,9 +21,9 @@ export async function GET(
     if (!Number.isInteger(referralId) || referralId < 1) return jsonError("referralId is invalid.");
     const access = await requireReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
-    const events = await listReferralActivity(referralId);
-    if (!events) return jsonError("Referral not found.", 404);
-    return Response.json({ events }, {
+    const snapshot = await getReferralActivitySnapshot(referralId);
+    if (!snapshot) return jsonError("Referral not found.", 404);
+    return Response.json(snapshot, {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     });
   });

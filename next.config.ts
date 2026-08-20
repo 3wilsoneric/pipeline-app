@@ -37,7 +37,9 @@ const nextConfig: NextConfig = {
   // Pipeline emits its own bounded, redacted request logs. Next's development
   // logger includes raw URLs, which can contain resident or referral keys.
   logging: false,
-  // Keep React Compiler off until interaction hydration is verified against Next 16.
+  // Next 16's stable compiler keeps large chart edits local. Browser journey
+  // tests cover hydration, query-only navigation, drafts, and field input.
+  reactCompiler: true,
   turbopack: {
     root: projectRoot,
   },

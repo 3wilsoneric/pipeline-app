@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const port = process.env.PORT ?? "3000";
-const baseURL = `http://localhost:${port}`;
+const baseURL = `http://127.0.0.1:${port}`;
 const referralStorePath = process.env.PIPELINE_E2E_REFERRAL_STORE_PATH
   ?? `.data/playwright/referrals-${port}.json`;
 const assessmentStorePath = process.env.PIPELINE_E2E_ASSESSMENT_STORE_PATH
@@ -14,6 +14,8 @@ const desktopStateStorePath = process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH
   ?? `.data/playwright/desktop-state-${port}.json`;
 const crossBrowser = process.env.PIPELINE_CROSS_BROWSER === "true";
 const desktopE2E = process.env.PIPELINE_DESKTOP_E2E === "true";
+const prebuiltE2E = process.env.PIPELINE_E2E_PREBUILT === "true";
+const externalE2E = process.env.PIPELINE_E2E_EXTERNAL_SERVER === "true";
 
 process.env.PIPELINE_E2E_REFERRAL_STORE_PATH = referralStorePath;
 process.env.PIPELINE_E2E_ASSESSMENT_STORE_PATH = assessmentStorePath;
@@ -29,19 +31,20 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: [["list"], ["html", { open: "never" }]],
-  snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}{ext}",
+  snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}-{platform}{ext}",
   use: {
     baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
-  webServer: {
-    command: "npm run build && npm run start",
+  webServer: externalE2E ? undefined : {
+    command: prebuiltE2E ? "npm run start" : "npm run build && npm run start",
     url: baseURL,
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: process.env.CI ? 300_000 : 120_000,
     env: {
       ...process.env,
+      HOSTNAME: "127.0.0.1",
       PORT: port,
       PIPELINE_AUTH_MODE: "mock",
       PIPELINE_ALLOW_PRODUCTION_MOCK_AUTH: "true",
@@ -51,6 +54,7 @@ export default defineConfig({
       PIPELINE_MOCK_USER_NAME: "Playwright QA",
       PIPELINE_ADMIN_EMAILS: "playwright@pipeline.local",
       PIPELINE_ALLOWED_EMAILS: "playwright@pipeline.local",
+      PIPELINE_ALLOWED_MUTATION_ORIGINS: `${baseURL},http://localhost:${port}`,
       PIPELINE_ALLOW_LOCAL_REFERRAL_STORE: "true",
       PIPELINE_REFERRAL_STORE_PATH: referralStorePath,
       PIPELINE_ASSESSMENT_STORE_PATH: assessmentStorePath,

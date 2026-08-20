@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const assessmentStore = getAssessmentStoreReadiness();
     const database = getPipelineDatabaseReadiness();
     const residentLinkStore = getResidentLinkStoreReadiness();
-    const auth = getPipelineAuthReadiness();
+    const auth = getPipelineAuthReadiness(request);
     const workspaceState = getUserWorkspaceStateReadiness();
     const databaseConnectionVerified = database.ready
       ? await checkPipelineDatabaseConnection().catch(() => false)

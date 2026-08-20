@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import dynamic from "next/dynamic";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 
+import ClientProfileDirectory from "@/components/pipeline/ClientProfileDirectory";
+import ClientProfileView from "@/components/pipeline/ClientProfileView";
+import OperationsDashboard from "@/components/pipeline/OperationsDashboard";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
+import ReferralHome from "@/components/pipeline/ReferralHome";
+import ReferralPacketCanvas from "@/components/pipeline/ReferralPacketCanvas";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import {
   recordRecentDestination,
@@ -14,33 +18,23 @@ import {
 } from "@/lib/pipeline/recent-destinations";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
-
-const ReferralHome = dynamic(() => import("@/components/pipeline/ReferralHome"), {
-  loading: () => <WorkSurfaceFallback kind="referrals" />,
-});
-const ReferralPacketCanvas = dynamic(() => import("@/components/pipeline/ReferralPacketCanvas"), {
-  loading: () => <WorkSurfaceFallback kind="packet" />,
-});
-const ClientProfileDirectory = dynamic(() => import("@/components/pipeline/ClientProfileDirectory"), {
-  loading: () => <WorkSurfaceFallback kind="profiles" />,
-});
-const ClientProfileView = dynamic(() => import("@/components/pipeline/ClientProfileView"), {
-  loading: () => <WorkSurfaceFallback kind="profile" />,
-});
-const OperationsDashboard = dynamic(() => import("@/components/pipeline/OperationsDashboard"), {
-  loading: () => <WorkSurfaceFallback kind="operations" />,
-});
+import {
+  pushPipelineHistory,
+  replacePipelineHistory,
+  usePipelineLocationSearch,
+} from "@/lib/pipeline/client-navigation";
 
 type PipelineScreen = "home" | "referrals" | "packet" | "profiles" | "profile" | "operations";
 type ReferralSelection = { id: number; name?: string; community?: Referral["community"] };
 
 export default function PipelineOverviewRoute() {
   const { searchTerm, searchOpen, setSearchOpen, homeMode } = usePipelineShell();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const screen = getScreenFromParams(searchParams);
-  const selectedClientId = screen === "profile" ? searchParams.get("clientId") ?? undefined : undefined;
-  const routeReferral = screen === "packet" ? getReferralFromParams(searchParams) : undefined;
+  const locationSearch = usePipelineLocationSearch(searchParams.toString());
+  const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
+  const screen = getScreenFromParams(activeSearchParams);
+  const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
+  const routeReferral = screen === "packet" ? getReferralFromParams(activeSearchParams) : undefined;
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
   const selectedReferral = routeReferral && referralDetails?.id === routeReferral.id
     ? referralDetails
@@ -52,7 +46,7 @@ export default function PipelineOverviewRoute() {
     clientId?: string,
   ) => {
     setSearchOpen(false);
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(activeSearchParams.toString());
     if (nextScreen === "referrals") {
       params.set("view", "referrals");
       params.delete("screen");
@@ -76,7 +70,7 @@ export default function PipelineOverviewRoute() {
     } else {
       params.delete("referralId");
     }
-    router.push(params.size ? `/?${params.toString()}` : "/");
+    pushPipelineHistory(params.size ? `/?${params.toString()}` : "/");
     recordNavigation(nextScreen, referral);
     setReferralDetails(referral);
   };
@@ -133,11 +127,11 @@ export default function PipelineOverviewRoute() {
         referral={selectedReferral}
         onReferralSaved={(savedReferral) => {
           setReferralDetails(savedReferral);
-          const params = new URLSearchParams(searchParams.toString());
+          const params = new URLSearchParams(activeSearchParams.toString());
           params.set("view", "referrals");
           params.set("screen", "packet");
           params.set("referralId", String(savedReferral.id));
-          router.replace(`/?${params.toString()}`);
+          replacePipelineHistory(`/?${params.toString()}`);
         }}
       />
     );
@@ -179,48 +173,6 @@ export default function PipelineOverviewRoute() {
         </div>
       )}
     </div>
-  );
-}
-
-function WorkSurfaceFallback({
-  kind,
-}: {
-  kind: "referrals" | "packet" | "profiles" | "profile" | "operations";
-}) {
-  if (kind === "packet") {
-    return (
-      <main aria-label="Loading referral packet" aria-busy="true" className="h-full overflow-hidden bg-white px-2 pt-3 sm:px-4 lg:px-6">
-        <div className="mx-auto w-full max-w-[1480px] animate-pulse">
-          <div className="flex min-h-[52px] items-center gap-2 border-y border-[#d9d9d9] py-1.5">
-            <div className="h-10 w-36 rounded-md bg-[#e7efeb]" />
-            <div className="h-10 w-52 rounded-md bg-[#f1f3f2]" />
-            <div className="ml-auto h-10 w-32 bg-[#e8ebe9]" />
-          </div>
-          <div className="mt-3 h-[42px] border-y border-[#d9d9d9] bg-[#fafbfa]" />
-          <div className="mt-5 h-4 w-32 rounded bg-[#e8ebe9]" />
-          <div className="mt-4 h-20 border border-[#d9d9d9] bg-[#fafbfa]" />
-          <div className="mt-5 grid gap-px bg-[#d9d9d9] sm:grid-cols-2">
-            <div className="h-24 bg-[#fffde0]" />
-            <div className="h-24 bg-[#fffde0]" />
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <main aria-label={`Loading ${kind}`} aria-busy="true" className="h-full overflow-hidden bg-white px-5 pt-3 md:px-8">
-      <div className="mx-auto w-full max-w-[1240px] animate-pulse">
-        <div className="h-16 border-b border-[#d9d9d9]">
-          <div className="h-5 w-48 rounded bg-[#e8ebe9]" />
-        </div>
-        <div className="mt-3 h-12 w-full border-y border-[#d9d9d9] bg-[#fafbfa]" />
-        <div className="mt-4 grid gap-4 md:grid-cols-[200px_minmax(0,1fr)]">
-          <div className="h-72 bg-[#f7f8f7]" />
-          <div className="h-72 border-y border-[#d9d9d9] bg-[#fafbfa]" />
-        </div>
-      </div>
-    </main>
   );
 }
 

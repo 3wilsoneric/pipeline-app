@@ -18,7 +18,7 @@ export default function PipelineActionNav({
 }) {
   const navSize = "h-11 w-11 px-0 sm:h-[54px] sm:w-[168px] sm:px-3.5";
   const navItem =
-    "group flex shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border-2 outline-none transition-[background-color,border-color,box-shadow,color,transform] duration-300 ease-out hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current";
+    "group flex shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border-2 outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current";
   const labelClass = "hidden sm:inline";
   const inactiveSearch =
     "border-transparent bg-transparent text-[#8a5a10] hover:border-[#c4832c] hover:bg-[#fff3dc] hover:shadow-[0_4px_14px_rgba(196,131,44,0.14)]";
@@ -64,8 +64,6 @@ export default function PipelineActionNav({
         aria-current={active === "referrals" ? "page" : undefined}
         data-active={active === "referrals" ? "true" : undefined}
         title="Referrals"
-        onPointerEnter={preloadReferrals}
-        onFocus={preloadReferrals}
         onClick={() => {
           recordRecentDestination({
             id: "page:referrals",
@@ -103,8 +101,6 @@ export default function PipelineActionNav({
         }}
         aria-label="Open client profiles"
         title="Client profiles"
-        onPointerEnter={preloadProfiles}
-        onFocus={preloadProfiles}
         className={`${navItem} ${navSize} text-[#4b68ad] ${
           active === "profiles"
             ? "border-[#4b68ad] bg-[#eef1ff] shadow-[0_4px_14px_rgba(75,104,173,0.14)]"
@@ -122,8 +118,6 @@ export default function PipelineActionNav({
         aria-current={active === "packet" ? "page" : undefined}
         data-active={active === "packet" ? "true" : undefined}
         title="New referral"
-        onPointerEnter={preloadPacketCanvas}
-        onFocus={preloadPacketCanvas}
         onClick={() => {
           recordRecentDestination({
             id: "page:new-packet",
@@ -147,16 +141,4 @@ export default function PipelineActionNav({
       </button>
     </nav>
   );
-}
-
-function preloadReferrals() {
-  void import("@/components/pipeline/ReferralHome").catch(() => undefined);
-}
-
-function preloadProfiles() {
-  void import("@/components/pipeline/ClientProfileDirectory").catch(() => undefined);
-}
-
-function preloadPacketCanvas() {
-  void import("@/components/pipeline/ReferralPacketCanvas").catch(() => undefined);
 }

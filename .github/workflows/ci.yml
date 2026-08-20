@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm audit --audit-level=high
@@ -47,13 +47,66 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run test:e2e
+      - name: Build the browser-test artifact
+        run: npm run build
+      - name: Run primary browser journeys
+        shell: bash
+        env:
+          HOSTNAME: 127.0.0.1
+          PORT: 3000
+          PIPELINE_AUTH_MODE: mock
+          PIPELINE_ALLOW_PRODUCTION_MOCK_AUTH: "true"
+          PIPELINE_EXTRACTION_BACKEND: mock
+          PIPELINE_ALLOW_PRODUCTION_MOCK_EXTRACTION: "true"
+          PIPELINE_MOCK_USER_EMAIL: playwright@pipeline.local
+          PIPELINE_MOCK_USER_NAME: Playwright QA
+          PIPELINE_ADMIN_EMAILS: playwright@pipeline.local
+          PIPELINE_ALLOWED_EMAILS: playwright@pipeline.local
+          PIPELINE_ALLOWED_MUTATION_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
+          PIPELINE_ALLOW_LOCAL_REFERRAL_STORE: "true"
+          PIPELINE_REFERRAL_STORE_PATH: .data/playwright/referrals-3000.json
+          PIPELINE_ASSESSMENT_STORE_PATH: .data/playwright/assessments-3000.json
+          PIPELINE_RESIDENT_LINK_STORE_PATH: .data/playwright/resident-links-3000.json
+          PIPELINE_LOCAL_DOCUMENT_ROOT: .data/playwright/documents-3000
+          PIPELINE_ENABLE_SYNTHETIC_PROFILES: "true"
+          PIPELINE_WORKER_SHARED_SECRET: playwright-worker-secret
+        run: |
+          set -euo pipefail
+          node scripts/start-standalone.mjs > /tmp/pipeline-browser-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=false
+          for attempt in {1..60}; do
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "Pipeline exited before the browser suite started."
+              tail -200 /tmp/pipeline-browser-server.log
+              exit 1
+            fi
+            if curl --fail --silent --show-error --output /dev/null \
+              http://127.0.0.1:3000/api/health/live; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+
+          if [[ "$ready" != "true" ]]; then
+            echo "Pipeline did not become live within 60 seconds."
+            tail -200 /tmp/pipeline-browser-server.log
+            exit 1
+          fi
+
+          PIPELINE_E2E_EXTERNAL_SERVER=true npm run test:e2e
+      - name: Enforce Pipeline McMaster certification budget
+        run: npm run check:mcmaster && npm run certify:mcmaster:performance
       - run: npm run test:e2e:desktop
       - run: npm run test:e2e:cross-browser
-      - run: npm run test:e2e:visual
+      - name: Enforce Linux visual baselines
+        run: npm run test:e2e:visual
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
@@ -61,6 +114,7 @@ jobs:
           path: |
             playwright-report
             test-results
+            /tmp/pipeline-browser-server.log
           retention-days: 7
 
   postgres:
@@ -103,7 +157,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run database:migrate

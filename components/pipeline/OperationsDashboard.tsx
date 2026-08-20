@@ -29,26 +29,29 @@ export default function OperationsDashboard({
   const [error, setError] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const loadSnapshot = async () => {
+  const loadSnapshot = async (signal?: AbortSignal) => {
     setIsRefreshing(true);
     setError("");
     try {
-      const [payload, queueResult] = await Promise.all([
-        fetchPipelineJson<OperationsSnapshot>("/api/operations/overview", { cache: "no-store" }),
-        fetchPipelineJson<SupervisorExceptionSnapshot>("/api/operations/supervisor-queue", { cache: "no-store" }).catch(() => null),
-      ]);
-      if (!("metrics" in payload)) throw new Error("Operations data is unavailable right now.");
-      setSnapshot(payload);
-      setSupervisorQueue(queueResult);
+      const payload = await fetchPipelineJson<{
+        snapshot?: OperationsSnapshot;
+        supervisor_queue?: SupervisorExceptionSnapshot;
+      }>("/api/operations/dashboard", { cache: "no-store", signal });
+      if (!payload.snapshot || !("metrics" in payload.snapshot)) throw new Error("Operations data is unavailable right now.");
+      setSnapshot(payload.snapshot);
+      setSupervisorQueue(payload.supervisor_queue ?? null);
     } catch (loadError) {
+      if (signal?.aborted) return;
       setError(loadError instanceof Error ? loadError.message : "Operations data is unavailable right now.");
     } finally {
-      setIsRefreshing(false);
+      if (!signal?.aborted) setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    void loadSnapshot();
+    const controller = new AbortController();
+    void loadSnapshot(controller.signal);
+    return () => controller.abort();
   }, []);
 
   const updatedLabel = useMemo(() => {

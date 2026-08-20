@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
@@ -170,26 +170,59 @@ function MyQueue({
 }) {
   const [queue, setQueue] = useState<MyQueueSnapshot | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const queueSequence = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
+    let loading = false;
+    let checking = false;
+    const controller = new AbortController();
     const loadQueue = async () => {
+      if (loading) return;
+      loading = true;
       try {
-        const payload = await fetchPipelineJson<MyQueueSnapshot>("/api/operations/my-queue", { cache: "no-store" });
+        const payload = await fetchPipelineJson<MyQueueSnapshot & { sequence?: number }>("/api/operations/my-queue", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
         if (!cancelled) {
           setQueue(payload);
+          if (Number.isSafeInteger(payload.sequence) && Number(payload.sequence) >= 0) {
+            queueSequence.current = Number(payload.sequence);
+          }
           setLoadFailed(false);
         }
       } catch {
         if (!cancelled) setLoadFailed(true);
+      } finally {
+        loading = false;
       }
     };
-    const refreshOnFocus = () => void loadQueue();
+    const checkForQueueChanges = async () => {
+      if (checking || loading) return;
+      checking = true;
+      try {
+        const change = await fetchPipelineJson<{ changed?: boolean; sequence?: number }>(
+          `/api/referrals/changes?after=${queueSequence.current}`,
+          { cache: "no-store", signal: controller.signal },
+        );
+        if (Number.isSafeInteger(change.sequence) && Number(change.sequence) >= 0) {
+          queueSequence.current = Number(change.sequence);
+        }
+        if (change.changed) await loadQueue();
+      } catch {
+        // Keep the last successful queue and retry on the next heartbeat.
+      } finally {
+        checking = false;
+      }
+    };
+    const refreshOnFocus = () => void checkForQueueChanges();
     void loadQueue();
-    const interval = window.setInterval(loadQueue, 30_000);
+    const interval = window.setInterval(() => void checkForQueueChanges(), 10_000);
     window.addEventListener("focus", refreshOnFocus);
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshOnFocus);
     };

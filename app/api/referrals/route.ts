@@ -14,6 +14,7 @@ import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 import { getReferralWorkflowContexts } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { assignedOwnerForCreate, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
 
 export const runtime = "nodejs";
 
@@ -74,7 +75,12 @@ export async function POST(request: Request) {
     const referralResult = validateReferralCreateInput(body.value.referral);
     if (!referralResult.ok) return jsonError(referralResult.message, referralResult.status);
     const assignment = assignedOwnerForCreate(auth.user, referralResult.value.owner);
-    const referral = { ...referralResult.value, ...assignment };
+    const knownOwner = assignment.ownerId ? null : await resolveKnownPipelineUser(assignment.owner);
+    const referral = {
+      ...referralResult.value,
+      ...assignment,
+      ...(knownOwner ? { owner: knownOwner.name, ownerId: knownOwner.id } : {}),
+    };
 
     if (
       body.value.client_mutation_id !== undefined &&

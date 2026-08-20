@@ -473,6 +473,18 @@ function authBehaviorResults() {
         "The optional base path must not be reported as missing",
       );
     }),
+    run("production mock readiness is restricted to explicitly allowed loopback tests", () => {
+      const auth = loadAuthModule({
+        NODE_ENV: "production",
+        PIPELINE_AUTH_MODE: "mock",
+        PIPELINE_ALLOW_PRODUCTION_MOCK_AUTH: "true",
+        PIPELINE_LOCAL_CERTIFICATION: "true",
+      });
+      const loopback = auth.getPipelineAuthReadiness(new Request("http://127.0.0.1:3198/api/health"));
+      const publicHost = auth.getPipelineAuthReadiness(new Request("https://pipeline.example/api/health"));
+      assert(loopback.ready, "Explicitly allowed loopback certification should be ready");
+      assert(publicHost.ready === false, "Production mock authentication must remain unhealthy on public hosts");
+    }),
   ];
 }
 

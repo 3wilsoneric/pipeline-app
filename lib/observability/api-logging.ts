@@ -54,6 +54,7 @@ export async function withApiLogging(
     });
     const response = createOverloadResponse(capacity, requestId);
     response.headers.set("x-request-id", requestId);
+    response.headers.set("Server-Timing", "app;dur=0");
     return response;
   }
 
@@ -66,16 +67,18 @@ export async function withApiLogging(
 
   try {
     const response = await handler({ requestId });
+    const elapsed = Date.now() - startedAt;
     response.headers.set("x-request-id", requestId);
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
     response.headers.set("Pragma", "no-cache");
+    response.headers.set("Server-Timing", `app;dur=${elapsed}`);
 
     logApi(response.status >= 500 ? "error" : "info", {
       route,
       requestId,
       method: request.method,
       status: response.status,
-      ms: Date.now() - startedAt,
+      ms: elapsed,
       msg: "done",
     });
     recordPipelineMetric("pipeline.api.requests", 1, "count", {
@@ -83,7 +86,7 @@ export async function withApiLogging(
       method: request.method,
       status_class: `${Math.floor(response.status / 100)}xx`,
     });
-    recordPipelineMetric("pipeline.api.duration", Date.now() - startedAt, "milliseconds", {
+    recordPipelineMetric("pipeline.api.duration", elapsed, "milliseconds", {
       route,
       method: request.method,
       status_class: `${Math.floor(response.status / 100)}xx`,
@@ -120,6 +123,7 @@ export async function withApiLogging(
           "x-request-id": requestId,
           "Cache-Control": "private, no-store, max-age=0",
           "Pragma": "no-cache",
+          "Server-Timing": `app;dur=${elapsed}`,
         },
       },
     );

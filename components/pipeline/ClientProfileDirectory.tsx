@@ -7,7 +7,7 @@ import type {
   ClinicalClientDirectoryItem,
   ClinicalFreshness,
 } from "@/lib/clinical/clinical-contracts";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 
 type DirectoryClient = ClinicalClientDirectoryItem;
 
@@ -27,6 +27,14 @@ type CommunityOption = { id: string; name: string };
 const PAGE_SIZE = 200;
 const DISPLAY_INCREMENT = 100;
 const MAX_DIRECTORY_PAGES = 50;
+const DIRECTORY_CACHE_TTL_MS = 30_000;
+const MAX_DIRECTORY_CACHE_ENTRIES = 2;
+
+type DirectoryCacheEntry = ClientDirectoryPayload & {
+  cached_at: number;
+};
+
+const directoryCache = new Map<string, DirectoryCacheEntry>();
 
 export default function ClientProfileDirectory({
   onOpenProfile,
@@ -50,6 +58,7 @@ export default function ClientProfileDirectory({
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("last_6_months");
   const [profileDataFilter, setProfileDataFilter] = useState<ProfileDataFilter>("missing_any");
   const loadedQuery = useRef("");
+  const forceReload = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,6 +74,20 @@ export default function ClientProfileDirectory({
 
       void (async () => {
         try {
+          const identity = await fetchCurrentPipelineUser();
+          if (controller.signal.aborted) return;
+          const cacheKey = directoryCacheKey(identity.user?.id ?? identity.user?.email, normalizedQuery);
+          const bypassCache = forceReload.current;
+          forceReload.current = false;
+          const cached = bypassCache ? null : readDirectoryCache(cacheKey);
+          if (cached) {
+            applyDirectoryPayload(cached);
+            loadedQuery.current = normalizedQuery;
+            setDirectoryComplete(true);
+            setIsLoading(false);
+            return;
+          }
+
           let payload = await fetchClientPage(normalizedQuery, null, controller.signal);
           if (controller.signal.aborted) return;
           loadedFirstPage = true;
@@ -100,6 +123,13 @@ export default function ClientProfileDirectory({
           }
 
           setDirectoryComplete(true);
+          writeDirectoryCache(cacheKey, {
+            clients: merged,
+            total: Number.isInteger(payload.total) ? payload.total : merged.length,
+            next_cursor: null,
+            data_as_of: payload.data_as_of ?? "",
+            freshness: payload.freshness,
+          });
         } catch (loadError) {
           if (controller.signal.aborted) return;
           setDirectoryComplete(false);
@@ -122,13 +152,21 @@ export default function ClientProfileDirectory({
           }
         }
       })();
-    }, 180);
+    }, normalizedQuery ? 180 : 0);
 
     return () => {
       window.clearTimeout(timeout);
       controller.abort();
     };
   }, [query, reloadKey]);
+
+  const applyDirectoryPayload = (payload: ClientDirectoryPayload) => {
+    setClients(payload.clients);
+    setTotal(payload.total);
+    setDataAsOf(payload.data_as_of);
+    setFreshness(payload.freshness);
+    setKnownCommunities(collectCommunities(payload.clients));
+  };
 
   const filteredClients = useMemo(
     () => clients.filter((client) => {
@@ -190,7 +228,10 @@ export default function ClientProfileDirectory({
               type="button"
               aria-label="Refresh client directory"
               title="Refresh client directory"
-              onClick={() => setReloadKey((current) => current + 1)}
+              onClick={() => {
+                forceReload.current = true;
+                setReloadKey((current) => current + 1);
+              }}
               disabled={isLoading || isCompletingRoster}
               className="flex h-9 w-9 items-center justify-center border border-[#d9d9d9] text-[#0f8b73] hover:border-[#0f8b73] disabled:text-[#b3b3b3]"
             >
@@ -374,6 +415,32 @@ export default function ClientProfileDirectory({
       </div>
     </main>
   );
+}
+
+function directoryCacheKey(userId: string | undefined, query: string) {
+  return `${(userId ?? "unknown-user").trim().toLowerCase()}\n${query.trim().toLowerCase()}`;
+}
+
+function readDirectoryCache(key: string) {
+  const now = Date.now();
+  for (const [candidateKey, entry] of directoryCache) {
+    if (now - entry.cached_at > DIRECTORY_CACHE_TTL_MS) directoryCache.delete(candidateKey);
+  }
+  const entry = directoryCache.get(key);
+  if (!entry) return null;
+  directoryCache.delete(key);
+  directoryCache.set(key, entry);
+  return entry;
+}
+
+function writeDirectoryCache(key: string, payload: ClientDirectoryPayload) {
+  directoryCache.delete(key);
+  directoryCache.set(key, { ...payload, cached_at: Date.now() });
+  while (directoryCache.size > MAX_DIRECTORY_CACHE_ENTRIES) {
+    const oldest = directoryCache.keys().next().value;
+    if (typeof oldest !== "string") break;
+    directoryCache.delete(oldest);
+  }
 }
 
 function AddFilterButton({
