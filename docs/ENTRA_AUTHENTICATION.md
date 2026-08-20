@@ -71,10 +71,18 @@ No client secret is needed for the browser SPA registration. The server session 
 - Entra enterprise-app assignment is the single admission boundary. App roles
   constrain privileged actions; local identity lists are used only by legacy
   trusted-gateway header mode.
-- The browser stores MSAL state in `sessionStorage` and sends a bearer token through the authenticated fetch helper.
+- MSAL v4 stores encrypted authentication artifacts in `localStorage` so the
+  account and token cache is shared across Pipeline tabs. Temporary redirect
+  state remains in MSAL's default non-persistent storage.
+- The encrypted, HttpOnly Pipeline cookie is the durable same-origin app
+  session. API calls use a fresh bearer when available, fall back to the cookie
+  when the MSAL tab cache is unavailable, and renew the cookie silently while
+  Pipeline is open.
 - Interactive sign-in requests `select_account` so a browser with another active
   Microsoft session cannot silently choose the wrong Pipeline identity.
-- The short-lived HttpOnly Pipeline session cookie is encrypted server-side and is only a continuity mechanism; it is not a replacement for JWT validation.
+- The short-lived HttpOnly Pipeline session cookie is created only after JWT
+  validation and is only a continuity mechanism; it is not a replacement for
+  Entra issuer, audience, scope, role, and assignment validation.
 - Errors are generic and logs never include tokens, query strings, names, diagnoses, medication data, resident IDs, secrets, or upstream response bodies.
 
 ## Deployment order

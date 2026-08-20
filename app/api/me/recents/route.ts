@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   return withApiLogging(request, "/api/me/recents", async () => {
     const auth = await requirePipelineUser(request);
     if (!auth.ok) return auth.response;
-    const readinessFailure = requireDesktopState();
+    const readinessFailure = requireWorkspaceState();
     if (readinessFailure) return readinessFailure;
 
     const records = await listUserWorkspaceState<PipelineRecentDestination>(auth.user.id, "recent_destination", 5);
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
-    const readinessFailure = requireDesktopState();
+    const readinessFailure = requireWorkspaceState();
     if (readinessFailure) return readinessFailure;
 
     const body = await readJsonBody<{ destination?: unknown }>(request);
@@ -76,7 +76,7 @@ export async function DELETE(request: Request) {
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
-    const readinessFailure = requireDesktopState();
+    const readinessFailure = requireWorkspaceState();
     if (readinessFailure) return readinessFailure;
 
     const body = await readJsonBody<{ id?: unknown }>(request);
@@ -89,7 +89,7 @@ export async function DELETE(request: Request) {
   });
 }
 
-function requireDesktopState() {
+function requireWorkspaceState() {
   const readiness = getUserWorkspaceStateReadiness();
   if (readiness.ready) return null;
   return Response.json(

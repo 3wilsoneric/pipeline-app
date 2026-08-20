@@ -50,6 +50,9 @@ credentials, URLs containing secrets, client data, or packet contents.
 - [ ] Disjoint section edits both save; same-section edits produce one winner and explicit conflicts.
 - [ ] Per-user recents and drafts never cross identity boundaries.
 - [ ] Refresh recovery and stale-delete protection preserve the newest draft.
+- [ ] A signed-in user can refresh, open a second tab, and return after an idle
+  period without a false session-ended error; explicit sign-out still clears
+  both the Pipeline cookie and the MSAL account cache.
 
 ## Desktop pilot
 

@@ -1,22 +1,22 @@
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import { isPipelineDesktopEnabled } from "@/lib/desktop/desktop-config";
 import {
   isPipelineRecentDestination,
   type PipelineRecentDestination,
   type RecentDestinationInput,
 } from "@/lib/pipeline/user-workspace-state-types";
+import { usesServerUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-client";
 
 export type { PipelineRecentDestination } from "@/lib/pipeline/user-workspace-state-types";
 
 const storageKey = "pipeline.recent-destinations.v1";
 const changeEvent = "pipeline-recent-destinations";
 const maxRecentDestinations = 5;
-let desktopRecents: PipelineRecentDestination[] = [];
-let desktopRecentsRequest: Promise<PipelineRecentDestination[]> | null = null;
+let serverRecents: PipelineRecentDestination[] = [];
+let serverRecentsRequest: Promise<PipelineRecentDestination[]> | null = null;
 
 export function loadRecentDestinations() {
   if (typeof window === "undefined") return [];
-  if (isPipelineDesktopEnabled()) return desktopRecents;
+  if (usesServerUserWorkspaceState()) return serverRecents;
 
   try {
     const parsed = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "[]") as unknown;
@@ -28,21 +28,21 @@ export function loadRecentDestinations() {
 }
 
 export async function refreshRecentDestinations() {
-  if (typeof window === "undefined" || !isPipelineDesktopEnabled()) return loadRecentDestinations();
-  if (!desktopRecentsRequest) {
-    desktopRecentsRequest = fetchPipelineJson<{ recents?: unknown }>("/api/me/recents", { cache: "no-store" })
+  if (typeof window === "undefined" || !usesServerUserWorkspaceState()) return loadRecentDestinations();
+  if (!serverRecentsRequest) {
+    serverRecentsRequest = fetchPipelineJson<{ recents?: unknown }>("/api/me/recents", { cache: "no-store" })
       .then((payload) => {
-        desktopRecents = Array.isArray(payload.recents)
+        serverRecents = Array.isArray(payload.recents)
           ? payload.recents.filter(isPipelineRecentDestination).slice(0, maxRecentDestinations)
           : [];
         dispatchChange();
-        return desktopRecents;
+        return serverRecents;
       })
       .finally(() => {
-        desktopRecentsRequest = null;
+        serverRecentsRequest = null;
       });
   }
-  return desktopRecentsRequest;
+  return serverRecentsRequest;
 }
 
 export function recordRecentDestination(destination: RecentDestinationInput) {
@@ -55,8 +55,8 @@ export function recordRecentDestination(destination: RecentDestinationInput) {
   const previous = loadRecentDestinations();
   const updated = [next, ...previous.filter((item) => item.id !== next.id)].slice(0, maxRecentDestinations);
 
-  if (isPipelineDesktopEnabled()) {
-    desktopRecents = updated;
+  if (usesServerUserWorkspaceState()) {
+    serverRecents = updated;
     dispatchChange();
     void fetchPipelineJson<{ destination: PipelineRecentDestination }>("/api/me/recents", {
       method: "POST",

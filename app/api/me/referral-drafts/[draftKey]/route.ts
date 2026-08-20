@@ -23,7 +23,7 @@ export async function GET(
   return withApiLogging(request, "/api/me/referral-drafts/[draftKey]", async () => {
     const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
     if (!auth.ok) return auth.response;
-    const readinessFailure = requireDesktopState();
+    const readinessFailure = requireWorkspaceState();
     if (readinessFailure) return readinessFailure;
     const key = await parseDraftKey(context);
     if (!key) return jsonError("draftKey is invalid.");
@@ -45,7 +45,7 @@ export async function PUT(
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
-    const readinessFailure = requireDesktopState();
+    const readinessFailure = requireWorkspaceState();
     if (readinessFailure) return readinessFailure;
     const key = await parseDraftKey(context);
     if (!key) return jsonError("draftKey is invalid.");
@@ -93,7 +93,7 @@ export async function DELETE(
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
-    const readinessFailure = requireDesktopState();
+    const readinessFailure = requireWorkspaceState();
     if (readinessFailure) return readinessFailure;
     const key = await parseDraftKey(context);
     if (!key) return jsonError("draftKey is invalid.");
@@ -128,7 +128,7 @@ async function parseDraftKey(context: { params: Promise<{ draftKey: string }> })
   return draftKey === "new" || /^[1-9]\d{0,15}$/.test(draftKey) ? draftKey : null;
 }
 
-function requireDesktopState() {
+function requireWorkspaceState() {
   const readiness = getUserWorkspaceStateReadiness();
   if (readiness.ready) return null;
   return Response.json(

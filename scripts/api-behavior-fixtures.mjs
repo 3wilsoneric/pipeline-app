@@ -453,6 +453,19 @@ function authBehaviorResults() {
       const readiness = auth.getPipelineAuthReadiness();
       assert(readiness.ready, "A complete Entra JWT configuration should not require local identity lists");
     }),
+    run("authenticated web sessions use durable per-user PostgreSQL state", () => {
+      const workspaceState = loadWorkspaceStateModule({
+        NODE_ENV: "production",
+        PIPELINE_AUTH_MODE: "entra_jwt",
+        NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED: "true",
+        PIPELINE_DATABASE_MODE: "postgres",
+        PIPELINE_DATABASE_URL: "postgresql://configured",
+      });
+      const readiness = workspaceState.getUserWorkspaceStateReadiness();
+      assert(readiness.enabled, "Authenticated web workspace state should be enabled");
+      assert(readiness.ready, "Authenticated web workspace state should use configured PostgreSQL");
+      assert(readiness.multi_instance_safe, "Authenticated web workspace state must support multiple app instances");
+    }),
     run("standalone production readiness permits the intentional root base path", () => {
       const auth = loadAuthModule({
         NODE_ENV: "production",
@@ -905,6 +918,14 @@ function loadAuthModule(env) {
 
 function loadBackendModule(env) {
   return loadTypeScriptModule(root, "lib/extraction/backend-config.ts", {
+    process: {
+      env,
+    },
+  });
+}
+
+function loadWorkspaceStateModule(env) {
+  return loadTypeScriptModule(root, "lib/pipeline/user-workspace-state-store.ts", {
     process: {
       env,
     },
