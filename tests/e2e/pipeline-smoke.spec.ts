@@ -79,18 +79,14 @@ test.describe("Referral home and packet canvas", () => {
     page,
   }) => {
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toBeVisible();
-    const platformPages = page.getByRole("navigation", { name: "Platform pages" });
-    await expect(platformPages).toHaveAttribute("data-platform-page-current", "pipeline");
-    await expect(platformPages.locator('[data-platform-page-target="analytics"][data-platform-page-side="right"]')).toBeVisible();
-    await expect(platformPages.locator('[data-platform-page-target="questions"]')).toHaveCount(0);
-    const [homePosition, pipelinePosition, analyticsPosition] = await Promise.all([
-      page.locator('[data-platform-page-target="home"]').boundingBox(),
-      page.locator('[data-platform-page-active="pipeline"]').boundingBox(),
-      platformPages.locator('[data-platform-page-target="analytics"]').boundingBox(),
+    await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
+    const [pipelinePosition, searchPosition] = await Promise.all([
+      page.locator('[data-pipeline-home="true"]').boundingBox(),
+      page.getByRole("button", { name: "Open search" }).boundingBox(),
     ]);
-    expect(homePosition?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(pipelinePosition?.x ?? 0);
-    expect(analyticsPosition?.x ?? 0).toBeGreaterThan(pipelinePosition?.x ?? Number.POSITIVE_INFINITY);
+    expect(pipelinePosition?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(searchPosition?.x ?? 0);
     await expect(page.getByText("Referral packets", { exact: true }).last()).toBeVisible();
     await expect(page.getByLabel("Select referral packet")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Referral workflow", exact: true })).toBeVisible();
@@ -1375,7 +1371,8 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
     await expect(page.getByText("Referrals", { exact: true })).toBeVisible();
     await expect(page.getByText("New referral", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Create new referral" }).hover();
