@@ -1,16 +1,15 @@
 "use client";
 
-import { InteractionRequiredAuthError } from "@azure/msal-browser";
-
 import {
-  getActiveAccount,
-  initializeMsal,
   loginRequest,
   msalInstance,
-  pipelineApiScope,
   pipelineAuthRequired,
-  sanitizeMicrosoftError,
 } from "@/lib/auth/entra-client";
+import {
+  getOptionalPipelineAccessToken,
+  renewActivePipelineSession,
+  type PipelineSessionUser,
+} from "@/lib/auth/browser-session";
 import { normalizePostLoginPath, savePostLoginPath } from "@/lib/auth/post-login-path";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
@@ -18,12 +17,7 @@ const defaultTimeoutMs = 15_000;
 const defaultMaxResponseBytes = 8 * 1024 * 1024;
 export const REAUTHENTICATION_KEY = "pipeline.reauthentication.v1";
 
-export type PipelineCurrentUser = {
-  id?: string;
-  email: string;
-  name: string;
-  roles: string[];
-};
+export type PipelineCurrentUser = PipelineSessionUser;
 
 let currentUserRequest: Promise<{ user?: PipelineCurrentUser }> | null = null;
 
@@ -105,10 +99,11 @@ export async function fetchPipelineApi(
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? defaultTimeoutMs);
   const headers = new Headers(init.headers);
+  let accessToken: string | null = null;
 
   if (pipelineAuthRequired) {
-    const token = await getAccessToken();
-    headers.set("Authorization", `Bearer ${token}`);
+    accessToken = await getOptionalPipelineAccessToken();
+    if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
   if (init.body && !headers.has("Content-Type") && typeof init.body === "string") {
@@ -119,12 +114,31 @@ export async function fetchPipelineApi(
   init.signal?.addEventListener("abort", abortFromCaller, { once: true });
 
   try {
-    return await fetch(toPipelinePath(input), {
+    const request = (requestHeaders: Headers) => fetch(toPipelinePath(input), {
       ...init,
-      headers,
+      headers: requestHeaders,
       credentials: "same-origin",
       signal: controller.signal,
     });
+    let response = await request(headers);
+
+    // The HttpOnly cookie is the durable app session. If a cached bearer is
+    // stale, retry against that cookie before sending the user through Entra.
+    if (pipelineAuthRequired && response.status === 401 && accessToken) {
+      const cookieHeaders = new Headers(headers);
+      cookieHeaders.delete("Authorization");
+      response = await request(cookieHeaders);
+    }
+
+    if (pipelineAuthRequired && response.status === 401) {
+      const renewedToken = await renewActivePipelineSession(true);
+      if (renewedToken) {
+        const renewedHeaders = new Headers(headers);
+        renewedHeaders.set("Authorization", `Bearer ${renewedToken}`);
+        response = await request(renewedHeaders);
+      }
+    }
+    return response;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       if (init.signal?.aborted) throw new PipelineApiError("Request cancelled.", 499);
@@ -134,22 +148,6 @@ export async function fetchPipelineApi(
   } finally {
     window.clearTimeout(timeout);
     init.signal?.removeEventListener("abort", abortFromCaller);
-  }
-}
-
-async function getAccessToken() {
-  await initializeMsal();
-  const account = getActiveAccount();
-  if (!account || !pipelineApiScope) throw new PipelineApiError("Your Pipeline session has ended.", 401);
-
-  try {
-    const result = await msalInstance.acquireTokenSilent({ account, scopes: [pipelineApiScope] });
-    return result.accessToken;
-  } catch (error) {
-    if (error instanceof InteractionRequiredAuthError) {
-      await beginReauthentication();
-    }
-    throw new PipelineApiError(sanitizeMicrosoftError(error), 401);
   }
 }
 

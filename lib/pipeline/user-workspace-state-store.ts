@@ -3,6 +3,7 @@ import "server-only";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { getPipelineAuthMode } from "@/lib/auth/pipeline-auth";
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import { isPipelineDesktopStateEnabled } from "@/lib/desktop/desktop-server-config";
 
@@ -50,15 +51,18 @@ const localState: LocalWorkspaceState = globalState.__pipelineWorkspaceState ??=
 };
 
 export function getUserWorkspaceStateReadiness(): StoreReadiness {
-  const browserEnabled = process.env.NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED === "true";
-  const serverEnabled = isPipelineDesktopStateEnabled();
+  const authenticatedWebEnabled = getPipelineAuthMode() === "entra_jwt"
+    && process.env.NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED === "true";
+  const browserEnabled = process.env.NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED === "true"
+    || authenticatedWebEnabled;
+  const serverEnabled = isPipelineDesktopStateEnabled() || authenticatedWebEnabled;
   if (!browserEnabled && !serverEnabled) {
     return {
       enabled: false,
       mode: "disabled",
       ready: false,
       multi_instance_safe: false,
-      message: "Desktop workspace state is disabled.",
+      message: "Per-user workspace state is disabled.",
     };
   }
   if (!browserEnabled || !serverEnabled) {
@@ -67,7 +71,7 @@ export function getUserWorkspaceStateReadiness(): StoreReadiness {
       mode: "disabled",
       ready: false,
       multi_instance_safe: false,
-      message: "Desktop browser and server-state flags must be enabled together.",
+      message: "Browser and server workspace-state settings must be enabled together.",
     };
   }
 
@@ -78,7 +82,7 @@ export function getUserWorkspaceStateReadiness(): StoreReadiness {
       mode: "postgres",
       ready: database.ready,
       multi_instance_safe: database.ready,
-      message: database.message ?? "Desktop workspace state is ready.",
+      message: database.message ?? "Per-user workspace state is ready.",
     };
   }
 
@@ -93,8 +97,8 @@ export function getUserWorkspaceStateReadiness(): StoreReadiness {
     ready: localAllowed,
     multi_instance_safe: false,
     message: localAllowed
-      ? "Local desktop state is suitable for development and tests only."
-      : "Desktop workspace state requires PostgreSQL.",
+      ? "Local workspace state is suitable for development and tests only."
+      : "Per-user workspace state requires PostgreSQL.",
   };
 }
 

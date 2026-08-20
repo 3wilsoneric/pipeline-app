@@ -1,11 +1,11 @@
 "use client";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import { isPipelineDesktopEnabled } from "@/lib/desktop/desktop-config";
 import {
   parsePipelineReferralDraft,
   type PipelineReferralDraft,
 } from "@/lib/pipeline/user-workspace-state-types";
+import { usesServerUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-client";
 
 type DraftResponse = {
   draft?: unknown;
@@ -16,7 +16,7 @@ const versions = new Map<string, number>();
 const saveQueues = new Map<string, Promise<void>>();
 
 export function usesServerReferralDrafts() {
-  return isPipelineDesktopEnabled();
+  return usesServerUserWorkspaceState();
 }
 
 export async function loadServerReferralDraft(referralId?: number) {

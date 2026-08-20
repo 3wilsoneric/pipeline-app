@@ -14,7 +14,6 @@ import {
   isEntraClientConfigured,
   loginRequest,
   msalInstance,
-  pipelineApiScope,
   pipelineAuthRequired,
   sanitizeMicrosoftError,
   selectActiveAccount,
@@ -25,6 +24,11 @@ import {
   savePostLoginPath,
 } from "@/lib/auth/post-login-path";
 import { REAUTHENTICATION_KEY } from "@/lib/auth/authenticated-fetch";
+import {
+  establishPipelineServerSession,
+  probePipelineServerSession,
+  restorePipelineAccountSilently,
+} from "@/lib/auth/browser-session";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 type AuthStatus = "disabled" | "initializing" | "signed_out" | "redirecting" | "signed_in" | "error";
@@ -74,7 +78,7 @@ export default function PipelineAuthProvider({ children }: { children: React.Rea
 }
 
 function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
-  const { instance } = useMsal();
+  const { accounts, instance } = useMsal();
   const [status, setStatus] = useState<AuthStatus>("initializing");
   const [account, setAccount] = useState<AccountInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,31 +92,48 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
         await initializeMsal();
         const redirectResult = await instance.handleRedirectPromise();
         const activeAccount = selectActiveAccount(redirectResult?.account ?? getActiveAccount());
-        if (!activeAccount) {
-          if (!cancelled) setStatus("signed_out");
-          return;
+
+        if (activeAccount) {
+          const session = await establishPipelineServerSession(activeAccount);
+          if (session?.response.ok) {
+            if (!cancelled) markSignedIn(activeAccount);
+            return;
+          }
+          if (session?.response.status === 403) {
+            if (!cancelled) {
+              setStatus("error");
+              setError(await readSessionFailure(session.response));
+            }
+            return;
+          }
+          // An explicit redirect selected this identity. Never fall through to
+          // a cookie that may belong to a previously selected account.
+          if (redirectResult?.account && session?.response) {
+            if (!cancelled) {
+              setStatus("error");
+              setError(await readSessionFailure(session.response));
+            }
+            return;
+          }
         }
 
-        const tokenResult = await instance.acquireTokenSilent({ account: activeAccount, scopes: [pipelineApiScope] });
-        const sessionResponse = await fetch(toPipelinePath("/api/auth/session"), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${tokenResult.accessToken}` },
-          credentials: "same-origin",
-        });
-        if (!sessionResponse.ok) {
-          if (!cancelled) {
-            setStatus("error");
-            setError(await readSessionFailure(sessionResponse));
+        const serverSession = await probePipelineServerSession();
+        if (serverSession.user) {
+          if (!cancelled) markSignedIn(activeAccount);
+          if (!activeAccount) {
+            void restorePipelineAccountSilently(serverSession.user).then((restoredAccount) => {
+              if (!cancelled && restoredAccount) setAccount(restoredAccount);
+            });
           }
           return;
         }
 
-        if (!cancelled) {
-          window.sessionStorage.removeItem(REAUTHENTICATION_KEY);
-          setAccount(activeAccount);
-          setStatus("signed_in");
-          setError(null);
+        if (!cancelled && serverSession.response.status === 403) {
+          setStatus("error");
+          setError(await readSessionFailure(serverSession.response));
+          return;
         }
+        if (!cancelled) setStatus("signed_out");
       } catch (bootstrapError) {
         if (cancelled) return;
         if (bootstrapError instanceof InteractionRequiredAuthError) {
@@ -125,11 +146,81 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
       }
     }
 
+    function markSignedIn(activeAccount: AccountInfo | null) {
+      window.sessionStorage.removeItem(REAUTHENTICATION_KEY);
+      setAccount(activeAccount);
+      setStatus("signed_in");
+      setError(null);
+    }
+
     void bootstrap();
     return () => {
       cancelled = true;
     };
   }, [instance]);
+
+  useEffect(() => {
+    if (status !== "signed_out" || accounts.length === 0) return;
+    let cancelled = false;
+    const activeAccount = selectActiveAccount(accounts[0]);
+    if (!activeAccount) return;
+
+    void establishPipelineServerSession(activeAccount)
+      .then(async (session) => {
+        if (cancelled || !session) return;
+        if (session.response.ok) {
+          window.sessionStorage.removeItem(REAUTHENTICATION_KEY);
+          setAccount(activeAccount);
+          setStatus("signed_in");
+          setError(null);
+        } else if (session.response.status === 403) {
+          setStatus("error");
+          setError(await readSessionFailure(session.response));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [accounts, status]);
+
+  useEffect(() => {
+    if (status !== "signed_in") return;
+    let cancelled = false;
+
+    const renew = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const activeAccount = selectActiveAccount(getActiveAccount());
+        if (activeAccount) {
+          const session = await establishPipelineServerSession(activeAccount);
+          if (!cancelled && session?.response.ok) setAccount(activeAccount);
+          return;
+        }
+
+        const serverSession = await probePipelineServerSession();
+        if (!cancelled && serverSession.user) {
+          const restoredAccount = await restorePipelineAccountSilently(serverSession.user);
+          if (!cancelled && restoredAccount) setAccount(restoredAccount);
+        }
+      } catch {
+        // A transient renewal failure must not discard a still-valid cookie.
+      }
+    };
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void renew();
+    };
+    const interval = window.setInterval(() => void renew(), 10 * 60 * 1_000);
+    window.addEventListener("focus", renew);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", renew);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [status]);
 
   const contextValue = useMemo<PipelineAuthContextValue>(() => ({
     required: true,

@@ -14,6 +14,7 @@ const worker = read("public/sw.js");
 const offline = read("public/offline.html");
 const manifest = read("app/desktop-manifest.webmanifest/route.ts");
 const recents = read("lib/pipeline/recent-destinations.ts");
+const workspaceClient = read("lib/pipeline/user-workspace-state-client.ts");
 const canvas = read("components/pipeline/ReferralPacketCanvas.tsx");
 const draftClient = read("lib/pipeline/referral-draft-recovery.ts");
 const workspaceStore = read("lib/pipeline/user-workspace-state-store.ts");
@@ -48,8 +49,17 @@ for (const file of ["public/pwa/icon-192.png", "public/pwa/icon-512.png", "publi
   check(`${file} is a non-empty PNG`, statSync(file).size > 1_000 && createHash("sha256").update(readFileSync(file)).digest("hex").length === 64);
 }
 
-check("recents use the server when desktop is enabled", recents.includes("/api/me/recents") && recents.includes("isPipelineDesktopEnabled()"));
-check("recents keep legacy session behavior behind disabled mode", recents.includes("window.sessionStorage.setItem(storageKey") && recents.indexOf("isPipelineDesktopEnabled()") < recents.indexOf("window.sessionStorage.setItem(storageKey"));
+check(
+  "recents use the server for desktop and authenticated web sessions",
+  recents.includes("/api/me/recents")
+    && recents.includes("usesServerUserWorkspaceState()")
+    && workspaceClient.includes("pipelineAuthRequired || isPipelineDesktopEnabled()"),
+);
+check(
+  "recents keep legacy session behavior only when server workspace state is disabled",
+  recents.includes("window.sessionStorage.setItem(storageKey")
+    && recents.indexOf("usesServerUserWorkspaceState()") < recents.indexOf("window.sessionStorage.setItem(storageKey"),
+);
 check("drafts use the server when desktop is enabled", draftClient.includes("/api/me/referral-drafts/") && canvas.includes("usesServerReferralDrafts()"));
 check("draft server mode does not write browser storage", canvas.includes("if (usesServerReferralDrafts())") && canvas.indexOf("saveServerReferralDraft") < canvas.indexOf("window.sessionStorage.setItem(canvasDraftStorageKey"));
 check("recents API authenticates and protects writes", recentsRoute.includes("requirePipelineUser") && recentsRoute.includes("requireSameOriginMutation"));

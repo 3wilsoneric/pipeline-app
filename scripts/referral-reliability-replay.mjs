@@ -289,6 +289,8 @@ function checkApiObservabilityGuardrails() {
 function checkAuthGuardrails() {
   const auth = readText("lib/auth/pipeline-auth.ts");
   const entraClient = readText("lib/auth/entra-client.ts");
+  const browserSession = readText("lib/auth/browser-session.ts");
+  const authenticatedFetch = readText("lib/auth/authenticated-fetch.ts");
   const proxy = readText("proxy.ts");
   const signInPage = readText("app/sign-in/page.tsx");
   const authMeRoute = readText("app/api/auth/me/route.ts");
@@ -331,6 +333,22 @@ function checkAuthGuardrails() {
   assert(
     entraClient.includes('prompt: "select_account"'),
     "Interactive Entra sign-in should require explicit account selection",
+  );
+  assert(
+    entraClient.includes("BrowserCacheLocation.LocalStorage")
+      && entraClient.includes("enableAccountStorageEvents"),
+    "Entra account state should persist safely across Pipeline tabs",
+  );
+  assert(
+    browserSession.includes("probePipelineServerSession")
+      && browserSession.includes("restorePipelineAccountSilently")
+      && browserSession.includes("credentials: \"same-origin\""),
+    "The HttpOnly Pipeline session should recover MSAL without exposing session contents",
+  );
+  assert(
+    authenticatedFetch.includes('cookieHeaders.delete("Authorization")')
+      && authenticatedFetch.includes("renewActivePipelineSession(true)"),
+    "Authenticated API calls should fall back to the durable cookie before redirecting",
   );
   assert(
     authMeRoute.includes("requirePipelineUser") && authMeRoute.includes("roles: auth.user.roles"),

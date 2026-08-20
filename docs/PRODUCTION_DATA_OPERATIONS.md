@@ -1,6 +1,6 @@
 # Pipeline production data operations
 
-Updated: 2026-08-09
+Updated: 2026-08-20
 
 ## Referral canvas durability
 
@@ -23,12 +23,14 @@ canvas value and field-source provenance in the same version-checked referral
 save. The referral record therefore does not depend on a later autosave to
 catch up with extraction review history.
 
-While a field is dirty, a tab-scoped recovery draft is written to
-`sessionStorage` after 350 ms. Refresh and same-tab navigation restore the
-draft. A `beforeunload` warning protects unsaved work. Drafts never move between
-users, browsers, or tabs and never replace the server record. Browser storage
-cannot restore file bytes, so a selected but unsaved initial packet must be
-reselected after recovery; its name is shown as a reminder.
+While a field is dirty, an authenticated, per-user recovery draft is written to
+PostgreSQL after 350 ms and retained for 30 days. Refreshes, new tabs, and later
+signed-in sessions restore the draft for that user without exposing it to a
+different principal. Local mock development keeps the legacy tab-scoped
+`sessionStorage` fallback. A `beforeunload` warning protects unsaved work, and
+recovery drafts never replace the versioned referral record. Neither browser nor
+server recovery storage contains selected file bytes, so an unsaved initial
+packet must be reselected after recovery; its name is shown as a reminder.
 
 ## Document browsing
 

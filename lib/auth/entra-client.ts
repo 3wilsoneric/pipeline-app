@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BrowserCacheLocation,
   LogLevel,
   PublicClientApplication,
   type AccountInfo,
@@ -30,7 +31,9 @@ const msalConfig: Configuration = {
     navigateToLoginRequestUrl: false,
   },
   cache: {
-    cacheLocation: "sessionStorage",
+    // MSAL v4 encrypts localStorage auth artifacts and shares them across tabs.
+    // Temporary redirect state remains in its safer default storage.
+    cacheLocation: BrowserCacheLocation.LocalStorage,
     storeAuthStateInCookie: false,
   },
   system: {
@@ -60,7 +63,9 @@ export const loginRequest: RedirectRequest = {
 let initializePromise: Promise<void> | null = null;
 
 export function initializeMsal() {
-  initializePromise ??= msalInstance.initialize();
+  initializePromise ??= msalInstance.initialize().then(() => {
+    msalInstance.enableAccountStorageEvents();
+  });
   return initializePromise;
 }
 
