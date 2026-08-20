@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, ArrowLeft, ArrowRight, LogOut, UserRound } from "lucide-react";
+import { Activity, ArrowRight, LogOut, UserRound } from "lucide-react";
 
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
 import UserAvatar from "@/components/pipeline/UserAvatar";
@@ -13,9 +13,6 @@ import { getAccountDisplayName } from "@/lib/auth/entra-client";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/client-navigation";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
-
-const ALAMO_PLATFORM_URL = (process.env.NEXT_PUBLIC_ALAMO_PLATFORM_URL?.trim() || "https://www.alamoplatform.com")
-  .replace(/\/+$/, "");
 
 export default function PipelineHeader() {
   const [user, setUser] = useState<PipelineCurrentUser | null>(null);
@@ -86,18 +83,6 @@ export default function PipelineHeader() {
   return (
     <header className="relative flex h-[82px] shrink-0 items-center overflow-visible bg-white px-4 sm:px-6 lg:px-8">
       <div className="relative z-10 flex shrink-0 items-center">
-        <a
-          href={`${ALAMO_PLATFORM_URL}/home`}
-          aria-label="Back to Alamo Platform"
-          title="Alamo Platform"
-          data-platform-page-target="home"
-          data-platform-page-side="left"
-          className="flex h-12 items-center gap-2 whitespace-nowrap text-[17px] font-semibold text-[#595959] outline-none hover:text-[#111111] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
-        >
-          <ArrowLeft size={16} className="shrink-0" aria-hidden="true" />
-          <span className="hidden sm:inline"><span className="font-black text-[#08745f]">Alamo</span><span className="ml-1">Health</span></span>
-        </a>
-        <span aria-hidden="true" className="mx-4 hidden h-8 w-px bg-[#d9d9d9] sm:block" />
         <button
           type="button"
           onClick={(event) => {
@@ -105,10 +90,9 @@ export default function PipelineHeader() {
             navigateTo("home");
           }}
           aria-label="Pipeline home"
-          aria-current="page"
           title="Pipeline home"
-          data-platform-page-active="pipeline"
-          className="flex h-12 items-center whitespace-nowrap px-1 text-[16px] font-black text-[#111111] outline-none hover:text-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
+          data-pipeline-home="true"
+          className="flex h-12 items-center whitespace-nowrap px-1 text-[17px] font-black uppercase tracking-[0.12em] text-[#08745f] outline-none transition-colors hover:text-[#111111] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
         >
           Pipeline
         </button>
@@ -126,22 +110,6 @@ export default function PipelineHeader() {
       </div>
 
       <div className="relative z-10 ml-auto flex items-center">
-        <nav
-          aria-label="Platform pages"
-          data-platform-page-navigation="true"
-          data-platform-page-current="pipeline"
-          className="absolute right-0 top-[58px] flex items-center gap-3 whitespace-nowrap bg-white/95 px-1.5 py-2 text-[12px] font-black text-[#315b54] shadow-[0_8px_18px_rgba(17,17,17,0.06)] backdrop-blur-sm lg:static lg:mr-3 lg:bg-transparent lg:p-0 lg:shadow-none"
-        >
-          <a
-            href={`${ALAMO_PLATFORM_URL}/analytics`}
-            data-platform-page-target="analytics"
-            data-platform-page-side="right"
-            className="group inline-flex items-center gap-1.5 outline-none transition-colors hover:text-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
-          >
-            <span>Analytics</span>
-            <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-          </a>
-        </nav>
         <div ref={profileMenuRef} className="relative">
           <button
             type="button"

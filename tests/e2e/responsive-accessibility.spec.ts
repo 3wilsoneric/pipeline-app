@@ -14,7 +14,8 @@ test.describe("Responsive and accessible application shell", () => {
     await expect(page.getByRole("heading", { name: "Welcome, Playwright QA." })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
-    await expect(page.getByRole("navigation", { name: "Platform pages" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
 
     await page.getByRole("button", { name: "Open search" }).click();
     await expect(page.getByLabel("Search or ask")).toBeVisible();
