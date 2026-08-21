@@ -704,13 +704,8 @@ export default function ReferralHome({
                         <button
                           type="button"
                           onClick={() => {
-                            if (file.canonicalClientId) {
-                              onOpenProfile(file.canonicalClientId);
-                            } else if (file.referralId && file.community) {
-                              onOpenPacket({ id: file.referralId, name: file.referralName, community: file.community });
-                            } else if (file.clientId) {
-                              onOpenProfile(`pipeline:${file.clientId}`);
-                            }
+                            if (!file.id.startsWith("referral-")) setPreviewFile(file);
+                            else openFileWorkspace(file, onOpenProfile, onOpenPacket);
                           }}
                           className="flex min-w-0 flex-1 items-center gap-4 py-3 text-left"
                         >
@@ -735,21 +730,21 @@ export default function ReferralHome({
                           </span>
                         </span>
                         <span className="hidden text-[11px] font-black text-[#737373] sm:block">{file.category}</span>
-                          {!file.previewUrl ? (
+                          {file.id.startsWith("referral-") ? (
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-[#d9d9d9] text-[#111111]">
                               <ArrowRight size={15} />
                             </span>
-                          ) : null}
+                          ) : <Eye size={16} className="shrink-0 text-[#0f8b73]" />}
                         </button>
-                        {file.previewUrl ? (
+                        {!file.id.startsWith("referral-") ? (
                           <button
                             type="button"
-                            onClick={() => setPreviewFile(file)}
-                            aria-label={`Preview ${file.name}`}
-                            title="Preview file"
+                            onClick={() => openFileWorkspace(file, onOpenProfile, onOpenPacket)}
+                            aria-label={`Open ${file.referralName} workspace`}
+                            title="Open client workspace"
                             className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d9d9d9] text-[#111111] hover:border-[#0f8b73] hover:text-[#0f8b73]"
                           >
-                            <Eye size={16} />
+                            <ArrowRight size={16} />
                           </button>
                         ) : null}
                       </div>
@@ -1065,8 +1060,14 @@ function FilePreviewDialog({ file, onClose }: { file: ReferralFile; onClose: () 
             </div>
           ) : (
             <div className="bg-white px-5 py-16 text-center">
-              <div className="text-[14px] font-black text-[#111111]">Page previews are not ready yet</div>
-              <p className="mt-2 text-[12px] text-[#737373]">Safety scanning and page rendering finish separately from the upload.</p>
+              <div className="text-[14px] font-black text-[#111111]">
+                {metadata?.malware_scan_status === "pending" ? "Safety scan pending" : "Page previews are not ready yet"}
+              </div>
+              <p className="mt-2 text-[12px] text-[#737373]">
+                {metadata?.malware_scan_status === "pending"
+                  ? "Pipeline will not display uploaded bytes until the file passes its safety scan. The client workspace and metadata remain available."
+                  : "Safety scanning and page rendering finish separately from the upload."}
+              </p>
             </div>
           )}
         </div>
@@ -1134,6 +1135,20 @@ function getCreatedMonthOptions() {
   }
 
   return months.reverse();
+}
+
+function openFileWorkspace(
+  file: ReferralFile,
+  onOpenProfile: (canonicalClientId: string) => void,
+  onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void,
+) {
+  if (file.canonicalClientId) {
+    onOpenProfile(file.canonicalClientId);
+  } else if (file.referralId && file.community) {
+    onOpenPacket({ id: file.referralId, name: file.referralName, community: file.community });
+  } else if (file.clientId) {
+    onOpenProfile(`pipeline:${file.clientId}`);
+  }
 }
 
 function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {

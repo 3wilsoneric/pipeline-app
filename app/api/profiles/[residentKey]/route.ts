@@ -16,7 +16,7 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ residentKey: string }> },
 ) {
-  return withApiLogging(request, "/api/profiles/[residentKey]", async () => {
+  return withApiLogging(request, "/api/profiles/[residentKey]", async ({ requestId }) => {
     const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer", "viewer"]);
     if (!auth.ok) return auth.response;
     const canonicalClientId = await parseCanonicalClientId(context);
@@ -30,7 +30,7 @@ export async function GET(
           can_review_identity: auth.user.roles.some((role) =>
             ["admin", "reviewer"].includes(role),
           ),
-        }, auth.user),
+        }, auth.user, { requestId }),
         { headers: privateHeaders() },
       );
     } catch (error) {

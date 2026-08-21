@@ -13,6 +13,8 @@ import {
   type ClinicalClientDetail,
   type ClinicalResident,
 } from "@/lib/clinical/clinical-data";
+import { logApi } from "@/lib/observability/api-logging";
+import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import { getClientHistoryForResident } from "./client-history-store";
 import { pipelineCommunityFromClinicalName } from "./community-config";
 import { findClinicalResidentMatch } from "./referral-clinical-reconciliation";
@@ -61,6 +63,20 @@ export class UnifiedProfileError extends Error {
   }
 }
 
+type UnifiedProfileObservability = {
+  requestId: string;
+};
+
+type PipelineProjectionStage =
+  | "load_links"
+  | "filter_links"
+  | "load_suggestions"
+  | "load_canonical_documents"
+  | "load_referrals"
+  | "load_assessments"
+  | "load_documents"
+  | "assemble_projection";
+
 export async function getUnifiedClientProfile(
   request: Request,
   canonicalClientId: string,
@@ -69,6 +85,7 @@ export async function getUnifiedClientProfile(
     can_review_identity: false,
   },
   user?: PipelineUser,
+  observability?: UnifiedProfileObservability,
 ): Promise<UnifiedClientProfileResponse> {
   if (canonicalClientId.startsWith("pipeline:")) {
     return getPipelineOnlyClientProfile(canonicalClientId.slice("pipeline:".length), permissions, user);
@@ -92,8 +109,10 @@ export async function getUnifiedClientProfile(
     };
   }
 
+  let projectionStage: PipelineProjectionStage = "load_links";
   try {
     const linkResults = await loadClientLinks(clinical.client, resident);
+    projectionStage = "filter_links";
     const links = await filterLinksForUser(linkResults, user);
     const confirmed = links.filter((link) => link.status === "confirmed");
     if (confirmed.length > 1) {
@@ -112,6 +131,7 @@ export async function getUnifiedClientProfile(
     let suggestions: UnifiedProfileLinkSuggestion[] = [];
     if (confirmed.length === 0 && candidates.length === 0) {
       try {
+        projectionStage = "load_suggestions";
         suggestions = await loadReferralSuggestions(clinical.client, resident, links, user);
       } catch {
         // Suggestions are optional. The governed clinical profile must remain
@@ -120,6 +140,7 @@ export async function getUnifiedClientProfile(
       }
     }
     const connection = buildConnection(confirmed[0] ?? null, candidates, suggestions);
+    projectionStage = "load_canonical_documents";
     const canonicalDocuments = getReferralStoreReadiness().ready
       ? await listReferralFilesByCanonicalClient(clinical.client.canonical_client_id).catch(() => [])
       : [];
@@ -149,17 +170,21 @@ export async function getUnifiedClientProfile(
     }
 
     const link = connection.confirmed_link;
+    projectionStage = "load_referrals";
     const referrals = await loadLinkedReferrals(link, user);
+    projectionStage = "load_assessments";
     const assessments = await loadLinkedAssessments(
       link,
       referrals,
       clinical.client.canonical_client_id,
       user,
     );
+    projectionStage = "load_documents";
     const documents = dedupeDocuments([
       ...canonicalDocuments,
       ...await loadLinkedDocuments(link, referrals),
     ]);
+    projectionStage = "assemble_projection";
     const requirements = referrals.flatMap((referral) => referral.requirements ?? []);
     const latestAssessment = assessments[0] ?? null;
     const latestCoverage = latestAssessment ? getAssessmentToolCoverage(latestAssessment) : null;
@@ -191,7 +216,19 @@ export async function getUnifiedClientProfile(
         },
       },
     };
-  } catch {
+  } catch (error) {
+    logApi("error", {
+      route: "/api/profiles/[residentKey]",
+      requestId: observability?.requestId ?? crypto.randomUUID(),
+      status: 200,
+      msg: "pipeline_projection_failed",
+      error: `${projectionStage}:${safeProjectionErrorCode(error)}`,
+    });
+    recordPipelineMetric("pipeline.profile_projection.failures", 1, "count", {
+      route: "/api/profiles/[residentKey]",
+      operation: projectionStage,
+      result: safeProjectionErrorCode(error),
+    });
     return {
       ...clinical,
       profile_origin: "alamo_platform",
@@ -203,6 +240,17 @@ export async function getUnifiedClientProfile(
       ),
     };
   }
+}
+
+function safeProjectionErrorCode(error: unknown) {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = String((error as { code?: unknown }).code ?? "");
+    if (/^[A-Za-z0-9_]{1,64}$/.test(code)) return code;
+  }
+  if (error instanceof Error && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error.name)) {
+    return error.name;
+  }
+  return "unknown_error";
 }
 
 async function getPipelineOnlyClientProfile(

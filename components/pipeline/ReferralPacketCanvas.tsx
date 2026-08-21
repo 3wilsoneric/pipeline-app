@@ -322,8 +322,9 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   }, [isSaving]);
 
   useEffect(() => {
-    if (dirtyKeys.size === 0 && Object.keys(pendingDocuments).length === 0) return;
+    if (isSaving || (dirtyKeys.size === 0 && Object.keys(pendingDocuments).length === 0)) return;
     const timer = window.setTimeout(() => {
+      if (isSavingRef.current) return;
       const draft: CanvasSessionDraft = {
         schema: 1,
         savedAt: new Date().toISOString(),
@@ -356,7 +357,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       }
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [conserved, dirtyKeys, documents, fields, initialPacket, loadedReferral, pendingDocuments, referral?.id, tagsInput]);
+  }, [conserved, dirtyKeys, documents, fields, initialPacket, isSaving, loadedReferral, pendingDocuments, referral?.id, tagsInput]);
 
   useEffect(() => {
     if (dirtyKeys.size === 0) return;
@@ -815,7 +816,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
             });
             if (signature === signatures.get(key)) next.delete(key);
           }
-          if (next.size === 0) clearSessionDraft(saved.id);
+          if (next.size === 0) void clearSessionDraft(saved.id);
           return next;
         });
         setRemoteChange(null);
@@ -844,6 +845,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       return;
     }
     setIsSaving(true);
+    isSavingRef.current = true;
     let savedReferral = loadedReferral;
     try {
       const referralId = referral?.id ?? loadedReferral?.id;
@@ -994,11 +996,11 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
 
       const latestProgress = await fetchPipelineJson<ReferralProgress>(`/api/referrals/${savedReferral.id}/progress`, { cache: "no-store" }).catch(() => null);
       if (latestProgress) setProgress(latestProgress);
-      onReferralSaved?.({ id: savedReferral.id, name: savedReferral.name, community: savedReferral.community });
       setDirtyKeys(new Set());
       setPendingDocuments({});
-      clearSessionDraft(referralId ? savedReferral.id : undefined);
-      clearSessionDraft(savedReferral.id);
+      if (!referralId) await clearSessionDraft();
+      await clearSessionDraft(savedReferral.id);
+      onReferralSaved?.({ id: savedReferral.id, name: savedReferral.name, community: savedReferral.community });
       setRecoveredDraftAt("");
       setRecoveredPacketName("");
       setRemoteChange(null);
@@ -1016,6 +1018,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       if (!latestConflict && savedReferral) setLoadedReferral(savedReferral);
       setSaveError(error instanceof Error ? error.message : "Could not save this referral.");
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -1258,7 +1261,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       loadedReferralRef.current = current;
       setLoadedReferral(current);
       setDirtyKeys(new Set());
-      clearSessionDraft(current.id);
+      void clearSessionDraft(current.id);
       const latestProgress = await fetchPipelineJson<ReferralProgress>(`/api/referrals/${current.id}/progress`, { cache: "no-store" }).catch(() => null);
       if (latestProgress) setProgress(latestProgress);
       setSavedAt("Packet review complete");
@@ -1327,7 +1330,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
     setRemoteChange(null);
     setRecoveredDraftAt("");
     setRecoveredPacketName("");
-    clearSessionDraft(current?.id ?? referral?.id);
+    void clearSessionDraft(current?.id ?? referral?.id);
     setSavedAt(current ? "Saved record restored" : "Draft cleared");
   };
 
@@ -2951,7 +2954,7 @@ function restoreSessionDraft(referralId: number | undefined, setters: DraftResto
     draft = parsePipelineReferralDraft(JSON.parse(raw));
     if (!draft) return null;
   } catch {
-    clearSessionDraft(referralId);
+    void clearSessionDraft(referralId);
     return null;
   }
 
@@ -3043,9 +3046,9 @@ function canvasDraftStorageKey(referralId?: number) {
   return `pipeline-referral-draft:${referralId ?? "new"}`;
 }
 
-function clearSessionDraft(referralId?: number) {
+async function clearSessionDraft(referralId?: number) {
   if (usesServerReferralDrafts()) {
-    void clearServerReferralDraft(referralId).catch(() => undefined);
+    await clearServerReferralDraft(referralId).catch(() => undefined);
     return;
   }
   try {
