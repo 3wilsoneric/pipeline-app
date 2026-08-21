@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Activity, ArrowRight, LogOut, UserRound } from "lucide-react";
 
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
+import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
 import UserAvatar from "@/components/pipeline/UserAvatar";
 import { fetchCurrentPipelineUser, type PipelineCurrentUser } from "@/lib/auth/authenticated-fetch";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
@@ -102,9 +103,9 @@ export default function PipelineHeader() {
           title="Pipeline home"
           data-pipeline-home="true"
           data-platform-page-active="pipeline"
-          className="flex h-12 items-center whitespace-nowrap px-1 text-[16px] font-black text-[#111111] outline-none hover:text-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
+          className="flex h-12 w-[72px] items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
         >
-          Pipeline
+          <PipelineLogoMark size={44} />
         </button>
       </div>
 
