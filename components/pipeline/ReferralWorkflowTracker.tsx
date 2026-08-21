@@ -32,7 +32,7 @@ export default function ReferralWorkflowTracker({
   return (
     <section aria-label="Referral workflow tracker" className="min-w-0 bg-white">
       <div className="hidden grid-cols-[minmax(180px,0.9fr)_minmax(320px,1.5fr)_130px_82px_34px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373] xl:grid">
-        <span>Referral</span>
+        <span>Workspace</span>
         <span>Workflow</span>
         <span>Owner</span>
         <span>Updated</span>
@@ -46,7 +46,7 @@ export default function ReferralWorkflowTracker({
               key={referral.id}
               type="button"
               onClick={() => onOpenPacket(referral)}
-              aria-label={`Open ${referral.name} referral packet`}
+              aria-label={`Open ${referral.name} referral workspace`}
               className="grid w-full grid-cols-[minmax(0,1fr)_34px] items-center gap-x-3 gap-y-3 px-4 py-4 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] xl:grid-cols-[minmax(180px,0.9fr)_minmax(320px,1.5fr)_130px_82px_34px] xl:gap-x-0 xl:py-3"
             >
               <span className="min-w-0">
@@ -99,11 +99,11 @@ export default function ReferralWorkflowTracker({
       ) : (
         <div className="px-5 py-16 text-center">
           <div className="text-[15px] font-black text-[#111111]">
-            {loading ? "Loading active referrals" : "No active referrals"}
+            {loading ? "Loading active workspaces" : "No active workspaces"}
           </div>
           {!loading ? (
             <p className="mx-auto mt-2 max-w-[420px] text-[12px] leading-5 text-[#737373]">
-              New referral packets will appear here and stay visible until an admission decision closes them.
+              New referral workspaces will appear here and stay visible until an admission decision closes them.
             </p>
           ) : null}
         </div>

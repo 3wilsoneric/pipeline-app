@@ -82,7 +82,7 @@ test.describe("Referral home and packet canvas", () => {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto("/?view=referrals");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByText("Referral packets", { exact: true }).last()).toBeVisible();
+    await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });
 
@@ -99,10 +99,10 @@ test.describe("Referral home and packet canvas", () => {
       page.getByRole("button", { name: "Open search" }).boundingBox(),
     ]);
     expect(pipelinePosition?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(searchPosition?.x ?? 0);
-    await expect(page.getByText("Referral packets", { exact: true }).last()).toBeVisible();
+    await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
     await expect(page.getByLabel("Select referral packet")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Referral workflow", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "All packets", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "All workspaces", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Referral workflow tracker" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Action categories" })).toHaveCount(0);
@@ -136,7 +136,7 @@ test.describe("Referral home and packet canvas", () => {
     await workQueues.getByRole("button", { name: "Decision needed", exact: true }).click();
     await expect(page.getByText("No referrals need a decision", { exact: true })).toBeVisible();
     await expect(page.getByText("This view is derived from current referral, assessment, decision, document, and requirement data.", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "All packets", exact: true }).click();
+    await page.getByRole("button", { name: "All workspaces", exact: true }).click();
 
     await page.getByRole("button", { name: "Open search" }).click();
     await expect(page.getByRole("button", { name: "Close search" })).toHaveCSS(
@@ -144,15 +144,15 @@ test.describe("Referral home and packet canvas", () => {
       "rgb(255, 243, 220)",
     );
     await expect(page.getByLabel("Search or ask")).toBeVisible();
-    await expect(page.getByText("Referral packets", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Referral workspaces", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: /Welcome( back)?, / })).toHaveCount(0);
     await page.getByRole("button", { name: "Close search" }).click();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
-    await expect(page.getByText("Referral packets", { exact: true }).last()).toBeVisible();
+    await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
     await page.getByRole("button", { name: "Open search" }).click();
     await page.getByRole("button", { name: "Open referrals" }).click();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
-    await expect(page.getByText("Referral packets", { exact: true }).last()).toBeVisible();
+    await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
   });
 
   test("opens a new referral and returns through the Pipeline header", async ({ page }) => {
@@ -242,7 +242,7 @@ test.describe("Referral home and packet canvas", () => {
     const header = page.locator("header");
     await expect(header).toHaveCSS("height", "82px");
 
-    const referralMain = page.getByRole("main", { name: "Referral packets" });
+    const referralMain = page.getByRole("main", { name: "Referral workspaces" });
     const referralMainBox = await referralMain.boundingBox();
     expect(referralMainBox?.y).toBe(82);
 
@@ -363,7 +363,7 @@ test.describe("Referral home and packet canvas", () => {
 
     const workflow = page.getByRole("region", { name: "Referral workflow tracker" });
     await expect(workflow).toBeVisible();
-    await expect(workflow.getByRole("button", { name: `Open ${name} referral packet` })).toBeVisible();
+    await expect(workflow.getByRole("button", { name: `Open ${name} referral workspace` })).toBeVisible();
     const rowsBefore = await workflow.getByRole("button").count();
     expect(rowsBefore).toBeGreaterThan(0);
 
@@ -895,7 +895,7 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.goto("/?view=referrals");
     await expect(page.getByRole("region", { name: "Referral workflow tracker" })).toBeVisible();
-    const tagFilter = page.getByRole("button", { name: /^Filter by tag urgent-review, \d+ packets?$/ });
+    const tagFilter = page.getByRole("button", { name: /^Filter by tag urgent-review, \d+ workspaces?$/ });
     const showMoreTags = page.getByRole("button", { name: /^Show \d+ more$/ });
     await expect.poll(async () => (await tagFilter.count()) + (await showMoreTags.count())).toBeGreaterThan(0);
     if (await tagFilter.count() === 0) {
@@ -906,14 +906,14 @@ test.describe("Referral home and packet canvas", () => {
     await tagFilter.click();
     await expect(page.getByText(clientName, { exact: true }).first()).toBeVisible();
     await expect(
-      page.getByRole("button", { name: `Open ${clientName} referral packet` })
+      page.getByRole("button", { name: `Open ${clientName} referral workspace` })
         .getByText("#urgent-review · #county-intake", { exact: true }),
     ).toBeVisible();
     const taggedReferralsResponse = await page.request.get("/api/referrals?tag=urgent-review&limit=25");
     expect(taggedReferralsResponse.status()).toBe(200);
     const taggedReferrals = await taggedReferralsResponse.json() as { referrals: Array<{ tags?: string[] }> };
     expect(taggedReferrals.referrals.every((referral) => referral.tags?.includes("urgent-review"))).toBeTruthy();
-    const communityFilter = page.getByRole("button", { name: /^Filter by community San Pablo, \d+ packets?$/ });
+    const communityFilter = page.getByRole("button", { name: /^Filter by community San Pablo, \d+ workspaces?$/ });
     await expect(communityFilter).toBeVisible();
     await communityFilter.click();
     await expect(page.getByText(clientName, { exact: true }).first()).toBeVisible();
@@ -1396,7 +1396,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("img", { name: "Alamo Platform" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
-    await expect(page.getByText("Referrals", { exact: true })).toBeVisible();
+    await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
     await expect(page.getByText("New referral", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Create new referral" }).hover();
     await expect(page.getByText("New referral", { exact: true })).toBeVisible();
@@ -1404,7 +1404,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("New referral", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Create new referral" }).hover();
     await expect(page.getByText("New referral", { exact: true })).toBeVisible();
-    await expect(page.getByText("Referral packets", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Referral workspaces", { exact: true })).toHaveCount(0);
     const signedInProfile = page.getByRole("button", { name: "Open profile menu for Playwright QA" });
     await signedInProfile.click();
     await expect(page.getByRole("dialog", { name: "Profile menu" }).getByText("Playwright QA", { exact: true })).toBeVisible();
@@ -1413,7 +1413,7 @@ test.describe("Pipeline home", () => {
     const referralsLink = page.getByRole("button", { name: "Open referrals" });
     await expect(referralsLink).toBeVisible();
     await referralsLink.hover();
-    await expect(page.getByText("Referrals", { exact: true })).toBeVisible();
+    await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Open search" }).click();
     await expect(page.getByLabel("Search or ask")).toBeVisible();
@@ -1588,7 +1588,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
 
     await page.getByRole("button", { name: "Open referrals" }).click();
-    await expect(page.getByRole("heading", { name: "Referral packets", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Pipeline home" }).click();
 
     await expect(page.getByRole("heading", { name: /Welcome( back)?, / })).toHaveCount(0);

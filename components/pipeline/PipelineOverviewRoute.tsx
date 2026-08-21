@@ -203,8 +203,8 @@ function recordNavigation(
       id: "page:referrals",
       kind: "page",
       screen: "referrals",
-      title: "Referrals",
-      detail: "Referral packets",
+      title: "Workspaces",
+      detail: "Client referral records",
     });
     return;
   }
@@ -234,7 +234,7 @@ function recordNavigation(
       kind: "referral",
       screen: "packet",
       title: referral.name,
-      detail: `${referral.community} · Referral packet`,
+      detail: `${referral.community} · Referral workspace`,
       referralId: referral.id,
       community: referral.community,
     });
@@ -245,8 +245,8 @@ function recordNavigation(
       id: "page:new-packet",
       kind: "page",
       screen: "packet",
-      title: "New referral packet",
-      detail: "Create a packet",
+      title: "New referral",
+      detail: "Create a workspace",
     });
   }
 }

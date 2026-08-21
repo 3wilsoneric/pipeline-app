@@ -63,14 +63,14 @@ export default function PipelineActionNav({
         aria-label="Open referrals"
         aria-current={active === "referrals" ? "page" : undefined}
         data-active={active === "referrals" ? "true" : undefined}
-        title="Referrals"
+        title="Workspaces"
         onClick={() => {
           recordRecentDestination({
             id: "page:referrals",
             kind: "page",
             screen: "referrals",
-            title: "Referrals",
-            detail: "Referral packets",
+            title: "Workspaces",
+            detail: "Client referral records",
           });
           onNavigate("referrals");
         }}
@@ -82,7 +82,7 @@ export default function PipelineActionNav({
       >
         <FolderOpen size={20} className="shrink-0" />
         <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>
-          Referrals
+          Workspaces
         </span>
       </button>
       <button
@@ -124,7 +124,7 @@ export default function PipelineActionNav({
             kind: "page",
             screen: "packet",
             title: "New referral",
-            detail: "Create a packet",
+            detail: "Create a workspace",
           });
           onNavigate("packet");
         }}

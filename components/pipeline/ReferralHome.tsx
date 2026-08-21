@@ -221,7 +221,7 @@ export default function ReferralHome({
         setReferralTotal(0);
         setReferralNextCursor(undefined);
       }
-      setLoadError(error instanceof Error ? error.message : "Referral packets could not be loaded.");
+      setLoadError(error instanceof Error ? error.message : "Referral workspaces could not be loaded.");
     } finally {
       if (background) workflowRefreshInFlight.current = false;
       if (!signal?.aborted) {
@@ -504,9 +504,9 @@ export default function ReferralHome({
   );
 
   return (
-    <main aria-label="Referral packets" className="h-full overflow-y-auto bg-white text-[#111111]">
+    <main aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
       <div className="w-full px-5 pb-8 pt-3 md:px-8 lg:px-10">
-        <h1 className="sr-only">Referral packets</h1>
+        <h1 className="sr-only">Referral workspaces</h1>
         <div className="min-w-0">
           {packetToolbar}
           {filter.kind === "files" ? fileFilterToolbar : filter.kind !== "work" ? filterToolbar : null}
@@ -548,14 +548,14 @@ export default function ReferralHome({
             </button>
             <button
               type="button"
-              aria-label="All packets"
+              aria-label="All workspaces"
               onClick={() => setFilter({ kind: "all" })}
               className={`flex h-9 shrink-0 items-center gap-2 border-b-2 px-3 text-left text-[12px] font-black tracking-[0.01em] md:mt-1 md:w-full md:border-b-0 md:border-l-[3px] ${
                 filter.kind === "all" ? "border-[#0f8b73] bg-white text-[#111111] md:pl-[9px]" : "border-transparent text-[#595959] hover:bg-[#fafafa]"
               }`}
             >
               <FolderOpen size={15} />
-              All packets
+              All workspaces
               <span className="ml-2 text-[11px] md:ml-auto">{allPacketTotal}</span>
             </button>
             <button
@@ -586,7 +586,7 @@ export default function ReferralHome({
                   <button
                     key={community}
                     type="button"
-                    aria-label={`Filter by community ${community}, ${count} packet${count === 1 ? "" : "s"}`}
+                    aria-label={`Filter by community ${community}, ${count} workspace${count === 1 ? "" : "s"}`}
                     onClick={() => setFilter({ kind: "community", value: community })}
                     className={`flex min-h-8 w-full items-center justify-between px-3 text-left text-[12px] font-black tracking-[0.01em] ${
                       filter.kind === "community" && filter.value === community
@@ -609,7 +609,7 @@ export default function ReferralHome({
                     <button
                       key={tag.value}
                       type="button"
-                      aria-label={`Filter by tag ${tag.value}, ${tag.count} packet${tag.count === 1 ? "" : "s"}`}
+                      aria-label={`Filter by tag ${tag.value}, ${tag.count} workspace${tag.count === 1 ? "" : "s"}`}
                       onClick={() => setFilter({ kind: "tag", value: tag.value })}
                       className={`flex min-h-8 w-full items-center gap-2 px-3 text-left text-[12px] font-black tracking-[0.01em] ${
                         filter.kind === "tag" && filter.value === tag.value
@@ -823,7 +823,7 @@ export default function ReferralHome({
             ) : (
               <div className="px-5 py-16 text-center">
                 <div className="text-[15px] font-black text-[#111111]">
-                  {isLoading ? "Loading referral packets" : emptyReferralState.title}
+                  {isLoading ? "Loading workspaces" : emptyReferralState.title}
                 </div>
                 {!isLoading ? (
                   <p className="mx-auto mt-2 max-w-[420px] text-[12px] leading-5 text-[#737373]">
@@ -836,7 +836,7 @@ export default function ReferralHome({
                     onClick={() => setFilter({ kind: "all" })}
                     className="mt-4 h-9 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0f8b73] hover:bg-[#effaf5]"
                   >
-                    Show all packets
+                    Show all workspaces
                   </button>
                 ) : null}
               </div>
@@ -1154,57 +1154,57 @@ function openFileWorkspace(
 function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {
   if (searchTerm.trim()) {
     return {
-      title: "No packets match this search",
+      title: "No workspaces match this search",
       detail: "Try a different client, community, stage, owner, or file name.",
     };
   }
 
   if (filter.kind === "community") {
     return {
-      title: `No packets for ${filter.value}`,
-      detail: "Choose another community or show all packets.",
+      title: `No workspaces for ${filter.value}`,
+      detail: "Choose another community or show all workspaces.",
     };
   }
   if (filter.kind === "month") {
     return {
-      title: `No packets from ${formatMonthKey(filter.value)}`,
-      detail: "Choose another month or show all packets.",
+      title: `No workspaces from ${formatMonthKey(filter.value)}`,
+      detail: "Choose another month or show all workspaces.",
     };
   }
   if (filter.kind === "stage") {
     return {
-      title: `No packets in ${getStageLabel(filter.value)}`,
-      detail: "Choose another stage or show all packets.",
+      title: `No workspaces in ${getStageLabel(filter.value)}`,
+      detail: "Choose another stage or show all workspaces.",
     };
   }
   if (filter.kind === "owner") {
     return {
-      title: `No packets assigned to ${filter.value}`,
-      detail: "Choose another owner or show all packets.",
+      title: `No workspaces assigned to ${filter.value}`,
+      detail: "Choose another owner or show all workspaces.",
     };
   }
   if (filter.kind === "priority") {
     return {
-      title: `No ${filter.value} priority packets`,
-      detail: "Choose another priority or show all packets.",
+      title: `No ${filter.value} priority workspaces`,
+      detail: "Choose another priority or show all workspaces.",
     };
   }
   if (filter.kind === "tag") {
     return {
-      title: `No packets tagged #${filter.value}`,
-      detail: "Choose another tag or show all packets.",
+      title: `No workspaces tagged #${filter.value}`,
+      detail: "Choose another tag or show all workspaces.",
     };
   }
   if (filter.kind === "workflow") {
     return {
-      title: "No active referrals",
-      detail: "New packets will appear here until an admission decision closes them.",
+      title: "No active workspaces",
+      detail: "New referral workspaces remain here until an admission decision closes them.",
     };
   }
 
   return {
-    title: "No referral packets yet",
-    detail: "Create a packet from an initial face sheet or referral document to get started.",
+    title: "No workspaces yet",
+    detail: "Create a referral workspace from an initial face sheet or referral packet to get started.",
   };
 }
 
@@ -1231,7 +1231,7 @@ function formatFileSize(bytes: number) {
 }
 
 function getFilterLabel(filter: ReferralFilter) {
-  if (filter.kind === "workflow") return "Referral workflow";
+  if (filter.kind === "workflow") return "Workspace workflow";
   if (filter.kind === "work") {
     return filter.value === "all_actionable"
       ? "Needs action"
@@ -1244,7 +1244,7 @@ function getFilterLabel(filter: ReferralFilter) {
   if (filter.kind === "owner") return filter.value;
   if (filter.kind === "priority") return `${filter.value[0].toUpperCase()}${filter.value.slice(1)} priority`;
   if (filter.kind === "tag") return `#${filter.value}`;
-  return "All packets";
+  return "All workspaces";
 }
 
 function buildReferralParams(

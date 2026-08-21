@@ -99,7 +99,7 @@ export default function PipelineWelcome({
               {welcomeKind === "first" ? "Welcome" : "Welcome back"}, {welcomeName}.
             </h1>
             <p className="mt-3 max-w-[560px] text-[15px] font-normal leading-6 text-[#595959]">
-              Work referrals, complete assessments, and keep every client record current.
+              Move referrals through assessment and keep every client record current.
             </p>
           </div>
         ) : null}
@@ -334,7 +334,7 @@ function RecentWork({
       {items.length === 0 ? (
         <div className="flex flex-1 flex-col justify-center px-6 py-10">
           <div className="text-[15px] font-black text-[#111111]">Nothing opened yet</div>
-          <p className="mt-2 max-w-[340px] text-[12px] leading-5 text-[#737373]">Profiles, referral packets, and work pages you open in this session will appear here.</p>
+          <p className="mt-2 max-w-[340px] text-[12px] leading-5 text-[#737373]">Client profiles and referral workspaces you open in this session will appear here.</p>
         </div>
       ) : (
         <div className="flex-1 divide-y divide-[#e5e5e5]">
@@ -347,8 +347,8 @@ function RecentWork({
             >
               <span className="flex min-w-0 items-start justify-between gap-4">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-black text-[#111111]">{item.title}</span>
-                  <span className="mt-1 block truncate text-[12px] text-[#737373]">{item.detail}</span>
+                  <span className="block truncate text-[14px] font-black text-[#111111]">{recentTitle(item)}</span>
+                  <span className="mt-1 block truncate text-[12px] text-[#737373]">{recentDetail(item)}</span>
                 </span>
                 <span className="shrink-0 pt-0.5 text-right">
                   <span className="block text-[9px] font-black uppercase tracking-[0.1em] text-[#0c705f]">{recentKindLabel(item)}</span>
@@ -365,10 +365,18 @@ function RecentWork({
 
 function recentKindLabel(item: PipelineRecentDestination) {
   if (item.kind === "profile") return "Profile";
-  if (item.kind === "referral") return "Referral";
-  if (item.screen === "packet") return "New packet";
+  if (item.kind === "referral") return "Workspace";
+  if (item.screen === "packet") return "New referral";
   if (item.screen === "operations") return "Operations";
   return "Page";
+}
+
+function recentTitle(item: PipelineRecentDestination) {
+  return item.id === "page:referrals" ? "Workspaces" : item.title;
+}
+
+function recentDetail(item: PipelineRecentDestination) {
+  return item.id === "page:referrals" ? "Client referral records" : item.detail;
 }
 
 function formatRecentTime(value: string) {
