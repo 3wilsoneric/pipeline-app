@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const scorecard = readFileSync("scripts/pipeline-performance-scorecard.mjs", "utf8");
+const certificationRunner = readFileSync("scripts/mcmaster-certification-runner.mjs", "utf8");
 const standaloneLauncher = readFileSync("scripts/start-standalone.mjs", "utf8");
 
 assert.match(scorecard, /interaction_count > 0/, "INP must require at least one observed interaction.");
@@ -22,10 +23,14 @@ assert.match(scorecard, /warm_navigation_ms: browserFrameCertificationLimit\(goa
 assert.match(scorecard, /warm_navigation_ms: boundedInteger\("PIPELINE_PERF_WARM_NAV_MS", 100/, "Warm navigation goal must remain 100 ms.");
 assert.match(scorecard, /useful_content_ms: boundedInteger\("PIPELINE_PERF_USEFUL_CONTENT_MS", 800/, "Useful referral content must retain a sub-second goal.");
 assert.match(scorecard, /filter_tab_queue_ms: boundedInteger\("PIPELINE_PERF_FILTER_MS", 150/, "Localized interaction goal must remain 150 ms.");
+assert.match(certificationRunner, /await runCalibration\(firstPort \+ runCount/, "Certification must discard one host-calibration run before scoring.");
+assert.match(certificationRunner, /calibration_discarded: true/, "Certification output must disclose the discarded calibration run.");
+assert.match(certificationRunner, /runs\.every\(\(run\) => run\.ok\)/, "Every scored certification run must pass.");
+assert.match(certificationRunner, /PIPELINE_DESKTOP_E2E: "true"/, "Certification must explicitly isolate durable browser workspace state.");
 assert.match(
   standaloneLauncher,
   /resolve\(standaloneRoot, configuredDistDir, "static"\)/,
   "Custom Next dist directories must stage browser assets where the standalone server expects them.",
 );
 
-console.log(JSON.stringify({ ok: true, checks: 17 }, null, 2));
+console.log(JSON.stringify({ ok: true, checks: 21 }, null, 2));
