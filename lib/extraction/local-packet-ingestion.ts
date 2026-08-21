@@ -142,7 +142,14 @@ async function extractPdf(bytes: Uint8Array, packetId: string): Promise<LocalPac
         .trim();
 
       if (embeddedText.length >= minimumEmbeddedTextLength) {
-        pages.push({ pageNumber, text: embeddedText });
+        const embeddedPage = { pageNumber, text: embeddedText };
+        if (pageNumber === 1 && !extractResidentName([embeddedPage])) {
+          const ocrText = await recognizePdfPage(page);
+          pages.push({ pageNumber, text: `${embeddedText}\n${ocrText}`.trim() });
+          ocrPageCount += 1;
+        } else {
+          pages.push(embeddedPage);
+        }
       } else {
         pages.push({ pageNumber, text: await recognizePdfPage(page) });
         ocrPageCount += 1;
@@ -239,7 +246,9 @@ function field(fieldKey: string, extracted: ExtractedValue | undefined, packetId
 
 function extractResidentName(pages: PacketPageText[]): ExtractedValue | undefined {
   for (const page of pages) {
-    for (const line of lines(page.text)) {
+    const pageLines = lines(page.text);
+    for (let index = 0; index < pageLines.length; index += 1) {
+      const line = pageLines[index];
       const titled = line.match(/\b(?:Mr|Ms|Mrs|Miss)\.?\s+([A-Za-z][A-Za-z'. -]{1,50}),\s*([A-Za-z][A-Za-z'.-]{1,30})(?:\s+([A-Za-z][A-Za-z'.-]{1,30}))?/i);
       if (titled) {
         const lastName = cleanNamePart(titled[1]);
@@ -255,6 +264,17 @@ function extractResidentName(pages: PacketPageText[]): ExtractedValue | undefine
       if (labeled) {
         const value = normalizeName(labeled[1]);
         if (value) return { value, confidence: 0.94, pageNumber: page.pageNumber };
+      }
+
+      if (/\bres(?:i)?dent\s*name\b/i.test(line)) {
+        const tableValue = pageLines[index + 1]?.match(/^([A-Za-z][A-Za-z'. -]{1,50}?),\s*([A-Za-z][A-Za-z'.-]{1,30})\b/);
+        if (tableValue) {
+          return {
+            value: `${cleanNamePart(tableValue[2])} ${cleanNamePart(tableValue[1])}`,
+            confidence: 0.92,
+            pageNumber: page.pageNumber,
+          };
+        }
       }
     }
   }

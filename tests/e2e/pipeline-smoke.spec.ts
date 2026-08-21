@@ -90,7 +90,7 @@ test.describe("Referral home and packet canvas", () => {
     page,
   }) => {
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
-    await expect(page.getByRole("img", { name: "Alamo Platform" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Alamo Platform" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
@@ -313,7 +313,7 @@ test.describe("Referral home and packet canvas", () => {
     });
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { name: /Welcome( back)?, Playwright QA\./ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Welcome( back)?, Playwright\./ })).toBeVisible();
     expect(identityRequests).toBe(1);
 
     let referralRequests = 0;
@@ -875,7 +875,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(pipelineClientId).toBeTruthy();
     await page.goto(`/?screen=profile&clientId=${encodeURIComponent(`pipeline:${pipelineClientId}`)}`);
     await expect(page.getByRole("heading", { name: clientName, exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Client files", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral documents", exact: true })).toBeVisible();
     await expect(page.getByText("face-sheet.pdf", { exact: true })).toBeVisible();
     await expect(page.getByText("synthetic-medication-list.pdf", { exact: true })).toBeVisible();
     await expect(page.getByText("synthetic-provider-form.pdf", { exact: true })).toBeVisible();
@@ -1388,7 +1388,7 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.getByRole("heading", { name: "Welcome, Playwright QA." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Welcome, Playwright." })).toBeVisible();
     await expect(page.getByRole("region", { name: "My queue" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
@@ -1544,7 +1544,7 @@ test.describe("Pipeline home", () => {
   });
 
   test("searches site destinations and the enhanced client directory while typing", async ({ page }) => {
-    const directory = clinicalFixture.clients as {
+    const directory = clientDirectoryFixture as unknown as {
       clients: Array<{
         canonical_client_id: string;
         display_name: string;
@@ -1553,7 +1553,7 @@ test.describe("Pipeline home", () => {
     };
     const client = directory.clients[0];
 
-    await page.route("**/api/clinical/clients**", async (route) => {
+    await page.route("**/api/profiles/directory**", async (route) => {
       const query = new URL(route.request().url()).searchParams.get("q")?.trim().toLowerCase() ?? "";
       const clients = query && !client.display_name.toLowerCase().includes(query) ? [] : [client];
       await route.fulfill({
@@ -1583,7 +1583,7 @@ test.describe("Pipeline home", () => {
   test("shows the welcome once, then returns to the home workspace", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { name: "Welcome, Playwright QA." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Welcome, Playwright." })).toBeVisible();
     await expect(page.getByRole("region", { name: "My queue" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
 
@@ -1619,7 +1619,7 @@ test.describe("Pipeline home", () => {
 
     await page.evaluate(() => window.sessionStorage.clear());
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Welcome back, Playwright QA." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Welcome back, Playwright." })).toBeVisible();
   });
 
   test("opens the Alamo enhanced client directory and governed profile", async ({ page }) => {
@@ -1767,7 +1767,7 @@ test.describe("Pipeline home", () => {
   });
 
   test("stacks client community, admission-date, and profile-data filters", async ({ page }) => {
-    const directory = clinicalFixture.clients as {
+    const directory = clientDirectoryFixture as {
       clients: Array<Record<string, unknown>>;
       [key: string]: unknown;
     };
@@ -1808,7 +1808,7 @@ test.describe("Pipeline home", () => {
       },
     ];
 
-    await page.route("**/api/clinical/clients**", async (route) => {
+    await page.route("**/api/profiles/directory**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

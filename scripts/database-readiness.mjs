@@ -123,7 +123,12 @@ check(
 check("resident-link confirmation detects collisions", linkStore.includes("resident_already_linked"));
 check("resident-link confirmation serializes competing reviews", linkStore.includes("pg_advisory_xact_lock"));
 check("unified profile requires a confirmed link", unifiedProfile.includes('link.status === "confirmed"'));
-check("unified profile forbids implicit name matching", unifiedProfile.includes("will not be matched by name"));
+check(
+  "unified profile forbids implicit name matching",
+  unifiedProfile.includes("if (!residentNumberMatch && !nameDobMatch) return []")
+    && unifiedProfile.includes("status: \"unlinked\"")
+    && unifiedProfile.includes("confirmed_link: null"),
+);
 check("database URL remains server-only", !/NEXT_PUBLIC_PIPELINE_DATABASE_URL/.test(envExample));
 check("workflow migration versions work-item evidence", workflowMigration.includes("evidence_document_name"));
 check("workflow migration records decision actor names", workflowMigration.includes("decided_by_name"));

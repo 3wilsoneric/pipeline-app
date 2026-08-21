@@ -92,7 +92,7 @@ export default function PipelineHeader() {
           aria-label={isWelcomeSurface ? "Alamo Platform" : undefined}
           aria-hidden={!isWelcomeSurface}
           data-platform-brand="alamo"
-          className={`flex h-12 cursor-default items-center gap-2 overflow-hidden whitespace-nowrap text-[17px] font-semibold text-[#595959] transition-[max-width,opacity] duration-300 ease-out ${
+          className={`flex h-12 cursor-default items-center gap-2 overflow-hidden whitespace-nowrap text-[17px] font-semibold text-[#595959] transition-[max-width,opacity] duration-300 ease-out motion-reduce:transition-none ${
             isWelcomeSurface ? "max-w-[128px] opacity-100" : "pointer-events-none max-w-0 opacity-0"
           }`}
         >
@@ -100,7 +100,7 @@ export default function PipelineHeader() {
         </div>
         <span
           aria-hidden="true"
-          className={`hidden h-8 bg-[#d9d9d9] transition-[width,margin,opacity] duration-300 ease-out sm:block ${
+          className={`hidden h-8 bg-[#d9d9d9] transition-[width,margin,opacity] duration-300 ease-out motion-reduce:transition-none sm:block ${
             isWelcomeSurface ? "mx-4 w-px opacity-100" : "mx-0 w-0 opacity-0"
           }`}
         />
@@ -214,7 +214,9 @@ export default function PipelineHeader() {
 }
 
 function getActiveNavTarget(searchParams: URLSearchParams, pathname: string): PipelineNavTarget {
-  if (searchParams.get("screen") === "packet") return "packet";
+  if (searchParams.get("screen") === "packet") {
+    return searchParams.has("referralId") ? "referrals" : "packet";
+  }
   if (pathname === "/referrals") return "referrals";
   if (searchParams.get("screen") === "referrals" || searchParams.get("view") === "referrals") return "referrals";
   if (searchParams.get("screen") === "profiles" || searchParams.get("screen") === "profile") return "profiles";

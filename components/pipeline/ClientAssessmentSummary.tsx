@@ -28,16 +28,15 @@ export default function ClientAssessmentSummary({
   }, [coverage]);
 
   if (!latest) {
+    const connected = connection.status === "confirmed" || connection.status === "pipeline_only";
     return (
       <div className="flex gap-3 py-3">
         <ClipboardList size={17} className="mt-0.5 shrink-0 text-[#0f8b73]" />
         <div>
-          <div className="text-[12px] font-black">
-            {connection.status === "confirmed" ? "No assessments yet" : "No referral history"}
-          </div>
+          <div className="text-[12px] font-black">No assessments yet</div>
           <div className="mt-1 max-w-xl text-[11px] leading-5 text-[#737373]">
-            {connection.status === "confirmed"
-              ? "A referral is connected, but no assessment has been captured for this client."
+            {connected
+              ? "No assessment has been captured for this client."
               : connection.message}
           </div>
         </div>

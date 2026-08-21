@@ -177,7 +177,12 @@ const results = await Promise.all([
       assert(source.includes("getClinicalClientDocumentAsset"), `${documentRoute} must use the server-only Alamo adapter`);
     }
     assert(unifiedProfile.includes('link.status === "confirmed"'), "Operational data must require a confirmed resident link");
-    assert(unifiedProfile.includes("will not be matched by name"), "Unlinked profiles must reject implicit name matching");
+    assert(
+      unifiedProfile.includes("if (!residentNumberMatch && !nameDobMatch) return []")
+        && unifiedProfile.includes('status: "unlinked"')
+        && unifiedProfile.includes("confirmed_link: null"),
+      "Unlinked profiles must reject implicit name-only matching",
+    );
     assert(!profileDirectory.includes("/api/clients"), "Referral-backed client profiles must not populate the governed directory");
     assert(!profileView.includes("/api/clients"), "Resident detail must not use the referral store");
     assert(!existsSync(path.join(root, "app/api/clients/route.ts")), "The alternate client-profile API must remain removed");

@@ -13,14 +13,14 @@ test.describe("Stable visual surfaces", () => {
     await expect(page).toHaveScreenshot("desktop-home.png", screenshotOptions());
 
     await page.getByRole("button", { name: "Open referrals" }).click();
-    await expect(page.getByRole("main", { name: "Referral packets" })).toBeVisible();
+    await expect(page.getByRole("main", { name: "Referral workspaces" })).toBeVisible();
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-referrals.png", screenshotOptions());
 
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
-    await expect(page.getByTestId("profiles-workspace").getByRole("alert")).toContainText(
-      "Admitted-client profiles are unavailable.",
+    await expect(page.getByTestId("profiles-workspace").getByRole("status")).toContainText(
+      "The Alamo client directory is unavailable",
     );
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-profiles.png", screenshotOptions());
@@ -34,7 +34,7 @@ test.describe("Stable visual surfaces", () => {
   test("mobile navigation and chart preserve their baselines", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openStable(page, "/?view=referrals");
-    await expect(page.getByRole("main", { name: "Referral packets" })).toBeVisible();
+    await expect(page.getByRole("main", { name: "Referral workspaces" })).toBeVisible();
     await expect(page).toHaveScreenshot("mobile-referrals.png", screenshotOptions());
 
     await page.getByRole("button", { name: "Create new referral" }).click();

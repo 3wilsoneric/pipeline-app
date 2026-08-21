@@ -93,7 +93,7 @@ export default function PipelineWelcome({
       <div className={`mx-auto flex min-h-full w-full max-w-[1240px] flex-col px-5 md:px-8 ${showWelcome ? "py-8 md:py-10" : "py-4 md:py-5"}`}>
         {!welcomeResolved ? <WelcomeSkeleton /> : null}
 
-        {welcomeResolved && showWelcome && welcomeKind ? (
+        {welcomeResolved && showWelcome && welcomeKind && !searchOpen ? (
           <div>
             <h1 className="text-[42px] font-semibold leading-[1.02] text-[#111111] md:text-[58px]">
               {welcomeKind === "first" ? "Welcome" : "Welcome back"}, {welcomeName}.
@@ -122,7 +122,7 @@ export default function PipelineWelcome({
         {welcomeResolved && searchOpen ? (
           <PipelineSearchPanel
             autoFocus
-            className="mt-10"
+            className="mt-1"
             onOpenPacket={onOpenPacket}
             onOpenProfile={onOpenProfile}
             onOpenDestination={onOpenSearchDestination}

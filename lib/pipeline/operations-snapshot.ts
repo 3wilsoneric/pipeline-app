@@ -657,6 +657,7 @@ function priorityRank(priority: string) {
 function buildAssessorLoad(work: OperationsWorkItem[]): OperationsAssessorLoad[] {
   const byOwner = new Map<string, OperationsAssessorLoad>();
   for (const item of work) {
+    if (item.owner === "Unassigned") continue;
     const current = byOwner.get(item.owner) ?? { owner: item.owner, active: 0, blocked: 0, stale: 0, due_soon: 0 };
     current.active += 1;
     if (item.blocker_count > 0) current.blocked += 1;

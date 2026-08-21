@@ -42,7 +42,7 @@ export default function ReferralWorklist({
               key={referral.id}
               type="button"
               onClick={() => onOpenPacket(referral)}
-              aria-label={`Open ${referral.name} referral packet`}
+              aria-label={`Open ${referral.name} referral workspace`}
               className="grid w-full grid-cols-[minmax(210px,1.2fr)_minmax(220px,1.35fr)_150px_170px_130px_90px_36px] items-center px-4 py-3 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
             >
               <span className="flex min-w-0 items-center gap-3">
