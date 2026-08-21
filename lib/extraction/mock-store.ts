@@ -22,6 +22,7 @@ type MockExtractionState = {
   fields: Map<string, ExtractedField[]>;
   auditEvents: Map<string, FieldAuditEvent[]>;
   uploadDescriptors: Map<string, UploadFileDescriptor[]>;
+  documentIds: Map<string, string>;
 };
 
 const globalForExtraction = globalThis as typeof globalThis & {
@@ -35,15 +36,18 @@ const mockState =
     fields: new Map<string, ExtractedField[]>(),
     auditEvents: new Map<string, FieldAuditEvent[]>(),
     uploadDescriptors: new Map<string, UploadFileDescriptor[]>(),
+    documentIds: new Map<string, string>(),
   });
 
 mockState.auditEvents ??= new Map<string, FieldAuditEvent[]>();
 mockState.uploadDescriptors ??= new Map<string, UploadFileDescriptor[]>();
+mockState.documentIds ??= new Map<string, string>();
 
 const packets = mockState.packets;
 const fields = mockState.fields;
 const auditEvents = mockState.auditEvents;
 const uploadDescriptors = mockState.uploadDescriptors;
+const documentIds = mockState.documentIds;
 const maxMockPackets = 1000;
 
 function now() {
@@ -89,6 +93,9 @@ function pruneMockState() {
     fields.delete(oldestPacketId);
     auditEvents.delete(oldestPacketId);
     uploadDescriptors.delete(oldestPacketId);
+    for (const key of documentIds.keys()) {
+      if (key.startsWith(`${oldestPacketId}:`)) documentIds.delete(key);
+    }
     unregisterMockPacketReferral(oldestPacketId);
   }
 }
@@ -212,6 +219,7 @@ export function createUploadTargets(
     referral_id: input.referral_id,
     submitting_facility: input.submitting_facility,
     source_type: input.source_type,
+    processing_intent: input.processing_intent ?? "extract_referral",
     status: "received",
     uploads: uploadTargets,
     uploaded_file_ids: [],
@@ -242,27 +250,45 @@ export function completeUpload(input: CompleteUploadRequest) {
       packet_id: input.packet_id,
       status: existingPacket.status,
       job_run_id: existingPacket.job_run_id,
+      documents: mockDocuments(input.packet_id, input.uploaded_file_ids),
     };
   }
 
   const jobRunId = makeId("mock_run");
+  const previewOnly = existingPacket.processing_intent === "preview_only";
   const updated: PacketRecord = {
     ...existingPacket,
     uploaded_file_ids: input.uploaded_file_ids,
-    status: "ready_for_review",
+    status: previewOnly ? "reviewed" : "ready_for_review",
     page_count: existingPacket.page_count || Math.max(1, input.uploaded_file_ids.length * 3),
     job_run_id: jobRunId,
     updated_at: now(),
   };
 
   packets.set(input.packet_id, updated);
-  if (!fields.has(input.packet_id)) seedFields(input.packet_id);
+  if (!previewOnly && !fields.has(input.packet_id)) seedFields(input.packet_id);
 
   return {
     packet_id: input.packet_id,
     status: updated.status,
     job_run_id: jobRunId,
+    documents: mockDocuments(input.packet_id, input.uploaded_file_ids),
   };
+}
+
+function mockDocuments(packetId: string, fileIds: string[]) {
+  return fileIds.map((fileId) => {
+    const key = `${packetId}:${fileId}`;
+    const documentId = documentIds.get(key) ?? crypto.randomUUID();
+    documentIds.set(key, documentId);
+    const descriptor = getMockUploadDescriptor(packetId, fileId);
+    return {
+      file_id: fileId,
+      document_id: documentId,
+      category: descriptor?.category ?? "referral_packet",
+      filename: descriptor?.filename ?? fileId,
+    };
+  });
 }
 
 export function getMockUploadDescriptor(packetId: string, fileId: string) {

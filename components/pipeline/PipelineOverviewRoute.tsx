@@ -155,6 +155,7 @@ export default function PipelineOverviewRoute() {
       <ReferralHome
         searchTerm={searchTerm}
         onOpenPacket={(referral) => navigate("packet", referral)}
+        onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
       />
     );
   }

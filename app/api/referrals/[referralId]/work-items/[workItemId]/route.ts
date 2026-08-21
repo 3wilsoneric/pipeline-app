@@ -61,10 +61,13 @@ export async function PATCH(
 }
 
 function validatePatch(value: Record<string, unknown>) {
-  const allowed = new Set(["status", "owner", "dueAt", "nextStep", "blocker", "evidenceDocumentName", "waiverReason"]);
+  const allowed = new Set(["status", "owner", "dueAt", "nextStep", "blocker", "evidenceDocumentId", "evidenceDocumentName", "waiverReason"]);
   if (Object.keys(value).some((key) => !allowed.has(key))) return { ok: false as const, error: "The work item patch contains an unsupported field." };
   if (value.status !== undefined && (typeof value.status !== "string" || !statuses.includes(value.status as RequirementStatus))) return { ok: false as const, error: "status is invalid." };
   if (value.blocker !== undefined && typeof value.blocker !== "boolean") return { ok: false as const, error: "blocker must be true or false." };
+  if (value.evidenceDocumentId !== undefined && (typeof value.evidenceDocumentId !== "string" || !isSafeId(value.evidenceDocumentId))) {
+    return { ok: false as const, error: "evidenceDocumentId is invalid." };
+  }
   for (const [field, maximum] of [["owner", 200], ["dueAt", 80], ["nextStep", 500], ["evidenceDocumentName", 2_000], ["waiverReason", 2_000]] as const) {
     if (value[field] !== undefined && (typeof value[field] !== "string" || value[field].length > maximum)) return { ok: false as const, error: `${field} is invalid.` };
   }

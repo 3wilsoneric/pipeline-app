@@ -50,6 +50,7 @@ import {
   allowedUploadContentTypes,
   maxUploadFileBytes,
   type CompleteUploadResponse,
+  type DocumentCategory,
   type ExtractedField,
   type CreateUploadUrlResponse,
   type PacketFieldsResponse,
@@ -242,6 +243,8 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   }));
   const [conserved, setConserved] = useState<"yes" | "no" | "">("");
   const [documents, setDocuments] = useState<Record<string, string>>({});
+  const [pendingDocuments, setPendingDocuments] = useState<Record<string, File>>({});
+  const [uploadingDocumentIds, setUploadingDocumentIds] = useState<Set<string>>(() => new Set());
   const [initialPacket, setInitialPacket] = useState<File | null>(null);
   const [tagsInput, setTagsInput] = useState("");
   const [activePage, setActivePage] = useState<1 | 2 | 3 | 4 | 5>(1);
@@ -276,6 +279,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   const fieldsRef = useRef(fields);
   const tagsInputRef = useRef(tagsInput);
   const documentsRef = useRef(documents);
+  const pendingDocumentsRef = useRef(pendingDocuments);
   const initialPacketRef = useRef(initialPacket);
   const conservedRef = useRef(conserved);
   const dirtyKeysRef = useRef(dirtyKeys);
@@ -298,6 +302,10 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   }, [documents]);
 
   useEffect(() => {
+    pendingDocumentsRef.current = pendingDocuments;
+  }, [pendingDocuments]);
+
+  useEffect(() => {
     initialPacketRef.current = initialPacket;
   }, [initialPacket]);
 
@@ -314,7 +322,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   }, [isSaving]);
 
   useEffect(() => {
-    if (dirtyKeys.size === 0) return;
+    if (dirtyKeys.size === 0 && Object.keys(pendingDocuments).length === 0) return;
     const timer = window.setTimeout(() => {
       const draft: CanvasSessionDraft = {
         schema: 1,
@@ -348,7 +356,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       }
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [conserved, dirtyKeys, documents, fields, initialPacket, loadedReferral, referral?.id, tagsInput]);
+  }, [conserved, dirtyKeys, documents, fields, initialPacket, loadedReferral, pendingDocuments, referral?.id, tagsInput]);
 
   useEffect(() => {
     if (dirtyKeys.size === 0) return;
@@ -358,7 +366,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
     };
     window.addEventListener("beforeunload", warnBeforeUnload);
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [dirtyKeys]);
+  }, [dirtyKeys, pendingDocuments]);
 
   const markDirty = (key: DirtyDraftKey) => {
     setDirtyKeys((current) => {
@@ -379,6 +387,8 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       setRemoteChange(null);
       setExtractionConflict(null);
       setPresence([]);
+      setPendingDocuments({});
+      setUploadingDocumentIds(new Set());
       const setters = {
         setFields,
         setConserved,
@@ -629,9 +639,84 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   };
 
   const attachDocument = (id: string, file: File) => {
+    const contentType = getPacketContentType(file);
+    if (!(allowedUploadContentTypes as readonly string[]).includes(contentType)) {
+      setSaveError("Upload a PDF, JPEG, PNG, TIFF, or HEIC document.");
+      return;
+    }
+    if (file.size > maxUploadFileBytes) {
+      setSaveError("Documents must be 100 MB or smaller.");
+      return;
+    }
     setSavedAt("Unsaved changes");
     markDirty("documents");
     setDocuments((current) => ({ ...current, [id]: file.name }));
+    setPendingDocuments((current) => ({ ...current, [id]: file }));
+    const currentReferral = loadedReferralRef.current;
+    if (currentReferral) void uploadAndLinkSupportingDocument(currentReferral, id, file).catch(() => undefined);
+  };
+
+  const uploadAndLinkSupportingDocument = async (currentReferral: Referral, requirementId: string, file: File) => {
+    const definition = [...requirements, ...attachments].find((item) => item.id === requirementId);
+    if (!definition) return currentReferral;
+    setUploadingDocumentIds((current) => new Set(current).add(requirementId));
+    setSaveError("");
+    setSavedAt(`Uploading ${definition.label}...`);
+    try {
+      let workingReferral = currentReferral;
+      let workItem = workingReferral.requirements?.find((item) => item.type === definition.type);
+      if (!workItem) {
+        workingReferral = await persistExistingChanges(workingReferral, new Set(["documents"]));
+        workItem = workingReferral.requirements?.find((item) => item.type === definition.type);
+      }
+      if (!workItem) throw new Error(`${definition.label} could not be linked to its requirement.`);
+
+      const uploaded = await uploadReferralSupportingDocument(
+        workingReferral,
+        file,
+        documentCategoryForRequirement(definition.type),
+      );
+      const document = uploaded.documents?.[0];
+      if (!document) throw new Error("Pipeline uploaded the file but did not return its document record.");
+      await fetchPipelineJson(`/api/referrals/${workingReferral.id}/work-items/${encodeURIComponent(workItem.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          if_match: workItem.version ?? 1,
+          patch: {
+            status: "received",
+            evidenceDocumentId: document.document_id,
+            evidenceDocumentName: file.name,
+          },
+        }),
+      });
+      const refreshed = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${workingReferral.id}/canvas`, { cache: "no-store" });
+      if (!refreshed.referral) throw new Error("The document was saved, but the refreshed referral was unavailable.");
+      loadedReferralRef.current = refreshed.referral;
+      setLoadedReferral(refreshed.referral);
+      setDocuments(documentsFromReferral(refreshed.referral));
+      setPendingDocuments((current) => {
+        const next = { ...current };
+        delete next[requirementId];
+        return next;
+      });
+      setDirtyKeys((current) => {
+        const next = new Set(current);
+        if (Object.keys(pendingDocumentsRef.current).every((id) => id === requirementId)) next.delete("documents");
+        return next;
+      });
+      setSavedAt(`${definition.label} uploaded`);
+      return refreshed.referral;
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : `Could not upload ${definition.label}.`);
+      throw error;
+    } finally {
+      setUploadingDocumentIds((current) => {
+        const next = new Set(current);
+        next.delete(requirementId);
+        return next;
+      });
+    }
   };
 
   const selectInitialPacket = (file: File | undefined) => {
@@ -701,7 +786,9 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   useEffect(() => {
     const current = loadedReferral;
     if (!current || isSaving || remoteChange?.conflicts.length) return;
-    const keys = new Set([...dirtyKeys].filter((key) => key !== "initialPacket"));
+    const keys = new Set([...dirtyKeys].filter((key) => (
+      key !== "initialPacket" && !(key === "documents" && Object.keys(pendingDocuments).length > 0)
+    )));
     if (keys.size === 0) return;
     const signatures = new Map([...keys].map((key) => [key, draftKeySignature(key, {
       fields,
@@ -744,10 +831,14 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       }
     }, 1_500);
     return () => window.clearTimeout(timer);
-  }, [conserved, dirtyKeys, documents, fields, initialPacket, isSaving, loadedReferral, remoteChange?.conflicts.length, tagsInput]);
+  }, [conserved, dirtyKeys, documents, fields, initialPacket, isSaving, loadedReferral, pendingDocuments, remoteChange?.conflicts.length, tagsInput]);
 
   const saveDraft = async () => {
     setSaveError("");
+    if (uploadingDocumentIds.size > 0) {
+      setSaveError("Wait for the selected documents to finish uploading before saving again.");
+      return;
+    }
     if (remoteChange?.conflicts.length) {
       setSaveError("Resolve the remote field changes before saving.");
       return;
@@ -897,10 +988,15 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         setInitialPacket(null);
       }
 
+      for (const [requirementId, file] of Object.entries(pendingDocumentsRef.current)) {
+        savedReferral = await uploadAndLinkSupportingDocument(savedReferral, requirementId, file);
+      }
+
       const latestProgress = await fetchPipelineJson<ReferralProgress>(`/api/referrals/${savedReferral.id}/progress`, { cache: "no-store" }).catch(() => null);
       if (latestProgress) setProgress(latestProgress);
       onReferralSaved?.({ id: savedReferral.id, name: savedReferral.name, community: savedReferral.community });
       setDirtyKeys(new Set());
+      setPendingDocuments({});
       clearSessionDraft(referralId ? savedReferral.id : undefined);
       clearSessionDraft(savedReferral.id);
       setRecoveredDraftAt("");
@@ -1346,7 +1442,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
               <button
                 type="button"
                 onClick={saveDraft}
-                disabled={isSaving || Boolean(remoteChange?.conflicts.length)}
+                disabled={isSaving || uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length)}
                 className="flex h-10 items-center gap-2 border border-[#111111] bg-[#111111] px-4 text-[12px] font-black text-white hover:border-[#0f8b73] hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:border-[#b8b8b8] disabled:bg-[#b8b8b8]"
               >
                 <Save size={15} />
@@ -1590,6 +1686,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
                   requirement={requirement}
                   fileName={documents[requirement.id]}
                   onAttach={(file) => attachDocument(requirement.id, file)}
+                  uploading={uploadingDocumentIds.has(requirement.id)}
                 />
               ))}
             </div>
@@ -1609,6 +1706,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
                   requirement={requirement}
                   fileName={documents[requirement.id]}
                   onAttach={(file) => attachDocument(requirement.id, file)}
+                  uploading={uploadingDocumentIds.has(requirement.id)}
                   compact
                 />
               ))}
@@ -2449,11 +2547,13 @@ function DocumentDropRow({
   fileName,
   onAttach,
   compact = false,
+  uploading = false,
 }: {
   requirement: Requirement;
   fileName?: string;
   onAttach: (file: File) => void;
   compact?: boolean;
+  uploading?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -2476,15 +2576,16 @@ function DocumentDropRow({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
+        disabled={uploading}
         className={`mt-3 flex w-full items-center justify-center gap-2 border border-dashed border-[#c6ba59] bg-[#fffde8] px-3 text-[11px] font-black text-[#6f641b] hover:bg-white ${compact ? "h-24" : "h-16 md:mt-0"}`}
       >
-        {fileName ? <Check size={15} /> : <UploadCloud size={16} />}
-        <span className="max-w-full truncate">{fileName ?? "Drop document or browse"}</span>
+        {uploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#c6ba59] border-t-transparent" /> : fileName ? <Check size={15} /> : <UploadCloud size={16} />}
+        <span className="max-w-full truncate">{uploading ? "Uploading..." : fileName ?? "Drop document or browse"}</span>
       </button>
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic,.xlsx,.xls,.csv"
+        accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic"
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -3101,6 +3202,49 @@ async function uploadReferralPacket(referral: Referral, file: File, sha256: stri
     fields: packetFields,
     mock,
   };
+}
+
+async function uploadReferralSupportingDocument(
+  referral: Referral,
+  file: File,
+  category: DocumentCategory,
+) {
+  const fileId = `file_${createMutationId()}`;
+  const sha256 = await hashPacket(file);
+  const reservation = await fetchPipelineJson<CreateUploadUrlResponse>("/api/uploads/create-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      referral_id: String(referral.id),
+      submitting_facility: referral.community,
+      source_type: "manual",
+      processing_intent: "preview_only",
+      files: [{
+        file_id: fileId,
+        filename: file.name,
+        content_type: getPacketContentType(file),
+        size: file.size,
+        sha256,
+        category,
+      }],
+    }),
+  });
+  const target = reservation.uploads.find((upload) => upload.file_id === fileId);
+  if (!target) throw new Error("Pipeline did not return an upload target for this document.");
+  if (!isMockUploadUrl(target.signed_url)) {
+    await putBlob(target.signed_url, file, getPacketContentType(file));
+    await putBlob(reservation.sentinel_url, new Blob([]), "application/octet-stream");
+  }
+  return fetchPipelineJson<CompleteUploadResponse>("/api/uploads/complete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ packet_id: reservation.packet_id, uploaded_file_ids: [fileId] }),
+  });
+}
+
+function documentCategoryForRequirement(type: RequirementType): DocumentCategory {
+  if (type === "no_admission_reason") return "other";
+  return type;
 }
 
 async function putBlob(url: string, body: Blob, contentType: string) {

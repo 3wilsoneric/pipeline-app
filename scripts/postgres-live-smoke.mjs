@@ -37,9 +37,9 @@ try {
   const migrations = await sql`
     select migration_id
     from pipeline.schema_migrations
-    where migration_id in ('0001_pipeline_core', '0002_workflow_engine', '0003_operational_hardening', '0004_document_processing', '0005_collaboration', '0006_user_workspace_state', '0007_canonical_client_assessments')
+    where migration_id in ('0001_pipeline_core', '0002_workflow_engine', '0003_operational_hardening', '0004_document_processing', '0005_collaboration', '0006_user_workspace_state', '0007_canonical_client_assessments', '0008_client_workspaces')
   `;
-  checks.push({ name: "required migrations are applied", ok: migrations.length === 7 });
+  checks.push({ name: "required migrations are applied", ok: migrations.length === 8 });
 
   try {
     await sql.begin(async (tx) => {

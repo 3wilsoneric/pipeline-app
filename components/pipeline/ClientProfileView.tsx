@@ -137,6 +137,7 @@ function ResidentProfile({
 }) {
   const client = profile.client;
   const resident = profile.resident;
+  const pipelineOnly = profile.profile_origin === "pipeline";
   const history = profile.history ?? UNAVAILABLE_CLIENT_HISTORY;
   const completeness = useMemo(() => getCompleteness(profile), [profile]);
   const chart = useMemo(() => {
@@ -187,7 +188,9 @@ function ResidentProfile({
                 </span>
               </div>
               <p className="mt-2 text-[13px] text-[#595959]">
-                {client.current_resident
+                {pipelineOnly
+                  ? `${client.current_community || client.community_names.join(" · ") || "Community not reported"} · ${profile.pipeline.summary.referral_count > 0 ? "Referral client" : "Historical file workspace"}`
+                  : client.current_resident
                   ? `${client.current_community || resident?.community_name || "Current resident"}${client.unit ? ` · Unit ${client.unit}` : ""}`
                   : `${client.community_names.join(" · ") || "Community not reported"} · Historical client`}
               </p>
@@ -196,8 +199,8 @@ function ResidentProfile({
         </header>
 
         <section className="mt-4 grid gap-px border-b border-[#d9d9d9] bg-[#d9d9d9] md:grid-cols-4" aria-label="Profile summary">
-          <Metric label="Profile data" value={`${completeness.percent}%`} detail={`${completeness.complete} of ${completeness.total} fields available`} />
-          <Metric label="Current stay" value={resident?.length_of_stay_days === null || resident?.length_of_stay_days === undefined ? "Not reported" : `${resident.length_of_stay_days.toLocaleString()} days`} detail={resident?.admit_date ? `Admitted ${formatDate(resident.admit_date)}` : "Admission date not reported"} />
+          <Metric label="Profile data" value={pipelineOnly ? "Pipeline" : `${completeness.percent}%`} detail={pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral workspace" : "Historical files" : `${completeness.complete} of ${completeness.total} fields available`} />
+          <Metric label={pipelineOnly ? "Referrals" : "Current stay"} value={pipelineOnly ? String(profile.pipeline.summary.referral_count) : resident?.length_of_stay_days === null || resident?.length_of_stay_days === undefined ? "Not reported" : `${resident.length_of_stay_days.toLocaleString()} days`} detail={pipelineOnly ? `${profile.pipeline.summary.active_referral_count} active` : resident?.admit_date ? `Admitted ${formatDate(resident.admit_date)}` : "Admission date not reported"} />
           <Metric label="Open Pipeline items" value={String(profile.pipeline.summary.open_requirement_count)} detail={`${profile.pipeline.summary.blocker_count} blocking`} />
           <Metric label="Assessments" value={String(profile.pipeline.summary.assessment_count)} detail={profile.pipeline.summary.latest_assessment_status?.replaceAll("_", " ") || "None recorded"} />
         </section>
@@ -210,7 +213,7 @@ function ResidentProfile({
               </ProfileSection>
             ) : null}
 
-            <ProfileSection title="Client information" detail={`Baseline ${formatDate(profile.client_database.baseline_date)}`}>
+            <ProfileSection title="Client information" detail={pipelineOnly ? "Captured in Pipeline" : `Baseline ${formatDate(profile.client_database.baseline_date)}`}>
               <CuratedClientRecord sections={chart.sections} />
             </ProfileSection>
 
@@ -223,16 +226,18 @@ function ResidentProfile({
               </ProfileSection>
             ) : null}
 
-            <ProfileSection title="Stay history">
-              <GovernedEpisodeHistory episodes={chart.episodes} />
-            </ProfileSection>
+            {!pipelineOnly ? (
+              <ProfileSection title="Stay history">
+                <GovernedEpisodeHistory episodes={chart.episodes} />
+              </ProfileSection>
+            ) : null}
 
-            <ProfileSection title="Pipeline work" detail="Available only through a reviewed identity link">
+            <ProfileSection title="Pipeline work" detail={pipelineOnly ? "Referral, assessment, and follow-up state" : "Available only through a reviewed identity link"}>
               <PipelineWorkSummary profile={profile} onConnectionChanged={onConnectionChanged} />
             </ProfileSection>
 
-            {profile.pipeline.connection.status === "confirmed" ? (
-              <ProfileSection title="Client files" detail={`${profile.pipeline.documents.length} linked through reviewed identity`}>
+            {profile.pipeline.documents.length > 0 || ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status) ? (
+              <ProfileSection title="Client files" detail={`${profile.pipeline.documents.length} linked to this client workspace`}>
                 <ClientDocumentGallery documents={profile.pipeline.documents} />
               </ProfileSection>
             ) : null}
@@ -252,7 +257,7 @@ function ResidentProfile({
           </div>
 
           <aside className="min-w-0 space-y-5">
-            <ProfileSection title="Data completeness" detail={`${completeness.complete} of ${completeness.total}`}>
+            {!pipelineOnly ? <ProfileSection title="Data completeness" detail={`${completeness.complete} of ${completeness.total}`}>
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <div className="text-[30px] font-black text-[#111111]">{completeness.percent}%</div>
@@ -277,13 +282,13 @@ function ResidentProfile({
                   </div>
                 ) : null}
               </div>
-            </ProfileSection>
+            </ProfileSection> : null}
 
             <ProfileSection title="Source">
               <div className="flex gap-3">
                 <Database size={17} className="mt-0.5 shrink-0 text-[#0f8b73]" />
                 <div className="space-y-3 text-[12px] text-[#595959]">
-                  <div><span className="font-black text-[#111111]">Alamo Platform</span><br />Governed clinical profile</div>
+                  <div><span className="font-black text-[#111111]">{pipelineOnly ? "Pipeline" : "Alamo Platform"}</span><br />{pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral client workspace" : "Historical file workspace" : "Governed clinical profile"}</div>
                   <div>Data through {formatDate(profile.data_as_of)}</div>
                   <div>Freshness: {profile.freshness.status}</div>
                   {history.data_as_of ? (
@@ -465,7 +470,7 @@ function PipelineWorkSummary({
   onConnectionChanged: () => void;
 }) {
   const { connection, summary } = profile.pipeline;
-  const confirmed = connection.status === "confirmed";
+  const confirmed = connection.status === "confirmed" || connection.status === "pipeline_only";
   const noticeClass = confirmed
     ? "border-[#b8dacf] bg-[#effaf5] text-[#315b51]"
     : connection.status === "candidate"
@@ -522,7 +527,7 @@ function ClientDocumentGallery({ documents }: { documents: ReferralFile[] }) {
   if (documents.length === 0) {
     return (
       <div className="border-l-2 border-[#d9d9d9] bg-[#f8f8f8] px-4 py-3 text-[12px] leading-5 text-[#595959]">
-        No Pipeline files are attached to this canonical client through a reviewed referral link.
+        No files are attached to this client workspace.
       </div>
     );
   }
@@ -539,7 +544,7 @@ function ClientDocumentGallery({ documents }: { documents: ReferralFile[] }) {
             </div>
             <div className="mt-2 break-words text-[12px] font-black leading-5 text-[#111111]">{document.name}</div>
             <div className="mt-2 text-[10px] leading-4 text-[#737373]">
-              Referral #{document.referralId} · {document.community}
+              {document.referralId ? `Referral #${document.referralId}` : "Client file"}{document.community ? ` · ${document.community}` : ""}
               {document.pageCount ? ` · ${document.pageCount} page${document.pageCount === 1 ? "" : "s"}` : ""}
             </div>
             <div className="mt-1 text-[10px] text-[#737373]">Uploaded {formatDate(document.uploadedAt)}</div>
@@ -975,6 +980,7 @@ function SummaryCell({ label, value, detail }: { label: string; value: number; d
 }
 
 function connectionLabel(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
+  if (status === "pipeline_only") return "Pipeline workspace";
   if (status === "confirmed") return "Pipeline linked";
   if (status === "candidate") return "Identity review needed";
   if (status === "unavailable") return "Pipeline work unavailable";
@@ -983,7 +989,7 @@ function connectionLabel(status: UnifiedClientProfileResponse["pipeline"]["conne
 
 function connectionBadgeClass(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
   const common = "border px-2 py-1 text-[10px] font-black uppercase";
-  if (status === "confirmed") return `${common} border-[#b8dacf] bg-[#effaf5] text-[#0f8b73]`;
+  if (status === "confirmed" || status === "pipeline_only") return `${common} border-[#b8dacf] bg-[#effaf5] text-[#0f8b73]`;
   if (status === "candidate") return `${common} border-[#e2ca9f] bg-[#fffaf0] text-[#8a5a10]`;
   if (status === "unavailable") return `${common} border-[#d7bd84] bg-[#fffaf0] text-[#8a6118]`;
   return `${common} border-[#d9d9d9] bg-[#f8f8f8] text-[#737373]`;

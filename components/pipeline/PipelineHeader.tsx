@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, ArrowLeft, ArrowRight, LogOut, UserRound } from "lucide-react";
+import { Activity, ArrowRight, LogOut, UserRound } from "lucide-react";
 
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
 import UserAvatar from "@/components/pipeline/UserAvatar";
@@ -89,7 +89,6 @@ export default function PipelineHeader() {
           data-platform-brand="alamo"
           className="flex h-12 cursor-default items-center gap-2 whitespace-nowrap text-[17px] font-semibold text-[#595959]"
         >
-          <ArrowLeft size={16} className="shrink-0" aria-hidden="true" />
           <span className="hidden sm:inline"><span className="font-black text-[#08745f]">Alamo</span><span className="ml-1">Health</span></span>
         </div>
         <span aria-hidden="true" className="mx-4 hidden h-8 w-px bg-[#d9d9d9] sm:block" />

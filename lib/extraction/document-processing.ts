@@ -29,6 +29,7 @@ type PacketRow = {
   status: PacketStatus;
   page_count: number;
   failure_code: string | null;
+  processing_intent: "extract_referral" | "preview_only";
 };
 
 type UploadFileRow = {
@@ -42,6 +43,7 @@ type UploadFileRow = {
   file_name: string;
   content_type: string;
   blob_container: string;
+  category: import("@/lib/extraction/contracts").DocumentCategory;
 };
 
 type FieldRow = {
@@ -144,10 +146,10 @@ export async function createDurableUploadTargets(
 
       await tx`
         insert into pipeline.packet_uploads (
-          packet_id, referral_id, source_type, submitting_facility, status, uploaded_by
+          packet_id, referral_id, source_type, submitting_facility, status, uploaded_by, processing_intent
         ) values (
           ${packetId}::uuid, ${referralId}, ${input.source_type}, ${input.submitting_facility.trim()},
-          'received', ${actor.id}
+          'received', ${actor.id}, ${input.processing_intent ?? "extract_referral"}
         )
       `;
 
@@ -157,11 +159,13 @@ export async function createDurableUploadTargets(
         const documents = await tx<{ document_id: string }[]>`
           insert into pipeline.documents (
             referral_id, person_id, category, file_name, content_type, byte_size, sha256,
-            blob_container, blob_key, processing_status, uploaded_by, retention_until
+            blob_container, blob_key, processing_status, uploaded_by, retention_until,
+            source_system, identity_status
           ) values (
             ${referralId}, ${referrals[0].person_id}::uuid, ${file.category ?? "referral_packet"}, ${file.filename},
             ${file.content_type.toLowerCase()}, ${file.size}, ${file.sha256!}, ${rawContainer},
-            ${target.blob_path}, 'reserved', ${actor.id}, now() + interval '7 years'
+            ${target.blob_path}, 'reserved', ${actor.id}, now() + interval '7 years',
+            'pipeline', 'linked'
           ) returning document_id
         `;
         await tx`
@@ -205,14 +209,14 @@ async function completeDurableUploadWithMode(
   const sql = getPipelineSql();
   if (!uuid(input.packet_id)) throw new DocumentProcessingError("packet_id_invalid", 400);
   const packetRows = await sql<PacketRow[]>`
-    select packet_id, referral_id, status, page_count, failure_code
+    select packet_id, referral_id, status, page_count, failure_code, processing_intent
     from pipeline.packet_uploads where packet_id = ${input.packet_id}::uuid limit 1
   `;
   const packet = packetRows[0];
   if (!packet) throw new DocumentProcessingError("packet_not_found", 404, "Packet not found.");
 
   const files = await sql<UploadFileRow[]>`
-    select f.*, d.file_name, d.content_type, d.blob_container
+    select f.*, d.file_name, d.content_type, d.blob_container, d.category
     from pipeline.packet_upload_files f
     join pipeline.documents d on d.document_id = f.document_id
     where f.packet_id = ${input.packet_id}::uuid
@@ -224,18 +228,28 @@ async function completeDurableUploadWithMode(
     throw new DocumentProcessingError("upload_set_mismatch", 409, "Complete every reserved file together.");
   }
 
-  const priorJob = queueExtraction
+  const queueReferralExtraction = queueExtraction && packet.processing_intent === "extract_referral";
+  const queuePreview = queueExtraction || packet.processing_intent === "preview_only";
+  const queuesWork = queueReferralExtraction || queuePreview;
+  const priorJob = queuesWork
     ? await sql<{ extraction_job_id: string }[]>`
         select extraction_job_id from pipeline.extraction_jobs
-        where packet_id = ${input.packet_id}::uuid and job_type = 'referral_packet'
+        where packet_id = ${input.packet_id}::uuid
+          and job_type = ${queueReferralExtraction ? "referral_packet" : "document_preview"}
         order by queued_at desc limit 1
       `
     : [];
-  if (files.every((file) => file.uploaded_at) && (!queueExtraction || priorJob[0])) {
+  if (files.every((file) => file.uploaded_at) && (!queuesWork || priorJob[0])) {
     return {
       packet_id: input.packet_id,
       status: packet.status,
       ...(priorJob[0] ? { job_run_id: priorJob[0].extraction_job_id } : {}),
+      documents: files.map((file) => ({
+        file_id: file.file_id,
+        document_id: file.document_id,
+        category: file.category,
+        filename: file.file_name,
+      })),
     };
   }
 
@@ -254,7 +268,7 @@ async function completeDurableUploadWithMode(
 
   const result = await sql.begin(async (tx) => {
     const locked = await tx<PacketRow[]>`
-      select packet_id, referral_id, status, page_count, failure_code
+      select packet_id, referral_id, status, page_count, failure_code, processing_intent
       from pipeline.packet_uploads where packet_id = ${input.packet_id}::uuid for update
     `;
     if (!locked[0]) throw new DocumentProcessingError("packet_not_found", 404);
@@ -264,20 +278,24 @@ async function completeDurableUploadWithMode(
     `;
     await tx`
       update pipeline.documents d
-      set processing_status = ${queueExtraction ? "quarantined" : "uploaded"}, malware_scan_status = 'pending',
-          preview_status = ${queueExtraction ? "pending" : "unavailable"}, updated_at = now(), version = version + 1
+      set processing_status = ${queuesWork ? "quarantined" : "uploaded"}, malware_scan_status = 'pending',
+          preview_status = ${queuePreview ? "pending" : "unavailable"}, updated_at = now(), version = version + 1
       from pipeline.packet_upload_files f
       where f.packet_id = ${input.packet_id}::uuid and f.document_id = d.document_id
     `;
     await tx`
-      update pipeline.packet_uploads set status = ${queueExtraction ? "normalizing" : "received"},
+      update pipeline.packet_uploads set status = ${queuesWork ? "normalizing" : packet.processing_intent === "preview_only" ? "reviewed" : "received"},
         completed_at = now(), updated_at = now()
       where packet_id = ${input.packet_id}::uuid
     `;
 
     let firstJobId = "";
-    if (queueExtraction) for (const file of files) {
-      for (const jobType of ["referral_packet", "document_preview"] as const) {
+    if (queuesWork) for (const file of files) {
+      const jobTypes = [
+        ...(queueReferralExtraction ? ["referral_packet" as const] : []),
+        ...(queuePreview ? ["document_preview" as const] : []),
+      ];
+      for (const jobType of jobTypes) {
         const jobs = await tx<{ extraction_job_id: string }[]>`
           insert into pipeline.extraction_jobs (document_id, packet_id, job_type, status)
           values (${file.document_id}::uuid, ${input.packet_id}::uuid, ${jobType}, 'queued')
@@ -285,7 +303,7 @@ async function completeDurableUploadWithMode(
           do update set next_attempt_at = least(pipeline.extraction_jobs.next_attempt_at, now()), updated_at = now()
           returning extraction_job_id
         `;
-        if (jobType === "referral_packet" && !firstJobId) firstJobId = jobs[0].extraction_job_id;
+        if (!firstJobId) firstJobId = jobs[0].extraction_job_id;
       }
     }
     return firstJobId;
@@ -293,8 +311,14 @@ async function completeDurableUploadWithMode(
 
   return {
     packet_id: input.packet_id,
-    status: queueExtraction ? "normalizing" : "received",
+    status: queuesWork ? "normalizing" : packet.processing_intent === "preview_only" ? "reviewed" : "received",
     ...(result ? { job_run_id: result } : {}),
+    documents: files.map((file) => ({
+      file_id: file.file_id,
+      document_id: file.document_id,
+      category: file.category,
+      filename: file.file_name,
+    })),
   };
 }
 
@@ -302,7 +326,7 @@ export async function getDurablePacketStatus(packetId: string): Promise<PacketSt
   if (!uuid(packetId)) return null;
   const sql = getPipelineSql();
   const packets = await sql<PacketRow[]>`
-    select packet_id, referral_id, status, page_count, failure_code
+    select packet_id, referral_id, status, page_count, failure_code, processing_intent
     from pipeline.packet_uploads where packet_id = ${packetId}::uuid limit 1
   `;
   if (!packets[0]) return null;
@@ -341,7 +365,7 @@ export async function getDurablePacketFields(packetId: string): Promise<PacketFi
   if (!uuid(packetId)) return null;
   const sql = getPipelineSql();
   const packet = await sql<PacketRow[]>`
-    select packet_id, referral_id, status, page_count, failure_code
+    select packet_id, referral_id, status, page_count, failure_code, processing_intent
     from pipeline.packet_uploads where packet_id = ${packetId}::uuid limit 1
   `;
   if (!packet[0]) return null;

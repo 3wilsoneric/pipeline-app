@@ -25,6 +25,8 @@ export const documentCategories = [
   "lic_602",
   "lic_601_603",
   "provider_form",
+  "payer_verification",
+  "responsible_party",
   "other",
 ] as const;
 export type DocumentCategory = (typeof documentCategories)[number];
@@ -43,6 +45,7 @@ export type CreateUploadUrlRequest = {
   referral_id: string;
   submitting_facility: string;
   source_type: SourceType;
+  processing_intent?: "extract_referral" | "preview_only";
   files: UploadFileDescriptor[];
 };
 
@@ -68,6 +71,12 @@ export type CompleteUploadResponse = {
   packet_id: string;
   status: PacketStatus;
   job_run_id?: string;
+  documents?: Array<{
+    file_id: string;
+    document_id: string;
+    category: DocumentCategory;
+    filename: string;
+  }>;
 };
 
 export type PacketStatusResponse = {
@@ -170,6 +179,7 @@ export type PacketRecord = {
   referral_id: string;
   submitting_facility: string;
   source_type: SourceType;
+  processing_intent?: "extract_referral" | "preview_only";
   status: PacketStatus;
   uploads: UploadTarget[];
   uploaded_file_ids: string[];
@@ -255,6 +265,10 @@ export function validateCreateUploadUrlRequest(
 
   if (!sourceTypes.includes(body.source_type)) {
     return invalid("source_type must be fax, email, portal, or manual.");
+  }
+
+  if (body.processing_intent !== undefined && !["extract_referral", "preview_only"].includes(body.processing_intent)) {
+    return invalid("processing_intent must be extract_referral or preview_only.");
   }
 
   if (!Array.isArray(body.files) || body.files.length === 0) {

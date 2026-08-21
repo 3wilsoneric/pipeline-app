@@ -24,14 +24,16 @@ export type UnifiedProfileLinkSuggestion = {
 };
 
 export type UnifiedProfileConnection = {
-  status: "unavailable" | "unlinked" | "candidate" | "confirmed";
+  status: "unavailable" | "unlinked" | "candidate" | "confirmed" | "pipeline_only";
   confirmed_link: PipelineResidentLink | null;
   candidates: PipelineResidentLink[];
   suggestions: UnifiedProfileLinkSuggestion[];
   message: string;
 };
 
-export type UnifiedClientProfileResponse = ClinicalClientResponse & {
+export type UnifiedClientProfileResponse = Omit<ClinicalClientResponse, "source"> & {
+  source: "alamo_platform" | "pipeline";
+  profile_origin: "alamo_platform" | "pipeline";
   resident: ClinicalResident | null;
   history: ClientHistoryProjection;
   pipeline: {

@@ -4,12 +4,12 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CircleAlert, MapPin, Plus, RefreshCw, Search, X } from "lucide-react";
 
 import type {
-  ClinicalClientDirectoryItem,
   ClinicalFreshness,
 } from "@/lib/clinical/clinical-contracts";
+import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 
-type DirectoryClient = ClinicalClientDirectoryItem;
+type DirectoryClient = ClientWorkspaceDirectoryItem;
 
 type ClientDirectoryPayload = {
   clients: DirectoryClient[];
@@ -336,7 +336,7 @@ export default function ClientProfileDirectory({
         {error ? (
           <div className="mt-4 flex items-start justify-between gap-4 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-4 py-3 text-[13px] text-[#59332d]" role="alert">
             <div>
-              <div className="font-black">Admitted-client profiles are unavailable.</div>
+              <div className="font-black">Client profiles are unavailable.</div>
               <div className="mt-1">{error}</div>
             </div>
             <button type="button" onClick={() => setReloadKey((current) => current + 1)} className="shrink-0 font-black text-[#086b5b]">
@@ -349,7 +349,7 @@ export default function ClientProfileDirectory({
           <div className="hidden grid-cols-[minmax(220px,1fr)_minmax(180px,0.8fr)_minmax(150px,0.6fr)] gap-5 border-b border-[#d9d9d9] bg-[#fbfcfb] px-5 py-2.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373] md:grid">
             <span>Client</span>
             <span>Community</span>
-            <span className="text-right">Current stay</span>
+            <span className="text-right">Workspace</span>
           </div>
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
           {visibleClients.map((client) => (
@@ -364,20 +364,33 @@ export default function ClientProfileDirectory({
                 <span className="block truncate text-[15px] font-black leading-5 text-[#111111]">{client.display_name}</span>
                 <span className="mt-1 block truncate text-[11px] leading-4 text-[#737373] md:hidden">
                   {client.current_community || client.community_names.join(" · ") || "No community reported"}
+                  {client.workspace_origin === "pipeline" ? client.referral_count > 0 ? " · Referral workspace" : " · Historical files" : ""}
                 </span>
               </span>
               <span className="hidden min-w-0 md:block">
                 <span className="block truncate text-[12px] font-semibold text-[#333333]">{client.current_community || client.community_names.join(" · ") || "Not reported"}</span>
-                <span className="mt-1 block truncate text-[10px] text-[#737373]">{client.resident_numbers.length ? `Resident ${client.resident_numbers.join(" · ")}` : "Resident number not reported"}</span>
+                <span className="mt-1 block truncate text-[10px] text-[#737373]">
+                  {client.workspace_origin === "pipeline"
+                    ? `${client.referral_count} referral${client.referral_count === 1 ? "" : "s"} · ${client.document_count} file${client.document_count === 1 ? "" : "s"}`
+                    : `${client.resident_numbers.length ? `Resident ${client.resident_numbers.join(" · ")}` : "Resident number not reported"}${client.document_count > 0 ? ` · ${client.document_count} file${client.document_count === 1 ? "" : "s"}` : ""}`}
+                </span>
               </span>
               <span className="hidden min-w-0 text-right md:block">
                 <span className="block text-[11px] text-[#595959]">
-                  {client.current_resident
+                  {client.workspace_origin === "pipeline"
+                    ? client.referral_count > 0 ? "Referral workspace" : "Historical files"
+                    : client.current_resident
                     ? client.admit_date ? `Admitted ${formatDate(client.admit_date)}` : "Current resident"
                     : "Historical client"}
                 </span>
                 <span className="mt-1 block truncate text-[10px] text-[#737373]">
-                  {client.current_resident && client.care_level
+                  {client.workspace_origin === "pipeline"
+                    ? client.referral_count > 0
+                      ? `${client.referral_count} referral${client.referral_count === 1 ? "" : "s"}`
+                      : `${client.document_count} file${client.document_count === 1 ? "" : "s"}`
+                    : client.document_count > 0 || client.referral_count > 0
+                    ? `${client.referral_count} referral${client.referral_count === 1 ? "" : "s"} · ${client.document_count} file${client.document_count === 1 ? "" : "s"}`
+                    : client.current_resident && client.care_level
                     ? client.care_level
                     : `${client.episode_count} episode${client.episode_count === 1 ? "" : "s"}`}
                 </span>
@@ -409,7 +422,7 @@ export default function ClientProfileDirectory({
 
         {dataAsOf && !error ? (
           <div className="py-4 text-right text-[10px] uppercase tracking-[0.1em] text-[#8a8a8a]">
-            Alamo Platform · Data through {formatDate(dataAsOf)}
+            Client directory · Data through {formatDate(dataAsOf)}
           </div>
         ) : null}
       </div>
@@ -526,7 +539,7 @@ async function fetchClientPage(query: string, cursor: string | null, signal: Abo
   const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
   if (query) params.set("q", query);
   if (cursor) params.set("cursor", cursor);
-  return fetchPipelineJson<ClientDirectoryPayload>(`/api/clinical/clients?${params}`, {
+  return fetchPipelineJson<ClientDirectoryPayload>(`/api/profiles/directory?${params}`, {
     cache: "no-store",
     signal,
   });
@@ -592,7 +605,7 @@ function emptyRosterMessage(query: string, filters: FilterKey[]) {
   if (query.trim() && filters.length > 0) return "No clients match that search and those filters.";
   if (query.trim()) return "No clients match that search.";
   if (filters.length > 0) return "No clients match these filters.";
-  return "The governed Alamo client directory is empty.";
+  return "The client directory is empty.";
 }
 
 function formatDate(value: string) {

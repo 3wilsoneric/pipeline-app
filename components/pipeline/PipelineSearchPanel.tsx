@@ -314,7 +314,15 @@ function SearchResponse({
             detail={`${file.referralName} · ${file.category}`}
             kind="File"
             ariaLabel={`Open file ${file.name}`}
-            onClick={() => onOpenPacket({ id: file.referralId, name: file.referralName, community: file.community })}
+            onClick={() => {
+              if (file.canonicalClientId) {
+                onOpenProfile(file.canonicalClientId);
+              } else if (file.referralId && file.community) {
+                onOpenPacket({ id: file.referralId, name: file.referralName, community: file.community });
+              } else if (file.clientId) {
+                onOpenProfile(`pipeline:${file.clientId}`);
+              }
+            }}
           />
         ))}
         {result.clients.map((client) => (

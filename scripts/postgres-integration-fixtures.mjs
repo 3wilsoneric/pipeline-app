@@ -18,9 +18,9 @@ try {
     await sql.begin(async (tx) => {
       const migrations = await tx`
         select migration_id from pipeline.schema_migrations
-        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments')
+        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces')
       `;
-      checks.push({ name: "all migrations applied", ok: migrations.length === 7 });
+      checks.push({ name: "all migrations applied", ok: migrations.length === 8 });
       await tx`
         insert into pipeline.user_workspace_state (
           principal_id, state_kind, state_key, payload, expires_at
@@ -36,6 +36,8 @@ try {
           (select count(*) from pipeline.people where external_client_id = 'pipeline-integration-fixture') as people,
           (select count(*) from pipeline.referrals r join pipeline.people p on p.person_id = r.person_id where p.external_client_id = 'pipeline-integration-fixture') as referrals,
           (select count(*) from pipeline.documents where blob_key = 'fixture/integration/synthetic-fixture.pdf') as documents,
+          (select count(*) from pipeline.documents d join pipeline.people p on p.person_id = d.person_id where p.external_client_id = 'pipeline-integration-historical' and d.referral_id is null and d.identity_status = 'linked') as historical_documents,
+          (select count(*) from pipeline.client_file_import_items where source_item_id = 'fixture-unmatched-item' and match_status = 'unmatched' and imported_document_id is null) as unmatched_imports,
           (select count(*) from pipeline.document_preview_pages p join pipeline.documents d on d.document_id = p.document_id where d.blob_key = 'fixture/integration/synthetic-fixture.pdf') as pages,
           (select count(*) from pipeline.editing_presence where actor_id = 'fixture-user') as presence
           ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user') as workspace_state
@@ -44,6 +46,7 @@ try {
         name: "synthetic graph is queryable",
         ok: Number(rows[0].people) === 1 && Number(rows[0].referrals) === 1
           && Number(rows[0].documents) === 1 && Number(rows[0].pages) === 2 && Number(rows[0].presence) === 1
+          && Number(rows[0].historical_documents) === 1 && Number(rows[0].unmatched_imports) === 1
           && Number(rows[0].workspace_state) === 1,
       });
       throw rollbackSentinel;
@@ -52,7 +55,7 @@ try {
     if (error !== rollbackSentinel) throw error;
   }
   const remaining = await sql`
-    select count(*) as count from pipeline.people where external_client_id = 'pipeline-integration-fixture'
+    select count(*) as count from pipeline.people where external_client_id in ('pipeline-integration-fixture', 'pipeline-integration-historical')
   `;
   checks.push({ name: "fixture transaction rolls back", ok: Number(remaining[0].count) === 0 });
   const failed = checks.filter((check) => !check.ok);

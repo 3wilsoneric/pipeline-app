@@ -79,6 +79,7 @@ export type AdmissionRequirement = {
   dueAt: string;
   nextStep: string;
   blocker: boolean;
+  evidenceDocumentId?: string;
   evidenceDocumentName?: string;
   waiverReason?: string;
   updatedAt: string;
@@ -198,10 +199,12 @@ export type Referral = {
 export type ReferralFile = {
   id: string;
   name: string;
-  category: "Referral packet" | "Assessment";
-  referralId: number;
+  category: "Referral packet" | "Face sheet" | "Assessment" | "Medication list" | "TB test" | "Admission agreement" | "Conservatorship" | "LIC 602" | "LIC 601/603" | "Provider form" | "Payer verification" | "Responsible party" | "Other";
+  referralId: number | null;
+  clientId?: string;
+  canonicalClientId?: string;
   referralName: string;
-  community: PipelineCommunity;
+  community: PipelineCommunity | "";
   uploadedAt: string;
   sizeBytes?: number;
   status: "Uploaded" | "Reviewed";
@@ -210,4 +213,6 @@ export type ReferralFile = {
   pageCount?: number;
   previewUrl?: string;
   thumbnailUrl?: string;
+  sourceSystem?: "pipeline" | "alamo_platform" | "allo" | "import";
+  identityStatus?: "linked" | "candidate" | "unmatched";
 };

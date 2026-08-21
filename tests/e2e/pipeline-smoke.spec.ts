@@ -60,6 +60,17 @@ const unifiedProfileFixture = {
   },
 };
 
+const clientDirectoryFixture = {
+  ...clinicalFixture.clients,
+  clients: ((clinicalFixture.clients as { clients: Array<Record<string, unknown>> }).clients ?? []).map((client) => ({
+    ...client,
+    workspace_origin: "alamo_platform",
+    pipeline_client_id: null,
+    referral_count: 0,
+    document_count: 0,
+  })),
+};
+
 test.describe("Referral home and packet canvas", () => {
   test.beforeEach(async ({ page }) => {
     const errors: string[] = [];
@@ -806,6 +817,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(referralResponse.ok()).toBeTruthy();
     const referralList = await referralResponse.json() as {
       referrals: Array<{
+        clientId?: string;
         documentHash?: string;
         documentName: string;
         documentStatus: string;
@@ -858,6 +870,15 @@ test.describe("Referral home and packet canvas", () => {
       final_value: "1951-08-15",
       review_status: "edited",
     });
+
+    const pipelineClientId = referralList.referrals[0]?.clientId;
+    expect(pipelineClientId).toBeTruthy();
+    await page.goto(`/?screen=profile&clientId=${encodeURIComponent(`pipeline:${pipelineClientId}`)}`);
+    await expect(page.getByRole("heading", { name: clientName, exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Client files", exact: true })).toBeVisible();
+    await expect(page.getByText("face-sheet.pdf", { exact: true })).toBeVisible();
+    await expect(page.getByText("synthetic-medication-list.pdf", { exact: true })).toBeVisible();
+    await expect(page.getByText("synthetic-provider-form.pdf", { exact: true })).toBeVisible();
 
     const packetId = referralList.referrals[0]?.packetId;
     expect(packetId).toBeTruthy();
@@ -1621,6 +1642,10 @@ test.describe("Pipeline home", () => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.clients) });
     });
     await page.route("**/api/profiles/**", async (route) => {
+      if (route.request().url().includes("/api/profiles/directory")) {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clientDirectoryFixture) });
+        return;
+      }
       if (route.request().url().includes("/source-documents/")) {
         await route.fulfill({ status: 200, contentType: "image/png", body: thumbnail.toBuffer("image/png") });
         return;
@@ -1678,6 +1703,10 @@ test.describe("Pipeline home", () => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.clients) });
     });
     await page.route("**/api/profiles/**", async (route) => {
+      if (route.request().url().includes("/api/profiles/directory")) {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clientDirectoryFixture) });
+        return;
+      }
       if (!serviceAvailable) {
         await route.fulfill({
           status: 500,
@@ -1864,6 +1893,10 @@ test.describe("Pipeline home", () => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.clients) });
     });
     await page.route("**/api/profiles/**", async (route) => {
+      if (route.request().url().includes("/api/profiles/directory")) {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clientDirectoryFixture) });
+        return;
+      }
       const profile = structuredClone(unifiedProfileFixture);
       const connection: {
         status: string;

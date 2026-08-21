@@ -24,6 +24,7 @@ import {
   getReferral,
   getReferralStoreReadiness,
   listReferralFilesByClient,
+  listReferralFilesByCanonicalClient,
   listReferrals,
   listReferralsByClient,
   type ReferralListOptions,
@@ -69,6 +70,9 @@ export async function getUnifiedClientProfile(
   },
   user?: PipelineUser,
 ): Promise<UnifiedClientProfileResponse> {
+  if (canonicalClientId.startsWith("pipeline:")) {
+    return getPipelineOnlyClientProfile(canonicalClientId.slice("pipeline:".length), permissions, user);
+  }
   const clinical = await getClinicalClient(request, canonicalClientId);
   const resident = await loadCurrentResident(request, clinical.client);
   const history = resident
@@ -78,6 +82,7 @@ export async function getUnifiedClientProfile(
   if (!residentLinkReadiness.ready) {
     return {
       ...clinical,
+      profile_origin: "alamo_platform",
       resident,
       history,
       pipeline: unavailablePipelineProjection(
@@ -94,6 +99,7 @@ export async function getUnifiedClientProfile(
     if (confirmed.length > 1) {
       return {
         ...clinical,
+        profile_origin: "alamo_platform",
         resident,
         history,
         pipeline: unavailablePipelineProjection(
@@ -114,12 +120,16 @@ export async function getUnifiedClientProfile(
       }
     }
     const connection = buildConnection(confirmed[0] ?? null, candidates, suggestions);
+    const canonicalDocuments = getReferralStoreReadiness().ready
+      ? await listReferralFilesByCanonicalClient(clinical.client.canonical_client_id).catch(() => [])
+      : [];
     if (!connection.confirmed_link) {
       return {
         ...clinical,
+        profile_origin: "alamo_platform",
         resident,
         history,
-        pipeline: emptyPipelineProjection(connection, permissions),
+        pipeline: emptyPipelineProjection(connection, permissions, canonicalDocuments),
       };
     }
 
@@ -128,6 +138,7 @@ export async function getUnifiedClientProfile(
     if (!referralReadiness.ready || !assessmentReadiness.ready) {
       return {
         ...clinical,
+        profile_origin: "alamo_platform",
         resident,
         history,
         pipeline: unavailablePipelineProjection(
@@ -145,7 +156,10 @@ export async function getUnifiedClientProfile(
       clinical.client.canonical_client_id,
       user,
     );
-    const documents = await loadLinkedDocuments(link, referrals);
+    const documents = dedupeDocuments([
+      ...canonicalDocuments,
+      ...await loadLinkedDocuments(link, referrals),
+    ]);
     const requirements = referrals.flatMap((referral) => referral.requirements ?? []);
     const latestAssessment = assessments[0] ?? null;
     const latestCoverage = latestAssessment ? getAssessmentToolCoverage(latestAssessment) : null;
@@ -154,6 +168,7 @@ export async function getUnifiedClientProfile(
 
     return {
       ...clinical,
+      profile_origin: "alamo_platform",
       resident,
       history,
       pipeline: {
@@ -179,6 +194,7 @@ export async function getUnifiedClientProfile(
   } catch {
     return {
       ...clinical,
+      profile_origin: "alamo_platform",
       resident,
       history,
       pipeline: unavailablePipelineProjection(
@@ -187,6 +203,126 @@ export async function getUnifiedClientProfile(
       ),
     };
   }
+}
+
+async function getPipelineOnlyClientProfile(
+  pipelineClientId: string,
+  permissions: UnifiedClientProfileResponse["pipeline"]["permissions"],
+  user?: PipelineUser,
+): Promise<UnifiedClientProfileResponse> {
+  const normalizedClientId = pipelineClientId.trim();
+  if (!normalizedClientId || normalizedClientId.length > 256) {
+    throw new UnifiedProfileError(400, "pipeline_client_id_invalid", "Pipeline client identifier is invalid.");
+  }
+  if (!getReferralStoreReadiness().ready) {
+    throw new UnifiedProfileError(503, "pipeline_store_unavailable", "Pipeline client workspaces are temporarily unavailable.");
+  }
+  const referrals = (await listReferralsByClient(normalizedClientId))
+    .filter((referral) => !user || canAccessReferral(user, referral))
+    .sort(compareReferrals);
+  const documents = await listReferralFilesByClient(normalizedClientId);
+  if (user && isAssessorUser(user) && referrals.length === 0) {
+    throw new UnifiedProfileError(404, "pipeline_client_not_found", "This client profile could not be loaded.");
+  }
+  if (referrals.length === 0 && documents.length === 0) {
+    throw new UnifiedProfileError(404, "pipeline_client_not_found", "This client profile could not be loaded.");
+  }
+  const latest = referrals[0] ?? null;
+  const workspaceName = latest?.name ?? documents[0].referralName;
+  const workspaceCommunity = latest?.community ?? documents.find((document) => document.community)?.community ?? "";
+  const workspaceUpdatedAt = latest?.updatedAt ?? latest?.createdAt ?? documents[0].uploadedAt;
+  const assessments = await loadPipelineOnlyAssessments(referrals, user);
+  const visibleReferralIds = new Set(referrals.map((referral) => referral.id));
+  const visibleDocuments = documents
+    .filter((document) => document.referralId === null || visibleReferralIds.has(document.referralId));
+  const requirements = referrals.flatMap((referral) => referral.requirements ?? []);
+  const latestAssessment = assessments[0] ?? null;
+  const latestCoverage = latestAssessment ? getAssessmentToolCoverage(latestAssessment) : null;
+  const openRequirements = requirements.filter((item) => !["reviewed", "waived"].includes(item.status));
+  const blockers = openRequirements.filter((item) => item.blocker);
+  const generatedAt = new Date().toISOString();
+  const dataAsOf = workspaceUpdatedAt.slice(0, 10);
+  const communities = [...new Set(referrals.map((referral) => referral.community))];
+  if (workspaceCommunity && !communities.includes(workspaceCommunity)) communities.push(workspaceCommunity);
+  const enrichment = {
+    date_of_birth: latest?.dob || null,
+    referral_source: latest?.source || null,
+    responsible_person: latest?.responsiblePerson || null,
+    conservatorship_status: latest?.conserved || null,
+    community: workspaceCommunity || null,
+    latest_referral_stage: latest?.stage || null,
+  };
+  const fields = Object.keys(enrichment);
+
+  return {
+    source: "pipeline",
+    profile_origin: "pipeline",
+    snapshot_id: `pipeline-client-${normalizedClientId}`,
+    generated_at: generatedAt,
+    data_as_of: dataAsOf,
+    retrieved_at: generatedAt,
+    freshness: {
+      status: "fresh",
+      age_hours: 0,
+      max_age_hours: 24,
+      warning: null,
+    },
+    client: {
+      canonical_client_id: `pipeline:${normalizedClientId}`,
+      display_name: workspaceName,
+      resident_numbers: reviewedResidentNumbers(referrals),
+      current_resident: false,
+      community_names: communities,
+      current_community: workspaceCommunity || null,
+      unit: null,
+      admit_date: isoDateOrNull(latest?.admissionDate),
+      care_level: null,
+      episode_count: referrals.length,
+      resident_profile: null,
+      resident_profiles: [],
+      resident_episode_history: [],
+      enrichment,
+      source_documents: [],
+    },
+    client_database: {
+      dataset: "pipeline_client_workspace",
+      version: 1,
+      baseline_date: dataAsOf,
+      generated_at: generatedAt,
+      client_count: 1,
+      field_count: fields.length,
+      fields,
+    },
+    resident: null,
+    history: unavailableHistoricalProjection(),
+    pipeline: {
+      permissions,
+      connection: {
+        status: "pipeline_only",
+        confirmed_link: null,
+        candidates: [],
+        suggestions: [],
+        message: referrals.length > 0
+          ? "This workspace is keyed to the Pipeline client identity. A reviewed Alamo resident link can be added after admission without changing its referral history or files."
+          : "This historical workspace preserves reviewed client files. It can be joined to a governed Alamo client later without moving or duplicating those files.",
+      },
+      referrals,
+      assessments,
+      requirements,
+      documents: visibleDocuments,
+      summary: {
+        referral_count: referrals.length,
+        active_referral_count: referrals.filter((referral) => !["Accepted / Admitted", "Declined"].includes(referral.stage)).length,
+        assessment_count: assessments.length,
+        latest_assessment_status: latestAssessment?.status ?? null,
+        latest_assessment_completion_pct: latestCoverage?.percent ?? null,
+        open_requirement_count: openRequirements.length,
+        blocker_count: blockers.length,
+        document_count: visibleDocuments.length,
+        actions_needed: getActionsNeeded(referrals, assessments, blockers),
+      },
+    },
+  };
 }
 
 export function unifiedProfileErrorResponse(error: unknown) {
@@ -318,6 +454,7 @@ function normalizeIdentifier(value: string | null | undefined) {
 function emptyPipelineProjection(
   connection: UnifiedProfileConnection,
   permissions: UnifiedClientProfileResponse["pipeline"]["permissions"],
+  documents: UnifiedClientProfileResponse["pipeline"]["documents"] = [],
 ): UnifiedClientProfileResponse["pipeline"] {
   return {
     permissions,
@@ -325,7 +462,7 @@ function emptyPipelineProjection(
     referrals: [],
     assessments: [],
     requirements: [],
-    documents: [],
+    documents,
     summary: {
       referral_count: 0,
       active_referral_count: 0,
@@ -334,10 +471,15 @@ function emptyPipelineProjection(
       latest_assessment_completion_pct: null,
       open_requirement_count: 0,
       blocker_count: 0,
-      document_count: 0,
+      document_count: documents.length,
       actions_needed: [connection.status === "candidate" ? "Review the resident-link candidate" : "Create and review a resident link"],
     },
   };
+}
+
+function dedupeDocuments(documents: UnifiedClientProfileResponse["pipeline"]["documents"]) {
+  return [...new Map(documents.map((document) => [document.id, document])).values()]
+    .sort((left, right) => right.uploadedAt.localeCompare(left.uploadedAt) || right.id.localeCompare(left.id));
 }
 
 function unavailablePipelineProjection(
@@ -412,7 +554,44 @@ async function loadLinkedAssessments(
 async function loadLinkedDocuments(link: PipelineResidentLink, referrals: Referral[]) {
   const documents = await listReferralFilesByClient(link.pipeline_client_id);
   const explicitIds = new Set(referrals.map((referral) => referral.id));
-  return documents.filter((document) => explicitIds.has(document.referralId));
+  return documents.filter((document) => document.referralId === null || explicitIds.has(document.referralId));
+}
+
+async function loadPipelineOnlyAssessments(referrals: Referral[], user?: PipelineUser) {
+  if (!getAssessmentStoreReadiness().ready) return [];
+  const results = await Promise.all(
+    referrals.map((referral) => listAssessments({ referralId: referral.id, limit: 100 })),
+  );
+  const visibleReferralIds = new Set(referrals.map((referral) => referral.id));
+  const byId = new Map<string, PipelineAssessmentRecord>();
+  for (const result of results) {
+    for (const assessment of result.assessments) {
+      if (user && isAssessorUser(user) && !visibleReferralIds.has(assessment.referral_id)) continue;
+      byId.set(assessment.assessment_id, assessment);
+    }
+  }
+  return [...byId.values()].sort((left, right) =>
+    (right.assessment_date ?? right.created_at).localeCompare(left.assessment_date ?? left.created_at)
+      || right.created_at.localeCompare(left.created_at));
+}
+
+function reviewedResidentNumbers(referrals: Referral[]) {
+  const values = new Set<string>();
+  for (const referral of referrals) {
+    const value = referral.packetFields?.find((field) => {
+      const key = field.field_key.toLowerCase().replace(/[^a-z0-9]/g, "");
+      return ["residentnumber", "eldermarkresidentnumber"].includes(key)
+        && ["accepted", "edited"].includes(field.review_status);
+    });
+    const normalized = (value?.final_value ?? value?.proposed_value)?.trim();
+    if (normalized) values.add(normalized);
+  }
+  return [...values];
+}
+
+function isoDateOrNull(value: string | undefined) {
+  const normalized = value?.trim() ?? "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
 }
 
 function getActionsNeeded(

@@ -49,6 +49,7 @@ type WorkItemRow = {
   due_at: Date | string | null;
   next_action: string;
   blocker: boolean;
+  evidence_document_id: string | null;
   evidence_document_name: string | null;
   waiver_reason: string | null;
   version: number;
@@ -92,7 +93,7 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
   const [workItemRows, decisionRows, assessmentRows] = await Promise.all([
     sql<WorkItemRow[]>`
       select work_item_id, type, label, gate, status, owner_name, due_at,
-             next_action, blocker, evidence_document_name, waiver_reason, version, updated_at
+             next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
       from pipeline.work_items
       where referral_id = ${referralId}
       order by created_at, work_item_id
@@ -473,16 +474,17 @@ async function patchPostgresWorkItem(
     update pipeline.work_items
     set status = ${next.status}, owner_name = ${next.owner || null},
         due_at = ${next.dueAt ? new Date(next.dueAt) : null}, next_action = ${next.nextStep},
-        blocker = ${next.blocker}, evidence_document_name = ${next.evidenceDocumentName ?? null},
+        blocker = ${next.blocker}, evidence_document_id = ${next.evidenceDocumentId ?? null}::uuid,
+        evidence_document_name = ${next.evidenceDocumentName ?? null},
         waiver_reason = ${next.waiverReason ?? null}, version = version + 1, updated_at = now()
     where referral_id = ${referralId} and work_item_id = ${workItemId}::uuid and version = ${expectedVersion}
     returning work_item_id, type, label, gate, status, owner_name, due_at,
-              next_action, blocker, evidence_document_name, waiver_reason, version, updated_at
+              next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
   `;
   if (!rows[0]) {
     const currentRows = await tx<WorkItemRow[]>`
       select work_item_id, type, label, gate, status, owner_name, due_at,
-             next_action, blocker, evidence_document_name, waiver_reason, version, updated_at
+             next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
       from pipeline.work_items
       where referral_id = ${referralId} and work_item_id = ${workItemId}::uuid
     `;
@@ -491,7 +493,7 @@ async function patchPostgresWorkItem(
   const record = mapWorkItem(rows[0]);
   const allRows = await tx<WorkItemRow[]>`
     select work_item_id, type, label, gate, status, owner_name, due_at,
-           next_action, blocker, evidence_document_name, waiver_reason, version, updated_at
+           next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
     from pipeline.work_items where referral_id = ${referralId} order by created_at, work_item_id
   `;
   const data = isRecord(referralRows[0].data) ? referralRows[0].data : {};
@@ -563,6 +565,7 @@ function mapWorkItem(row: WorkItemRow): AdmissionRequirement {
     dueAt: row.due_at ? toIso(row.due_at) : "",
     nextStep: row.next_action,
     blocker: row.blocker,
+    evidenceDocumentId: row.evidence_document_id ?? undefined,
     evidenceDocumentName: row.evidence_document_name ?? undefined,
     waiverReason: row.waiver_reason ?? undefined,
     updatedAt: toIso(row.updated_at),
@@ -603,6 +606,7 @@ function normalizeWorkItem(item: AdmissionRequirement): AdmissionRequirement {
     owner: normalizeOwnerName(item.owner),
     dueAt: item.dueAt,
     nextStep: item.nextStep.trim(),
+    evidenceDocumentId: item.evidenceDocumentId?.trim() || undefined,
     evidenceDocumentName: item.evidenceDocumentName?.trim() || undefined,
     waiverReason: item.waiverReason?.trim() || undefined,
   };
@@ -656,6 +660,7 @@ function workItemChangedFields(current: AdmissionRequirement, next: AdmissionReq
     "dueAt",
     "nextStep",
     "blocker",
+    "evidenceDocumentId",
     "evidenceDocumentName",
     "waiverReason",
   ];
@@ -668,7 +673,7 @@ function getWorkItemAuditAction(
   changedFields: Array<keyof AdmissionRequirement>,
 ) {
   if (next.status === "waived" && current.status !== "waived") return "work_item_waived";
-  if (changedFields.includes("evidenceDocumentName")) return "work_item_evidence_recorded";
+  if (changedFields.includes("evidenceDocumentId") || changedFields.includes("evidenceDocumentName")) return "work_item_evidence_recorded";
   if (changedFields.includes("owner")) return "work_item_reassigned";
   if (changedFields.includes("dueAt") || changedFields.includes("nextStep")) return "work_item_circle_back_updated";
   return "work_item_updated";

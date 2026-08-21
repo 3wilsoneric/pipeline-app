@@ -14,6 +14,7 @@ import { getReferralWorklistReferrals } from "@/lib/pipeline/operations-snapshot
 import type { ReferralWorklistBucket } from "@/lib/pipeline/operations-types";
 import { searchSiteDestinations } from "@/lib/pipeline/site-search";
 import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { listPipelineClientWorkspaces } from "@/lib/pipeline/client-workspace-store";
 
 export const runtime = "nodejs";
 
@@ -88,7 +89,7 @@ export async function GET(request: Request) {
           ? getReferralWorklistReferrals(bucket, 200, auth.user)
           : Promise.resolve({ referrals: [], total: 0 }),
         mode === "files"
-          ? listReferralFiles(scopeReferralListOptions(auth.user, { limit: 200 }))
+          ? listReferralFiles(scopeReferralListOptions(auth.user, { limit: 200, identityStatus: "linked" }))
           : Promise.resolve({ files: [], total: 0 }),
       ]);
       const referrals = referralResult.referrals;
@@ -131,9 +132,15 @@ export async function GET(request: Request) {
 
     const [referrals, files, clinical] = await Promise.all([
       listReferrals(scopeReferralListOptions(auth.user, { query, limit: 12 })),
-      listReferralFiles(scopeReferralListOptions(auth.user, { query, limit: 12 })),
+      listReferralFiles(scopeReferralListOptions(auth.user, { query, limit: 12, identityStatus: "linked" })),
       searchClinical(query, request),
     ]);
+    const pipelineClients = await listPipelineClientWorkspaces(auth.user, {
+      query,
+      limit: 12,
+      excludeConfirmed: clinical.available,
+    });
+    const clients = [...clinical.clients, ...pipelineClients.clients].slice(0, 12);
     const destinations = searchSiteDestinations(query);
 
     return Response.json(
@@ -142,15 +149,15 @@ export async function GET(request: Request) {
         interpreted_query: query,
         referrals: referrals.referrals,
         files: files.files,
-        clients: clinical.clients,
+        clients,
         destinations,
         clinical_warning: clinical.warning,
         counts: {
           referrals: referrals.total,
           files: files.total,
-          clients: clinical.total,
+          clients: clinical.total + pipelineClients.total,
           destinations: destinations.length,
-          total: referrals.total + files.total + clinical.total + destinations.length,
+          total: referrals.total + files.total + clinical.total + pipelineClients.total + destinations.length,
         },
         generated_at: new Date().toISOString(),
       },
@@ -161,7 +168,7 @@ export async function GET(request: Request) {
 
 async function searchClinical(query: string, request: Request) {
   if (!getClinicalDataReadiness().connected) {
-    return { clients: [], total: 0, warning: null };
+    return { clients: [], total: 0, warning: null, available: false };
   }
 
   try {
@@ -170,6 +177,7 @@ async function searchClinical(query: string, request: Request) {
       clients: result.clients,
       total: result.total,
       warning: result.total > 0 ? result.freshness.warning : null,
+      available: true,
     };
   } catch (error) {
     return {
@@ -179,6 +187,7 @@ async function searchClinical(query: string, request: Request) {
         error instanceof ClinicalDataError
           ? "Enhanced client search is unavailable right now."
           : "Enhanced client search is unavailable right now.",
+      available: false,
     };
   }
 }

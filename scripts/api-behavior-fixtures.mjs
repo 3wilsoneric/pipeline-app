@@ -118,6 +118,27 @@ const results = [
     assertValid(result);
     assert(result.value.files.length === 1, "Expected one validated file");
   }),
+  run("supporting documents use the explicit preview-only intent", () => {
+    const valid = contracts.validateCreateUploadUrlRequest({
+      referral_id: "1",
+      submitting_facility: "San Pablo",
+      source_type: "manual",
+      processing_intent: "preview_only",
+      files: [{ ...validFile(), category: "tb_test" }],
+    });
+    assertValid(valid);
+    assert(valid.value.processing_intent === "preview_only", "Expected preview-only processing");
+    assertInvalid(
+      contracts.validateCreateUploadUrlRequest({
+        referral_id: "1",
+        submitting_facility: "San Pablo",
+        source_type: "manual",
+        processing_intent: "guess",
+        files: [validFile()],
+      }),
+      "processing_intent must be extract_referral or preview_only.",
+    );
+  }),
   run("complete upload requires packet and file ids", () => {
     assertInvalid(
       contracts.validateCompleteUploadRequest({ packet_id: "", uploaded_file_ids: [] }),

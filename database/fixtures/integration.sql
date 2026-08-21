@@ -3,6 +3,11 @@ values ('pipeline-integration-fixture', 'Synthetic integration fixture')
 on conflict (external_client_id) do update set display_name = excluded.display_name
 returning person_id;
 
+insert into pipeline.people (external_client_id, display_name)
+values ('pipeline-integration-historical', 'Synthetic historical file workspace')
+on conflict (external_client_id) do update set display_name = excluded.display_name
+returning person_id;
+
 insert into pipeline.referrals (
   person_id, stage, community, priority, source, tags, search_text, data,
   created_by, created_by_name, updated_by, updated_by_name
@@ -27,6 +32,35 @@ from pipeline.referrals r
 join pipeline.people p on p.person_id = r.person_id
 where p.external_client_id = 'pipeline-integration-fixture'
 returning document_id;
+
+insert into pipeline.documents (
+  person_id, category, file_name, content_type, byte_size, sha256,
+  blob_container, blob_key, processing_status, uploaded_by,
+  preview_status, malware_scan_status, source_system, source_external_id,
+  source_canvas_id, client_display_name, client_community, identity_status
+)
+select person_id, 'other', 'synthetic-historical-file.pdf', 'application/pdf',
+  1024, repeat('e', 64), 'fixture', 'fixture/integration/synthetic-historical-file.pdf',
+  'ready_for_review', 'fixture', 'ready', 'clean', 'allo',
+  'fixture-historical-source', 'fixture-canvas', display_name, 'Turlock', 'linked'
+from pipeline.people where external_client_id = 'pipeline-integration-historical'
+returning document_id;
+
+with batch as (
+  insert into pipeline.client_file_import_batches (
+    source_system, manifest_sha256, status, item_count, created_by
+  ) values ('allo', repeat('d', 64), 'staged', 1, 'fixture')
+  returning import_batch_id
+)
+insert into pipeline.client_file_import_items (
+  import_batch_id, source_item_id, source_canvas_id, source_client_name,
+  source_community, source_file_name, source_content_type, source_byte_size,
+  source_sha256, match_status
+)
+select import_batch_id, 'fixture-unmatched-item', 'fixture-unmatched-canvas',
+  'Synthetic unmatched import', 'San Pablo', 'synthetic-unmatched.pdf',
+  'application/pdf', 512, repeat('f', 64), 'unmatched'
+from batch;
 
 insert into pipeline.document_preview_pages (
   document_id, page_number, blob_container, blob_key, content_type, byte_size, width, height

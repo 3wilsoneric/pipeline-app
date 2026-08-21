@@ -10,9 +10,12 @@ import {
   Files,
   FolderOpen,
   Hash,
+  Check,
   Eye,
+  Link2,
   ListChecks,
   RefreshCw,
+  Search,
   Users,
   X,
 } from "lucide-react";
@@ -21,6 +24,8 @@ import { pipelineCommunities } from "@/lib/pipeline/community-config";
 import { boardStages, getStageLabel, type ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
+import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
+import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
 import type { ReferralFacets } from "@/lib/pipeline/referral-store";
 import type { ReferralWorklistBucket, ReferralWorklistSnapshot } from "@/lib/pipeline/operations-types";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
@@ -85,12 +90,30 @@ const emptyFacets: ReferralFacets = {
   months: [],
 };
 
+const fileCategories: ReferralFile["category"][] = [
+  "Referral packet",
+  "Face sheet",
+  "Assessment",
+  "Medication list",
+  "TB test",
+  "Admission agreement",
+  "Conservatorship",
+  "LIC 602",
+  "LIC 601/603",
+  "Provider form",
+  "Payer verification",
+  "Responsible party",
+  "Other",
+];
+
 export default function ReferralHome({
   searchTerm,
   onOpenPacket,
+  onOpenProfile,
 }: {
   searchTerm: string;
   onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void;
+  onOpenProfile: (canonicalClientId: string) => void;
 }) {
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [progressByReferral, setProgressByReferral] = useState<Record<number, ReferralProgress>>({});
@@ -105,6 +128,13 @@ export default function ReferralHome({
   const [fileNextCursor, setFileNextCursor] = useState<string>();
   const [filePage, setFilePage] = useState(0);
   const [fileCursors, setFileCursors] = useState<string[]>([""]);
+  const [fileCategory, setFileCategory] = useState("");
+  const [fileCommunity, setFileCommunity] = useState("");
+  const [fileSource, setFileSource] = useState("");
+  const [reviewIdentity, setReviewIdentity] = useState(false);
+  const [importItems, setImportItems] = useState<ClientFileImportReviewItem[] | null>(null);
+  const [importTotal, setImportTotal] = useState(0);
+  const [reviewItem, setReviewItem] = useState<ClientFileImportReviewItem | null>(null);
   const [filter, setFilter] = useState<ReferralFilter>({ kind: "workflow" });
   const [workflowTotal, setWorkflowTotal] = useState(0);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
@@ -256,14 +286,18 @@ export default function ReferralHome({
   }, [filter, searchTerm]);
 
   useEffect(() => {
-    if (filter.kind !== "files") return;
+    if (filter.kind !== "files" || reviewIdentity) return;
 
     let cancelled = false;
     const params = new URLSearchParams({
       limit: "100",
       q: searchTerm,
+      identity_status: "linked",
     });
     if (fileCursors[filePage]) params.set("cursor", fileCursors[filePage]);
+    if (fileCategory) params.set("category", fileCategory);
+    if (fileCommunity) params.set("community", fileCommunity);
+    if (fileSource) params.set("source_system", fileSource);
 
     fetchPipelineJson<{ files?: ReferralFile[]; total?: number; next_cursor?: string }>(`/api/files?${params.toString()}`, { cache: "no-store" })
       .then((payload: { files?: ReferralFile[]; total?: number; next_cursor?: string } | null) => {
@@ -284,13 +318,33 @@ export default function ReferralHome({
     return () => {
       cancelled = true;
     };
-  }, [fileCursors, filePage, filter.kind, searchTerm]);
+  }, [fileCategory, fileCommunity, fileCursors, filePage, fileSource, filter.kind, reviewIdentity, searchTerm]);
+
+  useEffect(() => {
+    if (filter.kind !== "files" || !reviewIdentity) return;
+    let cancelled = false;
+    setImportItems(null);
+    const params = new URLSearchParams({ status: "unmatched", limit: "100", q: searchTerm });
+    fetchPipelineJson<{ items?: ClientFileImportReviewItem[]; total?: number }>(`/api/files/import-review?${params}`, { cache: "no-store" })
+      .then((payload) => {
+        if (cancelled) return;
+        setImportItems(Array.isArray(payload.items) ? payload.items : []);
+        setImportTotal(typeof payload.total === "number" ? payload.total : 0);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setImportItems([]);
+          setImportTotal(0);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [filter.kind, reviewIdentity, searchTerm]);
 
   useEffect(() => {
     setFilePage(0);
     setFileCursors([""]);
     setFiles(null);
-  }, [filter.kind, searchTerm]);
+  }, [fileCategory, fileCommunity, fileSource, filter.kind, reviewIdentity, searchTerm]);
 
   const monthOptions = useMemo(() => getCreatedMonthOptions(), []);
   const ownerOptions = useMemo(() => facets.owners.map((entry) => entry.value), [facets.owners]);
@@ -306,6 +360,8 @@ export default function ReferralHome({
   );
   const isFileLoading = filter.kind === "files" && files === null;
   const visibleFiles = files ?? [];
+  const visibleImportItems = importItems ?? [];
+  const isImportLoading = filter.kind === "files" && reviewIdentity && importItems === null;
 
   const visibleReferrals = filter.kind === "files" || filter.kind === "work" ? [] : referrals;
   const emptyReferralState = getEmptyReferralState(filter, searchTerm);
@@ -321,7 +377,9 @@ export default function ReferralHome({
       ? "Loading..."
       : `${visibleWorkCount} referral${visibleWorkCount === 1 ? "" : "s"}`
     : filter.kind === "files"
-    ? isFileLoading
+    ? reviewIdentity
+      ? isImportLoading ? "Loading..." : `${importTotal} need${importTotal === 1 ? "s" : ""} identity review`
+      : isFileLoading
       ? "Loading..."
       : `${fileTotal} file${fileTotal === 1 ? "" : "s"}`
     : isLoading
@@ -403,13 +461,55 @@ export default function ReferralHome({
     </div>
   );
 
+  const fileFilterToolbar = (
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-3">
+      <span className="mr-1 shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Files</span>
+      <button
+        type="button"
+        onClick={() => setReviewIdentity(false)}
+        className={`h-9 shrink-0 border px-3 text-[11px] font-black ${!reviewIdentity ? "border-[#0f8b73] bg-[#effaf5] text-[#0c705f]" : "border-[#d9d9d9] text-[#595959]"}`}
+      >
+        Linked files
+      </button>
+      <button
+        type="button"
+        onClick={() => setReviewIdentity(true)}
+        className={`h-9 shrink-0 border px-3 text-[11px] font-black ${reviewIdentity ? "border-[#b07b21] bg-[#fffaf0] text-[#8a5a10]" : "border-[#d9d9d9] text-[#595959]"}`}
+      >
+        Needs identity
+      </button>
+      {!reviewIdentity ? (
+        <>
+          <select aria-label="Filter files by category" value={fileCategory} onChange={(event) => setFileCategory(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
+            <option value="">All categories</option>
+            {fileCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+          <select aria-label="Filter files by community" value={fileCommunity} onChange={(event) => setFileCommunity(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
+            <option value="">All communities</option>
+            {pipelineCommunities.map((community) => <option key={community} value={community}>{community}</option>)}
+          </select>
+          <select aria-label="Filter files by source" value={fileSource} onChange={(event) => setFileSource(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
+            <option value="">All sources</option>
+            <option value="pipeline">Pipeline</option>
+            <option value="allo">Allo import</option>
+            <option value="alamo_platform">Alamo Platform</option>
+            <option value="import">Other import</option>
+          </select>
+          {fileCategory || fileCommunity || fileSource ? (
+            <button type="button" onClick={() => { setFileCategory(""); setFileCommunity(""); setFileSource(""); }} className="h-9 shrink-0 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#a63d2f]">Clear</button>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+
   return (
     <main aria-label="Referral packets" className="h-full overflow-y-auto bg-white text-[#111111]">
       <div className="w-full px-5 pb-8 pt-3 md:px-8 lg:px-10">
         <h1 className="sr-only">Referral packets</h1>
         <div className="min-w-0">
           {packetToolbar}
-          {filter.kind !== "work" && filter.kind !== "files" ? filterToolbar : null}
+          {filter.kind === "files" ? fileFilterToolbar : filter.kind !== "work" ? filterToolbar : null}
           {loadError && filter.kind !== "files" && filter.kind !== "work" ? (
             <div className="mb-3 flex items-center justify-between gap-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-4 py-3 text-[12px] font-semibold text-[#59332d]" role="alert">
               <span>{loadError}</span>
@@ -464,6 +564,7 @@ export default function ReferralHome({
               onClick={() => {
                 setFilePage(0);
                 setFiles(null);
+                setReviewIdentity(false);
                 setFilter({ kind: "files" });
               }}
               className={`flex h-9 shrink-0 items-center gap-2 border-b-2 px-3 text-left text-[12px] font-black tracking-[0.01em] md:mt-1 md:w-full md:border-b-0 md:border-l-[3px] ${
@@ -575,14 +676,42 @@ export default function ReferralHome({
                 onRetry={() => void loadWorklist()}
               />
             ) : filter.kind === "files" ? (
-              visibleFiles.length > 0 ? (
+              reviewIdentity ? (
+                visibleImportItems.length > 0 ? (
+                  <div className="divide-y divide-[#d9d9d9]">
+                    {visibleImportItems.map((item) => (
+                      <div key={item.import_item_id} className="flex items-center gap-4 px-5 py-4 hover:bg-[#fffaf0]">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#e2ca9f] bg-[#fffaf0] text-[#8a5a10]"><Link2 size={16} /></span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-black text-[#111111]">{item.source_file_name}</span>
+                          <span className="mt-1 block truncate text-[11px] text-[#737373]">{item.source_client_name}{item.source_community ? ` · ${item.source_community}` : ""} · {item.source_system}</span>
+                        </span>
+                        <button type="button" onClick={() => setReviewItem(item)} className="h-9 border border-[#b07b21] px-3 text-[10px] font-black text-[#8a5a10] hover:bg-white">Review identity</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-5 py-16 text-center">
+                    <div className="text-[15px] font-black text-[#111111]">{isImportLoading ? "Loading identity review" : "No files need identity review"}</div>
+                    {!isImportLoading ? <p className="mx-auto mt-2 max-w-[440px] text-[12px] leading-5 text-[#737373]">Staged imports appear here until a person confirms the correct client workspace.</p> : null}
+                  </div>
+                )
+              ) : visibleFiles.length > 0 ? (
                 <>
                   <div className="divide-y divide-[#d9d9d9]">
                     {visibleFiles.map((file) => (
                       <div key={file.id} className="flex w-full items-center gap-2 px-5 py-1 hover:bg-[#f7faf9]">
                         <button
                           type="button"
-                          onClick={() => onOpenPacket({ id: file.referralId, name: file.referralName, community: file.community })}
+                          onClick={() => {
+                            if (file.canonicalClientId) {
+                              onOpenProfile(file.canonicalClientId);
+                            } else if (file.referralId && file.community) {
+                              onOpenPacket({ id: file.referralId, name: file.referralName, community: file.community });
+                            } else if (file.clientId) {
+                              onOpenProfile(`pipeline:${file.clientId}`);
+                            }
+                          }}
                           className="flex min-w-0 flex-1 items-center gap-4 py-3 text-left"
                         >
                         <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden border border-[#b8dacf] bg-[#effaf5] text-[#0c705f]">
@@ -721,7 +850,119 @@ export default function ReferralHome({
         </div>
       </div>
       {previewFile ? <FilePreviewDialog key={previewFile.id} file={previewFile} onClose={() => setPreviewFile(null)} /> : null}
+      {reviewItem ? (
+        <ImportIdentityReviewDialog
+          key={reviewItem.import_item_id}
+          item={reviewItem}
+          onClose={() => setReviewItem(null)}
+          onSaved={() => {
+            setImportItems((current) => current?.filter((item) => item.import_item_id !== reviewItem.import_item_id) ?? []);
+            setImportTotal((current) => Math.max(0, current - 1));
+            setReviewItem(null);
+          }}
+        />
+      ) : null}
     </main>
+  );
+}
+
+function ImportIdentityReviewDialog({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: ClientFileImportReviewItem;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [query, setQuery] = useState(item.source_client_name);
+  const [clients, setClients] = useState<ClientWorkspaceDirectoryItem[]>([]);
+  const [selected, setSelected] = useState<ClientWorkspaceDirectoryItem | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setClients([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      fetchPipelineJson<{ clients?: ClientWorkspaceDirectoryItem[] }>(`/api/profiles/directory?limit=20&q=${encodeURIComponent(query.trim())}`, { cache: "no-store", signal: controller.signal })
+        .then((payload) => setClients(Array.isArray(payload.clients) ? payload.clients : []))
+        .catch((loadError) => {
+          if (!controller.signal.aborted) setError(loadError instanceof Error ? loadError.message : "Client search is unavailable.");
+        })
+        .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    }, 180);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [query]);
+
+  const save = async (action: "confirm" | "create_client" | "reject") => {
+    if (action === "confirm" && !selected) return;
+    setSaving(true);
+    setError("");
+    try {
+      await fetchPipelineJson(`/api/files/import-review/${encodeURIComponent(item.import_item_id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          if_match: item.version,
+          ...(action === "confirm" && selected ? { target_client_id: selected.canonical_client_id } : {}),
+        }),
+      });
+      onSaved();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Identity review could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-label={`Review identity for ${item.source_file_name}`}>
+      <div className="max-h-[88vh] w-full max-w-[720px] overflow-y-auto bg-white p-5 shadow-2xl sm:p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-[#d9d9d9] pb-4">
+          <div className="min-w-0">
+            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8a5a10]">Identity review</div>
+            <h2 className="mt-2 truncate text-[20px] font-black text-[#111111]">{item.source_file_name}</h2>
+            <p className="mt-1 text-[12px] text-[#737373]">Exported for {item.source_client_name}{item.source_community ? ` · ${item.source_community}` : ""}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close identity review" className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d9d9d9]"><X size={16} /></button>
+        </div>
+        <label className="mt-5 flex h-11 items-center gap-2 border border-[#bdbdbd] px-3 focus-within:border-[#0f8b73]">
+          <Search size={15} className="text-[#737373]" />
+          <input value={query} onChange={(event) => { setQuery(event.target.value); setSelected(null); }} aria-label="Find the matching client" placeholder="Find the exact client" className="min-w-0 flex-1 bg-transparent text-[13px] outline-none" />
+        </label>
+        <div className="mt-3 max-h-72 overflow-y-auto border-y border-[#d9d9d9]">
+          {clients.map((client) => {
+            const active = selected?.canonical_client_id === client.canonical_client_id;
+            return (
+              <button key={client.canonical_client_id} type="button" onClick={() => setSelected(client)} className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-4 py-3 text-left last:border-b-0 ${active ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}>
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] font-black">{client.display_name}</span>
+                  <span className="mt-1 block truncate text-[10px] text-[#737373]">{client.current_community || client.community_names.join(" · ") || "Community not reported"} · {client.workspace_origin === "pipeline" ? "Pipeline client workspace" : "Alamo client"}</span>
+                </span>
+                {active ? <Check size={16} className="shrink-0 text-[#0f8b73]" /> : null}
+              </button>
+            );
+          })}
+          {loading ? <div className="px-4 py-5 text-center text-[11px] text-[#737373]">Searching clients...</div> : null}
+          {!loading && clients.length === 0 ? <div className="px-4 py-5 text-center text-[11px] text-[#737373]">No matching client workspaces.</div> : null}
+        </div>
+        {error ? <div className="mt-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-3 py-2 text-[11px] text-[#59332d]" role="alert">{error}</div> : null}
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <button type="button" disabled={saving} onClick={() => void save("reject")} className="h-10 border border-[#a63d2f] px-3 text-[11px] font-black text-[#a63d2f] disabled:opacity-50">Reject import item</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" disabled={saving || Boolean(selected)} onClick={() => void save("create_client")} className="h-10 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0c705f] disabled:border-[#d9d9d9] disabled:text-[#a0a0a0]">Create historical client</button>
+            <button type="button" disabled={!selected || saving} onClick={() => void save("confirm")} className="h-10 bg-[#0f8b73] px-4 text-[11px] font-black text-white disabled:bg-[#d9d9d9]">{saving ? "Saving..." : "Confirm client"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

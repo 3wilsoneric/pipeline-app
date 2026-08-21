@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     const [result, facets, files] = await Promise.all([
       listReferrals(options),
       listReferralFacets(query.value.query, facetAccess),
-      listReferralFiles(scopeReferralListOptions(auth.user, { limit: 1 })),
+      listReferralFiles(scopeReferralListOptions(auth.user, { limit: 1, identityStatus: "linked" })),
     ]);
     const contexts = await getReferralWorkflowContexts(result.referrals);
     const progress = Object.fromEntries(result.referrals.map((referral) => [

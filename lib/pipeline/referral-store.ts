@@ -99,6 +99,13 @@ export type ReferralFileListOptions = {
   limit?: number;
   cursor?: string;
   clientId?: string;
+  canonicalClientId?: string;
+  community?: string;
+  category?: string;
+  identityStatus?: "linked" | "candidate" | "unmatched";
+  sourceSystem?: "pipeline" | "alamo_platform" | "allo" | "import";
+  uploadedAfter?: string;
+  uploadedBefore?: string;
   assignedOwnerId?: string;
   assignedOwnerNames?: string[];
 };
@@ -309,6 +316,22 @@ export async function listReferralFiles(options: ReferralFileListOptions = {}) {
 
 export async function listReferralFilesByClient(clientId: string) {
   return getReferralStore().listFilesByClient(clientId);
+}
+
+export async function listReferralFilesByCanonicalClient(canonicalClientId: string) {
+  const files: ReferralFile[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 500; page += 1) {
+    const result = await getReferralStore().listFiles({
+      canonicalClientId,
+      limit: maxPageSize,
+      cursor,
+    });
+    files.push(...result.files);
+    cursor = result.next_cursor;
+    if (!cursor) return files;
+  }
+  throw new Error("The canonical client document inventory exceeded its safe pagination limit.");
 }
 
 export async function createReferral(
@@ -531,6 +554,13 @@ async function listLocalReferralFiles(
     .filter((referral) => matchesAssignmentScope(referral, options))
     .flatMap(getReferralFiles)
     .filter((file) => matchesSearchTokens(searchableFileText(file), queryTokens))
+    .filter((file) => !options.canonicalClientId || file.canonicalClientId === options.canonicalClientId)
+    .filter((file) => !options.community || file.community === options.community)
+    .filter((file) => !options.category || file.category === options.category)
+    .filter((file) => !options.identityStatus || (file.identityStatus ?? "linked") === options.identityStatus)
+    .filter((file) => !options.sourceSystem || (file.sourceSystem ?? "pipeline") === options.sourceSystem)
+    .filter((file) => !options.uploadedAfter || file.uploadedAt.slice(0, 10) >= options.uploadedAfter)
+    .filter((file) => !options.uploadedBefore || file.uploadedAt.slice(0, 10) <= options.uploadedBefore)
     .sort(compareFiles);
   const cursor = decodeKeysetCursor(options.cursor);
   const limit = clampPageSize(options.limit);
@@ -690,16 +720,19 @@ type ReferralFileRow = {
   id: string;
   name: string;
   category: ReferralFile["category"];
-  referral_id: number | string;
+  referral_id: number | string | null;
   referral_name: string;
-  community: Referral["community"];
+  community: Referral["community"] | null;
   uploaded_at: Date | string;
   size_bytes: number | string | null;
   status: ReferralFile["status"];
   content_type: string | null;
   preview_status: ReferralFile["previewStatus"];
   page_count: number | string | null;
-  external_client_id: string;
+  external_client_id: string | null;
+  canonical_client_id: string | null;
+  source_system: ReferralFile["sourceSystem"] | null;
+  identity_status: ReferralFile["identityStatus"] | null;
   total_count?: number | string;
   cursor_time?: string;
 };
@@ -907,6 +940,13 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
   const sql = getPipelineSql();
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const clientId = options.clientId?.trim() || null;
+  const canonicalClientId = options.canonicalClientId?.trim() || null;
+  const community = options.community?.trim() || null;
+  const category = options.category?.trim() || null;
+  const identityStatus = options.identityStatus ?? null;
+  const sourceSystem = options.sourceSystem ?? null;
+  const uploadedAfter = options.uploadedAfter?.trim() || null;
+  const uploadedBefore = options.uploadedBefore?.trim() || null;
   const assignedOwnerId = options.assignedOwnerId?.trim() || null;
   const assignedOwnerNames = options.assignedOwnerNames ?? [];
   const cursor = decodeKeysetCursor(options.cursor);
@@ -916,23 +956,47 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
       select
         d.document_id::text as id,
         d.file_name as name,
-        case when d.category in ('assessment', 'assessment_workbook')
-          then 'Assessment' else 'Referral packet' end::text as category,
-        r.referral_id,
+        case d.category
+          when 'face_sheet' then 'Face sheet'
+          when 'assessment' then 'Assessment'
+          when 'assessment_workbook' then 'Assessment'
+          when 'medication_list' then 'Medication list'
+          when 'tb_test' then 'TB test'
+          when 'signed_admission_agreement' then 'Admission agreement'
+          when 'conservatorship_document' then 'Conservatorship'
+          when 'lic_602' then 'LIC 602'
+          when 'lic_601_603' then 'LIC 601/603'
+          when 'provider_form' then 'Provider form'
+          when 'payer_verification' then 'Payer verification'
+          when 'responsible_party' then 'Responsible party'
+          when 'other' then 'Other'
+          else 'Referral packet'
+        end::text as category,
+        coalesce(r.referral_id, latest_referral.referral_id) as referral_id,
         p.external_client_id,
-        p.display_name as referral_name,
-        r.community,
-        r.owner_id,
-        r.owner_name,
+        d.canonical_client_id,
+        coalesce(p.display_name, d.client_display_name, 'Identity review needed') as referral_name,
+        coalesce(r.community, latest_referral.community, d.client_community) as community,
+        coalesce(r.owner_id, latest_referral.owner_id) as owner_id,
+        coalesce(r.owner_name, latest_referral.owner_name) as owner_name,
         d.uploaded_at,
         d.byte_size as size_bytes,
         case when d.processing_status = 'reviewed' then 'Reviewed' else 'Uploaded' end::text as status,
         d.content_type,
         d.preview_status,
-        d.page_count
+        d.page_count,
+        d.source_system,
+        d.identity_status
       from pipeline.documents d
-      join pipeline.referrals r on r.referral_id = d.referral_id
-      join pipeline.people p on p.person_id = r.person_id
+      left join pipeline.referrals r on r.referral_id = d.referral_id
+      left join pipeline.people p on p.person_id = coalesce(d.person_id, r.person_id)
+      left join lateral (
+        select lr.referral_id, lr.community, lr.owner_id, lr.owner_name
+        from pipeline.referrals lr
+        where p.person_id is not null and lr.person_id = p.person_id
+        order by lr.updated_at desc, lr.referral_id desc
+        limit 1
+      ) latest_referral on true
       where d.deleted_at is null
       union all
       select
@@ -941,6 +1005,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         'Referral packet'::text as category,
         r.referral_id,
         p.external_client_id,
+        null::text as canonical_client_id,
         p.display_name as referral_name,
         r.community,
         r.owner_id,
@@ -951,7 +1016,9 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         case when r.data->>'documentStatus' = 'Reviewed' then 'Reviewed' else 'Uploaded' end::text as status,
         null::text as content_type,
         'unavailable'::text as preview_status,
-        null::integer as page_count
+        null::integer as page_count,
+        'pipeline'::text as source_system,
+        'linked'::text as identity_status
       from pipeline.referrals r
       join pipeline.people p on p.person_id = r.person_id
       where coalesce(r.data->>'documentName', '') <> ''
@@ -968,6 +1035,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         'Assessment'::text,
         r.referral_id,
         p.external_client_id,
+        null::text,
         p.display_name,
         r.community,
         r.owner_id,
@@ -978,7 +1046,9 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         'Uploaded'::text,
         null::text,
         'unavailable'::text,
-        null::integer
+        null::integer,
+        'pipeline'::text,
+        'linked'::text
       from pipeline.referrals r
       join pipeline.people p on p.person_id = r.person_id
       where coalesce(r.data->>'assessmentDocumentName', '') <> ''
@@ -997,6 +1067,13 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
           where lower(concat_ws(' ', name, category, referral_name, community, status)) not ilike ('%' || search_term.value || '%')
         ))
         and (${clientId}::text is null or external_client_id = ${clientId})
+        and (${canonicalClientId}::text is null or canonical_client_id = ${canonicalClientId})
+        and (${community}::text is null or file_rows.community = ${community})
+        and (${category}::text is null or file_rows.category = ${category})
+        and (${identityStatus}::text is null or file_rows.identity_status = ${identityStatus})
+        and (${sourceSystem}::text is null or file_rows.source_system = ${sourceSystem})
+        and (${uploadedAfter}::date is null or uploaded_at >= ${uploadedAfter}::date)
+        and (${uploadedBefore}::date is null or uploaded_at < (${uploadedBefore}::date + interval '1 day'))
         and (${assignedOwnerId}::text is null or owner_id = ${assignedOwnerId}
           or (owner_id is null and lower(trim(coalesce(owner_name, ''))) = any(${assignedOwnerNames}::text[])))
     )
@@ -1023,7 +1100,15 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
 }
 
 async function listPostgresReferralFilesByClient(clientId: string) {
-  return (await listPostgresReferralFiles({ clientId, limit: maxPageSize })).files;
+  const files: ReferralFile[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 500; page += 1) {
+    const result = await listPostgresReferralFiles({ clientId, limit: maxPageSize, cursor });
+    files.push(...result.files);
+    cursor = result.next_cursor;
+    if (!cursor) return files;
+  }
+  throw new Error("The client document inventory exceeded its safe pagination limit.");
 }
 
 async function createPostgresReferral(
@@ -1265,6 +1350,7 @@ type WorkflowRequirementRow = {
   due_at: Date | string | null;
   next_action: string;
   blocker: boolean;
+  evidence_document_id: string | null;
   evidence_document_name: string | null;
   waiver_reason: string | null;
   version: number;
@@ -1292,7 +1378,7 @@ async function getPostgresWorkflowContext(tx: TransactionSql, referralId: number
     `,
     tx<WorkflowRequirementRow[]>`
       select work_item_id, type, label, gate, status, owner_name, due_at,
-             next_action, blocker, evidence_document_name, waiver_reason, version, updated_at
+             next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
       from pipeline.work_items
       where referral_id = ${referralId}
       order by created_at, work_item_id
@@ -1327,6 +1413,7 @@ function mapWorkflowRequirementRow(row: WorkflowRequirementRow): AdmissionRequir
     dueAt: row.due_at ? isoTimestamp(row.due_at) : "",
     nextStep: row.next_action,
     blocker: row.blocker,
+    evidenceDocumentId: row.evidence_document_id ?? undefined,
     evidenceDocumentName: row.evidence_document_name ?? undefined,
     waiverReason: row.waiver_reason ?? undefined,
     updatedAt: isoTimestamp(row.updated_at),
@@ -1361,13 +1448,14 @@ async function syncPostgresWorkItems(
     await tx`
       insert into pipeline.work_items (
         work_item_id, referral_id, person_id, type, label, gate, status,
-        owner_name, due_at, next_action, blocker, evidence_document_name,
+        owner_name, due_at, next_action, blocker, evidence_document_id, evidence_document_name,
         waiver_reason, version, updated_at
       ) values (
         ${requirement.id}::uuid, ${referralId}, ${personId}::uuid, ${requirement.type},
         ${requirement.label}, ${requirement.requiredFor}, ${requirement.status},
         ${requirement.owner || null}, ${requirement.dueAt ? new Date(requirement.dueAt) : null},
-        ${requirement.nextStep}, ${requirement.blocker}, ${requirement.evidenceDocumentName ?? null},
+        ${requirement.nextStep}, ${requirement.blocker}, ${requirement.evidenceDocumentId ?? null}::uuid,
+        ${requirement.evidenceDocumentName ?? null},
         ${requirement.waiverReason ?? null}, ${requirement.version ?? 1}, ${new Date(requirement.updatedAt)}
       )
       on conflict (work_item_id) do update set
@@ -1379,6 +1467,7 @@ async function syncPostgresWorkItems(
         due_at = excluded.due_at,
         next_action = excluded.next_action,
         blocker = excluded.blocker,
+        evidence_document_id = excluded.evidence_document_id,
         evidence_document_name = excluded.evidence_document_name,
         waiver_reason = excluded.waiver_reason,
         version = greatest(pipeline.work_items.version, excluded.version),
@@ -1429,7 +1518,7 @@ function mapReferralRow(row: ReferralRow): Referral {
   return normalizeReferral({
     ...data,
     id: Number(row.referral_id),
-    clientId: row.external_client_id,
+    clientId: row.external_client_id ?? undefined,
     version: Number(row.version),
     sectionVersions: normalizeReferralSectionVersions(row.section_versions ?? data.sectionVersions),
     updatedBy: {
@@ -1456,14 +1545,18 @@ function mapReferralFileRow(row: ReferralFileRow): ReferralFile {
     id: row.id,
     name: row.name,
     category: row.category,
-    referralId: Number(row.referral_id),
+    referralId: row.referral_id === null ? null : Number(row.referral_id),
+    clientId: row.external_client_id ?? undefined,
+    canonicalClientId: row.canonical_client_id ?? undefined,
     referralName: row.referral_name,
-    community: row.community,
+    community: row.community ?? "",
     uploadedAt: isoTimestamp(row.uploaded_at),
     ...(row.size_bytes === null ? {} : { sizeBytes: Number(row.size_bytes) }),
     status: row.status,
     ...(row.content_type ? { contentType: row.content_type } : {}),
     previewStatus: row.preview_status,
+    sourceSystem: row.source_system ?? undefined,
+    identityStatus: row.identity_status ?? undefined,
     ...(row.page_count === null ? {} : { pageCount: Number(row.page_count) }),
     ...(row.preview_status === "ready" && /^[0-9a-f-]{36}$/i.test(row.id)
       ? {
@@ -1727,12 +1820,15 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
       name: referral.documentName,
       category: "Referral packet",
       referralId: referral.id,
+      clientId: referral.clientId,
       referralName: referral.name,
       community: referral.community,
       uploadedAt: referral.updatedAt ?? referral.createdAt,
       sizeBytes: referral.documentSizeBytes,
       status: referral.documentStatus,
       previewStatus: referral.documentHash ? "ready" : "unavailable",
+      sourceSystem: "pipeline",
+      identityStatus: "linked",
       ...(referral.documentHash
         ? { previewUrl: toPipelinePath(`/api/referrals/${referral.id}/packet`) }
         : {}),
@@ -1745,16 +1841,54 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
       name: referral.assessmentDocumentName,
       category: "Assessment",
       referralId: referral.id,
+      clientId: referral.clientId,
       referralName: referral.name,
       community: referral.community,
       uploadedAt: referral.updatedAt ?? referral.createdAt,
       sizeBytes: referral.assessmentDocumentSizeBytes,
       status: "Uploaded",
       previewStatus: "unavailable",
+      sourceSystem: "pipeline",
+      identityStatus: "linked",
+    });
+  }
+
+  for (const requirement of referral.requirements ?? []) {
+    if (!requirement.evidenceDocumentId || !requirement.evidenceDocumentName?.trim()) continue;
+    files.push({
+      id: requirement.evidenceDocumentId,
+      name: requirement.evidenceDocumentName,
+      category: requirementFileCategory(requirement.type),
+      referralId: referral.id,
+      clientId: referral.clientId,
+      referralName: referral.name,
+      community: referral.community,
+      uploadedAt: requirement.updatedAt || referral.updatedAt || referral.createdAt,
+      status: requirement.status === "reviewed" ? "Reviewed" : "Uploaded",
+      previewStatus: "unavailable",
+      sourceSystem: "pipeline",
+      identityStatus: "linked",
     });
   }
 
   return files;
+}
+
+function requirementFileCategory(type: AdmissionRequirement["type"]): ReferralFile["category"] {
+  const categories: Record<AdmissionRequirement["type"], ReferralFile["category"]> = {
+    medication_list: "Medication list",
+    tb_test: "TB test",
+    signed_admission_agreement: "Admission agreement",
+    conservatorship_document: "Conservatorship",
+    lic_602: "LIC 602",
+    lic_601_603: "LIC 601/603",
+    provider_form: "Provider form",
+    face_sheet: "Face sheet",
+    payer_verification: "Payer verification",
+    responsible_party: "Responsible party",
+    no_admission_reason: "Other",
+  };
+  return categories[type];
 }
 
 function searchableFileText(file: ReferralFile) {

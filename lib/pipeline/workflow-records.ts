@@ -117,6 +117,7 @@ export function createDefaultAdmissionRequirements(
       status: evidenceDocumentName ? "received" : current?.status ?? "needed",
       owner: (current?.owner ?? owner.trim()) || "Unassigned",
       dueAt: current?.dueAt ?? dueAt,
+      evidenceDocumentId: current?.evidenceDocumentId,
       evidenceDocumentName,
       waiverReason: current?.waiverReason,
       updatedAt: evidenceChanged
