@@ -2,18 +2,21 @@
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFile, writeFile } from "node:fs/promises";
+import { lstat, readFile, readlink, writeFile } from "node:fs/promises";
 
 const options = parseArgs(process.argv.slice(2));
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 const checksums = JSON.parse(await readFile("database/migration-checksums.json", "utf8"));
+const revision = sourceRevision();
+const sourceState = await fingerprintSourceState(revision);
 const manifest = {
-  schema_version: 1,
+  schema_version: 2,
   created_at: releaseTimestamp(),
   application: packageJson.name,
   application_version: packageJson.version,
-  source_revision: sourceRevision(),
-  source_dirty: sourceDirty(),
+  source_revision: revision,
+  source_dirty: sourceState.tracked_file_count > 0 || sourceState.untracked_file_count > 0,
+  source_state: sourceState,
   runtime: process.version,
   framework: packageJson.dependencies?.next ?? null,
   package_lock_sha256: await sha256("package-lock.json"),
@@ -74,18 +77,64 @@ function sourceRevision() {
   }
 }
 
-function sourceDirty() {
-  try {
-    execFileSync("git", ["diff", "--quiet"], { stdio: "ignore" });
-    execFileSync("git", ["diff", "--cached", "--quiet"], { stdio: "ignore" });
-    const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    return Boolean(untracked);
-  } catch {
-    return true;
+async function fingerprintSourceState(revision) {
+  const trackedPatch = gitBuffer(["diff", "--binary", "--full-index", "HEAD", "--", "."]);
+  const trackedPaths = nulSeparatedPaths(gitBuffer(["diff", "--name-only", "-z", "HEAD", "--", "."]));
+  const untrackedPaths = nulSeparatedPaths(gitBuffer(["ls-files", "--others", "--exclude-standard", "-z"]));
+  const untrackedHash = createHash("sha256");
+
+  for (const file of untrackedPaths) {
+    const metadata = await lstat(file);
+    const payload = metadata.isSymbolicLink()
+      ? Buffer.from(await readlink(file), "utf8")
+      : await readFile(file);
+    addLengthPrefixed(untrackedHash, Buffer.from(file, "utf8"));
+    addLengthPrefixed(untrackedHash, Buffer.from(metadata.isSymbolicLink() ? "symlink" : "file", "utf8"));
+    addLengthPrefixed(untrackedHash, Buffer.from((metadata.mode & 0o777).toString(8), "utf8"));
+    addLengthPrefixed(untrackedHash, Buffer.from(createHash("sha256").update(payload).digest("hex"), "utf8"));
   }
+
+  const state = {
+    algorithm: "sha256",
+    scope: "tracked binary diff from HEAD plus non-ignored untracked files",
+    tracked_diff_sha256: createHash("sha256").update(trackedPatch).digest("hex"),
+    untracked_source_sha256: untrackedHash.digest("hex"),
+    tracked_file_count: trackedPaths.length,
+    untracked_file_count: untrackedPaths.length,
+  };
+  return {
+    ...state,
+    candidate_sha256: candidateDigest(revision, state),
+  };
+}
+
+function candidateDigest(revision, state) {
+  return createHash("sha256").update([
+    "pipeline-source-state-v1",
+    revision,
+    state.tracked_diff_sha256,
+    state.untracked_source_sha256,
+    String(state.tracked_file_count),
+    String(state.untracked_file_count),
+  ].join("\0")).digest("hex");
+}
+
+function gitBuffer(args) {
+  return execFileSync("git", args, {
+    encoding: "buffer",
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+}
+
+function nulSeparatedPaths(value) {
+  return value.toString("utf8").split("\0").filter(Boolean).sort();
+}
+
+function addLengthPrefixed(hash, value) {
+  const length = Buffer.allocUnsafe(4);
+  length.writeUInt32BE(value.length);
+  hash.update(length).update(value);
 }
 
 function releaseTimestamp() {

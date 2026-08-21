@@ -75,6 +75,7 @@ export type AdmissionRequirement = {
   label: string;
   status: RequirementStatus;
   requiredFor: RequirementGate;
+  ownerId?: string;
   owner: string;
   dueAt: string;
   nextStep: string;
@@ -107,6 +108,14 @@ export type EhrHandoffRecord = {
   queuedByName?: string;
   sentAt?: string;
   failureReason?: string;
+};
+
+export type ManualIntakeAuthorization = {
+  mode: "manual_chart";
+  reason: string;
+  authorizedBy: string;
+  authorizedByName: string;
+  authorizedAt: string;
 };
 
 export type AssessmentProfile = {
@@ -185,6 +194,8 @@ export type Referral = {
   packetReadiness?: PacketFieldsResponse["ehr_readiness"];
   packetCompleteness?: PacketFieldsResponse["packet_completeness"];
   packetMessage?: string;
+  /** Explicit, audited authorization to complete intake from the chart while source files remain outstanding. */
+  manualIntakeAuthorization?: ManualIntakeAuthorization;
   assessment?: AssessmentProfile;
   assessmentDocumentName?: string;
   assessmentDocumentSizeBytes?: number;

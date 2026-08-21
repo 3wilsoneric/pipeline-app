@@ -48,7 +48,7 @@ test.describe("Responsive and accessible application shell", () => {
   test("keeps packet steps operable at the configured viewport", async ({ page }) => {
     await page.goto("/?view=referrals&screen=packet");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("navigation", { name: "Referral packet steps" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Referral workspace steps" })).toBeVisible();
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Summary", exact: true })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toBeFocused();

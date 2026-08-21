@@ -46,6 +46,9 @@ import {
 import { createDefaultAdmissionRequirements } from "@/lib/pipeline/workflow-records";
 import type { ReferralChangeSnapshot, ReferralPresenceView } from "@/lib/pipeline/collaboration-types";
 import { getReferralPatchSections, normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
+import { documentCategoryForRequirement } from "@/lib/pipeline/document-requirements";
+import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
+import { hasManualIntakeAuthorization } from "@/lib/pipeline/referral-workflow";
 import {
   allowedUploadContentTypes,
   maxUploadFileBytes,
@@ -101,8 +104,11 @@ type PacketUploadResult = {
   status: PacketStatusResponse["status"];
   pageCount: number;
   fields?: PacketFieldsResponse;
+  document?: NonNullable<CompleteUploadResponse["documents"]>[number];
   mock: boolean;
 };
+
+type InitialDocumentCategory = "face_sheet" | "referral_packet";
 
 type DirtyDraftKey = FieldKey | "conserved" | "tags" | "documents" | "initialPacket";
 
@@ -246,6 +252,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   const [pendingDocuments, setPendingDocuments] = useState<Record<string, File>>({});
   const [uploadingDocumentIds, setUploadingDocumentIds] = useState<Set<string>>(() => new Set());
   const [initialPacket, setInitialPacket] = useState<File | null>(null);
+  const [initialPacketCategory, setInitialPacketCategory] = useState<InitialDocumentCategory>("face_sheet");
   const [tagsInput, setTagsInput] = useState("");
   const [activePage, setActivePage] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [assessmentSummary, setAssessmentSummary] = useState<{
@@ -258,7 +265,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
     total: 52,
     status: "not_started",
   });
-  const [savedAt, setSavedAt] = useState(referral?.id ? "Loading saved record..." : "Begin with the chart or import documents");
+  const [savedAt, setSavedAt] = useState(referral?.id ? "Loading workspace..." : "Begin with the chart or import documents");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const [progress, setProgress] = useState<ReferralProgress | null>(null);
   const [progressLoading, setProgressLoading] = useState(Boolean(referral?.id));
@@ -274,6 +281,11 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   const [remoteChange, setRemoteChange] = useState<RemoteChange | null>(null);
   const [extractionConflict, setExtractionConflict] = useState<ExtractionReviewConflict | null>(null);
   const [presence, setPresence] = useState<ReferralPresenceView[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [ownerPrincipalId, setOwnerPrincipalId] = useState("");
+  const [manualIntakeOpen, setManualIntakeOpen] = useState(false);
+  const [manualIntakeReason, setManualIntakeReason] = useState("");
+  const [isAuthorizingManualIntake, setIsAuthorizingManualIntake] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const loadedReferralRef = useRef<Referral | null>(null);
   const fieldsRef = useRef(fields);
@@ -284,6 +296,8 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   const conservedRef = useRef(conserved);
   const dirtyKeysRef = useRef(dirtyKeys);
   const isSavingRef = useRef(isSaving);
+  const ownerPrincipalIdRef = useRef(ownerPrincipalId);
+  const handoffReasonRef = useRef("");
 
   useEffect(() => {
     loadedReferralRef.current = loadedReferral;
@@ -322,6 +336,32 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   }, [isSaving]);
 
   useEffect(() => {
+    ownerPrincipalIdRef.current = ownerPrincipalId;
+  }, [ownerPrincipalId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPipelineJson<{ members: WorkspaceMember[]; current_principal_id: string }>("/api/members", { cache: "no-store" })
+      .then((payload) => {
+        if (cancelled) return;
+        setMembers(payload.members);
+        if (!loadedReferralRef.current && !fieldsRef.current.owner.value.trim()) {
+          const current = payload.members.find((member) => member.principal_id === payload.current_principal_id);
+          if (current) {
+            setOwnerPrincipalId(current.principal_id);
+            setFields((fields) => ({ ...fields, owner: { ...fields.owner, value: current.display_name } }));
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSaveError("The owner list could not be loaded. Existing work remains available.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (isSaving || (dirtyKeys.size === 0 && Object.keys(pendingDocuments).length === 0)) return;
     const timer = window.setTimeout(() => {
       if (isSavingRef.current) return;
@@ -343,6 +383,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         tagsInput,
         documents,
         ...(initialPacket ? { initialPacketName: initialPacket.name } : {}),
+        initialPacketCategory,
       };
       if (usesServerReferralDrafts()) {
         void saveServerReferralDraft(referral?.id ?? loadedReferral?.id, draft).catch(() => {
@@ -357,7 +398,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       }
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [conserved, dirtyKeys, documents, fields, initialPacket, isSaving, loadedReferral, pendingDocuments, referral?.id, tagsInput]);
+  }, [conserved, dirtyKeys, documents, fields, initialPacket, initialPacketCategory, isSaving, loadedReferral, pendingDocuments, referral?.id, tagsInput]);
 
   useEffect(() => {
     if (dirtyKeys.size === 0) return;
@@ -395,6 +436,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         setConserved,
         setTagsInput,
         setDocuments,
+        setInitialPacketCategory,
         setDirtyKeys,
         setRecoveredDraftAt,
         setRecoveredPacketName,
@@ -441,23 +483,26 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
           kind: "referral",
           screen: "packet",
           title: record.name,
-          detail: `${record.community} · Referral packet`,
+          detail: `${record.community} · Referral workspace`,
           referralId: record.id,
           community: record.community,
         });
         setFields((current) => fieldsFromReferral(current, record));
+        setOwnerPrincipalId(record.ownerId ?? "");
         setConserved(record.conserved ?? "");
         setTagsInput((record.tags ?? []).join(", "));
         setDocuments(documentsFromReferral(record));
+        setInitialPacketCategory(initialDocumentCategoryFromReferral(record));
         setDirtyKeys(new Set());
         setRemoteChange(null);
         setExtractionConflict(null);
-        setSavedAt("Saved record loaded");
+        setSavedAt("Workspace loaded");
         const setters = {
           setFields,
           setConserved,
           setTagsInput,
           setDocuments,
+          setInitialPacketCategory,
           setDirtyKeys,
           setRecoveredDraftAt,
           setRecoveredPacketName,
@@ -548,6 +593,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
     loadedReferralRef.current = latest;
     setFields((current) => mergeRemoteReferralFields(current, latest, dirty));
     if (!dirty.has("conserved")) setConserved(latest.conserved ?? "");
+    if (!dirty.has("owner")) setOwnerPrincipalId(latest.ownerId ?? "");
     if (!dirty.has("tags")) setTagsInput((latest.tags ?? []).join(", "));
     if (!dirty.has("documents")) setDocuments(documentsFromReferral(latest));
     if (!dirty.has("initialPacket")) setInitialPacket(null);
@@ -679,20 +725,12 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       );
       const document = uploaded.documents?.[0];
       if (!document) throw new Error("Pipeline uploaded the file but did not return its document record.");
-      await fetchPipelineJson(`/api/referrals/${workingReferral.id}/work-items/${encodeURIComponent(workItem.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          if_match: workItem.version ?? 1,
-          patch: {
-            status: "received",
-            evidenceDocumentId: document.document_id,
-            evidenceDocumentName: file.name,
-          },
-        }),
-      });
       const refreshed = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${workingReferral.id}/canvas`, { cache: "no-store" });
       if (!refreshed.referral) throw new Error("The document was saved, but the refreshed referral was unavailable.");
+      const linkedRequirement = refreshed.referral.requirements?.find((item) => item.type === definition.type);
+      if (linkedRequirement?.evidenceDocumentId !== document.document_id) {
+        throw new Error(`${definition.label} was stored, but its checklist item was not updated. Retry the upload.`);
+      }
       loadedReferralRef.current = refreshed.referral;
       setLoadedReferral(refreshed.referral);
       setDocuments(documentsFromReferral(refreshed.referral));
@@ -757,6 +795,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       getEvidenceByType(documentsRef.current),
       new Date().toISOString(),
       fieldsRef.current.owner.value.trim() || "Unassigned",
+      ownerPrincipalIdRef.current || undefined,
     );
     const patch = buildCanvasPatch({
       keys,
@@ -769,6 +808,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
     if (Object.keys(patch).length === 0) return current;
     const expectedSections = normalizeReferralSectionVersions(current.sectionVersions);
     const touchedSections = getReferralPatchSections(patch as Record<string, unknown>);
+    const ownerTouched = keys.has("owner");
     const payload = await fetchPipelineJson<{ referral?: Referral; error?: string }>(`/api/referrals/${current.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -776,11 +816,15 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         if_match: current.version,
         if_match_sections: Object.fromEntries(touchedSections.map((section) => [section, expectedSections[section]])),
         patch,
+        ...(ownerTouched ? { assignee_id: ownerPrincipalIdRef.current || undefined } : {}),
+        ...(ownerTouched && handoffReasonRef.current ? { handoff_reason: handoffReasonRef.current } : {}),
       }),
     });
     if (!payload.referral) throw new Error(payload.error ?? "Could not save this referral.");
     loadedReferralRef.current = payload.referral;
     setLoadedReferral(payload.referral);
+    setOwnerPrincipalId(payload.referral.ownerId ?? "");
+    if (ownerTouched) handoffReasonRef.current = "";
     return payload.referral;
   };
 
@@ -855,11 +899,12 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         getEvidenceByType(documents),
         new Date().toISOString(),
         fields.owner.value.trim() || "Unassigned",
+        ownerPrincipalId || undefined,
       );
       let payload: { referral?: Referral; error?: string };
 
       if (!referralId && !fields.name.value.trim() && !initialPacket) {
-        throw new Error("Enter the client name or import a document before creating this referral.");
+        throw new Error("Enter the client name or import a document before creating this workspace.");
       }
       if (referralId && !loadedReferral) {
         throw new Error("Wait for the saved referral to finish loading before making changes.");
@@ -919,7 +964,11 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         payload = await fetchPipelineJson<{ referral?: Referral; error?: string }>("/api/referrals", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ referral: createdReferral, client_mutation_id: createMutationId() }),
+          body: JSON.stringify({
+            referral: createdReferral,
+            client_mutation_id: createMutationId(),
+            ...(ownerPrincipalId ? { assignee_id: ownerPrincipalId } : {}),
+          }),
         });
       } else {
         const saved = await persistExistingChanges(
@@ -930,7 +979,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         payload = { referral: saved };
       }
       if (!payload.referral) {
-        throw new Error(payload.error ?? "Could not save this referral.");
+        throw new Error(payload.error ?? "Could not save this referral workspace.");
       }
       savedReferral = payload.referral;
       loadedReferralRef.current = savedReferral;
@@ -938,7 +987,19 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
 
       if (initialPacket) {
         setSavedAt("Uploading packet...");
-        const upload = await uploadReferralPacket(savedReferral, initialPacket, documentHash!);
+        const upload = await uploadReferralPacket(savedReferral, initialPacket, documentHash!, initialPacketCategory);
+        const refreshedWorkspace = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${savedReferral.id}/canvas`, { cache: "no-store" });
+        if (!refreshedWorkspace.referral) throw new Error("The document was saved, but the referral workspace could not be refreshed.");
+        savedReferral = refreshedWorkspace.referral;
+        if (initialPacketCategory === "face_sheet" && upload.document) {
+          const faceSheet = savedReferral.requirements?.find((item) => item.type === "face_sheet");
+          if (faceSheet?.evidenceDocumentId !== upload.document.document_id) {
+            throw new Error("The face sheet was stored, but its checklist item was not updated. Retry the upload.");
+          }
+        }
+        loadedReferralRef.current = savedReferral;
+        setLoadedReferral(savedReferral);
+        setDocuments(documentsFromReferral(savedReferral));
         setSavedAt("Linking extraction...");
         const extractedForm = upload.fields
           ? populateFormFromExtraction(
@@ -1016,7 +1077,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         if (latestConflict) receiveRemoteReferral(latestConflict, latestConflict.updatedBy?.name, true);
       }
       if (!latestConflict && savedReferral) setLoadedReferral(savedReferral);
-      setSaveError(error instanceof Error ? error.message : "Could not save this referral.");
+      setSaveError(error instanceof Error ? error.message : "Could not save this referral workspace.");
     } finally {
       isSavingRef.current = false;
       setIsSaving(false);
@@ -1027,6 +1088,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
     extractedField: ExtractedField,
     action: "accept" | "edit",
     correctedValue?: string,
+    allowManualOverride = true,
   ) => {
     if (!loadedReferral?.packetId || !loadedReferral.packetFields) {
       setSaveError("Save and finish extracting the packet before reviewing its values.");
@@ -1075,6 +1137,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         packetFields,
         loadedReferral.documentName || "Uploaded packet",
         extractionDirtyKeys,
+        allowManualOverride ? mappedKeys : new Set(),
       );
       const mappedFieldKeys = new Set<PersistedFieldKey>(
         persistedFieldKeys.filter((key) => (
@@ -1177,7 +1240,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
     setSaveError("");
     try {
       for (const extractedField of extractedFields) {
-        await reviewExtractedField(extractedField, "accept");
+        await reviewExtractedField(extractedField, "accept", undefined, false);
       }
       const current = loadedReferralRef.current;
       if (current) {
@@ -1278,6 +1341,85 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
     }
   };
 
+  const authorizeManualIntake = async () => {
+    const initialReferral = loadedReferralRef.current;
+    if (!initialReferral) {
+      setSaveError("Create the workspace before continuing without extraction.");
+      return;
+    }
+    if (manualIntakeReason.trim().length < 10) {
+      setSaveError("Record a brief reason for continuing without extraction.");
+      return;
+    }
+
+    setIsAuthorizingManualIntake(true);
+    setSaveError("");
+    setSavedAt("Authorizing manual intake...");
+    try {
+      let current = initialReferral;
+      const pendingDraftKeys = new Set([...dirtyKeysRef.current].filter((key) => key !== "initialPacket"));
+      if (pendingDraftKeys.size > 0) current = await persistExistingChanges(current, pendingDraftKeys);
+      if (!isAssignedValue(current.owner)) throw new Error("Assign an owner before continuing to assessment.");
+      if (current.community === "Unassigned") throw new Error("Choose a community before continuing to assessment.");
+
+      const authorized = await fetchPipelineJson<{ referral?: Referral; error?: string }>(
+        `/api/referrals/${current.id}/manual-intake`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            if_match: current.version,
+            if_match_section: normalizeReferralSectionVersions(current.sectionVersions).documents,
+            reason: manualIntakeReason.trim(),
+          }),
+        },
+      );
+      if (!authorized.referral) throw new Error(authorized.error ?? "Manual intake could not be authorized.");
+      current = authorized.referral;
+
+      const targetsByStage: Partial<Record<Referral["stage"], Referral["stage"][]>> = {
+        New: ["Packet Needed", "Packet Review", "Assessment"],
+        "Packet Needed": ["Packet Review", "Assessment"],
+        "Packet Review": ["Assessment"],
+      };
+      for (const targetStage of targetsByStage[current.stage] ?? []) {
+        const transitioned = await fetchPipelineJson<{ referral?: Referral; error?: string }>(
+          `/api/referrals/${current.id}/transition`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              if_match: current.version,
+              if_match_section: normalizeReferralSectionVersions(current.sectionVersions).workflow,
+              target_stage: targetStage,
+            }),
+          },
+        );
+        if (!transitioned.referral) throw new Error(transitioned.error ?? "The referral could not advance to assessment.");
+        current = transitioned.referral;
+      }
+
+      loadedReferralRef.current = current;
+      setLoadedReferral(current);
+      setDirtyKeys(new Set());
+      setManualIntakeOpen(false);
+      setManualIntakeReason("");
+      void clearSessionDraft(current.id);
+      const latestProgress = await fetchPipelineJson<ReferralProgress>(`/api/referrals/${current.id}/progress`, { cache: "no-store" }).catch(() => null);
+      if (latestProgress) setProgress(latestProgress);
+      setSavedAt("Manual intake authorized");
+      openPage(4);
+    } catch (error) {
+      if (error instanceof PipelineApiError && error.status === 409) {
+        const latest = getConflictReferral(error.payload);
+        if (latest) receiveRemoteReferral(latest, latest.updatedBy?.name, true);
+      }
+      setSaveError(error instanceof Error ? error.message : "Manual intake could not be authorized.");
+    } finally {
+      setIsAuthorizingManualIntake(false);
+    }
+  };
+
   const resolveRemoteConflict = (conflict: RemoteFieldConflict, useLatest: boolean) => {
     const latest = remoteChange?.referral;
     if (!latest) return;
@@ -1319,11 +1461,13 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       setConserved(current.conserved ?? "");
       setTagsInput((current.tags ?? []).join(", "));
       setDocuments(documentsFromReferral(current));
+      setInitialPacketCategory(initialDocumentCategoryFromReferral(current));
     } else {
       setFields({ ...initialFields, name: { ...initialFields.name, value: referral?.name ?? "" } });
       setConserved("");
       setTagsInput("");
       setDocuments({});
+      setInitialPacketCategory("face_sheet");
     }
     setInitialPacket(null);
     setDirtyKeys(new Set());
@@ -1373,7 +1517,11 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
       items: [
         reviewField(
           "Initial packet",
-          loadedReferral?.documentStatus !== "Missing" ? loadedReferral?.documentName ?? "Recorded" : "",
+          loadedReferral?.documentStatus !== "Missing"
+            ? loadedReferral?.documentName ?? "Recorded"
+            : loadedReferral && hasManualIntakeAuthorization(loadedReferral)
+              ? "Manual intake authorized; source files outstanding"
+              : "",
           1,
         ),
         ...requirements.map((requirement) => reviewField(requirement.label, getRequirementReviewValue(requirement, documents[requirement.id], loadedReferral), 2)),
@@ -1414,9 +1562,9 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-3 sm:px-4 lg:px-6"
       >
         <div className="sticky top-0 z-20 mb-2 bg-white/95 pb-1 backdrop-blur-sm">
-          <h1 className="sr-only">Referral packet</h1>
+          <h1 className="sr-only">Referral workspace</h1>
           <div className="flex items-center gap-3 border-y border-[#d9d9d9] py-1.5">
-            <nav aria-label="Referral packet steps" className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
+            <nav aria-label="Referral workspace steps" className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
               {packetSteps.map(({ page, label }) => (
                 <button
                   key={page}
@@ -1449,7 +1597,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
                 className="flex h-10 items-center gap-2 border border-[#111111] bg-[#111111] px-4 text-[12px] font-black text-white hover:border-[#0f8b73] hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:border-[#b8b8b8] disabled:bg-[#b8b8b8]"
               >
                 <Save size={15} />
-                {isSaving ? "Saving..." : loadedReferral || referral?.id ? "Save chart" : "Create referral"}
+                {isSaving ? "Saving..." : loadedReferral || referral?.id ? "Save workspace" : "Create workspace"}
               </button>
             </div>
           </div>
@@ -1579,12 +1727,35 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
                 <ChartSection title="Referral" detail="Routing, ownership, dates, and search classification" complete={countCompleteFields(fields, ["owner", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"])} total={7}>
                   <div aria-label="Referral routing" className="grid gap-px overflow-hidden border border-[#d7ddd9] bg-[#d7ddd9] sm:grid-cols-2 lg:grid-cols-3">
                     {(["owner", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"] as FieldKey[]).map((key) => (
-                      <EditablePacketField
-                        key={key}
-                        field={fields[key]}
-                        options={key === "county" ? pipelineCommunities : undefined}
-                        onChange={(value) => updateField(key, value)}
-                      />
+                      key === "owner" ? (
+                        <OwnerPacketField
+                          key={key}
+                          field={fields.owner}
+                          members={members}
+                          ownerPrincipalId={ownerPrincipalId}
+                          onChange={(principalId) => {
+                            const member = members.find((candidate) => candidate.principal_id === principalId);
+                            const current = loadedReferralRef.current;
+                            if (current && !isUnassignedOwner(current.owner) && (current.ownerId ?? "") !== principalId) {
+                              const reason = window.prompt("Why is this referral being reassigned?")?.trim();
+                              if (!reason || reason.length < 3) {
+                                setSaveError("Reassignment was cancelled. Add a brief handoff reason to change the owner.");
+                                return;
+                              }
+                              handoffReasonRef.current = reason;
+                            }
+                            setOwnerPrincipalId(principalId);
+                            updateField("owner", member?.display_name ?? "Unassigned");
+                          }}
+                        />
+                      ) : (
+                        <EditablePacketField
+                          key={key}
+                          field={fields[key]}
+                          options={key === "county" ? pipelineCommunities : undefined}
+                          onChange={(value) => updateField(key, value)}
+                        />
+                      )
                     ))}
                     <div className="min-h-[86px] bg-white p-3 lg:col-span-2">
                       <label htmlFor="packet-tags" className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">Tags</label>
@@ -1662,6 +1833,14 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
                   recordedName={loadedReferral?.documentName}
                   recordedStatus={loadedReferral?.documentStatus}
                   message={loadedReferral?.packetMessage}
+                  category={initialPacketCategory}
+                  onCategoryChange={(category) => {
+                    setInitialPacketCategory(category);
+                    if (initialPacket) {
+                      markDirty("initialPacket");
+                      setSavedAt("Unsaved changes");
+                    }
+                  }}
                   onSelect={selectInitialPacket}
                   onClear={() => {
                     setInitialPacket(null);
@@ -1669,6 +1848,25 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
                     setSavedAt("Unsaved changes");
                   }}
                 />
+                {loadedReferral && hasManualIntakeAuthorization(loadedReferral) ? (
+                  <div className="border-l-2 border-[#0f8b73] bg-[#effaf5] px-3 py-3">
+                    <div className="text-[11px] font-black text-[#174f43]">Manual chart intake authorized</div>
+                    <div className="mt-1 text-[10px] leading-4 text-[#3c665d]">
+                      {loadedReferral.manualIntakeAuthorization?.authorizedByName} · {formatTimestamp(loadedReferral.manualIntakeAuthorization?.authorizedAt)}
+                    </div>
+                    <div className="mt-1 text-[10px] leading-4 text-[#3c665d]">Source files remain visible as outstanding until attached.</div>
+                  </div>
+                ) : !loadedReferral?.packetFields?.length ? (
+                  <button
+                    type="button"
+                    onClick={() => setManualIntakeOpen(true)}
+                    disabled={!loadedReferral || isSaving}
+                    className="flex min-h-10 w-full items-center justify-between gap-3 border border-[#0f8b73] px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.06em] text-[#0c705f] hover:bg-[#effaf5] disabled:cursor-not-allowed disabled:border-[#d9d9d9] disabled:text-[#9a9a9a]"
+                  >
+                    <span>{loadedReferral ? "Continue without extraction" : "Save workspace for manual intake"}</span>
+                    <ArrowRight size={14} />
+                  </button>
+                ) : null}
               </aside>
             </div>
           </PacketPage>
@@ -1735,10 +1933,37 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
             </PacketPage>
           ) : activePage === 4 ? (
             <PacketPage id="packet-page-4" title="Assessment">
-              <AssessmentWorkspace
-                referralId={loadedReferral?.id ?? referral?.id}
-                onSummaryChange={setAssessmentSummary}
-              />
+              {loadedReferral && !isAssessmentStageAvailable(loadedReferral.stage) ? (
+                <section className="border border-[#d6ddd9] bg-[#f8fbfa] px-5 py-6" aria-label="Assessment prerequisites">
+                  <h2 className="text-[17px] font-black text-[#111111]">Finish intake review first</h2>
+                  <p className="mt-2 max-w-2xl text-[12px] leading-5 text-[#595959]">
+                    Confirm or correct the extracted packet values, or authorize a documented manual intake, before starting the assessment.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openPage(1)}
+                    className="mt-4 h-10 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73]"
+                  >
+                    Review intake
+                  </button>
+                </section>
+              ) : (
+                <AssessmentWorkspace
+                  referralId={loadedReferral?.id ?? referral?.id}
+                  onSummaryChange={setAssessmentSummary}
+                  onAssessmentSaved={async (assessment) => {
+                    if (assessment.status !== "complete") return;
+                    const current = loadedReferralRef.current;
+                    if (!current) return;
+                    const canvas = await fetchPipelineJson<{
+                      referral?: Referral;
+                      progress?: ReferralProgress;
+                    }>(`/api/referrals/${current.id}/canvas`, { cache: "no-store" });
+                    if (canvas.referral) receiveRemoteReferral(canvas.referral, canvas.referral.updatedBy?.name, true);
+                    if (canvas.progress) setProgress(canvas.progress);
+                  }}
+                />
+              )}
             </PacketPage>
           ) : (
             <DataReview
@@ -1759,6 +1984,17 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
           )}
         </div>
       </div>
+      {manualIntakeOpen ? (
+        <ManualIntakeDialog
+          reason={manualIntakeReason}
+          saving={isAuthorizingManualIntake}
+          onReasonChange={setManualIntakeReason}
+          onConfirm={() => void authorizeManualIntake()}
+          onClose={() => {
+            if (!isAuthorizingManualIntake) setManualIntakeOpen(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1848,6 +2084,86 @@ function DataReview({
       <EhrHandoffEditor referral={referral} onSaved={onDecisionSaved} />
       <ReferralActivityPanel referralId={referral?.id} version={referral?.version} />
     </section>
+  );
+}
+
+function ManualIntakeDialog({
+  reason,
+  saving,
+  onReasonChange,
+  onConfirm,
+  onClose,
+}: {
+  reason: string;
+  saving: boolean;
+  onReasonChange: (value: string) => void;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !saving) onClose();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    window.setTimeout(() => reasonRef.current?.focus(), 0);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onClose, saving]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/30 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !saving) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manual-intake-title"
+        className="w-full max-w-[640px] bg-white shadow-[0_24px_70px_rgba(17,17,17,0.2)]"
+      >
+        <header className="flex items-start justify-between gap-5 border-b-2 border-[#111111] px-5 py-5 sm:px-7">
+          <div>
+            <h2 id="manual-intake-title" className="text-[22px] font-black text-[#111111]">Continue with manual chart intake</h2>
+            <p className="mt-2 max-w-[58ch] text-[12px] leading-5 text-[#595959]">
+              This unlocks the assessment without claiming that a packet was uploaded or extracted. Source files stay outstanding until attached.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} disabled={saving} aria-label="Close manual intake" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#c9ceca] text-[#303638] hover:bg-[#f7faf9] disabled:text-[#b3b3b3]">
+            <X size={18} />
+          </button>
+        </header>
+        <div className="px-5 py-5 sm:px-7">
+          <label className="block">
+            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Reason</span>
+            <textarea
+              ref={reasonRef}
+              value={reason}
+              maxLength={1_000}
+              rows={5}
+              onChange={(event) => onReasonChange(event.target.value)}
+              placeholder="For example: referral details were entered from the source system; scanned documents will be attached when received."
+              className="mt-2 w-full resize-y border border-[#c9ceca] p-3 text-[13px] leading-6 outline-none focus:border-[#0f8b73]"
+            />
+          </label>
+          <div className="mt-2 text-right text-[10px] text-[#737373]">{reason.trim().length} / 1,000</div>
+        </div>
+        <footer className="flex items-center justify-end gap-3 border-t border-[#d9d9d9] px-5 py-4 sm:px-7">
+          <button type="button" onClick={onClose} disabled={saving} className="h-10 px-4 text-[11px] font-black uppercase text-[#595959] hover:text-[#111111] disabled:text-[#b3b3b3]">Cancel</button>
+          <button type="button" onClick={onConfirm} disabled={saving || reason.trim().length < 10} className="h-10 bg-[#111111] px-5 text-[11px] font-black uppercase text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8]">
+            {saving ? "Authorizing..." : "Continue to assessment"}
+          </button>
+        </footer>
+      </section>
+    </div>,
+    document.body,
   );
 }
 
@@ -1968,6 +2284,7 @@ function AdmissionDecisionEditor({
   const [reasonNote, setReasonNote] = useState(existing?.reasonNote ?? "");
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
+  const acceptedPending = existing?.outcome === "accepted" && referral?.stage === "Community Review";
 
   useEffect(() => {
     setOutcome(referral?.admissionDecision?.outcome ?? "");
@@ -1996,6 +2313,32 @@ function AdmissionDecisionEditor({
       setStatus("Decision saved");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not save the admission decision.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const finalizeAcceptance = async () => {
+    if (!referral || !acceptedPending) return;
+    setSaving(true);
+    setStatus("");
+    try {
+      const payload = await fetchPipelineJson<{ referral: Referral }>(
+        `/api/referrals/${referral.id}/transition`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            if_match: referral.version,
+            if_match_section: referral.sectionVersions?.workflow ?? 1,
+            target_stage: "Accepted / Admitted",
+          }),
+        },
+      );
+      await onSaved(payload.referral);
+      setStatus("Acceptance finalized");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Acceptance could not be finalized.");
     } finally {
       setSaving(false);
     }
@@ -2038,9 +2381,27 @@ function AdmissionDecisionEditor({
         >
           {saving ? "Saving" : "Save decision"}
         </button>
+        {acceptedPending ? (
+          <button
+            type="button"
+            onClick={finalizeAcceptance}
+            disabled={saving}
+            className="h-10 border border-[#0f8b73] px-5 text-[11px] font-black uppercase text-[#0f8b73] hover:bg-[#effaf5] disabled:cursor-not-allowed disabled:border-[#d9d9d9] disabled:text-[#b3b3b3] lg:col-start-3"
+          >
+            Finalize acceptance
+          </button>
+        ) : null}
       </div>
       <div className="mt-2 min-h-4 text-[11px] text-[#737373]">
-        {status || (!referral ? "Save the referral first." : !assessmentComplete ? "Complete the assessment before recording Yes or No." : existing ? `Recorded by ${existing.decidedByName}.` : "")}
+        {status || (!referral
+          ? "Save the referral first."
+          : !assessmentComplete
+            ? "Complete the assessment before recording Yes or No."
+            : acceptedPending
+              ? "Clear the blocking requirements, then finalize acceptance."
+              : existing
+                ? `Recorded by ${existing.decidedByName}.`
+                : "")}
       </div>
     </section>
   );
@@ -2177,6 +2538,8 @@ function InitialPacketDropzone({
   recordedName,
   recordedStatus,
   message,
+  category,
+  onCategoryChange,
   onSelect,
   onClear,
 }: {
@@ -2185,6 +2548,8 @@ function InitialPacketDropzone({
   recordedName?: string;
   recordedStatus?: Referral["documentStatus"];
   message?: string;
+  category: InitialDocumentCategory;
+  onCategoryChange: (category: InitialDocumentCategory) => void;
   onSelect: (file: File | undefined) => void;
   onClear: () => void;
 }) {
@@ -2194,12 +2559,23 @@ function InitialPacketDropzone({
 
   return (
     <section aria-label="Initial referral packet" className={compact ? "border-t-2 border-[#111111] pt-4" : "mb-5 border-b border-[#d9d9d9] pb-5"}>
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="text-[12px] font-black uppercase tracking-[0.12em] text-[#0f8b73]">Import documents</h3>
           <p className="mt-1 text-[11px] leading-5 text-[#595959]">Optional. Upload a face sheet or packet to propose chart values for review.</p>
         </div>
-        {!compact ? <span className="text-[11px] font-semibold text-[#737373]">PDF or image, up to 100 MB</span> : null}
+        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]">
+          Document type
+          <select
+            aria-label="Initial document type"
+            value={category}
+            onChange={(event) => onCategoryChange(event.target.value as InitialDocumentCategory)}
+            className="h-8 border border-[#c9ceca] bg-white px-2 text-[11px] font-semibold normal-case tracking-normal text-[#111111] outline-none focus:border-[#0f8b73]"
+          >
+            <option value="face_sheet">Face sheet</option>
+            <option value="referral_packet">Referral packet</option>
+          </select>
+        </label>
       </div>
 
       <div
@@ -2298,6 +2674,38 @@ function getEvidenceByType(documents: Record<string, string>) {
       .map((definition) => [definition.type, documents[definition.id]?.trim()] as const)
       .filter((entry): entry is readonly [RequirementType, string] => Boolean(entry[1])),
   ) as Partial<Record<RequirementType, string>>;
+}
+
+function OwnerPacketField({
+  field,
+  members,
+  ownerPrincipalId,
+  onChange,
+}: {
+  field: PacketField;
+  members: WorkspaceMember[];
+  ownerPrincipalId: string;
+  onChange: (principalId: string) => void;
+}) {
+  const hasLegacyOwner = !ownerPrincipalId && !isUnassignedOwner(field.value);
+  return (
+    <div className="group min-h-[86px] border border-transparent bg-white p-3 transition-colors focus-within:border-[#0f8b73] focus-within:bg-[#fbfdfc] hover:bg-[#fbfdfc]">
+      <label className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">{field.label}</label>
+      <select
+        aria-label={field.label}
+        value={ownerPrincipalId || (hasLegacyOwner ? "__unlinked" : "")}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-3 h-8 w-full border-0 bg-transparent p-0 text-[13px] font-semibold text-[#303638] outline-none"
+      >
+        <option value="">Unassigned</option>
+        {hasLegacyOwner ? <option value="__unlinked" disabled>{field.value} (choose member)</option> : null}
+        {members.map((member) => (
+          <option key={member.principal_id} value={member.principal_id}>{member.display_name}</option>
+        ))}
+      </select>
+      {members.length === 0 ? <div className="mt-1 text-[10px] text-[#8a5a10]">No active members loaded</div> : null}
+    </div>
+  );
 }
 
 function EditablePacketField({
@@ -2574,6 +2982,9 @@ function DocumentDropRow({
         <div className="flex items-center gap-2">
           <FileText size={15} className="text-[#6f641b]" />
           <div className="text-[13px] font-black text-[#303638]">{requirement.label}</div>
+          <span className={`ml-auto text-[9px] font-black uppercase tracking-[0.08em] ${fileName ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
+            {fileName ? "Received" : "Needed"}
+          </span>
         </div>
       </div>
       <button
@@ -2604,6 +3015,7 @@ function populateFormFromExtraction(
   extractedFields: ExtractedField[],
   sourceFile: string,
   dirty: ReadonlySet<DirtyDraftKey> = new Set(),
+  manualOverrideKeys: ReadonlySet<FieldKey> = new Set(),
 ) {
   const extractedByKey = new Map(
     extractedFields
@@ -2667,6 +3079,12 @@ function populateFormFromExtraction(
     if (dirty.has(key)) continue;
     const humanConfirmed = update.confirmed
       ?? (update.field?.review_status === "accepted" || update.field?.review_status === "edited");
+    const differsFromManualValue = Boolean(
+      current[key].value.trim()
+      && !current[key].sourceFile
+      && current[key].value !== update.value,
+    );
+    if (differsFromManualValue && !manualOverrideKeys.has(key)) continue;
     if (!humanConfirmed && current[key].value.trim()) continue;
     if (current[key].value === update.value && current[key].sourceFile === sourceFile) continue;
 
@@ -2848,6 +3266,13 @@ function documentsFromReferral(referral: Referral) {
   );
 }
 
+function initialDocumentCategoryFromReferral(referral: Referral): InitialDocumentCategory {
+  const faceSheet = referral.requirements?.find((item) => item.type === "face_sheet");
+  return referral.documentName && faceSheet?.evidenceDocumentName === referral.documentName
+    ? "face_sheet"
+    : "referral_packet";
+}
+
 function documentNames(documents: Record<string, string>) {
   return Object.values(documents).filter(Boolean).sort().join(", ");
 }
@@ -2941,6 +3366,7 @@ type DraftRestoreSetters = {
   setConserved: Dispatch<SetStateAction<"yes" | "no" | "">>;
   setTagsInput: Dispatch<SetStateAction<string>>;
   setDocuments: Dispatch<SetStateAction<Record<string, string>>>;
+  setInitialPacketCategory: Dispatch<SetStateAction<InitialDocumentCategory>>;
   setDirtyKeys: Dispatch<SetStateAction<Set<DirtyDraftKey>>>;
   setRecoveredDraftAt: Dispatch<SetStateAction<string>>;
   setRecoveredPacketName: Dispatch<SetStateAction<string>>;
@@ -2980,6 +3406,7 @@ function applyRecoveryDraft(draft: CanvasSessionDraft, setters: DraftRestoreSett
   if (dirty.has("conserved")) setters.setConserved(draft.conserved);
   if (dirty.has("tags")) setters.setTagsInput(draft.tagsInput);
   if (dirty.has("documents")) setters.setDocuments(draft.documents);
+  setters.setInitialPacketCategory(draft.initialPacketCategory ?? "face_sheet");
   setters.setDirtyKeys(dirty);
   setters.setRecoveredDraftAt(draft.savedAt);
   setters.setRecoveredPacketName(draft.initialPacketName ?? "");
@@ -3131,7 +3558,12 @@ async function hashPacket(file: File) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function uploadReferralPacket(referral: Referral, file: File, sha256: string): Promise<PacketUploadResult> {
+async function uploadReferralPacket(
+  referral: Referral,
+  file: File,
+  sha256: string,
+  category: InitialDocumentCategory,
+): Promise<PacketUploadResult> {
   const fileId = `file_${createMutationId()}`;
   const reservation = await fetchPipelineJson<CreateUploadUrlResponse>("/api/uploads/create-url", {
     method: "POST",
@@ -3147,7 +3579,7 @@ async function uploadReferralPacket(referral: Referral, file: File, sha256: stri
           content_type: getPacketContentType(file),
           size: file.size,
           sha256,
-          category: "referral_packet",
+          category,
         },
       ],
     }),
@@ -3203,6 +3635,7 @@ async function uploadReferralPacket(referral: Referral, file: File, sha256: stri
     status: status.status,
     pageCount: status.page_count,
     fields: packetFields,
+    document: completed.documents?.find((document) => document.file_id === fileId),
     mock,
   };
 }
@@ -3245,11 +3678,6 @@ async function uploadReferralSupportingDocument(
   });
 }
 
-function documentCategoryForRequirement(type: RequirementType): DocumentCategory {
-  if (type === "no_admission_reason") return "other";
-  return type;
-}
-
 async function putBlob(url: string, body: Blob, contentType: string) {
   const response = await fetch(url, {
     method: "PUT",
@@ -3284,8 +3712,24 @@ function getPacketContentType(file: Pick<File, "name" | "type">) {
   return "application/octet-stream";
 }
 
+function isAssessmentStageAvailable(stage: Referral["stage"]) {
+  return ["Assessment", "Community Review", "Accepted / Admitted", "Declined"].includes(stage);
+}
+
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+}
+
+function formatTimestamp(value: string | undefined) {
+  if (!value) return "Time unavailable";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Time unavailable" : date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }

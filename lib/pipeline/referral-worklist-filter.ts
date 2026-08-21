@@ -14,6 +14,7 @@ export const referralWorklistBuckets: Array<{
   { value: "assessment_due", label: "Assessment due", keywords: "assessment eval evaluation clinical due" },
   { value: "decision_needed", label: "Decision needed", keywords: "decision admission yes no outcome" },
   { value: "missing_documents", label: "Missing documents", keywords: "missing document documents docs paperwork upload" },
+  { value: "follow_up", label: "Follow-up", keywords: "accepted admitted post admission tb agreement forms move in" },
   { value: "blocked", label: "Blocked", keywords: "blocked blocker stuck overdue expired conflict failed" },
 ];
 

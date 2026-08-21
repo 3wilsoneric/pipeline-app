@@ -2,6 +2,7 @@ import "server-only";
 
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import { getReferralStoreReadiness } from "@/lib/pipeline/referral-store";
+import { findActiveWorkspaceMemberByName } from "@/lib/pipeline/workspace-members";
 
 export type KnownPipelineUser = {
   id: string;
@@ -20,7 +21,11 @@ type KnownUserRow = {
  */
 export async function resolveKnownPipelineUser(name: string): Promise<KnownPipelineUser | null> {
   const normalized = name.trim();
-  if (!normalized || getReferralStoreReadiness().mode !== "postgres") return null;
+  if (!normalized) return null;
+
+  const activeMember = await findActiveWorkspaceMemberByName(normalized);
+  if (activeMember) return { id: activeMember.principal_id, name: activeMember.display_name };
+  if (getReferralStoreReadiness().mode !== "postgres") return null;
 
   const sql = getPipelineSql();
   const rows = await sql<KnownUserRow[]>`

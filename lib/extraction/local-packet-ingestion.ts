@@ -155,6 +155,7 @@ async function extractPdf(bytes: Uint8Array, packetId: string): Promise<LocalPac
         ocrPageCount += 1;
       }
       page.cleanup();
+      if (pageNumber === 1 && hasSufficientIntakeIdentity(pages)) break;
     }
   } finally {
     await loadingTask.destroy();
@@ -279,6 +280,14 @@ function extractResidentName(pages: PacketPageText[]): ExtractedValue | undefine
     }
   }
   return undefined;
+}
+
+function hasSufficientIntakeIdentity(pages: PacketPageText[]) {
+  return Boolean(
+    extractResidentName(pages)
+      && (extractBirthDateAndAge(pages)?.date || extractRecordNumber(pages))
+      && extractFacility(pages),
+  );
 }
 
 function extractBirthDateAndAge(pages: PacketPageText[]) {

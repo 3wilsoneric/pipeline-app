@@ -11,6 +11,7 @@ const assessmentValidation = loadTypeScriptModule(root, "lib/assessment/assessme
 const clientUpdateContracts = loadTypeScriptModule(root, "lib/integration/client-update-contracts.ts");
 const referralExtractionSchema = loadTypeScriptModule(root, "lib/extraction/referral-intake-schema.ts");
 const referralValidation = loadTypeScriptModule(root, "lib/pipeline/referral-validation.ts");
+const referralWorkflow = loadTypeScriptModule(root, "lib/pipeline/referral-workflow.ts");
 const referralQuery = loadTypeScriptModule(root, "lib/pipeline/referral-query.ts");
 const residentLinkValidation = loadTypeScriptModule(root, "lib/pipeline/resident-link-validation.ts");
 const referralAccess = loadTypeScriptModule(root, "lib/pipeline/referral-access.ts");
@@ -637,6 +638,48 @@ function referralHardeningResults() {
     run("referral patch accepts a bounded owner update", () => {
       const result = referralValidation.validateReferralPatch({ owner: "Eric Wilson", tags: ["priority"] });
       assertValid(result);
+    }),
+    run("manual intake authorization is server owned", () => {
+      const authorization = {
+        mode: "manual_chart",
+        reason: "Source files will be attached after the chart is opened.",
+        authorizedBy: "principal-1",
+        authorizedByName: "Assessment User",
+        authorizedAt: "2026-08-21T20:00:00.000Z",
+      };
+      assertInvalid(
+        referralValidation.validateReferralCreateInput({ ...validReferral(), manualIntakeAuthorization: authorization }),
+        "Referral ids and workflow records are assigned by the server.",
+      );
+      assertInvalid(
+        referralValidation.validateReferralPatch({ manualIntakeAuthorization: authorization }),
+        "manualIntakeAuthorization cannot be changed through a referral patch.",
+      );
+    }),
+    run("audited manual intake unlocks packet gates without fabricating documents", () => {
+      const authorization = {
+        mode: "manual_chart",
+        reason: "Source files will be attached after the chart is opened.",
+        authorizedBy: "principal-1",
+        authorizedByName: "Assessment User",
+        authorizedAt: "2026-08-21T20:00:00.000Z",
+      };
+      const packetNeeded = {
+        ...validReferral(),
+        stage: "Packet Needed",
+        documentName: "",
+        documentStatus: "Missing",
+        manualIntakeAuthorization: authorization,
+      };
+      assert(
+        referralWorkflow.getReferralTransitionBlockers(packetNeeded, "Packet Review").length === 0,
+        "Manual authorization should unlock packet review",
+      );
+      assert(
+        referralWorkflow.getReferralTransitionBlockers({ ...packetNeeded, stage: "Packet Review" }, "Assessment").length === 0,
+        "Manual authorization should unlock assessment",
+      );
+      assert(packetNeeded.documentStatus === "Missing", "Manual authorization must not fabricate an uploaded document");
     }),
     run("mutation origin accepts same-origin and service requests", () => {
       assert(requestSecurity.requireSameOriginMutation(new Request("https://pipeline.local/api/referrals", { method: "POST", headers: { Origin: "https://pipeline.local" } })) === null, "Same-origin mutation should pass");

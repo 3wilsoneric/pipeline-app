@@ -73,10 +73,11 @@ export async function checkPipelineDatabaseConnection() {
     where migration_id in (
       '0001_pipeline_core', '0002_workflow_engine', '0003_operational_hardening',
       '0004_document_processing', '0005_collaboration', '0006_user_workspace_state',
-      '0007_canonical_client_assessments', '0008_client_workspaces'
+      '0007_canonical_client_assessments', '0008_client_workspaces',
+      '0009_assessment_collaboration'
     )
   `;
-  return new Set(rows.map((row) => row.migration_id)).size === 8;
+  return new Set(rows.map((row) => row.migration_id)).size === 9;
 }
 
 function databaseSslMode(): "require" | "verify-full" | false {

@@ -5,6 +5,7 @@ import type {
   AssessmentToolRecord,
   UnmappedAssessmentField,
 } from "./assessment-tool-schema";
+import type { AssessmentSectionVersions } from "./assessment-sections";
 
 export type AssessmentWorkflowStatus = "draft" | "needs_review" | "complete";
 
@@ -39,6 +40,7 @@ export type PipelineAssessmentRecord = AssessmentToolRecord & {
   created_by: AssessmentActor;
   updated_by: AssessmentActor;
   audit_events: AssessmentAuditEvent[];
+  section_versions: AssessmentSectionVersions;
 };
 
 export type AssessmentListResponse = {

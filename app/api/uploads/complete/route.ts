@@ -10,6 +10,7 @@ import { requireExtractionBackend } from "@/lib/extraction/backend-config";
 import { completePacketUpload, extractionErrorResponse } from "@/lib/extraction/extraction-service";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requirePacketAccess } from "@/lib/pipeline/referral-access";
+import { reconcileUploadedDocumentRequirements } from "@/lib/pipeline/document-requirement-reconciliation";
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/uploads/complete", async () => {
@@ -39,6 +40,12 @@ export async function POST(request: Request) {
     if (!result) {
       return jsonError("Packet not found.", 404);
     }
+
+    await reconcileUploadedDocumentRequirements(
+      access.referral.id,
+      result.documents ?? [],
+      { id: auth.user.id, name: auth.user.name },
+    );
 
     return Response.json(result, {
       headers: { "Cache-Control": "private, no-store, max-age=0" },

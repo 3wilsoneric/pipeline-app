@@ -418,7 +418,8 @@ async function installSanitizedClinicalFixtures(page) {
     headers: fixtureHeaders,
     body: JSON.stringify(profile),
   }));
-  // Playwright resolves matching routes in reverse registration order.
+  // Register the specific directory route last because Playwright resolves
+  // matching routes in reverse registration order.
   await page.route(/\/api\/profiles\/directory(?:\?|$)/, (route) => route.fulfill({
     status: 200,
     headers: fixtureHeaders,
@@ -430,10 +431,22 @@ async function seedPerformanceReferral(api, origin, name, runId) {
   const now = new Date().toISOString();
   const mutationOrigin = new URL(origin);
   if (["127.0.0.1", "::1"].includes(mutationOrigin.hostname)) mutationOrigin.hostname = "localhost";
+  const membersResponse = await api.get(`${origin}/api/members`);
+  if (!membersResponse.ok()) {
+    fail(`Could not resolve the isolated McMaster workspace member (status ${membersResponse.status()}).`);
+  }
+  const memberDirectory = await membersResponse.json();
+  const currentMember = memberDirectory.members?.find(
+    (member) => member.principal_id === memberDirectory.current_principal_id,
+  );
+  if (!currentMember?.principal_id || !currentMember?.display_name) {
+    fail("The isolated McMaster identity is not an active workspace member.");
+  }
   const response = await api.post(`${origin}/api/referrals`, {
     headers: { Origin: mutationOrigin.origin },
     data: {
       client_mutation_id: `mcmaster-${runId}`,
+      assignee_id: currentMember.principal_id,
       referral: {
         name,
         date: now.slice(0, 10),
@@ -444,7 +457,7 @@ async function seedPerformanceReferral(api, origin, name, runId) {
         tags: ["mcmaster-certification"],
         documentName: "",
         documentStatus: "Missing",
-        owner: "Benchmark QA",
+        owner: currentMember.display_name,
         note: "",
         createdAt: now,
         dob: "",

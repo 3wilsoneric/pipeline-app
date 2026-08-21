@@ -7,7 +7,7 @@ import { getPipelineAuthMode } from "@/lib/auth/pipeline-auth";
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import { isPipelineDesktopStateEnabled } from "@/lib/desktop/desktop-server-config";
 
-export type UserWorkspaceStateKind = "recent_destination" | "referral_draft";
+export type UserWorkspaceStateKind = "recent_destination" | "referral_draft" | "assessment_draft";
 
 export type UserWorkspaceState<T = unknown> = {
   principal_id: string;
@@ -413,7 +413,7 @@ function isLocalRecord(value: unknown): value is UserWorkspaceState {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Partial<UserWorkspaceState>;
   return typeof record.principal_id === "string"
-    && (record.state_kind === "recent_destination" || record.state_kind === "referral_draft")
+    && (record.state_kind === "recent_destination" || record.state_kind === "referral_draft" || record.state_kind === "assessment_draft")
     && typeof record.state_key === "string"
     && Number.isSafeInteger(record.version)
     && Number(record.version) > 0

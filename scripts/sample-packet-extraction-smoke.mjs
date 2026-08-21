@@ -22,11 +22,19 @@ const bytes = await readFile(samplePath);
 const digest = createHash("sha256").update(bytes).digest("hex");
 const now = new Date();
 const genericFileName = "sample-referral-packet.pdf";
+const memberDirectory = await json("/api/members");
+const currentMember = Array.isArray(memberDirectory.members)
+  ? memberDirectory.members.find((member) => member.principal_id === memberDirectory.current_principal_id)
+  : null;
+if (!currentMember?.principal_id || !currentMember?.display_name) {
+  fail("The authenticated validation user is not available in the active Pipeline member directory.");
+}
 
 const created = await json("/api/referrals", {
   method: "POST",
   body: {
     client_mutation_id: `sample-packet-${randomUUID()}`,
+    assignee_id: currentMember.principal_id,
     referral: {
       name: "Sample Packet Validation",
       date: now.toISOString().slice(0, 10),
@@ -38,7 +46,7 @@ const created = await json("/api/referrals", {
       documentName: genericFileName,
       documentSizeBytes: metadata.size,
       documentStatus: "Missing",
-      owner: "Engineering Validation",
+      owner: currentMember.display_name,
       note: "",
       createdAt: now.toISOString(),
       dob: "",
@@ -72,7 +80,13 @@ const reservation = await json("/api/uploads/create-url", {
 const target = reservation.uploads?.find((upload) => upload.file_id === fileId);
 if (!target) fail("The upload reservation did not include the sample file.");
 const isMock = new URL(target.signed_url).hostname === "mock-storage.local";
-if (!isMock) {
+if (isMock) {
+  const localUpload = new FormData();
+  localUpload.set("packet_id", reservation.packet_id);
+  localUpload.set("file_id", fileId);
+  localUpload.set("file", new File([bytes], genericFileName, { type: "application/pdf" }));
+  await multipart("/api/uploads/local", localUpload);
+} else {
   await put(target.signed_url, bytes, "application/pdf");
   await put(reservation.sentinel_url, new Uint8Array(), "application/octet-stream");
 }
@@ -92,6 +106,17 @@ if (!populatedFields.every((field) => Number.isInteger(field.source_page_no) && 
 }
 if (!populatedFields.some((field) => typeof field.evidence_url === "string" && field.evidence_url.length > 0)) {
   fail("At least one extracted field must expose an authenticated evidence reference.");
+}
+const evidenceField = populatedFields.find((field) => typeof field.evidence_url === "string" && field.evidence_url.length > 0);
+const evidenceResponse = await fetch(new URL(evidenceField.evidence_url, baseUrl), {
+  headers: { Accept: "image/png" },
+  cache: "no-store",
+});
+if (!evidenceResponse.ok || evidenceResponse.headers.get("content-type") !== "image/png") {
+  fail("The extracted field evidence image could not be opened through Pipeline.");
+}
+if ((await evidenceResponse.arrayBuffer()).byteLength < 100) {
+  fail("The extracted field evidence image was empty.");
 }
 
 const correctedField = populatedFields[0];
@@ -181,6 +206,21 @@ async function put(url, body, contentType) {
     body,
   });
   if (!response.ok) fail(`Secure storage returned HTTP ${response.status}.`);
+}
+
+async function multipart(path, body) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: { Accept: "application/json", Origin: baseUrl },
+    body,
+    cache: "no-store",
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = typeof payload.error === "string" && payload.error.length <= 300 ? ` ${payload.error}` : "";
+    fail(`Pipeline returned HTTP ${response.status} for ${routeLabel(path)}.${detail}`);
+  }
+  return payload;
 }
 
 async function waitForReviewableStatus(packetId, maximumWaitMs) {

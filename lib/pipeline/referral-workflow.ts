@@ -225,11 +225,24 @@ export function getReferralTransitionBlockers(
 }
 
 function hasInitialPacket(referral: Referral) {
-  return referral.documentStatus !== "Missing" || hasValue(referral.documentName) || hasValue(referral.packetId);
+  return hasManualIntakeAuthorization(referral)
+    || referral.documentStatus !== "Missing"
+    || hasValue(referral.documentName)
+    || hasValue(referral.packetId);
 }
 
 function isPacketReviewed(referral: Referral) {
-  return referral.packetStatus === "reviewed" || referral.packetReadiness?.ready === true;
+  return hasManualIntakeAuthorization(referral)
+    || referral.packetStatus === "reviewed"
+    || referral.packetReadiness?.ready === true;
+}
+
+export function hasManualIntakeAuthorization(referral: Referral) {
+  const authorization = referral.manualIntakeAuthorization;
+  return authorization?.mode === "manual_chart"
+    && hasValue(authorization.reason)
+    && hasValue(authorization.authorizedBy)
+    && hasValue(authorization.authorizedAt);
 }
 
 function isAssessmentComplete(referral: Referral, context: WorkflowContext) {

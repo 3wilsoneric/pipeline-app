@@ -15,7 +15,7 @@ const siteDestinations: SearchableDestination[] = [
   {
     id: "site-referrals",
     screen: "referrals",
-    title: "Referral packets",
+    title: "Referral workspaces",
     detail: "Browse and filter active referral work",
     keywords: "referral referrals packet packets intake admissions browse community month worklist",
   },
@@ -29,8 +29,8 @@ const siteDestinations: SearchableDestination[] = [
   {
     id: "site-new-packet",
     screen: "packet",
-    title: "New referral packet",
-    detail: "Create a referral and upload its initial documents",
+    title: "New referral",
+    detail: "Create a workspace and upload its initial documents",
     keywords: "new create add referral packet upload document documents face sheet intake",
   },
   {

@@ -86,6 +86,7 @@ export function validateReferralCreateInput(
     || "sectionVersions" in value
     || "updatedBy" in value
     || "ownerId" in value
+    || "manualIntakeAuthorization" in value
     || "assessment" in value
     || "admissionDecision" in value
     || "ehrHandoff" in value
@@ -148,7 +149,7 @@ export function validateReferralPatch(
 ): ReferralValidationResult<ReferralPatch> {
   if (!isPlainObject(value)) return invalid("The referral patch must be an object.");
 
-  for (const protectedField of ["id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId", "ehrHandoff"] as const) {
+  for (const protectedField of ["id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId", "manualIntakeAuthorization", "ehrHandoff"] as const) {
     if (protectedField in value) {
       return invalid(`${protectedField} cannot be changed through a referral patch.`);
     }
@@ -352,6 +353,10 @@ function validateRequirements(value: unknown): ValidationSuccess<true> | Validat
     ];
     for (const [field, maximum] of fields) {
       const result = validateString(requirement[field], `requirements.${field}`, maximum);
+      if (!result.ok) return result;
+    }
+    if ("ownerId" in requirement && requirement.ownerId !== undefined) {
+      const result = validateString(requirement.ownerId, "requirements.ownerId", 256);
       if (!result.ok) return result;
     }
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(requirement.id))) {

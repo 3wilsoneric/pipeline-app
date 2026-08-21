@@ -9,6 +9,7 @@
     "0005_collaboration.sql": "d3b1f508dae5408f4c267d3bc0f7fe927698aac3cb711a0241a2bfe0628900e5",
     "0006_user_workspace_state.sql": "9ee1ad9d4151900c1b0592f03da36f8386e8720bb8b8ecc71664aaa2695c351c",
     "0007_canonical_client_assessments.sql": "8e3546dea718d3ff23c1f5e3bf8fcda7760f9d7aa7723f953612dadcea2da79d",
-    "0008_client_workspaces.sql": "5d52ea476fa199e1a2b2e2c9cead4c2fbbe835d6ff154c4c02882bc97e89e663"
+    "0008_client_workspaces.sql": "5d52ea476fa199e1a2b2e2c9cead4c2fbbe835d6ff154c4c02882bc97e89e663",
+    "0009_assessment_collaboration.sql": "50bf38f1e91203a3dae29c3cc36d260f3d568e89af1b44796aa3c2a06942a49d"
   }
 }

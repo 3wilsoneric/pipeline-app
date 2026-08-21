@@ -23,6 +23,7 @@ type MockExtractionState = {
   auditEvents: Map<string, FieldAuditEvent[]>;
   uploadDescriptors: Map<string, UploadFileDescriptor[]>;
   documentIds: Map<string, string>;
+  localEvidence: Map<string, { documentHash: string; contentType: string }>;
 };
 
 const globalForExtraction = globalThis as typeof globalThis & {
@@ -37,17 +38,20 @@ const mockState =
     auditEvents: new Map<string, FieldAuditEvent[]>(),
     uploadDescriptors: new Map<string, UploadFileDescriptor[]>(),
     documentIds: new Map<string, string>(),
+    localEvidence: new Map<string, { documentHash: string; contentType: string }>(),
   });
 
 mockState.auditEvents ??= new Map<string, FieldAuditEvent[]>();
 mockState.uploadDescriptors ??= new Map<string, UploadFileDescriptor[]>();
 mockState.documentIds ??= new Map<string, string>();
+mockState.localEvidence ??= new Map<string, { documentHash: string; contentType: string }>();
 
 const packets = mockState.packets;
 const fields = mockState.fields;
 const auditEvents = mockState.auditEvents;
 const uploadDescriptors = mockState.uploadDescriptors;
 const documentIds = mockState.documentIds;
+const localEvidence = mockState.localEvidence;
 const maxMockPackets = 1000;
 
 function now() {
@@ -93,6 +97,7 @@ function pruneMockState() {
     fields.delete(oldestPacketId);
     auditEvents.delete(oldestPacketId);
     uploadDescriptors.delete(oldestPacketId);
+    localEvidence.delete(oldestPacketId);
     for (const key of documentIds.keys()) {
       if (key.startsWith(`${oldestPacketId}:`)) documentIds.delete(key);
     }
@@ -299,13 +304,28 @@ export function recordMockPacketExtraction(input: {
   packetId: string;
   fields: ExtractedField[];
   pageCount: number;
+  documentHash: string;
+  contentType: string;
 }) {
   const packet = packets.get(input.packetId);
   if (!packet) return false;
-  fields.set(input.packetId, input.fields.map((field) => ({
-    ...field,
-    candidates: field.candidates.map((candidate) => ({ ...candidate })),
-  })));
+  fields.set(input.packetId, input.fields.map((field) => {
+    const evidenceUrl = field.source_page_no
+      ? toPipelinePath(`/api/packets/${input.packetId}/evidence/${encodeURIComponent(field.field_key)}`)
+      : undefined;
+    return {
+      ...field,
+      ...(evidenceUrl ? { evidence_url: evidenceUrl } : {}),
+      candidates: field.candidates.map((candidate) => ({
+        ...candidate,
+        ...(candidate.source_page_no && evidenceUrl ? { evidence_url: evidenceUrl } : {}),
+      })),
+    };
+  }));
+  localEvidence.set(input.packetId, {
+    documentHash: input.documentHash,
+    contentType: input.contentType,
+  });
   packets.set(input.packetId, {
     ...packet,
     status: "ready_for_review",
@@ -313,6 +333,13 @@ export function recordMockPacketExtraction(input: {
     updated_at: now(),
   });
   return true;
+}
+
+export function getMockFieldEvidenceDescriptor(packetId: string, fieldKey: string) {
+  const source = localEvidence.get(packetId);
+  const field = fields.get(packetId)?.find((item) => item.field_key === fieldKey);
+  if (!source || !field?.source_page_no) return null;
+  return { ...source, pageNumber: field.source_page_no };
 }
 
 export function seedMockPacketExtraction(packetId: string, pageCount = 1) {

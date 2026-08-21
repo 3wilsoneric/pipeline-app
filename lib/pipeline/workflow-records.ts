@@ -5,11 +5,15 @@ import type {
   RequirementStatus,
   RequirementType,
 } from "./referral-types";
+import type { AssessmentWorkflowStatus } from "@/lib/assessment/assessment-records";
+import type { AssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
 
 export type WorkflowContext = {
   assessmentExists?: boolean;
   assessmentComplete?: boolean;
   assessmentDate?: string | null;
+  assessmentStatus?: AssessmentWorkflowStatus | null;
+  assessmentData?: AssessmentToolData | null;
   decision?: AdmissionDecision | null;
   requirements?: AdmissionRequirement[];
 };
@@ -22,10 +26,12 @@ export type AdmissionDecisionInput = {
 
 export type WorkItemPatch = {
   status?: RequirementStatus;
+  ownerId?: string;
   owner?: string;
   dueAt?: string;
   nextStep?: string;
   blocker?: boolean;
+  evidenceDocumentId?: string;
   evidenceDocumentName?: string;
   waiverReason?: string;
 };
@@ -102,6 +108,7 @@ export function createDefaultAdmissionRequirements(
   evidenceByType: Partial<Record<RequirementType, string>> = {},
   now = new Date().toISOString(),
   owner = "Unassigned",
+  ownerId?: string,
 ) {
   const dueAt = new Date(new Date(now).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
   return defaultAdmissionRequirements.map((definition) => {
@@ -115,6 +122,7 @@ export function createDefaultAdmissionRequirements(
       version: evidenceChanged ? (current?.version ?? 1) + 1 : current?.version ?? 1,
       ...definition,
       status: evidenceDocumentName ? "received" : current?.status ?? "needed",
+      ownerId: current?.ownerId ?? ownerId,
       owner: (current?.owner ?? owner.trim()) || "Unassigned",
       dueAt: current?.dueAt ?? dueAt,
       evidenceDocumentId: current?.evidenceDocumentId,

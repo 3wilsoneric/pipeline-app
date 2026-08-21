@@ -3,17 +3,23 @@ import "server-only";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import { getReferralStoreReadiness, type ReferralActor } from "@/lib/pipeline/referral-store";
 import type { ReferralSection } from "@/lib/pipeline/referral-types";
+import {
+  assessmentToolSections,
+  type AssessmentToolSection,
+} from "@/lib/assessment/assessment-tool-schema";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 
 export const presenceHeartbeatMs = 15_000;
 export const presenceLeaseMs = 45_000;
+
+export type EditingPresenceSection = ReferralSection | `assessment:${AssessmentToolSection}`;
 
 export type EditingPresence = {
   lease_id: string;
   referral_id: number;
   actor_id: string;
   actor_name: string;
-  section: ReferralSection;
+  section: EditingPresenceSection;
   heartbeat_at: string;
   expires_at: string;
 };
@@ -23,7 +29,7 @@ type PresenceRow = {
   referral_id: number | string;
   actor_id: string;
   actor_name: string;
-  section: ReferralSection;
+  section: EditingPresenceSection;
   heartbeat_at: Date | string;
   expires_at: Date | string;
 };
@@ -37,7 +43,7 @@ const localPresence = globalPresence.__pipelineEditingPresence
 export async function heartbeatEditingPresence(input: {
   leaseId: string;
   referralId: number;
-  section: ReferralSection;
+  section: EditingPresenceSection;
   actor: ReferralActor;
 }) {
   if (getReferralStoreReadiness().mode !== "postgres") {
@@ -76,6 +82,14 @@ export async function heartbeatEditingPresence(input: {
     returning lease_id, referral_id, actor_id, actor_name, section, heartbeat_at, expires_at
   `;
   return rows[0] ? mapPresence(rows[0]) : null;
+}
+
+export function isEditingPresenceSection(value: unknown): value is EditingPresenceSection {
+  if (value === "identity" || value === "intake" || value === "documents" || value === "assessment" || value === "workflow" || value === "decision") {
+    return true;
+  }
+  if (typeof value !== "string" || !value.startsWith("assessment:")) return false;
+  return (assessmentToolSections as readonly string[]).includes(value.slice("assessment:".length));
 }
 
 export async function listEditingPresence(referralId: number) {

@@ -14,9 +14,12 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import {
   assignedOwnerForPatch,
+  isAssessorUser,
   requireReferralAccess,
 } from "@/lib/pipeline/referral-access";
 import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
+import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
+import { getActiveWorkspaceMember, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
 
 export const runtime = "nodejs";
 
@@ -24,6 +27,8 @@ type PatchReferralBody = {
   if_match?: number;
   if_match_sections?: Partial<ReferralSectionVersions>;
   patch?: ReferralPatch;
+  assignee_id?: string;
+  handoff_reason?: string;
 };
 
 export async function GET(
@@ -79,16 +84,37 @@ export async function PATCH(
     }
     const patchResult = validateReferralPatch(body.value.patch);
     if (!patchResult.ok) return jsonError(patchResult.message, patchResult.status);
+    await touchWorkspaceMember(auth.user);
     const assignment = assignedOwnerForPatch(auth.user, access.referral, patchResult.value.owner);
     if (!assignment.ok) return assignment.response;
-    const knownOwner = patchResult.value.owner !== undefined && !assignment.ownerId
+    const selectedOwner = typeof body.value.assignee_id === "string"
+      ? await getActiveWorkspaceMember(body.value.assignee_id)
+      : null;
+    if (body.value.assignee_id !== undefined && !selectedOwner) {
+      return jsonError("Choose an active Pipeline member as owner.", 422);
+    }
+    if (selectedOwner && isAssessorUser(auth.user) && selectedOwner.principal_id !== auth.user.id) {
+      return jsonError("Assessors cannot reassign referrals.", 403);
+    }
+    const knownOwner = patchResult.value.owner !== undefined && !assignment.ownerId && !selectedOwner
       ? await resolveKnownPipelineUser(assignment.owner)
       : null;
+    if (patchResult.value.owner !== undefined && !selectedOwner && !assignment.ownerId && !knownOwner && !isUnassignedOwner(assignment.owner)) {
+      return jsonError("Choose an active Pipeline member as owner.", 422);
+    }
     const patch = {
       ...patchResult.value,
       ...(patchResult.value.owner === undefined ? {} : assignment),
+      ...(selectedOwner ? { owner: selectedOwner.display_name, ownerId: selectedOwner.principal_id } : {}),
       ...(knownOwner ? { owner: knownOwner.name, ownerId: knownOwner.id } : {}),
     };
+    const ownerChanged = patch.owner !== undefined
+      && (patch.ownerId ?? "") !== (access.referral.ownerId ?? "");
+    const handoffReason = typeof body.value.handoff_reason === "string" ? body.value.handoff_reason.trim() : "";
+    if (ownerChanged && !isUnassignedOwner(access.referral.owner) && handoffReason.length < 3) {
+      return jsonError("Record a brief handoff reason when reassigning an active referral.", 422);
+    }
+    if (handoffReason.length > 500) return jsonError("handoff_reason is too long.");
     const sectionVersions = validateSectionVersions(
       body.value.if_match_sections,
       getReferralPatchSections(patch),
@@ -103,6 +129,7 @@ export async function PATCH(
         body.value.if_match,
         { id: auth.user.id, name: auth.user.name },
         sectionVersions.value,
+        ownerChanged ? { auditAction: "referral_reassigned", auditReason: handoffReason } : undefined,
       );
     } catch (error) {
       if (error instanceof DuplicateReferralPacketError) {

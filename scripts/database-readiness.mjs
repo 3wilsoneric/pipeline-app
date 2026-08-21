@@ -13,6 +13,7 @@ const collaborationMigration = read("database/migrations/0005_collaboration.sql"
 const workspaceStateMigration = read("database/migrations/0006_user_workspace_state.sql");
 const canonicalClientMigration = read("database/migrations/0007_canonical_client_assessments.sql");
 const clientWorkspaceMigration = read("database/migrations/0008_client_workspaces.sql");
+const assessmentCollaborationMigration = read("database/migrations/0009_assessment_collaboration.sql");
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
 const canonicalClientVerifier = read("scripts/verify-database-migration-0007.mjs");
 const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
@@ -31,6 +32,7 @@ const collaborationRollback = read("database/rollbacks/0005_collaboration.sql");
 const workspaceStateRollback = read("database/rollbacks/0006_user_workspace_state.sql");
 const canonicalClientRollback = read("database/rollbacks/0007_canonical_client_assessments.sql");
 const clientWorkspaceRollback = read("database/rollbacks/0008_client_workspaces.sql");
+const assessmentCollaborationRollback = read("database/rollbacks/0009_assessment_collaboration.sql");
 const rollbackDrill = read("scripts/database-rollback-drill.mjs");
 const productionSeed = read("scripts/seed-production-reference-data.mjs");
 const pilotReset = read("scripts/pilot-reset.mjs");
@@ -149,6 +151,29 @@ check("per-user workspace state has composite ownership", workspaceStateMigratio
 check("per-user workspace state expires", workspaceStateMigration.includes("expires_at") && workspaceStateMigration.includes("user_workspace_state_expiry_idx"));
 check("per-user workspace state is typed", workspaceStateMigration.includes("recent_destination") && workspaceStateMigration.includes("referral_draft"));
 check(
+  "assessments have independently versioned sections",
+  assessmentCollaborationMigration.includes("pipeline.assessments")
+    && assessmentCollaborationMigration.includes("section_versions")
+    && assessmentCollaborationMigration.includes("assessment:identity")
+    && assessmentStore.includes("expectedSectionVersion"),
+);
+check(
+  "assessment recovery drafts are typed workspace state",
+  assessmentCollaborationMigration.includes("assessment_draft")
+    && workspaceStateStore.includes('"assessment_draft"'),
+);
+check(
+  "assessment editing presence uses the existing expiring lease table",
+  assessmentCollaborationMigration.includes("assessment:provenance_qc")
+    && presenceStore.includes("assessment:"),
+);
+check(
+  "workspace members use immutable principal identity and an active-name index",
+  assessmentCollaborationMigration.includes("principal_id text primary key")
+    && assessmentCollaborationMigration.includes("workspace_members_active_name_idx")
+    && assessmentCollaborationMigration.includes("revoke all on table pipeline.workspace_members from public"),
+);
+check(
   "workspace-state PostgreSQL locks use text-safe collision-resistant keys",
   workspaceStateStore.includes("postgresLockKey(principalId, kind, key)")
     && workspaceStateStore.includes("postgresLockKey(input.principalId, input.kind, input.key)")
@@ -174,10 +199,21 @@ check("collaboration rollback removes only migration 0005 objects", collaboratio
 check("workspace-state rollback removes only migration 0006 objects", workspaceStateRollback.includes("user_workspace_state") && workspaceStateRollback.includes("0006_user_workspace_state") && !workspaceStateRollback.includes("drop schema"));
 check("canonical-client rollback removes only migration 0007 objects", canonicalClientRollback.includes("client_update_outbox") && canonicalClientRollback.includes("canonical_client_id") && canonicalClientRollback.includes("0007_canonical_client_assessments") && !canonicalClientRollback.includes("drop schema"));
 check("client-workspace rollback removes only migration 0008 objects", clientWorkspaceRollback.includes("client_file_import_items") && clientWorkspaceRollback.includes("0008_client_workspaces") && !clientWorkspaceRollback.includes("drop schema"));
-check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("clientWorkspaceRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
+check("assessment-collaboration rollback removes only migration 0009 objects", assessmentCollaborationRollback.includes("workspace_members") && assessmentCollaborationRollback.includes("assessment_draft") && assessmentCollaborationRollback.includes("0009_assessment_collaboration") && !assessmentCollaborationRollback.includes("drop schema"));
+check(
+  "rollback scripts delegate transaction ownership to the drill or operator",
+  ![
+    collaborationRollback,
+    workspaceStateRollback,
+    canonicalClientRollback,
+    clientWorkspaceRollback,
+    assessmentCollaborationRollback,
+  ].some((rollback) => /^\s*(begin|commit)\s*;/im.test(rollback)),
+);
+check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
 check("production seed creates reference rows only", productionSeed.includes("synthetic_client_rows: 0") && !productionSeed.includes("insert into pipeline.people") && !productionSeed.includes("insert into pipeline.referrals"));
-check("production seed requires the latest client-workspace migration", productionSeed.includes("0008_client_workspaces") && productionSeed.includes("migrations.length !== 8"));
-check("live database smoke requires the latest client-workspace migration", liveSmoke.includes("0008_client_workspaces") && liveSmoke.includes("pipeline.client_update_outbox"));
+check("production seed requires the latest assessment-collaboration migration", productionSeed.includes("0009_assessment_collaboration") && productionSeed.includes("migrations.length !== 9"));
+check("live database smoke requires the latest assessment-collaboration migration", liveSmoke.includes("0009_assessment_collaboration") && liveSmoke.includes("pipeline.client_update_outbox"));
 check("restore verification includes workspace state", restoreVerify.includes("pipeline.user_workspace_state"));
 check("account-state purge is dry-run-first and identity-redacted", workspacePurge.includes('mode: execute ? "execute" : "dry_run"') && workspacePurge.includes("principal_configured: true"));
 check("CI exercises PostgreSQL migrations, rollback, fixtures, and contention", ["postgres:16", "database:migrate", "database:fixtures", "database:rollback:drill", "check:collaboration-load"].every((term) => ci.includes(term)));
@@ -206,7 +242,7 @@ const configuration = Object.fromEntries(
 
 console.log(JSON.stringify({
   ok: failed.length === 0,
-  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces"],
+  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration"],
   checks,
   configuration_present: configuration,
   note: "Configuration reports presence only; values are never printed.",

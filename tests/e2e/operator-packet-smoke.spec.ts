@@ -15,7 +15,7 @@ test("ingests an operator-supplied packet without pre-entered demographics", asy
     mimeType: "application/pdf",
     buffer: readFileSync(resolvedPath),
   });
-  await page.getByRole("button", { name: /^(Create referral|Save chart)$/ }).click();
+  await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
 
   await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText(/source pages? preserved; confirm the stripped values below\./)).toBeVisible();

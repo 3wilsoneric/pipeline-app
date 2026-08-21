@@ -15,6 +15,8 @@ export type OperationsWorkItem = {
   blockers: string[];
   missing_data: string[];
   next_action: string | null;
+  action_required: boolean;
+  waiting: boolean;
   age_hours: number;
   stale: boolean;
   due_soon: boolean;
@@ -32,6 +34,7 @@ export type OperationsRequirementItem = {
   community: string;
   label: string;
   status: string;
+  owner_id?: string;
   owner: string;
   due_at: string | null;
   next_action: string;
@@ -50,6 +53,7 @@ export type ReferralWorklistBucket =
   | "assessment_due"
   | "decision_needed"
   | "missing_documents"
+  | "follow_up"
   | "blocked";
 
 export type ReferralWorklistItem = {

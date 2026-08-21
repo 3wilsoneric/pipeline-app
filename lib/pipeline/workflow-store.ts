@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import type { TransactionSql } from "postgres";
 
 import { listAssessments } from "@/lib/assessment/assessment-store";
+import { pickAssessmentToolData, type AssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
+import type { AssessmentWorkflowStatus } from "@/lib/assessment/assessment-records";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import {
   getReferral,
@@ -45,6 +47,7 @@ type WorkItemRow = {
   label: string;
   gate: AdmissionRequirement["requiredFor"];
   status: AdmissionRequirement["status"];
+  owner_id: string | null;
   owner_name: string | null;
   due_at: Date | string | null;
   next_action: string;
@@ -73,6 +76,7 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
 
   if (getReferralStoreReadiness().mode !== "postgres") {
     const assessments = await listAssessments({ referralId, limit: 100 });
+    const latestAssessment = assessments.assessments[0] ?? null;
     const decision = referral.admissionDecision ?? legacyDecision(referral);
     const workItems = referral.requirements ?? [];
     return {
@@ -80,9 +84,11 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
       work_items: workItems,
       decision,
       context: {
-        assessmentExists: assessments.assessments.length > 0 || Boolean(referral.assessment),
-        assessmentComplete: assessments.assessments.some((assessment) => assessment.status === "complete") || Boolean(referral.assessment?.completedAt),
-        assessmentDate: assessments.assessments[0]?.assessment_date ?? referral.assessment?.scheduledDate ?? null,
+        assessmentExists: Boolean(latestAssessment) || Boolean(referral.assessment),
+        assessmentComplete: latestAssessment ? latestAssessment.status === "complete" : Boolean(referral.assessment?.completedAt),
+        assessmentDate: latestAssessment?.assessment_date ?? referral.assessment?.scheduledDate ?? null,
+        assessmentStatus: latestAssessment?.status ?? null,
+        assessmentData: latestAssessment ? pickAssessmentToolData(latestAssessment) : null,
         requirements: workItems,
         decision,
       },
@@ -92,7 +98,7 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
   const sql = getPipelineSql();
   const [workItemRows, decisionRows, assessmentRows] = await Promise.all([
     sql<WorkItemRow[]>`
-      select work_item_id, type, label, gate, status, owner_name, due_at,
+      select work_item_id, type, label, gate, status, owner_id, owner_name, due_at,
              next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
       from pipeline.work_items
       where referral_id = ${referralId}
@@ -105,24 +111,28 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
       where referral_id = ${referralId}
       limit 1
     `,
-    sql<{ assessment_count: number | string; complete: boolean; assessment_date: Date | string | null }[]>`
-      select count(*) as assessment_count,
-             coalesce(bool_or(status = 'complete'), false) as complete,
-             max(assessment_date) as assessment_date
-      from pipeline.assessments where referral_id = ${referralId}
+    sql<{ status: AssessmentWorkflowStatus; assessment_date: Date | string | null; data: AssessmentToolData }[]>`
+      select status, assessment_date, data
+      from pipeline.assessments
+      where referral_id = ${referralId}
+      order by updated_at desc, assessment_id desc
+      limit 1
     `,
   ]);
   const workItems = workItemRows.length > 0 ? workItemRows.map(mapWorkItem) : referral.requirements ?? [];
   const decision = decisionRows[0] ? mapDecision(decisionRows[0]) : referral.admissionDecision ?? legacyDecision(referral);
 
+  const latestAssessment = assessmentRows[0] ?? null;
   return {
     referral,
     work_items: workItems,
     decision,
     context: {
-      assessmentExists: Number(assessmentRows[0]?.assessment_count ?? 0) > 0 || Boolean(referral.assessment),
-      assessmentComplete: assessmentRows[0]?.complete || Boolean(referral.assessment?.completedAt),
-      assessmentDate: assessmentRows[0]?.assessment_date ? toIso(assessmentRows[0].assessment_date).slice(0, 10) : referral.assessment?.scheduledDate ?? null,
+      assessmentExists: Boolean(latestAssessment) || Boolean(referral.assessment),
+      assessmentComplete: latestAssessment ? latestAssessment.status === "complete" : Boolean(referral.assessment?.completedAt),
+      assessmentDate: latestAssessment?.assessment_date ? toIso(latestAssessment.assessment_date).slice(0, 10) : referral.assessment?.scheduledDate ?? null,
+      assessmentStatus: latestAssessment?.status ?? null,
+      assessmentData: latestAssessment ? pickAssessmentToolData(latestAssessment.data) : null,
       requirements: workItems,
       decision,
     },
@@ -145,7 +155,7 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
   const sql = getPipelineSql();
   const [workItemRows, decisionRows, assessmentRows] = await Promise.all([
     sql<(WorkItemRow & { referral_id: number | string })[]>`
-      select referral_id, work_item_id, type, label, gate, status, owner_name, due_at,
+      select referral_id, work_item_id, type, label, gate, status, owner_id, owner_name, due_at,
              next_action, blocker, evidence_document_name, waiver_reason, version, updated_at
       from pipeline.work_items where referral_id = any(${ids}::bigint[])
       order by referral_id, created_at, work_item_id
@@ -155,10 +165,11 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
              decided_by_name, decided_at, version
       from pipeline.admission_decisions where referral_id = any(${ids}::bigint[])
     `,
-    sql<{ referral_id: number | string; assessment_count: number | string; complete: boolean; assessment_date: Date | string | null }[]>`
-      select referral_id, count(*) as assessment_count, bool_or(status = 'complete') as complete, max(assessment_date) as assessment_date
-      from pipeline.assessments where referral_id = any(${ids}::bigint[])
-      group by referral_id
+    sql<{ referral_id: number | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; data: AssessmentToolData }[]>`
+      select distinct on (referral_id) referral_id, status, assessment_date, data
+      from pipeline.assessments
+      where referral_id = any(${ids}::bigint[])
+      order by referral_id, updated_at desc, assessment_id desc
     `,
   ]);
 
@@ -169,9 +180,11 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
     const decisionRow = decisionRows.find((row) => Number(row.referral_id) === referral.id);
     const assessmentRow = assessmentRows.find((row) => Number(row.referral_id) === referral.id);
     contexts.set(referral.id, {
-      assessmentExists: Number(assessmentRow?.assessment_count ?? 0) > 0 || Boolean(referral.assessment),
-      assessmentComplete: assessmentRow?.complete || Boolean(referral.assessment?.completedAt),
+      assessmentExists: Boolean(assessmentRow) || Boolean(referral.assessment),
+      assessmentComplete: assessmentRow ? assessmentRow.status === "complete" : Boolean(referral.assessment?.completedAt),
       assessmentDate: assessmentRow?.assessment_date ? toIso(assessmentRow.assessment_date).slice(0, 10) : referral.assessment?.scheduledDate ?? null,
+      assessmentStatus: assessmentRow?.status ?? null,
+      assessmentData: assessmentRow ? pickAssessmentToolData(assessmentRow.data) : null,
       requirements: workItems.length > 0 ? workItems : referral.requirements ?? [],
       decision: decisionRow ? mapDecision(decisionRow) : referral.admissionDecision ?? legacyDecision(referral),
     });
@@ -236,12 +249,24 @@ export async function recordAdmissionDecision(
       decidedAt: now,
       version: (snapshot.decision?.version ?? 0) + 1,
     };
+    const targetStage = input.outcome === "declined"
+      ? "Declined"
+      : snapshot.referral.stage === "Assessment"
+        ? "Community Review"
+        : snapshot.referral.stage;
+    const sections = normalizeReferralSectionVersions(snapshot.referral.sectionVersions);
     const mutation = await patchReferral(
       referralId,
-      { admissionDecision: decision },
+      { admissionDecision: decision, stage: targetStage },
       expectedVersion,
       actor,
-      { decision: expectedDecisionVersion },
+      { decision: expectedDecisionVersion, workflow: sections.workflow },
+      {
+        auditAction: input.outcome === "declined"
+          ? "admission_declined"
+          : "admission_decision_recorded",
+        ...(input.outcome === "declined" ? { auditReason: decision.reasonNote } : {}),
+      },
     );
     if (!mutation) return null;
     if (!mutation.ok) {
@@ -272,6 +297,7 @@ export async function patchReferralWorkItem(
   patch: WorkItemPatch,
   expectedVersion: number,
   actor: ReferralActor,
+  auditReason = "",
 ): Promise<WorkflowRecordMutation<AdmissionRequirement> | null> {
   const snapshot = await getReferralWorkflowSnapshot(referralId);
   if (!snapshot) return null;
@@ -279,6 +305,16 @@ export async function patchReferralWorkItem(
   if (!current) return null;
   if ((current.version ?? 1) !== expectedVersion) {
     return { ok: false, conflict: true, referral: snapshot.referral, record: current };
+  }
+  const ownerChanged = patch.owner !== undefined
+    && (patch.ownerId ?? "") !== (current.ownerId ?? "");
+  if (ownerChanged && normalizeOwnerName(current.owner) !== "Unassigned" && auditReason.trim().length < 3) {
+    return {
+      ok: false,
+      blocked: true,
+      referral: snapshot.referral,
+      blockers: [{ code: "handoff_reason_required", label: "Record a brief handoff reason when reassigning this requirement." }],
+    };
   }
 
   const next = normalizeWorkItem({
@@ -300,6 +336,8 @@ export async function patchReferralWorkItem(
       { requirements },
       snapshot.referral.version,
       actor,
+      undefined,
+      { auditAction: "work_item_updated", ...(auditReason ? { auditReason } : {}) },
     );
     if (!mutation) return null;
     if (!mutation.ok) {
@@ -310,7 +348,7 @@ export async function patchReferralWorkItem(
   }
 
   const sql = getPipelineSql();
-  const result = await sql.begin(async (tx) => patchPostgresWorkItem(tx, referralId, workItemId, current, next, expectedVersion, actor, snapshot.referral));
+  const result = await sql.begin(async (tx) => patchPostgresWorkItem(tx, referralId, workItemId, current, next, expectedVersion, actor, snapshot.referral, auditReason));
   if (!result.ok) return result;
   const referral = await getReferral(referralId);
   if (!referral) return null;
@@ -392,8 +430,8 @@ async function recordPostgresDecision(
   actor: ReferralActor,
   fallback: Referral,
 ): Promise<WorkflowRecordMutation<AdmissionDecision>> {
-  const referralRows = await tx<{ version: number; data: unknown; section_versions: unknown }[]>`
-    select version, data, section_versions from pipeline.referrals where referral_id = ${referralId} for update
+  const referralRows = await tx<{ version: number; stage: Referral["stage"]; data: unknown; section_versions: unknown }[]>`
+    select version, stage, data, section_versions from pipeline.referrals where referral_id = ${referralId} for update
   `;
   const row = referralRows[0];
   if (!row) throw new Error("Referral not found.");
@@ -437,21 +475,45 @@ async function recordPostgresDecision(
               decided_by_name, decided_at, version
   `;
   const decision = mapDecision(decisionRows[0]);
+  const currentSections = normalizeReferralSectionVersions(row.section_versions);
+  const nextStage = input.outcome === "declined"
+    ? "Declined"
+    : row.stage === "Assessment"
+      ? "Community Review"
+      : row.stage;
+  const stageChanged = nextStage !== row.stage;
+  const nextSections = {
+    ...currentSections,
+    decision: currentSections.decision + 1,
+    workflow: stageChanged ? currentSections.workflow + 1 : currentSections.workflow,
+  };
   await tx`
     update pipeline.referrals
-    set data = ${tx.json({ ...data, admissionDecision: decision })},
+    set stage = ${nextStage},
+        data = ${tx.json({ ...data, admissionDecision: decision })},
         version = version + 1,
-        section_versions = jsonb_set(
-          section_versions,
-          '{decision}',
-          to_jsonb(coalesce((section_versions->>'decision')::integer, 1) + 1)
-        ),
+        section_versions = ${tx.json(nextSections)},
+        closed_at = case when ${nextStage} in ('Accepted / Admitted', 'Declined') then now() else null end,
         updated_by = ${actor.id},
         updated_by_name = ${actor.name},
         updated_at = now()
     where referral_id = ${referralId} and version = ${Number(row.version)}
   `;
   await writeWorkflowAudit(tx, "admission_decision", decision.decisionId, "admission_decision_recorded", actor, decision.version, ["outcome", "reasonCode", "reasonNote"]);
+  if (stageChanged) {
+    await tx`
+      insert into pipeline.audit_events (
+        entity_type, entity_id, action, actor_id, actor_name,
+        from_version, to_version, changed_fields, metadata
+      ) values (
+        'referral', ${String(referralId)},
+        ${input.outcome === "declined" ? "admission_declined" : "assessment_completed"},
+        ${actor.id}, ${actor.name}, ${Number(row.version)}, ${Number(row.version) + 1},
+        ${["stage"]},
+        ${tx.json({ from_stage: row.stage, to_stage: nextStage })}
+      )
+    `;
+  }
   await bumpRevisions(tx);
   return { ok: true, record: decision, referral: fallback };
 }
@@ -465,6 +527,7 @@ async function patchPostgresWorkItem(
   expectedVersion: number,
   actor: ReferralActor,
   fallback: Referral,
+  auditReason: string,
 ): Promise<WorkflowRecordMutation<AdmissionRequirement>> {
   const referralRows = await tx<{ version: number; data: unknown }[]>`
     select version, data from pipeline.referrals where referral_id = ${referralId} for update
@@ -472,18 +535,18 @@ async function patchPostgresWorkItem(
   if (!referralRows[0]) throw new Error("Referral not found.");
   const rows = await tx<WorkItemRow[]>`
     update pipeline.work_items
-    set status = ${next.status}, owner_name = ${next.owner || null},
+    set status = ${next.status}, owner_id = ${next.ownerId || null}, owner_name = ${next.owner || null},
         due_at = ${next.dueAt ? new Date(next.dueAt) : null}, next_action = ${next.nextStep},
         blocker = ${next.blocker}, evidence_document_id = ${next.evidenceDocumentId ?? null}::uuid,
         evidence_document_name = ${next.evidenceDocumentName ?? null},
         waiver_reason = ${next.waiverReason ?? null}, version = version + 1, updated_at = now()
     where referral_id = ${referralId} and work_item_id = ${workItemId}::uuid and version = ${expectedVersion}
-    returning work_item_id, type, label, gate, status, owner_name, due_at,
+    returning work_item_id, type, label, gate, status, owner_id, owner_name, due_at,
               next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
   `;
   if (!rows[0]) {
     const currentRows = await tx<WorkItemRow[]>`
-      select work_item_id, type, label, gate, status, owner_name, due_at,
+      select work_item_id, type, label, gate, status, owner_id, owner_name, due_at,
              next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
       from pipeline.work_items
       where referral_id = ${referralId} and work_item_id = ${workItemId}::uuid
@@ -492,7 +555,7 @@ async function patchPostgresWorkItem(
   }
   const record = mapWorkItem(rows[0]);
   const allRows = await tx<WorkItemRow[]>`
-    select work_item_id, type, label, gate, status, owner_name, due_at,
+    select work_item_id, type, label, gate, status, owner_id, owner_name, due_at,
            next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
     from pipeline.work_items where referral_id = ${referralId} order by created_at, work_item_id
   `;
@@ -520,6 +583,7 @@ async function patchPostgresWorkItem(
     actor,
     record.version ?? 1,
     changedFields,
+    auditReason,
   );
   await bumpRevisions(tx);
   return { ok: true, record, referral: fallback };
@@ -533,14 +597,16 @@ async function writeWorkflowAudit(
   actor: ReferralActor,
   version: number,
   changedFields: string[],
+  auditReason = "",
 ) {
   await tx`
     insert into pipeline.audit_events (
       entity_type, entity_id, action, actor_id, actor_name,
-      from_version, to_version, changed_fields
+      from_version, to_version, changed_fields, metadata
     ) values (
       ${entityType}, ${entityId}, ${action}, ${actor.id}, ${actor.name},
-      ${version > 1 ? version - 1 : null}, ${version}, ${changedFields}
+      ${version > 1 ? version - 1 : null}, ${version}, ${changedFields},
+      ${tx.json(auditReason ? { reason: auditReason } : {})}
     )
   `;
 }
@@ -561,6 +627,7 @@ function mapWorkItem(row: WorkItemRow): AdmissionRequirement {
     label: row.label,
     status: row.status,
     requiredFor: row.gate,
+    ownerId: row.owner_id ?? undefined,
     owner: row.owner_name ?? "",
     dueAt: row.due_at ? toIso(row.due_at) : "",
     nextStep: row.next_action,
@@ -603,6 +670,7 @@ function legacyDecision(referral: Referral): AdmissionDecision | null {
 function normalizeWorkItem(item: AdmissionRequirement): AdmissionRequirement {
   return {
     ...item,
+    ownerId: item.ownerId?.trim() || undefined,
     owner: normalizeOwnerName(item.owner),
     dueAt: item.dueAt,
     nextStep: item.nextStep.trim(),

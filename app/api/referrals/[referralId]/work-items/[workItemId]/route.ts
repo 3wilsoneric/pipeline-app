@@ -6,7 +6,9 @@ import type { RequirementStatus } from "@/lib/pipeline/referral-types";
 import { patchReferralWorkItem } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { isAssessorUser, requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
+import { getActiveWorkspaceMember, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
 
 export const runtime = "nodejs";
 
@@ -37,13 +39,34 @@ export async function PATCH(
     if (!isRecord(body.value.patch)) return jsonError("patch must be an object.");
     const patch = validatePatch(body.value.patch);
     if (!patch.ok) return jsonError(patch.error);
+    await touchWorkspaceMember(auth.user);
+    const selectedOwner = typeof body.value.owner_principal_id === "string"
+      ? await getActiveWorkspaceMember(body.value.owner_principal_id)
+      : null;
+    if (body.value.owner_principal_id !== undefined && !selectedOwner) {
+      return jsonError("Choose an active Pipeline member as owner.", 422);
+    }
+    if (selectedOwner && isAssessorUser(auth.user) && selectedOwner.principal_id !== auth.user.id) {
+      return jsonError("Assessors cannot reassign requirements.", 403);
+    }
+    if (patch.value.owner !== undefined && !selectedOwner && !isUnassignedOwner(patch.value.owner)) {
+      return jsonError("Choose an active Pipeline member as owner.", 422);
+    }
+    const handoffReason = typeof body.value.handoff_reason === "string" ? body.value.handoff_reason.trim() : "";
+    if (handoffReason.length > 500) return jsonError("handoff_reason is too long.");
+    const resolvedPatch = selectedOwner
+      ? { ...patch.value, ownerId: selectedOwner.principal_id, owner: selectedOwner.display_name }
+      : patch.value.owner !== undefined
+        ? { ...patch.value, ownerId: undefined, owner: "Unassigned" }
+        : patch.value;
 
     const result = await patchReferralWorkItem(
       referralId,
       workItemId,
-      patch.value,
+      resolvedPatch,
       Number(body.value.if_match),
       { id: auth.user.id, name: auth.user.name },
+      handoffReason,
     );
     if (!result) return jsonError("Work item not found.", 404);
     if (!result.ok && "conflict" in result) {

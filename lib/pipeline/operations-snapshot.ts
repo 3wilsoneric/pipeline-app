@@ -124,14 +124,13 @@ function buildOperationsSnapshot(
 }
 
 export async function getMyQueueSnapshot(user: { id: string; name: string }): Promise<MyQueueSnapshot> {
-  const { activeWork, now, openRequirements } = await loadOperationalWork();
-  const ownedWork = activeWork.filter((item) => isAssignedToUser({
+  const { activeWork, now, openRequirements, work } = await loadOperationalWork();
+  const ownedWork = activeWork.filter((item) => item.action_required && isAssignedToUser({
     ownerId: item.owner_id,
     owner: item.owner,
   }, user));
-  const ownedReferralIds = new Set(ownedWork.map((item) => item.referral_id));
   const ownedRequirements = openRequirements.filter((item) =>
-    ownedReferralIds.has(item.referral_id) && isAssignedToUser({ owner: item.owner }, user),
+    isAssignedToUser({ ownerId: item.owner_id, owner: item.owner }, user),
   );
   const workByReferral = new Map(ownedWork.map((item) => [item.referral_id, item]));
   const requirementsByReferral = new Map<number, OperationsRequirementItem[]>();
@@ -147,25 +146,25 @@ export async function getMyQueueSnapshot(user: { id: string; name: string }): Pr
     ...requirementsByReferral.keys(),
   ]);
   const ranked = [...referralIds].flatMap((referralId) => {
-    const work = workByReferral.get(referralId) ?? activeWork.find((item) => item.referral_id === referralId);
-    if (!work) return [];
+    const referralWork = workByReferral.get(referralId) ?? work.find((item) => item.referral_id === referralId);
+    if (!referralWork) return [];
     const requirement = [...(requirementsByReferral.get(referralId) ?? [])]
       .sort(compareRequirementWork)[0];
-    const urgency = queueUrgency(work, requirement);
+    const urgency = queueUrgency(referralWork, requirement);
     const item: MyQueueItem = {
       id: `referral:${referralId}`,
       referral_id: referralId,
-      client_name: work.client_name,
-      community: work.community,
-      stage: work.stage,
+      client_name: referralWork.client_name,
+      community: referralWork.community,
+      stage: referralWork.stage,
       next_action: requirement?.next_action.trim()
         || requirement?.label
-        || work.next_action?.trim()
+        || referralWork.next_action?.trim()
         || "Review the referral and record the next step.",
       urgency,
       due_at: requirement?.due_at ?? null,
     };
-    return [{ item, ageHours: work.age_hours }];
+    return [{ item, ageHours: referralWork.age_hours }];
   }).sort((left, right) => {
     return queueUrgencyRank(right.item.urgency) - queueUrgencyRank(left.item.urgency)
       || (left.item.due_at ?? "9999").localeCompare(right.item.due_at ?? "9999")
@@ -226,7 +225,10 @@ async function loadReferralWorklistData(user?: PipelineUser) {
     ]);
   }
 
-  const allItems = operational.activeWork.map((work) => {
+  const worklistWork = operational.work.filter((work) =>
+    work.action_required || (requirementsByReferral.get(work.referral_id) ?? []).length > 0,
+  );
+  const allItems = worklistWork.map((work) => {
     const referral = referralsById.get(work.referral_id)!;
     return toReferralWorklistItem(work, referral, requirementsByReferral.get(work.referral_id) ?? []);
   }).sort(compareReferralWorklistItems);
@@ -494,6 +496,8 @@ function toWorkItem(
         .map((item) => item.label),
     ),
     next_action: progress.next_action,
+    action_required: progress.action_required,
+    waiting: progress.waiting,
     age_hours: ageHours,
     stale: ageHours > staleLimit,
     due_soon: dueSoon,
@@ -544,6 +548,7 @@ function toRequirementWork(
       community: referral.community,
       label: requirement.label,
       status: requirement.status,
+      owner_id: requirement.ownerId,
       owner: normalizeOwnerName(requirement.owner),
       due_at: Number.isFinite(dueTime) ? new Date(dueTime).toISOString() : null,
       next_action: requirement.nextStep,
@@ -586,8 +591,9 @@ function toReferralWorklistItem(
   if (work.owner === "Unassigned") categories.push("unassigned");
   if (["New", "Packet Needed", "Packet Review"].includes(work.stage)) categories.push("packet_review");
   if (work.stage === "Assessment" && !work.assessment_complete) categories.push("assessment_due");
-  if (work.stage === "Community Review" && !work.has_decision) categories.push("decision_needed");
+  if (work.stage === "Community Review") categories.push("decision_needed");
   if (referral.documentStatus === "Missing" || missingDocuments.length > 0) categories.push("missing_documents");
+  if (work.stage === "Accepted / Admitted" && requirements.length > 0) categories.push("follow_up");
   if (explicitBlocked) categories.push("blocked");
 
   const primaryOrder: ReferralWorklistItem["categories"] = [
@@ -597,8 +603,9 @@ function toReferralWorklistItem(
     "assessment_due",
     "packet_review",
     "missing_documents",
+    "follow_up",
   ];
-  const primaryCategory = primaryOrder.find((category) => categories.includes(category)) ?? "packet_review";
+  const primaryCategory = primaryOrder.find((category) => categories.includes(category)) ?? "follow_up";
   if (categories.length === 0) categories.push(primaryCategory);
   const orderedRequirements = [...requirements].sort(compareRequirementWork);
   const nextRequirement = orderedRequirements[0];
