@@ -105,7 +105,7 @@ export default function PipelineHeader() {
           data-platform-page-active="pipeline"
           className="flex h-12 w-[72px] items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
         >
-          <PipelineLogoMark size={44} />
+          <PipelineLogoMark size={32} />
         </button>
       </div>
 
