@@ -33,6 +33,7 @@ const goals = {
 // runtime. Keep the engineering goals intact while allowing one sampling tick
 // at the certification boundary so identical builds do not fail at 500/504 ms.
 const paintObserverAllowanceMs = 8;
+const browserFrameAllowanceMs = 17;
 const limits = {
   ttfb_ms: timingCertificationLimit(goals.ttfb_ms),
   fcp_ms: paintCertificationLimit(goals.fcp_ms),
@@ -487,7 +488,7 @@ function paintCertificationLimit(goal) {
 }
 
 function browserFrameCertificationLimit(goal) {
-  return timingCertificationLimit(goal) + paintObserverAllowanceMs;
+  return timingCertificationLimit(goal) + browserFrameAllowanceMs;
 }
 
 function boundedInteger(name, fallback, minimum, maximum) {

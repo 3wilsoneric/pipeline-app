@@ -39,7 +39,14 @@ const evidence = [
   item("transport.timing", "Instrumented APIs emit Server-Timing", "tests/e2e/performance-navigation.spec.ts", "server-timing"),
   item("transport.size", "Browser responses and previews are size bounded", "lib/auth/authenticated-fetch.ts", "defaultMaxResponseBytes"),
   item("render.responsive", "Desktop and mobile shell geometry is verified", "tests/e2e/responsive-accessibility.spec.ts", "keeps home and referral navigation usable without page overflow"),
-  item("render.visual", "Stable primary surfaces have visual regression coverage", "tests/e2e/visual-regression.spec.ts", "desktop home, referrals, profiles, and packet chart match their baselines"),
+  item("render.visual", "Stable primary surfaces have visual regression coverage", "tests/e2e/visual-regression.spec.ts", [
+    'toHaveScreenshot("desktop-home.png"',
+    'toHaveScreenshot("desktop-referrals.png"',
+    'toHaveScreenshot("desktop-profiles.png"',
+    'toHaveScreenshot("desktop-new-packet.png"',
+    'toHaveScreenshot("mobile-referrals.png"',
+    'toHaveScreenshot("mobile-new-packet.png"',
+  ]),
   item("release.ci", "CI enforces the McMaster certification gate", ".github/workflows/ci.yml", "Enforce Pipeline McMaster certification budget"),
 ];
 
@@ -47,7 +54,8 @@ const results = evidence.map((entry) => {
   const absolute = path.join(process.cwd(), entry.file);
   if (!existsSync(absolute)) return { ...entry, ok: false, error: "evidence_file_missing" };
   const source = readFileSync(absolute, "utf8");
-  return source.includes(entry.needle)
+  const needles = Array.isArray(entry.needle) ? entry.needle : [entry.needle];
+  return needles.every((needle) => source.includes(needle))
     ? { id: entry.id, requirement: entry.requirement, evidence: entry.file, ok: true }
     : { ...entry, ok: false, error: "evidence_marker_missing" };
 });
