@@ -56,7 +56,7 @@ export default function PipelineWelcome({
         const seenThisSession = readStorage(window.sessionStorage, sessionKey);
         const returningUser = readStorage(window.localStorage, historyKey);
 
-        setWelcomeName(name);
+        setWelcomeName(getFirstName(name));
         writeStorage(window.localStorage, historyKey);
 
         if (initialMode === "workspace" || seenThisSession) {
@@ -141,6 +141,15 @@ function WelcomeSkeleton() {
       <div className="mt-4 h-5 w-full max-w-[430px] rounded bg-[#f5f6f5]" />
     </div>
   );
+}
+
+function getFirstName(displayName: string) {
+  const trimmedName = displayName.trim();
+  const naturalOrderName = trimmedName.includes(",")
+    ? trimmedName.split(",").slice(1).join(",").trim()
+    : trimmedName;
+
+  return naturalOrderName.split(/\s+/).find(Boolean) ?? trimmedName;
 }
 
 function readStorage(storage: Storage, key: string) {

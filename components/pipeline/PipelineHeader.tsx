@@ -23,7 +23,7 @@ export default function PipelineHeader() {
   const searchParams = useSearchParams();
   const activeSearchParams = new URLSearchParams(usePipelineLocationSearch(searchParams.toString()));
   const auth = usePipelineAuth();
-  const { searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
+  const { homeMode, searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
 
   useEffect(() => {
@@ -65,6 +65,11 @@ export default function PipelineHeader() {
   const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : "Eric Wilson");
   const signedInInitials = getInitials(signedInName);
   const operationsActive = activeSearchParams.get("screen") === "operations";
+  const isWelcomeSurface = homeMode === "welcome"
+    && pathname === "/"
+    && activeNav === null
+    && !operationsActive
+    && !searchOpen;
 
   const navigateTo = (target: "home" | Exclude<PipelineNavTarget, null> | "operations") => {
     setSearchOpen(false);
@@ -85,14 +90,22 @@ export default function PipelineHeader() {
     <header className="relative flex h-[82px] shrink-0 items-center overflow-visible bg-white px-4 sm:px-6 lg:px-8">
       <div className="relative z-10 flex shrink-0 items-center">
         <div
-          role="img"
-          aria-label="Alamo Platform"
+          role={isWelcomeSurface ? "img" : undefined}
+          aria-label={isWelcomeSurface ? "Alamo Platform" : undefined}
+          aria-hidden={!isWelcomeSurface}
           data-platform-brand="alamo"
-          className="flex h-12 cursor-default items-center gap-2 whitespace-nowrap text-[17px] font-semibold text-[#595959]"
+          className={`flex h-12 cursor-default items-center gap-2 overflow-hidden whitespace-nowrap text-[17px] font-semibold text-[#595959] transition-[max-width,opacity] duration-300 ease-out ${
+            isWelcomeSurface ? "max-w-[128px] opacity-100" : "pointer-events-none max-w-0 opacity-0"
+          }`}
         >
           <span className="hidden sm:inline"><span className="font-black text-[#08745f]">Alamo</span><span className="ml-1">Health</span></span>
         </div>
-        <span aria-hidden="true" className="mx-4 hidden h-8 w-px bg-[#d9d9d9] sm:block" />
+        <span
+          aria-hidden="true"
+          className={`hidden h-8 bg-[#d9d9d9] transition-[width,margin,opacity] duration-300 ease-out sm:block ${
+            isWelcomeSurface ? "mx-4 w-px opacity-100" : "mx-0 w-0 opacity-0"
+          }`}
+        />
         <button
           type="button"
           onClick={(event) => {
