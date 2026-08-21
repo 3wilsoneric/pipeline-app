@@ -19,6 +19,7 @@ check("assessment lists do not use SQL offset", !/limit \$\{limit\} offset/i.tes
 check("resident-link lists do not use SQL offset", !/limit \$\{limit\} offset/i.test(residentLinks));
 check("referral and file lists encode keyset cursors", store.includes("encodeKeysetCursor") && store.includes("decodeKeysetCursor"));
 check("assessment lists encode keyset cursors", assessments.includes("encodeKeysetCursor") && assessments.includes("decodeKeysetCursor"));
+check("assessment cursors preserve text assessment IDs", assessments.includes("${cursorKey}::text") && !assessments.includes("${cursorKey}::uuid"));
 check("resident-link lists encode keyset cursors", residentLinks.includes("encodeKeysetCursor") && residentLinks.includes("decodeKeysetCursor"));
 check("keyset cursor is versioned and bounded", cursor.includes("v: 1") && cursor.includes("{8,512}"));
 check("referral ordering has a matching index", migration.includes("referrals_updated_keyset_idx"));

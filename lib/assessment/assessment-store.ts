@@ -614,7 +614,7 @@ async function listPostgresAssessments(options: AssessmentListOptions = {}): Pro
     )
     select * from filtered
     where (${cursorTimestamp}::timestamptz is null
-      or (updated_at, assessment_id) < (${cursorTimestamp}::timestamptz, ${cursorKey}::uuid))
+      or (updated_at, assessment_id) < (${cursorTimestamp}::timestamptz, ${cursorKey}::text))
     order by updated_at desc, assessment_id desc
     limit ${queryLimit}
   `;

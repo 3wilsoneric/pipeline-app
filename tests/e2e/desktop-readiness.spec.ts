@@ -163,6 +163,19 @@ test.describe("desktop feature enabled", () => {
       return { status: response.status, payload: await response.json() };
     });
     expect(deleted).toMatchObject({ status: 200, payload: { deleted: true } });
+
+    await page.getByRole("button", { name: "Create new referral" }).click();
+    await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Desktop draft cleanup check");
+    await expect.poll(async () => {
+      const response = await page.request.get("/api/me/referral-drafts/new");
+      const payload = await response.json() as { draft?: unknown };
+      return Boolean(payload.draft);
+    }).toBeTruthy();
+    await page.getByRole("button", { name: "Create referral" }).click();
+    await expect.poll(async () => {
+      const response = await page.request.get("/api/me/referral-drafts/new");
+      return (await response.json()) as { draft?: unknown; version?: number };
+    }).toMatchObject({ draft: null, version: 0 });
   });
 });
 
