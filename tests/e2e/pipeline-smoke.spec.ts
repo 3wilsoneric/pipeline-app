@@ -1680,9 +1680,9 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Admission and placement", { exact: true })).toBeVisible();
     await expect(page.getByText("Clinical overview", { exact: true })).toBeVisible();
     await expect(page.getByText("Legal and support", { exact: true })).toBeVisible();
-    await expect(page.getByText("Pipeline work", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Assessments", exact: true })).toBeVisible();
-    await expect(page.getByText("Governed source files", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Assessments", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Source documents", exact: true })).toBeVisible();
     await expect(page.getByText("Sanitized referral packet.pdf", { exact: true })).toBeVisible();
     await expect(page.getByRole("img", { name: "First-page thumbnail for Sanitized referral packet.pdf" })).toBeVisible();
     const sourceDocumentLink = page.getByRole("link", { name: "Open Sanitized referral packet.pdf" });
@@ -1694,9 +1694,9 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Canonical client id", { exact: true })).toHaveCount(0);
     await expect(page.getByText("client-sanitized-100", { exact: true })).toHaveCount(0);
     await expect(page.getByText("141 governed fields", { exact: true })).toHaveCount(0);
-    await expect(page.getByText("Pipeline record not linked", { exact: true })).toBeVisible();
-    await expect(page.getByText("Pipeline not linked", { exact: true }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Choose matching referral" })).toBeVisible();
+    await expect(page.getByText("No referral history has been connected to this client.", { exact: false })).toBeVisible();
+    await expect(page.getByText("active_or_unknown", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Connect a referral" })).toBeVisible();
     await expect(page.getByText("Open referral packet", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
     await expect(page.getByText("Admission and placement", { exact: true })).toBeVisible();
@@ -1732,7 +1732,7 @@ test.describe("Pipeline home", () => {
 
     const alert = page.getByRole("alert").filter({ hasText: "This client profile could not be loaded." });
     await expect(alert).toContainText("This client profile could not be loaded.");
-    await expect(alert).toContainText("Pipeline work data is temporarily unavailable.");
+    await expect(alert).toContainText("Referral information is temporarily unavailable.");
     await expect(alert).not.toContainText("Internal server error");
     serviceAvailable = true;
     await page.getByRole("button", { name: "Retry", exact: true }).click();
@@ -1750,7 +1750,7 @@ test.describe("Pipeline home", () => {
       confirmed_link: null,
       candidates: [],
       suggestions: [],
-      message: "Pipeline work data is not configured in this runtime. The governed Alamo client record remains available.",
+      message: "Referral information is not configured in this environment. The client record remains available.",
     };
 
     await page.route("**/api/profiles/**", async (route) => {
@@ -1760,10 +1760,10 @@ test.describe("Pipeline home", () => {
     await page.goto(`/?screen=profile&clientId=${encodeURIComponent(canonicalClientId)}`);
 
     await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
-    const unavailableNotice = page.getByRole("status").filter({ hasText: "Pipeline work unavailable" });
+    const unavailableNotice = page.getByRole("status").filter({ hasText: "Referral history unavailable" });
     await expect(unavailableNotice).toBeVisible();
-    await expect(unavailableNotice).toContainText("Pipeline work data is not configured in this runtime.");
-    await expect(page.getByRole("button", { name: "Choose matching referral" })).toHaveCount(0);
+    await expect(unavailableNotice).toContainText("Referral information cannot be loaded right now.");
+    await expect(page.getByRole("button", { name: "Connect a referral" })).toHaveCount(0);
   });
 
   test("stacks client community, admission-date, and profile-data filters", async ({ page }) => {
@@ -1984,15 +1984,16 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await page.getByRole("button", { name: /Avery Example/ }).click();
-    await page.getByRole("button", { name: "Choose matching referral" }).click();
+    await page.getByRole("button", { name: "Connect a referral" }).click();
     await expect(page.getByText("Suggested matches", { exact: true })).toBeVisible();
     await expect(page.getByText("Name and date of birth match exactly", { exact: false })).toBeVisible();
-    await page.getByRole("button", { name: /Avery Example.*#101.*Name and date of birth match exactly/ }).click();
+    await page.getByRole("button", { name: /Avery Example.*San Pablo.*Name and date of birth match exactly/ }).click();
     await page.getByRole("button", { name: "Send match for review" }).click();
-    await expect(page.getByText("Identity review needed", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Referral match to review", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(/version 1/i)).toHaveCount(0);
     await page.getByRole("button", { name: "Review" }).click();
     await page.getByRole("button", { name: "Confirm connection" }).click();
-    await expect(page.getByText("Pipeline linked", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Referral history available", { exact: true }).first()).toBeVisible();
   });
 
   test("opens the lightweight operations overview from the profile menu", async ({ page }) => {

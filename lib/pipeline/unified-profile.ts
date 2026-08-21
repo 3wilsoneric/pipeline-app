@@ -103,7 +103,7 @@ export async function getUnifiedClientProfile(
       resident,
       history,
       pipeline: unavailablePipelineProjection(
-        "Pipeline work data is not configured in this runtime. The governed Alamo client record remains available.",
+        "Referral information is not configured in this environment. The client record remains available.",
         permissions,
       ),
     };
@@ -122,7 +122,7 @@ export async function getUnifiedClientProfile(
         resident,
         history,
         pipeline: unavailablePipelineProjection(
-          "Multiple reviewed Pipeline identity links exist for this resident. The Alamo client record is available, but an administrator must resolve the link conflict before Pipeline work can be shown.",
+          "More than one referral connection exists for this client. The client record remains available while an administrator resolves the conflict.",
           permissions,
         ),
       };
@@ -163,7 +163,7 @@ export async function getUnifiedClientProfile(
         resident,
         history,
         pipeline: unavailablePipelineProjection(
-          "The Alamo client record is available, but linked Pipeline work cannot be loaded until operational storage is restored.",
+          "The client record is available, but referral information cannot be loaded until operational storage is restored.",
           permissions,
         ),
       };
@@ -235,7 +235,7 @@ export async function getUnifiedClientProfile(
       resident,
       history,
       pipeline: unavailablePipelineProjection(
-        "The governed Alamo client record loaded, but Pipeline work data is temporarily unavailable. Retry later without losing access to the client profile.",
+        "The client record loaded, but referral information is temporarily unavailable. Retry later without losing access to this profile.",
         permissions,
       ),
     };
@@ -394,7 +394,7 @@ function buildConnection(
       confirmed_link: confirmedLink,
       candidates,
       suggestions: [],
-      message: "Pipeline records are joined through a reviewed resident link.",
+      message: "Referral history is connected to this client.",
     };
   }
   if (candidates.length > 0) {
@@ -403,7 +403,7 @@ function buildConnection(
       confirmed_link: null,
       candidates,
       suggestions: [],
-      message: "A possible Pipeline identity match needs human review before records can be joined.",
+      message: "A possible referral match needs review before its records are shown with this client.",
     };
   }
   return {
@@ -411,7 +411,7 @@ function buildConnection(
     confirmed_link: null,
     candidates: [],
     suggestions,
-    message: "No reviewed Pipeline identity link exists. Residents will not be matched by name, and suggestions never join records automatically.",
+    message: "No Pipeline referral history is connected to this client.",
   };
 }
 

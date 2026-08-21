@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Private no-store thumbnails require the signed-in browser request. */
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, CircleAlert, Database, ExternalLink, FileText, ImageOff, Link2, Search, UserRound, X } from "lucide-react";
+import { ArrowLeft, Check, CircleAlert, ExternalLink, FileText, ImageOff, Link2, Search, UserRound, X } from "lucide-react";
 
 import type {
   ClinicalClientRecord,
@@ -121,7 +121,7 @@ function ClientProfileLoader({ residentKey, onBack }: { residentKey: string; onB
 
 function profileLoadMessage(error: unknown) {
   if (error instanceof PipelineApiError && error.status >= 500) {
-    return "Pipeline work data is temporarily unavailable. Retry, or return to Clients; the admitted-client roster is unchanged.";
+    return "Referral information is temporarily unavailable. Retry, or return to clients; the current census is unchanged.";
   }
   return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
@@ -163,6 +163,7 @@ function ResidentProfile({
     };
   }, [client, resident]);
   const currentFacts = useMemo(() => currentResidentFacts(resident), [resident]);
+  const hasPipelineHistory = ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status);
 
   return (
     <main aria-label={`Client profile for ${client.display_name}`} className="h-full overflow-y-auto bg-white text-[#111111]">
@@ -183,9 +184,11 @@ function ResidentProfile({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-[30px] font-black md:text-[38px]">{client.display_name}</h1>
-                <span className={connectionBadgeClass(profile.pipeline.connection.status)}>
-                  {connectionLabel(profile.pipeline.connection.status)}
-                </span>
+                {profile.pipeline.connection.status !== "unlinked" ? (
+                  <span className={connectionBadgeClass(profile.pipeline.connection.status)}>
+                    {connectionLabel(profile.pipeline.connection.status)}
+                  </span>
+                ) : null}
               </div>
               <p className="mt-2 text-[13px] text-[#595959]">
                 {pipelineOnly
@@ -201,24 +204,33 @@ function ResidentProfile({
         <section className="mt-4 grid gap-px border-b border-[#d9d9d9] bg-[#d9d9d9] md:grid-cols-4" aria-label="Profile summary">
           <Metric label="Profile data" value={pipelineOnly ? "Pipeline" : `${completeness.percent}%`} detail={pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral workspace" : "Historical files" : `${completeness.complete} of ${completeness.total} fields available`} />
           <Metric label={pipelineOnly ? "Referrals" : "Current stay"} value={pipelineOnly ? String(profile.pipeline.summary.referral_count) : resident?.length_of_stay_days === null || resident?.length_of_stay_days === undefined ? "Not reported" : `${resident.length_of_stay_days.toLocaleString()} days`} detail={pipelineOnly ? `${profile.pipeline.summary.active_referral_count} active` : resident?.admit_date ? `Admitted ${formatDate(resident.admit_date)}` : "Admission date not reported"} />
-          <Metric label="Open Pipeline items" value={String(profile.pipeline.summary.open_requirement_count)} detail={`${profile.pipeline.summary.blocker_count} blocking`} />
-          <Metric label="Assessments" value={String(profile.pipeline.summary.assessment_count)} detail={profile.pipeline.summary.latest_assessment_status?.replaceAll("_", " ") || "None recorded"} />
+          {hasPipelineHistory ? (
+            <>
+              <Metric label="Open items" value={String(profile.pipeline.summary.open_requirement_count)} detail={`${profile.pipeline.summary.blocker_count} blocking`} />
+              <Metric label="Assessments" value={String(profile.pipeline.summary.assessment_count)} detail={formatWorkflowStatus(profile.pipeline.summary.latest_assessment_status) || "None recorded"} />
+            </>
+          ) : (
+            <>
+              <Metric label="Referral history" value="None" detail="No Pipeline referral on file" />
+              <Metric label="Source documents" value={String(client.source_documents.length)} detail="Available client records" />
+            </>
+          )}
         </section>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(310px,0.65fr)]">
           <div className="min-w-0 space-y-5">
             {currentFacts.length > 0 ? (
-              <ProfileSection title="Current resident" detail="Governed Alamo snapshot">
+              <ProfileSection title="Current resident" detail="Current census">
                 <FactGrid facts={currentFacts} />
               </ProfileSection>
             ) : null}
 
-            <ProfileSection title="Client information" detail={pipelineOnly ? "Captured in Pipeline" : `Baseline ${formatDate(profile.client_database.baseline_date)}`}>
+            <ProfileSection title="Client information" detail={pipelineOnly ? "Captured in Pipeline" : "Latest available information"}>
               <CuratedClientRecord sections={chart.sections} />
             </ProfileSection>
 
             {client.source_documents.length > 0 ? (
-              <ProfileSection title="Governed source files" detail={`${client.source_documents.length} available`}>
+              <ProfileSection title="Source documents" detail={`${client.source_documents.length} available`}>
                 <ClinicalSourceDocumentGallery
                   canonicalClientId={client.canonical_client_id}
                   documents={client.source_documents}
@@ -232,22 +244,24 @@ function ResidentProfile({
               </ProfileSection>
             ) : null}
 
-            <ProfileSection title="Pipeline work" detail={pipelineOnly ? "Referral, assessment, and follow-up state" : "Available only through a reviewed identity link"}>
+            <ProfileSection title="Referral history" detail={pipelineWorkDetail(profile.pipeline.connection.status)}>
               <PipelineWorkSummary profile={profile} onConnectionChanged={onConnectionChanged} />
             </ProfileSection>
 
             {profile.pipeline.documents.length > 0 || ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status) ? (
-              <ProfileSection title="Client files" detail={`${profile.pipeline.documents.length} linked to this client workspace`}>
+              <ProfileSection title="Referral documents" detail={`${profile.pipeline.documents.length} available`}>
                 <ClientDocumentGallery documents={profile.pipeline.documents} />
               </ProfileSection>
             ) : null}
 
-            <ProfileSection title="Assessments" detail="Separate dated records; latest shown first">
-              <ClientAssessmentSummary
-                assessments={profile.pipeline.assessments}
-                connection={profile.pipeline.connection}
-              />
-            </ProfileSection>
+            {hasPipelineHistory || profile.pipeline.assessments.length > 0 ? (
+              <ProfileSection title="Assessments" detail="Latest first">
+                <ClientAssessmentSummary
+                  assessments={profile.pipeline.assessments}
+                  connection={profile.pipeline.connection}
+                />
+              </ProfileSection>
+            ) : null}
 
             {client.resident_episode_history.length === 0 && history.status === "available" ? (
               <ProfileSection title="Placement trajectory" detail="Legacy exact resident-number history; newest episode first">
@@ -261,7 +275,7 @@ function ResidentProfile({
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <div className="text-[30px] font-black text-[#111111]">{completeness.percent}%</div>
-                  <div className="mt-1 text-[11px] text-[#737373]">Enhanced fields populated</div>
+                  <div className="mt-1 text-[11px] text-[#737373]">Profile fields available</div>
                 </div>
                 <div className="text-right text-[10px] font-black uppercase text-[#737373]">
                   {completeness.total - completeness.complete} missing
@@ -272,28 +286,27 @@ function ResidentProfile({
                 {completeness.total - completeness.complete > 0 ? (
                   <div className="flex items-start gap-2 text-[12px] text-[#6d5428]">
                     <CircleAlert size={15} className="mt-0.5 shrink-0 text-[#b07b21]" />
-                    <span>{completeness.total - completeness.complete} enhanced fields are not reported in the baseline.</span>
+                    <span>{completeness.total - completeness.complete} tracked fields are not available in the current record.</span>
                   </div>
                 ) : null}
                 {completeness.complete === completeness.total ? (
                   <div className="flex items-start gap-2 text-[12px] text-[#356759]">
                     <Check size={15} className="mt-0.5 shrink-0 text-[#0f8b73]" />
-                    <span>All governed fields are available.</span>
+                    <span>All tracked profile fields are available.</span>
                   </div>
                 ) : null}
               </div>
             </ProfileSection> : null}
 
-            <ProfileSection title="Source">
+            <ProfileSection title="Record status">
               <div className="flex gap-3">
-                <Database size={17} className="mt-0.5 shrink-0 text-[#0f8b73]" />
+                <FileText size={17} className="mt-0.5 shrink-0 text-[#0f8b73]" />
                 <div className="space-y-3 text-[12px] text-[#595959]">
-                  <div><span className="font-black text-[#111111]">{pipelineOnly ? "Pipeline" : "Alamo Platform"}</span><br />{pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral client workspace" : "Historical file workspace" : "Governed clinical profile"}</div>
-                  <div>Data through {formatDate(profile.data_as_of)}</div>
-                  <div>Freshness: {profile.freshness.status}</div>
+                  <div><span className="font-black text-[#111111]">{pipelineOnly ? "Pipeline" : "Alamo Platform"}</span><br />{pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral history" : "Historical client files" : "Current clinical profile"}</div>
+                  <div>Updated through {formatDate(profile.data_as_of)}</div>
                   {history.data_as_of ? (
                     <div className="border-t border-[#d9d9d9] pt-3">
-                      Placement history through {formatDate(history.data_as_of)}
+                      Stay history updated through {formatDate(history.data_as_of)}
                     </div>
                   ) : null}
                 </div>
@@ -347,15 +360,20 @@ function GovernedEpisodeHistory({ episodes }: { episodes: ClientEpisodeSummary[]
 
   return (
     <div className="space-y-3">
-      {episodes.map((episode, index) => (
-        <details key={episode.key} open={index === 0} className="border-b border-[#d9d9d9]">
-          <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 py-3">
+      {episodes.map((episode, index) => episode.facts.length > 0 ? (
+          <details key={episode.key} open={index === 0} className="border-b border-[#d9d9d9]">
+            <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 py-3">
+              <span className="text-[13px] font-black text-[#111111]">{episode.community}</span>
+              <span className="text-[11px] text-[#737373]">{episode.period}</span>
+            </summary>
+            <FactGrid facts={episode.facts} className="pb-5" />
+          </details>
+        ) : (
+          <div key={episode.key} className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] py-3">
             <span className="text-[13px] font-black text-[#111111]">{episode.community}</span>
             <span className="text-[11px] text-[#737373]">{episode.period}</span>
-          </summary>
-          <FactGrid facts={episode.facts} className="pb-5" />
-        </details>
-      ))}
+          </div>
+        ))}
     </div>
   );
 }
@@ -481,16 +499,22 @@ function PipelineWorkSummary({
 
   return (
     <div>
-      <div className={`border-l-2 px-4 py-3 text-[12px] leading-5 ${noticeClass}`} role="status">
-        <div className="font-black">{connectionLabel(connection.status)}</div>
-        <div className="mt-1">{connection.message}</div>
-      </div>
+      {connection.status === "unlinked" ? (
+        <div className="text-[12px] leading-5 text-[#595959]" role="status">
+          No referral history has been connected to this client. This is normal for clients admitted before Pipeline was used.
+        </div>
+      ) : (
+        <div className={`border-l-2 px-4 py-3 text-[12px] leading-5 ${noticeClass}`} role="status">
+          <div className="font-black">{connectionLabel(connection.status)}</div>
+          <div className="mt-1">{connectionMessage(connection.status)}</div>
+        </div>
+      )}
 
       {confirmed ? (
         <>
-          <div className="mt-4 grid gap-px bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-4" aria-label="Pipeline work summary">
+          <div className="mt-4 grid gap-px bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-4" aria-label="Referral history summary">
             <SummaryCell label="Referrals" value={summary.referral_count} detail={`${summary.active_referral_count} active`} />
-            <SummaryCell label="Assessments" value={summary.assessment_count} detail={summary.latest_assessment_status?.replaceAll("_", " ") || "None yet"} />
+            <SummaryCell label="Assessments" value={summary.assessment_count} detail={formatWorkflowStatus(summary.latest_assessment_status) || "None yet"} />
             <SummaryCell label="Open items" value={summary.open_requirement_count} detail={`${summary.blocker_count} blocking`} />
             <SummaryCell label="Documents" value={summary.document_count} detail="Linked to referrals" />
           </div>
@@ -516,7 +540,7 @@ function PipelineWorkSummary({
         <IdentityLinkControls profile={profile} onConnectionChanged={onConnectionChanged} />
       ) : (
         <div className="mt-4 text-[12px] text-[#737373]">
-          Historical clients remain searchable and retain assessment history, but a new current-resident identity link cannot be created without a governed current roster record.
+          Historical clients remain searchable, but a referral can only be connected while the client appears on the current census.
         </div>
       )}
     </div>
@@ -540,7 +564,7 @@ function ClientDocumentGallery({ documents }: { documents: ReferralFile[] }) {
           <div className="p-3.5">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">{document.category}</span>
-              <span className="text-[9px] font-black uppercase text-[#737373]">{document.status}</span>
+              <span className="text-[9px] font-black uppercase text-[#737373]">{formatWorkflowStatus(document.status)}</span>
             </div>
             <div className="mt-2 break-words text-[12px] font-black leading-5 text-[#111111]">{document.name}</div>
             <div className="mt-2 text-[10px] leading-4 text-[#737373]">
@@ -814,7 +838,7 @@ function IdentityLinkControls({
               className="inline-flex h-10 items-center gap-2 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0f8b73] hover:bg-[#effaf5]"
             >
               {isChoosing ? <X size={14} /> : <Link2 size={14} />}
-              {isChoosing ? "Cancel" : "Choose matching referral"}
+              {isChoosing ? "Cancel" : "Connect a referral"}
             </button>
             {isChoosing ? (
               <div className="mt-4 border-t border-[#d9d9d9] pt-4">
@@ -835,7 +859,7 @@ function IdentityLinkControls({
                           >
                             <span className="min-w-0">
                               <span className="block truncate text-[12px] font-black text-[#111111]">{suggestion.client_name}</span>
-                              <span className="mt-1 block truncate text-[10px] text-[#737373]">#{suggestion.referral_id} · {suggestion.community} · {suggestion.stage}</span>
+                              <span className="mt-1 block truncate text-[10px] text-[#737373]">{suggestion.community} · {suggestion.stage}</span>
                               <span className="mt-1 block truncate text-[10px] font-semibold text-[#356759]">{suggestion.reasons.join(" · ")}</span>
                             </span>
                             <span className="shrink-0 text-right">
@@ -870,7 +894,7 @@ function IdentityLinkControls({
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-[12px] font-black text-[#111111]">{referral.name}</span>
-                        <span className="mt-1 block truncate text-[10px] text-[#737373]">#{referral.id} · {referral.community} · {referral.stage}</span>
+                        <span className="mt-1 block truncate text-[10px] text-[#737373]">{referral.community} · {referral.stage}</span>
                       </span>
                       {active ? <Check size={15} className="shrink-0 text-[#0f8b73]" /> : null}
                     </button>
@@ -901,8 +925,8 @@ function IdentityLinkControls({
             <div key={link.link_id} className="border-t border-[#d9d9d9] pt-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-[12px] font-black">Referral #{link.referral_id ?? "not recorded"}</div>
-                  <div className="mt-1 text-[10px] text-[#737373]">Proposed by {link.created_by.name} · version {link.version}</div>
+                  <div className="text-[12px] font-black">Possible referral match</div>
+                  <div className="mt-1 text-[10px] text-[#737373]">Suggested by {link.created_by.name}</div>
                 </div>
                 {canReview ? (
                   <div className="flex gap-2">
@@ -981,10 +1005,31 @@ function SummaryCell({ label, value, detail }: { label: string; value: number; d
 
 function connectionLabel(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
   if (status === "pipeline_only") return "Pipeline workspace";
-  if (status === "confirmed") return "Pipeline linked";
-  if (status === "candidate") return "Identity review needed";
-  if (status === "unavailable") return "Pipeline work unavailable";
-  return "Pipeline not linked";
+  if (status === "confirmed") return "Referral history available";
+  if (status === "candidate") return "Referral match to review";
+  if (status === "unavailable") return "Referral history unavailable";
+  return "No referral history";
+}
+
+function pipelineWorkDetail(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
+  if (status === "confirmed" || status === "pipeline_only") return "Referral, assessment, and follow-up";
+  if (status === "candidate") return "Possible match awaiting review";
+  if (status === "unavailable") return "Temporarily unavailable";
+  return undefined;
+}
+
+function connectionMessage(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
+  if (status === "confirmed") return "This client's Pipeline referrals, assessments, and files are shown below.";
+  if (status === "pipeline_only") return "This workspace contains referral records and files captured in Pipeline.";
+  if (status === "candidate") return "A possible referral match needs review before its records are shown here.";
+  return "Referral information cannot be loaded right now. The client record above is still available.";
+}
+
+function formatWorkflowStatus(value: string | null | undefined) {
+  if (!value) return null;
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function connectionBadgeClass(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {

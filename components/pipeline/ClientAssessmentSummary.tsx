@@ -33,11 +33,11 @@ export default function ClientAssessmentSummary({
         <ClipboardList size={17} className="mt-0.5 shrink-0 text-[#0f8b73]" />
         <div>
           <div className="text-[12px] font-black">
-            {connection.status === "confirmed" ? "No Pipeline assessments yet" : "Pipeline record not linked"}
+            {connection.status === "confirmed" ? "No assessments yet" : "No referral history"}
           </div>
           <div className="mt-1 max-w-xl text-[11px] leading-5 text-[#737373]">
             {connection.status === "confirmed"
-              ? "The reviewed identity link is active, but no assessment has been captured for this client."
+              ? "A referral is connected, but no assessment has been captured for this client."
               : connection.message}
           </div>
         </div>
@@ -50,7 +50,7 @@ export default function ClientAssessmentSummary({
       <div className="grid gap-px bg-[#d9dfdb] sm:grid-cols-3">
         <SummaryMetric label="Assessment history" value={String(assessments.length)} detail="Separate dated records" />
         <SummaryMetric label="Latest captured" value={`${coverage?.captured ?? 0} / ${coverage?.total ?? 52}`} detail={`${coverage?.percent ?? 0}% complete`} />
-        <SummaryMetric label="Latest status" value={latest.status.replace("_", " ")} detail={formatDate(latest.assessment_date)} />
+        <SummaryMetric label="Latest status" value={formatAssessmentStatus(latest.status)} detail={formatDate(latest.assessment_date)} />
       </div>
       <div className="mt-4 h-2 bg-[#e8eeeb]"><div className="h-full bg-[#0f8b73]" style={{ width: `${coverage?.percent ?? 0}%` }} /></div>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
@@ -64,6 +64,12 @@ export default function ClientAssessmentSummary({
       </div>
     </div>
   );
+}
+
+function formatAssessmentStatus(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function SummaryMetric({ label, value, detail }: { label: string; value: string; detail: string }) {

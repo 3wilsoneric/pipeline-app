@@ -382,7 +382,7 @@ function checkProfileResilience() {
   );
   assert(
     profileView.includes('connection.status === "unavailable" ? null') &&
-      profileView.includes('return "Pipeline work unavailable"'),
+      profileView.includes('return "Referral history unavailable"'),
     "Unavailable Pipeline work must be visible without exposing unusable identity-link actions",
   );
 }

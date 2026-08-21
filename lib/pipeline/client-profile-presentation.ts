@@ -255,8 +255,6 @@ export function buildClientEpisodeSummaries(episodes: ClinicalClientRecord[]): C
     const discharged = firstValue(episode, ["discharge_date", "latest_discharge_date", "episode_end_date"]);
     const community = firstValue(episode, ["facility_name", "community_name", "facility_canonical", "community"]);
     const facts = [
-      episodeFact(episode, "Status", ["episode_status", "status", "current_status"]),
-      episodeFact(episode, "Resident number", ["resident_number", "resident_id", "res_number"]),
       episodeFact(episode, "Unit", ["unit_number", "unit"]),
       episodeFact(episode, "Care level", ["care_level"]),
       episodeFact(episode, "Payor", ["payor", "payer"]),
