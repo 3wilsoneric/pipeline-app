@@ -76,6 +76,7 @@ const results = await Promise.all([
     assert(detail.client.resident_episode_history.length === 2, "Expected canonical episode history join");
     assert(detail.client.source_documents.length === 1, "Expected governed client-document metadata");
     assert(detail.client.source_documents[0].thumbnail_available === true, "Expected explicit thumbnail readiness");
+    assert(detail.client.source_documents[0].preview_available === true, "Expected explicit full-file readiness");
     assert(detail.client_database.baseline_date === "2026-08-18", "Expected immutable baseline date");
 
     const legacyDetail = structuredClone(fixture.client);
@@ -150,7 +151,9 @@ const results = await Promise.all([
     const profileDirectory = read("components/pipeline/ClientProfileDirectory.tsx");
     const profileView = read("components/pipeline/ClientProfileView.tsx");
     const rosterRoute = read("app/api/clinical/roster/route.ts");
-    assert(profileDirectory.includes("/api/clinical/clients"), "Profiles must come from the canonical client directory");
+    assert(profileDirectory.includes("/api/profiles/directory"), "Profiles must come through the scoped canonical client directory");
+    const profileDirectoryRoute = read("app/api/profiles/directory/route.ts");
+    assert(profileDirectoryRoute.includes("getClinicalClients"), "The scoped profile directory must start from the governed Alamo client directory");
     assert(profileDirectory.includes("MAX_DIRECTORY_PAGES"), "Profile filters must use bounded complete-directory pagination");
     assert(rosterRoute.includes("toClinicalResidentDirectoryResult"), "The active roster must keep its approved list projection");
     assert(!rosterRoute.includes("canViewClinicalDetails"), "Directory requests must not expose full resident clinical detail by role");
@@ -163,7 +166,7 @@ const results = await Promise.all([
     assert(unifiedProfile.includes("filterLinksForUser"), "Profile identity links must be scoped to the signed-in assessor");
     assert(unifiedProfile.includes("canAccessReferral(user, referral)"), "Profile work must enforce stable referral ownership");
     const profileRoute = read("app/api/profiles/[residentKey]/route.ts");
-    assert(profileRoute.includes("}, auth.user)"), "Unified profile assembly must receive the authenticated user");
+    assert(profileRoute.includes("}, auth.user,"), "Unified profile assembly must receive the authenticated user");
     for (const documentRoute of [
       "app/api/profiles/[residentKey]/source-documents/[documentId]/thumbnail/route.ts",
       "app/api/profiles/[residentKey]/source-documents/[documentId]/preview/route.ts",

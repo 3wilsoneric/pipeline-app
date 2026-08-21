@@ -29,6 +29,7 @@ check("setup cannot activate the production backend", !setup.includes("gh variab
 check("setup remains compatible with macOS Bash 3.2", !setup.includes(",,"));
 check("bundle deployment authenticates as the Pipeline principal", setup.includes('DATABRICKS_AUTH_TYPE="oauth-m2m"'));
 check("all successful worker callbacks require digest and malware status", processingWorker.includes('if (!input.verified_sha256)') && processingWorker.includes('if (!input.malware_scan_status)'));
+check("successful worker callbacks revalidate the durable source blob", processingWorker.includes('getBlobProperties(job.blob_container, job.blob_key)') && processingWorker.includes('"uploaded_blob_missing"') && processingWorker.includes('"uploaded_blob_size_mismatch"'));
 
 const failed = checks.filter((item) => !item.ok);
 console.log(JSON.stringify({ ok: failed.length === 0, checks }, null, 2));

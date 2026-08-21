@@ -86,7 +86,7 @@ export class ClinicalDataError extends Error {
 const CLINICAL_API_PREFIX = "/api/integrations/pipeline/clinical";
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
-const DEFAULT_DOCUMENT_MAX_BYTES = 12 * 1024 * 1024;
+const DEFAULT_DOCUMENT_MAX_BYTES = 32 * 1024 * 1024;
 const DEFAULT_THUMBNAIL_MAX_BYTES = 1024 * 1024;
 const MAX_TOKEN_RESPONSE_BYTES = 64 * 1024;
 const clinicalModes: readonly ClinicalDataMode[] = ["disconnected", "demo_snapshot", "alamo_api"];

@@ -22,6 +22,7 @@ type JobRow = {
   provider_job_id: string | null;
   blob_container: string;
   blob_key: string;
+  byte_size: number | string;
   sha256: string;
 };
 
@@ -97,7 +98,8 @@ export async function dispatchExtractionJobs(limit = 10, workerId = "pipeline-di
     from candidates c, pipeline.documents d
     where j.extraction_job_id = c.extraction_job_id and d.document_id = j.document_id
     returning j.extraction_job_id, j.document_id, j.packet_id, j.job_type, j.status,
-      j.attempt_count, j.max_attempts, j.attempt_token, j.provider_job_id, d.blob_container, d.blob_key, d.sha256
+      j.attempt_count, j.max_attempts, j.attempt_token, j.provider_job_id,
+      d.blob_container, d.blob_key, d.byte_size, d.sha256
   `);
 
   const adapter = getDatabricksJobAdapter();
@@ -139,7 +141,8 @@ export async function reconcileExtractionJobs(limit = 25) {
   const sql = getPipelineSql();
   const jobs = await sql<JobRow[]>`
     select j.extraction_job_id, j.document_id, j.packet_id, j.job_type, j.status,
-      j.attempt_count, j.max_attempts, j.attempt_token, j.provider_job_id, d.blob_container, d.blob_key, d.sha256
+      j.attempt_count, j.max_attempts, j.attempt_token, j.provider_job_id,
+      d.blob_container, d.blob_key, d.byte_size, d.sha256
     from pipeline.extraction_jobs j
     join pipeline.documents d on d.document_id = j.document_id
     where j.status = 'running' and j.provider_job_id is not null
@@ -190,7 +193,8 @@ export async function reportExtractionJob(input: WorkerReport) {
   const sql = getPipelineSql();
   const rows = await sql<JobRow[]>`
     select j.extraction_job_id, j.document_id, j.packet_id, j.job_type, j.status,
-      j.attempt_count, j.max_attempts, j.attempt_token, j.provider_job_id, d.blob_container, d.blob_key, d.sha256
+      j.attempt_count, j.max_attempts, j.attempt_token, j.provider_job_id,
+      d.blob_container, d.blob_key, d.byte_size, d.sha256
     from pipeline.extraction_jobs j join pipeline.documents d on d.document_id = j.document_id
     where j.extraction_job_id = ${input.extraction_job_id}::uuid limit 1
   `;
@@ -218,6 +222,15 @@ export async function reportExtractionJob(input: WorkerReport) {
     const outcome = await failOrRetry(job, input.error_code ?? "worker_reported_failure", input.retryable !== false);
     if (outcome === "stale") throw new DocumentProcessingError("stale_job_attempt", 409);
     return { status: outcome };
+  }
+  const sourceBlob = await getAzureBlobUploadSigner().getBlobProperties(job.blob_container, job.blob_key);
+  if (!sourceBlob.exists) {
+    await failOrRetry(job, "uploaded_blob_missing", false);
+    throw new DocumentProcessingError("uploaded_blob_missing", 409, "The uploaded source file is missing.");
+  }
+  if (sourceBlob.byteSize !== Number(job.byte_size)) {
+    await failOrRetry(job, "uploaded_blob_size_mismatch", false);
+    throw new DocumentProcessingError("uploaded_blob_size_mismatch", 409, "The uploaded source file size is invalid.");
   }
   if (!input.verified_sha256) throw new DocumentProcessingError("verified_sha256_required", 400, "The worker must report the verified file digest.");
   if (input.verified_sha256 !== job.sha256) {

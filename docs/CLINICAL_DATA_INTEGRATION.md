@@ -219,7 +219,7 @@ PIPELINE_ALAMO_API_SCOPE=api://<ALAMO_API_APP_ID>/.default
 PIPELINE_CLINICAL_TIMEOUT_MS=10000
 PIPELINE_CLINICAL_MAX_RESPONSE_BYTES=2097152
 PIPELINE_CLINICAL_THUMBNAIL_MAX_BYTES=1048576
-PIPELINE_CLINICAL_DOCUMENT_MAX_BYTES=12582912
+PIPELINE_CLINICAL_DOCUMENT_MAX_BYTES=33554432
 PIPELINE_CLIENT_INCREMENTAL_UPDATES_ENABLED=false
 PIPELINE_CLIENT_INCREMENTAL_UPDATES_APPROVAL=
 ```
@@ -242,9 +242,11 @@ Client detail may include `source_documents`, a bounded metadata list joined by
 `canonical_client_id`. Browser thumbnail and preview requests always terminate
 at authenticated Pipeline routes, which fetch the corresponding private Alamo
 asset server-to-server. Neither response exposes Allo paths, Azure blob paths,
-credentials, or signed storage URLs. The initial publisher is thumbnail-only;
-`preview_available` remains false until full-file disclosure is separately
-approved.
+credentials, or signed storage URLs. A document advertises
+`preview_available: true` only after its full viewing copy has a deterministic
+client/document association, an approved PDF/image MIME type, a successful
+malware scan, and a private asset path accepted by Alamo's allowlist. Pipeline
+then applies its own 32 MB response bound and private, no-store browser headers.
 
 ## Readiness And Failure Behavior
 

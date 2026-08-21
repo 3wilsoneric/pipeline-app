@@ -238,7 +238,7 @@
           "linked_at": "2026-08-18T12:00:00.000Z",
           "link_source": "governed_client_document_link",
           "thumbnail_available": true,
-          "preview_available": false
+          "preview_available": true
         }
       ],
       "enrichment": {

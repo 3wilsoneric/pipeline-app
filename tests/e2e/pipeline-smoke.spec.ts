@@ -1641,6 +1641,9 @@ test.describe("Pipeline home", () => {
     await page.route("**/api/clinical/clients**", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.clients) });
     });
+    await page.context().route("**/source-documents/**/preview", async (route) => {
+      await route.fulfill({ status: 200, contentType: "image/png", body: thumbnail.toBuffer("image/png") });
+    });
     await page.route("**/api/profiles/**", async (route) => {
       if (route.request().url().includes("/api/profiles/directory")) {
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clientDirectoryFixture) });
@@ -1682,6 +1685,11 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Governed source files", { exact: true })).toBeVisible();
     await expect(page.getByText("Sanitized referral packet.pdf", { exact: true })).toBeVisible();
     await expect(page.getByRole("img", { name: "First-page thumbnail for Sanitized referral packet.pdf" })).toBeVisible();
+    const sourceDocumentLink = page.getByRole("link", { name: "Open Sanitized referral packet.pdf" });
+    await expect(sourceDocumentLink).toHaveAttribute("href", /\/source-documents\/doc-sanitized-100\/preview$/);
+    const sourceDocumentWindow = page.waitForEvent("popup");
+    await sourceDocumentLink.click();
+    await expect((await sourceDocumentWindow).locator("body")).toBeVisible();
     await expect(page.getByText("Stay history", { exact: true })).toBeVisible();
     await expect(page.getByText("Canonical client id", { exact: true })).toHaveCount(0);
     await expect(page.getByText("client-sanitized-100", { exact: true })).toHaveCount(0);
