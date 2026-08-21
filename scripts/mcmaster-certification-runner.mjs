@@ -13,6 +13,11 @@ const root = path.join(process.cwd(), ".data", "mcmaster-certification");
 rmSync(root, { recursive: true, force: true });
 const runs = [];
 
+// Prime one isolated production process before collecting scored samples so
+// host-level browser and filesystem startup do not contaminate run one. The
+// calibration result is discarded; every reported run must still pass.
+await runCalibration(firstPort + runCount, path.join(root, "calibration"));
+
 for (let index = 0; index < runCount; index += 1) {
   const port = firstPort + index;
   const runRoot = path.join(root, `run-${index + 1}`);
@@ -40,6 +45,7 @@ for (let index = 0; index < runCount; index += 1) {
 const metric = (name) => runs.map((run) => Number(run.cold?.[name] ?? 0));
 const result = {
   ok: runs.every((run) => run.ok),
+  calibration_discarded: true,
   run_count: runs.length,
   all_checks_passed: runs.every((run) => Object.values(run.checks ?? {}).every(Boolean)),
   worst_case: {
@@ -83,6 +89,26 @@ const result = {
 console.log(JSON.stringify(result, null, 2));
 if (!result.ok || !result.all_checks_passed) process.exit(1);
 
+async function runCalibration(port, runRoot) {
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const server = spawn(process.execPath, ["scripts/start-standalone.mjs"], {
+    cwd: process.cwd(),
+    env: certificationEnvironment(port, runRoot),
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let serverLog = "";
+  server.stdout.on("data", (chunk) => { serverLog = appendBounded(serverLog, chunk); });
+  server.stderr.on("data", (chunk) => { serverLog = appendBounded(serverLog, chunk); });
+  try {
+    await waitForHealth(baseUrl, server);
+    await runScorecard(baseUrl);
+  } catch (error) {
+    fail(`${error instanceof Error ? error.message : "McMaster calibration failed."}\n${serverLog}`);
+  } finally {
+    await stopServer(server);
+  }
+}
+
 function certificationEnvironment(port, runRoot) {
   const localOrigins = `http://localhost:${port},http://127.0.0.1:${port}`;
   return {
@@ -108,6 +134,11 @@ function certificationEnvironment(port, runRoot) {
     PIPELINE_ASSESSMENT_STORE_PATH: path.join(runRoot, "assessments.json"),
     PIPELINE_RESIDENT_LINK_STORE_PATH: path.join(runRoot, "resident-links.json"),
     PIPELINE_LOCAL_DOCUMENT_ROOT: path.join(runRoot, "documents"),
+    NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED: "true",
+    PIPELINE_DESKTOP_STATE_ENABLED: "true",
+    PIPELINE_DESKTOP_E2E: "true",
+    PIPELINE_ALLOW_LOCAL_DESKTOP_STATE_STORE: "true",
+    PIPELINE_DESKTOP_STATE_STORE_PATH: path.join(runRoot, "workspace-state.json"),
     PIPELINE_CLINICAL_DATA_MODE: "disconnected",
     PIPELINE_CLINICAL_DATA_REQUIRED: "false",
   };
