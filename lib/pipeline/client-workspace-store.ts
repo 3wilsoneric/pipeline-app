@@ -214,7 +214,7 @@ async function listPostgresPipelineClientWorkspaces(
           not ${excludeConfirmed}
           or not exists (
             select 1 from pipeline.resident_links rl
-            where rl.pipeline_client_id = p.external_client_id and rl.status = 'confirmed'
+            where rl.person_id = p.person_id and rl.status = 'confirmed'
           )
         )
       group by p.person_id, p.external_client_id, p.display_name

@@ -30,6 +30,7 @@ check("unmatched imports stay outside durable documents", migration.includes("cl
 check("historical clients can be created only by explicit review", importRoute.includes('action !== "create_client"') && importStore.includes('input.action === "create_client"'));
 check("historical clients use a new stable Pipeline identity", importStore.includes("historical-${randomUUID()}") && importStore.includes("insert into pipeline.people"));
 check("file-only people appear in the unified directory", workspaceStore.includes("pipeline.documents access_document") && workspaceStore.includes("access_document.identity_status = 'linked'"));
+check("confirmed resident links use the physical person relationship", workspaceStore.includes("rl.person_id = p.person_id") && !workspaceStore.includes("rl.pipeline_client_id"));
 check("assessors cannot discover unassigned file-only workspaces", workspaceStore.includes("${ownerId}::text is null and exists") && profileStore.includes("isAssessorUser(user) && referrals.length === 0"));
 check("file-only profiles load from durable documents", profileStore.includes("referrals.length === 0 && documents.length === 0") && profileStore.includes("historical workspace preserves reviewed client files"));
 check("checklist evidence appears in the local client inventory", referralStore.includes("requirement.evidenceDocumentId") && referralStore.includes("requirementFileCategory"));
