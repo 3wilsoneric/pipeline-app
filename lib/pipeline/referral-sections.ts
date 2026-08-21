@@ -35,6 +35,7 @@ const sectionByField = {
   packetReadiness: "documents",
   packetCompleteness: "documents",
   packetMessage: "documents",
+  manualIntakeAuthorization: "documents",
   fieldSources: "documents",
   assessment: "assessment",
   assessmentDocumentName: "assessment",

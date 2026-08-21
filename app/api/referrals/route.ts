@@ -13,14 +13,18 @@ import { parseReferralListQuery } from "@/lib/pipeline/referral-query";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 import { getReferralWorkflowContexts } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { assignedOwnerForCreate, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { assignedOwnerForCreate, isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
+import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
+import { getActiveWorkspaceMember, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
+import { createDefaultAdmissionRequirements } from "@/lib/pipeline/workflow-records";
 
 export const runtime = "nodejs";
 
 type CreateReferralBody = {
   referral?: ReferralCreateInput;
   client_mutation_id?: string;
+  assignee_id?: string;
 };
 
 export async function GET(request: Request) {
@@ -74,12 +78,41 @@ export async function POST(request: Request) {
 
     const referralResult = validateReferralCreateInput(body.value.referral);
     if (!referralResult.ok) return jsonError(referralResult.message, referralResult.status);
+    await touchWorkspaceMember(auth.user);
     const assignment = assignedOwnerForCreate(auth.user, referralResult.value.owner);
-    const knownOwner = assignment.ownerId ? null : await resolveKnownPipelineUser(assignment.owner);
-    const referral = {
+    const selectedOwner = typeof body.value.assignee_id === "string"
+      ? await getActiveWorkspaceMember(body.value.assignee_id)
+      : null;
+    if (body.value.assignee_id !== undefined && !selectedOwner) {
+      return jsonError("Choose an active Pipeline member as owner.", 422);
+    }
+    if (selectedOwner && isAssessorUser(auth.user) && selectedOwner.principal_id !== auth.user.id) {
+      return jsonError("Assessors can assign new referrals only to themselves.", 403);
+    }
+    const knownOwner = selectedOwner || assignment.ownerId ? null : await resolveKnownPipelineUser(assignment.owner);
+    if (!selectedOwner && !assignment.ownerId && !knownOwner && !isUnassignedOwner(assignment.owner)) {
+      return jsonError("Choose an active Pipeline member as owner.", 422);
+    }
+    const assignedReferral = {
       ...referralResult.value,
       ...assignment,
+      ...(selectedOwner ? { owner: selectedOwner.display_name, ownerId: selectedOwner.principal_id } : {}),
       ...(knownOwner ? { owner: knownOwner.name, ownerId: knownOwner.id } : {}),
+    };
+    const defaultRequirements = createDefaultAdmissionRequirements(
+      assignedReferral.requirements ?? [],
+      {},
+      assignedReferral.createdAt,
+      assignedReferral.owner,
+      assignedReferral.ownerId,
+    );
+    const defaultTypes = new Set(defaultRequirements.map((requirement) => requirement.type));
+    const referral = {
+      ...assignedReferral,
+      requirements: [
+        ...defaultRequirements,
+        ...(assignedReferral.requirements ?? []).filter((requirement) => !defaultTypes.has(requirement.type)),
+      ],
     };
 
     if (

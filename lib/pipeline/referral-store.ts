@@ -661,8 +661,8 @@ async function patchLocalReferral(
     const assessments = await listAssessments({ referralId: current.id, limit: 100 });
     const blockers = getReferralTransitionBlockers(current, patch.stage as ReferralStage, {
       assessmentComplete: assessments.assessments.some((assessment) => assessment.status === "complete"),
-      decision: current.admissionDecision ?? null,
-      requirements: current.requirements ?? [],
+      decision: safePatch.admissionDecision ?? current.admissionDecision ?? null,
+      requirements: safePatch.requirements ?? current.requirements ?? [],
     });
     if (blockers.length > 0) {
       return { ok: false, blocked: true, blockers, referral: current };
@@ -1215,6 +1215,8 @@ async function patchPostgresReferral(
         return { ok: false, blocked: true, blockers: [{ code: "stage_invalid", label: "Choose a valid workflow stage." }], referral: current };
       }
       const workflow = await getPostgresWorkflowContext(tx, id, current);
+      workflow.decision = safePatch.admissionDecision ?? workflow.decision;
+      workflow.requirements = safePatch.requirements ?? workflow.requirements;
       const blockers = getReferralTransitionBlockers(current, patch.stage as ReferralStage, workflow);
       if (blockers.length > 0) return { ok: false, blocked: true, blockers, referral: current };
     }
@@ -1346,6 +1348,7 @@ type WorkflowRequirementRow = {
   label: string;
   gate: AdmissionRequirement["requiredFor"];
   status: AdmissionRequirement["status"];
+  owner_id: string | null;
   owner_name: string | null;
   due_at: Date | string | null;
   next_action: string;
@@ -1377,7 +1380,7 @@ async function getPostgresWorkflowContext(tx: TransactionSql, referralId: number
       ) as complete
     `,
     tx<WorkflowRequirementRow[]>`
-      select work_item_id, type, label, gate, status, owner_name, due_at,
+      select work_item_id, type, label, gate, status, owner_id, owner_name, due_at,
              next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
       from pipeline.work_items
       where referral_id = ${referralId}
@@ -1409,6 +1412,7 @@ function mapWorkflowRequirementRow(row: WorkflowRequirementRow): AdmissionRequir
     label: row.label,
     status: row.status,
     requiredFor: row.gate,
+    ownerId: row.owner_id ?? undefined,
     owner: row.owner_name ?? "",
     dueAt: row.due_at ? isoTimestamp(row.due_at) : "",
     nextStep: row.next_action,
@@ -1448,12 +1452,12 @@ async function syncPostgresWorkItems(
     await tx`
       insert into pipeline.work_items (
         work_item_id, referral_id, person_id, type, label, gate, status,
-        owner_name, due_at, next_action, blocker, evidence_document_id, evidence_document_name,
+        owner_id, owner_name, due_at, next_action, blocker, evidence_document_id, evidence_document_name,
         waiver_reason, version, updated_at
       ) values (
         ${requirement.id}::uuid, ${referralId}, ${personId}::uuid, ${requirement.type},
         ${requirement.label}, ${requirement.requiredFor}, ${requirement.status},
-        ${requirement.owner || null}, ${requirement.dueAt ? new Date(requirement.dueAt) : null},
+        ${requirement.ownerId || null}, ${requirement.owner || null}, ${requirement.dueAt ? new Date(requirement.dueAt) : null},
         ${requirement.nextStep}, ${requirement.blocker}, ${requirement.evidenceDocumentId ?? null}::uuid,
         ${requirement.evidenceDocumentName ?? null},
         ${requirement.waiverReason ?? null}, ${requirement.version ?? 1}, ${new Date(requirement.updatedAt)}
@@ -1463,6 +1467,7 @@ async function syncPostgresWorkItems(
         label = excluded.label,
         gate = excluded.gate,
         status = excluded.status,
+        owner_id = excluded.owner_id,
         owner_name = excluded.owner_name,
         due_at = excluded.due_at,
         next_action = excluded.next_action,
@@ -1643,6 +1648,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "packetReadiness",
     "packetCompleteness",
     "packetMessage",
+    "manualIntakeAuthorization",
     "assessment",
     "assessmentDocumentName",
     "assessmentDocumentSizeBytes",
@@ -1813,12 +1819,18 @@ function searchableReferralText(referral: Referral) {
 
 function getReferralFiles(referral: Referral): ReferralFile[] {
   const files: ReferralFile[] = [];
+  const initialDocumentRequirement = (referral.requirements ?? []).find((requirement) => (
+    requirement.evidenceDocumentId
+    && requirement.evidenceDocumentName?.trim() === referral.documentName.trim()
+  ));
 
   if (referral.documentName.trim() && referral.documentStatus !== "Missing") {
     files.push({
-      id: `referral-${referral.id}-packet`,
+      id: initialDocumentRequirement?.evidenceDocumentId ?? `referral-${referral.id}-packet`,
       name: referral.documentName,
-      category: "Referral packet",
+      category: initialDocumentRequirement
+        ? requirementFileCategory(initialDocumentRequirement.type)
+        : "Referral packet",
       referralId: referral.id,
       clientId: referral.clientId,
       referralName: referral.name,
@@ -1853,8 +1865,10 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
     });
   }
 
+  const includedIds = new Set(files.map((file) => file.id));
   for (const requirement of referral.requirements ?? []) {
     if (!requirement.evidenceDocumentId || !requirement.evidenceDocumentName?.trim()) continue;
+    if (includedIds.has(requirement.evidenceDocumentId)) continue;
     files.push({
       id: requirement.evidenceDocumentId,
       name: requirement.evidenceDocumentName,
@@ -1869,6 +1883,7 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
       sourceSystem: "pipeline",
       identityStatus: "linked",
     });
+    includedIds.add(requirement.evidenceDocumentId);
   }
 
   return files;

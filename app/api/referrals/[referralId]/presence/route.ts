@@ -4,11 +4,11 @@ import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import {
   heartbeatEditingPresence,
+  isEditingPresenceSection,
   listEditingPresence,
   releaseEditingPresence,
 } from "@/lib/pipeline/editing-presence";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
-import { isReferralSection } from "@/lib/pipeline/referral-sections";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
@@ -51,7 +51,7 @@ export async function POST(
     const body = await readJsonBody<PresenceBody>(request);
     if (!body.ok) return jsonError(body.message, body.status);
     if (!validLeaseId(body.value?.lease_id)) return jsonError("lease_id must be a UUID.");
-    if (!body.value?.section || !isReferralSection(body.value.section)) return jsonError("section is invalid.");
+    if (!body.value?.section || !isEditingPresenceSection(body.value.section)) return jsonError("section is invalid.");
     const access = await requireReferralAccess(auth.user, parsed.id);
     if (!access.ok) return access.response;
 

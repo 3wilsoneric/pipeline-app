@@ -171,7 +171,7 @@ test.describe("desktop feature enabled", () => {
       const payload = await response.json() as { draft?: unknown };
       return Boolean(payload.draft);
     }).toBeTruthy();
-    await page.getByRole("button", { name: "Create referral" }).click();
+    await page.getByRole("button", { name: "Create workspace" }).click();
     await expect.poll(async () => {
       const response = await page.request.get("/api/me/referral-drafts/new");
       return (await response.json()) as { draft?: unknown; version?: number };

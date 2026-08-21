@@ -316,10 +316,14 @@ function mapLocalPipelineClient(clientId: string, referrals: Referral[]): Client
   const communities = [...new Set(sorted.map((referral) => referral.community))];
   const documentNames = new Set<string>();
   for (const referral of sorted) {
-    if (referral.documentName.trim()) documentNames.add(`${referral.id}:packet:${referral.documentName}`);
-    if (referral.assessmentDocumentName?.trim()) documentNames.add(`${referral.id}:assessment:${referral.assessmentDocumentName}`);
+    const addDocument = (name: string | null | undefined) => {
+      const normalized = name?.trim().toLowerCase();
+      if (normalized) documentNames.add(`${referral.id}:${normalized}`);
+    };
+    addDocument(referral.documentName);
+    addDocument(referral.assessmentDocumentName);
     for (const requirement of referral.requirements ?? []) {
-      if (requirement.evidenceDocumentName?.trim()) documentNames.add(`${referral.id}:${requirement.type}:${requirement.evidenceDocumentName}`);
+      addDocument(requirement.evidenceDocumentName);
     }
   }
   return {

@@ -421,7 +421,7 @@ export default function ClientProfileDirectory({
         ) : null}
 
         {dataAsOf && !error ? (
-          <div className="py-4 text-right text-[10px] uppercase tracking-[0.1em] text-[#8a8a8a]">
+          <div className="py-4 text-right text-[10px] uppercase tracking-[0.1em] text-[#595959]">
             Client directory · Data through {formatDate(dataAsOf)}
           </div>
         ) : null}
@@ -476,7 +476,7 @@ function AddFilterButton({
       title={disabled ? "Wait for the complete directory before filtering" : `Add ${accessibleLabel.toLowerCase()} filter`}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-9 items-center gap-2 border border-[#d4d4d4] bg-white px-3 text-[10px] font-black uppercase tracking-[0.06em] text-[#4d4d4d] transition-colors hover:border-[#0f8b73] hover:bg-[#f5faf8] hover:text-[#0f8b73] focus-visible:border-[#0f8b73] focus-visible:outline-none disabled:border-[#e8e8e8] disabled:text-[#b3b3b3]"
+      className="flex h-9 items-center gap-2 border border-[#d4d4d4] bg-white px-3 text-[10px] font-black uppercase tracking-[0.06em] text-[#4d4d4d] transition-colors hover:border-[#0f8b73] hover:bg-[#f5faf8] hover:text-[#0f8b73] focus-visible:border-[#0f8b73] focus-visible:outline-none disabled:border-[#d9d9d9] disabled:text-[#595959]"
     >
       <Plus size={13} />
       {icon}

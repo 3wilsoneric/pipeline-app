@@ -10,6 +10,7 @@ import type {
   Referral,
   RequirementStatus,
 } from "@/lib/pipeline/referral-types";
+import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
 
 const statuses: Array<{ value: RequirementStatus; label: string }> = [
   { value: "needed", label: "Needed" },
@@ -22,12 +23,14 @@ const statuses: Array<{ value: RequirementStatus; label: string }> = [
 
 type Draft = {
   status: RequirementStatus;
+  ownerId: string;
   owner: string;
   dueAt: string;
   nextStep: string;
   blocker: boolean;
   evidenceDocumentName: string;
   waiverReason: string;
+  handoffReason: string;
 };
 
 export default function ReferralRequirementsEditor({
@@ -44,6 +47,13 @@ export default function ReferralRequirementsEditor({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+
+  useEffect(() => {
+    fetchPipelineJson<{ members: WorkspaceMember[] }>("/api/members", { cache: "no-store" })
+      .then((payload) => setMembers(payload.members))
+      .catch(() => setError("The owner list could not be loaded."));
+  }, []);
 
   const load = useCallback(async () => {
     if (!referral?.id) {
@@ -84,8 +94,12 @@ export default function ReferralRequirementsEditor({
 
   const save = async (item: AdmissionRequirement) => {
     if (!referral || !draft) return;
-    if (isUnassignedOwner(draft.owner) || !draft.dueAt || !draft.nextStep.trim()) {
+    if (!draft.ownerId || isUnassignedOwner(draft.owner) || !draft.dueAt || !draft.nextStep.trim()) {
       setError("Add an owner, due date, and next action before saving.");
+      return;
+    }
+    if (draft.ownerId !== (item.ownerId ?? "") && !isUnassignedOwner(item.owner) && draft.handoffReason.trim().length < 3) {
+      setError("Add a brief handoff reason when changing the owner.");
       return;
     }
     if (draft.status === "waived" && !draft.waiverReason.trim()) {
@@ -114,6 +128,8 @@ export default function ReferralRequirementsEditor({
             evidenceDocumentName: draft.evidenceDocumentName.trim(),
             waiverReason: draft.status === "waived" ? draft.waiverReason.trim() : "",
           },
+          owner_principal_id: draft.ownerId,
+          ...(draft.handoffReason.trim() ? { handoff_reason: draft.handoffReason.trim() } : {}),
         }),
       });
       setItems((current) => current.map((entry) => entry.id === item.id ? payload.work_item : entry));
@@ -206,11 +222,18 @@ export default function ReferralRequirementsEditor({
                     </label>
                     <label className="text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]">
                       Owner
-                      <input
-                        value={draft.owner}
-                        onChange={(event) => setDraft({ ...draft, owner: event.target.value })}
+                      <select
+                        value={draft.ownerId || (isUnassignedOwner(draft.owner) ? "" : "__unlinked")}
+                        onChange={(event) => {
+                          const member = members.find((candidate) => candidate.principal_id === event.target.value);
+                          setDraft({ ...draft, ownerId: member?.principal_id ?? "", owner: member?.display_name ?? "" });
+                        }}
                         className="mt-1 h-9 w-full border border-[#c9ceca] bg-white px-2 text-[12px] normal-case tracking-[0] outline-none focus:border-[#0f8b73]"
-                      />
+                      >
+                        <option value="">Choose owner</option>
+                        {!draft.ownerId && !isUnassignedOwner(draft.owner) ? <option value="__unlinked" disabled>{draft.owner} (choose member)</option> : null}
+                        {members.map((member) => <option key={member.principal_id} value={member.principal_id}>{member.display_name}</option>)}
+                      </select>
                     </label>
                     <label className="text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]">
                       Next action
@@ -248,6 +271,17 @@ export default function ReferralRequirementsEditor({
                         />
                       </label>
                     ) : null}
+                    {draft.ownerId !== (item.ownerId ?? "") && !isUnassignedOwner(item.owner) ? (
+                      <label className="md:col-span-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]">
+                        Handoff reason
+                        <input
+                          value={draft.handoffReason}
+                          onChange={(event) => setDraft({ ...draft, handoffReason: event.target.value })}
+                          placeholder="Why is ownership changing?"
+                          className="mt-1 h-9 w-full border border-[#c9ceca] bg-white px-2 text-[12px] normal-case tracking-[0] outline-none focus:border-[#0f8b73]"
+                        />
+                      </label>
+                    ) : null}
                     <label className="flex h-9 items-center gap-2 text-[11px] font-semibold text-[#595959]">
                       <input
                         type="checkbox"
@@ -279,12 +313,14 @@ export default function ReferralRequirementsEditor({
 function toDraft(item: AdmissionRequirement): Draft {
   return {
     status: item.status,
+    ownerId: item.ownerId ?? "",
     owner: isUnassignedOwner(item.owner) ? "" : item.owner,
     dueAt: item.dueAt ? item.dueAt.slice(0, 10) : "",
     nextStep: item.nextStep,
     blocker: item.blocker,
     evidenceDocumentName: item.evidenceDocumentName ?? "",
     waiverReason: item.waiverReason ?? "",
+    handoffReason: "",
   };
 }
 

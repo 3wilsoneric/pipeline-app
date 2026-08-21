@@ -8,7 +8,7 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
     });
 
     await page.goto("/?view=referrals");
-    await expect(page.getByRole("heading", { name: "Referral packets", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
     const initialDocumentRequests = documentRequests;
     await page.locator("header").evaluate((header) => {
       header.setAttribute("data-persistence-check", "same-shell");
@@ -25,7 +25,7 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
     await page.goBack();
     await expect(page.getByLabel("Search clients", { exact: true })).toBeVisible();
     await page.goBack();
-    await expect(page.getByRole("heading", { name: "Referral packets", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
     await expect(page.locator('header[data-persistence-check="same-shell"]')).toBeVisible();
     expect(documentRequests).toBe(initialDocumentRequests);
   });
@@ -40,7 +40,7 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
     });
 
     await page.goto("/?view=referrals");
-    await expect(page.getByRole("heading", { name: "Referral packets", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
     await expect.poll(() => directoryRequests).toBe(1);
     expect(worklistRequests).toBe(0);
 

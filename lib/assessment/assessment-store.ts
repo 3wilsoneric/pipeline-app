@@ -16,7 +16,6 @@ import {
 import {
   assessmentToolFieldDefinitions,
   createEmptyAssessmentToolData,
-  getAssessmentToolCompleteness,
   mapExtractedAssessmentFields,
   pickAssessmentToolData,
   validateAssessmentToolData,
@@ -27,6 +26,7 @@ import {
   type AssessmentToolFieldKey,
   type UnmappedAssessmentField,
 } from "./assessment-tool-schema";
+import { getAssessmentCompletionSummary } from "./assessment-completion";
 import {
   preserveCanonicalClientId,
   type AssessmentActor,
@@ -37,6 +37,13 @@ import {
   type AssessmentPatchInput,
   type PipelineAssessmentRecord,
 } from "./assessment-records";
+import {
+  assessmentSectionForField,
+  defaultAssessmentSectionVersions,
+  normalizeAssessmentSectionVersions,
+  incrementAssessmentSectionVersions,
+} from "./assessment-sections";
+import type { AssessmentToolSection } from "./assessment-tool-schema";
 
 type AssessmentStoreState = {
   initialized: boolean;
@@ -45,6 +52,7 @@ type AssessmentStoreState = {
   assessments: PipelineAssessmentRecord[];
   createMutations: Map<string, string>;
   importMutations: Map<string, string>;
+  patchMutations: Map<string, string>;
   persistQueue: Promise<void>;
   mutationQueue: Promise<void>;
 };
@@ -55,6 +63,14 @@ type AssessmentStoreFile = {
   assessments: PipelineAssessmentRecord[];
   create_mutations?: Record<string, string>;
   import_mutations?: Record<string, string>;
+  patch_mutations?: Record<string, string>;
+};
+
+export type AssessmentPatchOptions = {
+  expectedVersion?: number;
+  section?: AssessmentToolSection;
+  expectedSectionVersion?: number;
+  mutationId?: string;
 };
 
 export type AssessmentListOptions = {
@@ -100,7 +116,7 @@ export interface AssessmentStore {
   list(options?: AssessmentListOptions): Promise<AssessmentListResponse>;
   get(assessmentId: string): Promise<PipelineAssessmentRecord | null>;
   create(input: AssessmentCreateInput, actor: AssessmentActor, mutationId?: string): Promise<AssessmentMutation>;
-  patch(assessmentId: string, patch: AssessmentPatchInput, actor: AssessmentActor, expectedVersion?: number): Promise<AssessmentMutation | null>;
+  patch(assessmentId: string, patch: AssessmentPatchInput, actor: AssessmentActor, options?: AssessmentPatchOptions): Promise<AssessmentMutation | null>;
   importExtraction(input: AssessmentImportInput): Promise<AssessmentMutation | null>;
 }
 
@@ -115,12 +131,14 @@ const state = globalForAssessmentStore.__pipelineAssessmentStore ??
     assessments: [],
     createMutations: new Map<string, string>(),
     importMutations: new Map<string, string>(),
+    patchMutations: new Map<string, string>(),
     persistQueue: Promise.resolve(),
     mutationQueue: Promise.resolve(),
   });
 
 state.createMutations ??= new Map<string, string>();
 state.importMutations ??= new Map<string, string>();
+state.patchMutations ??= new Map<string, string>();
 state.persistQueue ??= Promise.resolve();
 state.mutationQueue ??= Promise.resolve();
 
@@ -209,9 +227,9 @@ export async function patchAssessment(
   assessmentId: string,
   patch: AssessmentPatchInput,
   actor: AssessmentActor,
-  expectedVersion?: number,
+  options?: AssessmentPatchOptions,
 ) {
-  return getAssessmentStore().patch(assessmentId, patch, actor, expectedVersion);
+  return getAssessmentStore().patch(assessmentId, patch, actor, options);
 }
 
 export async function importAssessmentExtraction(input: AssessmentImportInput) {
@@ -239,6 +257,7 @@ async function ensureLoaded() {
       state.revision = Number.isInteger(parsed.revision) ? Number(parsed.revision) : 0;
       state.createMutations = safeMutationMap(parsed.create_mutations);
       state.importMutations = safeMutationMap(parsed.import_mutations);
+      state.patchMutations = safeMutationMap(parsed.patch_mutations);
     } catch (error) {
       if (!isMissingFile(error)) {
         console.warn(JSON.stringify({
@@ -260,6 +279,7 @@ async function persist() {
     assessments: state.assessments,
     create_mutations: Object.fromEntries(state.createMutations),
     import_mutations: Object.fromEntries(state.importMutations),
+    patch_mutations: Object.fromEntries(state.patchMutations),
   };
   const path = storePath();
   const temporaryPath = `${path}.${process.pid}.tmp`;
@@ -357,6 +377,7 @@ async function createLocalAssessment(
       status,
       completed_at: status === "complete" ? now : null,
       version: 1,
+      section_versions: defaultAssessmentSectionVersions(),
       created_at: now,
       updated_at: now,
       created_by: actor,
@@ -382,16 +403,24 @@ async function patchLocalAssessment(
   assessmentId: string,
   patch: AssessmentPatchInput,
   actor: AssessmentActor,
-  expectedVersion?: number,
+  options: AssessmentPatchOptions = {},
 ): Promise<AssessmentMutation | null> {
   await ensureLoaded();
   return withMutation(async () => {
     const index = state.assessments.findIndex((assessment) => assessment.assessment_id === assessmentId);
     if (index < 0) return null;
     const current = state.assessments[index];
-    if (expectedVersion !== undefined && expectedVersion !== current.version) {
+    if (options.mutationId && state.patchMutations.get(options.mutationId) === assessmentId) {
+      return { ok: true, assessment: current, revision: state.revision };
+    }
+    const sectionVersions = normalizeAssessmentSectionVersions(current.section_versions);
+    if (options.section && options.expectedSectionVersion !== sectionVersions[options.section]) {
       return { ok: false, conflict: true, assessment: current };
     }
+    if (!options.section && options.expectedVersion !== undefined && options.expectedVersion !== current.version) {
+      return { ok: false, conflict: true, assessment: current };
+    }
+    assertPatchMatchesSection(patch, options.section);
 
     const currentData = pickAssessmentToolData(current);
     const nextData = pickAssessmentToolData({ ...currentData, ...(patch.data ?? {}) });
@@ -400,6 +429,9 @@ async function patchLocalAssessment(
     const changedFields = assessmentToolFieldDefinitions
       .filter((definition) => !sameValue(currentData[definition.key], nextData[definition.key]))
       .map((definition) => definition.key);
+    const changedSections = changedFields
+      .map(assessmentSectionForField)
+      .filter((section): section is AssessmentToolSection => Boolean(section));
     const fieldProvenance = cloneProvenance(current.field_provenance);
 
     for (const key of changedFields) {
@@ -427,6 +459,21 @@ async function patchLocalAssessment(
     const nextStatus = patch.status ?? (
       patch.accept_pending && current.status === "needs_review" ? "draft" : current.status
     );
+    const completesAssessment = nextStatus === "complete" && current.status !== "complete";
+    const localReferral = completesAssessment
+      ? await loadLocalAssessmentReferral(current.referral_id)
+      : null;
+    if (completesAssessment && localReferral && !["Assessment", "Community Review"].includes(localReferral.stage)) {
+      return {
+        ok: false,
+        blocked: true,
+        assessment: current,
+        blockers: [{
+          code: "assessment_stage_required",
+          label: "Move the referral into Assessment before completing this assessment.",
+        }],
+      };
+    }
     const now = new Date().toISOString();
     const candidate: PipelineAssessmentRecord = {
       ...current,
@@ -438,6 +485,12 @@ async function patchLocalAssessment(
       status: nextStatus,
       completed_at: nextStatus === "complete" ? current.completed_at ?? now : null,
       version: current.version + 1,
+      section_versions: incrementAssessmentSectionVersions(current.section_versions, [
+        ...changedSections,
+        ...acceptedFields
+          .map(assessmentSectionForField)
+          .filter((section): section is AssessmentToolSection => Boolean(section)),
+      ]),
       updated_at: now,
       updated_by: actor,
       field_provenance: fieldProvenance,
@@ -458,7 +511,11 @@ async function patchLocalAssessment(
     );
     state.assessments[index] = candidate;
     state.revision += 1;
+    if (options.mutationId) state.patchMutations.set(options.mutationId, assessmentId);
     await persist();
+    if (completesAssessment && localReferral?.stage === "Assessment") {
+      await advanceLocalReferralAfterAssessment(localReferral, actor);
+    }
     return { ok: true, assessment: candidate, revision: state.revision };
   });
 }
@@ -497,6 +554,9 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
     const changedFields = assessmentToolFieldDefinitions
       .filter((definition) => !sameValue(baseData[definition.key], merged.data[definition.key]))
       .map((definition) => definition.key);
+    const changedSections = changedFields
+      .map(assessmentSectionForField)
+      .filter((section): section is AssessmentToolSection => Boolean(section));
     const event = createAuditEvent(
       assessmentId,
       input.referralId,
@@ -514,6 +574,10 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
       status: "needs_review",
       completed_at: null,
       version: current ? current.version + 1 : 1,
+      section_versions: incrementAssessmentSectionVersions(
+        current?.section_versions ?? defaultAssessmentSectionVersions(),
+        changedSections,
+      ),
       created_at: current?.created_at ?? now,
       updated_at: now,
       created_by: current?.created_by ?? input.actor,
@@ -543,6 +607,7 @@ type AssessmentRow = {
   status: PipelineAssessmentRecord["status"];
   data: unknown;
   version: number;
+  section_versions: unknown;
   completed_at: Date | string | null;
   created_by: string;
   created_by_name: string;
@@ -692,6 +757,7 @@ async function createPostgresAssessment(
     status,
     completed_at: status === "complete" ? now : null,
     version: 1,
+    section_versions: defaultAssessmentSectionVersions(),
     created_at: now,
     updated_at: now,
     created_by: actor,
@@ -727,15 +793,25 @@ async function patchPostgresAssessment(
   assessmentId: string,
   patch: AssessmentPatchInput,
   actor: AssessmentActor,
-  expectedVersion?: number,
+  options: AssessmentPatchOptions = {},
 ): Promise<AssessmentMutation | null> {
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
+    if (options.mutationId) {
+      await lockIdempotencyMutation(tx, "assessment_patch", options.mutationId);
+      const existing = await findIdempotentAssessment(tx, "assessment_patch", options.mutationId);
+      if (existing) return { ok: true, assessment: existing, revision: await getAssessmentRevisionInTransaction(tx) };
+    }
     const current = await getAssessmentInTransaction(tx, assessmentId, true);
     if (!current) return null;
-    if (expectedVersion !== undefined && expectedVersion !== current.version) {
+    const sectionVersions = normalizeAssessmentSectionVersions(current.section_versions);
+    if (options.section && options.expectedSectionVersion !== sectionVersions[options.section]) {
       return { ok: false, conflict: true, assessment: current };
     }
+    if (!options.section && options.expectedVersion !== undefined && options.expectedVersion !== current.version) {
+      return { ok: false, conflict: true, assessment: current };
+    }
+    assertPatchMatchesSection(patch, options.section);
 
     const currentData = pickAssessmentToolData(current);
     const nextData = pickAssessmentToolData({ ...currentData, ...(patch.data ?? {}) });
@@ -744,6 +820,9 @@ async function patchPostgresAssessment(
     const changedFields = assessmentToolFieldDefinitions
       .filter((definition) => !sameValue(currentData[definition.key], nextData[definition.key]))
       .map((definition) => definition.key);
+    const changedSections = changedFields
+      .map(assessmentSectionForField)
+      .filter((section): section is AssessmentToolSection => Boolean(section));
     const fieldProvenance = cloneProvenance(current.field_provenance);
     for (const key of changedFields) {
       appendProvenance(fieldProvenance, key, {
@@ -767,6 +846,26 @@ async function patchPostgresAssessment(
     const nextStatus = patch.status ?? (
       patch.accept_pending && current.status === "needs_review" ? "draft" : current.status
     );
+    const completesAssessment = nextStatus === "complete" && current.status !== "complete";
+    if (completesAssessment) {
+      const stageRows = await tx<{ stage: string }[]>`
+        select stage from pipeline.referrals
+        where referral_id = ${current.referral_id}
+        for update
+      `;
+      if (!stageRows[0]) throw new Error("The assessment referral no longer exists.");
+      if (!["Assessment", "Community Review"].includes(stageRows[0].stage)) {
+        return {
+          ok: false,
+          blocked: true,
+          assessment: current,
+          blockers: [{
+            code: "assessment_stage_required",
+            label: "Move the referral into Assessment before completing this assessment.",
+          }],
+        };
+      }
+    }
     const now = new Date().toISOString();
     const candidate: PipelineAssessmentRecord = {
       ...current,
@@ -776,6 +875,12 @@ async function patchPostgresAssessment(
       status: nextStatus,
       completed_at: nextStatus === "complete" ? current.completed_at ?? now : null,
       version: current.version + 1,
+      section_versions: incrementAssessmentSectionVersions(current.section_versions, [
+        ...changedSections,
+        ...acceptedFields
+          .map(assessmentSectionForField)
+          .filter((section): section is AssessmentToolSection => Boolean(section)),
+      ]),
       updated_at: now,
       updated_by: actor,
       field_provenance: fieldProvenance,
@@ -796,10 +901,91 @@ async function patchPostgresAssessment(
     }
     await insertAssessmentProvenance(tx, assessmentId, fieldProvenance, current.field_provenance);
     await writeAssessmentAudit(tx, candidate, action, actor, allChangedFields);
+    if (completesAssessment) {
+      await advancePostgresReferralAfterAssessment(tx, current.referral_id, actor);
+    }
+    if (options.mutationId) {
+      await saveAssessmentIdempotency(tx, "assessment_patch", options.mutationId, assessmentId);
+    }
     const saved = await getAssessmentInTransaction(tx, assessmentId);
     if (!saved) throw new Error("The assessment could not be read after update.");
     return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx) };
   });
+}
+
+function assertPatchMatchesSection(
+  patch: AssessmentPatchInput,
+  section: AssessmentToolSection | undefined,
+) {
+  if (!section || !patch.data) return;
+  const mismatched = Object.keys(patch.data)
+    .filter((field): field is AssessmentToolFieldKey => assessmentToolFieldDefinitions.some((definition) => definition.key === field))
+    .filter((field) => assessmentSectionForField(field) !== section);
+  if (mismatched.length > 0) {
+    throw new Error(`Assessment section patch contains fields outside ${section}.`);
+  }
+}
+
+async function loadLocalAssessmentReferral(referralId: number) {
+  const { getReferral } = await import("@/lib/pipeline/referral-store");
+  return getReferral(referralId);
+}
+
+async function advanceLocalReferralAfterAssessment(
+  referral: NonNullable<Awaited<ReturnType<typeof loadLocalAssessmentReferral>>>,
+  actor: AssessmentActor,
+) {
+  const { patchReferral } = await import("@/lib/pipeline/referral-store");
+  const result = await patchReferral(
+    referral.id,
+    { stage: "Community Review" },
+    referral.version,
+    actor,
+    { workflow: referral.sectionVersions?.workflow ?? 1 },
+    { auditAction: "assessment_completed", auditReason: "Canonical assessment completed." },
+  );
+  if (!result?.ok) {
+    throw new Error("The assessment was saved, but the referral could not advance to community review.");
+  }
+}
+
+async function advancePostgresReferralAfterAssessment(
+  tx: TransactionSql,
+  referralId: number,
+  actor: AssessmentActor,
+) {
+  const rows = await tx<{ version: number; stage: string }[]>`
+    update pipeline.referrals
+    set stage = 'Community Review',
+        version = version + 1,
+        section_versions = jsonb_set(
+          section_versions,
+          '{workflow}',
+          to_jsonb(coalesce((section_versions->>'workflow')::integer, 1) + 1)
+        ),
+        updated_by = ${actor.id},
+        updated_by_name = ${actor.name},
+        updated_at = now()
+    where referral_id = ${referralId} and stage = 'Assessment'
+    returning version, stage
+  `;
+  if (!rows[0]) return;
+
+  await tx`
+    insert into pipeline.audit_events (
+      entity_type, entity_id, action, actor_id, actor_name,
+      from_version, to_version, changed_fields, metadata
+    ) values (
+      'referral', ${String(referralId)}, 'assessment_completed', ${actor.id}, ${actor.name},
+      ${rows[0].version - 1}, ${rows[0].version}, ${["stage"]},
+      ${tx.json({ from_stage: "Assessment", to_stage: "Community Review" })}
+    )
+  `;
+  await tx`
+    update pipeline.store_revisions
+    set revision = revision + 1, updated_at = now()
+    where store_name in ('referrals', 'workflow')
+  `;
 }
 
 async function importPostgresAssessmentExtraction(input: AssessmentImportInput): Promise<AssessmentMutation | null> {
@@ -831,6 +1017,9 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
     const changedFields = assessmentToolFieldDefinitions
       .filter((definition) => !sameValue(baseData[definition.key], merged.data[definition.key]))
       .map((definition) => definition.key);
+    const changedSections = changedFields
+      .map(assessmentSectionForField)
+      .filter((section): section is AssessmentToolSection => Boolean(section));
     const assessment: PipelineAssessmentRecord = {
       ...(current ?? {} as PipelineAssessmentRecord),
       ...merged.data,
@@ -841,6 +1030,10 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
       status: "needs_review",
       completed_at: null,
       version: current ? current.version + 1 : 1,
+      section_versions: incrementAssessmentSectionVersions(
+        current?.section_versions ?? defaultAssessmentSectionVersions(),
+        changedSections,
+      ),
       created_at: current?.created_at ?? now,
       updated_at: now,
       created_by: current?.created_by ?? input.actor,
@@ -960,6 +1153,7 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
       status: row.status,
       completed_at: row.completed_at ? isoTimestamp(row.completed_at) : null,
       version: Number(row.version),
+      section_versions: normalizeAssessmentSectionVersions(row.section_versions),
       created_at: isoTimestamp(row.created_at),
       updated_at: isoTimestamp(row.updated_at),
       created_by: { id: row.created_by, name: row.created_by_name },
@@ -976,13 +1170,14 @@ async function insertAssessmentRow(tx: TransactionSql, assessment: PipelineAsses
     insert into pipeline.assessments (
       assessment_id, referral_id, canonical_client_id, resident_key, resident_number, assessment_date,
       assessor_id, assessor_name, status, data, version, completed_at,
-      created_by, created_by_name, updated_by, updated_by_name, created_at, updated_at
+      section_versions, created_by, created_by_name, updated_by, updated_by_name, created_at, updated_at
     ) values (
       ${assessment.assessment_id}, ${assessment.referral_id}, ${assessment.canonical_client_id}, ${assessment.resident_key},
       ${assessment.resident_number}, ${assessment.assessment_date}::date,
       ${assessment.assessor === assessment.updated_by.name ? assessment.updated_by.id : null},
       ${assessment.assessor}, ${assessment.status},
       ${tx.json(pickAssessmentToolData(assessment))}, ${assessment.version}, ${assessment.completed_at}::timestamptz,
+      ${tx.json(assessment.section_versions)},
       ${assessment.created_by.id}, ${assessment.created_by.name}, ${assessment.updated_by.id},
       ${assessment.updated_by.name}, ${assessment.created_at}::timestamptz, ${assessment.updated_at}::timestamptz
     )
@@ -1008,6 +1203,7 @@ async function updateAssessmentRow(
         assessor_name = ${assessment.assessor},
         status = ${assessment.status},
         data = ${tx.json(pickAssessmentToolData(assessment))},
+        section_versions = ${tx.json(assessment.section_versions)},
         version = version + 1,
         completed_at = ${assessment.completed_at}::timestamptz,
         updated_by = ${assessment.updated_by.id},
@@ -1237,12 +1433,12 @@ function mergeImportedData(
 
 function completionBlockers(assessment: PipelineAssessmentRecord) {
   const blockers: { code: string; label: string; fields?: AssessmentToolFieldKey[] }[] = [];
-  const completeness = getAssessmentToolCompleteness(assessment);
-  if (completeness.missing_fields.length > 0) {
+  const completeness = getAssessmentCompletionSummary(assessment);
+  if (completeness.missing.length > 0) {
     blockers.push({
-      code: "assessment_identity_incomplete",
-      label: "Complete the resident identity, assessment date, and assessor before finishing.",
-      fields: completeness.missing_fields,
+      code: "assessment_data_incomplete",
+      label: "Complete the required identity and core clinical assessment sections before finishing.",
+      fields: [...new Set(completeness.missing.flatMap((rule) => rule.fields))],
     });
   }
   const pending = pendingFields(assessment.field_provenance);
@@ -1268,6 +1464,7 @@ function normalizeAssessmentRecord(value: PipelineAssessmentRecord): PipelineAss
     ...value,
     ...data,
     version: Number.isInteger(value.version) && value.version > 0 ? value.version : 1,
+    section_versions: normalizeAssessmentSectionVersions(value.section_versions),
     canonical_client_id: value.canonical_client_id?.trim() || null,
     resident_key: value.resident_key?.trim() || null,
     status: ["draft", "needs_review", "complete"].includes(value.status) ? value.status : "draft",

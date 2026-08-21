@@ -31,7 +31,14 @@ const sql = postgres(process.env.PIPELINE_DATABASE_URL.trim(), {
   connection: { application_name: "pipeline-client-file-import" },
 });
 
+let importFailure = false;
 try {
+  const batches = await sql`
+    select import_batch_id from pipeline.client_file_import_batches
+    where manifest_sha256 = ${manifestSha256}
+    limit 1
+  `;
+  if (!batches[0]) throw new Error("batch_not_staged");
   const rows = await sql`
     select
       i.import_item_id::text,
@@ -55,6 +62,7 @@ try {
     order by i.created_at, i.import_item_id
   `;
   if (dryRun) {
+    await sql.end({ timeout: 5 });
     console.log(JSON.stringify({ ok: true, dry_run: true, confirmed_ready: rows.length, manifest_items: manifest.items.length }));
     process.exit(0);
   }
@@ -63,32 +71,31 @@ try {
   const containerName = process.env.AZURE_STORAGE_CONTAINER_RAW?.trim() || "raw";
   const credential = new DefaultAzureCredential({ managedIdentityClientId: process.env.AZURE_CLIENT_ID?.trim() || undefined });
   const container = new BlobServiceClient(`https://${account}.blob.core.windows.net`, credential).getContainerClient(containerName);
+  await sql`
+    update pipeline.client_file_import_batches
+    set status = 'importing', updated_at = now()
+    where manifest_sha256 = ${manifestSha256} and status <> 'complete'
+  `;
   let imported = 0;
   let skipped = 0;
   for (const row of rows) {
     const item = manifestItems.get(row.source_item_id);
-    if (!item) fail("The staged batch and private manifest do not contain the same source items.");
+    if (!item) throw new Error("manifest_item_mismatch");
     const bytes = await readFile(item.source_path);
     const sha256 = createHash("sha256").update(bytes).digest("hex");
     if (sha256 !== row.source_sha256 || sha256 !== item.source_sha256 || bytes.length !== Number(row.source_byte_size)) {
-      fail("A source file changed after metadata staging. Recreate and review a new manifest.");
+      throw new Error("source_file_changed");
     }
     const extension = safeExtension(row.source_file_name);
     const blobKey = `client-import/${row.source_system}/${row.import_batch_id}/${row.import_item_id}/original${extension}`;
-    await container.getBlockBlobClient(blobKey).uploadData(bytes, {
-      blobHTTPHeaders: { blobContentType: row.source_content_type || "application/octet-stream" },
-      metadata: { sourceSystem: row.source_system, sourceSha256: sha256 },
+    await ensureBlob(container.getBlockBlobClient(blobKey), bytes, {
+      contentType: row.source_content_type || "application/octet-stream",
+      sourceSystem: row.source_system,
+      sha256,
     });
 
     const result = await sql.begin(async (tx) => {
-      const existing = await tx`
-        select document_id from pipeline.documents
-        where source_system = ${row.source_system}
-          and source_external_id = ${`${row.import_batch_id}:${row.source_item_id}`}
-          and deleted_at is null
-        limit 1
-      `;
-      const documentId = existing[0]?.document_id ?? (await tx`
+      const inserted = await tx`
         insert into pipeline.documents (
           referral_id, person_id, canonical_client_id, client_display_name, client_community,
           category, file_name, content_type, byte_size, sha256,
@@ -103,8 +110,20 @@ try {
           ${containerName}, ${blobKey}, 'quarantined', 'offline_import_tool',
           'pending', 'pending', now() + interval '7 years',
           ${row.source_system}, ${`${row.import_batch_id}:${row.source_item_id}`}, 'linked'
-        ) returning document_id
-      `)[0].document_id;
+        )
+        on conflict (source_system, source_external_id)
+          where source_external_id is not null and deleted_at is null
+        do nothing
+        returning document_id
+      `;
+      const documentId = inserted[0]?.document_id ?? (await tx`
+        select document_id from pipeline.documents
+        where source_system = ${row.source_system}
+          and source_external_id = ${`${row.import_batch_id}:${row.source_item_id}`}
+          and deleted_at is null
+        limit 1
+      `)[0]?.document_id;
+      if (!documentId) throw new Error("document_identity_conflict");
       await tx`
         insert into pipeline.extraction_jobs (document_id, job_type, status)
         values (${documentId}::uuid, 'document_preview', 'queued')
@@ -129,20 +148,57 @@ try {
     update pipeline.client_file_import_batches b
     set imported_count = counts.imported_count,
         matched_count = counts.matched_count,
-        status = case when counts.imported_count = b.item_count then 'complete' else 'ready' end,
+        status = case when counts.imported_count + counts.rejected_count = b.item_count then 'complete' else 'ready' end,
         updated_at = now()
     from (
       select import_batch_id,
         count(*) filter (where match_status in ('confirmed', 'imported'))::integer as matched_count,
-        count(*) filter (where match_status = 'imported')::integer as imported_count
+        count(*) filter (where match_status = 'imported')::integer as imported_count,
+        count(*) filter (where match_status = 'rejected')::integer as rejected_count
       from pipeline.client_file_import_items
       group by import_batch_id
     ) counts
     where counts.import_batch_id = b.import_batch_id and b.manifest_sha256 = ${manifestSha256}
   `;
   console.log(JSON.stringify({ ok: true, imported, skipped, attempted: rows.length }));
+} catch {
+  importFailure = true;
+  try {
+    await sql`
+      update pipeline.client_file_import_batches
+      set status = 'failed', updated_at = now()
+      where manifest_sha256 = ${manifestSha256} and status <> 'complete'
+    `;
+  } catch {
+    // The original failure remains authoritative; no record data is logged.
+  }
 } finally {
   await sql.end({ timeout: 5 });
+}
+if (importFailure) fail("Client-file import failed. The batch is retryable; run the reconciliation or rollback dry-run before retrying.");
+
+async function ensureBlob(blob, bytes, input) {
+  try {
+    await blob.uploadData(bytes, {
+      conditions: { ifNoneMatch: "*" },
+      blobHTTPHeaders: { blobContentType: input.contentType },
+      metadata: { sourceSystem: input.sourceSystem, sourceSha256: input.sha256 },
+    });
+    return;
+  } catch (error) {
+    if (![409, 412].includes(storageStatus(error))) throw error;
+  }
+  const properties = await blob.getProperties();
+  const storedSha256 = properties.metadata?.sourceSha256 ?? properties.metadata?.sourcesha256;
+  if (Number(properties.contentLength) !== bytes.length || storedSha256 !== input.sha256) {
+    throw new Error("existing_blob_mismatch");
+  }
+}
+
+function storageStatus(error) {
+  if (!error || typeof error !== "object") return 0;
+  const value = "statusCode" in error ? Number(error.statusCode) : "status" in error ? Number(error.status) : 0;
+  return Number.isFinite(value) ? value : 0;
 }
 
 function safeExtension(filename) {

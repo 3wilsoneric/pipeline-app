@@ -9,8 +9,6 @@ export default function PipelineLogoMark({
   size?: number;
   className?: string;
 }) {
-  const sourceSize = size * 1.8;
-
   return (
     <span
       aria-hidden="true"
@@ -20,18 +18,12 @@ export default function PipelineLogoMark({
       <Image
         src={toPipelinePath("/brand/pipeline-mark.png")}
         alt=""
-        width={1254}
-        height={1254}
+        width={143}
+        height={143}
         priority
         unoptimized
         draggable={false}
-        className="pointer-events-none absolute max-w-none select-none"
-        style={{
-          width: sourceSize,
-          height: sourceSize,
-          left: -size * 0.42,
-          top: -size * 0.38,
-        }}
+        className="pointer-events-none size-full select-none object-contain"
       />
     </span>
   );

@@ -27,9 +27,16 @@ PIPELINE_REQUIRE_CLEAN_RELEASE=true npm run release:evidence:verify -- --dir /ap
 The directory contains `release-manifest.json`, `pipeline.cdx.json`, and
 `SHA256SUMS.json`. The manifest binds the source revision, package lock,
 migration manifest, CI/security workflows, API policy, operational alerts, and
-desktop artifacts. The CycloneDX SBOM removes random serial and wall-clock
-metadata. Evidence timestamps use `SOURCE_DATE_EPOCH` when present, otherwise
-the source commit time.
+desktop artifacts. It also fingerprints the tracked binary patch and all
+non-ignored untracked source files. That candidate fingerprint records only
+SHA-256 values and file counts, so a dirty review candidate can be identified
+without copying its source or filenames into the evidence record. A production
+release must still be reviewed, committed, regenerated from a clean checkout,
+and verified with `PIPELINE_REQUIRE_CLEAN_RELEASE=true`.
+
+The CycloneDX SBOM removes random serial and wall-clock metadata. Evidence
+timestamps use `SOURCE_DATE_EPOCH` when present, otherwise the source commit
+time.
 
 The bundle contains no credentials, environment values, URLs, client data, or
 packet content. Store it with the reviewed release record and operator smoke

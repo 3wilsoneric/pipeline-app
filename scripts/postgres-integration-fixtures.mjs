@@ -18,9 +18,9 @@ try {
     await sql.begin(async (tx) => {
       const migrations = await tx`
         select migration_id from pipeline.schema_migrations
-        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces')
+        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration')
       `;
-      checks.push({ name: "all migrations applied", ok: migrations.length === 8 });
+      checks.push({ name: "all migrations applied", ok: migrations.length === 9 });
       await tx`
         insert into pipeline.user_workspace_state (
           principal_id, state_kind, state_key, payload, expires_at
@@ -28,6 +28,22 @@ try {
           'fixture-user', 'recent_destination', 'page:referrals',
           ${tx.json({ id: "page:referrals", kind: "page", screen: "referrals", title: "Referrals", detail: "Synthetic", visitedAt: new Date(0).toISOString() })},
           now() + interval '1 day'
+        )
+      `;
+      await tx`
+        insert into pipeline.user_workspace_state (
+          principal_id, state_kind, state_key, payload, expires_at
+        ) values (
+          'fixture-user', 'assessment_draft', 'assessment:fixture',
+          ${tx.json({ assessment_id: "fixture", saved_at: new Date(0).toISOString(), base_version: 1, section_versions: { identity: 1 }, dirty_sections: ["identity"], data: {}, base_data: {} })},
+          now() + interval '1 day'
+        )
+      `;
+      await tx`
+        insert into pipeline.workspace_members (
+          principal_id, display_name, email, roles
+        ) values (
+          'fixture-user', 'Synthetic Fixture User', 'fixture@example.invalid', array['assessor']
         )
       `;
       await tx.unsafe(fixture);
@@ -41,13 +57,16 @@ try {
           (select count(*) from pipeline.document_preview_pages p join pipeline.documents d on d.document_id = p.document_id where d.blob_key = 'fixture/integration/synthetic-fixture.pdf') as pages,
           (select count(*) from pipeline.editing_presence where actor_id = 'fixture-user') as presence
           ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user') as workspace_state
+          ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user' and state_kind = 'assessment_draft') as assessment_drafts
+          ,(select count(*) from pipeline.workspace_members where principal_id = 'fixture-user' and active) as workspace_members
       `;
       checks.push({
         name: "synthetic graph is queryable",
         ok: Number(rows[0].people) === 1 && Number(rows[0].referrals) === 1
           && Number(rows[0].documents) === 1 && Number(rows[0].pages) === 2 && Number(rows[0].presence) === 1
           && Number(rows[0].historical_documents) === 1 && Number(rows[0].unmatched_imports) === 1
-          && Number(rows[0].workspace_state) === 1,
+          && Number(rows[0].workspace_state) === 2 && Number(rows[0].assessment_drafts) === 1
+          && Number(rows[0].workspace_members) === 1,
       });
       throw rollbackSentinel;
     });

@@ -51,6 +51,9 @@ const result = {
     cls: round(Math.max(...metric("cls"))),
     transferred_bytes: Math.max(...metric("transferred_bytes")),
     warm_navigation_ms: round(Math.max(...runs.flatMap((run) => run.warm_journeys.filter((journey) => journey.kind === "navigation").map((journey) => journey.duration_ms)))),
+    client_directory_ms: journeyWorst(runs, "referrals_to_clients"),
+    client_profile_open_ms: journeyWorst(runs, "open_client_profile"),
+    client_profile_return_ms: journeyWorst(runs, "profile_to_clients"),
     localized_interaction_ms: round(Math.max(...runs.flatMap((run) => run.warm_journeys.filter((journey) => journey.kind !== "navigation").map((journey) => journey.duration_ms)))),
     ordinary_api_p95_ms: round(Math.max(...runs.map((run) => run.api.ordinary.p95_ms))),
     heavy_api_p95_ms: round(Math.max(...runs.map((run) => run.api.heavy.p95_ms))),
@@ -65,6 +68,9 @@ const result = {
     localized_interaction_max_ms: round(Math.max(...run.warm_journeys
       .filter((journey) => journey.kind !== "navigation")
       .map((journey) => journey.duration_ms))),
+    client_journeys: Object.fromEntries(run.warm_journeys
+      .filter((journey) => ["referrals_to_clients", "open_client_profile", "profile_to_clients"].includes(journey.name))
+      .map((journey) => [journey.name, journey.duration_ms])),
     ordinary_api_p95_ms: run.api.ordinary.p95_ms,
     heavy_api_p95_ms: run.api.heavy.p95_ms,
     api_errors: run.api.errors,
@@ -185,6 +191,12 @@ function boundedInteger(value, fallback, minimum, maximum) {
 
 function round(value) {
   return Math.round(value * 10) / 10;
+}
+
+function journeyWorst(runs, name) {
+  return round(Math.max(...runs.flatMap((run) => run.warm_journeys
+    .filter((journey) => journey.name === name)
+    .map((journey) => journey.duration_ms))));
 }
 
 function wait(milliseconds) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -9,12 +9,14 @@ import {
   FileSpreadsheet,
   History,
   LoaderCircle,
+  RefreshCw,
   Save,
   UploadCloud,
 } from "lucide-react";
 
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { parseAssessmentFile } from "@/lib/assessment/assessment-file-parser";
+import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
 import type {
   AssessmentListResponse,
   PipelineAssessmentRecord,
@@ -23,7 +25,6 @@ import {
   assessmentToolFieldDefinitions,
   assessmentToolSections,
   createEmptyAssessmentToolData,
-  getAssessmentToolCompleteness,
   getAssessmentToolCoverage,
   pickAssessmentToolData,
   type AssessmentToolData,
@@ -31,10 +32,17 @@ import {
   type AssessmentToolFieldKey,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
+import {
+  fieldsForAssessmentSection,
+  normalizeAssessmentSectionVersions,
+} from "@/lib/assessment/assessment-sections";
+import type { EditingPresence } from "@/lib/pipeline/editing-presence";
+import type { PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
 
 type AssessmentWorkspaceProps = {
   referralId?: number;
   onSummaryChange?: (summary: { captured: number; total: number; status: string; assessmentId?: string }) => void;
+  onAssessmentSaved?: (assessment: PipelineAssessmentRecord) => void | Promise<void>;
 };
 
 const sectionLabels: Record<AssessmentToolSection, string> = {
@@ -57,21 +65,44 @@ const extractionOwnedFields = new Set<AssessmentToolFieldKey>([
   "extraction_date",
 ]);
 
-export default function AssessmentWorkspace({ referralId, onSummaryChange }: AssessmentWorkspaceProps) {
+type AssessmentFieldConflict = {
+  field: AssessmentToolFieldKey;
+  localValue: AssessmentToolData[AssessmentToolFieldKey];
+  remoteValue: AssessmentToolData[AssessmentToolFieldKey];
+  section: AssessmentToolSection;
+};
+
+type AssessmentRemoteChange = {
+  assessment: PipelineAssessmentRecord;
+  conflicts: AssessmentFieldConflict[];
+};
+
+export default function AssessmentWorkspace({ referralId, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
   const [activeSection, setActiveSection] = useState<AssessmentToolSection>("identity");
   const [isLoading, setIsLoading] = useState(Boolean(referralId));
   const [isBusy, setIsBusy] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [dirtySections, setDirtySections] = useState<Set<AssessmentToolSection>>(new Set());
+  const [remoteChange, setRemoteChange] = useState<AssessmentRemoteChange | null>(null);
+  const [presence, setPresence] = useState<EditingPresence[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectedRef = useRef<PipelineAssessmentRecord | null>(null);
+  const draftRef = useRef<AssessmentToolData>(draft);
+  const baseDataRef = useRef<AssessmentToolData>(draft);
+  const dirtySectionsRef = useRef<Set<AssessmentToolSection>>(dirtySections);
+  const remoteChangeRef = useRef<AssessmentRemoteChange | null>(remoteChange);
+  const draftVersionRef = useRef(0);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const initializedAssessmentIdRef = useRef("");
+  const dirty = dirtySections.size > 0;
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
   const coverage = useMemo(() => getAssessmentToolCoverage(draft), [draft]);
-  const required = useMemo(() => getAssessmentToolCompleteness(draft), [draft]);
+  const completion = useMemo(() => getAssessmentCompletionSummary(draft), [draft]);
   const pendingFields = useMemo(() => getPendingFields(selected), [selected]);
   const sectionDefinitions = useMemo(
     () => assessmentToolFieldDefinitions.filter((definition) => definition.section === activeSection),
@@ -108,9 +139,32 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange }: Ass
   }, [referralId]);
 
   useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    dirtySectionsRef.current = dirtySections;
+  }, [dirtySections]);
+
+  useEffect(() => {
+    remoteChangeRef.current = remoteChange;
+  }, [remoteChange]);
+
+  useEffect(() => {
     if (!selected) return;
-    setDraft(pickAssessmentToolData(selected));
-    setDirty(false);
+    if (initializedAssessmentIdRef.current === selected.assessment_id) return;
+    initializedAssessmentIdRef.current = selected.assessment_id;
+    const data = pickAssessmentToolData(selected);
+    selectedRef.current = selected;
+    baseDataRef.current = data;
+    setDraft(data);
+    setDirtySections(new Set());
+    setRemoteChange(null);
+    void loadRecoveryDraft(selected, data);
   }, [selected]);
 
   useEffect(() => {
@@ -146,20 +200,123 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange }: Ass
     }
   };
 
-  const saveAssessment = async (nextStatus = selected?.status ?? "draft", acceptPending = false) => {
-    if (!selected) return;
+  const receiveRemoteAssessment = useCallback((latest: PipelineAssessmentRecord, announce = true) => {
+    const current = selectedRef.current;
+    if (!current || current.assessment_id !== latest.assessment_id || latest.version <= current.version) return;
+    const base = baseDataRef.current;
+    const local = draftRef.current;
+    const latestData = pickAssessmentToolData(latest);
+    const merged = pickAssessmentToolData(latestData);
+    const conflicts: AssessmentFieldConflict[] = [];
+
+    for (const definition of assessmentToolFieldDefinitions) {
+      const field = definition.key;
+      const localChanged = !sameAssessmentValue(local[field], base[field]);
+      const remoteChanged = !sameAssessmentValue(latestData[field], base[field]);
+      if (localChanged && remoteChanged && !sameAssessmentValue(local[field], latestData[field])) {
+        merged[field] = local[field] as never;
+        conflicts.push({ field, localValue: local[field], remoteValue: latestData[field], section: definition.section });
+      } else if (localChanged) {
+        merged[field] = local[field] as never;
+      }
+    }
+
+    selectedRef.current = latest;
+    baseDataRef.current = latestData;
+    draftRef.current = merged;
+    setDraft(merged);
+    setAssessments((items) => [latest, ...items.filter((item) => item.assessment_id !== latest.assessment_id)]);
+    const nextDirty = dirtyAssessmentSections(merged, latestData);
+    setDirtySections(nextDirty);
+    setRemoteChange({ assessment: latest, conflicts });
+    if (announce) {
+      setMessage(conflicts.length > 0
+        ? `${conflicts.length} field conflict${conflicts.length === 1 ? "" : "s"} need review`
+        : `Updated by ${latest.updated_by.name}`);
+    }
+  }, []);
+
+  const saveSectionNow = useCallback(async (section: AssessmentToolSection) => {
+    const current = selectedRef.current;
+    if (!current || !dirtySectionsRef.current.has(section)) return;
+    if (remoteChangeRef.current?.conflicts.some((conflict) => conflict.section === section)) {
+      throw new Error(`Resolve the ${sectionLabels[section]} conflict before saving.`);
+    }
+
+    const sentData = editableSectionData(draftRef.current, section);
+    try {
+      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+        `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            section,
+            if_match_section: normalizeAssessmentSectionVersions(current.section_versions)[section],
+            client_mutation_id: mutationId(`assessment-${section}`),
+            patch: { data: sentData },
+          }),
+        },
+      );
+      const saved = payload.assessment;
+      const savedData = pickAssessmentToolData(saved);
+      const local = draftRef.current;
+      const nextDraft = pickAssessmentToolData(local);
+      for (const field of fieldsForAssessmentSection(section)) {
+        const sentValue = sentData[field];
+        if (sentValue !== undefined && sameAssessmentValue(local[field], sentValue)) {
+          nextDraft[field] = savedData[field] as never;
+        }
+      }
+      selectedRef.current = saved;
+      baseDataRef.current = savedData;
+      draftRef.current = nextDraft;
+      setDraft(nextDraft);
+      setAssessments((items) => [saved, ...items.filter((item) => item.assessment_id !== saved.assessment_id)]);
+      const nextDirty = dirtyAssessmentSections(nextDraft, savedData);
+      setDirtySections(nextDirty);
+      setMessage(nextDirty.size > 0 ? "Saving changes..." : "All changes saved");
+      setError("");
+      if (nextDirty.size === 0) void clearRecoveryDraft(saved.assessment_id);
+    } catch (saveError) {
+      if (saveError instanceof PipelineApiError && saveError.status === 409) {
+        const latest = assessmentFromConflict(saveError.payload);
+        if (latest) receiveRemoteAssessment(latest);
+      }
+      setError(messageFor(saveError, `${sectionLabels[section]} could not be saved.`));
+      setMessage("");
+      throw saveError;
+    }
+  }, [receiveRemoteAssessment]);
+
+  const queueSectionSave = useCallback((section: AssessmentToolSection) => {
+    const next = saveQueueRef.current.then(() => saveSectionNow(section));
+    saveQueueRef.current = next.catch(() => undefined);
+    return next;
+  }, [saveSectionNow]);
+
+  const flushDirtySections = useCallback(async () => {
+    for (const section of [...dirtySectionsRef.current]) await queueSectionSave(section);
+    await saveQueueRef.current;
+  }, [queueSectionSave]);
+
+  const saveAssessment = async (nextStatus = selectedRef.current?.status ?? "draft", acceptPending = false) => {
+    const initial = selectedRef.current;
+    if (!initial) return;
     setIsBusy(true);
     setError("");
     setMessage(nextStatus === "complete" ? "Checking assessment..." : "Saving assessment...");
     try {
+      await flushDirtySections();
+      const current = selectedRef.current;
+      if (!current) return;
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
-        `/api/assessments/${encodeURIComponent(selected.assessment_id)}`,
+        `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
         {
           method: "PATCH",
           body: JSON.stringify({
-            if_match: selected.version,
+            if_match: current.version,
+            client_mutation_id: mutationId(`assessment-${nextStatus}`),
             patch: {
-              data: editableAssessmentData(draft),
               status: nextStatus,
               ...(acceptPending ? { accept_pending: true } : {}),
             },
@@ -167,6 +324,13 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange }: Ass
         },
       );
       upsertAssessment(payload.assessment, true);
+      try {
+        await onAssessmentSaved?.(payload.assessment);
+      } catch {
+        setMessage("Assessment saved; workspace refresh will retry automatically");
+        return;
+      }
+      void clearRecoveryDraft(payload.assessment.assessment_id);
       setMessage(
         nextStatus === "complete"
           ? "Assessment completed"
@@ -221,16 +385,236 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange }: Ass
   const upsertAssessment = (assessment: PipelineAssessmentRecord, select = false) => {
     setAssessments((current) => [assessment, ...current.filter((item) => item.assessment_id !== assessment.assessment_id)]);
     if (select) setSelectedId(assessment.assessment_id);
-    setDraft(pickAssessmentToolData(assessment));
-    setDirty(false);
+    selectedRef.current = assessment;
+    const data = pickAssessmentToolData(assessment);
+    baseDataRef.current = data;
+    draftRef.current = data;
+    setDraft(data);
+    setDirtySections(new Set());
+    setRemoteChange(null);
   };
 
   const updateField = (key: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => {
-    setDraft((current) => setAssessmentValue(current, key, value));
-    setDirty(true);
-    setMessage("Unsaved changes");
+    const next = setAssessmentValue(draftRef.current, key, value);
+    draftRef.current = next;
+    setDraft(next);
+    const section = assessmentToolFieldDefinitions.find((definition) => definition.key === key)?.section;
+    if (section) {
+      setDirtySections((current) => new Set(current).add(section));
+    }
+    setMessage("Saving changes...");
     setError("");
   };
+
+  async function loadRecoveryDraft(assessment: PipelineAssessmentRecord, currentData: AssessmentToolData) {
+    let recovered: PipelineAssessmentDraft | null = null;
+    let recoveredVersion = 0;
+    try {
+      const local = window.sessionStorage.getItem(assessmentDraftStorageKey(assessment.assessment_id));
+      if (local) recovered = JSON.parse(local) as PipelineAssessmentDraft;
+    } catch {
+      // Server recovery remains available when session storage is unavailable.
+    }
+    try {
+      const payload = await fetchPipelineJson<{ draft: PipelineAssessmentDraft | null; version: number }>(
+        `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
+        { cache: "no-store" },
+      );
+      if (payload.draft && (!recovered || Date.parse(payload.draft.savedAt) >= Date.parse(recovered.savedAt))) {
+        recovered = payload.draft;
+      }
+      recoveredVersion = payload.version;
+    } catch {
+      // Local recovery is sufficient in development and remains a safe fallback in a transient outage.
+    }
+    draftVersionRef.current = recoveredVersion;
+    if (!recovered || recovered.assessmentId !== assessment.assessment_id || recovered.dirtySections.length === 0) return;
+
+    const merged = pickAssessmentToolData(currentData);
+    const conflicts: AssessmentFieldConflict[] = [];
+    for (const definition of assessmentToolFieldDefinitions) {
+      const field = definition.key;
+      const localChanged = !sameAssessmentValue(recovered.data[field], recovered.baseData[field]);
+      if (!localChanged) continue;
+      const remoteChanged = !sameAssessmentValue(currentData[field], recovered.baseData[field]);
+      merged[field] = recovered.data[field] as never;
+      if (remoteChanged && !sameAssessmentValue(recovered.data[field], currentData[field])) {
+        conflicts.push({
+          field,
+          localValue: recovered.data[field],
+          remoteValue: currentData[field],
+          section: definition.section,
+        });
+      }
+    }
+    baseDataRef.current = currentData;
+    draftRef.current = merged;
+    setDraft(merged);
+    const recoveredDirty = dirtyAssessmentSections(merged, currentData);
+    setDirtySections(recoveredDirty);
+    setRemoteChange(conflicts.length > 0 ? { assessment, conflicts } : null);
+    setMessage(conflicts.length > 0 ? "Recovered changes need conflict review" : "Recovered unsaved assessment changes");
+  }
+
+  async function persistRecoveryDraft(assessment: PipelineAssessmentRecord) {
+    if (dirtySectionsRef.current.size === 0) return;
+    const recovery: PipelineAssessmentDraft = {
+      schema: 1,
+      assessmentId: assessment.assessment_id,
+      savedAt: new Date().toISOString(),
+      baseVersion: assessment.version,
+      sectionVersions: normalizeAssessmentSectionVersions(assessment.section_versions),
+      dirtySections: [...dirtySectionsRef.current],
+      data: pickAssessmentToolData(draftRef.current),
+      baseData: pickAssessmentToolData(baseDataRef.current),
+    };
+    try {
+      window.sessionStorage.setItem(assessmentDraftStorageKey(assessment.assessment_id), JSON.stringify(recovery));
+    } catch {
+      // The server draft remains authoritative when browser storage is unavailable.
+    }
+    try {
+      const payload = await fetchPipelineJson<{ version: number }>(
+        `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ if_match: draftVersionRef.current, draft: recovery }),
+        },
+      );
+      draftVersionRef.current = payload.version;
+    } catch (draftError) {
+      if (draftError instanceof PipelineApiError && draftError.status === 409) {
+        const payload = draftError.payload as { version?: unknown } | undefined;
+        if (Number.isSafeInteger(payload?.version)) draftVersionRef.current = Number(payload?.version);
+      }
+    }
+  }
+
+  async function clearRecoveryDraft(assessmentId: string) {
+    try {
+      window.sessionStorage.removeItem(assessmentDraftStorageKey(assessmentId));
+    } catch {
+      // Nothing else is required for browser storage cleanup.
+    }
+    if (draftVersionRef.current < 1) return;
+    try {
+      await fetchPipelineJson(`/api/me/assessment-drafts/${encodeURIComponent(assessmentId)}`, {
+        method: "DELETE",
+        body: JSON.stringify({ if_match: draftVersionRef.current }),
+      });
+      draftVersionRef.current = 0;
+    } catch {
+      // Expiring server drafts are harmless once the canonical assessment is saved.
+    }
+  }
+
+  const resolveAssessmentConflict = (field: AssessmentToolFieldKey, useLatest: boolean) => {
+    const change = remoteChangeRef.current;
+    const conflict = change?.conflicts.find((item) => item.field === field);
+    if (!change || !conflict) return;
+    const nextDraft = pickAssessmentToolData(draftRef.current);
+    const nextBase = pickAssessmentToolData(baseDataRef.current);
+    if (useLatest) nextDraft[field] = conflict.remoteValue as never;
+    nextBase[field] = conflict.remoteValue as never;
+    draftRef.current = nextDraft;
+    baseDataRef.current = nextBase;
+    setDraft(nextDraft);
+    const remaining = change.conflicts.filter((item) => item.field !== field);
+    setRemoteChange(remaining.length > 0 ? { ...change, conflicts: remaining } : null);
+    const nextDirty = dirtyAssessmentSections(nextDraft, nextBase);
+    setDirtySections(nextDirty);
+    setMessage(remaining.length > 0 ? `${remaining.length} field conflicts still need review` : "Conflict resolved; saving changes...");
+  };
+
+  useEffect(() => {
+    const current = selectedRef.current;
+    if (!current || dirtySections.size === 0) return;
+    const timer = window.setTimeout(() => {
+      for (const section of dirtySections) {
+        if (!remoteChangeRef.current?.conflicts.some((conflict) => conflict.section === section)) {
+          void queueSectionSave(section);
+        }
+      }
+    }, 1_200);
+    return () => window.clearTimeout(timer);
+  }, [dirtySections, draft, queueSectionSave]);
+
+  useEffect(() => {
+    const current = selectedRef.current;
+    if (!current || dirtySections.size === 0) return;
+    const timer = window.setTimeout(() => void persistRecoveryDraft(current), 350);
+    return () => window.clearTimeout(timer);
+  }, [dirtySections, draft]);
+
+  useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (dirtySectionsRef.current.size === 0) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, []);
+
+  useEffect(() => {
+    if (!selected?.assessment_id) return;
+    let cancelled = false;
+    let checking = false;
+    const checkForChanges = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+          `/api/assessments/${encodeURIComponent(selected.assessment_id)}`,
+          { cache: "no-store" },
+        );
+        if (!cancelled) receiveRemoteAssessment(payload.assessment);
+      } catch {
+        // The next three-second poll retries; local editing and drafts remain available.
+      } finally {
+        checking = false;
+      }
+    };
+    const interval = window.setInterval(checkForChanges, 3_000);
+    const onFocus = () => void checkForChanges();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [receiveRemoteAssessment, selected?.assessment_id]);
+
+  useEffect(() => {
+    if (!referralId || !selected?.assessment_id) return;
+    const leaseId = crypto.randomUUID();
+    let cancelled = false;
+    const heartbeat = async () => {
+      try {
+        await fetchPipelineJson(`/api/referrals/${referralId}/presence`, {
+          method: "POST",
+          body: JSON.stringify({ lease_id: leaseId, section: `assessment:${activeSection}` }),
+        });
+        const payload = await fetchPipelineJson<{ presence: Array<EditingPresence & { is_me?: boolean }> }>(
+          `/api/referrals/${referralId}/presence`,
+          { cache: "no-store" },
+        );
+        if (!cancelled) setPresence(payload.presence.filter((item) => !item.is_me));
+      } catch {
+        // Presence is advisory; section versions remain authoritative.
+      }
+    };
+    void heartbeat();
+    const interval = window.setInterval(heartbeat, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      void fetchPipelineJson(`/api/referrals/${referralId}/presence`, {
+        method: "DELETE",
+        body: JSON.stringify({ lease_id: leaseId }),
+      }).catch(() => undefined);
+    };
+  }, [activeSection, referralId, selected?.assessment_id]);
 
   if (!referralId) {
     return (
@@ -270,7 +654,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange }: Ass
           </div>
         </div>
         <AssessmentMetric label="Captured" value={`${coverage.captured} / ${coverage.total}`} detail={`${coverage.percent}% of assessment fields`} />
-        <AssessmentMetric label="Required identity" value={`${required.required_ready} / ${required.required_total}`} detail={required.missing_fields.length ? `${required.missing_fields.length} still needed` : "Ready"} />
+        <AssessmentMetric label="Ready to complete" value={`${completion.complete} / ${completion.total}`} detail={completion.missing.length ? `${completion.missing.length} required area${completion.missing.length === 1 ? "" : "s"} left` : "Ready"} />
         <AssessmentMetric label="Needs review" value={String(pendingFields.length)} detail={selected.unmapped_fields.length ? `${selected.unmapped_fields.length} banked values` : "No banked values"} />
       </div>
 
@@ -299,6 +683,47 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange }: Ass
           <button type="button" onClick={() => window.confirm("Mark this assessment complete?") && saveAssessment("complete")} disabled={isBusy} className="h-9 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Complete</button>
         )}
       </div>
+
+      {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
+        <div className="border-t border-[#c9d9d3] bg-[#f2f8f5] px-4 py-2 text-[11px] text-[#315e50]">
+          {presence
+            .filter((item) => item.section === `assessment:${activeSection}`)
+            .map((item) => item.actor_name)
+            .join(", ")} {presence.filter((item) => item.section === `assessment:${activeSection}`).length === 1 ? "is" : "are"} also editing {sectionLabels[activeSection]}.
+        </div>
+      ) : null}
+
+      {remoteChange ? (
+        <div className={`border-t px-4 py-3 ${remoteChange.conflicts.length > 0 ? "border-[#d9b56c] bg-[#fff8e9]" : "border-[#a9d2c3] bg-[#f2faf7]"}`}>
+          <div className="flex items-center gap-2 text-[11px] font-black text-[#333333]">
+            <RefreshCw size={13} className="text-[#0f8b73]" />
+            {remoteChange.conflicts.length > 0
+              ? `${remoteChange.assessment.updated_by.name} changed fields you were editing.`
+              : `Latest changes from ${remoteChange.assessment.updated_by.name} were merged.`}
+          </div>
+          {remoteChange.conflicts.length > 0 ? (
+            <div className="mt-3 grid gap-2">
+              {remoteChange.conflicts.map((conflict) => {
+                const definition = assessmentToolFieldDefinitions.find((item) => item.key === conflict.field);
+                return (
+                  <div key={conflict.field} className="grid gap-2 border-t border-[#e5cf9d] pt-2 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center">
+                    <div className="text-[11px] font-black">{definition?.label ?? conflict.field}</div>
+                    <div className="min-w-0 text-[10px] text-[#595959]">
+                      <span className="font-semibold">Yours:</span> {displayAssessmentValue(conflict.localValue)}
+                      <span className="mx-2 text-[#9a6115]">|</span>
+                      <span className="font-semibold">Latest:</span> {displayAssessmentValue(conflict.remoteValue)}
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, false)} className="h-8 border border-[#9a6115] px-3 text-[10px] font-black text-[#7a4c0d] hover:bg-white">Keep mine</button>
+                      <button type="button" onClick={() => resolveAssessmentConflict(conflict.field, true)} className="h-8 bg-[#111111] px-3 text-[10px] font-black text-white hover:bg-[#0f8b73]">Use latest</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <AssessmentImport
         busy={isBusy}
@@ -533,12 +958,50 @@ function getPendingFields(assessment: PipelineAssessmentRecord | null) {
     .map((definition) => definition.key);
 }
 
-function editableAssessmentData(data: AssessmentToolData) {
+function editableSectionData(data: AssessmentToolData, section: AssessmentToolSection) {
   return Object.fromEntries(
     assessmentToolFieldDefinitions
-      .filter((definition) => !extractionOwnedFields.has(definition.key))
+      .filter((definition) => definition.section === section && !extractionOwnedFields.has(definition.key))
       .map((definition) => [definition.key, data[definition.key]]),
-  );
+  ) as Partial<AssessmentToolData>;
+}
+
+function dirtyAssessmentSections(data: AssessmentToolData, base: AssessmentToolData) {
+  const sections = new Set<AssessmentToolSection>();
+  for (const definition of assessmentToolFieldDefinitions) {
+    if (!extractionOwnedFields.has(definition.key) && !sameAssessmentValue(data[definition.key], base[definition.key])) {
+      sections.add(definition.section);
+    }
+  }
+  return sections;
+}
+
+function sameAssessmentValue(
+  left: AssessmentToolData[AssessmentToolFieldKey],
+  right: AssessmentToolData[AssessmentToolFieldKey],
+) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function assessmentFromConflict(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const assessment = (payload as { assessment?: unknown }).assessment;
+  if (!assessment || typeof assessment !== "object" || Array.isArray(assessment)) return null;
+  const candidate = assessment as Partial<PipelineAssessmentRecord>;
+  return typeof candidate.assessment_id === "string" && Number.isSafeInteger(candidate.version)
+    ? assessment as PipelineAssessmentRecord
+    : null;
+}
+
+function assessmentDraftStorageKey(assessmentId: string) {
+  return `pipeline:assessment-draft:${assessmentId}`;
+}
+
+function displayAssessmentValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
+  if (Array.isArray(value)) return value.join(", ") || "Empty";
+  if (value === null || String(value).trim() === "") return "Empty";
+  const text = String(value);
+  return text.length > 180 ? `${text.slice(0, 177)}...` : text;
 }
 
 function setAssessmentValue(

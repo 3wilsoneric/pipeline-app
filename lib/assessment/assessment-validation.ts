@@ -6,6 +6,8 @@ import {
   type AssessmentToolData,
   type AssessmentToolFieldKey,
 } from "./assessment-tool-schema";
+import { isAssessmentToolSection } from "./assessment-sections";
+import type { AssessmentToolSection } from "./assessment-tool-schema";
 import type {
   AssessmentPatchInput,
   AssessmentWorkflowStatus,
@@ -22,6 +24,9 @@ export type AssessmentCreateRequest = {
 
 export type AssessmentPatchRequest = {
   if_match?: number;
+  if_match_section?: number;
+  section?: AssessmentToolSection;
+  client_mutation_id?: string;
   patch: AssessmentPatchInput;
 };
 
@@ -56,7 +61,13 @@ export function validateAssessmentCreateRequest(value: unknown): AssessmentValid
 
 export function validateAssessmentPatchRequest(value: unknown): AssessmentValidationResult<AssessmentPatchRequest> {
   if (!isRecord(value) || !isRecord(value.patch)) return invalid("The assessment patch must be an object.");
-  if (!Number.isInteger(value.if_match) || Number(value.if_match) < 1) {
+  const section = value.section;
+  if (section !== undefined && !isAssessmentToolSection(section)) return invalid("section is invalid.");
+  if (section !== undefined) {
+    if (!Number.isInteger(value.if_match_section) || Number(value.if_match_section) < 1) {
+      return invalid("if_match_section must be a positive section version number.");
+    }
+  } else if (!Number.isInteger(value.if_match) || Number(value.if_match) < 1) {
     return invalid("if_match must be a positive version number.");
   }
 
@@ -79,11 +90,16 @@ export function validateAssessmentPatchRequest(value: unknown): AssessmentValida
   if (patch.accept_pending !== undefined && typeof patch.accept_pending !== "boolean") {
     return invalid("accept_pending must be true or false.");
   }
+  const mutationResult = validateMutationId(value.client_mutation_id);
+  if (!mutationResult.ok) return mutationResult;
 
   return {
     ok: true,
     value: {
       ...(value.if_match !== undefined ? { if_match: value.if_match as number } : {}),
+      ...(value.if_match_section !== undefined ? { if_match_section: value.if_match_section as number } : {}),
+      ...(section ? { section } : {}),
+      ...(mutationResult.value ? { client_mutation_id: mutationResult.value } : {}),
       patch: patch as AssessmentPatchInput,
     },
   };

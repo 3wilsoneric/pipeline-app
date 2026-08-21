@@ -131,9 +131,9 @@ page.on("requestfinished", async (request) => {
 
 const coldStartedAt = performance.now();
 const response = await page.goto(new URL("/?view=referrals", parsedBaseUrl).toString(), { waitUntil: "domcontentloaded" });
-await page.getByRole("heading", { name: "Referral packets", exact: true }).waitFor({ state: "visible" });
+await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
 if (isLocalTarget && process.env.PIPELINE_PERF_SEED !== "false") {
-  await page.getByRole("button", { name: `Open ${seededReferralName} referral packet`, exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("button", { name: `Open ${seededReferralName} referral workspace`, exact: true }).waitFor({ state: "visible" });
 }
 const usefulContentMs = performance.now() - coldStartedAt;
 await page.waitForLoadState("load");
@@ -164,7 +164,7 @@ await measureJourney("typed_search", "filter", async () => {
 });
 await measureJourney("search_to_referrals", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open referrals", exact: true }));
-  await page.getByRole("heading", { name: "Referral packets", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("referral_stage_filter", "filter", async () => {
   await page.getByLabel("Filter by stage").selectOption("New");
@@ -223,7 +223,7 @@ await measureJourney("home_to_operations", "navigation", async () => {
 });
 await measureJourney("operations_to_referrals", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open referrals", exact: true }));
-  await page.getByRole("heading", { name: "Referral packets", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
 });
 await page.waitForLoadState("networkidle");
 await afterNextPaint(page);
@@ -350,6 +350,17 @@ function percentile(values, percentileValue) {
 async function installSanitizedClinicalFixtures(page) {
   const fixturePath = path.join(process.cwd(), "scripts/fixtures/alamo-pipeline-clinical.sanitized.json");
   const clinical = JSON.parse(readFileSync(fixturePath, "utf8"));
+  const directory = {
+    ...clinical.clients,
+    clients: clinical.clients.clients.map((client) => ({
+      ...client,
+      workspace_origin: "alamo_platform",
+      pipeline_client_id: null,
+      referral_count: 0,
+      document_count: client.source_documents?.length ?? 0,
+    })),
+    clinical_warning: clinical.clients.freshness.warning,
+  };
   const profile = {
     ...clinical.client,
     resident: clinical.resident.resident,
@@ -401,15 +412,17 @@ async function installSanitizedClinicalFixtures(page) {
     "content-type": "application/json",
     "x-pipeline-test-fixture": "sanitized",
   };
-  await page.route("**/api/clinical/clients**", (route) => route.fulfill({
-    status: 200,
-    headers: fixtureHeaders,
-    body: JSON.stringify(clinical.clients),
-  }));
   await page.route("**/api/profiles/**", (route) => route.fulfill({
     status: 200,
     headers: fixtureHeaders,
     body: JSON.stringify(profile),
+  }));
+  // Register the specific directory route last because Playwright resolves
+  // matching routes in reverse registration order.
+  await page.route(/\/api\/profiles\/directory(?:\?|$)/, (route) => route.fulfill({
+    status: 200,
+    headers: fixtureHeaders,
+    body: JSON.stringify(directory),
   }));
 }
 
@@ -417,10 +430,22 @@ async function seedPerformanceReferral(api, origin, name, runId) {
   const now = new Date().toISOString();
   const mutationOrigin = new URL(origin);
   if (["127.0.0.1", "::1"].includes(mutationOrigin.hostname)) mutationOrigin.hostname = "localhost";
+  const membersResponse = await api.get(`${origin}/api/members`);
+  if (!membersResponse.ok()) {
+    fail(`Could not resolve the isolated McMaster workspace member (status ${membersResponse.status()}).`);
+  }
+  const memberDirectory = await membersResponse.json();
+  const currentMember = memberDirectory.members?.find(
+    (member) => member.principal_id === memberDirectory.current_principal_id,
+  );
+  if (!currentMember?.principal_id || !currentMember?.display_name) {
+    fail("The isolated McMaster identity is not an active workspace member.");
+  }
   const response = await api.post(`${origin}/api/referrals`, {
     headers: { Origin: mutationOrigin.origin },
     data: {
       client_mutation_id: `mcmaster-${runId}`,
+      assignee_id: currentMember.principal_id,
       referral: {
         name,
         date: now.slice(0, 10),
@@ -431,7 +456,7 @@ async function seedPerformanceReferral(api, origin, name, runId) {
         tags: ["mcmaster-certification"],
         documentName: "",
         documentStatus: "Missing",
-        owner: "Benchmark QA",
+        owner: currentMember.display_name,
         note: "",
         createdAt: now,
         dob: "",

@@ -16,7 +16,12 @@ const directoryRoute = read("app/api/profiles/directory/route.ts");
 const manifestTool = read("scripts/create-client-file-import-manifest.mjs");
 const stageTool = read("scripts/stage-client-file-import.mjs");
 const importTool = read("scripts/import-confirmed-client-files.mjs");
+const reconciliationTool = read("scripts/reconcile-client-file-import.mjs");
+const rollbackTool = read("scripts/rollback-client-file-import.mjs");
 const referralCanvas = read("components/pipeline/ReferralPacketCanvas.tsx");
+const documentRequirements = read("lib/pipeline/document-requirements.ts");
+const documentReconciliation = read("lib/pipeline/document-requirement-reconciliation.ts");
+const uploadCompleteRoute = read("app/api/uploads/complete/route.ts");
 
 const checks = [];
 const check = (name, value) => checks.push({ name, ok: Boolean(value) });
@@ -34,6 +39,7 @@ check("confirmed resident links use the physical person relationship", workspace
 check("assessors cannot discover unassigned file-only workspaces", workspaceStore.includes("${ownerId}::text is null and exists") && profileStore.includes("isAssessorUser(user) && referrals.length === 0"));
 check("file-only profiles load from durable documents", profileStore.includes("referrals.length === 0 && documents.length === 0") && profileStore.includes("historical workspace preserves reviewed client files"));
 check("checklist evidence appears in the local client inventory", referralStore.includes("requirement.evidenceDocumentId") && referralStore.includes("requirementFileCategory"));
+check("initial document evidence is not duplicated in local profiles", referralStore.includes("initialDocumentRequirement") && referralStore.includes("includedIds.has(requirement.evidenceDocumentId)"));
 check("global files include person-only and canonical-only documents", referralStore.includes("left join pipeline.referrals") && referralStore.includes("d.canonical_client_id"));
 check("directory falls back without losing Pipeline workspaces", directoryRoute.includes("catch (error)") && directoryRoute.includes("pipelinePage"));
 check("manifest creation is private and bounded", manifestTool.includes("chmod(outputPath, 0o600)") && manifestTool.includes("100_000") && manifestTool.includes("100 * 1024 * 1024"));
@@ -41,9 +47,22 @@ check("metadata staging is dry-run first and idempotent", stageTool.includes("--
 check("binary import requires explicit confirmation", importTool.includes("UPLOAD-CONFIRMED-CLIENT-FILES") && importTool.includes("if (!dryRun"));
 check("binary import verifies bytes before upload", importTool.includes("sha256 !== row.source_sha256") && importTool.includes("bytes.length !== Number(row.source_byte_size)"));
 check("binary import uses deterministic blob keys and source identities", importTool.includes("client-import/${row.source_system}/${row.import_batch_id}/${row.import_item_id}") && migration.includes("documents_source_external_unique_idx"));
+check("binary import does not overwrite an existing deterministic blob", importTool.includes('conditions: { ifNoneMatch: "*" }') && importTool.includes("existing_blob_mismatch"));
+check("concurrent binary import retries converge on one document", importTool.includes("on conflict (source_system, source_external_id)") && importTool.includes("document_identity_conflict"));
+check("binary import completes batches with reviewed exclusions", importTool.includes("counts.imported_count + counts.rejected_count = b.item_count"));
 check("governed directory rows expose linked Pipeline file counts", workspaceStore.includes("getClinicalClientWorkspaceSummaries") && workspaceStore.includes("document_count"));
 check("binary import never auto-imports unmatched rows", importTool.includes("i.match_status = 'confirmed'") && importTool.includes("i.imported_document_id is null"));
-check("supporting drop zones upload immediately for saved referrals", referralCanvas.includes('processing_intent: "preview_only"') && referralCanvas.includes("evidenceDocumentId"));
+check("historical reconciliation is read-only by default", reconciliationTool.includes('args.has("--database")') && reconciliationTool.includes('args.has("--verify-blobs")') && !reconciliationTool.includes("insert into pipeline") && !reconciliationTool.includes("update pipeline"));
+check("historical reconciliation emits a PHI-safe aggregate summary", reconciliationTool.includes("local_sources_verified") && reconciliationTool.includes("blob_objects_verified") && reconciliationTool.includes("counts,") && reconciliationTool.includes("protected_reconciliation_detail"));
+check("historical reconciliation covers every disposition", ["present", "metadata-only", "file-only", "unmatched", "structured-not-imported", "intentionally-excluded", "source-changed"].every((status) => reconciliationTool.includes(status)));
+check("client-file rollback is dry-run first and doubly confirmed", rollbackTool.includes("ROLLBACK-CONFIRMED-CLIENT-FILE-BATCH") && rollbackTool.includes("PIPELINE_CLIENT_FILE_ROLLBACK_ENABLED"));
+check("client-file rollback refuses documents already used as evidence", rollbackTool.includes("downstream_references_present") && rollbackTool.includes("referral_fields") && rollbackTool.includes("work_items"));
+check("client-file rollback is retryable across database and Blob phases", rollbackTool.includes("prepareRollback") && rollbackTool.includes("deleteBlobTargets") && rollbackTool.includes("finalizeRollback"));
+check("document requirements have one category mapping", documentRequirements.includes("categoryByRequirement") && documentRequirements.includes("requirementByCategory"));
+check("upload completion reconciles checklist evidence server-side", uploadCompleteRoute.includes("reconcileUploadedDocumentRequirements") && documentReconciliation.includes("patchReferralWorkItem"));
+check("checklist reconciliation preserves reviewed evidence", documentReconciliation.includes('["reviewed", "waived"].includes(requirement.status)') && documentReconciliation.includes("requirement.evidenceDocumentId"));
+check("supporting drop zones upload immediately for saved referrals", referralCanvas.includes('processing_intent: "preview_only"') && referralCanvas.includes("refreshed.referral") && referralCanvas.includes("linkedRequirement?.evidenceDocumentId"));
+check("initial uploads require an explicit document type", referralCanvas.includes('aria-label="Initial document type"') && referralCanvas.includes('"face_sheet" | "referral_packet"'));
 check("rollback removes only client-workspace additions", rollback.includes("client_file_import_items") && rollback.includes("client_community") && !rollback.includes("drop schema"));
 
 const failed = checks.filter((item) => !item.ok);

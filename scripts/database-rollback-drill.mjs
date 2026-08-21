@@ -15,6 +15,7 @@ const collaborationRollback = await readFile("database/rollbacks/0005_collaborat
 const workspaceStateRollback = await readFile("database/rollbacks/0006_user_workspace_state.sql", "utf8");
 const canonicalClientRollback = await readFile("database/rollbacks/0007_canonical_client_assessments.sql", "utf8");
 const clientWorkspaceRollback = await readFile("database/rollbacks/0008_client_workspaces.sql", "utf8");
+const assessmentCollaborationRollback = await readFile("database/rollbacks/0009_assessment_collaboration.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -39,7 +40,10 @@ try {
       to_regclass('pipeline.client_file_import_items') is not null as client_file_import_items,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='documents' and column_name='canonical_client_id') as client_document_identity,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='documents' and column_name='client_community') as client_document_community,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0008_client_workspaces') as client_workspace_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0008_client_workspaces') as client_workspace_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='section_versions') as assessment_sections,
+      to_regclass('pipeline.workspace_members') is not null as workspace_members,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0009_assessment_collaboration') as assessment_collaboration_history
   `;
   checks.push({
     name: "latest migrations exist before drill",
@@ -54,6 +58,30 @@ try {
       && before[0].client_document_identity
       && before[0].client_document_community
       && before[0].client_workspace_history
+      && before[0].assessment_sections
+      && before[0].workspace_members
+      && before[0].assessment_collaboration_history
+    ),
+  });
+  await connection.unsafe(assessmentCollaborationRollback);
+  const assessmentCollaborationDuring = await connection`
+    select to_regclass('pipeline.workspace_members') is null as workspace_members_removed,
+      not exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='section_versions') as assessment_sections_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0009_assessment_collaboration') as history_removed,
+      exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'user_workspace_state_state_kind_check'
+          and check_clause not like '%assessment_draft%'
+      ) as assessment_drafts_removed
+  `;
+  checks.push({
+    name: "rollback removes assessment-collaboration objects",
+    ok: Boolean(
+      assessmentCollaborationDuring[0].workspace_members_removed
+      && assessmentCollaborationDuring[0].assessment_sections_removed
+      && assessmentCollaborationDuring[0].history_removed
+      && assessmentCollaborationDuring[0].assessment_drafts_removed
     ),
   });
   await connection.unsafe(clientWorkspaceRollback);
@@ -107,7 +135,10 @@ try {
       to_regclass('pipeline.client_file_import_items') is not null as client_file_import_items,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='documents' and column_name='canonical_client_id') as client_document_identity,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='documents' and column_name='client_community') as client_document_community,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0008_client_workspaces') as client_workspace_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0008_client_workspaces') as client_workspace_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='section_versions') as assessment_sections,
+      to_regclass('pipeline.workspace_members') is not null as workspace_members,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0009_assessment_collaboration') as assessment_collaboration_history
   `;
   checks.push({
     name: "drill transaction restores original schema",
@@ -124,6 +155,9 @@ try {
       && after[0].client_document_identity
       && after[0].client_document_community
       && after[0].client_workspace_history
+      && after[0].assessment_sections
+      && after[0].workspace_members
+      && after[0].assessment_collaboration_history
     ),
   });
   const failed = checks.filter((check) => !check.ok);

@@ -11,11 +11,16 @@ test.describe("Responsive and accessible application shell", () => {
   test("keeps home and referral navigation usable without page overflow", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { name: "Welcome, Playwright QA." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Welcome, Playwright." })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
-    await expect(page.getByRole("img", { name: "Alamo Platform" })).toBeVisible();
+    const platformBrand = page.getByRole("img", { name: "Alamo Platform" });
+    if ((page.viewportSize()?.width ?? 0) >= 768) {
+      await expect(platformBrand).toBeVisible();
+    } else {
+      await expect(platformBrand).toBeHidden();
+    }
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
 
     await page.getByRole("button", { name: "Open search" }).click();
@@ -25,7 +30,8 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoSeriousAxeViolations(page);
 
     await page.getByRole("button", { name: "Open referrals" }).click();
-    await expect(page.getByRole("heading", { name: "Referral packets", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Alamo Platform" })).toHaveCount(0);
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
 
@@ -42,7 +48,7 @@ test.describe("Responsive and accessible application shell", () => {
   test("keeps packet steps operable at the configured viewport", async ({ page }) => {
     await page.goto("/?view=referrals&screen=packet");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("navigation", { name: "Referral packet steps" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Referral workspace steps" })).toBeVisible();
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Summary", exact: true })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toBeFocused();

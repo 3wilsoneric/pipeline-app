@@ -68,7 +68,12 @@ export async function PATCH(
           resident_key: identity.residentKey ?? validated.value.patch.resident_key,
         },
         { id: auth.user.id, name: auth.user.name },
-        validated.value.if_match,
+        {
+          expectedVersion: validated.value.if_match,
+          section: validated.value.section,
+          expectedSectionVersion: validated.value.if_match_section,
+          mutationId: validated.value.client_mutation_id,
+        },
       );
       if (!result) return jsonError("Assessment not found.", 404);
       if (!result.ok && "conflict" in result) {

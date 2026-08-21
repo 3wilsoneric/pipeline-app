@@ -88,6 +88,8 @@ export async function ingestLocalMockPacketFile(input: {
       packetId: input.packetId,
       fields: result.fields,
       pageCount: result.pageCount,
+      documentHash: result.documentHash,
+      contentType: descriptor.content_type,
     })) {
       throw new DocumentProcessingError("packet_not_found", 404, "Packet not found.");
     }

@@ -38,7 +38,7 @@ export default function ReferralActionWorklist({
   return (
     <section aria-label="Referral action worklist" className="min-w-0 bg-white">
       <nav aria-label="Action categories" className="overflow-x-auto border-b border-[#d9d9d9]">
-        <div className="grid min-w-[840px] grid-cols-7">
+        <div className="grid min-w-[920px] grid-cols-8">
           {referralWorklistBuckets.map((bucket) => {
             const active = selectedBucket === bucket.value;
             const count = snapshot?.counts[bucket.value] ?? 0;
@@ -121,7 +121,7 @@ function WorklistRow({
     <button
       type="button"
       onClick={() => onOpenPacket({ id: item.referral_id, name: item.client_name, community: item.community })}
-      aria-label={`Open ${item.client_name} referral packet`}
+      aria-label={`Open ${item.client_name} referral workspace`}
       className="grid w-full grid-cols-[minmax(190px,1fr)_minmax(240px,1.25fr)_minmax(190px,1fr)_125px_105px_110px_100px_36px] items-center px-4 py-3 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
     >
       <span className="min-w-0 pr-4">
