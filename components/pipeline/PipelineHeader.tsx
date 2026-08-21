@@ -7,7 +7,6 @@ import { Activity, ArrowRight, LogOut, UserRound } from "lucide-react";
 
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
-import UserAvatar from "@/components/pipeline/UserAvatar";
 import { fetchCurrentPipelineUser, type PipelineCurrentUser } from "@/lib/auth/authenticated-fetch";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { getAccountDisplayName } from "@/lib/auth/entra-client";
@@ -63,7 +62,6 @@ export default function PipelineHeader() {
   }, [isProfileMenuOpen]);
 
   const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : "Eric Wilson");
-  const signedInInitials = getInitials(signedInName);
   const operationsActive = activeSearchParams.get("screen") === "operations";
   const isWelcomeSurface = homeMode === "welcome"
     && pathname === "/"
@@ -153,47 +151,47 @@ export default function PipelineHeader() {
             <div
               role="dialog"
               aria-label="Profile menu"
-              className="absolute right-0 top-[calc(100%+10px)] z-50 w-[320px] overflow-hidden rounded-md border border-[#d9d9d9] bg-white shadow-[0_16px_36px_rgba(17,17,17,0.14)]"
+              data-profile-menu="true"
+              className="absolute right-0 top-[calc(100%+8px)] z-50 w-[304px] overflow-hidden rounded-sm border border-[#cfcfcf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_10px_24px_rgba(17,17,17,0.12)]"
             >
-              <div className="flex items-center gap-3 px-4 py-4">
-                <UserAvatar size="md" initials={signedInInitials} />
+              <div className="flex min-h-[78px] items-center gap-3 px-4 py-3.5">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-[#b8dacf] bg-[#f4faf7] text-[#0f8b73]">
+                  <UserRound size={20} strokeWidth={1.8} aria-hidden="true" />
+                </span>
                 <div className="min-w-0">
-                  <div className="truncate text-[14px] font-black text-[#111111]">{signedInName}</div>
-                  <div className="truncate text-[11px] text-[#737373]">{user?.email ?? "Signed in to Pipeline"}</div>
+                  <div className="truncate text-[13px] font-black text-[#111111]">{signedInName}</div>
+                  <div className="mt-1 truncate text-[11px] text-[#737373]">{user?.email ?? "Signed in to Pipeline"}</div>
                 </div>
               </div>
-              <div className="border-t border-[#e5e5e5] px-3 py-3">
-                <Link
-                  href="/?screen=operations"
-                  aria-current={operationsActive ? "page" : undefined}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setIsProfileMenuOpen(false);
-                    recordRecentDestination({
-                      id: "page:operations",
-                      kind: "page",
-                      screen: "operations",
-                      title: "Pipeline operations",
-                      detail: "Queue, ownership, and record gaps",
-                    });
-                    navigateTo("operations");
-                  }}
-                  className={`group flex items-center gap-3 rounded-md border px-3 py-3 text-left transition-colors ${
-                    operationsActive
-                      ? "border-[#0f8b73] bg-[#e7f3ee]"
-                      : "border-[#b8dacf] bg-[#f4faf7] hover:border-[#0f8b73] hover:bg-[#e7f3ee]"
-                  }`}
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#b8dacf] bg-white text-[#0f8b73]">
-                    <Activity size={17} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-black text-[#111111]">Pipeline operations</span>
-                    <span className="mt-0.5 block text-[11px] text-[#595959]">Queue, ownership, and record gaps</span>
-                  </span>
-                  <ArrowRight size={15} className="shrink-0 text-[#0f8b73] transition-transform group-hover:translate-x-1" />
-                </Link>
-              </div>
+              <Link
+                href="/?screen=operations"
+                aria-label="Pipeline operations Queue, ownership, and record gaps"
+                aria-current={operationsActive ? "page" : undefined}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setIsProfileMenuOpen(false);
+                  recordRecentDestination({
+                    id: "page:operations",
+                    kind: "page",
+                    screen: "operations",
+                    title: "Pipeline operations",
+                    detail: "Queue, ownership, and record gaps",
+                  });
+                  navigateTo("operations");
+                }}
+                className={`group grid min-h-[64px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-y border-[#e5e5e5] border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${
+                  operationsActive
+                    ? "border-l-[#0f8b73] bg-[#edf7f3]"
+                    : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"
+                }`}
+              >
+                <Activity size={18} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="block text-[12px] font-black text-[#111111]">Operations</span>
+                  <span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Queues, ownership, and gaps</span>
+                </span>
+                <ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+              </Link>
               {auth.required ? (
                 <button
                   type="button"
@@ -201,10 +199,10 @@ export default function PipelineHeader() {
                     setIsProfileMenuOpen(false);
                     void auth.signOut();
                   }}
-                  className="flex w-full items-center gap-2 border-t border-[#e5e5e5] px-4 py-3 text-left text-[#737373] hover:bg-[#fff8ed] hover:text-[#9b6418]"
+                  className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left text-[#737373] outline-none transition-colors hover:bg-[#fff8ed] hover:text-[#8a5a10] focus-visible:bg-[#fff8ed] focus-visible:text-[#8a5a10]"
                 >
-                  <LogOut size={15} />
-                  <span className="text-[12px] font-black">Sign out</span>
+                  <LogOut size={16} strokeWidth={1.8} aria-hidden="true" />
+                  <span className="text-[11px] font-black">Sign out</span>
                 </button>
               ) : null}
             </div>
@@ -221,16 +219,4 @@ function getActiveNavTarget(searchParams: URLSearchParams, pathname: string): Pi
   if (searchParams.get("screen") === "referrals" || searchParams.get("view") === "referrals") return "referrals";
   if (searchParams.get("screen") === "profiles" || searchParams.get("screen") === "profile") return "profiles";
   return null;
-}
-
-function getInitials(name: string) {
-  const initials = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("");
-
-  return initials || "EW";
 }
