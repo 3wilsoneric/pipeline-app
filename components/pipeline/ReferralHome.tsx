@@ -109,10 +109,12 @@ const fileCategories: ReferralFile["category"][] = [
 
 export default function ReferralHome({
   searchTerm,
+  onSearchTermChange,
   onOpenPacket,
   onOpenProfile,
 }: {
   searchTerm: string;
+  onSearchTermChange: (value: string) => void;
   onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
 }) {
@@ -287,6 +289,10 @@ export default function ReferralHome({
   }, [filter, searchTerm]);
 
   useEffect(() => {
+    if (searchTerm.trim() && (filter.kind === "workflow" || filter.kind === "work")) setFilter({ kind: "all" });
+  }, [filter.kind, searchTerm]);
+
+  useEffect(() => {
     if (filter.kind !== "files" || reviewIdentity) return;
 
     let cancelled = false;
@@ -418,6 +424,36 @@ export default function ReferralHome({
     </div>
   );
 
+  const workspaceSearch = filter.kind !== "files" ? (
+    <div className="flex h-11 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73]">
+      <Search size={16} className="shrink-0 text-[#0f8b73]" />
+      <label htmlFor="workspace-directory-search" className="sr-only">Search all workspaces</label>
+      <input
+        id="workspace-directory-search"
+        type="search"
+        aria-label="Search all workspaces"
+        value={searchTerm}
+        onChange={(event) => {
+          const value = event.target.value;
+          onSearchTermChange(value);
+          if (value.trim() && (filter.kind === "workflow" || filter.kind === "work")) setFilter({ kind: "all" });
+        }}
+        placeholder="Search all workspaces by client, community, owner, tag, or source"
+        className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111111] outline-none placeholder:text-[#8a8a8a]"
+      />
+      {searchTerm ? (
+        <button
+          type="button"
+          aria-label="Clear workspace search"
+          onClick={() => onSearchTermChange("")}
+          className="flex h-8 w-8 shrink-0 items-center justify-center text-[#737373] hover:text-[#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
+        >
+          <X size={15} />
+        </button>
+      ) : null}
+    </div>
+  ) : null;
+
   const filterToolbar = (
     <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-2 md:py-3">
       <span className="mr-1 shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Filter</span>
@@ -512,6 +548,7 @@ export default function ReferralHome({
         <h1 className="sr-only">Referral workspaces</h1>
         <div className="min-w-0">
           {packetToolbar}
+          {workspaceSearch}
           {filter.kind === "files" ? fileFilterToolbar : filter.kind !== "work" ? filterToolbar : null}
           {loadError && filter.kind !== "files" && filter.kind !== "work" ? (
             <div className="mb-3 flex items-center justify-between gap-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-4 py-3 text-[12px] font-semibold text-[#59332d]" role="alert">
@@ -955,7 +992,7 @@ function ImportIdentityReviewDialog({
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <button type="button" disabled={saving} onClick={() => void save("reject")} className="h-10 border border-[#a63d2f] px-3 text-[11px] font-black text-[#a63d2f] disabled:opacity-50">Reject import item</button>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" disabled={saving || Boolean(selected)} onClick={() => void save("create_client")} className="h-10 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0c705f] disabled:border-[#d9d9d9] disabled:text-[#a0a0a0]">Create historical client</button>
+            <button type="button" disabled={saving || Boolean(selected)} onClick={() => void save("create_client")} className="h-10 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0c705f] disabled:border-[#d9d9d9] disabled:text-[#a0a0a0]">Create client workspace</button>
             <button type="button" disabled={!selected || saving} onClick={() => void save("confirm")} className="h-10 bg-[#0f8b73] px-4 text-[11px] font-black text-white disabled:bg-[#d9d9d9]">{saving ? "Saving..." : "Confirm client"}</button>
           </div>
         </div>
@@ -1259,7 +1296,10 @@ function buildReferralParams(
 ) {
   const params = new URLSearchParams({ limit: "100" });
   const query = searchTerm.trim();
-  if (query) params.set("q", query);
+  if (query) {
+    params.set("q", query);
+    params.set("workspace", "all");
+  }
   if (cursor) params.set("cursor", cursor);
 
   if (filter.kind === "community") params.set("community", filter.value);
@@ -1268,7 +1308,7 @@ function buildReferralParams(
   if (filter.kind === "owner") params.set("owner", filter.value);
   if (filter.kind === "priority") params.set("priority", filter.value);
   if (filter.kind === "tag") params.set("tag", filter.value);
-  if (filter.kind === "workflow") params.set("active", "true");
+  if (filter.kind === "workflow" && !query) params.set("active", "true");
   else if (filter.kind !== "work" && filter.kind !== "files") params.set("workspace", "all");
   return params;
 }

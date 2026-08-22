@@ -136,7 +136,19 @@ test.describe("Referral home and packet canvas", () => {
     await workQueues.getByRole("button", { name: "Decision needed", exact: true }).click();
     await expect(page.getByText("No referrals need a decision", { exact: true })).toBeVisible();
     await expect(page.getByText("This view is derived from current referral, assessment, decision, document, and requirement data.", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "All workspaces", exact: true }).click();
+
+    const workspaceSearch = page.getByLabel("Search all workspaces");
+    await expect(workspaceSearch).toBeVisible();
+    const searchedDirectory = page.waitForRequest((request) => {
+      const url = new URL(request.url());
+      return url.pathname.endsWith("/api/referrals/directory") && url.searchParams.get("q") === "San Pablo";
+    });
+    await workspaceSearch.fill("San Pablo");
+    const searchRequest = await searchedDirectory;
+    expect(new URL(searchRequest.url()).searchParams.get("workspace")).toBe("all");
+    await expect(page.getByRole("heading", { name: "All workspaces", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Clear workspace search" }).click();
+    await expect(workspaceSearch).toHaveValue("");
 
     await page.getByRole("button", { name: "Open search" }).click();
     await expect(page.getByRole("button", { name: "Close search" })).toHaveCSS(

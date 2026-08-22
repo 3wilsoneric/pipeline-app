@@ -352,7 +352,7 @@ async function getPipelineOnlyClientProfile(
         suggestions: [],
         message: referrals.length > 0
           ? "This workspace is keyed to the Pipeline client identity. A reviewed Alamo resident link can be added after admission without changing its referral history or files."
-          : "This historical workspace preserves reviewed client files. It can be joined to a governed Alamo client later without moving or duplicating those files.",
+          : "This client workspace preserves reviewed files. It can be joined to a governed Alamo client later without moving or duplicating those files.",
       },
       referrals,
       assessments,

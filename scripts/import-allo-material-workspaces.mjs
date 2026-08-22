@@ -159,7 +159,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
   const owner = workspace.primary_owner ? members.get(normalizeName(workspace.primary_owner)) : null;
   const ownerName = owner?.display_name ?? "Unassigned";
   const ownerId = owner?.principal_id ?? null;
-  const tags = ["historical", "allo-import", ...(owner ? [] : ["owner-review"])];
+  const tags = ["allo-import", ...(owner ? [] : ["owner-review"])];
   const firstFile = workspace.files[0] ?? null;
   const data = {
     clientId: externalClientId,
@@ -182,7 +182,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
     documentStatus: firstFile ? "Uploaded" : "Missing",
     ownerId: ownerId ?? undefined,
     owner: ownerName,
-    note: `Historical workspace with ${workspace.material_count} material${workspace.material_count === 1 ? "" : "s"}.`,
+    note: `Imported workspace with ${workspace.material_count} material${workspace.material_count === 1 ? "" : "s"}.`,
     createdAt: workspace.first_material_at ?? new Date().toISOString(),
     dob: dateOfBirth ?? "",
     phone: "",
@@ -201,7 +201,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
   `;
   const personId = people[0].person_id;
   const searchText = [workspace.display_name, workspace.community, ownerName, workspace.source_workspace_name,
-    workspace.project_name, "historical allo"].filter(Boolean).join(" ").toLowerCase();
+    workspace.project_name, "allo import", ...workspace.files.map((file) => file.source_file_name)].filter(Boolean).join(" ").toLowerCase();
   const referrals = await tx`
     insert into pipeline.referrals (
       person_id, stage, community, owner_id, owner_name, priority, source, received_date,

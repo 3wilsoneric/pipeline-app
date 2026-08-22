@@ -364,7 +364,7 @@ export default function ClientProfileDirectory({
                 <span className="block truncate text-[15px] font-black leading-5 text-[#111111]">{client.display_name}</span>
                 <span className="mt-1 block truncate text-[11px] leading-4 text-[#737373] md:hidden">
                   {client.current_community || client.community_names.join(" · ") || "No community reported"}
-                  {client.workspace_origin === "pipeline" ? client.referral_count > 0 ? " · Referral workspace" : " · Historical files" : ""}
+                  {client.workspace_origin === "pipeline" ? client.referral_count > 0 ? " · Referral workspace" : " · Client files" : ""}
                 </span>
               </span>
               <span className="hidden min-w-0 md:block">
@@ -378,10 +378,10 @@ export default function ClientProfileDirectory({
               <span className="hidden min-w-0 text-right md:block">
                 <span className="block text-[11px] text-[#595959]">
                   {client.workspace_origin === "pipeline"
-                    ? client.referral_count > 0 ? "Referral workspace" : "Historical files"
+                    ? client.referral_count > 0 ? "Referral workspace" : "Client file workspace"
                     : client.current_resident
                     ? client.admit_date ? `Admitted ${formatDate(client.admit_date)}` : "Current resident"
-                    : "Historical client"}
+                    : "Prior resident"}
                 </span>
                 <span className="mt-1 block truncate text-[10px] text-[#737373]">
                   {client.workspace_origin === "pipeline"

@@ -64,7 +64,7 @@ function ClientProfileLoader({ residentKey, onBack }: { residentKey: string; onB
           title: payload.client.display_name,
           detail: payload.client.current_resident
             ? `${payload.client.current_community || "Current community"} · Current resident`
-            : "Historical client",
+            : "Prior resident",
           clientId: payload.client.canonical_client_id,
         });
         setProfile(payload);
@@ -192,17 +192,17 @@ function ResidentProfile({
               </div>
               <p className="mt-2 text-[13px] text-[#595959]">
                 {pipelineOnly
-                  ? `${client.current_community || client.community_names.join(" · ") || "Community not reported"} · ${profile.pipeline.summary.referral_count > 0 ? "Referral client" : "Historical file workspace"}`
+                  ? `${client.current_community || client.community_names.join(" · ") || "Community not reported"} · ${profile.pipeline.summary.referral_count > 0 ? "Referral client" : "Client file workspace"}`
                   : client.current_resident
                   ? `${client.current_community || resident?.community_name || "Current resident"}${client.unit ? ` · Unit ${client.unit}` : ""}`
-                  : `${client.community_names.join(" · ") || "Community not reported"} · Historical client`}
+                  : `${client.community_names.join(" · ") || "Community not reported"} · Prior resident`}
               </p>
             </div>
           </div>
         </header>
 
         <section className="mt-4 grid gap-px border-b border-[#d9d9d9] bg-[#d9d9d9] md:grid-cols-4" aria-label="Profile summary">
-          <Metric label="Profile data" value={pipelineOnly ? "Pipeline" : `${completeness.percent}%`} detail={pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral workspace" : "Historical files" : `${completeness.complete} of ${completeness.total} fields available`} />
+          <Metric label="Profile data" value={pipelineOnly ? "Pipeline" : `${completeness.percent}%`} detail={pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral workspace" : "Client files" : `${completeness.complete} of ${completeness.total} fields available`} />
           <Metric label={pipelineOnly ? "Referrals" : "Current stay"} value={pipelineOnly ? String(profile.pipeline.summary.referral_count) : resident?.length_of_stay_days === null || resident?.length_of_stay_days === undefined ? "Not reported" : `${resident.length_of_stay_days.toLocaleString()} days`} detail={pipelineOnly ? `${profile.pipeline.summary.active_referral_count} active` : resident?.admit_date ? `Admitted ${formatDate(resident.admit_date)}` : "Admission date not reported"} />
           {hasPipelineHistory ? (
             <>
@@ -302,7 +302,7 @@ function ResidentProfile({
               <div className="flex gap-3">
                 <FileText size={17} className="mt-0.5 shrink-0 text-[#0f8b73]" />
                 <div className="space-y-3 text-[12px] text-[#595959]">
-                  <div><span className="font-black text-[#111111]">{pipelineOnly ? "Pipeline" : "Alamo Platform"}</span><br />{pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral history" : "Historical client files" : "Current clinical profile"}</div>
+                  <div><span className="font-black text-[#111111]">{pipelineOnly ? "Pipeline" : "Alamo Platform"}</span><br />{pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral history" : "Client file workspace" : "Current clinical profile"}</div>
                   <div>Updated through {formatDate(profile.data_as_of)}</div>
                   {history.data_as_of ? (
                     <div className="border-t border-[#d9d9d9] pt-3">
@@ -540,7 +540,7 @@ function PipelineWorkSummary({
         <IdentityLinkControls profile={profile} onConnectionChanged={onConnectionChanged} />
       ) : (
         <div className="mt-4 text-[12px] text-[#737373]">
-          Historical clients remain searchable, but a referral can only be connected while the client appears on the current census.
+          Clients outside the current census remain searchable. A referral can be connected after the client appears on the current census.
         </div>
       )}
     </div>

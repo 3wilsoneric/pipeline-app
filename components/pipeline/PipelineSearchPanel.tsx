@@ -329,7 +329,7 @@ function SearchResponse({
             title={client.display_name}
             detail={client.current_resident
               ? `${client.current_community || "Current resident"}${client.unit ? ` · Unit ${client.unit}` : ""}`
-              : `${client.community_names.join(" · ") || "Community not reported"} · Historical client`}
+              : `${client.community_names.join(" · ") || "Community not reported"} · Prior resident`}
             kind="Profile"
             ariaLabel={`Open profile for ${client.display_name}`}
             onClick={() => onOpenProfile(client.canonical_client_id)}

@@ -32,6 +32,7 @@ import {
   isReferralStage,
   type ReferralStage,
 } from "@/lib/pipeline/referral-workflow";
+import { presentWorkspaceNote, visibleWorkspaceTags } from "@/lib/pipeline/workspace-presentation";
 
 type ReferralStoreState = {
   initialized: boolean;
@@ -866,7 +867,7 @@ async function listPostgresReferralFacets(
     sql<FacetRow[]>`
       select tag as value, count(*) as count
       from pipeline.referrals r cross join lateral unnest(r.tags) tag
-      where ${searchClause}
+      where ${searchClause} and lower(trim(tag)) <> 'historical'
       group by tag order by tag
     `,
     sql<FacetRow[]>`
@@ -1729,6 +1730,8 @@ function normalizeReferral(input: Referral): Referral {
     clientId: normalizeClientId(input.clientId) || buildLocalClientId(Number(input.id)),
     workspaceOrigin: input.workspaceOrigin ?? "pipeline",
     workspaceStatus: input.workspaceStatus ?? "active",
+    tags: visibleWorkspaceTags(input.tags),
+    note: presentWorkspaceNote(input.note ?? ""),
     sourceMaterialCount: Number.isSafeInteger(input.sourceMaterialCount) && Number(input.sourceMaterialCount) >= 0
       ? Number(input.sourceMaterialCount)
       : 0,
@@ -1854,6 +1857,9 @@ function searchableReferralText(referral: Referral) {
       referral.documentStatus,
       referral.packetStatus,
       referral.note,
+      referral.documentName,
+      referral.sourceWorkspaceName,
+      referral.sourceProjectName,
       ...(referral.tags ?? []),
     ]
       .filter(Boolean)

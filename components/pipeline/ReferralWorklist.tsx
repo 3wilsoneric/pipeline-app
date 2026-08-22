@@ -7,6 +7,10 @@ import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import { getStageLabel } from "@/lib/pipeline/referral-workflow";
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import {
+  getWorkspaceAdmissionOutcome,
+  visibleWorkspaceTags,
+} from "@/lib/pipeline/workspace-presentation";
 
 export default function ReferralWorklist({
   referrals,
@@ -21,29 +25,37 @@ export default function ReferralWorklist({
     const progress = progressByReferral[referral.id] ?? getReferralProgress(referral);
     const extractedTotal = referral.packetFields?.length ?? 0;
     const extractedReviewed = referral.packetFields?.filter((field) => ["accepted", "edited"].includes(field.review_status)).length ?? 0;
-    return { referral, progress, extractedTotal, extractedReviewed };
+    return {
+      referral,
+      progress,
+      extractedTotal,
+      extractedReviewed,
+      outcome: getWorkspaceAdmissionOutcome(referral),
+      visibleTags: visibleWorkspaceTags(referral.tags),
+    };
   });
 
   return (
     <div className="overflow-x-auto" aria-label="Referral worklist">
-      <div className="min-w-[940px]">
-        <div className="grid grid-cols-[minmax(210px,1.2fr)_minmax(220px,1.35fr)_150px_170px_130px_90px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">
+      <div className="min-w-[1080px]">
+        <div className="grid grid-cols-[minmax(210px,1.2fr)_minmax(200px,1.25fr)_145px_130px_160px_125px_85px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">
           <span>Client</span>
           <span>Next action</span>
           <span>Stage</span>
+          <span>Admission</span>
           <span>Data capture</span>
           <span>Owner</span>
           <span>Updated</span>
           <span className="sr-only">Open</span>
         </div>
         <div className="divide-y divide-[#e2e2e2]">
-          {rows.map(({ referral, progress, extractedReviewed, extractedTotal }) => (
+          {rows.map(({ referral, progress, extractedReviewed, extractedTotal, outcome, visibleTags }) => (
             <button
               key={referral.id}
               type="button"
               onClick={() => onOpenPacket(referral)}
               aria-label={`Open ${referral.name} referral workspace`}
-              className="grid w-full grid-cols-[minmax(210px,1.2fr)_minmax(220px,1.35fr)_150px_170px_130px_90px_36px] items-center px-4 py-3 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
+              className="grid w-full grid-cols-[minmax(210px,1.2fr)_minmax(200px,1.25fr)_145px_130px_160px_125px_85px_36px] items-center px-4 py-3 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
             >
               <span className="flex min-w-0 items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#b8dacf] bg-[#effaf5] text-[10px] font-black text-[#0c705f]">
@@ -52,10 +64,10 @@ export default function ReferralWorklist({
                 <span className="min-w-0">
                   <span className="block truncate text-[12px] font-black text-[#111111]">{referral.name}</span>
                   <span className="mt-1 block truncate text-[10px] text-[#737373]">{referral.community || "Community pending"}</span>
-                  {referral.tags?.length ? (
-                    <span className="mt-1 block truncate text-[9px] font-semibold text-[#0c705f]" title={referral.tags.map((tag) => `#${tag}`).join(" · ")}>
-                      {referral.tags.slice(0, 2).map((tag) => `#${tag}`).join(" · ")}
-                      {referral.tags.length > 2 ? ` +${referral.tags.length - 2}` : ""}
+                  {visibleTags.length ? (
+                    <span className="mt-1 block truncate text-[9px] font-semibold text-[#0c705f]" title={visibleTags.map((tag) => `#${tag}`).join(" · ")}>
+                      {visibleTags.slice(0, 2).map((tag) => `#${tag}`).join(" · ")}
+                      {visibleTags.length > 2 ? ` +${visibleTags.length - 2}` : ""}
                     </span>
                   ) : null}
                 </span>
@@ -64,7 +76,7 @@ export default function ReferralWorklist({
               <span className="min-w-0 pr-4">
                 {referral.workspaceStatus === "historical" ? (
                   <>
-                    <span className="block truncate text-[11px] font-black text-[#111111]">Historical Allo workspace</span>
+                    <span className="block truncate text-[11px] font-black text-[#111111]">Imported workspace</span>
                     <span className="mt-1 block truncate text-[9px] text-[#737373]">{referral.sourceProjectName || "Imported client materials"}</span>
                   </>
                 ) : (
@@ -81,12 +93,17 @@ export default function ReferralWorklist({
               </span>
 
               <span>
-                <span className={referral.workspaceStatus === "historical" ? historicalClass : stageClass(referral.stage)}>
-                  {referral.workspaceStatus === "historical" ? "Historical" : getStageLabel(referral.stage)}
-                </span>
+                <span className={stageClass(referral.stage)}>{getStageLabel(referral.stage)}</span>
                 {referral.priority !== "standard" ? (
                   <span className="mt-1 block text-[9px] font-black uppercase text-[#a04436]">{referral.priority}</span>
                 ) : null}
+              </span>
+
+              <span title={outcome.explanation}>
+                <span className={outcomeClass(outcome.status)}>{outcome.label}</span>
+                <span className="mt-1 block text-[8px] font-semibold uppercase tracking-[0.06em] text-[#737373]">
+                  {outcome.evidence === "inferred" ? "Inferred" : outcome.evidence === "recorded" ? "Recorded" : "Open"}
+                </span>
               </span>
 
               <span className="pr-5">
@@ -126,13 +143,18 @@ export default function ReferralWorklist({
   );
 }
 
-const historicalClass = "inline-flex max-w-[140px] truncate border border-[#c6cbc8] bg-[#f5f6f5] px-2 py-1 text-[9px] font-black uppercase text-[#4f5854]";
-
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
+}
+
+function outcomeClass(status: "admitted" | "not_admitted" | "pending") {
+  const shared = "inline-flex border px-2 py-1 text-[9px] font-black uppercase";
+  if (status === "admitted") return `${shared} border-[#8fc7b7] bg-[#effaf5] text-[#0f705d]`;
+  if (status === "not_admitted") return `${shared} border-[#d8aaa4] bg-[#fff3f1] text-[#8c392f]`;
+  return `${shared} border-[#d8c58c] bg-[#fff9e8] text-[#745315]`;
 }
 
 function stageClass(stage: Referral["stage"]) {
