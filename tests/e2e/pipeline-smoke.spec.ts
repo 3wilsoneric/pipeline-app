@@ -435,11 +435,10 @@ test.describe("Referral home and packet canvas", () => {
     await expect.poll(() => workflow.getByRole("button").count()).toBe(rowsBefore);
   });
 
-  test("browses all uploaded files and fixed creation months", async ({ page }) => {
+  test("browses all uploaded files without duplicate month navigation", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^All files/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: "June 2026", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "July 2026", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "August 2026", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Filter by creation month")).toBeVisible();
+    await expect(page.getByRole("button", { name: "June 2026", exact: true })).toHaveCount(0);
 
     await page.getByRole("button", { name: /^All files/ }).click();
     await expect(page.getByRole("heading", { name: "All files", exact: true })).toBeVisible();
