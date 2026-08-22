@@ -392,10 +392,13 @@ function safeImportDiagnostic(error, workspaceOrdinal) {
   const allowedTypes = new Set(["Error", "TypeError", "RangeError", "SyntaxError"]);
   if (error instanceof Error && allowedTypes.has(error.name)) result.error_type = error.name;
   if (error instanceof Error) {
-    const sourceFrame = /import-allo-material-workspaces\.mjs:(\d+):(\d+)/.exec(error.stack ?? "");
-    if (sourceFrame) {
-      result.source_line = Number(sourceFrame[1]);
-      result.source_column = Number(sourceFrame[2]);
+    const sourceFrames = [...(error.stack ?? "").matchAll(/import-allo-material-workspaces\.mjs:(\d+):(\d+)/g)]
+      .slice(0, 6)
+      .map((match) => ({ line: Number(match[1]), column: Number(match[2]) }));
+    if (sourceFrames.length > 0) {
+      result.source_line = sourceFrames[0].line;
+      result.source_column = sourceFrames[0].column;
+      result.source_frames = sourceFrames;
     }
   }
   const code = "code" in error ? String(error.code ?? "") : "";
