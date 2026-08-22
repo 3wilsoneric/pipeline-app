@@ -19,6 +19,7 @@ const manifestPath = absoluteArgument("--manifest");
 const privateOutput = optionalAbsoluteArgument("--private-output");
 const dryRun = args.has("--dry-run");
 const prepareOnly = args.has("--prepare-only");
+const workerConcurrency = boundedIntegerArgument("--concurrency", 16, 1, 32);
 const apply = !dryRun && !prepareOnly && args.get("--confirm") === uploadConfirmation;
 if (!dryRun && !prepareOnly && !apply) fail(`Refusing to upload without --confirm=${uploadConfirmation}.`);
 const account = process.env.AZURE_STORAGE_ACCOUNT?.trim();
@@ -38,6 +39,7 @@ if (dryRun) {
     workspace_count: cloud.workspace_count,
     material_count: cloud.available_file_count,
     total_bytes: totalBytes,
+    concurrency: workerConcurrency,
     digest_calculation_required: true,
     changes_made: false,
   });
@@ -69,7 +71,7 @@ try {
     }
   }
 
-  await runBounded(tasks, 6, async ({ file, sourcePath }) => {
+  await runBounded(tasks, workerConcurrency, async ({ file, sourcePath }) => {
     const metadata = await stat(sourcePath);
     if (!metadata.isFile() || metadata.size !== file.source_byte_size) throw new Error("source_file_changed");
     const digest = await fileSha256(sourcePath);
@@ -183,6 +185,16 @@ function optionalAbsoluteArgument(name) {
   const value = args.get(name);
   if (!value) return null;
   if (!path.isAbsolute(value)) fail(`${name} must be an absolute path.`);
+  return value;
+}
+
+function boundedIntegerArgument(name, fallback, minimum, maximum) {
+  const raw = args.get(name);
+  if (!raw) return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    fail(`${name} must be a whole number between ${minimum} and ${maximum}.`);
+  }
   return value;
 }
 
