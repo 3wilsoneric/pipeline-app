@@ -25,7 +25,6 @@ ARG NEXT_PUBLIC_PIPELINE_API_SCOPE
 ARG NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED=true
 ARG NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=true
 ARG PIPELINE_DEPLOYMENT_ID
-ARG NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_ENTRA_TENANT_ID=${NEXT_PUBLIC_ENTRA_TENANT_ID} \
@@ -35,11 +34,8 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED=${NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED} \
     PIPELINE_DEPLOYMENT_ID=${PIPELINE_DEPLOYMENT_ID}
 
-RUN --mount=type=secret,id=next_server_actions_encryption_key,required=false \
-    mounted_key="$(cat /run/secrets/next_server_actions_encryption_key 2>/dev/null || true)" \
-    && build_key="${mounted_key:-${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}}" \
-    && test -n "$build_key" \
-    && NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$build_key" npm run build
+RUN --mount=type=secret,id=next_server_actions_encryption_key,required=true \
+    NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$(cat /run/secrets/next_server_actions_encryption_key)" npm run build
 
 FROM node:22-alpine AS runtime
 

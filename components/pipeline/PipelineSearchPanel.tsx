@@ -314,14 +314,12 @@ function SearchResponse({
             detail={`${file.referralName} · ${file.category}`}
             kind="File"
             ariaLabel={`Open file ${file.name}`}
-            onClick={() => {
-              if (file.canonicalClientId) {
-                onOpenProfile(file.canonicalClientId);
-              } else if (file.referralId && file.community) {
+            href={file.downloadUrl ?? file.previewUrl}
+            onClick={file.downloadUrl || file.previewUrl ? undefined : () => {
+              if (file.canonicalClientId) onOpenProfile(file.canonicalClientId);
+              else if (file.referralId && file.community) {
                 onOpenPacket({ id: file.referralId, name: file.referralName, community: file.community });
-              } else if (file.clientId) {
-                onOpenProfile(`pipeline:${file.clientId}`);
-              }
+              } else if (file.clientId) onOpenProfile(`pipeline:${file.clientId}`);
             }}
           />
         ))}
@@ -353,25 +351,37 @@ function SearchResultRow({
   kind,
   ariaLabel,
   onClick,
+  href,
 }: {
   title: string;
   detail: string;
   kind: string;
   ariaLabel: string;
-  onClick: () => void;
+  onClick?: () => void;
+  href?: string;
 }) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      onClick={onClick}
-      className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-5 border-l-[3px] border-l-transparent px-5 py-4 text-left hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-l-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none md:px-6"
-    >
+  const className = "grid w-full grid-cols-[minmax(0,1fr)_auto] gap-5 border-l-[3px] border-l-transparent px-5 py-4 text-left hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-l-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none md:px-6";
+  const content = (
+    <>
       <span className="min-w-0">
         <span className="block truncate text-[13px] font-black text-[#111111]">{title}</span>
         <span className="mt-1 block truncate text-[11px] text-[#737373]">{detail}</span>
       </span>
       <span className="self-center text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">{kind}</span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" aria-label={ariaLabel} className={className}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" aria-label={ariaLabel} onClick={onClick} className={className}>
+      {content}
     </button>
   );
 }

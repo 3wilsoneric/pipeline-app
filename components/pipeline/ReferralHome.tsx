@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import {
   ArrowRight,
@@ -391,11 +392,11 @@ export default function ReferralHome({
   const refreshLabel = lastRefreshedAt === null ? "" : formatRefreshAge(lastRefreshedAt);
 
   const packetToolbar = (
-    <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] px-2 py-2">
+    <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] px-2 py-1.5 md:min-h-16 md:py-2">
       <div className="flex items-center gap-2">
         <FileText size={16} className="text-[#0f8b73]" />
         <h2 className="text-[16px] font-black tracking-[0.01em] text-[#111111]">{getFilterLabel(filter)}</h2>
-        <span className="text-[11px] text-[#737373]">{resultCountLabel}</span>
+        <span className="hidden text-[11px] text-[#737373] sm:inline">{resultCountLabel}</span>
       </div>
       {filter.kind === "workflow" || filter.kind === "work" ? (
         <div className="flex items-center gap-2">
@@ -418,7 +419,7 @@ export default function ReferralHome({
   );
 
   const filterToolbar = (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-3">
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-2 md:py-3">
       <span className="mr-1 shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Filter</span>
       <select
         aria-label="Filter by stage"
@@ -464,7 +465,7 @@ export default function ReferralHome({
   );
 
   const fileFilterToolbar = (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-3">
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-2 md:py-3">
       <span className="mr-1 shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Files</span>
       <button
         type="button"
@@ -919,8 +920,8 @@ function ImportIdentityReviewDialog({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-label={`Review identity for ${item.source_file_name}`}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-label={`Review identity for ${item.source_file_name}`}>
       <div className="max-h-[88vh] w-full max-w-[720px] overflow-y-auto bg-white p-5 shadow-2xl sm:p-6">
         <div className="flex items-start justify-between gap-4 border-b border-[#d9d9d9] pb-4">
           <div className="min-w-0">
@@ -959,7 +960,8 @@ function ImportIdentityReviewDialog({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -1002,8 +1004,8 @@ function FilePreviewDialog({ file, onClose }: { file: ReferralFile; onClose: () 
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/25" role="dialog" aria-modal="true" aria-label={`Preview ${file.name}`}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-stretch justify-end bg-black/25" role="dialog" aria-modal="true" aria-label={`Preview ${file.name}`}>
       <button type="button" aria-label="Close file preview" onClick={onClose} className="absolute inset-0 cursor-default" />
       <section className="relative flex h-full w-full max-w-[920px] flex-col bg-white shadow-2xl">
         <header className="flex min-h-20 items-center gap-4 border-b border-[#d9d9d9] px-5 py-3">
@@ -1108,7 +1110,8 @@ function FilePreviewDialog({ file, onClose }: { file: ReferralFile; onClose: () 
           </footer>
         ) : null}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

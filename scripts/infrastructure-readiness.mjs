@@ -18,6 +18,7 @@ const domainConfiguration = read("scripts/configure-azure-domain.sh");
 const blobAdapter = read("lib/extraction/azure-blob.ts");
 const azureDatabaseBackup = read("scripts/database-backup-to-azure-blob.mjs");
 const dockerfile = read("Dockerfile");
+const runtimeOpsDependencies = read("scripts/build-runtime-ops-dependencies.mjs");
 const checks = [];
 const check = (name, ok) => checks.push({ name, ok: Boolean(ok) });
 
@@ -55,7 +56,8 @@ check("GitHub deployment uses main-branch-bound OIDC", bicep.includes("token.act
 check("image build receives an ephemeral server-action key through BuildKit secrets", dockerfile.includes("--mount=type=secret,id=next_server_actions_encryption_key") && deployment.includes("next_server_actions_encryption_key=${{ steps.build-key.outputs.value }}") && deployment.includes("openssl rand -base64 32") && !dockerfile.includes("ARG NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"));
 check(
   "runtime image carries the transitive operational dependency closure",
-  dockerfile.includes('const roots = ["@azure/identity", "@azure/storage-blob", "postgres"]')
+  runtimeOpsDependencies.includes('const roots = ["@azure/identity", "@azure/storage-blob", "postgres"]')
+    && dockerfile.includes("node scripts/build-runtime-ops-dependencies.mjs /app/node_modules /app/runtime-ops-node_modules")
     && dockerfile.includes("/runtime-ops-node_modules ./node_modules"),
 );
 check("runtime image can create PostgreSQL logical backups", dockerfile.includes("postgresql16-client") && azureDatabaseBackup.includes("pg_advisory_lock") && azureDatabaseBackup.includes("IDENTITY_ENDPOINT") && !azureDatabaseBackup.includes("AZURE_STORAGE_ACCOUNT_KEY"));

@@ -385,6 +385,80 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("heading", { name: "All files", exact: true })).toBeVisible();
   });
 
+  test("keeps file-preview controls above the application header", async ({ page }) => {
+    const fileName = "Historical assessment.pdf";
+    await page.route(/\/api\/files\?/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          files: [{
+            id: "historical-file-1",
+            name: fileName,
+            category: "Assessment",
+            referralId: 1,
+            clientId: "historical-client-1",
+            canonicalClientId: "pipeline:historical-client-1",
+            referralName: "Historical Client",
+            community: "San Pablo",
+            uploadedAt: "2026-08-10T12:00:00.000Z",
+            sizeBytes: 2048,
+            status: "Reviewed",
+            contentType: "application/pdf",
+            previewStatus: "ready",
+            pageCount: 1,
+            previewUrl: "/api/files/historical-file-1/preview",
+            downloadUrl: "/api/files/historical-file-1/download",
+            sourceSystem: "allo",
+            identityStatus: "linked",
+          }],
+          total: 1,
+          next_cursor: null,
+        }),
+      });
+    });
+    await page.route(/\/api\/files\/historical-file-1\?/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          file: {
+            document_id: "historical-file-1",
+            file_name: fileName,
+            category: "assessment",
+            content_type: "application/pdf",
+            byte_size: 2048,
+            processing_status: "ready",
+            preview_status: "ready",
+            malware_scan_status: "clean",
+            page_count: 1,
+            uploaded_at: "2026-08-10T12:00:00.000Z",
+            updated_at: "2026-08-10T12:00:00.000Z",
+            pages: [],
+            pagination: {
+              after_page: 0,
+              limit: 24,
+              returned: 0,
+              has_more: false,
+              first_page: null,
+              last_page: null,
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/?view=referrals");
+    await page.getByRole("button", { name: /^All files/ }).click();
+    await page.getByRole("button", { name: new RegExp(fileName) }).click();
+
+    const preview = page.getByRole("dialog", { name: `Preview ${fileName}` });
+    await expect(preview).toBeVisible();
+    await preview.getByRole("button", { name: "Close preview" }).click();
+    await expect(preview).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Profile menu" })).toHaveCount(0);
+  });
+
   test("filters and counts referrals on the server with bounded queries", async ({ page }) => {
     const filtered = await page.request.get("/api/referrals?community=San%20Pablo&limit=10");
     expect(filtered.ok()).toBeTruthy();
@@ -1639,6 +1713,46 @@ test.describe("Pipeline home", () => {
       expect(payload.referrals.map((referral) => referral.id)).toEqual(expectedIds);
       expect(payload.counts.referrals).toBe(expectedIds.length);
     }
+  });
+
+  test("opens a file result as the file instead of its workspace", async ({ page }) => {
+    const fileName = "Historical packet.pdf";
+    await page.route("**/api/search**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          query: "Historical packet",
+          interpreted_query: "Historical packet",
+          referrals: [],
+          files: [{
+            id: "search-file-1",
+            name: fileName,
+            category: "Referral packet",
+            referralId: 1,
+            clientId: "historical-client-1",
+            canonicalClientId: "pipeline:historical-client-1",
+            referralName: "Historical Client",
+            community: "San Pablo",
+            uploadedAt: "2026-08-10T12:00:00.000Z",
+            status: "Reviewed",
+            previewStatus: "ready",
+            previewUrl: "/api/files/search-file-1/preview",
+            downloadUrl: "/api/files/search-file-1/download",
+          }],
+          clients: [],
+          clinical_warning: null,
+          counts: { referrals: 0, files: 1, clients: 0, total: 1 },
+        }),
+      });
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open search" }).click();
+    await page.getByLabel("Search or ask").fill("Historical packet");
+    const fileResult = page.getByRole("link", { name: `Open file ${fileName}` });
+    await expect(fileResult).toHaveAttribute("href", "/api/files/search-file-1/download");
+    await expect(fileResult).toHaveAttribute("target", "_blank");
   });
 
   test("opens a canonical client from search and restores it from Recents", async ({ page }) => {
