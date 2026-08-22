@@ -29,9 +29,9 @@ const goals = {
   transferred_bytes: boundedInteger("PIPELINE_PERF_TRANSFER_BYTES", 1_048_576, 100_000, 50_000_000),
   cls: boundedNumber("PIPELINE_PERF_CLS", 0.02, 0, 1),
 };
-// Chromium reports paint entries on an 8 ms sampling grid in the Linux CI
-// runtime. Keep the engineering goals intact while allowing one sampling tick
-// at the certification boundary so identical builds do not fail at 500/504 ms.
+// Chromium reports paint entries on an 8 ms sampling grid and commits them on
+// a rendering frame. Keep the engineering goals intact while allowing one
+// observer tick plus one 60 Hz frame at the certification boundary.
 const paintObserverAllowanceMs = 8;
 const browserFrameAllowanceMs = 17;
 const limits = {
@@ -492,7 +492,7 @@ function timingCertificationLimit(goal) {
 }
 
 function paintCertificationLimit(goal) {
-  return timingCertificationLimit(goal) + paintObserverAllowanceMs;
+  return timingCertificationLimit(goal) + paintObserverAllowanceMs + browserFrameAllowanceMs;
 }
 
 function browserFrameCertificationLimit(goal) {

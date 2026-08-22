@@ -16,9 +16,10 @@ assert.match(scorecard, /fixture_mode: useSanitizedFixtures \? "sanitized_test_o
 assert.match(scorecard, /isLocalTarget && process\.env\.PIPELINE_PERF_FIXTURES/, "Sanitized fixtures must remain local-only.");
 assert.match(scorecard, /timingCertificationLimit/, "Certification tolerances must be explicit.");
 assert.match(scorecard, /const paintObserverAllowanceMs = 8;/, "Paint timing may allow exactly one 8 ms observer tick.");
-assert.match(scorecard, /const browserFrameAllowanceMs = 17;/, "Warm navigation may allow exactly one 60 Hz browser frame.");
+assert.match(scorecard, /const browserFrameAllowanceMs = 17;/, "Browser timing may allow exactly one 60 Hz rendering frame.");
 assert.match(scorecard, /fcp_ms: paintCertificationLimit\(goals\.fcp_ms\)/, "FCP must use the bounded paint allowance.");
 assert.match(scorecard, /lcp_ms: paintCertificationLimit\(goals\.lcp_ms\)/, "LCP must use the bounded paint allowance.");
+assert.match(scorecard, /return timingCertificationLimit\(goal\) \+ paintObserverAllowanceMs \+ browserFrameAllowanceMs;/, "Paint allowance must remain one observer tick plus one rendering frame.");
 assert.match(scorecard, /warm_navigation_ms: browserFrameCertificationLimit\(goals\.warm_navigation_ms\)/, "Warm navigation must use the bounded browser-frame allowance.");
 assert.match(scorecard, /warm_navigation_ms: boundedInteger\("PIPELINE_PERF_WARM_NAV_MS", 100/, "Warm navigation goal must remain 100 ms.");
 assert.match(scorecard, /useful_content_ms: boundedInteger\("PIPELINE_PERF_USEFUL_CONTENT_MS", 800/, "Useful referral content must retain a sub-second goal.");
@@ -33,4 +34,4 @@ assert.match(
   "Custom Next dist directories must stage browser assets where the standalone server expects them.",
 );
 
-console.log(JSON.stringify({ ok: true, checks: 21 }, null, 2));
+console.log(JSON.stringify({ ok: true, checks: 22 }, null, 2));
