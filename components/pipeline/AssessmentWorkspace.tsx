@@ -83,6 +83,7 @@ type AssessmentMember = {
   principal_id: string;
   display_name: string;
   roles: string[];
+  identity_status: "entra_linked" | "provisional" | "merged";
 };
 
 export default function AssessmentWorkspace({ referralId, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
@@ -747,7 +748,9 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
               <option value={selected.assessor_id}>{selected.assessor || "Inactive staff member"}</option>
             ) : null}
             {assessmentMembers.map((member) => (
-              <option key={member.principal_id} value={member.principal_id}>{member.display_name}</option>
+              <option key={member.principal_id} value={member.principal_id}>
+                {member.display_name}{member.identity_status === "provisional" ? " · Microsoft access pending" : ""}
+              </option>
             ))}
           </select>
         </span>

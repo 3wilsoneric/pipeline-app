@@ -56,6 +56,8 @@
     "database:fixtures": "node scripts/postgres-integration-fixtures.mjs",
     "database:rollback:drill": "node scripts/database-rollback-drill.mjs",
     "database:seed:production": "node scripts/seed-production-reference-data.mjs",
+    "database:members:import": "node scripts/import-provisional-workspace-members.mjs",
+    "database:members:link": "node scripts/link-provisional-workspace-member.mjs",
     "database:pilot:reset": "node scripts/pilot-reset.mjs",
     "database:user-state:purge": "node scripts/purge-user-workspace-state.mjs",
     "database:backup": "node scripts/database-backup.mjs",

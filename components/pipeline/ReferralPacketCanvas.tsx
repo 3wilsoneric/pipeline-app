@@ -2700,7 +2700,9 @@ function OwnerPacketField({
         <option value="">Unassigned</option>
         {hasLegacyOwner ? <option value="__unlinked" disabled>{field.value} (choose member)</option> : null}
         {members.map((member) => (
-          <option key={member.principal_id} value={member.principal_id}>{member.display_name}</option>
+          <option key={member.principal_id} value={member.principal_id}>
+            {member.display_name}{member.identity_status === "provisional" ? " · Microsoft access pending" : ""}
+          </option>
         ))}
       </select>
       {members.length === 0 ? <div className="mt-1 text-[10px] text-[#8a5a10]">No active members loaded</div> : null}

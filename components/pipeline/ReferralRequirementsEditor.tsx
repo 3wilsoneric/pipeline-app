@@ -232,7 +232,11 @@ export default function ReferralRequirementsEditor({
                       >
                         <option value="">Choose owner</option>
                         {!draft.ownerId && !isUnassignedOwner(draft.owner) ? <option value="__unlinked" disabled>{draft.owner} (choose member)</option> : null}
-                        {members.map((member) => <option key={member.principal_id} value={member.principal_id}>{member.display_name}</option>)}
+                        {members.map((member) => (
+                          <option key={member.principal_id} value={member.principal_id}>
+                            {member.display_name}{member.identity_status === "provisional" ? " · Microsoft access pending" : ""}
+                          </option>
+                        ))}
                       </select>
                     </label>
                     <label className="text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]">

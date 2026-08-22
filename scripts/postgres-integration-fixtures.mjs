@@ -18,9 +18,9 @@ try {
     await sql.begin(async (tx) => {
       const migrations = await tx`
         select migration_id from pipeline.schema_migrations
-        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration')
+        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration','0010_provisional_workspace_members')
       `;
-      checks.push({ name: "all migrations applied", ok: migrations.length === 9 });
+      checks.push({ name: "all migrations applied", ok: migrations.length === 10 });
       await tx`
         insert into pipeline.user_workspace_state (
           principal_id, state_kind, state_key, payload, expires_at
@@ -41,9 +41,19 @@ try {
       `;
       await tx`
         insert into pipeline.workspace_members (
-          principal_id, display_name, email, roles
+          principal_id, display_name, email, roles, identity_status
         ) values (
-          'fixture-user', 'Synthetic Fixture User', 'fixture@example.invalid', array['assessor']
+          'fixture-user', 'Synthetic Fixture User', 'fixture@example.invalid', array['reviewer'], 'entra_linked'
+        )
+      `;
+      await tx`
+        insert into pipeline.workspace_members (
+          principal_id, display_name, email, roles, active, last_seen_at,
+          identity_status, source_system, source_identity
+        ) values (
+          'provisional:fixture:assessor', 'Synthetic Pending Assessor', null,
+          array['reviewer', 'viewer'], true, null,
+          'provisional', 'synthetic_fixture', 'assessor'
         )
       `;
       await tx.unsafe(fixture);
@@ -58,7 +68,8 @@ try {
           (select count(*) from pipeline.editing_presence where actor_id = 'fixture-user') as presence
           ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user') as workspace_state
           ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user' and state_kind = 'assessment_draft') as assessment_drafts
-          ,(select count(*) from pipeline.workspace_members where principal_id = 'fixture-user' and active) as workspace_members
+          ,(select count(*) from pipeline.workspace_members where principal_id = 'fixture-user' and active and identity_status = 'entra_linked') as workspace_members
+          ,(select count(*) from pipeline.workspace_members where principal_id = 'provisional:fixture:assessor' and active and identity_status = 'provisional' and email is null and last_seen_at is null) as provisional_members
       `;
       checks.push({
         name: "synthetic graph is queryable",
@@ -66,7 +77,7 @@ try {
           && Number(rows[0].documents) === 1 && Number(rows[0].pages) === 2 && Number(rows[0].presence) === 1
           && Number(rows[0].historical_documents) === 1 && Number(rows[0].unmatched_imports) === 1
           && Number(rows[0].workspace_state) === 2 && Number(rows[0].assessment_drafts) === 1
-          && Number(rows[0].workspace_members) === 1,
+          && Number(rows[0].workspace_members) === 1 && Number(rows[0].provisional_members) === 1,
       });
       throw rollbackSentinel;
     });

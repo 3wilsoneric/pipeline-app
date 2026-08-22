@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "source_system": "allo_canvas_owner_export",
+  "members": [
+    {
+      "principal_id": "provisional:allo:andrew-dominici",
+      "display_name": "Andrew Dominici",
+      "source_identity": "andrew-dominici",
+      "roles": ["reviewer", "viewer"]
+    },
+    {
+      "principal_id": "provisional:allo:annette",
+      "display_name": "Annette",
+      "source_identity": "annette",
+      "roles": ["reviewer", "viewer"]
+    },
+    {
+      "principal_id": "provisional:allo:jazmine-saldana",
+      "display_name": "Jazmine Saldana",
+      "source_identity": "jazmine-saldana",
+      "roles": ["reviewer", "viewer"]
+    },
+    {
+      "principal_id": "provisional:allo:lily-florian",
+      "display_name": "Lily Florian",
+      "source_identity": "lily-florian",
+      "roles": ["reviewer", "viewer"]
+    },
+    {
+      "principal_id": "provisional:allo:lorena-renaud",
+      "display_name": "Lorena Renaud",
+      "source_identity": "lorena-renaud",
+      "roles": ["reviewer", "viewer"]
+    },
+    {
+      "principal_id": "provisional:allo:marta",
+      "display_name": "Marta",
+      "source_identity": "marta",
+      "roles": ["reviewer", "viewer"]
+    },
+    {
+      "principal_id": "provisional:allo:sandeep-singh",
+      "display_name": "Sandeep Singh",
+      "source_identity": "sandeep-singh",
+      "roles": ["reviewer", "viewer"]
+    },
+    {
+      "principal_id": "provisional:allo:vince-ceja",
+      "display_name": "Vince Ceja",
+      "source_identity": "vince-ceja",
+      "roles": ["reviewer", "viewer"]
+    }
+  ]
+}

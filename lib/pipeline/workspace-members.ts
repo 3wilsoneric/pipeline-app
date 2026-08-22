@@ -7,19 +7,27 @@ import { getReferralStoreReadiness } from "@/lib/pipeline/referral-store";
 export type WorkspaceMember = {
   principal_id: string;
   display_name: string;
-  email: string;
+  email: string | null;
   roles: string[];
   active: boolean;
-  last_seen_at: string;
+  last_seen_at: string | null;
+  identity_status: "entra_linked" | "provisional" | "merged";
+  source_system: string | null;
+  source_identity: string | null;
+  merged_into_principal_id: string | null;
 };
 
 type WorkspaceMemberRow = {
   principal_id: string;
   display_name: string;
-  email: string;
+  email: string | null;
   roles: string[];
   active: boolean;
-  last_seen_at: Date | string;
+  last_seen_at: Date | string | null;
+  identity_status: "entra_linked" | "provisional" | "merged";
+  source_system: string | null;
+  source_identity: string | null;
+  merged_into_principal_id: string | null;
 };
 
 const localMembers = new Map<string, WorkspaceMember>();
@@ -42,9 +50,14 @@ export async function touchWorkspaceMember(user: PipelineUser) {
       display_name = excluded.display_name,
       email = excluded.email,
       roles = excluded.roles,
+      active = true,
       last_seen_at = now(),
       updated_at = now()
-    returning principal_id, display_name, email, roles, active, last_seen_at
+    returning principal_id, display_name, email, roles, active, last_seen_at,
+      coalesce(to_jsonb(workspace_members)->>'identity_status', 'entra_linked') as identity_status,
+      to_jsonb(workspace_members)->>'source_system' as source_system,
+      to_jsonb(workspace_members)->>'source_identity' as source_identity,
+      to_jsonb(workspace_members)->>'merged_into_principal_id' as merged_into_principal_id
   `;
   return mapMember(rows[0]);
 }
@@ -59,7 +72,11 @@ export async function listWorkspaceMembers(currentUser?: PipelineUser) {
 
   const sql = getPipelineSql();
   const rows = await sql<WorkspaceMemberRow[]>`
-    select principal_id, display_name, email, roles, active, last_seen_at
+    select principal_id, display_name, email, roles, active, last_seen_at,
+      coalesce(to_jsonb(workspace_members)->>'identity_status', 'entra_linked') as identity_status,
+      to_jsonb(workspace_members)->>'source_system' as source_system,
+      to_jsonb(workspace_members)->>'source_identity' as source_identity,
+      to_jsonb(workspace_members)->>'merged_into_principal_id' as merged_into_principal_id
     from pipeline.workspace_members
     where active
     order by lower(display_name), principal_id
@@ -78,7 +95,11 @@ export async function getActiveWorkspaceMember(principalId: string) {
 
   const sql = getPipelineSql();
   const rows = await sql<WorkspaceMemberRow[]>`
-    select principal_id, display_name, email, roles, active, last_seen_at
+    select principal_id, display_name, email, roles, active, last_seen_at,
+      coalesce(to_jsonb(workspace_members)->>'identity_status', 'entra_linked') as identity_status,
+      to_jsonb(workspace_members)->>'source_system' as source_system,
+      to_jsonb(workspace_members)->>'source_identity' as source_identity,
+      to_jsonb(workspace_members)->>'merged_into_principal_id' as merged_into_principal_id
     from pipeline.workspace_members
     where principal_id = ${normalized} and active
     limit 1
@@ -103,6 +124,10 @@ function memberFromUser(user: PipelineUser): WorkspaceMember {
     roles: [...new Set(user.roles)],
     active: true,
     last_seen_at: new Date().toISOString(),
+    identity_status: "entra_linked",
+    source_system: null,
+    source_identity: null,
+    merged_into_principal_id: null,
   };
 }
 
@@ -113,7 +138,11 @@ function mapMember(row: WorkspaceMemberRow): WorkspaceMember {
     email: row.email,
     roles: Array.isArray(row.roles) ? row.roles : [],
     active: Boolean(row.active),
-    last_seen_at: new Date(row.last_seen_at).toISOString(),
+    last_seen_at: row.last_seen_at ? new Date(row.last_seen_at).toISOString() : null,
+    identity_status: row.identity_status,
+    source_system: row.source_system,
+    source_identity: row.source_identity,
+    merged_into_principal_id: row.merged_into_principal_id,
   };
 }
 

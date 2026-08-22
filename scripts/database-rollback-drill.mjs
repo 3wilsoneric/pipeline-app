@@ -16,6 +16,7 @@ const workspaceStateRollback = await readFile("database/rollbacks/0006_user_work
 const canonicalClientRollback = await readFile("database/rollbacks/0007_canonical_client_assessments.sql", "utf8");
 const clientWorkspaceRollback = await readFile("database/rollbacks/0008_client_workspaces.sql", "utf8");
 const assessmentCollaborationRollback = await readFile("database/rollbacks/0009_assessment_collaboration.sql", "utf8");
+const provisionalMembersRollback = await readFile("database/rollbacks/0010_provisional_workspace_members.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -43,7 +44,9 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0008_client_workspaces') as client_workspace_history,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='section_versions') as assessment_sections,
       to_regclass('pipeline.workspace_members') is not null as workspace_members,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0009_assessment_collaboration') as assessment_collaboration_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0009_assessment_collaboration') as assessment_collaboration_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='workspace_members' and column_name='identity_status') as provisional_member_identity,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0010_provisional_workspace_members') as provisional_member_history
   `;
   checks.push({
     name: "latest migrations exist before drill",
@@ -61,6 +64,22 @@ try {
       && before[0].assessment_sections
       && before[0].workspace_members
       && before[0].assessment_collaboration_history
+      && before[0].provisional_member_identity
+      && before[0].provisional_member_history
+    ),
+  });
+  await connection.unsafe(provisionalMembersRollback);
+  const provisionalMembersDuring = await connection`
+    select to_regclass('pipeline.workspace_members') is not null as workspace_members_preserved,
+      not exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='workspace_members' and column_name='identity_status') as identity_status_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0010_provisional_workspace_members') as history_removed
+  `;
+  checks.push({
+    name: "rollback removes provisional-member identity extensions",
+    ok: Boolean(
+      provisionalMembersDuring[0].workspace_members_preserved
+      && provisionalMembersDuring[0].identity_status_removed
+      && provisionalMembersDuring[0].history_removed
     ),
   });
   await connection.unsafe(assessmentCollaborationRollback);
@@ -138,7 +157,9 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0008_client_workspaces') as client_workspace_history,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='section_versions') as assessment_sections,
       to_regclass('pipeline.workspace_members') is not null as workspace_members,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0009_assessment_collaboration') as assessment_collaboration_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0009_assessment_collaboration') as assessment_collaboration_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='workspace_members' and column_name='identity_status') as provisional_member_identity,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0010_provisional_workspace_members') as provisional_member_history
   `;
   checks.push({
     name: "drill transaction restores original schema",
@@ -158,6 +179,8 @@ try {
       && after[0].assessment_sections
       && after[0].workspace_members
       && after[0].assessment_collaboration_history
+      && after[0].provisional_member_identity
+      && after[0].provisional_member_history
     ),
   });
   const failed = checks.filter((check) => !check.ok);
