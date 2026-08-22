@@ -464,7 +464,7 @@ export default function ReferralHome({
         aria-label="Filter by stage"
         value={filter.kind === "stage" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "stage", value: event.target.value as ReferralStage } : { kind: "all" })}
-        className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[145px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All stages</option>
         {boardStages.map((stage) => <option key={stage} value={stage}>{getStageLabel(stage)}</option>)}
@@ -473,7 +473,7 @@ export default function ReferralHome({
         aria-label="Filter workspaces by community"
         value={filter.kind === "community" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "community", value: event.target.value } : { kind: "all" })}
-        className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[150px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All communities</option>
         {facets.communities.map((community) => <option key={community.value} value={community.value}>{community.value}</option>)}
@@ -482,7 +482,7 @@ export default function ReferralHome({
         aria-label="Filter by owner"
         value={filter.kind === "owner" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "owner", value: event.target.value } : { kind: "all" })}
-        className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[150px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All owners</option>
         {ownerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
@@ -491,7 +491,7 @@ export default function ReferralHome({
         aria-label="Filter by priority"
         value={filter.kind === "priority" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "priority", value: event.target.value as Referral["priority"] } : { kind: "all" })}
-        className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[125px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All priorities</option>
         <option value="urgent">Urgent</option>
@@ -502,7 +502,7 @@ export default function ReferralHome({
         aria-label="Filter by creation month"
         value={filter.kind === "month" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "month", value: event.target.value } : { kind: "all" })}
-        className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[175px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All creation months</option>
         {monthOptions.map((month) => (
@@ -516,7 +516,7 @@ export default function ReferralHome({
           aria-label="Filter by tag"
           value={filter.kind === "tag" ? filter.value : ""}
           onChange={(event) => setFilter(event.target.value ? { kind: "tag", value: event.target.value } : { kind: "all" })}
-          className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+          className="h-9 w-[135px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
         >
           <option value="">All tags</option>
           {tagOptions.map((tag) => <option key={tag} value={tag}>#{tag}</option>)}
@@ -527,7 +527,7 @@ export default function ReferralHome({
         aria-label="Sort workspaces"
         value={sort}
         onChange={(event) => setSort(event.target.value as ReferralSort)}
-        className="h-9 shrink-0 border border-[#b8cfc9] bg-[#f7fbfa] px-2 text-[12px] font-black tracking-[0.01em] text-[#0c705f] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[160px] shrink-0 border border-[#b8cfc9] bg-[#f7fbfa] px-2 text-[12px] font-black tracking-[0.01em] text-[#0c705f] outline-none focus:border-[#0f8b73]"
       >
         <option value="updated_desc">Recently updated</option>
         <option value="created_desc">Newest created</option>
