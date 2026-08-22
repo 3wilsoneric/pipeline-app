@@ -167,6 +167,43 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
   });
 
+  test("filters workspaces by their stored creation month", async ({ page }) => {
+    let requestedMonth = "";
+    await page.route("**/api/referrals/directory**", async (route) => {
+      requestedMonth = new URL(route.request().url()).searchParams.get("month") ?? "";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          referrals: [],
+          total: 0,
+          revision: 0,
+          progress: {},
+          facets: {
+            communities: [],
+            stages: [],
+            owners: [],
+            priorities: [],
+            tags: [],
+            months: [
+              { value: "2026-08", count: 4 },
+              { value: "2025-11", count: 7 },
+            ],
+          },
+          file_total: 0,
+        }),
+      });
+    });
+    await page.reload();
+
+    const creationMonth = page.getByLabel("Filter by creation month");
+    await expect(creationMonth).toContainText("August 2026 (4)");
+    await expect(creationMonth).toContainText("November 2025 (7)");
+    await creationMonth.selectOption("2025-11");
+    await expect.poll(() => requestedMonth).toBe("2025-11");
+    await expect(creationMonth).toHaveValue("2025-11");
+  });
+
   test("opens a new referral and returns through the Pipeline header", async ({ page }) => {
     await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByRole("heading", { name: "Referral workspace", exact: true })).toBeVisible();
@@ -2139,6 +2176,55 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Older San Pablo", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Clear all" }).click();
     await expect(page.getByText("Recent Turlock", { exact: true })).toBeVisible();
+  });
+
+  test("keeps the governed directory status while Pipeline workspace pages finish loading", async ({ page }) => {
+    const directory = clientDirectoryFixture as unknown as {
+      clients: Array<Record<string, unknown>>;
+      [key: string]: unknown;
+    };
+    const clinicalClient = directory.clients[0];
+    const pipelineClient = {
+      ...clinicalClient,
+      canonical_client_id: "pipeline:workspace-pagination-check",
+      display_name: "Pipeline Workspace Check",
+      workspace_origin: "pipeline",
+      pipeline_client_id: "workspace-pagination-check",
+      referral_count: 1,
+      document_count: 1,
+    };
+
+    await page.route("**/api/profiles/directory**", async (route) => {
+      const cursor = new URL(route.request().url()).searchParams.get("cursor");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(cursor ? {
+          ...directory,
+          clients: [pipelineClient],
+          total: 1,
+          next_cursor: null,
+          freshness: {
+            status: "unknown",
+            age_hours: null,
+            max_age_hours: 24,
+            warning: "The Alamo client directory is unavailable; Pipeline-only client workspaces remain available.",
+          },
+        } : {
+          ...directory,
+          clients: [clinicalClient],
+          total: 2,
+          next_cursor: "pipeline-page",
+        }),
+      });
+    });
+
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Open client profiles" }).click();
+    await expect(page.getByText("Pipeline Workspace Check", { exact: true })).toBeVisible();
+    await expect(page.getByText("The Alamo client directory is unavailable", { exact: false })).toHaveCount(0);
+    await expect(page.getByText("2 of 2 clients", { exact: true })).toBeVisible();
   });
 
   test("requires explicit human review before joining a referral to an admitted resident", async ({ page }) => {

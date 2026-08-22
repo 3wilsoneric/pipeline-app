@@ -91,15 +91,18 @@ export default function ClientProfileDirectory({
           let payload = await fetchClientPage(normalizedQuery, null, controller.signal);
           if (controller.signal.aborted) return;
           loadedFirstPage = true;
+          const directoryTotal = Number.isInteger(payload.total) ? payload.total : payload.clients.length;
+          const directoryDataAsOf = payload.data_as_of ?? "";
+          const directoryFreshness = payload.freshness;
           let merged = mergeClients([], payload.clients ?? []);
           let cursor = payload.next_cursor ?? null;
           const seenCursors = new Set<string>();
           let pageCount = 1;
 
           setClients(merged);
-          setTotal(Number.isInteger(payload.total) ? payload.total : merged.length);
-          setDataAsOf(payload.data_as_of ?? "");
-          setFreshness(payload.freshness ?? null);
+          setTotal(directoryTotal);
+          setDataAsOf(directoryDataAsOf);
+          setFreshness(directoryFreshness);
           setIsLoading(false);
           setIsCompletingRoster(Boolean(cursor));
           loadedQuery.current = normalizedQuery;
@@ -116,19 +119,21 @@ export default function ClientProfileDirectory({
             cursor = payload.next_cursor ?? null;
             pageCount += 1;
             setClients(merged);
-            setTotal(Number.isInteger(payload.total) ? payload.total : merged.length);
-            setDataAsOf(payload.data_as_of ?? "");
-            setFreshness(payload.freshness ?? null);
             if (!normalizedQuery) setKnownCommunities(collectCommunities(merged));
+          }
+
+          if (merged.length < directoryTotal) {
+            setError("The client directory stopped before every client was loaded. Refresh before searching or filtering the full roster.");
+            return;
           }
 
           setDirectoryComplete(true);
           writeDirectoryCache(cacheKey, {
             clients: merged,
-            total: Number.isInteger(payload.total) ? payload.total : merged.length,
+            total: directoryTotal,
             next_cursor: null,
-            data_as_of: payload.data_as_of ?? "",
-            freshness: payload.freshness,
+            data_as_of: directoryDataAsOf,
+            freshness: directoryFreshness,
           });
         } catch (loadError) {
           if (controller.signal.aborted) return;

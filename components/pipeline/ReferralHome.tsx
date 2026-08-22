@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import {
   ArrowRight,
-  CalendarDays,
   CircleAlert,
   FileText,
   Files,
@@ -189,7 +188,9 @@ export default function ReferralHome({
       const params = buildReferralParams(filter, searchTerm, referralCursors[referralPage]);
       requestKey = params.toString();
       const normalizedSearch = searchTerm.trim();
-      const includeSummary = referralPage === 0 && (background || summaryQuery.current !== normalizedSearch);
+      const workspaceScope = filter.kind === "workflow" ? "active" : "all";
+      const summaryKey = `${workspaceScope}:${normalizedSearch}`;
+      const includeSummary = referralPage === 0 && (background || summaryQuery.current !== summaryKey);
       const payload = await fetchPipelineJson<{
         referrals?: Referral[];
         total?: number;
@@ -212,7 +213,7 @@ export default function ReferralHome({
       if (includeSummary) {
         setFacets(payload.facets ?? emptyFacets);
         setAllFileTotal(typeof payload.file_total === "number" ? payload.file_total : 0);
-        summaryQuery.current = normalizedSearch;
+        summaryQuery.current = summaryKey;
       }
       setLastRefreshedAt(Date.now());
       successfulReferralRequest.current = requestKey;
@@ -353,7 +354,7 @@ export default function ReferralHome({
     setFiles(null);
   }, [fileCategory, fileCommunity, fileSource, filter.kind, reviewIdentity, searchTerm]);
 
-  const monthOptions = useMemo(() => getCreatedMonthOptions(), []);
+  const monthOptions = useMemo(() => facets.months.map((entry) => entry.value), [facets.months]);
   const ownerOptions = useMemo(() => facets.owners.map((entry) => entry.value), [facets.owners]);
   const tagOptions = useMemo(() => facets.tags.map((entry) => entry.value), [facets.tags]);
   const tagFacets = useMemo(
@@ -485,6 +486,19 @@ export default function ReferralHome({
         <option value="urgent">Urgent</option>
         <option value="high">High</option>
         <option value="standard">Standard</option>
+      </select>
+      <select
+        aria-label="Filter by creation month"
+        value={filter.kind === "month" ? filter.value : ""}
+        onChange={(event) => setFilter(event.target.value ? { kind: "month", value: event.target.value } : { kind: "all" })}
+        className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+      >
+        <option value="">All creation months</option>
+        {monthOptions.map((month) => (
+          <option key={month} value={month}>
+            {formatMonthKey(month)} ({facets.months.find((entry) => entry.value === month)?.count ?? 0})
+          </option>
+        ))}
       </select>
       {tagOptions.length > 0 ? (
         <select
@@ -674,25 +688,6 @@ export default function ReferralHome({
               </>
             ) : null}
 
-            <div className="mt-5 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-[#0c705f]"><CalendarDays size={14} /> Month</div>
-            <div className="mt-2 space-y-0.5">
-              {monthOptions.map((month) => (
-                <button
-                  key={month}
-                  type="button"
-                  aria-label={formatMonthKey(month)}
-                  onClick={() => setFilter({ kind: "month", value: month })}
-                  className={`flex min-h-8 w-full items-center px-3 text-left text-[12px] font-black tracking-[0.01em] ${
-                      filter.kind === "month" && filter.value === month
-                      ? "border-l-[3px] border-[#0f8b73] bg-white pl-[9px] font-black text-[#111111]"
-                      : "border-l-[3px] border-transparent text-[#595959] hover:bg-[#fafafa]"
-                  }`}
-                >
-                  <span>{formatMonthKey(month)}</span>
-                  <span className="ml-auto text-[10px] text-[#737373]">{facets.months.find((entry) => entry.value === month)?.count ?? 0}</span>
-                </button>
-              ))}
-            </div>
             </div>
           </aside>
 
@@ -1164,19 +1159,6 @@ function getMonthKey(value: string) {
   const date = new Date(value.includes("T") ? value : `${value}T12:00:00`);
   if (Number.isNaN(date.getTime())) return "unknown";
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function getCreatedMonthOptions() {
-  const start = new Date(2026, 5, 1);
-  const current = new Date();
-  const end = new Date(current.getFullYear(), current.getMonth(), 1);
-  const months: string[] = [];
-
-  for (const cursor = new Date(start); cursor <= (end < start ? start : end); cursor.setMonth(cursor.getMonth() + 1)) {
-    months.push(getMonthKey(cursor.toISOString()));
-  }
-
-  return months.reverse();
 }
 
 function openFileWorkspace(

@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       : query.value;
     const options = scopeReferralListOptions(auth.user, requestedOptions);
     const facetAccess = scopeReferralListOptions(auth.user, {
-      workspaceStatus: query.value.workspaceStatus,
+      workspaceStatus: "all",
     });
 
     const [result, facets, files] = await Promise.all([
