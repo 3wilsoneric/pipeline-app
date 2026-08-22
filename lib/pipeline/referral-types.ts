@@ -157,6 +157,9 @@ export type Referral = {
   version?: number;
   sectionVersions?: ReferralSectionVersions;
   updatedBy?: { id: string; name: string };
+  deletedAt?: string;
+  deleteAfter?: string;
+  deletedBy?: { id: string; name: string };
   /** Stable client identity. A client may have more than one referral episode. */
   clientId?: string;
   workspaceOrigin?: WorkspaceOrigin;

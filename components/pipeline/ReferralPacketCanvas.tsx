@@ -10,6 +10,7 @@ import {
   FileText,
   PencilLine,
   Save,
+  Trash2,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -97,6 +98,7 @@ type ReferralPacketCanvasProps = {
     community?: string;
   };
   onReferralSaved?: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+  onReferralDeleted?: () => void;
 };
 
 type PacketUploadResult = {
@@ -242,7 +244,7 @@ const attachments: Requirement[] = [
   { id: "face-sheet", label: "Face Sheet", type: "face_sheet" },
 ];
 
-export default function ReferralPacketCanvas({ referral, onReferralSaved }: ReferralPacketCanvasProps = {}) {
+export default function ReferralPacketCanvas({ referral, onReferralSaved, onReferralDeleted }: ReferralPacketCanvasProps = {}) {
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
     name: { ...initialFields.name, value: referral?.name ?? "" },
@@ -286,6 +288,8 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   const [manualIntakeOpen, setManualIntakeOpen] = useState(false);
   const [manualIntakeReason, setManualIntakeReason] = useState("");
   const [isAuthorizingManualIntake, setIsAuthorizingManualIntake] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const loadedReferralRef = useRef<Referral | null>(null);
   const fieldsRef = useRef(fields);
@@ -1479,7 +1483,6 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   };
 
   const fieldCount = countCompleteFields(fields, Object.keys(fields) as FieldKey[]);
-  const documentCount = Object.keys(documents).length;
   const admissionDocumentCount = requirements.filter((requirement) => Boolean(documents[requirement.id])).length;
   const attachmentCount = attachments.filter((attachment) => Boolean(documents[attachment.id])).length;
   const reviewSections: ReviewSection[] = [
@@ -1546,6 +1549,28 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
   const reviewPercent = reviewTotal === 0 ? 0 : Math.round((reviewComplete / reviewTotal) * 100);
   const packetCompletionBlockers = getPacketCompletionBlockers(loadedReferral, fields.owner.value, fields.county.value);
 
+  const moveWorkspaceToTrash = async () => {
+    const current = loadedReferralRef.current;
+    if (!current) return;
+    setIsDeleting(true);
+    setSaveError("");
+    try {
+      await fetchPipelineJson(`/api/referrals/${current.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ if_match: current.version }),
+      });
+      await clearSessionDraft(current.id);
+      setDeleteDialogOpen(false);
+      onReferralDeleted?.();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "The workspace could not be moved to trash.");
+      setDeleteDialogOpen(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div ref={canvasRef} className="relative h-full overflow-y-auto bg-white text-[#111111]">
       {draftRecoveryLoading ? (
@@ -1559,46 +1584,62 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
         data-testid="packet-workspace"
         inert={draftRecoveryLoading ? true : undefined}
         aria-busy={draftRecoveryLoading}
-        className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-3 sm:px-4 lg:px-6"
+        className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6"
       >
-        <div className="sticky top-0 z-20 mb-2 bg-white/95 pb-1 backdrop-blur-sm">
+        <div className="sticky top-0 z-20 mb-1 bg-white/95 backdrop-blur-sm">
           <h1 className="sr-only">Referral workspace</h1>
-          <div className="flex items-center gap-3 border-y border-[#d9d9d9] py-1.5">
-            <nav aria-label="Referral workspace steps" className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
+          <div className="flex items-center gap-3 border-b border-[#d9d9d9]">
+            <nav aria-label="Referral workspace steps" className="flex min-w-0 flex-1 overflow-x-auto">
               {packetSteps.map(({ page, label }) => (
                 <button
                   key={page}
                   type="button"
                   onClick={() => openPage(page)}
                   aria-current={activePage === page ? "page" : undefined}
-                  className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-[12px] font-black transition-colors ${
+                  className={`flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-[11px] font-black transition-colors ${
                     activePage === page
-                      ? "bg-[#e7f3ee] text-[#111111]"
-                      : "text-[#737373] hover:bg-[#f7faf9] hover:text-[#0f8b73]"
+                      ? "border-[#0f8b73] text-[#111111]"
+                      : "border-transparent text-[#737373] hover:text-[#0f8b73]"
                   }`}
                 >
-                  <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] ${activePage === page ? "bg-[#0f8b73] text-white" : "bg-[#eef1ee] text-[#595959]"}`}>
-                    {page}
-                  </span>
+                  <span className={`text-[9px] ${activePage === page ? "text-[#0f8b73]" : "text-[#a0a0a0]"}`}>0{page}</span>
                   <span className="whitespace-nowrap">{label}</span>
                 </button>
               ))}
             </nav>
 
-            <div className="flex shrink-0 items-center gap-2 border-l border-[#d9d9d9] pl-3">
+            <div className="flex shrink-0 items-center gap-2 pl-2">
               <div className="hidden max-w-[28rem] text-right sm:block" aria-live="polite">
-                <div className="text-[12px] font-normal text-[#737373]">{savedAt}</div>
+                {savedAt !== "Workspace loaded" ? <div className="text-[11px] font-normal text-[#737373]">{savedAt}</div> : null}
                 {saveError ? <div className="mt-0.5 text-[11px] font-semibold text-[#a4473c]">{saveError}</div> : null}
               </div>
               <button
                 type="button"
                 onClick={saveDraft}
                 disabled={isSaving || uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length)}
-                className="flex h-10 items-center gap-2 border border-[#111111] bg-[#111111] px-4 text-[12px] font-black text-white hover:border-[#0f8b73] hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:border-[#b8b8b8] disabled:bg-[#b8b8b8]"
+                className="flex h-9 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8]"
               >
                 <Save size={15} />
                 {isSaving ? "Saving..." : loadedReferral || referral?.id ? "Save workspace" : "Create workspace"}
               </button>
+              {loadedReferral ? (
+                <button
+                  type="button"
+                  aria-label="Move workspace to trash"
+                  title="Move workspace to trash"
+                  disabled={isSaving || isDeleting}
+                  onClick={() => {
+                    if (dirtyKeysRef.current.size > 0) {
+                      setSaveError("Save your changes before moving this workspace to trash.");
+                      return;
+                    }
+                    setDeleteDialogOpen(true);
+                  }}
+                  className="flex h-9 w-9 items-center justify-center text-[#737373] hover:bg-[#fff3f1] hover:text-[#a9473d] disabled:opacity-50"
+                >
+                  <Trash2 size={16} />
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1688,7 +1729,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
           </section>
         ) : null}
 
-        <div className="mb-4">
+        <div className="mb-2">
           <ReferralProgressPanel compact progress={progress} loading={progressLoading} />
         </div>
 
@@ -1710,8 +1751,8 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
                 onContinue={completePacketReview}
               />
             ) : null}
-            <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="min-w-0 space-y-7">
+            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="min-w-0 space-y-5">
                 <ChartSection title="Identity" detail="Core identifiers for this referral episode" complete={countCompleteFields(fields, ["name", "gender", "age", "dob", "ssn"])} total={5}>
                   <div className="grid gap-px overflow-hidden border border-[#d7ddd9] bg-[#d7ddd9] sm:grid-cols-2 lg:grid-cols-5">
                     {(["name", "gender", "age", "dob", "ssn"] as FieldKey[]).map((key) => (
@@ -1818,7 +1859,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
                 </ChartSection>
               </div>
 
-              <aside aria-label="Chart completion and documents" className="space-y-5 xl:sticky xl:top-[64px]">
+              <aside aria-label="Chart completion and documents" className="space-y-4 xl:sticky xl:top-[54px]">
                 <ChartCompletionRail
                   fieldCount={fieldCount}
                   fieldTotal={Object.keys(fields).length}
@@ -1872,15 +1913,10 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
           </PacketPage>
           ) : activePage === 2 ? (
             <PacketPage id="packet-page-2" title="Required files">
-              <div className="mb-5 flex items-center justify-between gap-4 border-b border-[#d9d9d9] pb-4">
-              <div>
-                <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Required documents</div>
-              </div>
-              <span className="shrink-0 border-l-2 border-[#0f8b73] px-3 py-1 text-[11px] font-black text-[#595959]">
-                {admissionDocumentCount} / {requirements.length} attached
-              </span>
+            <div className="mb-2 flex justify-end text-[10px] font-black text-[#595959]">
+              {admissionDocumentCount} of {requirements.length} files attached
             </div>
-            <div className="grid gap-2">
+            <div className="border-t border-[#e1e4e2]">
               {requirements.map((requirement) => (
                 <DocumentDropRow
                   key={requirement.id}
@@ -1894,13 +1930,10 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
             </PacketPage>
           ) : activePage === 3 ? (
             <PacketPage id="packet-page-3" title="Other files">
-            <div className="mb-5 flex items-center justify-between gap-4 border-b border-[#d9d9d9] pb-4">
-              <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Supporting documents</div>
-              <span className="shrink-0 border-l-2 border-[#0f8b73] px-3 py-1 text-[11px] font-black text-[#595959]">
-                {attachmentCount} / {attachments.length} attached
-              </span>
+            <div className="mb-2 flex justify-end text-[10px] font-black text-[#595959]">
+              {attachmentCount} of {attachments.length} files attached
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="border-t border-[#e1e4e2]">
               {attachments.map((requirement) => (
                 <DocumentDropRow
                   key={requirement.id}
@@ -1908,41 +1941,24 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
                   fileName={documents[requirement.id]}
                   onAttach={(file) => attachDocument(requirement.id, file)}
                   uploading={uploadingDocumentIds.has(requirement.id)}
-                  compact
                 />
               ))}
-            </div>
-            <div className="mt-8 border-t border-[#d9d9d9] pt-5">
-              <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">
-                Packet completion
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <div className="h-2 min-w-[220px] flex-1 overflow-hidden bg-[#d9ded9]">
-                  <div
-                    className="h-full bg-[#0f8b73] transition-all"
-                    style={{
-                      width: `${Math.round(((fieldCount + documentCount) / (Object.keys(fields).length + requirements.length + attachments.length)) * 100)}%`,
-                    }}
-                  />
-                </div>
-                <span className="text-[12px] font-black text-[#111111]">
-                  {fieldCount + documentCount} items captured
-                </span>
-              </div>
             </div>
             </PacketPage>
           ) : activePage === 4 ? (
             <PacketPage id="packet-page-4" title="Assessment">
               {loadedReferral && !isAssessmentStageAvailable(loadedReferral.stage) ? (
-                <section className="border border-[#d6ddd9] bg-[#f8fbfa] px-5 py-6" aria-label="Assessment prerequisites">
-                  <h2 className="text-[17px] font-black text-[#111111]">Finish intake review first</h2>
-                  <p className="mt-2 max-w-2xl text-[12px] leading-5 text-[#595959]">
-                    Confirm or correct the extracted packet values, or authorize a documented manual intake, before starting the assessment.
-                  </p>
+                <section className="flex flex-col gap-3 border-y border-[#d6ddd9] px-4 py-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Assessment prerequisites">
+                  <div>
+                    <h2 className="text-[14px] font-black text-[#111111]">Finish intake review first</h2>
+                    <p className="mt-1 max-w-2xl text-[11px] leading-5 text-[#595959]">
+                      Confirm the extracted values or authorize manual intake before starting the assessment.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => openPage(1)}
-                    className="mt-4 h-10 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73]"
+                    className="h-9 shrink-0 bg-[#111111] px-4 text-[10px] font-black text-white hover:bg-[#0f8b73]"
                   >
                     Review intake
                   </button>
@@ -1995,7 +2011,31 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved }: Refe
           }}
         />
       ) : null}
+      {deleteDialogOpen && loadedReferral ? (
+        <DeleteWorkspaceDialog
+          name={loadedReferral.name}
+          busy={isDeleting}
+          onConfirm={() => void moveWorkspaceToTrash()}
+          onClose={() => { if (!isDeleting) setDeleteDialogOpen(false); }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function DeleteWorkspaceDialog({ name, busy, onConfirm, onClose }: { name: string; busy: boolean; onConfirm: () => void; onClose: () => void }) {
+  return createPortal(
+    <div role="presentation" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="delete-workspace-title" className="w-full max-w-md border border-[#cfcfcf] border-t-[3px] border-t-[#a9473d] bg-white p-5 shadow-xl">
+        <h2 id="delete-workspace-title" className="text-[16px] font-black text-[#111111]">Move workspace to trash?</h2>
+        <p className="mt-2 text-[12px] leading-5 text-[#595959]"><strong>{name}</strong> and its files will leave active work immediately. They can be restored from Trash for 30 days.</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" disabled={busy} onClick={onClose} className="h-10 border border-[#c9ceca] px-4 text-[11px] font-black text-[#595959] hover:bg-[#f7faf9]">Cancel</button>
+          <button type="button" disabled={busy} onClick={onConfirm} className="h-10 bg-[#a9473d] px-4 text-[11px] font-black text-white hover:bg-[#8d382f] disabled:opacity-50">{busy ? "Moving..." : "Move to trash"}</button>
+        </div>
+      </section>
+    </div>,
+    document.body,
   );
 }
 
@@ -2021,13 +2061,9 @@ function DataReview({
   onDecisionSaved: (referral: Referral) => void | Promise<void>;
 }) {
   return (
-    <section aria-label="Review" className="py-2 sm:px-2 sm:py-3">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#d9d9d9] pb-4">
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Referral review</div>
-          <h2 className="mt-1 text-[24px] font-black text-[#111111]">{clientName.trim() || "Unnamed client"}</h2>
-          <p className="mt-1 text-[12px] text-[#737373]">What has been collected for this referral.</p>
-        </div>
+    <section aria-label="Review" className="py-1 sm:px-2 sm:py-2">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d9d9d9] pb-3">
+        <h2 className="text-[18px] font-black text-[#111111]">{clientName.trim() || "Unnamed client"}</h2>
         <div className="min-w-[180px]">
           <div className="flex items-baseline justify-between gap-3 text-[11px]">
             <span className="font-black text-[#111111]">{complete} of {total} items present</span>
@@ -2039,7 +2075,7 @@ function DataReview({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
         {sections.map((section) => {
           const sectionComplete = section.items.filter((item) => item.value.trim()).length;
           return (
@@ -2460,11 +2496,8 @@ function ChartCompletionRail({
 
   return (
     <section aria-label="Chart completion" className="border-t-2 border-[#111111] pt-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-[13px] font-black text-[#111111]">Chart status</h2>
-          <p className="mt-1 text-[11px] leading-5 text-[#737373]">One view of what is recorded and what still needs attention.</p>
-        </div>
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-[13px] font-black text-[#111111]">Chart completion</h2>
         <span className="text-[22px] font-black text-[#111111]">{percent}%</span>
       </div>
       <div className="mt-3 h-1.5 overflow-hidden bg-[#e5e9e6]">
@@ -2527,7 +2560,7 @@ function PacketPage({
   return (
     <section id={id} aria-label={title} className="overflow-hidden bg-white">
       <h2 className="sr-only">{title}</h2>
-      <div className="px-0 py-2 sm:px-2 sm:py-3">{children}</div>
+      <div className="px-0 py-1 sm:px-2 sm:py-2">{children}</div>
     </section>
   );
 }
@@ -2959,13 +2992,11 @@ function DocumentDropRow({
   requirement,
   fileName,
   onAttach,
-  compact = false,
   uploading = false,
 }: {
   requirement: Requirement;
   fileName?: string;
   onAttach: (file: File) => void;
-  compact?: boolean;
   uploading?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -2978,7 +3009,7 @@ function DocumentDropRow({
         const file = event.dataTransfer.files?.[0];
         if (file) onAttach(file);
       }}
-      className={`border border-[#d8d9bf] bg-[#fffbd5] p-4 ${compact ? "min-h-[190px]" : "grid gap-3 md:grid-cols-[minmax(0,1fr)_250px] md:items-center"}`}
+      className="grid gap-2 border-b border-[#e1e4e2] bg-white px-3 py-2.5 transition-colors hover:bg-[#fbfdfc] md:grid-cols-[minmax(0,1fr)_minmax(210px,280px)] md:items-center"
     >
       <div>
         <div className="flex items-center gap-2">
@@ -2993,7 +3024,7 @@ function DocumentDropRow({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className={`mt-3 flex w-full items-center justify-center gap-2 border border-dashed border-[#c6ba59] bg-[#fffde8] px-3 text-[11px] font-black text-[#6f641b] hover:bg-white ${compact ? "h-24" : "h-16 md:mt-0"}`}
+        className={`flex h-10 w-full items-center justify-center gap-2 border border-dashed px-3 text-[10px] font-black transition-colors ${fileName ? "border-[#8fc6b7] bg-[#f2faf7] text-[#0c705f] hover:bg-white" : "border-[#d2c77b] bg-[#fffdf0] text-[#6f641b] hover:bg-white"}`}
       >
         {uploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#c6ba59] border-t-transparent" /> : fileName ? <Check size={15} /> : <UploadCloud size={16} />}
         <span className="max-w-full truncate">{uploading ? "Uploading..." : fileName ?? "Drop document or browse"}</span>

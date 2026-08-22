@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import ClientProfileDirectory from "@/components/pipeline/ClientProfileDirectory";
 import ClientProfileView from "@/components/pipeline/ClientProfileView";
 import OperationsDashboard from "@/components/pipeline/OperationsDashboard";
+import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
+import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
 import ReferralHome from "@/components/pipeline/ReferralHome";
@@ -24,7 +26,7 @@ import {
   usePipelineLocationSearch,
 } from "@/lib/pipeline/client-navigation";
 
-type PipelineScreen = "home" | "referrals" | "packet" | "profiles" | "profile" | "operations";
+type PipelineScreen = "home" | "referrals" | "packet" | "calendar" | "profiles" | "profile" | "operations" | "trash";
 type ReferralSelection = { id: number; name?: string; community?: Referral["community"] };
 
 export default function PipelineOverviewRoute() {
@@ -41,7 +43,7 @@ export default function PipelineOverviewRoute() {
     : routeReferral;
 
   const navigate = (
-    nextScreen: "home" | "referrals" | "packet" | "profile" | "profiles" | "operations",
+    nextScreen: PipelineScreen,
     referral?: Pick<Referral, "id" | "name" | "community">,
     clientId?: string,
   ) => {
@@ -53,7 +55,7 @@ export default function PipelineOverviewRoute() {
     } else if (nextScreen === "packet") {
       params.set("view", "referrals");
       params.set("screen", "packet");
-    } else if (nextScreen === "profile" || nextScreen === "profiles" || nextScreen === "operations") {
+    } else if (["profile", "profiles", "operations", "calendar", "trash"].includes(nextScreen)) {
       params.delete("view");
       params.set("screen", nextScreen);
     } else {
@@ -133,6 +135,7 @@ export default function PipelineOverviewRoute() {
           params.set("referralId", String(savedReferral.id));
           replacePipelineHistory(`/?${params.toString()}`);
         }}
+        onReferralDeleted={() => navigate("referrals")}
       />
     );
   } else if (screen === "profile" && selectedClientId) {
@@ -148,6 +151,10 @@ export default function PipelineOverviewRoute() {
         onOpenPacket={(referral) => navigate("packet", referral)}
       />
     );
+  } else if (screen === "calendar") {
+    page = <PipelineCalendar onOpenPacket={(referral) => navigate("packet", referral)} />;
+  } else if (screen === "trash") {
+    page = <PipelineTrash />;
   } else if (screen === "profiles") {
     page = <ClientProfileDirectory onOpenProfile={(clientId) => navigate("profile", undefined, clientId)} />;
   } else {
@@ -181,6 +188,8 @@ export default function PipelineOverviewRoute() {
 function getScreenFromParams(params: URLSearchParams): PipelineScreen {
   if (params.get("screen") === "packet") return "packet";
   if (params.get("screen") === "operations") return "operations";
+  if (params.get("screen") === "calendar") return "calendar";
+  if (params.get("screen") === "trash") return "trash";
   if (params.get("screen") === "profile" && params.get("clientId")) return "profile";
   if (params.get("screen") === "profiles") return "profiles";
   if (params.get("view") === "referrals") return "referrals";
@@ -195,7 +204,7 @@ function getReferralFromParams(params: URLSearchParams): ReferralSelection | und
 }
 
 function recordNavigation(
-  nextScreen: "home" | "referrals" | "packet" | "profile" | "profiles" | "operations",
+  nextScreen: PipelineScreen,
   referral?: Pick<Referral, "id" | "name" | "community">,
 ) {
   if (nextScreen === "home") return;

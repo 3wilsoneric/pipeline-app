@@ -12,6 +12,7 @@
     "0008_client_workspaces.sql": "5d52ea476fa199e1a2b2e2c9cead4c2fbbe835d6ff154c4c02882bc97e89e663",
     "0009_assessment_collaboration.sql": "50bf38f1e91203a3dae29c3cc36d260f3d568e89af1b44796aa3c2a06942a49d",
     "0010_provisional_workspace_members.sql": "fcae55e1ef3a8e8746a2fa0cee2e698754b00a1de296e003cede1ae75e40ef06",
-    "0011_historical_material_workspaces.sql": "3071ffa25db64e8bdc035799ba7b29ab355e621405c6d7c9a6c143cb922694d0"
+    "0011_historical_material_workspaces.sql": "3071ffa25db64e8bdc035799ba7b29ab355e621405c6d7c9a6c143cb922694d0",
+    "0012_referral_trash.sql": "cf9b3e78673d1b92f60404a403b025daafbabb02bbc1d4682faa28559fec9e20"
   }
 }

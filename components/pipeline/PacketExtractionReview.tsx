@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   FileSearch,
   Pencil,
   X,
@@ -71,6 +73,7 @@ export default function PacketExtractionReview({
   const [editingFieldKey, setEditingFieldKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [confirmingBulk, setConfirmingBulk] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const pending = fields.filter((field) => field.review_status === "pending").length;
   const conflicts = fields.filter((field) => field.is_conflict && field.review_status === "pending").length;
@@ -85,11 +88,11 @@ export default function PacketExtractionReview({
   const reviewComplete = pending === 0 && conflicts === 0;
 
   return (
-    <section aria-label="Extraction review" className="mb-5 border border-[#cfd8d3] bg-[#f8fbfa]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dbe2de] px-4 py-3">
+    <section aria-label="Extraction review" className="mb-3 border-y border-[#cfd8d3] bg-white">
+      <div className={`flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 ${expanded ? "border-b border-[#dbe2de]" : ""}`}>
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e3f2ec] text-[#0f8b73]">
-            <FileSearch size={18} />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#eff8f4] text-[#0f8b73]">
+            <FileSearch size={16} />
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -110,9 +113,20 @@ export default function PacketExtractionReview({
         <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.06em]">
           <span className="text-[#8a5b0d]">{pending} to review</span>
           {conflicts > 0 ? <span className="text-[#a04436]">{conflicts} conflicts</span> : null}
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+            className="flex h-8 items-center gap-1.5 px-2 text-[10px] font-black text-[#0c705f] hover:bg-[#eff8f4]"
+          >
+            {expanded ? "Hide fields" : "Review fields"}
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
         </div>
       </div>
 
+      {expanded ? (
+        <>
       <div className="grid gap-px border-b border-[#dbe2de] bg-[#dbe2de] sm:grid-cols-3" aria-label="Packet ingestion progress">
         <IngestionStep number="1" label="Upload" value="Original saved" complete />
         <IngestionStep number="2" label="Extract" value={`${fields.length} values found`} complete />
@@ -274,6 +288,8 @@ export default function PacketExtractionReview({
           );
         })}
       </div>
+        </>
+      ) : null}
     </section>
   );
 }

@@ -148,7 +148,7 @@ export async function reviewClientFileImportItem(
         if (input.referral_id) {
           const referrals = await tx<{ referral_id: number | string }[]>`
             select referral_id from pipeline.referrals
-            where referral_id = ${input.referral_id} and person_id = ${personId}::uuid
+            where referral_id = ${input.referral_id} and person_id = ${personId}::uuid and deleted_at is null
             limit 1
           `;
           if (!referrals[0]) return { status: "invalid_referral" as const };

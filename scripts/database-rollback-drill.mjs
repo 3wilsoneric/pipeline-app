@@ -18,6 +18,7 @@ const clientWorkspaceRollback = await readFile("database/rollbacks/0008_client_w
 const assessmentCollaborationRollback = await readFile("database/rollbacks/0009_assessment_collaboration.sql", "utf8");
 const provisionalMembersRollback = await readFile("database/rollbacks/0010_provisional_workspace_members.sql", "utf8");
 const historicalWorkspacesRollback = await readFile("database/rollbacks/0011_historical_material_workspaces.sql", "utf8");
+const referralTrashRollback = await readFile("database/rollbacks/0012_referral_trash.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -50,7 +51,9 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0010_provisional_workspace_members') as provisional_member_history,
       to_regclass('pipeline.workspace_import_batches') is not null as workspace_import_batches,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='workspace_status') as workspace_status,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0011_historical_material_workspaces') as historical_workspace_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0011_historical_material_workspaces') as historical_workspace_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='deleted_at') as referral_trash,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0012_referral_trash') as referral_trash_history
   `;
   checks.push({
     name: "latest migrations exist before drill",
@@ -73,8 +76,16 @@ try {
       && before[0].workspace_import_batches
       && before[0].workspace_status
       && before[0].historical_workspace_history
+      && before[0].referral_trash
+      && before[0].referral_trash_history
     ),
   });
+  await connection.unsafe(referralTrashRollback);
+  const referralTrashDuring = await connection`
+    select not exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='deleted_at') as trash_columns_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0012_referral_trash') as history_removed
+  `;
+  checks.push({ name: "rollback removes referral trash extensions", ok: Boolean(referralTrashDuring[0].trash_columns_removed && referralTrashDuring[0].history_removed) });
   await connection.unsafe(historicalWorkspacesRollback);
   const historicalWorkspacesDuring = await connection`
     select to_regclass('pipeline.workspace_import_batches') is null as import_batches_removed,
@@ -183,7 +194,9 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0010_provisional_workspace_members') as provisional_member_history,
       to_regclass('pipeline.workspace_import_batches') is not null as workspace_import_batches,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='workspace_status') as workspace_status,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0011_historical_material_workspaces') as historical_workspace_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0011_historical_material_workspaces') as historical_workspace_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='deleted_at') as referral_trash,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0012_referral_trash') as referral_trash_history
   `;
   checks.push({
     name: "drill transaction restores original schema",
@@ -208,6 +221,8 @@ try {
       && after[0].workspace_import_batches
       && after[0].workspace_status
       && after[0].historical_workspace_history
+      && after[0].referral_trash
+      && after[0].referral_trash_history
     ),
   });
   const failed = checks.filter((check) => !check.ok);

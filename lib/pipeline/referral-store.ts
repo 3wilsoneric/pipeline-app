@@ -144,6 +144,13 @@ export type ReferralMutation =
   | ReferralConflict
   | ReferralTransitionBlocked;
 
+export type DeletedReferralListResult = {
+  referrals: Referral[];
+  total: number;
+  revision: number;
+  generated_at: string;
+};
+
 export type ReferralStoreReadiness = {
   mode: "local_file" | "postgres";
   ready: boolean;
@@ -175,6 +182,9 @@ interface ReferralStore {
   listByClient(clientId: string): Promise<Referral[]>;
   listFiles(options?: ReferralFileListOptions): Promise<ReferralFileListResult>;
   listFilesByClient(clientId: string): Promise<ReferralFile[]>;
+  listDeleted(query?: string): Promise<DeletedReferralListResult>;
+  softDelete(id: number, actor: ReferralActor, expectedVersion?: number): Promise<ReferralMutation | null>;
+  restore(id: number, actor: ReferralActor, expectedVersion?: number): Promise<ReferralMutation | null>;
   create(input: ReferralCreateInput, actor: ReferralActor, mutationId?: string): Promise<{ referral: Referral; revision: number }>;
   patch(
     id: number,
@@ -257,6 +267,9 @@ const localReferralStore: ReferralStore = {
   listByClient: listLocalReferralsByClient,
   listFiles: listLocalReferralFiles,
   listFilesByClient: listLocalReferralFilesByClient,
+  listDeleted: listLocalDeletedReferrals,
+  softDelete: softDeleteLocalReferral,
+  restore: restoreLocalReferral,
   create: (input, actor, mutationId) => createLocalReferral(input, actor, mutationId),
   patch: (id, patch, actor, expectedVersion, expectedSectionVersions, metadata) =>
     patchLocalReferral(id, patch, actor, expectedVersion, expectedSectionVersions, metadata),
@@ -272,6 +285,9 @@ const postgresReferralStore: ReferralStore = {
   listByClient: listPostgresReferralsByClient,
   listFiles: listPostgresReferralFiles,
   listFilesByClient: listPostgresReferralFilesByClient,
+  listDeleted: listPostgresDeletedReferrals,
+  softDelete: softDeletePostgresReferral,
+  restore: restorePostgresReferral,
   create: createPostgresReferral,
   patch: patchPostgresReferral,
 };
@@ -323,6 +339,26 @@ export async function listReferralFiles(options: ReferralFileListOptions = {}) {
 
 export async function listReferralFilesByClient(clientId: string) {
   return getReferralStore().listFilesByClient(clientId);
+}
+
+export async function listDeletedReferrals(query = "") {
+  return getReferralStore().listDeleted(query);
+}
+
+export async function softDeleteReferral(
+  id: number,
+  actor: ReferralActor,
+  expectedVersion?: number,
+) {
+  return getReferralStore().softDelete(id, actor, expectedVersion);
+}
+
+export async function restoreReferral(
+  id: number,
+  actor: ReferralActor,
+  expectedVersion?: number,
+) {
+  return getReferralStore().restore(id, actor, expectedVersion);
 }
 
 export async function listReferralFilesByCanonicalClient(canonicalClientId: string) {
@@ -464,6 +500,7 @@ async function listLocalReferrals(
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const sort = options.sort ?? "updated_desc";
   const matching = state.referrals
+    .filter((referral) => !isDeletedReferral(referral))
     .filter((referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens) && matchesReferralFilters(referral, options))
     .sort((left, right) => compareReferrals(left, right, sort));
   const cursor = decodeReferralSortCursor(options.cursor, sort);
@@ -501,7 +538,8 @@ async function listLocalReferralFacets(
   await ensureLoaded();
   const queryTokens = normalizedSearchTokens(query);
   const referrals = state.referrals.filter(
-    (referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens)
+    (referral) => !isDeletedReferral(referral)
+      && matchesSearchTokens(searchableReferralText(referral), queryTokens)
       && matchesWorkspaceStatus(referral, access.workspaceStatus)
       && matchesAssignmentScope(referral, access),
   );
@@ -510,12 +548,12 @@ async function listLocalReferralFacets(
 
 async function getLocalReferral(id: number): Promise<Referral | null> {
   await ensureLoaded();
-  return state.referrals.find((referral) => referral.id === id) ?? null;
+  return state.referrals.find((referral) => referral.id === id && !isDeletedReferral(referral)) ?? null;
 }
 
 async function getLocalReferralByPacketId(packetId: string): Promise<Referral | null> {
   await ensureLoaded();
-  return state.referrals.find((referral) => referral.packetId === packetId) ?? null;
+  return state.referrals.find((referral) => referral.packetId === packetId && !isDeletedReferral(referral)) ?? null;
 }
 
 async function getLocalReferralChangeMetadata(id: number): Promise<ReferralChangeMetadata | null> {
@@ -537,14 +575,14 @@ async function getLocalReferralChangeMetadata(id: number): Promise<ReferralChang
 async function listLocalReferralsByClient(clientId: string): Promise<Referral[]> {
   await ensureLoaded();
   return state.referrals
-    .filter((referral) => referral.clientId === clientId)
+    .filter((referral) => referral.clientId === clientId && !isDeletedReferral(referral))
     .sort(compareReferrals);
 }
 
 async function listLocalReferralFilesByClient(clientId: string): Promise<ReferralFile[]> {
   await ensureLoaded();
   return state.referrals
-    .filter((referral) => referral.clientId === clientId)
+    .filter((referral) => referral.clientId === clientId && !isDeletedReferral(referral))
     .flatMap(getReferralFiles)
     .sort(compareFiles);
 }
@@ -556,6 +594,7 @@ async function listLocalReferralFiles(
 
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const matching = state.referrals
+    .filter((referral) => !isDeletedReferral(referral))
     .filter((referral) => !options.clientId || referral.clientId === options.clientId)
     .filter((referral) => matchesAssignmentScope(referral, options))
     .flatMap(getReferralFiles)
@@ -697,6 +736,78 @@ async function patchLocalReferral(
   return { ok: true, referral: next, revision: state.revision };
 }
 
+async function listLocalDeletedReferrals(query = ""): Promise<DeletedReferralListResult> {
+  await ensureLoaded();
+  const queryTokens = normalizedSearchTokens(query);
+  const referrals = state.referrals
+    .filter(isDeletedReferral)
+    .filter((referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens))
+    .sort((left, right) => (right.deletedAt ?? "").localeCompare(left.deletedAt ?? ""));
+  return {
+    referrals,
+    total: referrals.length,
+    revision: state.revision,
+    generated_at: new Date().toISOString(),
+  };
+}
+
+async function softDeleteLocalReferral(
+  id: number,
+  actor: ReferralActor,
+  expectedVersion?: number,
+): Promise<ReferralMutation | null> {
+  await ensureLoaded();
+  const index = state.referrals.findIndex((referral) => referral.id === id);
+  if (index < 0 || isDeletedReferral(state.referrals[index])) return null;
+  const current = state.referrals[index];
+  if (expectedVersion !== undefined && expectedVersion !== current.version) {
+    return { ok: false, conflict: true, referral: current };
+  }
+  const deletedAt = new Date();
+  const next = normalizeReferral({
+    ...current,
+    version: (current.version ?? 1) + 1,
+    updatedAt: deletedAt.toISOString(),
+    updatedBy: actor,
+    deletedAt: deletedAt.toISOString(),
+    deleteAfter: new Date(deletedAt.getTime() + 30 * 24 * 60 * 60 * 1_000).toISOString(),
+    deletedBy: actor,
+  });
+  state.referrals[index] = next;
+  state.revision += 1;
+  await persist();
+  return { ok: true, referral: next, revision: state.revision };
+}
+
+async function restoreLocalReferral(
+  id: number,
+  actor: ReferralActor,
+  expectedVersion?: number,
+): Promise<ReferralMutation | null> {
+  await ensureLoaded();
+  const index = state.referrals.findIndex((referral) => referral.id === id);
+  if (index < 0 || !isDeletedReferral(state.referrals[index])) return null;
+  const current = state.referrals[index];
+  if (!current.deleteAfter || new Date(current.deleteAfter).getTime() <= Date.now()) return null;
+  if (expectedVersion !== undefined && expectedVersion !== current.version) {
+    return { ok: false, conflict: true, referral: current };
+  }
+  const { deletedAt: _deletedAt, deleteAfter: _deleteAfter, deletedBy: _deletedBy, ...active } = current;
+  void _deletedAt;
+  void _deleteAfter;
+  void _deletedBy;
+  const next = normalizeReferral({
+    ...active,
+    version: (current.version ?? 1) + 1,
+    updatedAt: new Date().toISOString(),
+    updatedBy: actor,
+  });
+  state.referrals[index] = next;
+  state.revision += 1;
+  await persist();
+  return { ok: true, referral: next, revision: state.revision };
+}
+
 type ReferralRow = {
   referral_id: number | string;
   external_client_id: string;
@@ -731,6 +842,10 @@ type ReferralRow = {
   source_project_id?: string | null;
   source_project_name?: string | null;
   source_material_count?: number | string;
+  deleted_at?: Date | string | null;
+  delete_after?: Date | string | null;
+  deleted_by?: string | null;
+  deleted_by_name?: string | null;
 };
 
 type ReferralFileRow = {
@@ -794,7 +909,8 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
         lower(trim(p.display_name)) as sort_client
       from pipeline.referrals r
       join pipeline.people p on p.person_id = r.person_id
-      where (${queryTokens.length === 0} or not exists (
+      where r.deleted_at is null
+        and ((${queryTokens.length === 0}) or not exists (
           select 1 from unnest(${queryTokens}::text[]) as search_term(value)
           where r.search_text not ilike ('%' || search_term.value || '%')
         ))
@@ -874,7 +990,8 @@ async function listPostgresReferralFacets(
   const searchClause = sql`(${queryTokens.length === 0} or not exists (
     select 1 from unnest(${queryTokens}::text[]) as search_term(value)
     where r.search_text not ilike ('%' || search_term.value || '%')
-  )) and (${workspaceStatus} = 'all' or r.workspace_status = ${workspaceStatus})
+  )) and r.deleted_at is null
+  and (${workspaceStatus} = 'all' or r.workspace_status = ${workspaceStatus})
   and (${assignedOwnerId}::text is null or r.owner_id = ${assignedOwnerId}
     or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${assignedOwnerNames}::text[])))`;
   const [communities, stages, owners, priorities, tags, months] = await Promise.all([
@@ -931,7 +1048,7 @@ async function getPostgresReferral(id: number) {
     select r.*, p.external_client_id, p.display_name
     from pipeline.referrals r
     join pipeline.people p on p.person_id = r.person_id
-    where r.referral_id = ${id}
+    where r.referral_id = ${id} and r.deleted_at is null
     limit 1
   `;
   return rows[0] ? mapReferralRow(rows[0]) : null;
@@ -943,11 +1060,13 @@ async function getPostgresReferralByPacketId(packetId: string) {
     select r.*, p.external_client_id, p.display_name
     from pipeline.referrals r
     join pipeline.people p on p.person_id = r.person_id
-    where r.data->>'packetId' = ${packetId}
+    where r.deleted_at is null and (
+      r.data->>'packetId' = ${packetId}
       or exists (
         select 1 from pipeline.packet_uploads pu
         where pu.referral_id = r.referral_id and pu.packet_id::text = ${packetId}
       )
+    )
     order by r.updated_at desc, r.referral_id desc
     limit 1
   `;
@@ -965,7 +1084,7 @@ async function getPostgresReferralChangeMetadata(id: number): Promise<ReferralCh
   }[]>`
     select version, section_versions, updated_at, updated_by, updated_by_name
     from pipeline.referrals
-    where referral_id = ${id}
+    where referral_id = ${id} and deleted_at is null
     limit 1
   `;
   const row = rows[0];
@@ -984,7 +1103,7 @@ async function listPostgresReferralsByClient(clientId: string) {
     select r.*, p.external_client_id, p.display_name
     from pipeline.referrals r
     join pipeline.people p on p.person_id = r.person_id
-    where p.external_client_id = ${clientId}
+    where p.external_client_id = ${clientId} and r.deleted_at is null
     order by r.updated_at desc, r.referral_id desc
     limit ${maxReferralRows}
   `;
@@ -1049,11 +1168,12 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
       left join lateral (
         select lr.referral_id, lr.community, lr.owner_id, lr.owner_name
         from pipeline.referrals lr
-        where p.person_id is not null and lr.person_id = p.person_id
+        where p.person_id is not null and lr.person_id = p.person_id and lr.deleted_at is null
         order by lr.updated_at desc, lr.referral_id desc
         limit 1
       ) latest_referral on true
       where d.deleted_at is null
+        and (r.referral_id is null or r.deleted_at is null)
       union all
       select
         ('referral-' || r.referral_id || '-packet')::text as id,
@@ -1079,6 +1199,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
       from pipeline.referrals r
       join pipeline.people p on p.person_id = r.person_id
       where coalesce(r.data->>'documentName', '') <> ''
+        and r.deleted_at is null
         and coalesce(r.data->>'documentStatus', 'Missing') <> 'Missing'
         and not exists (
           select 1 from pipeline.documents d
@@ -1110,6 +1231,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
       from pipeline.referrals r
       join pipeline.people p on p.person_id = r.person_id
       where coalesce(r.data->>'assessmentDocumentName', '') <> ''
+        and r.deleted_at is null
         and not exists (
           select 1 from pipeline.documents d
           where d.referral_id = r.referral_id and d.deleted_at is null
@@ -1361,17 +1483,125 @@ async function patchPostgresReferral(
   });
 }
 
+async function listPostgresDeletedReferrals(query = ""): Promise<DeletedReferralListResult> {
+  const sql = getPipelineSql();
+  const queryTokens = normalizedSearchTokens(query);
+  const rows = await sql<ReferralRow[]>`
+    select r.*, p.external_client_id, p.display_name, count(*) over() as total_count
+    from pipeline.referrals r
+    join pipeline.people p on p.person_id = r.person_id
+    where r.deleted_at is not null
+      and ((${queryTokens.length === 0}) or not exists (
+        select 1 from unnest(${queryTokens}::text[]) as search_term(value)
+        where r.search_text not ilike ('%' || search_term.value || '%')
+      ))
+    order by r.deleted_at desc, r.referral_id desc
+    limit ${maxPageSize}
+  `;
+  return {
+    referrals: rows.map(mapReferralRow),
+    total: Number(rows[0]?.total_count ?? 0),
+    revision: await getPostgresReferralRevision(),
+    generated_at: new Date().toISOString(),
+  };
+}
+
+async function softDeletePostgresReferral(
+  id: number,
+  actor: ReferralActor,
+  expectedVersion?: number,
+): Promise<ReferralMutation | null> {
+  const sql = getPipelineSql();
+  return sql.begin(async (tx) => {
+    const currentRows = await tx<ReferralRow[]>`
+      select r.*, p.external_client_id, p.display_name
+      from pipeline.referrals r
+      join pipeline.people p on p.person_id = r.person_id
+      where r.referral_id = ${id} and r.deleted_at is null
+      for update of r
+    `;
+    if (!currentRows[0]) return null;
+    const current = mapReferralRow(currentRows[0]);
+    if (expectedVersion !== undefined && expectedVersion !== current.version) {
+      return { ok: false, conflict: true, referral: current };
+    }
+    const rows = await tx<ReferralRow[]>`
+      update pipeline.referrals r
+      set deleted_at = now(),
+          delete_after = now() + interval '30 days',
+          deleted_by = ${actor.id},
+          deleted_by_name = ${actor.name},
+          version = r.version + 1,
+          updated_by = ${actor.id},
+          updated_by_name = ${actor.name},
+          updated_at = now()
+      from pipeline.people p
+      where r.referral_id = ${id} and p.person_id = r.person_id and r.deleted_at is null
+      returning r.*, p.external_client_id, p.display_name
+    `;
+    const referral = mapReferralRow(rows[0]);
+    await writeReferralAudit(tx, id, "referral_moved_to_trash", actor, ["deletedAt"], current.stage, current.stage, referral.version ?? 1);
+    const revision = await bumpReferralRevision(tx);
+    return { ok: true, referral, revision };
+  });
+}
+
+async function restorePostgresReferral(
+  id: number,
+  actor: ReferralActor,
+  expectedVersion?: number,
+): Promise<ReferralMutation | null> {
+  const sql = getPipelineSql();
+  return sql.begin(async (tx) => {
+    const currentRows = await tx<ReferralRow[]>`
+      select r.*, p.external_client_id, p.display_name
+      from pipeline.referrals r
+      join pipeline.people p on p.person_id = r.person_id
+      where r.referral_id = ${id}
+        and r.deleted_at is not null
+        and r.delete_after > now()
+      for update of r
+    `;
+    if (!currentRows[0]) return null;
+    const current = mapReferralRow(currentRows[0]);
+    if (expectedVersion !== undefined && expectedVersion !== current.version) {
+      return { ok: false, conflict: true, referral: current };
+    }
+    const rows = await tx<ReferralRow[]>`
+      update pipeline.referrals r
+      set deleted_at = null,
+          delete_after = null,
+          deleted_by = null,
+          deleted_by_name = null,
+          version = r.version + 1,
+          updated_by = ${actor.id},
+          updated_by_name = ${actor.name},
+          updated_at = now()
+      from pipeline.people p
+      where r.referral_id = ${id}
+        and p.person_id = r.person_id
+        and r.deleted_at is not null
+        and r.delete_after > now()
+      returning r.*, p.external_client_id, p.display_name
+    `;
+    const referral = mapReferralRow(rows[0]);
+    await writeReferralAudit(tx, id, "referral_restored", actor, ["deletedAt"], current.stage, current.stage, referral.version ?? 1);
+    const revision = await bumpReferralRevision(tx);
+    return { ok: true, referral, revision };
+  });
+}
+
 async function getReferralInTransaction(tx: TransactionSql, id: number, forUpdate = false) {
   const rows = forUpdate
     ? await tx<ReferralRow[]>`
         select r.*, p.external_client_id, p.display_name
         from pipeline.referrals r join pipeline.people p on p.person_id = r.person_id
-        where r.referral_id = ${id} for update of r
+        where r.referral_id = ${id} and r.deleted_at is null for update of r
       `
     : await tx<ReferralRow[]>`
         select r.*, p.external_client_id, p.display_name
         from pipeline.referrals r join pipeline.people p on p.person_id = r.person_id
-        where r.referral_id = ${id} limit 1
+        where r.referral_id = ${id} and r.deleted_at is null limit 1
       `;
   return rows[0] ? mapReferralRow(rows[0]) : null;
 }
@@ -1607,6 +1837,11 @@ function mapReferralRow(row: ReferralRow): Referral {
     documentHash: row.document_sha256 ?? undefined,
     createdAt: isoTimestamp(row.created_at),
     updatedAt: isoTimestamp(row.updated_at),
+    ...(row.deleted_at ? { deletedAt: isoTimestamp(row.deleted_at) } : {}),
+    ...(row.delete_after ? { deleteAfter: isoTimestamp(row.delete_after) } : {}),
+    ...(row.deleted_by && row.deleted_by_name
+      ? { deletedBy: { id: row.deleted_by, name: row.deleted_by_name } }
+      : {}),
   } as Referral);
 }
 
@@ -1824,6 +2059,10 @@ function matchesReferralFilters(referral: Referral, options: ReferralListOptions
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
   if (!matchesAssignmentScope(referral, options)) return false;
   return true;
+}
+
+function isDeletedReferral(referral: Referral) {
+  return Boolean(referral.deletedAt);
 }
 
 function matchesWorkspaceStatus(referral: Referral, requested: ReferralListOptions["workspaceStatus"]) {

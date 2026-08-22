@@ -18,14 +18,14 @@ export default function ReferralProgressPanel({
 }) {
   if (loading) {
     if (compact) {
-      return <div className="flex min-h-[42px] items-center gap-3 border-y border-[#d9d9d9] px-2 py-2 text-[11px] text-[#737373]"><span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Progress</span>Loading status...</div>;
+      return <div className="flex min-h-8 items-center gap-2 border-b border-[#d9d9d9] px-2 py-1.5 text-[10px] text-[#737373]">Loading status...</div>;
     }
     return <div className="border-y border-[#d9d9d9] px-5 py-6 text-[12px] text-[#737373]">Loading client progress...</div>;
   }
 
   if (!progress) {
     if (compact) {
-      return <div className="flex min-h-[42px] flex-wrap items-center gap-x-3 gap-y-1 border-y border-[#d9d9d9] px-2 py-2"><span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Progress</span><span className="text-[11px] text-[#737373]">Save this referral to start tracking completion.</span></div>;
+      return <div className="flex min-h-8 flex-wrap items-center gap-x-2 gap-y-1 border-b border-[#d9d9d9] px-2 py-1.5"><span className="text-[10px] text-[#737373]">Save this referral to start tracking completion.</span></div>;
     }
     return (
       <div className="border-y border-[#d9d9d9] px-5 py-6">
@@ -37,14 +37,13 @@ export default function ReferralProgressPanel({
 
   if (compact) {
     return (
-      <section aria-label="Client progress" className="flex min-h-[42px] flex-wrap items-center justify-between gap-x-5 gap-y-1 border-y border-[#d9d9d9] px-2 py-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Progress</span>
-          <span className="text-[12px] font-black text-[#111111]">{progress.overall.percent}% complete</span>
-          <span className="text-[11px] text-[#737373]">{progress.overall.complete} of {progress.overall.total} tracked</span>
-          <span className="text-[11px] text-[#737373]">Phase: <strong className="font-semibold capitalize text-[#111111]">{progress.phase}</strong></span>
+      <section aria-label="Client progress" className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-[#d9d9d9] px-2 py-1.5">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
+          <strong className="font-black capitalize text-[#111111]">{progress.phase} phase</strong>
+          <span className="text-[#737373]">·</span>
+          <span className="text-[#737373]">{progress.overall.complete}/{progress.overall.total} workflow items</span>
         </div>
-        {progress.next_action ? <span className="text-[11px] text-[#5f4a18]">Next: {progress.next_action}</span> : null}
+        {progress.next_action ? <span className="text-[10px] text-[#5f4a18]">Next: {progress.next_action}</span> : null}
       </section>
     );
   }

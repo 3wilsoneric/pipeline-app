@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, ArrowRight, LogOut, UserRound } from "lucide-react";
+import { Activity, ArrowRight, LogOut, Trash2, UserRound } from "lucide-react";
 
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
@@ -63,23 +63,28 @@ export default function PipelineHeader() {
 
   const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : "Eric Wilson");
   const operationsActive = activeSearchParams.get("screen") === "operations";
+  const trashActive = activeSearchParams.get("screen") === "trash";
   const isWelcomeSurface = homeMode === "welcome"
     && pathname === "/"
     && activeNav === null
     && !operationsActive
     && !searchOpen;
 
-  const navigateTo = (target: "home" | Exclude<PipelineNavTarget, null> | "operations") => {
+  const navigateTo = (target: "home" | Exclude<PipelineNavTarget, null> | "operations" | "trash") => {
     setSearchOpen(false);
     setHomeMode("workspace");
     const destination = target === "referrals"
       ? "/?view=referrals"
+      : target === "calendar"
+        ? "/?screen=calendar"
       : target === "profiles"
         ? "/?screen=profiles"
         : target === "packet"
           ? "/?view=referrals&screen=packet"
           : target === "operations"
             ? "/?screen=operations"
+            : target === "trash"
+              ? "/?screen=trash"
             : "/";
     pushPipelineHistory(destination);
   };
@@ -192,6 +197,21 @@ export default function PipelineHeader() {
                 </span>
                 <ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
               </Link>
+              {user?.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role)) ? (
+                <button
+                  type="button"
+                  aria-current={trashActive ? "page" : undefined}
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    navigateTo("trash");
+                  }}
+                  className={`grid min-h-[52px] w-full grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-b border-l-[3px] border-b-[#e5e5e5] px-4 py-2.5 text-left outline-none transition-colors ${trashActive ? "border-l-[#a9473d] bg-[#fff3f1]" : "border-l-transparent hover:border-l-[#a9473d] hover:bg-[#fff3f1]"}`}
+                >
+                  <Trash2 size={17} strokeWidth={1.8} className="text-[#a9473d]" aria-hidden="true" />
+                  <span><span className="block text-[11px] font-black text-[#111111]">Trash</span><span className="mt-0.5 block text-[9px] text-[#737373]">Restore deleted workspaces</span></span>
+                  <ArrowRight size={14} className="text-[#a9473d]" aria-hidden="true" />
+                </button>
+              ) : null}
               {auth.required ? (
                 <button
                   type="button"
@@ -217,6 +237,7 @@ function getActiveNavTarget(searchParams: URLSearchParams, pathname: string): Pi
   if (searchParams.get("screen") === "packet") {
     return searchParams.has("referralId") ? "referrals" : "packet";
   }
+  if (searchParams.get("screen") === "calendar") return "calendar";
   if (pathname === "/referrals") return "referrals";
   if (searchParams.get("screen") === "referrals" || searchParams.get("view") === "referrals") return "referrals";
   if (searchParams.get("screen") === "profiles" || searchParams.get("screen") === "profile") return "profiles";

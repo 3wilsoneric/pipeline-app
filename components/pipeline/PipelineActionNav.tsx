@@ -1,9 +1,9 @@
 "use client";
 
-import { FolderOpen, Plus, Search, UsersRound } from "lucide-react";
+import { CalendarDays, FolderOpen, Plus, Search, UsersRound } from "lucide-react";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 
-export type PipelineNavTarget = "referrals" | "profiles" | "packet" | null;
+export type PipelineNavTarget = "referrals" | "calendar" | "profiles" | "packet" | null;
 
 export default function PipelineActionNav({
   active = null,
@@ -84,6 +84,22 @@ export default function PipelineActionNav({
         <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>
           Workspaces
         </span>
+      </button>
+      <button
+        type="button"
+        aria-label="Open calendar"
+        aria-current={active === "calendar" ? "page" : undefined}
+        data-active={active === "calendar" ? "true" : undefined}
+        title="Calendar"
+        onClick={() => onNavigate("calendar")}
+        className={`${navItem} ${navSize} text-[#176b78] ${
+          active === "calendar"
+            ? "border-[#27889a] bg-[#e9f7f9] shadow-[0_4px_14px_rgba(39,136,154,0.14)]"
+            : "border-transparent bg-transparent hover:border-[#27889a] hover:bg-[#e9f7f9] hover:shadow-[0_4px_14px_rgba(39,136,154,0.14)]"
+        }`}
+      >
+        <CalendarDays size={20} className="shrink-0" />
+        <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>Calendar</span>
       </button>
       <button
         type="button"

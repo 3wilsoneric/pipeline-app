@@ -25,9 +25,9 @@ on:
         default: false
         type: boolean
       enable_retention_job:
-        description: Enable destructive retention schedule after policy approval
+        description: Run the approved daily retention policy
         required: true
-        default: false
+        default: true
         type: boolean
       initial_database_bootstrap:
         description: One-time only - create database roles on the first deployment

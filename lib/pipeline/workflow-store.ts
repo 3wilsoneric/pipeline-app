@@ -431,7 +431,7 @@ async function recordPostgresDecision(
   fallback: Referral,
 ): Promise<WorkflowRecordMutation<AdmissionDecision>> {
   const referralRows = await tx<{ version: number; stage: Referral["stage"]; data: unknown; section_versions: unknown }[]>`
-    select version, stage, data, section_versions from pipeline.referrals where referral_id = ${referralId} for update
+    select version, stage, data, section_versions from pipeline.referrals where referral_id = ${referralId} and deleted_at is null for update
   `;
   const row = referralRows[0];
   if (!row) throw new Error("Referral not found.");
@@ -530,7 +530,7 @@ async function patchPostgresWorkItem(
   auditReason: string,
 ): Promise<WorkflowRecordMutation<AdmissionRequirement>> {
   const referralRows = await tx<{ version: number; data: unknown }[]>`
-    select version, data from pipeline.referrals where referral_id = ${referralId} for update
+    select version, data from pipeline.referrals where referral_id = ${referralId} and deleted_at is null for update
   `;
   if (!referralRows[0]) throw new Error("Referral not found.");
   const rows = await tx<WorkItemRow[]>`

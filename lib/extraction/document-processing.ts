@@ -113,7 +113,7 @@ export async function createDurableUploadTargets(
   try {
     await sql.begin(async (tx) => {
       const referrals = await tx<{ referral_id: number | string; person_id: string }[]>`
-        select referral_id, person_id from pipeline.referrals where referral_id = ${referralId} limit 1
+        select referral_id, person_id from pipeline.referrals where referral_id = ${referralId} and deleted_at is null limit 1
       `;
       if (!referrals[0]) throw new DocumentProcessingError("referral_not_found", 404, "Referral not found.");
 

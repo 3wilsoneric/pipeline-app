@@ -929,7 +929,7 @@ async function patchPostgresAssessment(
     if (completesAssessment) {
       const stageRows = await tx<{ stage: string }[]>`
         select stage from pipeline.referrals
-        where referral_id = ${current.referral_id}
+        where referral_id = ${current.referral_id} and deleted_at is null
         for update
       `;
       if (!stageRows[0]) throw new Error("The assessment referral no longer exists.");

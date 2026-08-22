@@ -5,6 +5,7 @@ import {
   patchReferral,
   requireReferralStore,
   DuplicateReferralPacketError,
+  softDeleteReferral,
   type ReferralPatch,
 } from "@/lib/pipeline/referral-store";
 import { validateReferralPatch } from "@/lib/pipeline/referral-validation";
@@ -49,6 +50,41 @@ export async function GET(
     if (!access.ok) return access.response;
 
     return Response.json({ referral: access.referral }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  });
+}
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ referralId: string }> },
+) {
+  return withApiLogging(request, "/api/referrals/[referralId]", async () => {
+    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    if (!auth.ok) return auth.response;
+    const originFailure = requireSameOriginMutation(request);
+    if (originFailure) return originFailure;
+    const store = requireReferralStore();
+    if (!store.ok) return store.response;
+    const { referralId } = await context.params;
+    const id = Number.parseInt(referralId, 10);
+    if (!Number.isInteger(id) || id < 1) return jsonError("referralId is invalid.");
+    const access = await requireReferralAccess(auth.user, id);
+    if (!access.ok) return access.response;
+    const body = await readJsonBody<{ if_match?: number }>(request);
+    if (!body.ok) return jsonError(body.message, body.status);
+    const expectedVersion = body.value?.if_match;
+    if (!Number.isInteger(expectedVersion) || Number(expectedVersion) < 1) {
+      return jsonError("if_match must be a positive version number.");
+    }
+    const result = await softDeleteReferral(id, { id: auth.user.id, name: auth.user.name }, expectedVersion);
+    if (!result) return jsonError("Referral not found.", 404);
+    if (!result.ok) {
+      return Response.json({
+        error: "This referral changed in another session. Reload it before moving it to trash.",
+        conflict: true,
+        referral: result.referral,
+      }, { status: 409 });
+    }
+    return Response.json(result, { headers: { "Cache-Control": "no-store, max-age=0" } });
   });
 }
 

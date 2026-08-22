@@ -83,7 +83,7 @@ export async function getClinicalClientWorkspaceSummaries(
     ), visible_referrals as (
       select r.*
       from pipeline.referrals r
-      where (
+      where r.deleted_at is null and (
         ${ownerId}::text is null
         or r.owner_id = ${ownerId}
         or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${ownerNames}::text[]))
@@ -175,7 +175,7 @@ async function listPostgresPipelineClientWorkspaces(
     with visible_referrals as (
       select r.*
       from pipeline.referrals r
-      where (
+      where r.deleted_at is null and (
         ${ownerId}::text is null
         or r.owner_id = ${ownerId}
         or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${ownerNames}::text[]))

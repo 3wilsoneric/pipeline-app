@@ -32,7 +32,6 @@ import type { ReferralWorklistBucket, ReferralWorklistSnapshot } from "@/lib/pip
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import {
   filterReferralWorklistItems,
-  referralWorklistCategoryLabel,
 } from "@/lib/pipeline/referral-worklist-filter";
 import ReferralActionWorklist from "@/components/pipeline/ReferralActionWorklist";
 import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
@@ -400,35 +399,8 @@ export default function ReferralHome({
 
   const refreshLabel = lastRefreshedAt === null ? "" : formatRefreshAge(lastRefreshedAt);
 
-  const packetToolbar = (
-    <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] px-2 py-1.5 md:min-h-16 md:py-2">
-      <div className="flex items-center gap-2">
-        <FileText size={16} className="text-[#0f8b73]" />
-        <h2 className="text-[16px] font-black tracking-[0.01em] text-[#111111]">{getFilterLabel(filter)}</h2>
-        <span className="hidden text-[11px] text-[#737373] sm:inline">{resultCountLabel}</span>
-      </div>
-      {filter.kind === "workflow" || filter.kind === "work" ? (
-        <div className="flex items-center gap-2">
-          {filter.kind === "workflow" && refreshLabel ? (
-            <span className="hidden text-[9px] font-semibold text-[#737373] sm:inline">Live · {refreshLabel}</span>
-          ) : null}
-          <button
-            type="button"
-            aria-label={filter.kind === "workflow" ? "Refresh referral workflow" : "Refresh referral worklist"}
-            title={filter.kind === "workflow" ? "Refresh referral workflow" : "Refresh referral worklist"}
-            onClick={() => filter.kind === "workflow" ? void loadReferrals(undefined, true) : void loadWorklist()}
-            disabled={filter.kind === "workflow" ? isLoading || isRefreshing : worklistLoading}
-            className="flex h-9 w-9 items-center justify-center text-[#0c705f] hover:bg-[#effaf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:text-[#b3b3b3]"
-          >
-            <RefreshCw size={15} className={(filter.kind === "workflow" ? isLoading || isRefreshing : worklistLoading) ? "animate-spin" : ""} />
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-
   const workspaceSearch = filter.kind !== "files" ? (
-    <div className="flex h-11 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73]">
+    <div className="flex h-10 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73]">
       <Search size={16} className="shrink-0 text-[#0f8b73]" />
       <label htmlFor="workspace-directory-search" className="sr-only">Search all workspaces</label>
       <input
@@ -454,17 +426,32 @@ export default function ReferralHome({
           <X size={15} />
         </button>
       ) : null}
+      <span className="hidden shrink-0 text-[10px] text-[#737373] md:inline">{resultCountLabel}</span>
+      {filter.kind === "workflow" || filter.kind === "work" ? (
+        <>
+          {filter.kind === "workflow" && refreshLabel ? <span className="hidden shrink-0 text-[9px] text-[#8a8a8a] xl:inline">{refreshLabel}</span> : null}
+          <button
+            type="button"
+            aria-label={filter.kind === "workflow" ? "Refresh referral workflow" : "Refresh referral worklist"}
+            title="Refresh"
+            onClick={() => filter.kind === "workflow" ? void loadReferrals(undefined, true) : void loadWorklist()}
+            disabled={filter.kind === "workflow" ? isLoading || isRefreshing : worklistLoading}
+            className="flex h-8 w-8 shrink-0 items-center justify-center text-[#0c705f] hover:bg-[#effaf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:text-[#b3b3b3]"
+          >
+            <RefreshCw size={14} className={(filter.kind === "workflow" ? isLoading || isRefreshing : worklistLoading) ? "animate-spin" : ""} />
+          </button>
+        </>
+      ) : null}
     </div>
   ) : null;
 
   const filterToolbar = (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-2 md:py-3">
-      <span className="mr-1 shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Filter</span>
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-1.5">
       <select
         aria-label="Filter by stage"
         value={filter.kind === "stage" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "stage", value: event.target.value as ReferralStage } : { kind: "all" })}
-        className="h-9 w-[145px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[145px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All stages</option>
         {boardStages.map((stage) => <option key={stage} value={stage}>{getStageLabel(stage)}</option>)}
@@ -473,7 +460,7 @@ export default function ReferralHome({
         aria-label="Filter workspaces by community"
         value={filter.kind === "community" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "community", value: event.target.value } : { kind: "all" })}
-        className="h-9 w-[150px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[150px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All communities</option>
         {facets.communities.map((community) => <option key={community.value} value={community.value}>{community.value}</option>)}
@@ -482,7 +469,7 @@ export default function ReferralHome({
         aria-label="Filter by owner"
         value={filter.kind === "owner" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "owner", value: event.target.value } : { kind: "all" })}
-        className="h-9 w-[150px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[150px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All owners</option>
         {ownerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
@@ -491,7 +478,7 @@ export default function ReferralHome({
         aria-label="Filter by priority"
         value={filter.kind === "priority" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "priority", value: event.target.value as Referral["priority"] } : { kind: "all" })}
-        className="h-9 w-[125px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[125px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All priorities</option>
         <option value="urgent">Urgent</option>
@@ -502,7 +489,7 @@ export default function ReferralHome({
         aria-label="Filter by creation month"
         value={filter.kind === "month" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "month", value: event.target.value } : { kind: "all" })}
-        className="h-9 w-[175px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[175px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All creation months</option>
         {monthOptions.map((month) => (
@@ -516,7 +503,7 @@ export default function ReferralHome({
           aria-label="Filter by tag"
           value={filter.kind === "tag" ? filter.value : ""}
           onChange={(event) => setFilter(event.target.value ? { kind: "tag", value: event.target.value } : { kind: "all" })}
-          className="h-9 w-[135px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+          className="h-9 w-[135px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
         >
           <option value="">All tags</option>
           {tagOptions.map((tag) => <option key={tag} value={tag}>#{tag}</option>)}
@@ -527,7 +514,7 @@ export default function ReferralHome({
         aria-label="Sort workspaces"
         value={sort}
         onChange={(event) => setSort(event.target.value as ReferralSort)}
-        className="h-9 w-[160px] shrink-0 border border-[#b8cfc9] bg-[#f7fbfa] px-2 text-[12px] font-black tracking-[0.01em] text-[#0c705f] outline-none focus:border-[#0f8b73]"
+        className="h-9 w-[176px] shrink-0 border-0 border-b border-[#88b8aa] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#0c705f] outline-none focus:border-[#0f8b73]"
       >
         <option value="updated_desc">Recently updated</option>
         <option value="created_desc">Newest created</option>
@@ -583,10 +570,9 @@ export default function ReferralHome({
 
   return (
     <main aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
-      <div className="w-full px-5 pb-8 pt-0 md:px-8 md:pt-3 lg:px-10">
+      <div className="w-full px-5 pb-8 pt-0 md:px-8 lg:px-10">
         <h1 className="sr-only">Referral workspaces</h1>
         <div className="min-w-0">
-          {packetToolbar}
           {workspaceSearch}
           {filter.kind === "files" ? fileFilterToolbar : filter.kind !== "work" ? filterToolbar : null}
           {loadError && filter.kind !== "files" && filter.kind !== "work" ? (
@@ -598,7 +584,7 @@ export default function ReferralHome({
             </div>
           ) : null}
         </div>
-        <div className="grid gap-2 md:grid-cols-[180px_minmax(0,1fr)] md:gap-5 lg:grid-cols-[200px_minmax(0,1fr)]">
+        <div className="grid gap-2 md:grid-cols-[168px_minmax(0,1fr)] md:gap-4 lg:grid-cols-[184px_minmax(0,1fr)]">
           <aside className="min-w-0 bg-white pt-0 md:sticky md:top-0 md:self-start">
             <div className="flex gap-1 overflow-x-auto border-b border-[#d9d9d9] pb-2 md:block md:border-b-0 md:pb-0">
             <button
@@ -610,7 +596,7 @@ export default function ReferralHome({
               }`}
             >
               <ListChecks size={15} />
-              Workflow
+              Board
               <span className="ml-2 text-[11px] md:ml-auto">{workflowTotal}</span>
             </button>
             <button
@@ -1277,23 +1263,6 @@ function formatFileSize(bytes: number) {
     unit = units[index];
   }
   return `${value >= 10 ? Math.round(value) : value.toFixed(1)} ${unit}`;
-}
-
-function getFilterLabel(filter: ReferralFilter) {
-  if (filter.kind === "workflow") return "Workspace workflow";
-  if (filter.kind === "work") {
-    return filter.value === "all_actionable"
-      ? "Needs action"
-      : referralWorklistCategoryLabel(filter.value);
-  }
-  if (filter.kind === "files") return "All files";
-  if (filter.kind === "community") return filter.value;
-  if (filter.kind === "month") return formatMonthKey(filter.value);
-  if (filter.kind === "stage") return getStageLabel(filter.value);
-  if (filter.kind === "owner") return filter.value;
-  if (filter.kind === "priority") return `${filter.value[0].toUpperCase()}${filter.value.slice(1)} priority`;
-  if (filter.kind === "tag") return `#${filter.value}`;
-  return "All workspaces";
 }
 
 function buildReferralParams(
