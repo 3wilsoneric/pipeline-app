@@ -24,6 +24,9 @@ Apply only after migration `0010_provisional_workspace_members` is present:
 PIPELINE_DATABASE_URL='...' npm run database:members:import -- --apply
 ```
 
+The VNet-scoped Container Apps job may use
+`PIPELINE_WORKSPACE_MEMBER_IMPORT_APPLY=true` instead of a command-line flag.
+
 The manifest is idempotent and grants only `reviewer` and `viewer`. Supervisor and administrator roles must be assigned deliberately after the organization confirms them.
 
 ## Link a real Entra identity later

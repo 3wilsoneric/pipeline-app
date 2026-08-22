@@ -6,7 +6,7 @@ import path from "node:path";
 import postgres from "postgres";
 
 const databaseUrl = process.env.PIPELINE_DATABASE_URL?.trim();
-const apply = process.argv.includes("--apply");
+const apply = process.argv.includes("--apply") || process.env.PIPELINE_WORKSPACE_MEMBER_IMPORT_APPLY === "true";
 const inputPath = path.resolve(readArgument("--input") ?? "config/provisional-workspace-members.json");
 
 if (!databaseUrl && apply) fail("Configure PIPELINE_DATABASE_URL before importing workspace members.");
