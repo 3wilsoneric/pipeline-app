@@ -53,7 +53,11 @@ check("Container Apps uses a dedicated VNet", bicep.includes("infrastructureSubn
 check("Container Apps peer traffic is encrypted", bicep.includes("peerTrafficConfiguration") && bicep.includes("mtls"));
 check("GitHub deployment uses main-branch-bound OIDC", bicep.includes("token.actions.githubusercontent.com") && bicep.includes("ref:refs/heads/${githubBranch}") && deployment.includes("id-token: write") && deployment.includes("github.ref == 'refs/heads/main'"));
 check("image build receives an ephemeral server-action key through BuildKit secrets", dockerfile.includes("--mount=type=secret,id=next_server_actions_encryption_key") && deployment.includes("next_server_actions_encryption_key=${{ steps.build-key.outputs.value }}") && deployment.includes("openssl rand -base64 32") && !dockerfile.includes("ARG NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"));
-check("runtime image carries database maintenance dependencies", dockerfile.includes("/app/node_modules/postgres ./node_modules/postgres"));
+check(
+  "runtime image carries the transitive operational dependency closure",
+  dockerfile.includes('const roots = ["@azure/identity", "@azure/storage-blob", "postgres"]')
+    && dockerfile.includes("/runtime-ops-node_modules ./node_modules"),
+);
 check("runtime image can create PostgreSQL logical backups", dockerfile.includes("postgresql16-client") && azureDatabaseBackup.includes("pg_advisory_lock") && azureDatabaseBackup.includes("IDENTITY_ENDPOINT") && !azureDatabaseBackup.includes("AZURE_STORAGE_ACCOUNT_KEY"));
 check("worker uses constant-time bearer authentication", workerAuth.includes("timingSafeEqual") && workerAuth.includes("CRON_SECRET"));
 check("Azure web runtime exists", runtime.includes("Microsoft.App/containerApps@2025-01-01"));
