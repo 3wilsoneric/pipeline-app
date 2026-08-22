@@ -168,8 +168,16 @@ await measureJourney("search_to_referrals", "navigation", async () => {
   await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("referral_stage_filter", "filter", async () => {
+  const filteredDirectory = page.waitForResponse((candidate) => {
+    const url = new URL(candidate.url());
+    return candidate.request().method() === "GET"
+      && candidate.ok()
+      && ["/api/referrals", "/api/referrals/directory"].includes(url.pathname)
+      && url.searchParams.get("stage") === "New";
+  });
   await page.getByLabel("Filter by stage").selectOption("New");
-  await page.getByText("Email Received", { exact: true }).first().waitFor({ state: "visible" });
+  await filteredDirectory;
+  await page.getByRole("button", { name: `Open ${seededReferralName} referral workspace`, exact: true }).waitFor({ state: "visible" });
 });
 await page.getByLabel("Filter by stage").selectOption("");
 await measureJourney("referrals_to_action_queue", "queue", async () => {
@@ -210,7 +218,7 @@ if (isLocalTarget) {
   });
 }
 await measureJourney("packet_step_change", "tab", async () => {
-  await activate(page.getByRole("button", { name: "2 Required files", exact: true }));
+  await activate(page.getByRole("button", { name: "2 Required files" }));
   await page.getByText("Signed Medication List", { exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("new_referral_to_home", "navigation", async () => {
