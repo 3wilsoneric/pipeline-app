@@ -26,7 +26,7 @@ assert.match(scorecard, /filter_tab_queue_ms: boundedInteger\("PIPELINE_PERF_FIL
 assert.match(certificationRunner, /await runCalibration\(firstPort \+ runCount/, "Certification must discard one host-calibration run before scoring.");
 assert.match(certificationRunner, /calibration_discarded: true/, "Certification output must disclose the discarded calibration run.");
 assert.match(certificationRunner, /runs\.every\(\(run\) => run\.ok\)/, "Every scored certification run must pass.");
-assert.match(certificationRunner, /PIPELINE_DESKTOP_E2E: "true"/, "Certification must explicitly isolate durable browser workspace state.");
+assert.match(certificationRunner, /PIPELINE_DESKTOP_E2E: "false"/, "Certification must keep durable browser workspace state out of the regular production-bundle score.");
 assert.match(
   standaloneLauncher,
   /resolve\(standaloneRoot, configuredDistDir, "static"\)/,
