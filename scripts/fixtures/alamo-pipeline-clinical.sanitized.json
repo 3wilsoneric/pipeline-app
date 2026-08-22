@@ -241,6 +241,15 @@
           "preview_available": true
         }
       ],
+      "facts": [
+        {
+          "field_name": "prior_setting_bucket",
+          "value": "Sanitized prior setting",
+          "completion_status": "verified",
+          "evidence_count": 1,
+          "confidence": 0.96
+        }
+      ],
       "enrichment": {
         "canonical_client_id": "client-sanitized-100",
         "resident_name": "Avery Example",
@@ -274,6 +283,69 @@
         "assessment_notes"
       ]
     }
+  },
+  "client_fact_evidence": {
+    "source": "alamo_platform",
+    "snapshot_id": "fixture-2026-08-07T12:00:00.000Z",
+    "generated_at": "2026-08-07T12:00:00.000Z",
+    "data_as_of": "2026-08-07",
+    "retrieved_at": "2026-08-07T13:00:00.000Z",
+    "freshness": {
+      "status": "fresh",
+      "age_hours": 1,
+      "max_age_hours": 24,
+      "warning": null
+    },
+    "canonical_client_id": "client-sanitized-100",
+    "fact": {
+      "field_name": "prior_setting_bucket",
+      "value": "Sanitized prior setting",
+      "completion_status": "verified",
+      "evidence_count": 1,
+      "confidence": 0.96
+    },
+    "evidence": [
+      {
+        "document_id": "doc-sanitized-100",
+        "document_name": "Sanitized referral packet.pdf",
+        "page_number": 2,
+        "excerpt": "Sanitized source excerpt for the prior setting.",
+        "candidate_value": "Sanitized prior setting",
+        "confidence": 0.96,
+        "status": "accepted"
+      }
+    ],
+    "total": 1,
+    "limit": 20,
+    "next_cursor": null
+  },
+  "client_document_search": {
+    "source": "alamo_platform",
+    "snapshot_id": "fixture-2026-08-07T12:00:00.000Z",
+    "generated_at": "2026-08-07T12:00:00.000Z",
+    "data_as_of": "2026-08-07",
+    "retrieved_at": "2026-08-07T13:00:00.000Z",
+    "freshness": {
+      "status": "fresh",
+      "age_hours": 1,
+      "max_age_hours": 24,
+      "warning": null
+    },
+    "canonical_client_id": "client-sanitized-100",
+    "query": "prior setting",
+    "document_id": null,
+    "results": [
+      {
+        "document_id": "doc-sanitized-100",
+        "document_name": "Sanitized referral packet.pdf",
+        "page_number": 2,
+        "section": "Placement",
+        "snippet": "The sanitized packet records a prior setting."
+      }
+    ],
+    "total": 1,
+    "limit": 20,
+    "next_cursor": null
   },
   "medications_summary": {
     "source": "alamo_platform",

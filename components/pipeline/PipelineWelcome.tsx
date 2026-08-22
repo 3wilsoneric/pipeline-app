@@ -40,6 +40,7 @@ export default function PipelineWelcome({
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeResolved, setWelcomeResolved] = useState(false);
   const [recentItems, setRecentItems] = useState<PipelineRecentDestination[]>([]);
+  const [queueForToday, setQueueForToday] = useState<MyQueueSnapshot | null>();
   const { searchOpen, setHomeMode } = usePipelineShell();
 
   useEffect(() => {
@@ -105,16 +106,18 @@ export default function PipelineWelcome({
         ) : null}
 
         {welcomeResolved && !searchOpen ? (
-          <div className={`${showWelcome ? "mt-8 md:mt-10" : "mt-1"} grid min-w-0 gap-5 lg:grid-cols-[minmax(340px,0.82fr)_minmax(0,1.18fr)]`}>
+          <div className={`${showWelcome ? "mt-8 md:mt-10" : "mt-1"} grid min-w-0 gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(300px,0.82fr)_minmax(250px,0.68fr)_minmax(380px,1.18fr)]`}>
             <MyQueue
               ownerName={welcomeName}
               onOpenPacket={onOpenPacket}
               onOpenOperations={onOpenOperations}
+              onQueueChange={setQueueForToday}
             />
+            <TodayWork queue={queueForToday} onOpenPacket={onOpenPacket} />
             <RecentWork
               items={recentItems}
               onOpenRecent={onOpenRecent}
-              className="mt-0"
+              className="mt-0 lg:col-span-2 xl:col-span-1"
             />
           </div>
         ) : null}
@@ -172,14 +175,17 @@ function MyQueue({
   ownerName,
   onOpenPacket,
   onOpenOperations,
+  onQueueChange,
 }: {
   ownerName: string;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenOperations: () => void;
+  onQueueChange: (queue: MyQueueSnapshot | null) => void;
 }) {
   const [queue, setQueue] = useState<MyQueueSnapshot | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const queueSequence = useRef(0);
+  const hasQueueSnapshot = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,13 +202,18 @@ function MyQueue({
         });
         if (!cancelled) {
           setQueue(payload);
+          hasQueueSnapshot.current = true;
+          onQueueChange(payload);
           if (Number.isSafeInteger(payload.sequence) && Number(payload.sequence) >= 0) {
             queueSequence.current = Number(payload.sequence);
           }
           setLoadFailed(false);
         }
       } catch {
-        if (!cancelled) setLoadFailed(true);
+        if (!cancelled) {
+          setLoadFailed(true);
+          if (!hasQueueSnapshot.current) onQueueChange(null);
+        }
       } finally {
         loading = false;
       }
@@ -235,7 +246,7 @@ function MyQueue({
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshOnFocus);
     };
-  }, []);
+  }, [onQueueChange]);
 
   const items = queue?.items.slice(0, 5) ?? [];
 
@@ -310,6 +321,41 @@ function QueueSkeleton() {
         </div>
       ))}
     </div>
+  );
+}
+
+function TodayWork({ queue, onOpenPacket }: { queue: MyQueueSnapshot | null | undefined; onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const events = queue?.items.filter((item) => item.due_at?.slice(0, 10) === today) ?? [];
+  const visible = events.slice(0, 5);
+  return (
+    <section aria-label="Today" className="flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#d9d9d9] bg-white">
+      <div className="flex min-h-[72px] items-center justify-between gap-4 border-b border-[#d9d9d9] bg-[#fbfcfb] px-5 py-4">
+        <div className="min-w-0">
+          <h2 className="text-[18px] font-black text-[#111111]">Today</h2>
+          <p className="mt-1 truncate text-[11px] text-[#737373]">Due in your queue</p>
+        </div>
+        <span className={`shrink-0 text-[10px] font-black uppercase tracking-[0.1em] ${queue === null ? "text-[#a04436]" : "text-[#0c705f]"}`}>
+          {queue === null ? "Unavailable" : queue ? `${events.length} due` : "Loading"}
+        </span>
+      </div>
+      {queue === null ? (
+        <div className="flex flex-1 flex-col justify-center px-5 py-8"><span className="text-[14px] font-black text-[#a04436]">Schedule unavailable</span><span className="mt-2 text-[12px] leading-5 text-[#737373]">Your queue and recent work remain available.</span></div>
+      ) : !queue ? (
+        <QueueSkeleton />
+      ) : visible.length === 0 ? (
+        <div className="flex flex-1 flex-col justify-center px-5 py-8"><span className="text-[14px] font-black text-[#111111]">Nothing due today</span><span className="mt-2 text-[12px] leading-5 text-[#737373]">Assigned assessments and requirements due today will appear here.</span></div>
+      ) : (
+        <div className="flex-1 divide-y divide-[#e5e5e5]">
+          {visible.map((event) => (
+            <button key={event.id} type="button" onClick={() => onOpenPacket({ id: event.referral_id, name: event.client_name, community: event.community as Referral["community"] })} className="block w-full border-l-[3px] border-transparent px-5 py-3 text-left hover:border-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none">
+              <span className="block truncate text-[13px] font-black text-[#111111]">{event.client_name}</span>
+              <span className="mt-1 block truncate text-[11px] text-[#737373]">{event.next_action} · {event.community}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

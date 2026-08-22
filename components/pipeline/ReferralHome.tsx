@@ -132,6 +132,8 @@ export default function ReferralHome({
   const [fileCursors, setFileCursors] = useState<string[]>([""]);
   const [fileCategory, setFileCategory] = useState("");
   const [fileCommunity, setFileCommunity] = useState("");
+  const [fileOwner, setFileOwner] = useState("");
+  const [fileMonth, setFileMonth] = useState("");
   const [fileSource, setFileSource] = useState("");
   const [reviewIdentity, setReviewIdentity] = useState(false);
   const [importItems, setImportItems] = useState<ClientFileImportReviewItem[] | null>(null);
@@ -306,6 +308,12 @@ export default function ReferralHome({
     if (fileCursors[filePage]) params.set("cursor", fileCursors[filePage]);
     if (fileCategory) params.set("category", fileCategory);
     if (fileCommunity) params.set("community", fileCommunity);
+    if (fileOwner) params.set("owner", fileOwner);
+    if (fileMonth) {
+      const bounds = calendarMonthBounds(fileMonth);
+      params.set("uploaded_after", bounds.from);
+      params.set("uploaded_before", bounds.to);
+    }
     if (fileSource) params.set("source_system", fileSource);
 
     fetchPipelineJson<{ files?: ReferralFile[]; total?: number; next_cursor?: string }>(`/api/files?${params.toString()}`, { cache: "no-store" })
@@ -327,7 +335,7 @@ export default function ReferralHome({
     return () => {
       cancelled = true;
     };
-  }, [fileCategory, fileCommunity, fileCursors, filePage, fileSource, filter.kind, reviewIdentity, searchTerm]);
+  }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, fileSource, filter.kind, reviewIdentity, searchTerm]);
 
   useEffect(() => {
     if (filter.kind !== "files" || !reviewIdentity) return;
@@ -353,10 +361,15 @@ export default function ReferralHome({
     setFilePage(0);
     setFileCursors([""]);
     setFiles(null);
-  }, [fileCategory, fileCommunity, fileSource, filter.kind, reviewIdentity, searchTerm]);
+  }, [fileCategory, fileCommunity, fileMonth, fileOwner, fileSource, filter.kind, reviewIdentity, searchTerm]);
 
   const monthOptions = useMemo(() => facets.months.map((entry) => entry.value), [facets.months]);
   const ownerOptions = useMemo(() => facets.owners.map((entry) => entry.value), [facets.owners]);
+  const fileOwnerOptions = useMemo(
+    () => [...new Set([...ownerOptions, ...(files ?? []).map((file) => file.owner ?? "Unassigned")])].filter(Boolean).sort((left, right) => left.localeCompare(right)),
+    [files, ownerOptions],
+  );
+  const fileMonthOptions = useMemo(() => recentMonthKeys(48), []);
   const tagOptions = useMemo(() => facets.tags.map((entry) => entry.value), [facets.tags]);
   const tagFacets = useMemo(
     () => [...facets.tags].sort((left, right) => right.count - left.count || left.value.localeCompare(right.value)),
@@ -399,21 +412,21 @@ export default function ReferralHome({
 
   const refreshLabel = lastRefreshedAt === null ? "" : formatRefreshAge(lastRefreshedAt);
 
-  const workspaceSearch = filter.kind !== "files" ? (
+  const workspaceSearch = (
     <div className="flex h-10 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73]">
       <Search size={16} className="shrink-0 text-[#0f8b73]" />
-      <label htmlFor="workspace-directory-search" className="sr-only">Search all workspaces</label>
+      <label htmlFor="workspace-directory-search" className="sr-only">{filter.kind === "files" ? "Search all uploaded files" : "Search all workspaces"}</label>
       <input
         id="workspace-directory-search"
         type="search"
-        aria-label="Search all workspaces"
+        aria-label={filter.kind === "files" ? "Search all uploaded files" : "Search all workspaces"}
         value={searchTerm}
         onChange={(event) => {
           const value = event.target.value;
           onSearchTermChange(value);
           if (value.trim() && (filter.kind === "workflow" || filter.kind === "work")) setFilter({ kind: "all" });
         }}
-        placeholder="Search all workspaces by client, community, owner, tag, or source"
+        placeholder={filter.kind === "files" ? "Search files by name, client, community, owner, or type" : "Search all workspaces by client, community, owner, tag, or source"}
         className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111111] outline-none placeholder:text-[#8a8a8a]"
       />
       {searchTerm ? (
@@ -443,7 +456,7 @@ export default function ReferralHome({
         </>
       ) : null}
     </div>
-  ) : null;
+  );
 
   const filterToolbar = (
     <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-1.5">
@@ -553,6 +566,14 @@ export default function ReferralHome({
             <option value="">All communities</option>
             {pipelineCommunities.map((community) => <option key={community} value={community}>{community}</option>)}
           </select>
+          <select aria-label="Filter files by owner" value={fileOwner} onChange={(event) => setFileOwner(event.target.value)} className="h-9 max-w-[160px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
+            <option value="">All owners</option>
+            {fileOwnerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
+          </select>
+          <select aria-label="Filter files by upload month" value={fileMonth} onChange={(event) => setFileMonth(event.target.value)} className="h-9 max-w-[170px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
+            <option value="">All months</option>
+            {fileMonthOptions.map((month) => <option key={month} value={month}>{formatMonthKey(month)}</option>)}
+          </select>
           <select aria-label="Filter files by source" value={fileSource} onChange={(event) => setFileSource(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
             <option value="">All sources</option>
             <option value="pipeline">Pipeline</option>
@@ -560,8 +581,8 @@ export default function ReferralHome({
             <option value="alamo_platform">Alamo Platform</option>
             <option value="import">Other import</option>
           </select>
-          {fileCategory || fileCommunity || fileSource ? (
-            <button type="button" onClick={() => { setFileCategory(""); setFileCommunity(""); setFileSource(""); }} className="h-9 shrink-0 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#a63d2f]">Clear</button>
+          {fileCategory || fileCommunity || fileOwner || fileMonth || fileSource ? (
+            <button type="button" onClick={() => { setFileCategory(""); setFileCommunity(""); setFileOwner(""); setFileMonth(""); setFileSource(""); }} className="h-9 shrink-0 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#a63d2f]">Clear</button>
           ) : null}
         </>
       ) : null}
@@ -772,7 +793,7 @@ export default function ReferralHome({
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-black text-[#111111]">{file.name}</span>
                           <span className="mt-1 block truncate text-[11px] font-normal text-[#737373]">
-                            {file.referralName} · {file.community} · {formatMonthKey(getMonthKey(file.uploadedAt))}
+                            {file.referralName} · {file.community || "Unassigned"} · {file.owner || "Unassigned"} · {formatMonthKey(getMonthKey(file.uploadedAt))}
                           </span>
                         </span>
                         <span className="hidden text-[11px] font-black text-[#737373] sm:block">{file.category}</span>
@@ -1250,6 +1271,24 @@ function formatMonthKey(month: string) {
     month: "long",
     year: "numeric",
   });
+}
+
+function recentMonthKeys(count: number) {
+  const start = new Date();
+  start.setUTCDate(1);
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(start);
+    date.setUTCMonth(date.getUTCMonth() - index);
+    return date.toISOString().slice(0, 7);
+  });
+}
+
+function calendarMonthBounds(month: string) {
+  const first = new Date(`${month}-01T00:00:00.000Z`);
+  const last = new Date(first);
+  last.setUTCMonth(last.getUTCMonth() + 1);
+  last.setUTCDate(0);
+  return { from: `${month}-01`, to: last.toISOString().slice(0, 10) };
 }
 
 function formatFileSize(bytes: number) {

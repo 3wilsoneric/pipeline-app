@@ -2,11 +2,14 @@
 
 /* eslint-disable @next/next/no-img-element -- Private no-store thumbnails require the signed-in browser request. */
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, CircleAlert, ExternalLink, FileText, ImageOff, Link2, Search, UserRound, X } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ArrowLeft, Check, CircleAlert, ExternalLink, FileText, ImageOff, Link2, LoaderCircle, Search, UserRound, X } from "lucide-react";
 
 import type {
   ClinicalClientRecord,
+  ClinicalClientDocumentSearchResponse,
+  ClinicalClientFact,
+  ClinicalClientFactEvidenceResponse,
   ClinicalClientSourceDocument,
   ClinicalResident,
 } from "@/lib/clinical/clinical-contracts";
@@ -229,8 +232,22 @@ function ResidentProfile({
               <CuratedClientRecord sections={chart.sections} />
             </ProfileSection>
 
+            {client.facts.length > 0 ? (
+              <ProfileSection title="Packet facts" detail="Source-backed extraction">
+                <ClientFactReview
+                  canonicalClientId={client.canonical_client_id}
+                  facts={client.facts}
+                  documents={client.source_documents}
+                />
+              </ProfileSection>
+            ) : null}
+
             {client.source_documents.length > 0 ? (
               <ProfileSection title="Source documents" detail={`${client.source_documents.length} available`}>
+                <ClientDocumentSearch
+                  canonicalClientId={client.canonical_client_id}
+                  documents={client.source_documents}
+                />
                 <ClinicalSourceDocumentGallery
                   canonicalClientId={client.canonical_client_id}
                   documents={client.source_documents}
@@ -589,6 +606,347 @@ function ClientDocumentGallery({ documents }: { documents: ReferralFile[] }) {
       ))}
     </div>
   );
+}
+
+function ClientFactReview({
+  canonicalClientId,
+  facts,
+  documents,
+}: {
+  canonicalClientId: string;
+  facts: ClinicalClientFact[];
+  documents: ClinicalClientSourceDocument[];
+}) {
+  const [selectedFact, setSelectedFact] = useState<ClinicalClientFact | null>(null);
+
+  return (
+    <>
+      <div className="divide-y divide-[#e5e5e5] border-y border-[#d9d9d9]">
+        {facts.map((fact) => (
+          <div key={fact.field_name} className="grid gap-2 py-3 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-start sm:gap-5">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#737373]">
+                {humanizeClinicalField(fact.field_name)}
+              </div>
+              <div className={`mt-1 text-[9px] font-black uppercase ${factStatusClass(fact.completion_status)}`}>
+                {factStatusLabel(fact.completion_status)}
+              </div>
+            </div>
+            <div className="min-w-0 whitespace-pre-wrap text-[12px] leading-5 text-[#222222]">{formatClientFactValue(fact.value)}</div>
+            {fact.evidence_count > 0 ? (
+              <button
+                type="button"
+                className="inline-flex h-8 items-center gap-1.5 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58] focus:outline-none focus:ring-2 focus:ring-[#0f8b73]"
+                onClick={() => setSelectedFact(fact)}
+              >
+                {fact.evidence_count} source{fact.evidence_count === 1 ? "" : "s"}
+              </button>
+            ) : (
+              <span className="text-[10px] text-[#8a8a8a]">No source citation</span>
+            )}
+          </div>
+        ))}
+      </div>
+      {selectedFact ? (
+        <ClientFactEvidenceDialog
+          canonicalClientId={canonicalClientId}
+          fact={selectedFact}
+          documents={documents}
+          onClose={() => setSelectedFact(null)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function ClientFactEvidenceDialog({
+  canonicalClientId,
+  fact,
+  documents,
+  onClose,
+}: {
+  canonicalClientId: string;
+  fact: ClinicalClientFact;
+  documents: ClinicalClientSourceDocument[];
+  onClose: () => void;
+}) {
+  const [payload, setPayload] = useState<ClinicalClientFactEvidenceResponse | null>(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const documentById = useMemo(
+    () => new Map(documents.map((document) => [document.document_id, document])),
+    [documents],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setIsLoading(true);
+    fetchPipelineJson<ClinicalClientFactEvidenceResponse>(
+      factEvidencePath(canonicalClientId, fact.field_name),
+      { cache: "no-store", signal: controller.signal },
+    )
+      .then(setPayload)
+      .catch((loadError) => {
+        if (!controller.signal.aborted) setError(loadError instanceof Error ? loadError.message : "Sources could not be loaded.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false);
+      });
+    return () => controller.abort();
+  }, [canonicalClientId, fact.field_name]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const loadMore = async () => {
+    if (!payload?.next_cursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    setError("");
+    try {
+      const next = await fetchPipelineJson<ClinicalClientFactEvidenceResponse>(
+        `${factEvidencePath(canonicalClientId, fact.field_name)}&cursor=${encodeURIComponent(payload.next_cursor)}`,
+        { cache: "no-store" },
+      );
+      setPayload({ ...next, evidence: [...payload.evidence, ...next.evidence] });
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "More sources could not be loaded.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" role="presentation" onMouseDown={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="client-fact-evidence-title"
+        className="max-h-[86vh] w-full max-w-3xl overflow-hidden border border-[#cfcfcf] bg-white shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className="flex items-start justify-between gap-5 border-b border-[#d9d9d9] px-5 py-4">
+          <div className="min-w-0">
+            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Source evidence</div>
+            <h3 id="client-fact-evidence-title" className="mt-1 text-[18px] font-black text-[#111111]">
+              {humanizeClinicalField(fact.field_name)}
+            </h3>
+            <p className="mt-1 text-[11px] leading-5 text-[#595959]">{formatClientFactValue(fact.value)}</p>
+          </div>
+          <button type="button" aria-label="Close source evidence" className="shrink-0 p-2 text-[#595959] hover:text-[#111111]" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </header>
+        <div className="max-h-[calc(86vh-92px)] overflow-y-auto px-5 py-4">
+          {isLoading ? <LoadingLine label="Loading source pages" /> : null}
+          {error ? <InlineError>{error}</InlineError> : null}
+          {!isLoading && payload?.evidence.length === 0 ? (
+            <EmptyChartMessage>No page-level source evidence is available for this fact.</EmptyChartMessage>
+          ) : null}
+          <div className="divide-y divide-[#e5e5e5]">
+            {payload?.evidence.map((item, index) => {
+              const document = documentById.get(item.document_id);
+              const previewPath = document?.preview_available
+                ? sourceDocumentPagePath(canonicalClientId, item.document_id, item.page_number)
+                : null;
+              return (
+                <article key={`${item.document_id}:${item.page_number}:${index}`} className="py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-[11px] font-black text-[#111111]">{item.document_name} · Page {item.page_number}</div>
+                    {previewPath ? (
+                      <a href={previewPath} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58]">
+                        Open page <ExternalLink size={11} />
+                      </a>
+                    ) : null}
+                  </div>
+                  <blockquote className="mt-2 border-l-2 border-[#b8dacf] pl-3 text-[12px] leading-5 text-[#404040]">
+                    {item.excerpt}
+                  </blockquote>
+                  <div className="mt-2 text-[9px] font-black uppercase text-[#737373]">
+                    {factEvidenceStatusLabel(item.status)} · {Math.round(item.confidence * 100)}% confidence
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {payload?.next_cursor ? (
+            <button type="button" className="mt-4 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58]" onClick={loadMore} disabled={isLoadingMore}>
+              {isLoadingMore ? "Loading..." : "Show more sources"}
+            </button>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ClientDocumentSearch({
+  canonicalClientId,
+  documents,
+}: {
+  canonicalClientId: string;
+  documents: ClinicalClientSourceDocument[];
+}) {
+  const [query, setQuery] = useState("");
+  const [documentId, setDocumentId] = useState("");
+  const [payload, setPayload] = useState<ClinicalClientDocumentSearchResponse | null>(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const previewableDocumentIds = useMemo(
+    () => new Set(documents.filter((document) => document.preview_available).map((document) => document.document_id)),
+    [documents],
+  );
+
+  const runSearch = async (cursor = "", append = false) => {
+    const normalized = query.trim();
+    if (normalized.length < 2 || isLoading) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ q: normalized, limit: "20" });
+      if (documentId) params.set("document_id", documentId);
+      if (cursor) params.set("cursor", cursor);
+      const next = await fetchPipelineJson<ClinicalClientDocumentSearchResponse>(
+        `/api/clinical/clients/${encodeURIComponent(canonicalClientId)}/search?${params}`,
+        { cache: "no-store" },
+      );
+      setPayload(append && payload ? { ...next, results: [...payload.results, ...next.results] } : next);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Document search could not be completed.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="mb-5 border-b border-[#d9d9d9] pb-5">
+      <form
+        className="grid gap-2 md:grid-cols-[minmax(0,1fr)_260px_auto]"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void runSearch();
+        }}
+      >
+        <label className="flex h-10 min-w-0 items-center gap-2 border border-[#cfcfcf] bg-white px-3 focus-within:border-[#0f8b73]">
+          <Search size={15} className="shrink-0 text-[#0f8b73]" />
+          <span className="sr-only">Search text inside this client&apos;s documents</span>
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search text inside these documents"
+            className="min-w-0 flex-1 bg-transparent text-[12px] text-[#111111] outline-none placeholder:text-[#8a8a8a]"
+          />
+        </label>
+        <label className="sr-only" htmlFor="client-document-filter">Limit search to one document</label>
+        <select
+          id="client-document-filter"
+          value={documentId}
+          onChange={(event) => setDocumentId(event.target.value)}
+          className="h-10 min-w-0 border border-[#cfcfcf] bg-white px-3 text-[11px] text-[#404040] outline-none focus:border-[#0f8b73]"
+        >
+          <option value="">All source documents</option>
+          {documents.map((document) => <option key={document.document_id} value={document.document_id}>{document.display_name}</option>)}
+        </select>
+        <button
+          type="submit"
+          disabled={query.trim().length < 2 || isLoading}
+          className="inline-flex h-10 items-center justify-center gap-2 bg-[#0f8b73] px-4 text-[10px] font-black uppercase text-white disabled:bg-[#cfcfcf]"
+        >
+          {isLoading ? <LoaderCircle size={14} className="animate-spin" /> : <Search size={14} />}
+          Search
+        </button>
+      </form>
+      {error ? <div className="mt-3"><InlineError>{error}</InlineError></div> : null}
+      {payload ? (
+        <div className="mt-4">
+          <div className="text-[10px] font-black uppercase text-[#737373]">
+            {payload.total} page{payload.total === 1 ? "" : "s"} matched
+          </div>
+          {payload.results.length === 0 ? (
+            <div className="mt-3 text-[12px] text-[#595959]">No matching text was found in this client&apos;s indexed pages.</div>
+          ) : (
+            <div className="mt-2 divide-y divide-[#e5e5e5]">
+              {payload.results.map((result) => {
+                const content = (
+                  <>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-black text-[#111111]">
+                    <span>{result.document_name} · Page {result.page_number}</span>
+                    {previewableDocumentIds.has(result.document_id) ? (
+                      <ExternalLink size={11} className="text-[#0f8b73]" />
+                    ) : (
+                      <span className="text-[9px] uppercase text-[#737373]">Preview unavailable</span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] leading-5 text-[#595959]">{result.snippet}</p>
+                  </>
+                );
+                return previewableDocumentIds.has(result.document_id) ? (
+                  <a
+                    key={`${result.document_id}:${result.page_number}`}
+                    href={sourceDocumentPagePath(canonicalClientId, result.document_id, result.page_number)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block py-3 hover:bg-[#f7faf8]"
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <div key={`${result.document_id}:${result.page_number}`} className="py-3">
+                    {content}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {payload.next_cursor ? (
+            <button type="button" className="mt-3 text-[10px] font-black text-[#0f8b73]" disabled={isLoading} onClick={() => void runSearch(payload.next_cursor ?? "", true)}>
+              {isLoading ? "Loading..." : "Show more matches"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function factEvidencePath(canonicalClientId: string, fieldName: string) {
+  return `/api/clinical/clients/${encodeURIComponent(canonicalClientId)}/facts/${encodeURIComponent(fieldName)}/evidence?limit=20`;
+}
+
+function sourceDocumentPagePath(canonicalClientId: string, documentId: string, pageNumber: number) {
+  return `/api/profiles/${encodeURIComponent(canonicalClientId)}/source-documents/${encodeURIComponent(documentId)}/preview#page=${pageNumber}`;
+}
+
+function factStatusLabel(status: ClinicalClientFact["completion_status"]) {
+  if (status === "verified") return "Verified";
+  if (status === "needs_review") return "Review needed";
+  if (status === "not_documented") return "Not documented";
+  return "No source documents";
+}
+
+function factStatusClass(status: ClinicalClientFact["completion_status"]) {
+  if (status === "verified") return "text-[#0f8b73]";
+  if (status === "needs_review") return "text-[#a66412]";
+  return "text-[#737373]";
+}
+
+function factEvidenceStatusLabel(status: "accepted" | "needs_review" | "candidate") {
+  if (status === "accepted") return "Accepted source";
+  if (status === "needs_review") return "Review needed";
+  return "Candidate source";
+}
+
+function LoadingLine({ label }: { label: string }) {
+  return <div className="flex items-center gap-2 py-4 text-[11px] text-[#595959]"><LoaderCircle size={14} className="animate-spin text-[#0f8b73]" /> {label}</div>;
+}
+
+function InlineError({ children }: { children: ReactNode }) {
+  return <div className="border-l-2 border-[#a63d2f] bg-[#fff7f5] px-3 py-2 text-[11px] text-[#59332d]" role="alert">{children}</div>;
 }
 
 function ClinicalSourceDocumentGallery({
@@ -1031,6 +1389,33 @@ function formatWorkflowStatus(value: string | null | undefined) {
   return value
     .replaceAll("_", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatClientFactValue(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "Not documented";
+
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        const items = parsed
+          .map((item) => typeof item === "string" || typeof item === "number" ? String(item).trim() : "")
+          .filter(Boolean);
+        return items.length > 0 ? items.join("; ") : "Not documented";
+      }
+      if (parsed && typeof parsed === "object") {
+        const items = Object.values(parsed)
+          .map((item) => typeof item === "string" || typeof item === "number" ? String(item).trim() : "")
+          .filter(Boolean);
+        return items.length > 0 ? items.join("; ") : "Not documented";
+      }
+    } catch {
+      // Keep non-JSON narrative text exactly as extracted.
+    }
+  }
+
+  return trimmed;
 }
 
 function connectionBadgeClass(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {

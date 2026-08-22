@@ -108,6 +108,7 @@ export type ReferralFileListOptions = {
   clientId?: string;
   canonicalClientId?: string;
   community?: string;
+  owner?: string;
   category?: string;
   identityStatus?: "linked" | "candidate" | "unmatched";
   sourceSystem?: "pipeline" | "alamo_platform" | "allo" | "import";
@@ -605,6 +606,7 @@ async function listLocalReferralFiles(
   await ensureLoaded();
 
   const queryTokens = normalizedSearchTokens(options.query ?? "");
+  const owner = options.owner ? normalizeOwnerName(options.owner) : "";
   const matching = state.referrals
     .filter((referral) => !isDeletedReferral(referral))
     .filter((referral) => !options.clientId || referral.clientId === options.clientId)
@@ -613,6 +615,7 @@ async function listLocalReferralFiles(
     .filter((file) => matchesSearchTokens(searchableFileText(file), queryTokens))
     .filter((file) => !options.canonicalClientId || file.canonicalClientId === options.canonicalClientId)
     .filter((file) => !options.community || file.community === options.community)
+    .filter((file) => !owner || normalizeOwnerName(file.owner ?? "Unassigned") === owner)
     .filter((file) => !options.category || file.category === options.category)
     .filter((file) => !options.identityStatus || (file.identityStatus ?? "linked") === options.identityStatus)
     .filter((file) => !options.sourceSystem || (file.sourceSystem ?? "pipeline") === options.sourceSystem)
@@ -867,6 +870,7 @@ type ReferralFileRow = {
   referral_id: number | string | null;
   referral_name: string;
   community: Referral["community"] | null;
+  owner_name: string | null;
   uploaded_at: Date | string;
   size_bytes: number | string | null;
   status: ReferralFile["status"];
@@ -1140,6 +1144,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
   const clientId = options.clientId?.trim() || null;
   const canonicalClientId = options.canonicalClientId?.trim() || null;
   const community = options.community?.trim() || null;
+  const owner = options.owner ? normalizeOwnerName(options.owner) : null;
   const category = options.category?.trim() || null;
   const identityStatus = options.identityStatus ?? null;
   const sourceSystem = options.sourceSystem ?? null;
@@ -1273,6 +1278,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         and (${clientId}::text is null or external_client_id = ${clientId})
         and (${canonicalClientId}::text is null or canonical_client_id = ${canonicalClientId})
         and (${community}::text is null or file_rows.community = ${community})
+        and (${owner}::text is null or lower(trim(coalesce(file_rows.owner_name, 'Unassigned'))) = ${owner})
         and (${category}::text is null or file_rows.category = ${category})
         and (${identityStatus}::text is null or file_rows.identity_status = ${identityStatus})
         and (${sourceSystem}::text is null or file_rows.source_system = ${sourceSystem})
@@ -1879,6 +1885,7 @@ function mapReferralFileRow(row: ReferralFileRow): ReferralFile {
     canonicalClientId: row.canonical_client_id ?? undefined,
     referralName: row.referral_name,
     community: row.community ?? "",
+    owner: row.owner_name ?? "Unassigned",
     uploadedAt: isoTimestamp(row.uploaded_at),
     ...(row.size_bytes === null ? {} : { sizeBytes: Number(row.size_bytes) }),
     status: row.status,
@@ -2186,6 +2193,7 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
       clientId: referral.clientId,
       referralName: referral.name,
       community: referral.community,
+      owner: referral.owner || "Unassigned",
       uploadedAt: referral.updatedAt ?? referral.createdAt,
       sizeBytes: referral.documentSizeBytes,
       status: referral.documentStatus,
@@ -2207,6 +2215,7 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
       clientId: referral.clientId,
       referralName: referral.name,
       community: referral.community,
+      owner: referral.owner || "Unassigned",
       uploadedAt: referral.updatedAt ?? referral.createdAt,
       sizeBytes: referral.assessmentDocumentSizeBytes,
       status: "Uploaded",
@@ -2228,6 +2237,7 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
       clientId: referral.clientId,
       referralName: referral.name,
       community: referral.community,
+      owner: referral.owner || "Unassigned",
       uploadedAt: requirement.updatedAt || referral.updatedAt || referral.createdAt,
       status: requirement.status === "reviewed" ? "Reviewed" : "Uploaded",
       previewStatus: "unavailable",
@@ -2259,7 +2269,7 @@ function requirementFileCategory(type: AdmissionRequirement["type"]): ReferralFi
 
 function searchableFileText(file: ReferralFile) {
   return normalize(
-    [file.name, file.category, file.referralName, file.community, file.status]
+    [file.name, file.category, file.referralName, file.community, file.owner, file.status]
       .filter(Boolean)
       .join(" "),
   );

@@ -38,6 +38,8 @@ export async function GET(request: Request) {
     }
     const community = bounded(url.searchParams.get("community"), 128);
     if (community === false) return jsonError("community must be 128 characters or fewer.");
+    const owner = bounded(url.searchParams.get("owner"), 128);
+    if (owner === false) return jsonError("owner must be 128 characters or fewer.");
     const category = bounded(url.searchParams.get("category"), 80);
     if (category === false) return jsonError("category must be 80 characters or fewer.");
     const result = await listReferralFiles(scopeReferralListOptions(auth.user, {
@@ -45,6 +47,7 @@ export async function GET(request: Request) {
       limit,
       cursor,
       community: community || undefined,
+      owner: owner || undefined,
       category: category || undefined,
       identityStatus: identityStatus as "linked" | "candidate" | "unmatched" | undefined,
       sourceSystem: sourceSystem as "pipeline" | "alamo_platform" | "allo" | "import" | undefined,

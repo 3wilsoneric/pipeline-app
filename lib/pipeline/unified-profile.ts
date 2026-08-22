@@ -331,6 +331,7 @@ async function getPipelineOnlyClientProfile(
       resident_episode_history: [],
       enrichment,
       source_documents: [],
+      facts: [],
     },
     client_database: {
       dataset: "pipeline_client_workspace",

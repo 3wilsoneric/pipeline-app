@@ -128,6 +128,57 @@ export type ClinicalClientSourceDocument = {
   preview_available: boolean;
 };
 
+export type ClinicalClientFactStatus =
+  | "verified"
+  | "needs_review"
+  | "not_documented"
+  | "no_source_documents";
+
+export type ClinicalClientFact = {
+  field_name: string;
+  value: string;
+  completion_status: ClinicalClientFactStatus;
+  evidence_count: number;
+  confidence: number | null;
+};
+
+export type ClinicalClientFactEvidence = {
+  document_id: string;
+  document_name: string;
+  page_number: number;
+  excerpt: string;
+  candidate_value: string | null;
+  confidence: number;
+  status: "accepted" | "needs_review" | "candidate";
+};
+
+export type ClinicalClientFactEvidenceResponse = ClinicalMetadata & {
+  canonical_client_id: string;
+  fact: ClinicalClientFact;
+  evidence: ClinicalClientFactEvidence[];
+  total: number;
+  limit: number;
+  next_cursor: string | null;
+};
+
+export type ClinicalClientDocumentSearchResult = {
+  document_id: string;
+  document_name: string;
+  page_number: number;
+  section: string | null;
+  snippet: string;
+};
+
+export type ClinicalClientDocumentSearchResponse = ClinicalMetadata & {
+  canonical_client_id: string;
+  query: string;
+  document_id: string | null;
+  results: ClinicalClientDocumentSearchResult[];
+  total: number;
+  limit: number;
+  next_cursor: string | null;
+};
+
 export type ClinicalClientDirectoryResponse = ClinicalMetadata & {
   clients: ClinicalClientDirectoryItem[];
   total: number;
@@ -144,6 +195,7 @@ export type ClinicalClientDetail = ClinicalClientDirectoryItem & {
   resident_episode_history: ClinicalClientRecord[];
   enrichment: ClinicalClientRecord;
   source_documents: ClinicalClientSourceDocument[];
+  facts: ClinicalClientFact[];
 };
 
 export type ClinicalClientResponse = ClinicalMetadata & {
@@ -323,8 +375,74 @@ export function parseClinicalClientResponse(value: unknown): ClinicalClientRespo
         : array(client.source_documents, "client.source_documents").map((document, index) =>
           parseClientSourceDocument(document, `client.source_documents[${index}]`),
         ),
+      facts: client.facts === undefined
+        ? []
+        : array(client.facts, "client.facts").map((fact, index) =>
+          parseClientFact(fact, `client.facts[${index}]`),
+        ),
     },
     client_database: parseClientDatabaseSummary(row.client_database, true),
+  };
+}
+
+export function parseClinicalClientFactEvidenceResponse(
+  value: unknown,
+): ClinicalClientFactEvidenceResponse {
+  const row = record(value, "clinical client fact evidence response");
+  const limit = integer(row.limit, "limit", 1, 50);
+  const evidence = array(row.evidence, "evidence").map((value, index) => {
+    const item = record(value, `evidence[${index}]`);
+    return {
+      document_id: stringValue(item.document_id, `evidence[${index}].document_id`, 256),
+      document_name: stringValue(item.document_name, `evidence[${index}].document_name`, 500),
+      page_number: integer(item.page_number, `evidence[${index}].page_number`, 1, 10_000),
+      excerpt: stringValue(item.excerpt, `evidence[${index}].excerpt`, 4_000),
+      candidate_value: nullableString(item.candidate_value, `evidence[${index}].candidate_value`, 20_000),
+      confidence: numberValue(item.confidence, `evidence[${index}].confidence`, 0, 1),
+      status: enumValue(
+        item.status,
+        ["accepted", "needs_review", "candidate"] as const,
+        `evidence[${index}].status`,
+      ),
+    };
+  });
+  if (evidence.length > limit) throw new Error("Clinical evidence response exceeds its declared page size.");
+  return {
+    ...parseMetadata(row),
+    canonical_client_id: stringValue(row.canonical_client_id, "canonical_client_id", 256),
+    fact: parseClientFact(row.fact, "fact"),
+    evidence,
+    total: integer(row.total, "total", 0, 100_000),
+    limit,
+    next_cursor: nullableString(row.next_cursor, "next_cursor", 2048),
+  };
+}
+
+export function parseClinicalClientDocumentSearchResponse(
+  value: unknown,
+): ClinicalClientDocumentSearchResponse {
+  const row = record(value, "clinical client document search response");
+  const limit = integer(row.limit, "limit", 1, 50);
+  const results = array(row.results, "results").map((value, index) => {
+    const item = record(value, `results[${index}]`);
+    return {
+      document_id: stringValue(item.document_id, `results[${index}].document_id`, 256),
+      document_name: stringValue(item.document_name, `results[${index}].document_name`, 500),
+      page_number: integer(item.page_number, `results[${index}].page_number`, 1, 10_000),
+      section: nullableString(item.section, `results[${index}].section`, 256),
+      snippet: stringValue(item.snippet, `results[${index}].snippet`, 420),
+    };
+  });
+  if (results.length > limit) throw new Error("Clinical document search response exceeds its declared page size.");
+  return {
+    ...parseMetadata(row),
+    canonical_client_id: stringValue(row.canonical_client_id, "canonical_client_id", 256),
+    query: stringValue(row.query, "query", 128),
+    document_id: nullableString(row.document_id, "document_id", 256),
+    results,
+    total: integer(row.total, "total", 0, 1_000_000),
+    limit,
+    next_cursor: nullableString(row.next_cursor, "next_cursor", 2048),
   };
 }
 
@@ -475,6 +593,21 @@ function parseClientSourceDocument(value: unknown, label: string): ClinicalClien
     link_source: nullableString(row.link_source, `${label}.link_source`, 128),
     thumbnail_available: booleanValue(row.thumbnail_available, `${label}.thumbnail_available`),
     preview_available: booleanValue(row.preview_available, `${label}.preview_available`),
+  };
+}
+
+function parseClientFact(value: unknown, label: string): ClinicalClientFact {
+  const row = record(value, label);
+  return {
+    field_name: stringValue(row.field_name, `${label}.field_name`, 128),
+    value: stringValue(row.value, `${label}.value`, 20_000),
+    completion_status: enumValue(
+      row.completion_status,
+      ["verified", "needs_review", "not_documented", "no_source_documents"] as const,
+      `${label}.completion_status`,
+    ),
+    evidence_count: integer(row.evidence_count, `${label}.evidence_count`, 0, 100_000),
+    confidence: nullableNumber(row.confidence, `${label}.confidence`, 0, 1),
   };
 }
 

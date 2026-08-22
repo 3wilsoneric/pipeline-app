@@ -3,6 +3,8 @@ import "server-only";
 import {
   parseClinicalCensusResponse,
   parseClinicalClientDirectoryResponse,
+  parseClinicalClientDocumentSearchResponse,
+  parseClinicalClientFactEvidenceResponse,
   parseClinicalClientResponse,
   parseClinicalHealthResponse,
   parseClinicalMedicationSummaryResponse,
@@ -12,6 +14,8 @@ import {
 import type {
   ClinicalCensusResponse,
   ClinicalClientDirectoryResponse,
+  ClinicalClientDocumentSearchResponse,
+  ClinicalClientFactEvidenceResponse,
   ClinicalClientResponse,
   ClinicalHealthResponse,
   ClinicalMedicationSummaryResponse,
@@ -36,6 +40,11 @@ export type {
   ClinicalClientDetail,
   ClinicalClientDirectoryItem,
   ClinicalClientDirectoryResponse,
+  ClinicalClientDocumentSearchResponse,
+  ClinicalClientDocumentSearchResult,
+  ClinicalClientFact,
+  ClinicalClientFactEvidence,
+  ClinicalClientFactEvidenceResponse,
   ClinicalClientRecord,
   ClinicalClientResponse,
   ClinicalClientSourceDocument,
@@ -275,6 +284,57 @@ export async function getClinicalClientDocumentAsset(
     `/clients/${encodeURIComponent(normalizedClientId)}/documents/${encodeURIComponent(normalizedDocumentId)}/${variant}`,
     request,
     variant,
+  );
+}
+
+export async function getClinicalClientFactEvidence(
+  request: Request | undefined,
+  canonicalClientId: string,
+  fieldName: string,
+  options: { limit?: number | string; cursor?: string } = {},
+): Promise<ClinicalClientFactEvidenceResponse> {
+  const normalizedClientId = boundedParameter(canonicalClientId, "canonicalClientId", 256);
+  const normalizedFieldName = boundedParameter(fieldName, "fieldName", 128);
+  const cursor = boundedParameter(options.cursor, "cursor", 2048);
+  const limit = parseIntelligencePageSize(options.limit);
+  if (!normalizedClientId || !normalizedFieldName) {
+    throw new ClinicalDataError(400, "client_fact_identifier_invalid", "A client and fact field are required.");
+  }
+  if (getClinicalDataMode() === "demo_snapshot") {
+    throw new ClinicalDataError(503, "client_evidence_unavailable", "Governed client evidence is unavailable in demo mode.");
+  }
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) params.set("cursor", cursor);
+  return requestClinicalEndpoint(
+    `/clients/${encodeURIComponent(normalizedClientId)}/facts/${encodeURIComponent(normalizedFieldName)}/evidence?${params}`,
+    request,
+    parseClinicalClientFactEvidenceResponse,
+  );
+}
+
+export async function searchClinicalClientDocuments(
+  request: Request | undefined,
+  canonicalClientId: string,
+  options: { query?: string; documentId?: string; limit?: number | string; cursor?: string } = {},
+): Promise<ClinicalClientDocumentSearchResponse> {
+  const normalizedClientId = boundedParameter(canonicalClientId, "canonicalClientId", 256);
+  const query = boundedParameter(options.query, "q", 128);
+  const documentId = boundedParameter(options.documentId, "documentId", 256);
+  const cursor = boundedParameter(options.cursor, "cursor", 2048);
+  const limit = parseIntelligencePageSize(options.limit);
+  if (!normalizedClientId || query.length < 2) {
+    throw new ClinicalDataError(400, "client_document_query_invalid", "A client and a search of at least two characters are required.");
+  }
+  if (getClinicalDataMode() === "demo_snapshot") {
+    throw new ClinicalDataError(503, "client_document_search_unavailable", "Governed document search is unavailable in demo mode.");
+  }
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  if (documentId) params.set("document_id", documentId);
+  if (cursor) params.set("cursor", cursor);
+  return requestClinicalEndpoint(
+    `/clients/${encodeURIComponent(normalizedClientId)}/search?${params}`,
+    request,
+    parseClinicalClientDocumentSearchResponse,
   );
 }
 
@@ -664,16 +724,24 @@ function upstreamError(status: number, payload: unknown) {
   const sourceCode = typeof source?.code === "string" ? source.code : "";
   const details = parseAmbiguityDetails(source?.details);
   if (status === 404) {
-    return sourceCode === "client_not_found"
-      ? new ClinicalDataError(404, "client_not_found", "Client was not found in the governed client database.")
-      : new ClinicalDataError(404, "resident_not_found", "Resident was not found in the current governed roster.");
+    if (sourceCode === "client_not_found") {
+      return new ClinicalDataError(404, "client_not_found", "Client was not found in the governed client database.");
+    }
+    if (sourceCode === "client_fact_not_found") {
+      return new ClinicalDataError(404, "client_fact_not_found", "That governed client fact is not available.");
+    }
+    if (sourceCode === "client_document_not_found") {
+      return new ClinicalDataError(404, "client_document_not_found", "The governed client file was not found.");
+    }
+    return new ClinicalDataError(404, "resident_not_found", "Resident was not found in the current governed roster.");
   }
   if (status === 409) {
+    const cursorChanged = sourceCode.endsWith("cursor_snapshot_changed") || sourceCode.endsWith("cursor_context_changed");
     return new ClinicalDataError(
       409,
-      sourceCode.endsWith("cursor_snapshot_changed") ? "clinical_cursor_snapshot_changed" : "resident_identifier_ambiguous",
-      sourceCode.endsWith("cursor_snapshot_changed")
-        ? "The clinical snapshot changed. Restart roster pagination."
+      cursorChanged ? "clinical_cursor_context_changed" : "resident_identifier_ambiguous",
+      cursorChanged
+        ? "The governed data or search context changed. Restart pagination."
         : "More than one resident matched that identifier. Use a community-qualified resident key.",
       details,
     );
@@ -709,6 +777,15 @@ function parsePageSize(value: number | string | undefined) {
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 200) {
     throw new ClinicalDataError(400, "clinical_limit_invalid", "Clinical roster limit must be between 1 and 200.");
+  }
+  return parsed;
+}
+
+function parseIntelligencePageSize(value: number | string | undefined) {
+  if (value === undefined || value === "") return 20;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 50) {
+    throw new ClinicalDataError(400, "clinical_limit_invalid", "Evidence and document search limits must be between 1 and 50.");
   }
   return parsed;
 }

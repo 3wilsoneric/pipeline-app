@@ -228,6 +228,7 @@ export type ReferralFile = {
   canonicalClientId?: string;
   referralName: string;
   community: PipelineCommunity | "";
+  owner?: string;
   uploadedAt: string;
   sizeBytes?: number;
   status: "Uploaded" | "Reviewed";

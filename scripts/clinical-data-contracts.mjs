@@ -77,13 +77,34 @@ const results = await Promise.all([
     assert(detail.client.source_documents.length === 1, "Expected governed client-document metadata");
     assert(detail.client.source_documents[0].thumbnail_available === true, "Expected explicit thumbnail readiness");
     assert(detail.client.source_documents[0].preview_available === true, "Expected explicit full-file readiness");
+    assert(detail.client.facts[0].field_name === "prior_setting_bucket", "Expected governed fact summary");
+    assert(detail.client.facts[0].evidence_count === 1, "Expected bounded evidence count");
     assert(detail.client_database.baseline_date === "2026-08-18", "Expected immutable baseline date");
 
     const legacyDetail = structuredClone(fixture.client);
     delete legacyDetail.client.source_documents;
+    delete legacyDetail.client.facts;
     assert(
       contracts.parseClinicalClientResponse(legacyDetail).client.source_documents.length === 0,
       "Older Alamo client payloads must remain backward compatible",
+    );
+    assert(
+      contracts.parseClinicalClientResponse(legacyDetail).client.facts.length === 0,
+      "Older Alamo client payloads must remain compatible without fact metadata",
+    );
+  }),
+  run("client evidence and document-search contracts remain bounded and source scoped", () => {
+    const evidence = contracts.parseClinicalClientFactEvidenceResponse(fixture.client_fact_evidence);
+    const search = contracts.parseClinicalClientDocumentSearchResponse(fixture.client_document_search);
+    assert(evidence.evidence[0].document_id === "doc-sanitized-100", "Expected governed document citation");
+    assert(evidence.evidence[0].page_number === 2, "Expected page-level citation");
+    assert(search.results[0].snippet.includes("prior setting"), "Expected bounded OCR search snippet");
+    const oversized = structuredClone(fixture.client_document_search);
+    oversized.limit = 1;
+    oversized.results.push(structuredClone(oversized.results[0]));
+    assertThrows(
+      () => contracts.parseClinicalClientDocumentSearchResponse(oversized),
+      "Expected document search page-size enforcement",
     );
   }),
   run("enhanced client contract supports the full 141-field schema without guessing values", () => {
@@ -120,7 +141,7 @@ const results = await Promise.all([
     assert(adapter.includes('import "server-only"'), "Clinical adapter must be server-only");
     assert(adapter.includes("/api/integrations/pipeline/clinical"), "Expected dedicated Alamo namespace");
     assert(!adapter.includes("/api/platform/bootstrap"), "Adapter must not request full Alamo bootstrap");
-    for (const endpoint of ["/health", "/census", "/roster", "/residents/", "/clients", "/medications/summary"]) {
+    for (const endpoint of ["/health", "/census", "/roster", "/residents/", "/clients", "/facts/", "/search", "/medications/summary"]) {
       assert(adapter.includes(endpoint), `Expected dedicated clinical endpoint ${endpoint}`);
     }
     assert(adapter.includes("client_credentials"), "Expected service-to-service Entra support");
@@ -133,6 +154,8 @@ const results = await Promise.all([
       "app/api/clinical/census/route.ts",
       "app/api/clinical/roster/route.ts",
       "app/api/clinical/clients/route.ts",
+      "app/api/clinical/clients/[canonicalClientId]/facts/[fieldName]/evidence/route.ts",
+      "app/api/clinical/clients/[canonicalClientId]/search/route.ts",
       "app/api/clinical/residents/[residentId]/route.ts",
       "app/api/clinical/medications/summary/route.ts",
     ]) {
@@ -158,6 +181,8 @@ const results = await Promise.all([
     assert(rosterRoute.includes("toClinicalResidentDirectoryResult"), "The active roster must keep its approved list projection");
     assert(!rosterRoute.includes("canViewClinicalDetails"), "Directory requests must not expose full resident clinical detail by role");
     assert(profileView.includes("/api/profiles/"), "Profile detail must come from the governed unified-profile endpoint");
+    assert(profileView.includes("Packet facts"), "Profile detail must expose readable source-backed facts");
+    assert(profileView.includes("Search text inside these documents"), "Profile detail must expose client-scoped document search");
     assert(!profileView.includes("/api/clinical/residents/"), "Browser profile code must not bypass the reviewed Pipeline identity join");
     const unifiedProfile = read("lib/pipeline/unified-profile.ts");
     assert(unifiedProfile.includes('import "server-only"'), "Unified profile assembly must remain server-only");
@@ -373,6 +398,32 @@ const results = await Promise.all([
       new URL(observedUrl).pathname.endsWith("/api/integrations/pipeline/clinical/clients/client-sanitized-100"),
       "Client detail must use the canonical identifier endpoint",
     );
+  }),
+  run("fact evidence and OCR search use only client-scoped governed endpoints", async () => {
+    const observedUrls = [];
+    const adapter = loadClinicalAdapter(
+      createClinicalFetch((url) => {
+        observedUrls.push(url);
+        return jsonResponse(url.includes("/facts/") ? fixture.client_fact_evidence : fixture.client_document_search);
+      }),
+    );
+    const request = new Request("http://pipeline.test/api/clinical/clients/client-sanitized-100/search");
+    const evidence = await adapter.getClinicalClientFactEvidence(
+      request,
+      "client-sanitized-100",
+      "prior_setting_bucket",
+      { limit: 20 },
+    );
+    const search = await adapter.searchClinicalClientDocuments(
+      request,
+      "client-sanitized-100",
+      { query: "prior setting", documentId: "doc-sanitized-100", limit: 20 },
+    );
+    assert(evidence.evidence[0].page_number === 2, "Expected page evidence through adapter");
+    assert(search.results[0].document_id === "doc-sanitized-100", "Expected client document search result");
+    assert(new URL(observedUrls[0]).pathname.endsWith("/clients/client-sanitized-100/facts/prior_setting_bucket/evidence"), "Evidence must use its dedicated endpoint");
+    assert(new URL(observedUrls[1]).pathname.endsWith("/clients/client-sanitized-100/search"), "OCR search must use its dedicated endpoint");
+    assert(new URL(observedUrls[1]).searchParams.get("document_id") === "doc-sanitized-100", "Search must preserve its document scope");
   }),
   run("response-size limits apply to streamed clinical payloads", async () => {
     const adapter = loadClinicalAdapter(
