@@ -105,6 +105,9 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "All workspaces", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Referral workflow tracker" })).toBeVisible();
+    for (const lane of ["Pre referral workspaces", "Assessment referral workspaces", "Post referral workspaces"]) {
+      await expect(page.getByRole("region", { name: lane })).toBeVisible({ timeout: 15_000 });
+    }
     await expect(page.getByRole("navigation", { name: "Action categories" })).toHaveCount(0);
     await page.getByRole("button", { name: "Needs action", exact: true }).click();
     const workQueues = page.getByRole("navigation", { name: "Action categories" });
