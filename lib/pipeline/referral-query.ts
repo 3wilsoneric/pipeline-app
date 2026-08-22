@@ -1,8 +1,9 @@
 import { pipelineCommunities } from "@/lib/pipeline/community-config";
 import type { ReferralListOptions, ReferralQueueView } from "@/lib/pipeline/referral-store";
+import { isReferralSort } from "@/lib/pipeline/referral-sort";
+import { isReferralSortCursor } from "@/lib/pipeline/referral-sort-cursor";
 import { boardStages, type ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { Priority } from "@/lib/pipeline/referral-types";
-import { isKeysetCursor } from "@/lib/pipeline/keyset-cursor";
 
 type QueryResult =
   | { ok: true; value: ReferralListOptions }
@@ -23,11 +24,13 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
   const active = searchParams.get("active")?.trim();
   const workspace = searchParams.get("workspace")?.trim() || "active";
   const queue = searchParams.get("queue")?.trim() || undefined;
+  const rawSort = searchParams.get("sort")?.trim() || "updated_desc";
   const rawLimit = searchParams.get("limit")?.trim();
   const limit = rawLimit ? Number(rawLimit) : undefined;
 
   if (query.length > 200) return invalid("q must be 200 characters or fewer.");
-  if (cursor && !isKeysetCursor(cursor)) return invalid("cursor is invalid.");
+  if (!isReferralSort(rawSort)) return invalid("sort is invalid.");
+  if (cursor && !isReferralSortCursor(cursor, rawSort)) return invalid("cursor is invalid.");
   if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 200)) {
     return invalid("limit must be a whole number between 1 and 200.");
   }
@@ -62,6 +65,7 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
       activeOnly: active === "true",
       workspaceStatus: workspace as ReferralListOptions["workspaceStatus"],
       queue: queue as ReferralQueueView | undefined,
+      sort: rawSort,
     },
   };
 }

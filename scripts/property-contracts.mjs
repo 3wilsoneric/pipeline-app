@@ -4,6 +4,7 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const root = process.cwd();
 const cursor = loadTypeScriptModule(root, "lib/pipeline/keyset-cursor.ts");
+const referralSortCursor = loadTypeScriptModule(root, "lib/pipeline/referral-sort-cursor.ts");
 const sections = loadTypeScriptModule(root, "lib/pipeline/referral-sections.ts");
 const workflow = loadTypeScriptModule(root, "lib/pipeline/referral-workflow.ts");
 const siteSearch = loadTypeScriptModule(root, "lib/pipeline/site-search.ts");
@@ -24,6 +25,23 @@ for (let index = 0; index < 2_000; index += 1) {
   cursorRejects &&= cursor.decodeKeysetCursor(randomGarbage(integer(1, 700))) === null;
 }
 check("keyset cursors round-trip and reject generated garbage", cursorRoundTrips && cursorRejects, 4_000);
+
+let referralSortCursorRoundTrips = true;
+let referralSortCursorRejectsMismatch = true;
+const referralSorts = ["updated_desc", "created_desc", "created_asc", "owner_asc", "community_asc", "client_asc"];
+for (let index = 0; index < 2_000; index += 1) {
+  const sort = referralSorts[index % referralSorts.length];
+  const value = sort.endsWith("_asc") && !sort.startsWith("created")
+    ? `sort value ${integer(1, 1_000_000)}`
+    : new Date(Date.UTC(2020 + integer(0, 10), integer(0, 12), integer(1, 28))).toISOString();
+  const key = String(integer(1, 1_000_000));
+  const encoded = referralSortCursor.encodeReferralSortCursor({ sort, value, key });
+  const decoded = referralSortCursor.decodeReferralSortCursor(encoded, sort);
+  referralSortCursorRoundTrips &&= decoded?.sort === sort && decoded?.value === value && decoded?.key === key;
+  const otherSort = referralSorts[(index + 1) % referralSorts.length];
+  referralSortCursorRejectsMismatch &&= referralSortCursor.decodeReferralSortCursor(encoded, otherSort) === null;
+}
+check("referral sort cursors preserve sort order and reject mismatched reuse", referralSortCursorRoundTrips && referralSortCursorRejectsMismatch, 4_000);
 
 let rangesCorrect = true;
 for (let index = 0; index < 3_000; index += 1) {

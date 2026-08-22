@@ -167,10 +167,15 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
   });
 
-  test("filters workspaces by their stored creation month", async ({ page }) => {
+  test("filters and sorts the complete workspace directory", async ({ page }) => {
     let requestedMonth = "";
-    await page.route("**/api/referrals/directory**", async (route) => {
-      requestedMonth = new URL(route.request().url()).searchParams.get("month") ?? "";
+    let requestedCommunity = "";
+    let requestedSort = "";
+    await page.route(/\/api\/referrals(?:\/directory)?\?/, async (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      requestedMonth = params.get("month") ?? "";
+      requestedCommunity = params.get("community") ?? "";
+      requestedSort = params.get("sort") ?? "";
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -180,7 +185,7 @@ test.describe("Referral home and packet canvas", () => {
           revision: 0,
           progress: {},
           facets: {
-            communities: [],
+            communities: [{ value: "San Pablo", count: 5 }],
             stages: [],
             owners: [],
             priorities: [],
@@ -202,6 +207,12 @@ test.describe("Referral home and packet canvas", () => {
     await creationMonth.selectOption("2025-11");
     await expect.poll(() => requestedMonth).toBe("2025-11");
     await expect(creationMonth).toHaveValue("2025-11");
+
+    await page.getByLabel("Filter workspaces by community").selectOption("San Pablo");
+    await expect.poll(() => requestedCommunity).toBe("San Pablo");
+    await page.getByLabel("Sort workspaces").selectOption("owner_asc");
+    await expect.poll(() => requestedSort).toBe("owner_asc");
+    await expect(page.getByLabel("Sort workspaces")).toHaveValue("owner_asc");
   });
 
   test("opens a new referral and returns through the Pipeline header", async ({ page }) => {

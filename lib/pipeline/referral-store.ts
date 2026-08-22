@@ -11,6 +11,8 @@ import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pip
 import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from "@/lib/pipeline/keyset-cursor";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { isUnassignedOwner, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
+import type { ReferralSort } from "@/lib/pipeline/referral-sort";
+import { decodeReferralSortCursor, encodeReferralSortCursor } from "@/lib/pipeline/referral-sort-cursor";
 import type {
   AdmissionDecision,
   AdmissionRequirement,
@@ -60,6 +62,7 @@ export type ReferralListOptions = {
   query?: string;
   limit?: number;
   cursor?: string;
+  sort?: ReferralSort;
   stage?: ReferralStage;
   community?: string;
   owner?: string;
@@ -459,17 +462,14 @@ async function listLocalReferrals(
   await ensureLoaded();
 
   const queryTokens = normalizedSearchTokens(options.query ?? "");
+  const sort = options.sort ?? "updated_desc";
   const matching = state.referrals
     .filter((referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens) && matchesReferralFilters(referral, options))
-    .sort(compareReferrals);
-  const cursor = decodeKeysetCursor(options.cursor);
+    .sort((left, right) => compareReferrals(left, right, sort));
+  const cursor = decodeReferralSortCursor(options.cursor, sort);
   const limit = clampPageSize(options.limit);
   const page = matching
-    .filter((referral) => isAfterDescendingCursor(
-      referral.updatedAt ?? referral.createdAt,
-      paddedNumericKey(referral.id),
-      cursor,
-    ))
+    .filter((referral) => isReferralAfterCursor(referral, sort, cursor))
     .slice(0, limit + 1);
   const referrals = page.slice(0, limit);
 
@@ -479,8 +479,9 @@ async function listLocalReferrals(
     revision: state.revision,
     next_cursor:
       page.length > limit && referrals.at(-1)
-        ? encodeKeysetCursor({
-            timestamp: referrals.at(-1)!.updatedAt ?? referrals.at(-1)!.createdAt,
+        ? encodeReferralSortCursor({
+            sort,
+            value: referralSortValue(referrals.at(-1)!, sort),
             key: paddedNumericKey(referrals.at(-1)!.id),
           })
         : undefined,
@@ -719,6 +720,10 @@ type ReferralRow = {
   updated_at: Date | string;
   total_count?: number | string;
   cursor_time?: string;
+  cursor_created_time?: string;
+  sort_owner?: string;
+  sort_community?: string;
+  sort_client?: string;
   workspace_origin?: Referral["workspaceOrigin"];
   workspace_status?: Referral["workspaceStatus"];
   source_workspace_id?: string | null;
@@ -764,14 +769,29 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const activeOnly = options.activeOnly === true;
   const workspaceStatus = options.workspaceStatus ?? "active";
   const queue = options.queue ?? null;
-  const cursor = decodeKeysetCursor(options.cursor);
+  const sort = options.sort ?? "updated_desc";
+  const cursor = decodeReferralSortCursor(options.cursor, sort);
+  const cursorTimestamp = cursor && (sort === "updated_desc" || sort === "created_desc" || sort === "created_asc")
+    ? cursor.value
+    : null;
+  const cursorText = cursor && (sort === "owner_asc" || sort === "community_asc" || sort === "client_asc")
+    ? cursor.value
+    : null;
   const cursorId = cursor ? Number.parseInt(cursor.key, 10) : null;
   if (cursor && (!Number.isSafeInteger(cursorId) || cursorId! <= 0)) throw new Error("Invalid referral cursor.");
   const limit = clampPageSize(options.limit);
   const rows = await sql<ReferralRow[]>`
     with filtered as (
       select r.*, p.external_client_id, p.display_name,
-        to_char(r.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_time
+        to_char(r.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_time,
+        to_char(r.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_created_time,
+        lower(case
+          when lower(coalesce(nullif(trim(r.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending')
+            then 'Unassigned'
+          else trim(r.owner_name)
+        end) as sort_owner,
+        lower(trim(r.community::text)) as sort_community,
+        lower(trim(p.display_name)) as sort_client
       from pipeline.referrals r
       join pipeline.people p on p.person_id = r.person_id
       where (${queryTokens.length === 0} or not exists (
@@ -802,9 +822,23 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
     )
     select filtered.*, (select count(*) from filtered) as total_count
     from filtered
-    where (${cursor?.timestamp ?? null}::timestamptz is null or
-      (updated_at, referral_id) < (${cursor?.timestamp ?? null}::timestamptz, ${cursorId}::bigint))
-    order by updated_at desc, referral_id desc
+    where (${cursor?.value ?? null}::text is null
+      or (${sort} = 'updated_desc' and (updated_at, referral_id) < (${cursorTimestamp}::timestamptz, ${cursorId}::bigint))
+      or (${sort} = 'created_desc' and (created_at, referral_id) < (${cursorTimestamp}::timestamptz, ${cursorId}::bigint))
+      or (${sort} = 'created_asc' and (created_at, referral_id) > (${cursorTimestamp}::timestamptz, ${cursorId}::bigint))
+      or (${sort} = 'owner_asc' and (sort_owner, referral_id) > (${cursorText}::text, ${cursorId}::bigint))
+      or (${sort} = 'community_asc' and (sort_community, referral_id) > (${cursorText}::text, ${cursorId}::bigint))
+      or (${sort} = 'client_asc' and (sort_client, referral_id) > (${cursorText}::text, ${cursorId}::bigint))
+    )
+    order by
+      case when ${sort} = 'updated_desc' then updated_at end desc,
+      case when ${sort} = 'created_desc' then created_at end desc,
+      case when ${sort} = 'created_asc' then created_at end asc,
+      case when ${sort} = 'owner_asc' then sort_owner end asc,
+      case when ${sort} = 'community_asc' then sort_community end asc,
+      case when ${sort} = 'client_asc' then sort_client end asc,
+      case when ${sort} in ('updated_desc', 'created_desc') then referral_id end desc,
+      case when ${sort} in ('created_asc', 'owner_asc', 'community_asc', 'client_asc') then referral_id end asc
     limit ${limit + 1}
   `;
   const revision = await getPostgresReferralRevision();
@@ -816,7 +850,11 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
     total,
     revision,
     next_cursor: rows.length > limit && last
-      ? encodeKeysetCursor({ timestamp: last.cursor_time ?? isoTimestamp(last.updated_at), key: String(last.referral_id) })
+      ? encodeReferralSortCursor({
+          sort,
+          value: postgresReferralSortValue(last, sort),
+          key: String(last.referral_id),
+        })
       : undefined,
     generated_at: new Date().toISOString(),
   };
@@ -1968,11 +2006,40 @@ function compareFiles(left: ReferralFile, right: ReferralFile) {
   return right.uploadedAt.localeCompare(left.uploadedAt) || right.id.localeCompare(left.id);
 }
 
-function compareReferrals(left: Referral, right: Referral) {
-  return (
-    (right.updatedAt ?? right.createdAt).localeCompare(left.updatedAt ?? left.createdAt) ||
-    right.id - left.id
-  );
+function compareReferrals(left: Referral, right: Referral, sort: ReferralSort = "updated_desc") {
+  const direction = sort === "updated_desc" || sort === "created_desc" ? -1 : 1;
+  const valueOrder = referralSortValue(left, sort).localeCompare(referralSortValue(right, sort));
+  return valueOrder * direction || (left.id - right.id) * direction;
+}
+
+function isReferralAfterCursor(
+  referral: Referral,
+  sort: ReferralSort,
+  cursor: ReturnType<typeof decodeReferralSortCursor>,
+) {
+  if (!cursor) return true;
+  const value = referralSortValue(referral, sort);
+  const key = paddedNumericKey(referral.id);
+  const comparison = value.localeCompare(cursor.value) || key.localeCompare(cursor.key);
+  return sort === "updated_desc" || sort === "created_desc" ? comparison < 0 : comparison > 0;
+}
+
+function referralSortValue(referral: Referral, sort: ReferralSort) {
+  if (sort === "updated_desc") return referral.updatedAt ?? referral.createdAt;
+  if (sort === "created_desc" || sort === "created_asc") return referral.createdAt;
+  if (sort === "owner_asc") return normalizeOwnerName(referral.owner).toLowerCase();
+  if (sort === "community_asc") return referral.community.trim().toLowerCase();
+  return referral.name.trim().toLowerCase();
+}
+
+function postgresReferralSortValue(row: ReferralRow, sort: ReferralSort) {
+  if (sort === "updated_desc") return row.cursor_time ?? isoTimestamp(row.updated_at);
+  if (sort === "created_desc" || sort === "created_asc") {
+    return row.cursor_created_time ?? isoTimestamp(row.created_at);
+  }
+  if (sort === "owner_asc") return row.sort_owner ?? "unassigned";
+  if (sort === "community_asc") return row.sort_community ?? "";
+  return row.sort_client ?? "";
 }
 
 function normalize(value: string) {

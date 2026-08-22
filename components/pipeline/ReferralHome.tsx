@@ -27,6 +27,7 @@ import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
 import type { ReferralFacets } from "@/lib/pipeline/referral-store";
+import type { ReferralSort } from "@/lib/pipeline/referral-sort";
 import type { ReferralWorklistBucket, ReferralWorklistSnapshot } from "@/lib/pipeline/operations-types";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import {
@@ -138,6 +139,7 @@ export default function ReferralHome({
   const [importTotal, setImportTotal] = useState(0);
   const [reviewItem, setReviewItem] = useState<ClientFileImportReviewItem | null>(null);
   const [filter, setFilter] = useState<ReferralFilter>({ kind: "workflow" });
+  const [sort, setSort] = useState<ReferralSort>("updated_desc");
   const [workflowTotal, setWorkflowTotal] = useState(0);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -185,7 +187,7 @@ export default function ReferralHome({
     setLoadError("");
     let requestKey = "";
     try {
-      const params = buildReferralParams(filter, searchTerm, referralCursors[referralPage]);
+      const params = buildReferralParams(filter, searchTerm, sort, referralCursors[referralPage]);
       requestKey = params.toString();
       const normalizedSearch = searchTerm.trim();
       const workspaceScope = filter.kind === "workflow" ? "active" : "all";
@@ -233,7 +235,7 @@ export default function ReferralHome({
         setIsRefreshing(false);
       }
     }
-  }, [filter, referralCursors, referralPage, searchTerm]);
+  }, [filter, referralCursors, referralPage, searchTerm, sort]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -287,7 +289,7 @@ export default function ReferralHome({
   useEffect(() => {
     setReferralPage((current) => current === 0 ? current : 0);
     setReferralCursors((current) => current.length === 1 && current[0] === "" ? current : [""]);
-  }, [filter, searchTerm]);
+  }, [filter, searchTerm, sort]);
 
   useEffect(() => {
     if (searchTerm.trim() && (filter.kind === "workflow" || filter.kind === "work")) setFilter({ kind: "all" });
@@ -468,6 +470,15 @@ export default function ReferralHome({
         {boardStages.map((stage) => <option key={stage} value={stage}>{getStageLabel(stage)}</option>)}
       </select>
       <select
+        aria-label="Filter workspaces by community"
+        value={filter.kind === "community" ? filter.value : ""}
+        onChange={(event) => setFilter(event.target.value ? { kind: "community", value: event.target.value } : { kind: "all" })}
+        className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+      >
+        <option value="">All communities</option>
+        {facets.communities.map((community) => <option key={community.value} value={community.value}>{community.value}</option>)}
+      </select>
+      <select
         aria-label="Filter by owner"
         value={filter.kind === "owner" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "owner", value: event.target.value } : { kind: "all" })}
@@ -511,6 +522,20 @@ export default function ReferralHome({
           {tagOptions.map((tag) => <option key={tag} value={tag}>#{tag}</option>)}
         </select>
       ) : null}
+      <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-[#d9d9d9]" />
+      <select
+        aria-label="Sort workspaces"
+        value={sort}
+        onChange={(event) => setSort(event.target.value as ReferralSort)}
+        className="h-9 shrink-0 border border-[#b8cfc9] bg-[#f7fbfa] px-2 text-[12px] font-black tracking-[0.01em] text-[#0c705f] outline-none focus:border-[#0f8b73]"
+      >
+        <option value="updated_desc">Recently updated</option>
+        <option value="created_desc">Newest created</option>
+        <option value="created_asc">Oldest created</option>
+        <option value="owner_asc">Owner A-Z</option>
+        <option value="community_asc">Community A-Z</option>
+        <option value="client_asc">Client A-Z</option>
+      </select>
     </div>
   );
 
@@ -1274,9 +1299,10 @@ function getFilterLabel(filter: ReferralFilter) {
 function buildReferralParams(
   filter: ReferralFilter,
   searchTerm: string,
+  sort: ReferralSort,
   cursor?: string,
 ) {
-  const params = new URLSearchParams({ limit: "100" });
+  const params = new URLSearchParams({ limit: "100", sort });
   const query = searchTerm.trim();
   if (query) {
     params.set("q", query);

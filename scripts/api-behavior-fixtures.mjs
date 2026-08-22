@@ -197,18 +197,21 @@ const results = [
       month: "2026-08",
       active: "true",
       workspace: "all",
+      sort: "community_asc",
       limit: "100",
     }));
     assertValid(result);
     assert(result.value.activeOnly === true, "Expected active-only filter");
     assert(result.value.community === "San Pablo", "Expected community filter");
     assert(result.value.workspaceStatus === "all", "Expected historical workspaces to be explicitly selectable");
+    assert(result.value.sort === "community_asc", "Expected the requested server sort");
   }),
   run("referral list query rejects unsafe pagination and filters", () => {
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ cursor: "-1" })), "cursor is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ limit: "500" })), "limit must be a whole number between 1 and 200.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ stage: "Anything" })), "stage is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ workspace: "anything" })), "workspace is invalid.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ sort: "anything" })), "sort is invalid.");
   }),
   ...authBehaviorResults(),
   ...backendBehaviorResults(),
