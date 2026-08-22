@@ -739,6 +739,7 @@ type ReferralFileRow = {
   status: ReferralFile["status"];
   content_type: string | null;
   preview_status: ReferralFile["previewStatus"];
+  malware_scan_status: string;
   page_count: number | string | null;
   external_client_id: string | null;
   canonical_client_id: string | null;
@@ -999,6 +1000,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         case when d.processing_status = 'reviewed' then 'Reviewed' else 'Uploaded' end::text as status,
         d.content_type,
         d.preview_status,
+        d.malware_scan_status,
         d.page_count,
         d.source_system,
         d.identity_status
@@ -1031,6 +1033,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         case when r.data->>'documentStatus' = 'Reviewed' then 'Reviewed' else 'Uploaded' end::text as status,
         null::text as content_type,
         'unavailable'::text as preview_status,
+        'pending'::text as malware_scan_status,
         null::integer as page_count,
         'pipeline'::text as source_system,
         'linked'::text as identity_status
@@ -1061,6 +1064,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
         'Uploaded'::text,
         null::text,
         'unavailable'::text,
+        'pending'::text,
         null::integer,
         'pipeline'::text,
         'linked'::text
@@ -1585,7 +1589,9 @@ function mapReferralFileRow(row: ReferralFileRow): ReferralFile {
     sourceSystem: row.source_system ?? undefined,
     identityStatus: row.identity_status ?? undefined,
     ...(row.page_count === null ? {} : { pageCount: Number(row.page_count) }),
-    ...(row.preview_status === "ready" && /^[0-9a-f-]{36}$/i.test(row.id)
+    ...(row.malware_scan_status === "clean"
+      && /^[0-9a-f-]{36}$/i.test(row.id)
+      && (row.preview_status === "ready" || isBrowserPreviewableContentType(row.content_type))
       ? {
           previewUrl: toPipelinePath(`/api/files/${row.id}/preview`),
           ...(Number(row.page_count ?? 0) > 0
@@ -1594,6 +1600,10 @@ function mapReferralFileRow(row: ReferralFileRow): ReferralFile {
         }
       : {}),
   };
+}
+
+function isBrowserPreviewableContentType(contentType: string | null) {
+  return contentType === "application/pdf" || contentType?.startsWith("image/") === true;
 }
 
 function referralSearchText(referral: Partial<Referral>) {

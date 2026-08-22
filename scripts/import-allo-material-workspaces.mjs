@@ -8,6 +8,7 @@ import { BlobServiceClient } from "@azure/storage-blob";
 import postgres from "postgres";
 
 import {
+  hasVerifiedCleanScan,
   importConfirmation,
   manifestBytes,
   sha256,
@@ -30,8 +31,11 @@ const dryRun = args.has("--dry-run");
 const apply = !dryRun && args.get("--confirm") === importConfirmation;
 if (!dryRun && !apply) fail(`Refusing to import without --confirm=${importConfirmation}.`);
 const queuePreviews = args.get("--queue-previews") === "true";
+const requireCleanScan = args.get("--require-clean-scan") === "true";
 const manifest = await loadManifest();
 validateCloudManifest(manifest);
+const cleanScan = hasVerifiedCleanScan(manifest);
+if (requireCleanScan && !cleanScan) fail("A verified clean-scan attestation is required for this import.");
 const bytes = manifestBytes(manifest);
 const manifestSha256 = sha256(bytes);
 
@@ -44,6 +48,7 @@ if (dryRun) {
     owner_assigned_workspace_count: manifest.workspaces.filter((workspace) => workspace.primary_owner).length,
     unique_profile_workspace_count: manifest.workspaces.filter((workspace) => workspace.profile_candidates?.length === 1).length,
     queue_previews: queuePreviews,
+    clean_scan_verified: cleanScan,
     manifest_sha256: manifestSha256,
     changes_made: false,
   });
@@ -86,7 +91,7 @@ try {
 
   let processed = 0;
   for (const workspace of manifest.workspaces) {
-    await connection.begin(async (tx) => processWorkspace(tx, workspace, batchId, members, queuePreviews));
+    await connection.begin(async (tx) => processWorkspace(tx, workspace, batchId, members, queuePreviews, cleanScan));
     processed += 1;
     if (processed % 100 === 0) print({ progress: true, completed_workspaces: processed, total_workspaces: manifest.workspace_count });
   }
@@ -116,6 +121,7 @@ try {
     imported_documents: Number(counts[0].document_count),
     source_materials: manifest.available_file_count,
     queue_previews: queuePreviews,
+    clean_scan_verified: cleanScan,
     manifest_sha256: manifestSha256,
   });
 } catch {
@@ -133,7 +139,7 @@ try {
 }
 if (failure) fail("The workspace import stopped safely and can be retried. No client or document values were logged.");
 
-async function processWorkspace(tx, workspace, workspaceImportBatchId, members, shouldQueuePreviews) {
+async function processWorkspace(tx, workspace, workspaceImportBatchId, members, shouldQueuePreviews, isCleanScanVerified) {
   const profile = workspace.profile_candidates?.length === 1 ? workspace.profile_candidates[0] : null;
   const externalClientId = profileExternalId(profile, workspace.source_workspace_id);
   const dateOfBirth = sqlDate(profile?.date_of_birth);
@@ -232,9 +238,9 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
       ) values (
         ${referralId}, ${personId}::uuid, ${file.document_category}, ${file.source_file_name},
         ${file.source_content_type}, ${file.source_byte_size}, ${file.source_sha256},
-        ${file.blob_container}, ${file.blob_key}, 'quarantined', 'allo_workspace_import',
+        ${file.blob_container}, ${file.blob_key}, ${isCleanScanVerified ? "uploaded" : "quarantined"}, 'allo_workspace_import',
         coalesce(${file.source_created_at}::timestamptz, now()), coalesce(${file.source_created_at}::timestamptz, now()),
-        'pending', 'pending', now() + interval '7 years',
+        'pending', ${isCleanScanVerified ? "clean" : "pending"}, now() + interval '7 years',
         'allo', ${sourceExternalId}, ${workspace.source_workspace_id}, ${sqlDate(file.source_created_at)}::date,
         ${workspace.display_name}, ${workspace.community}, 'linked'
       )
@@ -251,6 +257,20 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
       limit 1
     `)[0];
     if (!document) throw new Error("document_import_conflict");
+    if (isCleanScanVerified) {
+      await tx`
+        update pipeline.documents
+        set malware_scan_status = 'clean',
+          processing_status = case
+            when processing_status in ('reserved', 'quarantined', 'uploaded') then 'uploaded'
+            else processing_status
+          end,
+          failure_code = case when failure_code = 'malware_scan_failed' then null else failure_code end,
+          updated_at = greatest(updated_at, now())
+        where document_id = ${document.document_id}::uuid
+          and malware_scan_status <> 'infected'
+      `;
+    }
     if (!evidence.has(file.document_category)) evidence.set(file.document_category, document.document_id);
     if (shouldQueuePreviews) {
       await tx`

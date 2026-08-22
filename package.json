@@ -79,6 +79,8 @@
     "client-files:rollback": "node scripts/rollback-client-file-import.mjs",
     "allo-workspaces:prepare": "node scripts/prepare-allo-workspace-import.mjs",
     "allo-workspaces:upload": "node scripts/upload-allo-workspace-materials.mjs",
+    "allo-workspaces:scan": "node scripts/scan-allo-workspace-materials.mjs",
+    "allo-workspaces:publish": "node scripts/publish-allo-workspace-manifest.mjs",
     "allo-workspaces:import": "node scripts/import-allo-material-workspaces.mjs",
     "start": "node scripts/start-standalone.mjs",
     "test:e2e": "playwright test",

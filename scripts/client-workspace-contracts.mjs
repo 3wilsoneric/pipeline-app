@@ -25,6 +25,8 @@ const uploadCompleteRoute = read("app/api/uploads/complete/route.ts");
 const historicalWorkspaceMigration = read("database/migrations/0011_historical_material_workspaces.sql");
 const historicalWorkspacePrepare = read("scripts/prepare-allo-workspace-import.mjs");
 const historicalWorkspaceUpload = read("scripts/upload-allo-workspace-materials.mjs");
+const historicalWorkspaceScan = read("scripts/scan-allo-workspace-materials.mjs");
+const historicalWorkspacePublish = read("scripts/publish-allo-workspace-manifest.mjs");
 const historicalWorkspaceImport = read("scripts/import-allo-material-workspaces.mjs");
 const historicalWorkspaceCommon = read("scripts/allo-workspace-import-common.mjs");
 
@@ -74,6 +76,10 @@ check("historical workspace preparation never guesses an admission outcome", his
 check("historical workspace owners resolve to durable workspace members", historicalWorkspaceImport.includes("members.get(normalizeName(workspace.primary_owner))") && historicalWorkspaceImport.includes('ownerName = owner?.display_name ?? "Unassigned"'));
 check("historical material bytes use private deterministic non-name keys", historicalWorkspaceCommon.includes("allo-import/v1/workspaces/${workspaceKey}/${itemKey}/original${extension}") && historicalWorkspaceUpload.includes("sourceSha256"));
 check("historical uploads verify every local byte before publishing the manifest", historicalWorkspaceUpload.includes("metadata.size !== file.source_byte_size") && historicalWorkspaceUpload.indexOf("await runBounded") < historicalWorkspaceUpload.indexOf("manifestBlob.uploadData"));
+check("historical materials require an exact protected safety attestation before opening", historicalWorkspaceScan.includes("source_file_changed_during_scan") && historicalWorkspaceScan.includes("--alert-exceeds-max=yes") && historicalWorkspaceCommon.includes("malware_scan_manifest_mismatch"));
+check("only a verified clean manifest can publish safety status", historicalWorkspacePublish.includes("hasVerifiedCleanScan(manifest)") && historicalWorkspacePublish.includes("publishScannedManifestConfirmation") && historicalWorkspaceCommon.includes("PUBLISH-SCANNED-ALLO-MANIFEST"));
+check("historical import can fail closed on safety attestation", historicalWorkspaceImport.includes("--require-clean-scan") && historicalWorkspaceImport.includes('malware_scan_status = \'clean\''));
+check("clean browser-safe originals open before optional page rendering", referralStore.includes('row.malware_scan_status === "clean"') && referralStore.includes("isBrowserPreviewableContentType"));
 check("historical imports do not enqueue paid preview work by default", historicalWorkspaceImport.includes('const queuePreviews = args.get("--queue-previews") === "true"') && historicalWorkspaceImport.includes("if (shouldQueuePreviews)"));
 check("rollback removes only client-workspace additions", rollback.includes("client_file_import_items") && rollback.includes("client_community") && !rollback.includes("drop schema"));
 

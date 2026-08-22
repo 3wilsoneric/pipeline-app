@@ -3,6 +3,8 @@ import path from "node:path";
 
 export const importConfirmation = "IMPORT-ALLO-MATERIAL-WORKSPACES";
 export const uploadConfirmation = "UPLOAD-ALLO-MATERIALS";
+export const scanConfirmation = "SCAN-ALLO-MATERIALS";
+export const publishScannedManifestConfirmation = "PUBLISH-SCANNED-ALLO-MANIFEST";
 
 export function stableBlobKey(workspaceId, itemId, fileName) {
   const workspaceKey = digest(workspaceId);
@@ -78,6 +80,16 @@ export function validateCloudManifest(value) {
       }
     }
   }
+  if (value.malware_scan !== undefined) validateMalwareScan(value);
+}
+
+export function hasVerifiedCleanScan(value) {
+  try {
+    validateMalwareScan(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function manifestBytes(value) {
@@ -119,6 +131,32 @@ function validateFile(file, requireHash) {
   }
   if (requireHash && !/^[a-f0-9]{64}$/.test(file?.source_sha256 ?? "")) throw new Error("material_digest_invalid");
   if (!requireHash && file?.source_sha256 && !/^[a-f0-9]{64}$/.test(file.source_sha256)) throw new Error("material_digest_invalid");
+}
+
+function validateMalwareScan(value) {
+  const scan = value?.malware_scan;
+  if (scan?.status !== "clean" || scan?.scanner !== "ClamAV"
+    || !safeText(scan.scanner_version, 200) || !safeText(scan.scanned_at, 64)
+    || !/^[a-f0-9]{64}$/.test(scan.base_manifest_sha256 ?? "")
+    || !/^[a-f0-9]{64}$/.test(scan.local_manifest_sha256 ?? "")) {
+    throw new Error("malware_scan_attestation_invalid");
+  }
+  if (!Number.isSafeInteger(scan.file_count) || scan.file_count !== value.available_file_count) {
+    throw new Error("malware_scan_file_count_mismatch");
+  }
+  const totalBytes = value.workspaces.reduce(
+    (sum, workspace) => sum + workspace.files.reduce((fileSum, file) => fileSum + file.source_byte_size, 0),
+    0,
+  );
+  if (!Number.isSafeInteger(scan.total_bytes) || scan.total_bytes !== totalBytes) {
+    throw new Error("malware_scan_byte_count_mismatch");
+  }
+  const baseManifest = { ...value };
+  delete baseManifest.malware_scan;
+  if (sha256(manifestBytes(baseManifest)) !== scan.base_manifest_sha256) {
+    throw new Error("malware_scan_manifest_mismatch");
+  }
+  if (!Number.isFinite(Date.parse(scan.scanned_at))) throw new Error("malware_scan_timestamp_invalid");
 }
 
 function digest(value) {
