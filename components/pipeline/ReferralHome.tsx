@@ -544,7 +544,7 @@ export default function ReferralHome({
 
   return (
     <main aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
-      <div className="w-full px-5 pb-8 pt-3 md:px-8 lg:px-10">
+      <div className="w-full px-5 pb-8 pt-0 md:px-8 md:pt-3 lg:px-10">
         <h1 className="sr-only">Referral workspaces</h1>
         <div className="min-w-0">
           {packetToolbar}
