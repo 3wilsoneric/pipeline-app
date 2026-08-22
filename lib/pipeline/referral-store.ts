@@ -1589,11 +1589,12 @@ function mapReferralFileRow(row: ReferralFileRow): ReferralFile {
     sourceSystem: row.source_system ?? undefined,
     identityStatus: row.identity_status ?? undefined,
     ...(row.page_count === null ? {} : { pageCount: Number(row.page_count) }),
-    ...(row.malware_scan_status === "clean"
-      && /^[0-9a-f-]{36}$/i.test(row.id)
-      && (row.preview_status === "ready" || isBrowserPreviewableContentType(row.content_type))
+    ...(row.malware_scan_status === "clean" && /^[0-9a-f-]{36}$/i.test(row.id)
       ? {
-          previewUrl: toPipelinePath(`/api/files/${row.id}/preview`),
+          downloadUrl: toPipelinePath(`/api/files/${row.id}/download`),
+          ...(row.preview_status === "ready" || isBrowserPreviewableContentType(row.content_type)
+            ? { previewUrl: toPipelinePath(`/api/files/${row.id}/preview`) }
+            : {}),
           ...(Number(row.page_count ?? 0) > 0
             ? { thumbnailUrl: toPipelinePath(`/api/files/${row.id}/preview?page=1&variant=thumbnail`) }
             : {}),

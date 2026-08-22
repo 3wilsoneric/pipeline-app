@@ -572,14 +572,14 @@ function ClientDocumentGallery({ documents }: { documents: ReferralFile[] }) {
               {document.pageCount ? ` · ${document.pageCount} page${document.pageCount === 1 ? "" : "s"}` : ""}
             </div>
             <div className="mt-1 text-[10px] text-[#737373]">Uploaded {formatDate(document.uploadedAt)}</div>
-            {document.previewUrl ? (
+            {document.previewUrl || document.downloadUrl ? (
               <a
-                href={document.previewUrl}
+                href={document.previewUrl ?? document.downloadUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-black text-[#0f8b73] hover:text-[#0a6a58]"
               >
-                Open file <ExternalLink size={12} />
+                {document.previewUrl ? "Open file" : "Download file"} <ExternalLink size={12} />
               </a>
             ) : (
               <div className="mt-3 text-[10px] font-semibold text-[#8a6118]">Preview is still processing</div>
@@ -706,9 +706,10 @@ function DocumentThumbnail({ document }: { document: ReferralFile }) {
     </div>
   );
 
-  return document.previewUrl ? (
+  const openUrl = document.previewUrl ?? document.downloadUrl;
+  return openUrl ? (
     <a
-      href={document.previewUrl}
+      href={openUrl}
       target="_blank"
       rel="noreferrer"
       className="block h-40 border-b border-[#d9d9d9] bg-[#f2f5f3] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0f8b73]"

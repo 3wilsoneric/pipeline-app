@@ -1018,8 +1018,8 @@ function FilePreviewDialog({ file, onClose }: { file: ReferralFile; onClose: () 
                 : `${file.category} · Loading metadata`}
             </p>
           </div>
-          {file.previewUrl ? (
-            <a href={file.previewUrl} target="_blank" rel="noreferrer" className="h-9 border border-[#0f8b73] px-3 py-2 text-[10px] font-black text-[#0f8b73] hover:bg-[#effaf5]">
+          {file.downloadUrl || file.previewUrl ? (
+            <a href={file.downloadUrl ?? file.previewUrl} target="_blank" rel="noreferrer" className="h-9 border border-[#0f8b73] px-3 py-2 text-[10px] font-black text-[#0f8b73] hover:bg-[#effaf5]">
               Open original
             </a>
           ) : null}

@@ -22,6 +22,7 @@ const referralCanvas = read("components/pipeline/ReferralPacketCanvas.tsx");
 const documentRequirements = read("lib/pipeline/document-requirements.ts");
 const documentReconciliation = read("lib/pipeline/document-requirement-reconciliation.ts");
 const uploadCompleteRoute = read("app/api/uploads/complete/route.ts");
+const documentDownloadRoute = read("app/api/files/[documentId]/download/route.ts");
 const historicalWorkspaceMigration = read("database/migrations/0011_historical_material_workspaces.sql");
 const historicalWorkspacePrepare = read("scripts/prepare-allo-workspace-import.mjs");
 const historicalWorkspaceUpload = read("scripts/upload-allo-workspace-materials.mjs");
@@ -81,6 +82,7 @@ check("historical materials require an exact protected safety attestation before
 check("only a verified clean manifest can publish safety status", historicalWorkspacePublish.includes("hasVerifiedCleanScan(manifest)") && historicalWorkspacePublish.includes("publishScannedManifestConfirmation") && historicalWorkspaceCommon.includes("PUBLISH-SCANNED-ALLO-MANIFEST"));
 check("historical import can fail closed on safety attestation", historicalWorkspaceImport.includes("--require-clean-scan") && historicalWorkspaceImport.includes('malware_scan_status = \'clean\''));
 check("clean browser-safe originals open before optional page rendering", referralStore.includes('row.malware_scan_status === "clean"') && referralStore.includes("isBrowserPreviewableContentType"));
+check("every clean imported file has an authorized original-file path", referralStore.includes("downloadUrl: toPipelinePath") && documentDownloadRoute.includes("requireReferralAccess") && documentDownloadRoute.includes("getDocumentOriginalAsset"));
 check("historical imports do not enqueue paid preview work by default", historicalWorkspaceImport.includes('const queuePreviews = args.get("--queue-previews") === "true"') && historicalWorkspaceImport.includes("if (shouldQueuePreviews)"));
 check("rollback removes only client-workspace additions", rollback.includes("client_file_import_items") && rollback.includes("client_community") && !rollback.includes("drop schema"));
 

@@ -191,6 +191,31 @@ export async function getDocumentPreviewAsset(documentId: string, pageNumber?: n
   throw new DocumentProcessingError("preview_not_ready", 409, "A safe preview is not ready yet.");
 }
 
+export async function getDocumentOriginalAsset(documentId: string): Promise<Asset | null> {
+  if (!isDocumentId(documentId)) return null;
+  const sql = getPipelineSql();
+  const rows = await sql<{
+    blob_container: string;
+    blob_key: string;
+    content_type: string;
+    byte_size: number | string;
+    malware_scan_status: string;
+  }[]>`
+    select blob_container, blob_key, content_type, byte_size, malware_scan_status
+    from pipeline.documents
+    where document_id = ${documentId}::uuid and deleted_at is null
+    limit 1
+  `;
+  if (!rows[0]) return null;
+  requireClean(rows[0].malware_scan_status);
+  return {
+    container: rows[0].blob_container,
+    blobKey: rows[0].blob_key,
+    contentType: rows[0].content_type,
+    byteSize: Number(rows[0].byte_size),
+  };
+}
+
 export async function getFieldEvidenceAsset(packetId: string, fieldKey: string): Promise<Asset | null> {
   if (!isDocumentId(packetId) || !fieldKey || fieldKey.length > 160) return null;
   const sql = getPipelineSql();

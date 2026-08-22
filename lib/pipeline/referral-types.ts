@@ -232,6 +232,7 @@ export type ReferralFile = {
   previewStatus: "pending" | "processing" | "ready" | "failed" | "unavailable";
   pageCount?: number;
   previewUrl?: string;
+  downloadUrl?: string;
   thumbnailUrl?: string;
   sourceSystem?: "pipeline" | "alamo_platform" | "allo" | "import";
   identityStatus?: "linked" | "candidate" | "unmatched";
