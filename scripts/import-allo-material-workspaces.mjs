@@ -61,6 +61,7 @@ const sql = postgres(databaseUrl, databaseOptions("pipeline-allo-workspace-impor
 const connection = await sql.reserve();
 let batchId = null;
 let failure = false;
+let failureDiagnostic = null;
 try {
   await connection`select pg_advisory_lock(hashtextextended('pipeline_allo_workspace_import', 0))`;
   const migrations = await connection`
@@ -124,8 +125,9 @@ try {
     clean_scan_verified: cleanScan,
     manifest_sha256: manifestSha256,
   });
-} catch {
+} catch (error) {
   failure = true;
+  failureDiagnostic = safeImportDiagnostic(error);
   if (batchId) {
     await connection`
       update pipeline.workspace_import_batches set status = 'failed', updated_at = now()
@@ -137,7 +139,12 @@ try {
   connection.release();
   await sql.end({ timeout: 5 });
 }
-if (failure) fail("The workspace import stopped safely and can be retried. No client or document values were logged.");
+if (failure) {
+  fail(
+    "The workspace import stopped safely and can be retried. No client or document values were logged.",
+    failureDiagnostic,
+  );
+}
 
 async function processWorkspace(tx, workspace, workspaceImportBatchId, members, shouldQueuePreviews, isCleanScanVerified) {
   const profile = workspace.profile_candidates?.length === 1 ? workspace.profile_candidates[0] : null;
@@ -374,6 +381,32 @@ function normalizeName(value) {
     .toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function safeImportDiagnostic(error) {
+  const result = { category: "unclassified" };
+  if (!error || typeof error !== "object") return result;
+  const code = "code" in error ? String(error.code ?? "") : "";
+  if (/^[0-9A-Z]{5}$/.test(code)) {
+    result.category = "database";
+    result.sqlstate = code;
+  }
+  const knownReasons = new Set(["missing_migration"]);
+  if (error instanceof Error && knownReasons.has(error.message)) {
+    result.category = "precondition";
+    result.reason = error.message;
+  }
+  for (const [source, target] of [
+    ["schema_name", "schema"],
+    ["table_name", "table"],
+    ["column_name", "column"],
+    ["constraint_name", "constraint"],
+    ["routine", "routine"],
+  ]) {
+    const value = source in error ? String(error[source] ?? "") : "";
+    if (/^[a-zA-Z0-9_.-]{1,128}$/.test(value)) result[target] = value;
+  }
+  return result;
+}
+
 function argumentMap() {
   return new Map(process.argv.slice(2).map((argument) => {
     const [key, ...rest] = argument.split("=");
@@ -397,7 +430,7 @@ function print(value) {
   console.log(JSON.stringify(value));
 }
 
-function fail(message) {
-  console.error(JSON.stringify({ ok: false, error: message }));
+function fail(message, diagnostic) {
+  console.error(JSON.stringify({ ok: false, error: message, ...(diagnostic ? { diagnostic } : {}) }));
   process.exit(1);
 }
