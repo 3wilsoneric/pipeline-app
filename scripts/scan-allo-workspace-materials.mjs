@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { chmod, open, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
@@ -25,6 +25,7 @@ const databasePath = absoluteArgument("--database");
 const privateOutput = absoluteArgument("--private-output");
 const privateLog = absoluteArgument("--private-log");
 const privateFileList = absoluteArgument("--private-file-list");
+const scannerWorkers = integerArgument("--workers", 1, 1, 8);
 const dryRun = args.has("--dry-run");
 if (!dryRun && args.get("--confirm") !== scanConfirmation) {
   fail(`Refusing to scan without --confirm=${scanConfirmation}.`);
@@ -82,10 +83,9 @@ await runBounded(files, 3, async (file) => {
   if (verified % 500 === 0) print({ progress: true, phase: "verify", completed: verified, total: files.length });
 });
 
-await writeProtected(privateFileList, `${files.map((file) => file.path).join("\n")}\n`);
 await writeProtected(privateLog, "");
 const scannerVersion = await readScannerVersion(databasePath);
-const scanCode = await runScanner(databasePath, privateFileList, privateLog);
+const scanCode = await runScanners(databasePath, files, privateFileList, privateLog, scannerWorkers);
 if (scanCode !== 0) {
   fail(scanCode === 1
     ? "The safety scan blocked one or more materials. Details remain only in the protected scan log."
@@ -106,6 +106,7 @@ const sealed = {
     status: "clean",
     scanner: "ClamAV",
     scanner_version: scannerVersion,
+    scanner_workers: scannerWorkers,
     scanned_at: new Date().toISOString(),
     base_manifest_sha256: sha256(manifestBytes(cloudManifest)),
     local_manifest_sha256: sha256(localBytes),
@@ -139,6 +140,28 @@ async function readScannerVersion(database) {
   return version;
 }
 
+async function runScanners(database, sourceFiles, fileListPath, logPath, workerCount) {
+  const partitions = partitionByBytes(sourceFiles, Math.min(workerCount, sourceFiles.length));
+  const artifacts = partitions.map((partition, index) => ({
+    files: partition,
+    fileList: `${fileListPath}.part-${index + 1}`,
+    log: `${logPath}.part-${index + 1}`,
+  }));
+  try {
+    await Promise.all(artifacts.map(async (artifact) => {
+      await writeProtected(artifact.fileList, `${artifact.files.map((file) => file.path).join("\n")}\n`);
+      await writeProtected(artifact.log, "");
+    }));
+    const results = await Promise.all(artifacts.map((artifact) => runScanner(database, artifact.fileList, artifact.log)));
+    const protectedOutput = [];
+    for (const artifact of artifacts) protectedOutput.push(await readFile(artifact.log));
+    await writeProtected(logPath, Buffer.concat(protectedOutput));
+    return results.some((code) => code === 1) ? 1 : results.find((code) => code !== 0) ?? 0;
+  } finally {
+    await Promise.all(artifacts.flatMap((artifact) => [artifact.fileList, artifact.log]).map((artifactPath) => rm(artifactPath, { force: true })));
+  }
+}
+
 async function runScanner(database, fileList, logPath) {
   const log = await open(logPath, "a", 0o600);
   try {
@@ -158,6 +181,16 @@ async function runScanner(database, fileList, logPath) {
   } finally {
     await log.close();
   }
+}
+
+function partitionByBytes(sourceFiles, partitionCount) {
+  const partitions = Array.from({ length: partitionCount }, () => ({ bytes: 0, files: [] }));
+  for (const file of [...sourceFiles].sort((left, right) => right.byteSize - left.byteSize)) {
+    partitions.sort((left, right) => left.bytes - right.bytes);
+    partitions[0].files.push(file);
+    partitions[0].bytes += file.byteSize;
+  }
+  return partitions.map((partition) => partition.files);
 }
 
 function runProcess(command, processArgs, options = {}) {
@@ -211,6 +244,16 @@ function argumentMap() {
 function absoluteArgument(name) {
   const value = args.get(name);
   if (!value || !path.isAbsolute(value)) fail(`${name} must be an absolute path.`);
+  return value;
+}
+
+function integerArgument(name, fallback, minimum, maximum) {
+  const raw = args.get(name);
+  if (raw === undefined) return fallback;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    fail(`${name} must be an integer from ${minimum} through ${maximum}.`);
+  }
   return value;
 }
 
