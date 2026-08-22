@@ -1102,6 +1102,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "4 Assessment" })).toHaveAttribute("aria-current", "page");
     await page.getByRole("button", { name: "Start assessment" }).click();
     await expect(page.getByRole("region", { name: "Assessment workspace" })).toBeVisible();
+    await expect(page.getByLabel("Assigned assessor")).toHaveValue(/.+/);
     await page.getByLabel(/Resident number/).fill(`EM-${randomUUID().slice(0, 8)}`);
     await page.getByLabel(/Date of birth/).fill("1984-06-12");
     await page.getByRole("button", { name: /^Save$/ }).click();
@@ -1126,12 +1127,33 @@ test.describe("Referral home and packet canvas", () => {
     const referralPayload = await referrals.json() as { referrals: Array<{ id: number; version: number }> };
     const history = await page.request.get(`/api/referrals/${referralPayload.referrals[0].id}/assessments`);
     expect(history.ok()).toBeTruthy();
-    const historyPayload = await history.json() as { assessments: Array<{ status: string; primary_diagnosis: string; medications_at_intake: string[]; version: number }> };
+    const historyPayload = await history.json() as { assessments: Array<{ assessment_id: string; status: string; primary_diagnosis: string; medications_at_intake: string[]; version: number; assessor_id: string | null; assessor: string | null; completed_at: string | null }> };
     expect(historyPayload.assessments[0]).toMatchObject({
       status: "complete",
       primary_diagnosis: "Schizoaffective disorder",
     });
     expect(historyPayload.assessments[0].version).toBeGreaterThanOrEqual(4);
+    expect(historyPayload.assessments[0].assessor_id).toBeTruthy();
+    expect(historyPayload.assessments[0].assessor).toBe("Playwright QA");
+    const reportMonth = historyPayload.assessments[0].completed_at!.slice(0, 7);
+    const operations = await page.request.get(`/api/operations/dashboard?month=${reportMonth}`);
+    expect(operations.ok()).toBeTruthy();
+    const operationsPayload = await operations.json() as {
+      snapshot: { assessment_report: { total_completed: number; rows: Array<{ assessor_name: string; completed_assessments: number }> } };
+    };
+    expect(operationsPayload.snapshot.assessment_report.total_completed).toBeGreaterThan(0);
+    expect(operationsPayload.snapshot.assessment_report.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ assessor_name: "Playwright QA", completed_assessments: expect.any(Number) }),
+    ]));
+
+    const completedReassignment = await page.request.patch(`/api/assessments/${historyPayload.assessments[0].assessment_id}`, {
+      data: {
+        if_match: historyPayload.assessments[0].version,
+        assessor_id: historyPayload.assessments[0].assessor_id,
+        patch: {},
+      },
+    });
+    expect(completedReassignment.status()).toBe(409);
 
     const workItems = await page.request.get(`/api/referrals/${referralPayload.referrals[0].id}/work-items`);
     expect(workItems.ok()).toBeTruthy();

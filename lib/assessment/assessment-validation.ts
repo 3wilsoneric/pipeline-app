@@ -26,6 +26,7 @@ export type AssessmentPatchRequest = {
   if_match?: number;
   if_match_section?: number;
   section?: AssessmentToolSection;
+  assessor_id?: string | null;
   client_mutation_id?: string;
   patch: AssessmentPatchInput;
 };
@@ -40,7 +41,7 @@ export type AssessmentImportRequest = {
 
 const statuses: readonly AssessmentWorkflowStatus[] = ["draft", "needs_review", "complete"];
 const knownFieldKeys = new Set(assessmentToolFieldDefinitions.map((definition) => definition.key));
-const extractionOwnedFields = new Set<AssessmentToolFieldKey>(["source_file", "match_confidence", "extraction_date"]);
+const extractionOwnedFields = new Set<AssessmentToolFieldKey>(["assessor", "source_file", "match_confidence", "extraction_date"]);
 
 export function validateAssessmentCreateRequest(value: unknown): AssessmentValidationResult<AssessmentCreateRequest> {
   if (!isRecord(value)) return invalid("The assessment request must be an object.");
@@ -90,6 +91,12 @@ export function validateAssessmentPatchRequest(value: unknown): AssessmentValida
   if (patch.accept_pending !== undefined && typeof patch.accept_pending !== "boolean") {
     return invalid("accept_pending must be true or false.");
   }
+  if (value.assessor_id !== undefined && value.assessor_id !== null && !isSafePrincipalId(value.assessor_id)) {
+    return invalid("assessor_id is invalid.");
+  }
+  if (section !== undefined && value.assessor_id !== undefined) {
+    return invalid("assessor_id cannot be changed in a section save.");
+  }
   const mutationResult = validateMutationId(value.client_mutation_id);
   if (!mutationResult.ok) return mutationResult;
 
@@ -99,6 +106,7 @@ export function validateAssessmentPatchRequest(value: unknown): AssessmentValida
       ...(value.if_match !== undefined ? { if_match: value.if_match as number } : {}),
       ...(value.if_match_section !== undefined ? { if_match_section: value.if_match_section as number } : {}),
       ...(section ? { section } : {}),
+      ...(value.assessor_id !== undefined ? { assessor_id: value.assessor_id as string | null } : {}),
       ...(mutationResult.value ? { client_mutation_id: mutationResult.value } : {}),
       patch: patch as AssessmentPatchInput,
     },
@@ -184,6 +192,7 @@ export function validateAssessmentImportRequest(value: unknown): AssessmentValid
 function validatePartialData(value: Record<string, unknown>): AssessmentValidationResult<Partial<AssessmentToolData>> {
   for (const key of Object.keys(value)) {
     if (!knownFieldKeys.has(key as AssessmentToolFieldKey)) return invalid(`Unknown assessment field: ${key}.`);
+    if (key === "assessor") return invalid("assessor must be assigned from active workspace members.");
     if (extractionOwnedFields.has(key as AssessmentToolFieldKey)) return invalid(`${key} is supplied by the extraction job.`);
   }
   const issues = validateAssessmentToolData(value);
@@ -201,6 +210,10 @@ function validateMutationId(value: unknown): AssessmentValidationResult<string |
 
 function isSafeId(value: unknown, maximum: number): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= maximum && /^[a-zA-Z0-9_.:-]+$/.test(value);
+}
+
+function isSafePrincipalId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 256 && /^[a-zA-Z0-9_.:@-]+$/.test(value);
 }
 
 function isBoundedString(value: unknown, maximum: number, required = false): value is string {

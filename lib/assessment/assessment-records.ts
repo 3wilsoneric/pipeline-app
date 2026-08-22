@@ -16,6 +16,7 @@ export type AssessmentActor = {
 
 export type AssessmentAuditAction =
   | "assessment_created"
+  | "assessment_assigned"
   | "assessment_imported"
   | "assessment_updated"
   | "extraction_confirmed"
@@ -35,6 +36,7 @@ export type AssessmentAuditEvent = {
 
 export type PipelineAssessmentRecord = AssessmentToolRecord & {
   referral_id: number;
+  assessor_id: string | null;
   status: AssessmentWorkflowStatus;
   completed_at: string | null;
   created_by: AssessmentActor;
@@ -67,11 +69,28 @@ export type AssessmentCreateInput = {
 
 export type AssessmentPatchInput = {
   data?: Partial<AssessmentToolData>;
+  /** Server-resolved only. Browser requests supply an active workspace member ID. */
+  assigned_assessor?: AssessmentActor | null;
   /** Server-resolved only. A canonical identity can be attached once and never changed. */
   canonical_client_id?: string | null;
   resident_key?: string | null;
   status?: AssessmentWorkflowStatus;
   accept_pending?: boolean;
+};
+
+export type AssessmentCompletionReportRow = {
+  assessor_id: string | null;
+  assessor_name: string;
+  completed_assessments: number;
+};
+
+export type AssessmentCompletionReport = {
+  month: string;
+  period_start: string;
+  period_end: string;
+  total_completed: number;
+  rows: AssessmentCompletionReportRow[];
+  generated_at: string;
 };
 
 export function preserveCanonicalClientId(

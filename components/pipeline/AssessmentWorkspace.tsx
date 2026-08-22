@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Save,
   UploadCloud,
+  UserRound,
 } from "lucide-react";
 
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
@@ -60,6 +61,7 @@ const sectionLabels: Record<AssessmentToolSection, string> = {
 };
 
 const extractionOwnedFields = new Set<AssessmentToolFieldKey>([
+  "assessor",
   "source_file",
   "match_confidence",
   "extraction_date",
@@ -77,6 +79,12 @@ type AssessmentRemoteChange = {
   conflicts: AssessmentFieldConflict[];
 };
 
+type AssessmentMember = {
+  principal_id: string;
+  display_name: string;
+  roles: string[];
+};
+
 export default function AssessmentWorkspace({ referralId, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -87,6 +95,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   const [dirtySections, setDirtySections] = useState<Set<AssessmentToolSection>>(new Set());
   const [remoteChange, setRemoteChange] = useState<AssessmentRemoteChange | null>(null);
   const [presence, setPresence] = useState<EditingPresence[]>([]);
+  const [members, setMembers] = useState<AssessmentMember[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,9 +114,12 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   const completion = useMemo(() => getAssessmentCompletionSummary(draft), [draft]);
   const pendingFields = useMemo(() => getPendingFields(selected), [selected]);
   const sectionDefinitions = useMemo(
-    () => assessmentToolFieldDefinitions.filter((definition) => definition.section === activeSection),
+    () => assessmentToolFieldDefinitions.filter((definition) => definition.section === activeSection && definition.key !== "assessor"),
     [activeSection],
   );
+  const assessmentMembers = useMemo(() => members
+    .filter((member) => member.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role)))
+    .sort((left, right) => left.display_name.localeCompare(right.display_name)), [members]);
 
   useEffect(() => {
     if (!referralId) {
@@ -134,6 +146,20 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
       })
       .finally(() => {
         if (!controller.signal.aborted) setIsLoading(false);
+      });
+    return () => controller.abort();
+  }, [referralId]);
+
+  useEffect(() => {
+    if (!referralId) return;
+    const controller = new AbortController();
+    fetchPipelineJson<{ members: AssessmentMember[] }>("/api/members", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((payload) => setMembers(payload.members))
+      .catch(() => {
+        if (!controller.signal.aborted) setError("Staff assignments could not be loaded. Refresh and try again.");
       });
     return () => controller.abort();
   }, [referralId]);
@@ -340,6 +366,36 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
       );
     } catch (saveError) {
       setError(messageFor(saveError, "The assessment could not be saved."));
+      setMessage("");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const assignAssessor = async (assessorId: string) => {
+    setIsBusy(true);
+    setError("");
+    setMessage("Updating assessor...");
+    try {
+      await flushDirtySections();
+      const current = selectedRef.current;
+      if (!current) return;
+      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+        `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            if_match: current.version,
+            assessor_id: assessorId || null,
+            client_mutation_id: mutationId("assessment-assignment"),
+            patch: {},
+          }),
+        },
+      );
+      upsertAssessment(payload.assessment, true);
+      setMessage(payload.assessment.assessor ? `Assigned to ${payload.assessment.assessor}` : "Assessment is unassigned");
+    } catch (assignmentError) {
+      setError(messageFor(assignmentError, "The assessor assignment could not be changed."));
       setMessage("");
     } finally {
       setIsBusy(false);
@@ -674,6 +730,27 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
           ))}
         </select>
         <button type="button" onClick={startAssessment} disabled={isBusy} className="h-9 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">New assessment</button>
+        <span className="ml-1 flex items-center gap-2">
+          <UserRound size={14} className="text-[#0f8b73]" aria-hidden="true" />
+          <label htmlFor="assessment-assessor" className="sr-only">Assigned assessor</label>
+          <select
+            id="assessment-assessor"
+            aria-label="Assigned assessor"
+            value={selected.assessor_id ?? ""}
+            onChange={(event) => void assignAssessor(event.target.value)}
+            disabled={isBusy || selected.status === "complete"}
+            title={selected.status === "complete" ? "Reopen this assessment before changing its assessor." : "Assign the staff member responsible for this assessment."}
+            className="h-9 min-w-[190px] border border-[#c9ceca] bg-white px-3 text-[11px] font-black outline-none focus:border-[#0f8b73] disabled:bg-[#f4f6f5] disabled:text-[#737373]"
+          >
+            <option value="">Unassigned</option>
+            {selected.assessor_id && !assessmentMembers.some((member) => member.principal_id === selected.assessor_id) ? (
+              <option value={selected.assessor_id}>{selected.assessor || "Inactive staff member"}</option>
+            ) : null}
+            {assessmentMembers.map((member) => (
+              <option key={member.principal_id} value={member.principal_id}>{member.display_name}</option>
+            ))}
+          </select>
+        </span>
         <div className="min-w-0 flex-1" />
         <span aria-live="polite" className={`text-[11px] ${error ? "text-[#a63d2f]" : "text-[#737373]"}`}>{error || message}</span>
         <button type="button" onClick={() => saveAssessment(selected.status)} disabled={isBusy || !dirty} className="flex h-9 items-center gap-2 border border-[#111111] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35"><Save size={14} /> Save</button>
