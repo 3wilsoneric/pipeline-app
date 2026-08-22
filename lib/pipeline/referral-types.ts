@@ -7,6 +7,8 @@ import type { PipelineCommunity } from "@/lib/pipeline/community-config";
 import type { ReferralStage as Stage } from "@/lib/pipeline/referral-workflow";
 
 export type Priority = "urgent" | "high" | "standard";
+export type WorkspaceOrigin = "pipeline" | "allo" | "import";
+export type WorkspaceStatus = "active" | "historical" | "archived";
 
 export const referralSectionNames = [
   "identity",
@@ -157,6 +159,13 @@ export type Referral = {
   updatedBy?: { id: string; name: string };
   /** Stable client identity. A client may have more than one referral episode. */
   clientId?: string;
+  workspaceOrigin?: WorkspaceOrigin;
+  workspaceStatus?: WorkspaceStatus;
+  sourceWorkspaceId?: string;
+  sourceWorkspaceName?: string;
+  sourceProjectId?: string;
+  sourceProjectName?: string;
+  sourceMaterialCount?: number;
   name: string;
   date: string;
   stage: Stage;

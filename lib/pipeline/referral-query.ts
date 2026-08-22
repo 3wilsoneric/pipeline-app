@@ -21,6 +21,7 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
   const tag = searchParams.get("tag")?.trim() || undefined;
   const month = searchParams.get("month")?.trim() || undefined;
   const active = searchParams.get("active")?.trim();
+  const workspace = searchParams.get("workspace")?.trim() || "active";
   const queue = searchParams.get("queue")?.trim() || undefined;
   const rawLimit = searchParams.get("limit")?.trim();
   const limit = rawLimit ? Number(rawLimit) : undefined;
@@ -41,6 +42,9 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
   if (active !== undefined && active !== "" && active !== "true" && active !== "false") {
     return invalid("active must be true or false.");
   }
+  if (!new Set(["active", "historical", "archived", "all"]).has(workspace)) {
+    return invalid("workspace is invalid.");
+  }
   if (queue && !queues.includes(queue as ReferralQueueView)) return invalid("queue is invalid.");
 
   return {
@@ -56,6 +60,7 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
       tag,
       month,
       activeOnly: active === "true",
+      workspaceStatus: workspace as ReferralListOptions["workspaceStatus"],
       queue: queue as ReferralQueueView | undefined,
     },
   };

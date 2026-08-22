@@ -22,6 +22,11 @@ const referralCanvas = read("components/pipeline/ReferralPacketCanvas.tsx");
 const documentRequirements = read("lib/pipeline/document-requirements.ts");
 const documentReconciliation = read("lib/pipeline/document-requirement-reconciliation.ts");
 const uploadCompleteRoute = read("app/api/uploads/complete/route.ts");
+const historicalWorkspaceMigration = read("database/migrations/0011_historical_material_workspaces.sql");
+const historicalWorkspacePrepare = read("scripts/prepare-allo-workspace-import.mjs");
+const historicalWorkspaceUpload = read("scripts/upload-allo-workspace-materials.mjs");
+const historicalWorkspaceImport = read("scripts/import-allo-material-workspaces.mjs");
+const historicalWorkspaceCommon = read("scripts/allo-workspace-import-common.mjs");
 
 const checks = [];
 const check = (name, value) => checks.push({ name, ok: Boolean(value) });
@@ -64,6 +69,12 @@ check("upload completion reconciles checklist evidence server-side", uploadCompl
 check("checklist reconciliation preserves reviewed evidence", documentReconciliation.includes('["reviewed", "waived"].includes(requirement.status)') && documentReconciliation.includes("requirement.evidenceDocumentId"));
 check("supporting drop zones upload immediately for saved referrals", referralCanvas.includes('processing_intent: "preview_only"') && referralCanvas.includes("refreshed.referral") && referralCanvas.includes("linkedRequirement?.evidenceDocumentId"));
 check("initial uploads require an explicit document type", referralCanvas.includes('aria-label="Initial document type"') && referralCanvas.includes('"face_sheet" | "referral_packet"'));
+check("every material canvas becomes one idempotent historical workspace", historicalWorkspaceMigration.includes("referrals_source_workspace_unique_idx") && historicalWorkspaceImport.includes("on conflict (workspace_origin, source_workspace_id)"));
+check("historical workspace preparation never guesses an admission outcome", historicalWorkspacePrepare.includes('return "Packet Review"') && historicalWorkspacePrepare.includes('if (/\\b(accepted|admitted)\\b/') && historicalWorkspaceCommon.includes('"Packet Review", "Accepted / Admitted", "Declined"'));
+check("historical workspace owners resolve to durable workspace members", historicalWorkspaceImport.includes("members.get(normalizeName(workspace.primary_owner))") && historicalWorkspaceImport.includes('ownerName = owner?.display_name ?? "Unassigned"'));
+check("historical material bytes use private deterministic non-name keys", historicalWorkspaceCommon.includes("allo-import/v1/workspaces/${workspaceKey}/${itemKey}/original${extension}") && historicalWorkspaceUpload.includes("sourceSha256"));
+check("historical uploads verify every local byte before publishing the manifest", historicalWorkspaceUpload.includes("metadata.size !== file.source_byte_size") && historicalWorkspaceUpload.indexOf("await runBounded") < historicalWorkspaceUpload.indexOf("manifestBlob.uploadData"));
+check("historical imports do not enqueue paid preview work by default", historicalWorkspaceImport.includes('const queuePreviews = args.get("--queue-previews") === "true"') && historicalWorkspaceImport.includes("if (shouldQueuePreviews)"));
 check("rollback removes only client-workspace additions", rollback.includes("client_file_import_items") && rollback.includes("client_community") && !rollback.includes("drop schema"));
 
 const failed = checks.filter((item) => !item.ok);

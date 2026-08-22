@@ -384,7 +384,9 @@ export default function ReferralHome({
       : `${fileTotal} file${fileTotal === 1 ? "" : "s"}`
     : isLoading
       ? "Loading..."
-      : `${referralTotal} referral${referralTotal === 1 ? "" : "s"}`;
+      : filter.kind === "workflow"
+        ? `${referralTotal} active workspace${referralTotal === 1 ? "" : "s"}`
+        : `${referralTotal} workspace${referralTotal === 1 ? "" : "s"}`;
 
   const refreshLabel = lastRefreshedAt === null ? "" : formatRefreshAge(lastRefreshedAt);
 
@@ -1264,6 +1266,7 @@ function buildReferralParams(
   if (filter.kind === "priority") params.set("priority", filter.value);
   if (filter.kind === "tag") params.set("tag", filter.value);
   if (filter.kind === "workflow") params.set("active", "true");
+  else if (filter.kind !== "work" && filter.kind !== "files") params.set("workspace", "all");
   return params;
 }
 

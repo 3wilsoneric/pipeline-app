@@ -131,7 +131,7 @@ export async function GET(request: Request) {
     }
 
     const [referrals, files, clinical] = await Promise.all([
-      listReferrals(scopeReferralListOptions(auth.user, { query, limit: 12 })),
+      listReferrals(scopeReferralListOptions(auth.user, { query, limit: 12, workspaceStatus: "all" })),
       listReferralFiles(scopeReferralListOptions(auth.user, { query, limit: 12, identityStatus: "linked" })),
       searchClinical(query, request),
     ]);

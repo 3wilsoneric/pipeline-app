@@ -19,6 +19,7 @@ import type {
   ReferralFile,
   ReferralSection,
   ReferralSectionVersions,
+  WorkspaceStatus,
 } from "@/lib/pipeline/referral-types";
 import {
   defaultReferralSectionVersions,
@@ -65,6 +66,8 @@ export type ReferralListOptions = {
   tag?: string;
   month?: string;
   activeOnly?: boolean;
+  /** Active is the safe default so historical imports never enter work queues. */
+  workspaceStatus?: WorkspaceStatus | "all";
   queue?: ReferralQueueView;
   /** Internal access-control filter. Never populated from query parameters. */
   assignedOwnerId?: string;
@@ -161,7 +164,7 @@ export type ReferralChangeMetadata = {
 interface ReferralStore {
   revision(): Promise<number>;
   list(options?: ReferralListOptions): Promise<ReferralListResult>;
-  facets(query?: string, access?: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames">): Promise<ReferralFacets>;
+  facets(query?: string, access?: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus">): Promise<ReferralFacets>;
   get(id: number): Promise<Referral | null>;
   getByPacketId(packetId: string): Promise<Referral | null>;
   changeMetadata(id: number): Promise<ReferralChangeMetadata | null>;
@@ -287,7 +290,7 @@ export async function getReferralStoreRevision() {
 
 export async function listReferralFacets(
   query = "",
-  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames"> = {},
+  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus"> = {},
 ) {
   return getReferralStore().facets(query, access);
 }
@@ -491,12 +494,13 @@ async function getLocalReferralRevision() {
 
 async function listLocalReferralFacets(
   query = "",
-  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames"> = {},
+  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus"> = {},
 ): Promise<ReferralFacets> {
   await ensureLoaded();
   const queryTokens = normalizedSearchTokens(query);
   const referrals = state.referrals.filter(
     (referral) => matchesSearchTokens(searchableReferralText(referral), queryTokens)
+      && matchesWorkspaceStatus(referral, access.workspaceStatus)
       && matchesAssignmentScope(referral, access),
   );
   return buildReferralFacets(referrals);
@@ -714,6 +718,13 @@ type ReferralRow = {
   updated_at: Date | string;
   total_count?: number | string;
   cursor_time?: string;
+  workspace_origin?: Referral["workspaceOrigin"];
+  workspace_status?: Referral["workspaceStatus"];
+  source_workspace_id?: string | null;
+  source_workspace_name?: string | null;
+  source_project_id?: string | null;
+  source_project_name?: string | null;
+  source_material_count?: number | string;
 };
 
 type ReferralFileRow = {
@@ -749,6 +760,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const tag = options.tag?.trim() || null;
   const month = options.month?.trim() || null;
   const activeOnly = options.activeOnly === true;
+  const workspaceStatus = options.workspaceStatus ?? "active";
   const queue = options.queue ?? null;
   const cursor = decodeKeysetCursor(options.cursor);
   const cursorId = cursor ? Number.parseInt(cursor.key, 10) : null;
@@ -777,6 +789,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
         and (${tag}::text is null or ${tag} = any(r.tags))
         and (${month}::text is null or to_char(r.created_at at time zone 'UTC', 'YYYY-MM') = ${month})
         and (${activeOnly} = false or r.closed_at is null)
+        and (${workspaceStatus} = 'all' or r.workspace_status = ${workspaceStatus})
         and (
           ${queue}::text is null
           or (${queue} = 'unassigned' and lower(coalesce(nullif(trim(r.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending'))
@@ -811,16 +824,18 @@ type FacetRow = { value: string; count: number | string };
 
 async function listPostgresReferralFacets(
   query = "",
-  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames"> = {},
+  access: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus"> = {},
 ): Promise<ReferralFacets> {
   const sql = getPipelineSql();
   const queryTokens = normalizedSearchTokens(query);
   const assignedOwnerId = access.assignedOwnerId?.trim() || null;
   const assignedOwnerNames = access.assignedOwnerNames ?? [];
+  const workspaceStatus = access.workspaceStatus ?? "active";
   const searchClause = sql`(${queryTokens.length === 0} or not exists (
     select 1 from unnest(${queryTokens}::text[]) as search_term(value)
     where r.search_text not ilike ('%' || search_term.value || '%')
-  )) and (${assignedOwnerId}::text is null or r.owner_id = ${assignedOwnerId}
+  )) and (${workspaceStatus} = 'all' or r.workspace_status = ${workspaceStatus})
+  and (${assignedOwnerId}::text is null or r.owner_id = ${assignedOwnerId}
     or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${assignedOwnerNames}::text[])))`;
   const [communities, stages, owners, priorities, tags, months] = await Promise.all([
     sql<FacetRow[]>`
@@ -1524,6 +1539,13 @@ function mapReferralRow(row: ReferralRow): Referral {
     ...data,
     id: Number(row.referral_id),
     clientId: row.external_client_id ?? undefined,
+    workspaceOrigin: row.workspace_origin ?? data.workspaceOrigin ?? "pipeline",
+    workspaceStatus: row.workspace_status ?? data.workspaceStatus ?? "active",
+    sourceWorkspaceId: row.source_workspace_id ?? data.sourceWorkspaceId ?? undefined,
+    sourceWorkspaceName: row.source_workspace_name ?? data.sourceWorkspaceName ?? undefined,
+    sourceProjectId: row.source_project_id ?? data.sourceProjectId ?? undefined,
+    sourceProjectName: row.source_project_name ?? data.sourceProjectName ?? undefined,
+    sourceMaterialCount: Number(row.source_material_count ?? data.sourceMaterialCount ?? 0),
     version: Number(row.version),
     sectionVersions: normalizeReferralSectionVersions(row.section_versions ?? data.sectionVersions),
     updatedBy: {
@@ -1694,6 +1716,11 @@ function normalizeReferral(input: Referral): Referral {
     ...input,
     id: Number(input.id),
     clientId: normalizeClientId(input.clientId) || buildLocalClientId(Number(input.id)),
+    workspaceOrigin: input.workspaceOrigin ?? "pipeline",
+    workspaceStatus: input.workspaceStatus ?? "active",
+    sourceMaterialCount: Number.isSafeInteger(input.sourceMaterialCount) && Number(input.sourceMaterialCount) >= 0
+      ? Number(input.sourceMaterialCount)
+      : 0,
     version: Number.isInteger(input.version) && input.version && input.version > 0
       ? input.version
       : 1,
@@ -1734,6 +1761,7 @@ function isReferralRecord(value: unknown): value is Referral {
 }
 
 function matchesReferralFilters(referral: Referral, options: ReferralListOptions) {
+  if (!matchesWorkspaceStatus(referral, options.workspaceStatus)) return false;
   if (options.stage && referral.stage !== options.stage) return false;
   if (options.community && referral.community !== options.community) return false;
   if (options.owner && normalizeOwnerName(referral.owner) !== normalizeOwnerName(options.owner)) return false;
@@ -1744,6 +1772,11 @@ function matchesReferralFilters(referral: Referral, options: ReferralListOptions
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
   if (!matchesAssignmentScope(referral, options)) return false;
   return true;
+}
+
+function matchesWorkspaceStatus(referral: Referral, requested: ReferralListOptions["workspaceStatus"]) {
+  const workspaceStatus = requested ?? "active";
+  return workspaceStatus === "all" || (referral.workspaceStatus ?? "active") === workspaceStatus;
 }
 
 function matchesAssignmentScope(

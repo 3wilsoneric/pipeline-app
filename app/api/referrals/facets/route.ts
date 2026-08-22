@@ -13,9 +13,16 @@ export async function GET(request: Request) {
     const store = requireReferralStore();
     if (!store.ok) return store.response;
 
-    const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
+    const searchParams = new URL(request.url).searchParams;
+    const query = searchParams.get("q")?.trim() ?? "";
+    const workspace = searchParams.get("workspace")?.trim() || "active";
     if (query.length > 200) return jsonError("q must be 200 characters or fewer.");
-    const access = scopeReferralListOptions(auth.user, {});
+    if (!new Set(["active", "historical", "archived", "all"]).has(workspace)) {
+      return jsonError("workspace is invalid.");
+    }
+    const access = scopeReferralListOptions(auth.user, {
+      workspaceStatus: workspace as "active" | "historical" | "archived" | "all",
+    });
     const facets = await listReferralFacets(query, access);
 
     return Response.json({ facets }, {

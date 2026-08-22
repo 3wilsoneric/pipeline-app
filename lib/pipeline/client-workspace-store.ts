@@ -269,7 +269,11 @@ async function loadAllVisibleReferrals(user: PipelineUser) {
   const referrals: Referral[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < 500; page += 1) {
-    const result = await listReferrals(scopeReferralListOptions(user, { limit: 200, cursor }));
+    const result = await listReferrals(scopeReferralListOptions(user, {
+      limit: 200,
+      cursor,
+      workspaceStatus: "all",
+    }));
     referrals.push(...result.referrals);
     cursor = result.next_cursor ?? undefined;
     if (!cursor) return referrals;

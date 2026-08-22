@@ -62,37 +62,61 @@ export default function ReferralWorklist({
               </span>
 
               <span className="min-w-0 pr-4">
-                <span className="flex items-start gap-2 text-[11px] font-black text-[#111111]">
-                  {progress.blockers.length > 0 ? <CircleAlert size={13} className="mt-0.5 shrink-0 text-[#b07b21]" /> : null}
-                  <span className="truncate">{progress.next_action || "No blocking action"}</span>
-                </span>
-                <span className="mt-1 block text-[9px] text-[#737373]">
-                  {progress.blockers.length} blocker{progress.blockers.length === 1 ? "" : "s"}
-                </span>
+                {referral.workspaceStatus === "historical" ? (
+                  <>
+                    <span className="block truncate text-[11px] font-black text-[#111111]">Historical Allo workspace</span>
+                    <span className="mt-1 block truncate text-[9px] text-[#737373]">{referral.sourceProjectName || "Imported client materials"}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex items-start gap-2 text-[11px] font-black text-[#111111]">
+                      {progress.blockers.length > 0 ? <CircleAlert size={13} className="mt-0.5 shrink-0 text-[#b07b21]" /> : null}
+                      <span className="truncate">{progress.next_action || "No blocking action"}</span>
+                    </span>
+                    <span className="mt-1 block text-[9px] text-[#737373]">
+                      {progress.blockers.length} blocker{progress.blockers.length === 1 ? "" : "s"}
+                    </span>
+                  </>
+                )}
               </span>
 
               <span>
-                <span className={stageClass(referral.stage)}>{getStageLabel(referral.stage)}</span>
+                <span className={referral.workspaceStatus === "historical" ? historicalClass : stageClass(referral.stage)}>
+                  {referral.workspaceStatus === "historical" ? "Historical" : getStageLabel(referral.stage)}
+                </span>
                 {referral.priority !== "standard" ? (
                   <span className="mt-1 block text-[9px] font-black uppercase text-[#a04436]">{referral.priority}</span>
                 ) : null}
               </span>
 
               <span className="pr-5">
-                <span className="flex items-center justify-between gap-2 text-[10px]">
-                  <span className="font-black text-[#111111]">{progress.overall.percent}%</span>
-                  <span className="text-[#737373]">{progress.overall.complete}/{progress.overall.total}</span>
-                </span>
-                <span className="mt-1.5 block h-1.5 bg-[#e5e9e6]">
-                  <span className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
-                </span>
-                {extractedTotal > 0 ? (
-                  <span className="mt-1 block text-[9px] text-[#737373]">{extractedReviewed}/{extractedTotal} extracted values reviewed</span>
-                ) : null}
+                {referral.workspaceStatus === "historical" ? (
+                  <>
+                    <span className="block text-[12px] font-black text-[#111111]">{referral.sourceMaterialCount ?? 0}</span>
+                    <span className="mt-1 block text-[9px] text-[#737373]">material{referral.sourceMaterialCount === 1 ? "" : "s"}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex items-center justify-between gap-2 text-[10px]">
+                      <span className="font-black text-[#111111]">{progress.overall.percent}%</span>
+                      <span className="text-[#737373]">{progress.overall.complete}/{progress.overall.total}</span>
+                    </span>
+                    <span className="mt-1.5 block h-1.5 bg-[#e5e9e6]">
+                      <span className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
+                    </span>
+                    {extractedTotal > 0 ? (
+                      <span className="mt-1 block text-[9px] text-[#737373]">{extractedReviewed}/{extractedTotal} extracted values reviewed</span>
+                    ) : null}
+                  </>
+                )}
               </span>
 
               <span className="truncate text-[10px] font-semibold text-[#404040]">{normalizeOwnerName(referral.owner)}</span>
-              <span className="text-[10px] text-[#737373]">{ageLabel(referral.updatedAt ?? referral.createdAt)}</span>
+              <span className="text-[10px] text-[#737373]">
+                {referral.workspaceStatus === "historical"
+                  ? monthYearLabel(referral.createdAt)
+                  : ageLabel(referral.updatedAt ?? referral.createdAt)}
+              </span>
               <span className="flex h-8 w-8 items-center justify-center text-[#0f8b73]"><ArrowRight size={15} /></span>
             </button>
           ))}
@@ -101,6 +125,8 @@ export default function ReferralWorklist({
     </div>
   );
 }
+
+const historicalClass = "inline-flex max-w-[140px] truncate border border-[#c6cbc8] bg-[#f5f6f5] px-2 py-1 text-[9px] font-black uppercase text-[#4f5854]";
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -125,4 +151,10 @@ function ageLabel(value: string) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+function monthYearLabel(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Imported";
+  return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 }

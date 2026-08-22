@@ -1,0 +1,9 @@
+ARG PIPELINE_RUNTIME_IMAGE
+FROM ${PIPELINE_RUNTIME_IMAGE}
+
+COPY --chown=nextjs:nodejs scripts/audit-material-workspaces.mjs /app/scripts/audit-material-workspaces.mjs
+COPY --chown=nextjs:nodejs scripts/allo-workspace-import-common.mjs /app/scripts/allo-workspace-import-common.mjs
+COPY --chown=nextjs:nodejs scripts/import-allo-material-workspaces.mjs /app/scripts/import-allo-material-workspaces.mjs
+COPY --chown=nextjs:nodejs database/migrations/0011_historical_material_workspaces.sql /app/database/migrations/0011_historical_material_workspaces.sql
+COPY --chown=nextjs:nodejs database/rollbacks/0011_historical_material_workspaces.sql /app/database/rollbacks/0011_historical_material_workspaces.sql
+COPY --chown=nextjs:nodejs database/migration-checksums.json /app/database/migration-checksums.json

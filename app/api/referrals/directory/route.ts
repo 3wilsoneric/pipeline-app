@@ -28,7 +28,9 @@ export async function GET(request: Request) {
       ? { ...query.value, queue: undefined, activeOnly: true }
       : query.value;
     const options = scopeReferralListOptions(auth.user, requestedOptions);
-    const facetAccess = scopeReferralListOptions(auth.user, {});
+    const facetAccess = scopeReferralListOptions(auth.user, {
+      workspaceStatus: query.value.workspaceStatus,
+    });
 
     const [result, facets, files] = await Promise.all([
       listReferrals(options),
