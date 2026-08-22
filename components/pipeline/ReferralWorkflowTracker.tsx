@@ -47,14 +47,14 @@ export default function ReferralWorkflowTracker({
             aria-label={`${lane.label} referral workspaces`}
             className="min-w-0 bg-[#fafafa]"
           >
-            <header className={`flex min-h-12 items-center justify-between border-t-[3px] bg-white px-3 ${laneBorderClass(lane.key)}`}>
+            <div className={`flex min-h-12 items-center justify-between border-t-[3px] bg-white px-3 ${laneBorderClass(lane.key)}`}>
               <h3 className={`text-[11px] font-black uppercase tracking-[0.1em] ${laneTextClass(lane.key)}`}>
                 {lane.label}
               </h3>
               <span className="min-w-6 text-right text-[11px] font-black tabular-nums text-[#595959]">
                 {lane.rows.length}
               </span>
-            </header>
+            </div>
 
             {lane.rows.length > 0 ? (
               <div className="space-y-2 border-t border-[#e2e2e2] p-2.5">
