@@ -26,6 +26,7 @@ const privateOutput = absoluteArgument("--private-output");
 const privateLog = absoluteArgument("--private-log");
 const privateFileList = absoluteArgument("--private-file-list");
 const scannerWorkers = integerArgument("--workers", 1, 1, 8);
+const scannerMaxTimeMs = integerArgument("--max-scantime-ms", 600_000, 120_000, 1_800_000);
 const dryRun = args.has("--dry-run");
 if (!dryRun && args.get("--confirm") !== scanConfirmation) {
   fail(`Refusing to scan without --confirm=${scanConfirmation}.`);
@@ -63,10 +64,19 @@ const totalBytes = files.reduce((sum, file) => sum + file.byteSize, 0);
 if (files.length !== cloudManifest.available_file_count) fail("The cloud material count does not match the protected sources.");
 
 if (dryRun) {
-  print({ ok: true, mode: "plan", file_count: files.length, total_bytes: totalBytes, changes_made: false });
+  print({
+    ok: true,
+    mode: "plan",
+    file_count: files.length,
+    total_bytes: totalBytes,
+    scanner_workers: scannerWorkers,
+    scanner_max_time_ms: scannerMaxTimeMs,
+    changes_made: false,
+  });
   process.exit(0);
 }
 
+await rm(privateOutput, { force: true });
 await ensureScannerDatabase(databasePath);
 const sourceStates = new Map();
 let verified = 0;
@@ -85,7 +95,14 @@ await runBounded(files, 3, async (file) => {
 
 await writeProtected(privateLog, "");
 const scannerVersion = await readScannerVersion(databasePath);
-const scanCode = await runScanners(databasePath, files, privateFileList, privateLog, scannerWorkers);
+const scanCode = await runScanners(
+  databasePath,
+  files,
+  privateFileList,
+  privateLog,
+  scannerWorkers,
+  scannerMaxTimeMs,
+);
 if (scanCode !== 0) {
   fail(scanCode === 1
     ? "The safety scan blocked one or more materials. Details remain only in the protected scan log."
@@ -107,6 +124,7 @@ const sealed = {
     scanner: "ClamAV",
     scanner_version: scannerVersion,
     scanner_workers: scannerWorkers,
+    scanner_max_time_ms: scannerMaxTimeMs,
     scanned_at: new Date().toISOString(),
     base_manifest_sha256: sha256(manifestBytes(cloudManifest)),
     local_manifest_sha256: sha256(localBytes),
@@ -140,7 +158,7 @@ async function readScannerVersion(database) {
   return version;
 }
 
-async function runScanners(database, sourceFiles, fileListPath, logPath, workerCount) {
+async function runScanners(database, sourceFiles, fileListPath, logPath, workerCount, maxScanTimeMs) {
   const partitions = partitionByBytes(sourceFiles, Math.min(workerCount, sourceFiles.length));
   const artifacts = partitions.map((partition, index) => ({
     files: partition,
@@ -152,7 +170,9 @@ async function runScanners(database, sourceFiles, fileListPath, logPath, workerC
       await writeProtected(artifact.fileList, `${artifact.files.map((file) => file.path).join("\n")}\n`);
       await writeProtected(artifact.log, "");
     }));
-    const results = await Promise.all(artifacts.map((artifact) => runScanner(database, artifact.fileList, artifact.log)));
+    const results = await Promise.all(
+      artifacts.map((artifact) => runScanner(database, artifact.fileList, artifact.log, maxScanTimeMs)),
+    );
     const protectedOutput = [];
     for (const artifact of artifacts) protectedOutput.push(await readFile(artifact.log));
     await writeProtected(logPath, Buffer.concat(protectedOutput));
@@ -162,7 +182,7 @@ async function runScanners(database, sourceFiles, fileListPath, logPath, workerC
   }
 }
 
-async function runScanner(database, fileList, logPath) {
+async function runScanner(database, fileList, logPath, maxScanTimeMs) {
   const log = await open(logPath, "a", 0o600);
   try {
     const result = await runProcess("clamscan", [
@@ -172,6 +192,7 @@ async function runScanner(database, fileList, logPath) {
       "--no-summary",
       "--alert-exceeds-max=yes",
       "--fail-if-cvd-older-than=7",
+      `--max-scantime=${maxScanTimeMs}`,
       "--max-filesize=500M",
       "--max-scansize=2G",
       "--max-files=100000",
