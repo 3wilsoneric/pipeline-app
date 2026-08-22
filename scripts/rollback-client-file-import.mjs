@@ -170,7 +170,7 @@ async function prepareRollback(client, manifestHash, batchId, plan) {
     await tx`
       update pipeline.documents d
       set deleted_at = coalesce(d.deleted_at, now()), processing_status = 'failed',
-          failure_code = 'pilot_batch_rollback', version = version + 1, updated_at = now()
+          failure_code = 'pilot_batch_rollback', version = d.version + 1, updated_at = now()
       from pipeline.client_file_import_items i
       where i.import_batch_id = ${batchId}::uuid and i.imported_document_id = d.document_id
         and d.deleted_at is null

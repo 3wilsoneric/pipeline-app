@@ -58,6 +58,7 @@ check("historical reconciliation covers every disposition", ["present", "metadat
 check("client-file rollback is dry-run first and doubly confirmed", rollbackTool.includes("ROLLBACK-CONFIRMED-CLIENT-FILE-BATCH") && rollbackTool.includes("PIPELINE_CLIENT_FILE_ROLLBACK_ENABLED"));
 check("client-file rollback refuses documents already used as evidence", rollbackTool.includes("downstream_references_present") && rollbackTool.includes("referral_fields") && rollbackTool.includes("work_items"));
 check("client-file rollback is retryable across database and Blob phases", rollbackTool.includes("prepareRollback") && rollbackTool.includes("deleteBlobTargets") && rollbackTool.includes("finalizeRollback"));
+check("client-file rollback qualifies joined document versions", rollbackTool.includes("version = d.version + 1"));
 check("document requirements have one category mapping", documentRequirements.includes("categoryByRequirement") && documentRequirements.includes("requirementByCategory"));
 check("upload completion reconciles checklist evidence server-side", uploadCompleteRoute.includes("reconcileUploadedDocumentRequirements") && documentReconciliation.includes("patchReferralWorkItem"));
 check("checklist reconciliation preserves reviewed evidence", documentReconciliation.includes('["reviewed", "waived"].includes(requirement.status)') && documentReconciliation.includes("requirement.evidenceDocumentId"));
