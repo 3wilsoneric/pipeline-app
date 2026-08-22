@@ -62,6 +62,7 @@ const connection = await sql.reserve();
 let batchId = null;
 let failure = false;
 let failureDiagnostic = null;
+let processingWorkspaceOrdinal = 0;
 try {
   await connection`select pg_advisory_lock(hashtextextended('pipeline_allo_workspace_import', 0))`;
   const migrations = await connection`
@@ -92,6 +93,7 @@ try {
 
   let processed = 0;
   for (const workspace of manifest.workspaces) {
+    processingWorkspaceOrdinal = processed + 1;
     await connection.begin(async (tx) => processWorkspace(tx, workspace, batchId, members, queuePreviews, cleanScan));
     processed += 1;
     if (processed % 100 === 0) print({ progress: true, completed_workspaces: processed, total_workspaces: manifest.workspace_count });
@@ -127,7 +129,7 @@ try {
   });
 } catch (error) {
   failure = true;
-  failureDiagnostic = safeImportDiagnostic(error);
+  failureDiagnostic = safeImportDiagnostic(error, processingWorkspaceOrdinal);
   if (batchId) {
     await connection`
       update pipeline.workspace_import_batches set status = 'failed', updated_at = now()
@@ -381,9 +383,21 @@ function normalizeName(value) {
     .toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function safeImportDiagnostic(error) {
-  const result = { category: "unclassified" };
+function safeImportDiagnostic(error, workspaceOrdinal) {
+  const result = {
+    category: "unclassified",
+    ...(Number.isSafeInteger(workspaceOrdinal) && workspaceOrdinal > 0 ? { workspace_ordinal: workspaceOrdinal } : {}),
+  };
   if (!error || typeof error !== "object") return result;
+  const allowedTypes = new Set(["Error", "TypeError", "RangeError", "SyntaxError"]);
+  if (error instanceof Error && allowedTypes.has(error.name)) result.error_type = error.name;
+  if (error instanceof Error) {
+    const sourceFrame = /import-allo-material-workspaces\.mjs:(\d+):(\d+)/.exec(error.stack ?? "");
+    if (sourceFrame) {
+      result.source_line = Number(sourceFrame[1]);
+      result.source_column = Number(sourceFrame[2]);
+    }
+  }
   const code = "code" in error ? String(error.code ?? "") : "";
   if (/^[0-9A-Z]{5}$/.test(code)) {
     result.category = "database";
