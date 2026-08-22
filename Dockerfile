@@ -32,7 +32,7 @@ function includePackage(name) {
 
 for (const root of roots) includePackage(root);
 for (const name of packages) {
-  const destination = join("/runtime-ops-node_modules", name);
+  const destination = join("/app/runtime-ops-node_modules", name);
   mkdirSync(dirname(destination), { recursive: true });
   cpSync(join("/app/node_modules", name), destination, { recursive: true });
 }
@@ -83,7 +83,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/database ./database
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
-COPY --from=dependencies --chown=nextjs:nodejs /runtime-ops-node_modules ./node_modules
+COPY --from=dependencies --chown=nextjs:nodejs /app/runtime-ops-node_modules ./node_modules
 
 USER nextjs
 EXPOSE 3000
