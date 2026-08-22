@@ -1602,7 +1602,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
                       : "border-transparent text-[#737373] hover:text-[#0f8b73]"
                   }`}
                 >
-                  <span className={`text-[9px] ${activePage === page ? "text-[#0f8b73]" : "text-[#a0a0a0]"}`}>0{page}</span>
+                  <span className={`text-[9px] ${activePage === page ? "text-[#0c705f]" : "text-[#595959]"}`}>0{page}</span>
                   <span className="whitespace-nowrap">{label}</span>
                 </button>
               ))}

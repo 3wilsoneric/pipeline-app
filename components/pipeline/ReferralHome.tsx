@@ -429,7 +429,7 @@ export default function ReferralHome({
       <span className="hidden shrink-0 text-[10px] text-[#737373] md:inline">{resultCountLabel}</span>
       {filter.kind === "workflow" || filter.kind === "work" ? (
         <>
-          {filter.kind === "workflow" && refreshLabel ? <span className="hidden shrink-0 text-[9px] text-[#8a8a8a] xl:inline">{refreshLabel}</span> : null}
+          {filter.kind === "workflow" && refreshLabel ? <span className="hidden shrink-0 text-[9px] text-[#595959] xl:inline">{refreshLabel}</span> : null}
           <button
             type="button"
             aria-label={filter.kind === "workflow" ? "Refresh referral workflow" : "Refresh referral worklist"}

@@ -47,7 +47,7 @@ param minimumReplicas int = environment == 'prod' ? 1 : 0
 param maximumReplicas int = environment == 'prod' ? 3 : 1
 
 @description('Run the daily approved retention policy for expired trash and document records.')
-param enableRetentionJob bool = true
+param enableRetentionJob bool = false
 
 @description('Create the privileged one-time database bootstrap job. Enable only for the first deployment, then remove it and its administrator secret.')
 param initialDatabaseBootstrap bool = false

@@ -26,7 +26,7 @@ const checks = [
   ["internal retention includes expired referrals", retentionRoute.includes("purgeExpiredReferrals(100, dryRun)")],
   ["retention only counts a referral removed after a guarded delete", referralRetention.includes("and delete_after <= now()") && referralRetention.includes("if (removed) deleted += 1")],
   ["retention policy documents the 30-day recovery window", retentionPolicy.includes("30 days") && retentionPolicy.includes("permanently")],
-  ["Azure retention schedule is enabled by default", runtime.includes("param enableRetentionJob bool = true")],
+  ["Azure retention schedule requires explicit deployment approval", runtime.includes("param enableRetentionJob bool = false")],
   ["deployment keeps retention enabled by default", deployment.includes("enable_retention_job:") && deployment.includes("default: true")],
 ].map(([name, ok]) => ({ name, ok: Boolean(ok) }));
 const failed = checks.filter((check) => !check.ok);

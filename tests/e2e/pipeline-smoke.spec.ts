@@ -149,7 +149,7 @@ test.describe("Referral home and packet canvas", () => {
     await workspaceSearch.fill("San Pablo");
     const searchRequest = await searchedDirectory;
     expect(new URL(searchRequest.url()).searchParams.get("workspace")).toBe("all");
-    await expect(page.getByRole("heading", { name: "All workspaces", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "All workspaces", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Clear workspace search" }).click();
     await expect(workspaceSearch).toHaveValue("");
 
@@ -235,7 +235,10 @@ test.describe("Referral home and packet canvas", () => {
     const [stepsBox, saveBox] = await Promise.all([steps.boundingBox(), savePacket.boundingBox()]);
     expect(stepsBox).not.toBeNull();
     expect(saveBox).not.toBeNull();
-    expect(Math.abs((stepsBox?.y ?? 0) - (saveBox?.y ?? 0))).toBeLessThan(1);
+    expect(Math.abs(
+      ((stepsBox?.y ?? 0) + (stepsBox?.height ?? 0) / 2)
+      - ((saveBox?.y ?? 0) + (saveBox?.height ?? 0) / 2),
+    )).toBeLessThan(1);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect.poll(async () => (await page.getByRole("button", { name: "Open referrals" }).boundingBox())?.width ?? 0).toBeGreaterThan(100);
@@ -323,7 +326,10 @@ test.describe("Referral home and packet canvas", () => {
       savePacket.boundingBox(),
       firstPacketPage.boundingBox(),
     ]);
-    expect(Math.abs((stepsBox?.y ?? 0) - (saveBox?.y ?? 0))).toBeLessThan(1);
+    expect(Math.abs(
+      ((stepsBox?.y ?? 0) + (stepsBox?.height ?? 0) / 2)
+      - ((saveBox?.y ?? 0) + (saveBox?.height ?? 0) / 2),
+    )).toBeLessThan(1);
 
     await page.getByRole("button", { name: "2 Required files" }).click();
     const secondPageBox = await page.getByRole("region", { name: "Required files" }).boundingBox();
@@ -444,7 +450,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "June 2026", exact: true })).toHaveCount(0);
 
     await page.getByRole("button", { name: /^All files/ }).click();
-    await expect(page.getByRole("heading", { name: "All files", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Filter files by category")).toBeVisible();
   });
 
   test("keeps file-preview controls above the application header", async ({ page }) => {
@@ -816,7 +822,7 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.goto("/?view=referrals");
     await page.getByText(name, { exact: true }).first().click();
-    await expect(page.getByText("Workspace loaded", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("packet-workspace")).toBeVisible();
     await expect(page.getByRole("button", { name: "Open referrals" })).toHaveAttribute("data-active", "true");
     await expect(page.getByRole("button", { name: "Create new referral" })).not.toHaveAttribute("data-active", "true");
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
@@ -930,6 +936,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "Open client profile", exact: true })).toHaveCount(0);
     const extractionReview = page.getByRole("region", { name: "Extraction review" });
     await expect(extractionReview).toBeVisible();
+    await extractionReview.getByRole("button", { name: "Review fields", exact: true }).click();
     await expect(extractionReview.locator('[aria-label="Packet ingestion progress"]')).toBeVisible();
     await expect(extractionReview.getByText("Original saved", { exact: true })).toBeVisible();
     await expect(extractionReview.getByText(/values found$/)).toBeVisible();
@@ -1116,6 +1123,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible({ timeout: 120_000 });
     const extractionReview = page.getByRole("region", { name: "Extraction review" });
     await expect(extractionReview).toBeVisible();
+    await extractionReview.getByRole("button", { name: "Review fields", exact: true }).click();
     await expect(extractionReview.getByText(clientName, { exact: true })).toBeVisible();
     await expect(extractionReview.getByText("1980-01-15", { exact: true })).toBeVisible();
     await expect(extractionReview.getByText("North County Behavioral Health", { exact: true })).toBeVisible();
@@ -1198,7 +1206,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Save the referral before starting the assessment", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "5 Review" }).click();
-    await expect(page.getByText("What has been collected for this referral.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Review" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Unnamed client", exact: true })).toBeVisible();
     await expect(page.getByText("Not entered", { exact: true }).first()).toBeVisible();
     await page.getByRole("button", { name: /Client name Not entered/ }).click();
@@ -1226,6 +1234,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "Start assessment" })).toHaveCount(0);
     await page.getByRole("button", { name: "Review intake" }).click();
     await expect(page.getByRole("button", { name: "1 Chart" })).toHaveAttribute("aria-current", "page");
+    await packetReview.getByRole("button", { name: "Review fields", exact: true }).click();
     await packetReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ }).click();
     await packetReview.getByRole("button", { name: "Confirm values", exact: true }).click();
     const remainingConfirmations = packetReview.getByRole("button", { name: "Confirm", exact: true });
