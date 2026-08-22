@@ -94,7 +94,10 @@ try {
   let processed = 0;
   for (const workspace of manifest.workspaces) {
     processingWorkspaceOrdinal = processed + 1;
-    await connection.begin(async (tx) => processWorkspace(tx, workspace, batchId, members, queuePreviews, cleanScan));
+    await runTransaction(
+      connection,
+      (tx) => processWorkspace(tx, workspace, batchId, members, queuePreviews, cleanScan),
+    );
     processed += 1;
     if (processed % 100 === 0) print({ progress: true, completed_workspaces: processed, total_workspaces: manifest.workspace_count });
   }
@@ -330,6 +333,18 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
         ${tx.json({ source_system: "allo", material_count: workspace.material_count })}
       )
     `;
+  }
+}
+
+async function runTransaction(connection, operation) {
+  await connection`begin`;
+  try {
+    const result = await operation(connection);
+    await connection`commit`;
+    return result;
+  } catch (error) {
+    await connection`rollback`.catch(() => undefined);
+    throw error;
   }
 }
 
