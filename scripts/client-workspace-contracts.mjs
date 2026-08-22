@@ -29,6 +29,7 @@ const historicalWorkspaceUpload = read("scripts/upload-allo-workspace-materials.
 const historicalWorkspaceScan = read("scripts/scan-allo-workspace-materials.mjs");
 const historicalWorkspacePublish = read("scripts/publish-allo-workspace-manifest.mjs");
 const historicalWorkspaceImport = read("scripts/import-allo-material-workspaces.mjs");
+const historicalAdmissionBackfill = read("scripts/backfill-allo-admission-evidence.mjs");
 const historicalWorkspaceCommon = read("scripts/allo-workspace-import-common.mjs");
 
 const checks = [];
@@ -74,6 +75,10 @@ check("supporting drop zones upload immediately for saved referrals", referralCa
 check("initial uploads require an explicit document type", referralCanvas.includes('aria-label="Initial document type"') && referralCanvas.includes('"face_sheet" | "referral_packet"'));
 check("every material canvas becomes one idempotent historical workspace", historicalWorkspaceMigration.includes("referrals_source_workspace_unique_idx") && historicalWorkspaceImport.includes("on conflict (workspace_origin, source_workspace_id)"));
 check("historical workspace preparation never guesses an admission outcome", historicalWorkspacePrepare.includes('return "Packet Review"') && historicalWorkspacePrepare.includes('if (/\\b(accepted|admitted)\\b/') && historicalWorkspaceCommon.includes('"Packet Review", "Accepted / Admitted", "Declined"'));
+check("unique client-history admission evidence is preserved without overriding declines", historicalWorkspaceImport.includes("profile?.admit_date") && historicalAdmissionBackfill.includes("unique_profile_match") && historicalAdmissionBackfill.includes("explicit_declines_preserved"));
+check("admission evidence backfill is dry-run first and doubly confirmed", historicalAdmissionBackfill.includes("--dry-run") && historicalAdmissionBackfill.includes("BACKFILL-ALLO-ADMISSION-EVIDENCE"));
+check("admission evidence backfill reads private Blob manifests with managed identity", historicalAdmissionBackfill.includes("--manifest-blob") && historicalAdmissionBackfill.includes("DefaultAzureCredential") && !historicalAdmissionBackfill.includes("AZURE_STORAGE_ACCOUNT_KEY"));
+check("admission evidence backfill emits per-workspace audit history without logging PHI", historicalAdmissionBackfill.includes("client_admission_history_linked") && historicalAdmissionBackfill.includes("No client names, resident identifiers, or database values were logged"));
 check("historical workspace owners resolve to durable workspace members", historicalWorkspaceImport.includes("members.get(normalizeName(workspace.primary_owner))") && historicalWorkspaceImport.includes('ownerName = owner?.display_name ?? "Unassigned"'));
 check("historical material bytes use private deterministic non-name keys", historicalWorkspaceCommon.includes("allo-import/v1/workspaces/${workspaceKey}/${itemKey}/original${extension}") && historicalWorkspaceUpload.includes("sourceSha256"));
 check("historical uploads verify every local byte before publishing the manifest", historicalWorkspaceUpload.includes("metadata.size !== file.source_byte_size") && historicalWorkspaceUpload.indexOf("await runBounded") < historicalWorkspaceUpload.indexOf("manifestBlob.uploadData"));

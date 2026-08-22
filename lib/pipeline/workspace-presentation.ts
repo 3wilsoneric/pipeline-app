@@ -1,23 +1,21 @@
 import type { Referral } from "./referral-types";
 
 export type WorkspaceAdmissionOutcome = {
-  status: "admitted" | "not_admitted" | "pending";
-  label: "Admitted" | "Not admitted" | "Pending";
-  evidence: "recorded" | "inferred" | "open";
+  status: "admitted" | "not_admitted" | "pending" | "unknown";
+  label: "Admitted" | "Not admitted" | "Pending" | "Outcome not recorded";
+  evidence: "recorded" | "client_history" | "open" | "unknown";
   explanation: string;
 };
 
 const hiddenWorkspaceTags = new Set(["historical"]);
 
 export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmissionOutcome {
-  if (referral.admissionDate?.trim() || referral.admissionDecision?.outcome === "accepted" || referral.stage === "Accepted / Admitted") {
+  if (referral.admissionDecision?.outcome === "accepted" || referral.stage === "Accepted / Admitted") {
     return {
       status: "admitted",
       label: "Admitted",
       evidence: "recorded",
-      explanation: referral.admissionDate?.trim()
-        ? "An admission date is recorded for this workspace."
-        : "The workspace has a recorded accepted or admitted outcome.",
+      explanation: "The workspace has a recorded accepted or admitted outcome.",
     };
   }
 
@@ -30,12 +28,21 @@ export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmis
     };
   }
 
+  if (referral.admissionDate?.trim()) {
+    return {
+      status: "admitted",
+      label: "Admitted",
+      evidence: "client_history",
+      explanation: "The linked client has a recorded admission date in the governed client history.",
+    };
+  }
+
   if (referral.workspaceStatus === "historical") {
     return {
-      status: "not_admitted",
-      label: "Not admitted",
-      evidence: "inferred",
-      explanation: "Inferred from a closed imported workspace with no admission record.",
+      status: "unknown",
+      label: "Outcome not recorded",
+      evidence: "unknown",
+      explanation: "The imported workspace has no explicit decision and is not linked to recorded admission history.",
     };
   }
 

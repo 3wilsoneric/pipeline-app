@@ -102,7 +102,13 @@ export default function ReferralWorklist({
               <span title={outcome.explanation}>
                 <span className={outcomeClass(outcome.status)}>{outcome.label}</span>
                 <span className="mt-1 block text-[8px] font-semibold uppercase tracking-[0.06em] text-[#737373]">
-                  {outcome.evidence === "inferred" ? "Inferred" : outcome.evidence === "recorded" ? "Recorded" : "Open"}
+                  {outcome.evidence === "client_history"
+                    ? "Client history"
+                    : outcome.evidence === "recorded"
+                      ? "Recorded"
+                      : outcome.evidence === "unknown"
+                        ? "Unknown"
+                        : "Open"}
                 </span>
               </span>
 
@@ -150,10 +156,11 @@ function getInitials(name: string) {
   return `${parts[0][0]}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
 }
 
-function outcomeClass(status: "admitted" | "not_admitted" | "pending") {
+function outcomeClass(status: "admitted" | "not_admitted" | "pending" | "unknown") {
   const shared = "inline-flex border px-2 py-1 text-[9px] font-black uppercase";
   if (status === "admitted") return `${shared} border-[#8fc7b7] bg-[#effaf5] text-[#0f705d]`;
   if (status === "not_admitted") return `${shared} border-[#d8aaa4] bg-[#fff3f1] text-[#8c392f]`;
+  if (status === "unknown") return `${shared} border-[#d9d9d9] bg-[#f7f7f7] text-[#595959]`;
   return `${shared} border-[#d8c58c] bg-[#fff9e8] text-[#745315]`;
 }
 

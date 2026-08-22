@@ -155,6 +155,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
   const profile = workspace.profile_candidates?.length === 1 ? workspace.profile_candidates[0] : null;
   const externalClientId = profileExternalId(profile, workspace.source_workspace_id);
   const dateOfBirth = sqlDate(profile?.date_of_birth);
+  const admissionDate = sqlDate(profile?.admit_date);
   const receivedDate = sqlDate(workspace.first_material_at);
   const owner = workspace.primary_owner ? members.get(normalizeName(workspace.primary_owner)) : null;
   const ownerName = owner?.display_name ?? "Unassigned";
@@ -185,6 +186,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
     note: `Imported workspace with ${workspace.material_count} material${workspace.material_count === 1 ? "" : "s"}.`,
     createdAt: workspace.first_material_at ?? new Date().toISOString(),
     dob: dateOfBirth ?? "",
+    admissionDate: admissionDate ?? "",
     phone: "",
     email: "",
     payer: "",

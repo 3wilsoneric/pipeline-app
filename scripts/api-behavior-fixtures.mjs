@@ -17,6 +17,7 @@ const residentLinkValidation = loadTypeScriptModule(root, "lib/pipeline/resident
 const referralAccess = loadTypeScriptModule(root, "lib/pipeline/referral-access.ts");
 const requestSecurity = loadRequestSecurityModule({});
 const workspaceStateTypes = loadTypeScriptModule(root, "lib/pipeline/user-workspace-state-types.ts");
+const workspacePresentation = loadTypeScriptModule(root, "lib/pipeline/workspace-presentation.ts");
 
 const results = [
   run("create upload rejects missing body", () => {
@@ -212,6 +213,24 @@ const results = [
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ stage: "Anything" })), "stage is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ workspace: "anything" })), "workspace is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ sort: "anything" })), "sort is invalid.");
+  }),
+  run("workspace outcomes use client admission history without inventing declines", () => {
+    const base = {
+      stage: "Packet Review",
+      workspaceStatus: "historical",
+      admissionDate: "",
+    };
+    const unknown = workspacePresentation.getWorkspaceAdmissionOutcome(base);
+    assert(unknown.status === "unknown", "Imported workspaces without evidence must stay unknown");
+    const admitted = workspacePresentation.getWorkspaceAdmissionOutcome({ ...base, admissionDate: "2024-01-15" });
+    assert(admitted.status === "admitted", "Recorded client admission history must count as admitted");
+    assert(admitted.evidence === "client_history", "Admission history evidence must remain explicit");
+    const declined = workspacePresentation.getWorkspaceAdmissionOutcome({
+      ...base,
+      stage: "Declined",
+      admissionDate: "2024-01-15",
+    });
+    assert(declined.status === "not_admitted", "An explicit workspace decline must outrank prior client history");
   }),
   ...authBehaviorResults(),
   ...backendBehaviorResults(),
