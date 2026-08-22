@@ -177,6 +177,7 @@ interface ReferralStore {
   list(options?: ReferralListOptions): Promise<ReferralListResult>;
   facets(query?: string, access?: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus">): Promise<ReferralFacets>;
   get(id: number): Promise<Referral | null>;
+  getDeleted(id: number): Promise<Referral | null>;
   getByPacketId(packetId: string): Promise<Referral | null>;
   changeMetadata(id: number): Promise<ReferralChangeMetadata | null>;
   listByClient(clientId: string): Promise<Referral[]>;
@@ -262,6 +263,7 @@ const localReferralStore: ReferralStore = {
   list: listLocalReferrals,
   facets: listLocalReferralFacets,
   get: getLocalReferral,
+  getDeleted: getLocalDeletedReferral,
   getByPacketId: getLocalReferralByPacketId,
   changeMetadata: getLocalReferralChangeMetadata,
   listByClient: listLocalReferralsByClient,
@@ -280,6 +282,7 @@ const postgresReferralStore: ReferralStore = {
   list: listPostgresReferrals,
   facets: listPostgresReferralFacets,
   get: getPostgresReferral,
+  getDeleted: getPostgresDeletedReferral,
   getByPacketId: getPostgresReferralByPacketId,
   changeMetadata: getPostgresReferralChangeMetadata,
   listByClient: listPostgresReferralsByClient,
@@ -317,6 +320,10 @@ export async function listReferralFacets(
 
 export async function getReferral(id: number) {
   return getReferralStore().get(id);
+}
+
+export async function getDeletedReferral(id: number) {
+  return getReferralStore().getDeleted(id);
 }
 
 export async function getReferralByPacketId(packetId: string) {
@@ -549,6 +556,11 @@ async function listLocalReferralFacets(
 async function getLocalReferral(id: number): Promise<Referral | null> {
   await ensureLoaded();
   return state.referrals.find((referral) => referral.id === id && !isDeletedReferral(referral)) ?? null;
+}
+
+async function getLocalDeletedReferral(id: number): Promise<Referral | null> {
+  await ensureLoaded();
+  return state.referrals.find((referral) => referral.id === id && isDeletedReferral(referral)) ?? null;
 }
 
 async function getLocalReferralByPacketId(packetId: string): Promise<Referral | null> {
@@ -1049,6 +1061,18 @@ async function getPostgresReferral(id: number) {
     from pipeline.referrals r
     join pipeline.people p on p.person_id = r.person_id
     where r.referral_id = ${id} and r.deleted_at is null
+    limit 1
+  `;
+  return rows[0] ? mapReferralRow(rows[0]) : null;
+}
+
+async function getPostgresDeletedReferral(id: number) {
+  const sql = getPipelineSql();
+  const rows = await sql<ReferralRow[]>`
+    select r.*, p.external_client_id, p.display_name
+    from pipeline.referrals r
+    join pipeline.people p on p.person_id = r.person_id
+    where r.referral_id = ${id} and r.deleted_at is not null
     limit 1
   `;
   return rows[0] ? mapReferralRow(rows[0]) : null;

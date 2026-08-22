@@ -2,6 +2,7 @@ import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { requireReferralStore, restoreReferral } from "@/lib/pipeline/referral-store";
 
 export const runtime = "nodejs";
@@ -20,6 +21,8 @@ export async function POST(
     const { referralId } = await context.params;
     const id = Number.parseInt(referralId, 10);
     if (!Number.isInteger(id) || id < 1) return jsonError("referralId is invalid.");
+    const access = await requireReferralAccess(auth.user, id, { includeDeleted: true });
+    if (!access.ok) return access.response;
     const body = await readJsonBody<{ if_match?: number }>(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const expectedVersion = body.value?.if_match;

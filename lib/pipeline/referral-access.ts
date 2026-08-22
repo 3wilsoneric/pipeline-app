@@ -3,7 +3,7 @@ import "server-only";
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { readPacketReferralId } from "@/lib/extraction/packet-referral";
 import { isAssignedToUser, normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
-import { getReferral, getReferralByPacketId, type ReferralFileListOptions, type ReferralListOptions } from "@/lib/pipeline/referral-store";
+import { getDeletedReferral, getReferral, getReferralByPacketId, type ReferralFileListOptions, type ReferralListOptions } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 export function isAssessorUser(user: PipelineUser) {
@@ -28,8 +28,14 @@ export function scopeReferralListOptions<T extends ReferralListOptions | Referra
   };
 }
 
-export async function requireReferralAccess(user: PipelineUser, referralId: number) {
-  const referral = await getReferral(referralId);
+export async function requireReferralAccess(
+  user: PipelineUser,
+  referralId: number,
+  options: { includeDeleted?: boolean } = {},
+) {
+  const referral = options.includeDeleted
+    ? await getDeletedReferral(referralId)
+    : await getReferral(referralId);
   if (!referral || !canAccessReferral(user, referral)) {
     return {
       ok: false as const,
