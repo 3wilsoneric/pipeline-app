@@ -812,6 +812,10 @@ function assessmentValidationResults() {
         data: { resident_number: "EM-1001", source_file: "browser-supplied.xlsx" },
       });
       assertInvalid(result, "source_file is supplied by the extraction job.");
+      assertInvalid(
+        assessmentValidation.validateAssessmentCreateRequest({ data: { assessor: "Browser supplied name" } }),
+        "assessor must be assigned from active workspace members.",
+      );
     }),
     run("assessment patch requires optimistic versions and known fields", () => {
       assertInvalid(
@@ -828,8 +832,22 @@ function assessmentValidationResults() {
       );
       assertValid(assessmentValidation.validateAssessmentPatchRequest({
         if_match: 2,
+        assessor_id: "assessor@pipeline.local",
         patch: { data: { resident_number: "EM-1001" }, status: "draft" },
       }));
+      assertInvalid(
+        assessmentValidation.validateAssessmentPatchRequest({
+          section: "identity",
+          if_match_section: 2,
+          assessor_id: "entra-assessor-1",
+          patch: { data: {} },
+        }),
+        "assessor_id cannot be changed in a section save.",
+      );
+      assertInvalid(
+        assessmentValidation.validateAssessmentPatchRequest({ if_match: 2, assessor_id: "bad id", patch: {} }),
+        "assessor_id is invalid.",
+      );
     }),
     run("assessment import forces extracted values into pending review", () => {
       const result = assessmentValidation.validateAssessmentImportRequest({

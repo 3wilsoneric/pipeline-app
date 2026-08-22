@@ -38,6 +38,9 @@ import {
   listResidentLinks,
 } from "@/lib/pipeline/resident-link-store";
 import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records";
+import { getAssessmentCompletionReport } from "@/lib/assessment/assessment-store";
+import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
+import { listWorkspaceMembers } from "@/lib/pipeline/workspace-members";
 import type {
   SupervisorExceptionItem,
   SupervisorExceptionSnapshot,
@@ -45,16 +48,20 @@ import type {
 
 export async function getOperationsSnapshot(user?: PipelineUser): Promise<OperationsSnapshot> {
   const operational = await loadOperationalWork(user);
-  return buildOperationsSnapshot(operational);
+  return buildOperationsSnapshot(operational, null);
 }
 
 export async function getOperationsDashboardSnapshot(
   user: PipelineUser,
   includeSupervisorQueue: boolean,
+  assessmentReportMonth = currentReportMonth(),
 ) {
   const operational = await loadOperationalWork(user);
+  const assessmentReport = includeSupervisorQueue
+    ? await getTeamAssessmentCompletionReport(user, assessmentReportMonth)
+    : null;
   return {
-    snapshot: buildOperationsSnapshot(operational),
+    snapshot: buildOperationsSnapshot(operational, assessmentReport),
     supervisorQueue: includeSupervisorQueue
       ? await buildSupervisorExceptionSnapshot(operational)
       : null,
@@ -63,6 +70,7 @@ export async function getOperationsDashboardSnapshot(
 
 function buildOperationsSnapshot(
   operational: Awaited<ReturnType<typeof loadOperationalWork>>,
+  assessmentReport: AssessmentCompletionReport | null,
 ): OperationsSnapshot {
   const {
     activeWork,
@@ -108,6 +116,7 @@ function buildOperationsSnapshot(
       .sort(compareRequirementWork)
       .slice(0, 20),
     assessors,
+    assessment_report: assessmentReport,
     funnel,
     data_quality: {
       missing_owner: activeWork.filter((item) => item.owner === "Unassigned").length,
@@ -121,6 +130,35 @@ function buildOperationsSnapshot(
       clinicalCheck(clinicalReadiness),
     ],
   };
+}
+
+async function getTeamAssessmentCompletionReport(user: PipelineUser, month: string) {
+  const [report, members] = await Promise.all([
+    getAssessmentCompletionReport(month),
+    listWorkspaceMembers(user),
+  ]);
+  const rows = new Map(report.rows.map((row) => [
+    row.assessor_id ?? `legacy:${row.assessor_name.toLocaleLowerCase()}`,
+    row,
+  ]));
+  for (const member of members) {
+    if (!member.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role))) continue;
+    if (!rows.has(member.principal_id)) {
+      rows.set(member.principal_id, {
+        assessor_id: member.principal_id,
+        assessor_name: member.display_name,
+        completed_assessments: 0,
+      });
+    }
+  }
+  const mergedRows = [...rows.values()].sort((left, right) =>
+    right.completed_assessments - left.completed_assessments
+      || left.assessor_name.localeCompare(right.assessor_name));
+  return { ...report, rows: mergedRows };
+}
+
+function currentReportMonth() {
+  return new Date().toISOString().slice(0, 7);
 }
 
 export async function getMyQueueSnapshot(user: { id: string; name: string }): Promise<MyQueueSnapshot> {

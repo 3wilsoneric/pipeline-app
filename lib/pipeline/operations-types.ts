@@ -1,6 +1,7 @@
 import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { PipelineCommunity } from "@/lib/pipeline/community-config";
 import type { RequirementType } from "@/lib/pipeline/referral-types";
+import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
 
 export type OperationsWorkItem = {
   referral_id: number;
@@ -173,6 +174,7 @@ export type OperationsSnapshot = {
   work: OperationsWorkItem[];
   requirements: OperationsRequirementItem[];
   assessors: OperationsAssessorLoad[];
+  assessment_report: AssessmentCompletionReport | null;
   funnel: { stage: ReferralStage; label: string; count: number }[];
   data_quality: {
     missing_owner: number;

@@ -46,10 +46,11 @@ export default function ClientAssessmentSummary({
 
   return (
     <div>
-      <div className="grid gap-px bg-[#d9dfdb] sm:grid-cols-3">
+      <div className="grid gap-px bg-[#d9dfdb] sm:grid-cols-2 xl:grid-cols-4">
         <SummaryMetric label="Assessment history" value={String(assessments.length)} detail="Separate dated records" />
         <SummaryMetric label="Latest captured" value={`${coverage?.captured ?? 0} / ${coverage?.total ?? 52}`} detail={`${coverage?.percent ?? 0}% complete`} />
         <SummaryMetric label="Latest status" value={formatAssessmentStatus(latest.status)} detail={formatDate(latest.assessment_date)} />
+        <SummaryMetric label="Assigned assessor" value={latest.assessor || "Unassigned"} detail={latest.status === "complete" ? "Recorded at completion" : "Current assignment"} />
       </div>
       <div className="mt-4 h-2 bg-[#e8eeeb]"><div className="h-full bg-[#0f8b73]" style={{ width: `${coverage?.percent ?? 0}%` }} /></div>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">

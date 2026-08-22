@@ -13,6 +13,7 @@ import {
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { getActiveWorkspaceMember } from "@/lib/pipeline/workspace-members";
 
 export const runtime = "nodejs";
 
@@ -59,11 +60,14 @@ export async function PATCH(
       if (!current) return jsonError("Assessment not found.", 404);
       const access = await requireReferralAccess(auth.user, current.referral_id);
       if (!access.ok) return access.response;
+      const assignedAssessor = await resolveAssignedAssessor(validated.value.assessor_id, auth.user, current);
+      if (assignedAssessor instanceof Response) return assignedAssessor;
       const identity = await resolveAssessmentClientIdentity(request, current.referral_id);
       const result = await patchAssessment(
         assessmentId,
         {
           ...validated.value.patch,
+          ...(assignedAssessor !== undefined ? { assigned_assessor: assignedAssessor } : {}),
           canonical_client_id: identity.canonicalClientId,
           resident_key: identity.residentKey ?? validated.value.patch.resident_key,
         },
@@ -95,6 +99,38 @@ export async function PATCH(
       return jsonError(error instanceof Error ? error.message : "Could not update assessment.", 400);
     }
   });
+}
+
+async function resolveAssignedAssessor(
+  assessorId: string | null | undefined,
+  user: { id: string; name: string; roles: string[] },
+  current: { status: string; assessor_id: string | null },
+) {
+  if (assessorId === undefined) return undefined;
+  if (current.status === "complete") {
+    return jsonError("Reopen the completed assessment before changing its assigned assessor.", 409);
+  }
+
+  const canAssignOthers = user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
+  if (assessorId === null) {
+    if (!canAssignOthers && current.assessor_id && current.assessor_id !== user.id) {
+      return jsonError("Only a supervisor can remove another staff member's assessment assignment.", 403);
+    }
+    return null;
+  }
+  if (!canAssignOthers && assessorId !== user.id) {
+    return jsonError("Assessors can assign assessments only to themselves.", 403);
+  }
+  if (!canAssignOthers && current.assessor_id && current.assessor_id !== user.id) {
+    return jsonError("Only a supervisor can reassign another staff member's assessment.", 403);
+  }
+
+  if (assessorId === user.id) return { id: user.id, name: user.name };
+  const member = await getActiveWorkspaceMember(assessorId);
+  if (!member || !member.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role))) {
+    return jsonError("Choose an active Pipeline assessor.", 400);
+  }
+  return { id: member.principal_id, name: member.display_name };
 }
 
 function safeAssessmentId(value: string) {

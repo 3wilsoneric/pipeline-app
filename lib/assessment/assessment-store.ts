@@ -29,6 +29,7 @@ import {
 import { getAssessmentCompletionSummary } from "./assessment-completion";
 import {
   preserveCanonicalClientId,
+  type AssessmentCompletionReport,
   type AssessmentActor,
   type AssessmentAuditAction,
   type AssessmentAuditEvent,
@@ -236,6 +237,13 @@ export async function importAssessmentExtraction(input: AssessmentImportInput) {
   return getAssessmentStore().importExtraction(input);
 }
 
+export async function getAssessmentCompletionReport(month: string): Promise<AssessmentCompletionReport> {
+  const range = assessmentMonthRange(month);
+  return getAssessmentStoreReadiness().mode === "postgres"
+    ? getPostgresAssessmentCompletionReport(month, range)
+    : getLocalAssessmentCompletionReport(month, range);
+}
+
 function storePath() {
   return process.env.PIPELINE_ASSESSMENT_STORE_PATH?.trim() || ".data/assessments.json";
 }
@@ -343,6 +351,28 @@ async function listLocalAssessments(options: AssessmentListOptions = {}): Promis
   };
 }
 
+async function getLocalAssessmentCompletionReport(
+  month: string,
+  range: { start: string; end: string },
+): Promise<AssessmentCompletionReport> {
+  await ensureLoaded();
+  const grouped = new Map<string, AssessmentCompletionReport["rows"][number]>();
+  for (const assessment of state.assessments) {
+    const completedAt = assessment.completed_at;
+    if (assessment.status !== "complete" || !completedAt || completedAt < range.start || completedAt >= range.end) continue;
+    const assessorName = assessment.assessor?.trim() || "Unassigned";
+    const key = assessment.assessor_id?.trim() || `legacy:${normalize(assessorName)}`;
+    const current = grouped.get(key) ?? {
+      assessor_id: assessment.assessor_id?.trim() || null,
+      assessor_name: assessorName,
+      completed_assessments: 0,
+    };
+    current.completed_assessments += 1;
+    grouped.set(key, current);
+  }
+  return assessmentCompletionReport(month, range, [...grouped.values()]);
+}
+
 async function getLocalAssessment(assessmentId: string) {
   await ensureLoaded();
   return state.assessments.find((assessment) => assessment.assessment_id === assessmentId) ?? null;
@@ -372,6 +402,7 @@ async function createLocalAssessment(
       ...data,
       assessment_id: assessmentId,
       referral_id: input.referral_id,
+      assessor_id: data.assessor === actor.name ? actor.id : null,
       canonical_client_id: input.canonical_client_id?.trim() || null,
       resident_key: input.resident_key?.trim() || null,
       status,
@@ -421,9 +452,15 @@ async function patchLocalAssessment(
       return { ok: false, conflict: true, assessment: current };
     }
     assertPatchMatchesSection(patch, options.section);
+    if (patch.assigned_assessor !== undefined && current.status === "complete") {
+      throw new Error("Reopen the completed assessment before changing its assigned assessor.");
+    }
 
     const currentData = pickAssessmentToolData(current);
     const nextData = pickAssessmentToolData({ ...currentData, ...(patch.data ?? {}) });
+    if (patch.assigned_assessor !== undefined) {
+      nextData.assessor = patch.assigned_assessor?.name ?? null;
+    }
     const issues = validateAssessmentToolData(nextData);
     if (issues.length > 0) throw new Error(issues[0].message);
     const changedFields = assessmentToolFieldDefinitions
@@ -478,6 +515,9 @@ async function patchLocalAssessment(
     const candidate: PipelineAssessmentRecord = {
       ...current,
       ...nextData,
+      assessor_id: patch.assigned_assessor === undefined
+        ? current.assessor_id
+        : patch.assigned_assessor?.id ?? null,
       canonical_client_id: preserveCanonicalClientId(current.canonical_client_id, patch.canonical_client_id),
       resident_key: patch.resident_key === undefined
         ? current.resident_key
@@ -502,6 +542,7 @@ async function patchLocalAssessment(
     }
 
     let action: AssessmentAuditAction = "assessment_updated";
+    if (patch.assigned_assessor !== undefined) action = "assessment_assigned";
     if (acceptedFields.length > 0) action = "extraction_confirmed";
     if (nextStatus === "complete" && current.status !== "complete") action = "assessment_completed";
     if (nextStatus !== "complete" && current.status === "complete") action = "assessment_reopened";
@@ -544,6 +585,7 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
       ? pickAssessmentToolData(current)
       : pickAssessmentToolData({ ...createEmptyAssessmentToolData(), ...input.defaults });
     const merged = mergeImportedData(baseData, mapping.data, mapping.field_provenance, mapping.unmapped_fields);
+    merged.data.assessor = current?.assessor ?? input.defaults.assessor ?? null;
     const now = new Date().toISOString();
     const assessmentId = current?.assessment_id ?? `asm_${randomUUID()}`;
     const fieldProvenance = mergeProvenance(current?.field_provenance ?? {}, merged.fieldProvenance);
@@ -569,6 +611,7 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
       ...merged.data,
       assessment_id: assessmentId,
       referral_id: input.referralId,
+      assessor_id: current?.assessor_id ?? (merged.data.assessor === input.actor.name ? input.actor.id : null),
       canonical_client_id: preserveCanonicalClientId(current?.canonical_client_id, input.canonicalClientId),
       resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
       status: "needs_review",
@@ -603,6 +646,7 @@ type AssessmentRow = {
   resident_key: string | null;
   resident_number: string | null;
   assessment_date: Date | string | null;
+  assessor_id: string | null;
   assessor_name: string | null;
   status: PipelineAssessmentRecord["status"];
   data: unknown;
@@ -699,6 +743,34 @@ async function listPostgresAssessments(options: AssessmentListOptions = {}): Pro
   };
 }
 
+type AssessmentCompletionCountRow = {
+  assessor_id: string | null;
+  assessor_name: string | null;
+  completed_assessments: number | string;
+};
+
+async function getPostgresAssessmentCompletionReport(
+  month: string,
+  range: { start: string; end: string },
+): Promise<AssessmentCompletionReport> {
+  const sql = getPipelineSql();
+  const rows = await sql<AssessmentCompletionCountRow[]>`
+    select assessor_id, coalesce(nullif(btrim(assessor_name), ''), 'Unassigned') as assessor_name,
+      count(*)::integer as completed_assessments
+    from pipeline.assessments
+    where status = 'complete'
+      and completed_at >= ${range.start}::timestamptz
+      and completed_at < ${range.end}::timestamptz
+    group by assessor_id, coalesce(nullif(btrim(assessor_name), ''), 'Unassigned')
+    order by count(*) desc, lower(coalesce(nullif(btrim(assessor_name), ''), 'Unassigned')), assessor_id nulls last
+  `;
+  return assessmentCompletionReport(month, range, rows.map((row) => ({
+    assessor_id: row.assessor_id,
+    assessor_name: row.assessor_name?.trim() || "Unassigned",
+    completed_assessments: Number(row.completed_assessments),
+  })));
+}
+
 async function getPostgresAssessment(assessmentId: string) {
   const sql = getPipelineSql();
   const rows = await sql<AssessmentRow[]>`
@@ -752,6 +824,7 @@ async function createPostgresAssessment(
     ...data,
     assessment_id: assessmentId,
     referral_id: input.referral_id,
+    assessor_id: data.assessor === actor.name ? actor.id : null,
     canonical_client_id: input.canonical_client_id?.trim() || null,
     resident_key: input.resident_key?.trim() || null,
     status,
@@ -812,9 +885,15 @@ async function patchPostgresAssessment(
       return { ok: false, conflict: true, assessment: current };
     }
     assertPatchMatchesSection(patch, options.section);
+    if (patch.assigned_assessor !== undefined && current.status === "complete") {
+      throw new Error("Reopen the completed assessment before changing its assigned assessor.");
+    }
 
     const currentData = pickAssessmentToolData(current);
     const nextData = pickAssessmentToolData({ ...currentData, ...(patch.data ?? {}) });
+    if (patch.assigned_assessor !== undefined) {
+      nextData.assessor = patch.assigned_assessor?.name ?? null;
+    }
     const issues = validateAssessmentToolData(nextData);
     if (issues.length > 0) throw new Error(issues[0].message);
     const changedFields = assessmentToolFieldDefinitions
@@ -870,6 +949,9 @@ async function patchPostgresAssessment(
     const candidate: PipelineAssessmentRecord = {
       ...current,
       ...nextData,
+      assessor_id: patch.assigned_assessor === undefined
+        ? current.assessor_id
+        : patch.assigned_assessor?.id ?? null,
       canonical_client_id: preserveCanonicalClientId(current.canonical_client_id, patch.canonical_client_id),
       resident_key: patch.resident_key === undefined ? current.resident_key : patch.resident_key?.trim() || null,
       status: nextStatus,
@@ -890,6 +972,7 @@ async function patchPostgresAssessment(
       return { ok: false, blocked: true, assessment: current, blockers };
     }
     let action: AssessmentAuditAction = "assessment_updated";
+    if (patch.assigned_assessor !== undefined) action = "assessment_assigned";
     if (acceptedFields.length > 0) action = "extraction_confirmed";
     if (nextStatus === "complete" && current.status !== "complete") action = "assessment_completed";
     if (nextStatus !== "complete" && current.status === "complete") action = "assessment_reopened";
@@ -1010,6 +1093,7 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
       ? pickAssessmentToolData(current)
       : pickAssessmentToolData({ ...createEmptyAssessmentToolData(), ...input.defaults });
     const merged = mergeImportedData(baseData, mapping.data, mapping.field_provenance, mapping.unmapped_fields);
+    merged.data.assessor = current?.assessor ?? input.defaults.assessor ?? null;
     const issues = validateAssessmentToolData(merged.data);
     if (issues.length > 0) throw new Error(issues[0].message);
     const now = new Date().toISOString();
@@ -1025,6 +1109,7 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
       ...merged.data,
       assessment_id: assessmentId,
       referral_id: input.referralId,
+      assessor_id: current?.assessor_id ?? (merged.data.assessor === input.actor.name ? input.actor.id : null),
       canonical_client_id: preserveCanonicalClientId(current?.canonical_client_id, input.canonicalClientId),
       resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
       status: "needs_review",
@@ -1148,6 +1233,7 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
       ...data,
       assessment_id: row.assessment_id,
       referral_id: Number(row.referral_id),
+      assessor_id: row.assessor_id,
       canonical_client_id: row.canonical_client_id,
       resident_key: row.resident_key,
       status: row.status,
@@ -1174,7 +1260,7 @@ async function insertAssessmentRow(tx: TransactionSql, assessment: PipelineAsses
     ) values (
       ${assessment.assessment_id}, ${assessment.referral_id}, ${assessment.canonical_client_id}, ${assessment.resident_key},
       ${assessment.resident_number}, ${assessment.assessment_date}::date,
-      ${assessment.assessor === assessment.updated_by.name ? assessment.updated_by.id : null},
+      ${assessment.assessor_id},
       ${assessment.assessor}, ${assessment.status},
       ${tx.json(pickAssessmentToolData(assessment))}, ${assessment.version}, ${assessment.completed_at}::timestamptz,
       ${tx.json(assessment.section_versions)},
@@ -1195,11 +1281,7 @@ async function updateAssessmentRow(
         resident_key = ${assessment.resident_key},
         resident_number = ${assessment.resident_number},
         assessment_date = ${assessment.assessment_date}::date,
-        assessor_id = case
-          when assessor_name is not distinct from ${assessment.assessor} then assessor_id
-          when ${assessment.assessor} = ${assessment.updated_by.name} then ${assessment.updated_by.id}
-          else null
-        end,
+        assessor_id = ${assessment.assessor_id},
         assessor_name = ${assessment.assessor},
         status = ${assessment.status},
         data = ${tx.json(pickAssessmentToolData(assessment))},
@@ -1377,6 +1459,7 @@ function jsonScalarToString(value: unknown) {
 function isAssessmentAuditAction(value: string): value is AssessmentAuditAction {
   return [
     "assessment_created",
+    "assessment_assigned",
     "assessment_imported",
     "assessment_updated",
     "extraction_confirmed",
@@ -1414,6 +1497,12 @@ function mergeImportedData(
     const value = incoming[key];
     const provenance = incomingProvenance[key] ?? [];
     if (!hasValue(value)) continue;
+    if (key === "assessor") {
+      for (const source of provenance) {
+        unmappedFields.push({ ...source, value: serializeAssessmentValue(value), reason: "unmapped" });
+      }
+      continue;
+    }
     if (!hasValue(base[key]) || sameValue(base[key], value)) {
       assignValue(data, key, value);
       if (provenance.length > 0) fieldProvenance[key] = provenance;
@@ -1433,6 +1522,13 @@ function mergeImportedData(
 
 function completionBlockers(assessment: PipelineAssessmentRecord) {
   const blockers: { code: string; label: string; fields?: AssessmentToolFieldKey[] }[] = [];
+  if (!assessment.assessor_id || !assessment.assessor?.trim()) {
+    blockers.push({
+      code: "assessment_assessor_required",
+      label: "Assign an active staff member before completing this assessment.",
+      fields: ["assessor"],
+    });
+  }
   const completeness = getAssessmentCompletionSummary(assessment);
   if (completeness.missing.length > 0) {
     blockers.push({
@@ -1463,6 +1559,7 @@ function normalizeAssessmentRecord(value: PipelineAssessmentRecord): PipelineAss
   return {
     ...value,
     ...data,
+    assessor_id: value.assessor_id?.trim() || null,
     version: Number.isInteger(value.version) && value.version > 0 ? value.version : 1,
     section_versions: normalizeAssessmentSectionVersions(value.section_versions),
     canonical_client_id: value.canonical_client_id?.trim() || null,
@@ -1472,6 +1569,38 @@ function normalizeAssessmentRecord(value: PipelineAssessmentRecord): PipelineAss
     field_provenance: value.field_provenance ?? {},
     unmapped_fields: Array.isArray(value.unmapped_fields) ? value.unmapped_fields.slice(-1_000) : [],
     audit_events: Array.isArray(value.audit_events) ? value.audit_events.slice(-maxAuditEventsPerAssessment) : [],
+  };
+}
+
+function assessmentMonthRange(month: string) {
+  const match = /^(\d{4})-(\d{2})$/.exec(month);
+  const year = Number(match?.[1]);
+  const monthIndex = Number(match?.[2]) - 1;
+  if (!match || year < 2000 || year > 2200 || monthIndex < 0 || monthIndex > 11) {
+    throw new Error("month must use YYYY-MM.");
+  }
+  return {
+    start: new Date(Date.UTC(year, monthIndex, 1)).toISOString(),
+    end: new Date(Date.UTC(year, monthIndex + 1, 1)).toISOString(),
+  };
+}
+
+function assessmentCompletionReport(
+  month: string,
+  range: { start: string; end: string },
+  rows: AssessmentCompletionReport["rows"],
+): AssessmentCompletionReport {
+  const sorted = [...rows].sort((left, right) =>
+    right.completed_assessments - left.completed_assessments
+      || left.assessor_name.localeCompare(right.assessor_name)
+      || (left.assessor_id ?? "").localeCompare(right.assessor_id ?? ""));
+  return {
+    month,
+    period_start: range.start,
+    period_end: range.end,
+    total_completed: sorted.reduce((total, row) => total + row.completed_assessments, 0),
+    rows: sorted,
+    generated_at: new Date().toISOString(),
   };
 }
 

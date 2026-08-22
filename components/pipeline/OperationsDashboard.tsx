@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ArrowRight,
+  Download,
   RefreshCw,
   UsersRound,
 } from "lucide-react";
@@ -28,15 +29,16 @@ export default function OperationsDashboard({
   const [supervisorQueue, setSupervisorQueue] = useState<SupervisorExceptionSnapshot | null>(null);
   const [error, setError] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [reportMonth, setReportMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
-  const loadSnapshot = async (signal?: AbortSignal) => {
+  const loadSnapshot = useCallback(async (signal?: AbortSignal) => {
     setIsRefreshing(true);
     setError("");
     try {
       const payload = await fetchPipelineJson<{
         snapshot?: OperationsSnapshot;
         supervisor_queue?: SupervisorExceptionSnapshot;
-      }>("/api/operations/dashboard", { cache: "no-store", signal });
+      }>(`/api/operations/dashboard?month=${encodeURIComponent(reportMonth)}`, { cache: "no-store", signal });
       if (!payload.snapshot || !("metrics" in payload.snapshot)) throw new Error("Operations data is unavailable right now.");
       setSnapshot(payload.snapshot);
       setSupervisorQueue(payload.supervisor_queue ?? null);
@@ -46,13 +48,13 @@ export default function OperationsDashboard({
     } finally {
       if (!signal?.aborted) setIsRefreshing(false);
     }
-  };
+  }, [reportMonth]);
 
   useEffect(() => {
     const controller = new AbortController();
     void loadSnapshot(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [loadSnapshot]);
 
   const updatedLabel = useMemo(() => {
     if (!snapshot) return "Loading";
@@ -92,7 +94,15 @@ export default function OperationsDashboard({
           </div>
         ) : null}
         {!snapshot && !error ? <OperationsSkeleton /> : null}
-        {snapshot ? <SnapshotContent snapshot={snapshot} supervisorQueue={supervisorQueue} onOpenPacket={onOpenPacket} /> : null}
+        {snapshot ? (
+          <SnapshotContent
+            snapshot={snapshot}
+            supervisorQueue={supervisorQueue}
+            reportMonth={reportMonth}
+            onReportMonthChange={setReportMonth}
+            onOpenPacket={onOpenPacket}
+          />
+        ) : null}
       </div>
     </main>
   );
@@ -133,10 +143,14 @@ function OperationsSkeleton() {
 function SnapshotContent({
   snapshot,
   supervisorQueue,
+  reportMonth,
+  onReportMonthChange,
   onOpenPacket,
 }: {
   snapshot: OperationsSnapshot;
   supervisorQueue: SupervisorExceptionSnapshot | null;
+  reportMonth: string;
+  onReportMonthChange: (month: string) => void;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
 }) {
   const [exceptionKind, setExceptionKind] = useState<SupervisorExceptionKind | "all">("all");
@@ -189,6 +203,14 @@ function SnapshotContent({
         </section>
       ) : null}
 
+      {snapshot.assessment_report ? (
+        <AssessmentCompletionReport
+          report={snapshot.assessment_report}
+          month={reportMonth}
+          onMonthChange={onReportMonthChange}
+        />
+      ) : null}
+
       <div className="mt-4 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
         <section className="min-w-0 border-y border-[#d9d9d9] bg-white" aria-label="Action queue">
           <SectionHeading title="Work queue" detail={`${snapshot.metrics.open_requirements} open requirements`} />
@@ -224,6 +246,91 @@ function SnapshotContent({
       </div>
     </>
   );
+}
+
+function AssessmentCompletionReport({
+  report,
+  month,
+  onMonthChange,
+}: {
+  report: NonNullable<OperationsSnapshot["assessment_report"]>;
+  month: string;
+  onMonthChange: (month: string) => void;
+}) {
+  return (
+    <section className="mt-4 border-y border-[#d9d9d9] bg-white" aria-label="Monthly assessment completions">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] px-4 py-3 sm:px-5">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-[14px] font-black">Assessments completed</h2>
+          <span className="text-[10px] text-[#737373]">{report.total_completed} total</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="assessment-report-month" className="sr-only">Assessment report month</label>
+          <select
+            id="assessment-report-month"
+            aria-label="Assessment report month"
+            value={month}
+            onChange={(event) => onMonthChange(event.target.value)}
+            className="h-8 border border-[#c9ceca] bg-white px-2 text-[11px] font-semibold outline-none focus:border-[#0f8b73]"
+          >
+            {reportMonthOptions().map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => downloadAssessmentReport(report)}
+            className="flex h-8 items-center gap-2 border border-[#c9ceca] px-2.5 text-[10px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"
+          >
+            <Download size={13} aria-hidden="true" /> CSV
+          </button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[520px] border-collapse text-left">
+          <thead>
+            <tr className="border-b border-[#d9d9d9] text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">
+              <th className="px-4 py-2.5 sm:px-5">Staff member</th>
+              <th className="w-40 px-4 py-2.5 text-right sm:px-5">Completed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.rows.map((row) => (
+              <tr key={row.assessor_id ?? `legacy:${row.assessor_name}`} className="border-b border-[#e5e5e5] last:border-b-0">
+                <td className="px-4 py-3 text-[12px] font-black sm:px-5">{row.assessor_name}</td>
+                <td className="px-4 py-3 text-right text-[14px] font-black text-[#0f8b73] sm:px-5">{row.completed_assessments}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function reportMonthOptions() {
+  const current = new Date();
+  return Array.from({ length: 18 }, (_, index) => {
+    const date = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() - index, 1));
+    return {
+      value: date.toISOString().slice(0, 7),
+      label: date.toLocaleDateString([], { month: "long", year: "numeric", timeZone: "UTC" }),
+    };
+  });
+}
+
+function downloadAssessmentReport(report: NonNullable<OperationsSnapshot["assessment_report"]>) {
+  const escape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
+  const csv = [
+    ["Month", "Staff member", "Completed assessments"],
+    ...report.rows.map((row) => [report.month, row.assessor_name, row.completed_assessments]),
+  ].map((row) => row.map(escape).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `pipeline-assessments-${report.month}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function SupervisorExceptionRow({
