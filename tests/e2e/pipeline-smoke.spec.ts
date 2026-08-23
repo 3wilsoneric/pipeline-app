@@ -1045,15 +1045,10 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.goto("/?view=referrals");
     await expect(page.getByRole("region", { name: "Referral workflow tracker" })).toBeVisible();
-    const tagFilter = page.getByRole("button", { name: /^Filter by tag urgent-review, \d+ workspaces?$/ });
-    const showMoreTags = page.getByRole("button", { name: /^Show \d+ more$/ });
-    await expect.poll(async () => (await tagFilter.count()) + (await showMoreTags.count())).toBeGreaterThan(0);
-    if (await tagFilter.count() === 0) {
-      await showMoreTags.click();
-    }
-    await tagFilter.scrollIntoViewIfNeeded();
-    await expect(tagFilter).toBeVisible();
-    await tagFilter.click();
+    const tagFilter = page.getByLabel("Filter by tag");
+    await expect(tagFilter.locator('option[value="urgent-review"]')).toHaveCount(1);
+    await tagFilter.selectOption("urgent-review");
+    await expect(tagFilter).toHaveValue("urgent-review");
     await expect(page.getByText(clientName, { exact: true }).first()).toBeVisible();
     await expect(
       page.getByRole("button", { name: `Open ${clientName} referral workspace` })
