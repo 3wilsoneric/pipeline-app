@@ -22,7 +22,7 @@ const read = (file) => readFileSync(file, "utf8");
 const clinical = read("lib/clinical/clinical-data.ts");
 const documentAssets = read("lib/extraction/document-assets.ts");
 const worker = read("lib/extraction/processing-worker.ts");
-const packetCanvas = read("components/pipeline/ReferralPacketCanvas.tsx");
+const packetUpload = read("lib/pipeline/referral-packet-upload.ts");
 const welcome = read("components/pipeline/PipelineWelcome.tsx");
 const browserFetch = read("lib/auth/authenticated-fetch.ts");
 const checks = [];
@@ -67,9 +67,9 @@ check("partial and oversized Alamo responses fail before use", clinical.includes
 check("Blob loss returns a safe preview failure", documentAssets.includes("asset_storage_unavailable")
   && documentAssets.includes("asset_storage_failed")
   && !documentAssets.includes("throw new Error(await upstream.text())"));
-check("interrupted packet uploads remain retryable and never auto-retry mutations", packetCanvas.includes("Retry the upload.")
+check("interrupted packet uploads remain retryable and never auto-retry mutations", packetUpload.includes("Retry the upload.")
   && browserFetch.includes('const attempts = method === "GET" ? 2 : 1')
-  && packetCanvas.indexOf("/api/uploads/complete") > packetCanvas.indexOf("/api/uploads/create-url"));
+  && packetUpload.indexOf("/api/uploads/complete") > packetUpload.indexOf("/api/uploads/create-url"));
 check("failed queue refresh preserves the last successful snapshot", welcome.includes("Showing the last successful snapshot")
   && read("tests/e2e/pipeline-smoke.spec.ts").includes("keeps the last successful referral snapshot when refresh fails"));
 

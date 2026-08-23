@@ -1,3 +1,5 @@
+import { fuzzyTokenMatches, normalizeSearchText, tokenizeSearchText } from "@/lib/pipeline/fuzzy-search";
+
 export type PipelineSiteScreen = "referrals" | "profiles" | "packet" | "operations";
 
 export type PipelineSiteDestination = {
@@ -43,7 +45,7 @@ const siteDestinations: SearchableDestination[] = [
 ];
 
 export function searchSiteDestinations(value: string): PipelineSiteDestination[] {
-  const queryTokens = tokenize(value);
+  const queryTokens = tokenizeSearchText(value);
   if (queryTokens.length === 0) return [];
 
   return siteDestinations
@@ -62,12 +64,12 @@ export function searchSiteDestinations(value: string): PipelineSiteDestination[]
 }
 
 function scoreDestination(destination: SearchableDestination, queryTokens: string[]) {
-  const title = normalize(destination.title);
-  const words = tokenize(`${destination.title} ${destination.detail} ${destination.keywords}`);
+  const title = normalizeSearchText(destination.title);
+  const words = tokenizeSearchText(`${destination.title} ${destination.detail} ${destination.keywords}`);
   let score = 0;
 
   for (const queryToken of queryTokens) {
-    const matchingWord = words.find((word) => tokenMatches(queryToken, word));
+    const matchingWord = words.find((word) => fuzzyTokenMatches(queryToken, word));
     if (!matchingWord) return 0;
     if (title === queryToken) score += 8;
     else if (title.startsWith(queryToken)) score += 6;
@@ -76,49 +78,4 @@ function scoreDestination(destination: SearchableDestination, queryTokens: strin
   }
 
   return score;
-}
-
-function tokenMatches(queryToken: string, candidate: string) {
-  if (candidate.includes(queryToken) || queryToken.includes(candidate)) return true;
-  return queryToken.length >= 4 && candidate.length >= 4 && editDistanceAtMostOne(queryToken, candidate);
-}
-
-function editDistanceAtMostOne(left: string, right: string) {
-  if (Math.abs(left.length - right.length) > 1) return false;
-  if (left === right) return true;
-
-  let leftIndex = 0;
-  let rightIndex = 0;
-  let differences = 0;
-
-  while (leftIndex < left.length && rightIndex < right.length) {
-    if (left[leftIndex] === right[rightIndex]) {
-      leftIndex += 1;
-      rightIndex += 1;
-      continue;
-    }
-    differences += 1;
-    if (differences > 1) return false;
-    if (left.length > right.length) leftIndex += 1;
-    else if (right.length > left.length) rightIndex += 1;
-    else {
-      leftIndex += 1;
-      rightIndex += 1;
-    }
-  }
-
-  return differences + Number(leftIndex < left.length || rightIndex < right.length) <= 1;
-}
-
-function tokenize(value: string) {
-  return normalize(value).split(" ").filter(Boolean);
-}
-
-function normalize(value: string) {
-  return value
-    .normalize("NFKD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 }

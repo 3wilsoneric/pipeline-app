@@ -33,18 +33,31 @@ route handlers remain the authorization boundary.
 
 ## Metrics and alerts
 
-`infra/azure/operational-alerts.bicep` defines seven scheduled-query rules for
-save conflicts, queue age, extraction failures, authorization failures, p95
-latency, overload rejections, and clinical-upstream failures. The queries use
-route templates, status, durations, and counts only. Names, diagnoses,
-medications, query strings, resident/referral/document IDs, tokens, secrets,
-and upstream bodies are forbidden.
+`infra/azure/operational-alerts.bicep` defines 13 scheduled-query rules for
+save conflicts, referral queue age, extraction failure/depth/age,
+authorization failure, p95 latency, overload rejection, clinical failure and
+freshness, stale editing leases, storage failure, and retention failure. It
+also declares native Azure Monitor capacity alerts for PostgreSQL connections,
+PostgreSQL storage, and Blob used capacity. `infra/azure/runtime.bicep` adds
+native Container Apps restart and resiliency-timeout alerts. The queries use
+route templates, status, durations, bounded outcomes, and aggregate counts
+only. Names, diagnoses, medications, query strings, resident/referral/document
+IDs, tokens, secrets, and upstream bodies are forbidden.
+
+Default planning thresholds are 60 PostgreSQL connections, 75 percent
+PostgreSQL storage, 80 GiB Blob used capacity, more than two Container Apps
+restarts in 15 minutes, and any Container Apps resiliency timeout. Treat these
+as pilot baselines. Change them only from observed workload and recovery
+evidence, not to silence an alert.
 
 At deployment, pass approved action-group resource IDs and forward the
 structured server logs into the declared Application Insights workspace. An
 empty action-group list intentionally creates visible rules without delivery;
 it is not production-complete. Test every notification path with synthetic
-events and record the owner, response action, and escalation target.
+events and record the owner, response action, and escalation target. The
+aggregate inventory returned by the worker-authenticated retention endpoint is
+logical application storage; the native Blob `UsedCapacity` metric remains the
+physical billing and capacity authority.
 
 ## Failure drills
 

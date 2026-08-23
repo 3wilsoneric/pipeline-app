@@ -58,13 +58,6 @@ export async function withApiLogging(
     return response;
   }
 
-  logApi("info", {
-    route,
-    requestId,
-    method: request.method,
-    msg: "start",
-  });
-
   try {
     const response = await handler({ requestId });
     const elapsed = Date.now() - startedAt;

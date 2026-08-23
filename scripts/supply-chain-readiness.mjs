@@ -7,6 +7,7 @@ const read = (file) => readFileSync(path.join(process.cwd(), file), "utf8");
 const workflows = [read(".github/workflows/ci.yml"), read(".github/workflows/security.yml")].join("\n");
 const dependabot = read(".github/dependabot.yml");
 const dependencyReview = read(".github/dependency-review-config.yml");
+const platformReadiness = read("scripts/platform-readiness.mjs");
 const packageJson = JSON.parse(read("package.json"));
 const uses = [...workflows.matchAll(/uses:\s*([^\s#]+)(?:\s*#.*)?$/gm)].map((match) => match[1]);
 const checks = [
@@ -16,7 +17,13 @@ const checks = [
   { name: "Dependabot covers npm and GitHub Actions", ok: dependabot.includes("package-ecosystem: npm") && dependabot.includes("package-ecosystem: github-actions") },
   { name: "dependency review blocks high-severity changes", ok: dependencyReview.includes("fail-on-severity: high") && dependencyReview.includes("warn-only: false") },
   { name: "CodeQL scans JavaScript and TypeScript", ok: workflows.includes("javascript-typescript") && workflows.includes("security-extended") },
-  { name: "CI runs audit, license, and route-policy gates", ok: ["npm audit --audit-level=high", "npm run check:licenses", "npm run check:route-policy"].every((item) => workflows.includes(item)) },
+  {
+    name: "CI runs audit, license, and route-policy gates without duplicate workflow steps",
+    ok: workflows.includes("npm audit --audit-level=high")
+      && workflows.includes("npm run check:platform:fast")
+      && platformReadiness.includes("scripts/license-policy-audit.mjs")
+      && platformReadiness.includes("scripts/api-route-policy-audit.mjs"),
+  },
   { name: "release evidence contains an SBOM and checksums", ok: packageJson.scripts["release:evidence"]?.includes("create-release-evidence") && packageJson.scripts["release:evidence:verify"]?.includes("verify-release-evidence") },
 ];
 console.log(JSON.stringify({ ok: checks.every((item) => item.ok), action_reference_count: uses.length, checks }, null, 2));

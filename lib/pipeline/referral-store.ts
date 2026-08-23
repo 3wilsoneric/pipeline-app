@@ -6,8 +6,12 @@ import { dirname } from "node:path";
 
 import type { JSONValue, TransactionSql } from "postgres";
 
-import { listAssessments } from "@/lib/assessment/assessment-store";
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
+import {
+  resolveDurableStoreMode,
+  selectStoreAdapter,
+  type StoreAdapters,
+} from "@/lib/persistence/store-adapter";
 import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from "@/lib/pipeline/keyset-cursor";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { isUnassignedOwner, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
@@ -77,6 +81,8 @@ export type ReferralListOptions = {
   assignedOwnerId?: string;
   /** Legacy fallback while older rows are backfilled with stable owner ids. */
   assignedOwnerNames?: string[];
+  /** Internal bulk readers can skip an exact count that they never display. */
+  includeTotal?: boolean;
 };
 
 export type ReferralFacetValue = {
@@ -173,7 +179,7 @@ export type ReferralChangeMetadata = {
   updatedBy?: ReferralActor;
 };
 
-interface ReferralStore {
+export interface ReferralStore {
   revision(): Promise<number>;
   list(options?: ReferralListOptions): Promise<ReferralListResult>;
   facets(query?: string, access?: Pick<ReferralListOptions, "assignedOwnerId" | "assignedOwnerNames" | "workspaceStatus">): Promise<ReferralFacets>;
@@ -226,11 +232,12 @@ const maxReferralRows = 100_000;
 const maxPageSize = 200;
 
 export function getReferralStoreReadiness(): ReferralStoreReadiness {
-  const configured = process.env.PIPELINE_REFERRAL_STORE_MODE?.trim();
-  const postgresMode = configured === "postgres" || configured === "external" ||
-    (!configured && process.env.PIPELINE_DATABASE_MODE === "postgres");
+  const mode = resolveDurableStoreMode({
+    configuredModes: [process.env.PIPELINE_REFERRAL_STORE_MODE],
+    databaseMode: process.env.PIPELINE_DATABASE_MODE,
+  });
 
-  if (postgresMode) {
+  if (mode === "postgres") {
     const database = getPipelineDatabaseReadiness();
     return {
       mode: "postgres",
@@ -296,8 +303,13 @@ const postgresReferralStore: ReferralStore = {
   patch: patchPostgresReferral,
 };
 
+const referralStoreAdapters: StoreAdapters<ReferralStore> = {
+  local_file: localReferralStore,
+  postgres: postgresReferralStore,
+};
+
 function getReferralStore(): ReferralStore {
-  return getReferralStoreReadiness().mode === "postgres" ? postgresReferralStore : localReferralStore;
+  return selectStoreAdapter(getReferralStoreReadiness().mode, referralStoreAdapters);
 }
 
 function systemActor(): ReferralActor {
@@ -456,14 +468,10 @@ async function ensureLoaded() {
       );
     } catch (error) {
       if (!isMissingFile(error)) {
-        console.warn(
-          JSON.stringify({
-            service: "pipeline-app",
-            event: "referral_store_load_failed",
-            path: storePath(),
-            error: error instanceof Error ? error.message : String(error),
-          }),
-        );
+        console.warn(JSON.stringify({
+          service: "pipeline-app",
+          event: "referral_store_load_failed",
+        }));
       }
     }
   })();
@@ -718,9 +726,8 @@ async function patchLocalReferral(
         referral: current,
       };
     }
-    const assessments = await listAssessments({ referralId: current.id, limit: 100 });
     const blockers = getReferralTransitionBlockers(current, patch.stage as ReferralStage, {
-      assessmentComplete: assessments.assessments.some((assessment) => assessment.status === "complete"),
+      assessmentComplete: await hasCompleteLocalAssessment(current.id),
       decision: safePatch.admissionDecision ?? current.admissionDecision ?? null,
       requirements: safePatch.requirements ?? current.requirements ?? [],
     });
@@ -749,6 +756,12 @@ async function patchLocalReferral(
   await persist();
 
   return { ok: true, referral: next, revision: state.revision };
+}
+
+async function hasCompleteLocalAssessment(referralId: number) {
+  const { listAssessments } = await import("@/lib/assessment/assessment-store");
+  const assessments = await listAssessments({ referralId, limit: 100 });
+  return assessments.assessments.some((assessment) => assessment.status === "complete");
 }
 
 async function listLocalDeletedReferrals(query = ""): Promise<DeletedReferralListResult> {
@@ -911,6 +924,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const cursorId = cursor ? Number.parseInt(cursor.key, 10) : null;
   if (cursor && (!Number.isSafeInteger(cursorId) || cursorId! <= 0)) throw new Error("Invalid referral cursor.");
   const limit = clampPageSize(options.limit);
+  const includeTotal = options.includeTotal !== false;
   const rows = await sql<ReferralRow[]>`
     with filtered as (
       select r.*, p.external_client_id, p.display_name,
@@ -952,7 +966,8 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
           or (${queue} = 'decision' and r.stage = 'Community Review')
         )
     )
-    select filtered.*, (select count(*) from filtered) as total_count
+    select filtered.*,
+      case when ${includeTotal} then (select count(*) from filtered) else null end as total_count
     from filtered
     where (${cursor?.value ?? null}::text is null
       or (${sort} = 'updated_desc' and (updated_at, referral_id) < (${cursorTimestamp}::timestamptz, ${cursorId}::bigint))
@@ -974,8 +989,8 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
     limit ${limit + 1}
   `;
   const revision = await getPostgresReferralRevision();
-  const total = Number(rows[0]?.total_count ?? 0);
   const pageRows = rows.slice(0, limit);
+  const total = Number(rows[0]?.total_count ?? pageRows.length);
   const last = pageRows.at(-1);
   return {
     referrals: pageRows.map(mapReferralRow),

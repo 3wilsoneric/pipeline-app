@@ -395,24 +395,17 @@ async function requestClinicalEndpoint<T>(
   parse: (value: unknown) => T,
   options: { acceptedStatuses?: number[] } = {},
 ): Promise<T> {
-  assertClinicalReady();
-  const baseUrl = getAlamoBaseUrl();
-  const authorization = await getUpstreamAuthorization(request);
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    getBoundedIntegerEnv("PIPELINE_CLINICAL_TIMEOUT_MS", DEFAULT_TIMEOUT_MS, 1_000, 30_000),
-  );
+  const context = await createClinicalRequestContext(endpoint, request);
 
   try {
-    const response = await fetch(`${baseUrl}${CLINICAL_API_PREFIX}${endpoint}`, {
+    const response = await fetch(context.url, {
       method: "GET",
       headers: {
         Accept: "application/json",
-        Authorization: authorization,
+        Authorization: context.authorization,
       },
       cache: "no-store",
-      signal: controller.signal,
+      signal: context.controller.signal,
     });
     const payload = await readBoundedJson(
       response,
@@ -444,7 +437,7 @@ async function requestClinicalEndpoint<T>(
     }
     throw new ClinicalDataError(503, "clinical_upstream_unavailable", "The Alamo Platform clinical API could not be reached.");
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(context.timeout);
   }
 }
 
@@ -453,24 +446,18 @@ async function requestClinicalAsset(
   request: Request | undefined,
   variant: "thumbnail" | "preview",
 ) {
-  assertClinicalReady();
-  const baseUrl = getAlamoBaseUrl();
-  const authorization = await getUpstreamAuthorization(request);
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    getBoundedIntegerEnv("PIPELINE_CLINICAL_TIMEOUT_MS", DEFAULT_TIMEOUT_MS, 1_000, 30_000),
-  );
+  const accept = variant === "thumbnail" ? "image/png,image/jpeg,image/webp" : "application/pdf,image/*";
+  const context = await createClinicalRequestContext(endpoint, request);
 
   try {
-    const response = await fetch(`${baseUrl}${CLINICAL_API_PREFIX}${endpoint}`, {
+    const response = await fetch(context.url, {
       method: "GET",
       headers: {
-        Accept: variant === "thumbnail" ? "image/png,image/jpeg,image/webp" : "application/pdf,image/*",
-        Authorization: authorization,
+        Accept: accept,
+        Authorization: context.authorization,
       },
       cache: "no-store",
-      signal: controller.signal,
+      signal: context.controller.signal,
     });
     if (!response.ok) {
       const payload = await readBoundedJson(response, 64 * 1024);
@@ -522,8 +509,24 @@ async function requestClinicalAsset(
     }
     throw new ClinicalDataError(503, "client_document_unavailable", "The governed client file could not be reached.");
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(context.timeout);
   }
+}
+
+async function createClinicalRequestContext(endpoint: string, request: Request | undefined) {
+  assertClinicalReady();
+  const authorization = await getUpstreamAuthorization(request);
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    getBoundedIntegerEnv("PIPELINE_CLINICAL_TIMEOUT_MS", DEFAULT_TIMEOUT_MS, 1_000, 30_000),
+  );
+  return {
+    authorization,
+    controller,
+    timeout,
+    url: `${getAlamoBaseUrl()}${CLINICAL_API_PREFIX}${endpoint}`,
+  };
 }
 
 function assertClinicalReady() {

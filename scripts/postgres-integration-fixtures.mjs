@@ -18,9 +18,9 @@ try {
     await sql.begin(async (tx) => {
       const migrations = await tx`
         select migration_id from pipeline.schema_migrations
-        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration','0010_provisional_workspace_members','0011_historical_material_workspaces')
+        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration','0010_provisional_workspace_members','0011_historical_material_workspaces','0012_referral_trash')
       `;
-      checks.push({ name: "all migrations applied", ok: migrations.length === 11 });
+      checks.push({ name: "all migrations applied", ok: migrations.length === 12 });
       await tx`
         insert into pipeline.user_workspace_state (
           principal_id, state_kind, state_key, payload, expires_at
@@ -57,6 +57,74 @@ try {
         )
       `;
       await tx.unsafe(fixture);
+      await tx`
+        insert into pipeline.user_workspace_state (
+          principal_id, state_kind, state_key, payload, expires_at
+        ) values
+          ('retention-fixture', 'recent_destination', 'expired', ${tx.json({ fixture: "expired" })}, now() - interval '1 minute'),
+          ('retention-fixture', 'recent_destination', 'future', ${tx.json({ fixture: "future" })}, now() + interval '1 day')
+      `;
+      const retentionPeople = await tx`
+        insert into pipeline.people (external_client_id, display_name)
+        values ('pipeline-retention-fixture', 'Synthetic Retention Fixture')
+        returning person_id
+      `;
+      const retentionReferrals = await tx`
+        insert into pipeline.referrals (
+          person_id, stage, community, source, created_by, created_by_name,
+          updated_by, updated_by_name, deleted_at, delete_after, deleted_by, deleted_by_name
+        ) values
+          (
+            ${retentionPeople[0].person_id}::uuid, 'New', 'San Pablo', 'synthetic',
+            'fixture', 'Synthetic Fixture', 'fixture', 'Synthetic Fixture',
+            now() - interval '31 days', now() - interval '1 day', 'fixture', 'Synthetic Fixture'
+          ),
+          (
+            ${retentionPeople[0].person_id}::uuid, 'New', 'San Pablo', 'synthetic',
+            'fixture', 'Synthetic Fixture', 'fixture', 'Synthetic Fixture',
+            now(), now() + interval '30 days', 'fixture', 'Synthetic Fixture'
+          )
+        returning referral_id, delete_after
+      `;
+      const eligibleBefore = await tx`
+        select
+          (select count(*) from pipeline.user_workspace_state where principal_id = 'retention-fixture' and expires_at <= now()) as workspace_state,
+          (select count(*) from pipeline.referrals where person_id = ${retentionPeople[0].person_id}::uuid and deleted_at is not null and delete_after <= now()) as referrals
+      `;
+      checks.push({
+        name: "retention candidate predicates distinguish expired from recoverable records",
+        ok: Number(eligibleBefore[0].workspace_state) === 1 && Number(eligibleBefore[0].referrals) === 1,
+      });
+      await tx`
+        delete from pipeline.user_workspace_state
+        where (principal_id, state_kind, state_key) in (
+          select principal_id, state_kind, state_key
+          from pipeline.user_workspace_state
+          where expires_at <= now()
+          order by expires_at
+          limit 100
+        )
+      `;
+      await tx`
+        delete from pipeline.referrals
+        where referral_id = ${retentionReferrals[0].referral_id}
+          and deleted_at is not null
+          and delete_after <= now()
+      `;
+      const retentionAfter = await tx`
+        select
+          (select count(*) from pipeline.user_workspace_state where principal_id = 'retention-fixture' and state_key = 'expired') as expired_state,
+          (select count(*) from pipeline.user_workspace_state where principal_id = 'retention-fixture' and state_key = 'future') as future_state,
+          (select count(*) from pipeline.referrals where referral_id = ${retentionReferrals[0].referral_id}) as expired_referral,
+          (select count(*) from pipeline.referrals where referral_id = ${retentionReferrals[1].referral_id}) as recoverable_referral
+      `;
+      checks.push({
+        name: "retention rehearsal deletes only expired rows and preserves recovery windows",
+        ok: Number(retentionAfter[0].expired_state) === 0
+          && Number(retentionAfter[0].future_state) === 1
+          && Number(retentionAfter[0].expired_referral) === 0
+          && Number(retentionAfter[0].recoverable_referral) === 1,
+      });
       const rows = await tx`
         select
           (select count(*) from pipeline.people where external_client_id = 'pipeline-integration-fixture') as people,

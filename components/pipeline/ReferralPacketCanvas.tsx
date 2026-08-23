@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   ArrowRight,
   Check,
   CheckCircle2,
   Circle,
   FileText,
-  PencilLine,
   Save,
   Trash2,
   UploadCloud,
@@ -19,11 +17,14 @@ import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/comm
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
 import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
 import ReferralProgressPanel from "@/components/pipeline/ReferralProgressPanel";
-import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
-import ReferralRequirementsEditor from "@/components/pipeline/ReferralRequirementsEditor";
+import {
+  DeleteWorkspaceDialog,
+  ManualIntakeDialog,
+} from "@/components/pipeline/ReferralDecisionEditors";
+import ReferralReviewPanel from "@/components/pipeline/ReferralReviewPanel";
+import StructuredNarrativeField from "@/components/pipeline/StructuredNarrativeField";
 import type {
   AdmissionDecision,
-  EhrHandoffRecord,
   Referral,
   ReferralCanvasFieldKey,
   ReferralSection,
@@ -31,6 +32,11 @@ import type {
 } from "@/lib/pipeline/referral-types";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
+import {
+  reviewField,
+  summarizeReviewSections,
+  type ReviewSection,
+} from "@/lib/pipeline/referral-review";
 import type { ReferralCreateInput, ReferralPatch } from "@/lib/pipeline/referral-store";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
@@ -53,42 +59,41 @@ import { hasManualIntakeAuthorization } from "@/lib/pipeline/referral-workflow";
 import {
   allowedUploadContentTypes,
   maxUploadFileBytes,
-  type CompleteUploadResponse,
-  type DocumentCategory,
   type ExtractedField,
-  type CreateUploadUrlResponse,
   type PacketFieldsResponse,
-  type PacketStatusResponse,
   type ReviewFieldResponse,
 } from "@/lib/extraction/contracts";
+import {
+  createMutationId,
+  getPacketContentType,
+  hashPacket,
+  uploadReferralPacket,
+  uploadReferralSupportingDocument,
+  type InitialDocumentCategory,
+} from "@/lib/pipeline/referral-packet-upload";
+import {
+  extractedCanvasFieldKeys,
+  populateFormFromExtraction,
+  type ReferralCanvasDirtyKey,
+  type ReferralCanvasPacketField,
+} from "@/lib/pipeline/referral-canvas-extraction";
+import {
+  buildReferralCanvasCreateInput,
+  buildReferralCanvasPatch,
+  isPersistedCanvasFieldKey,
+  persistedCanvasFieldKeys,
+  referralCanvasValue,
+  type PersistedCanvasFieldKey,
+} from "@/lib/pipeline/referral-canvas-persistence";
 
 type FieldKey = ReferralCanvasFieldKey;
 
-type PacketField = {
-  label: string;
-  value: string;
-  placeholder?: string;
-  sourceFile?: string;
-};
+type PacketField = ReferralCanvasPacketField;
 
 type Requirement = {
   id: string;
   label: string;
   type: RequirementType;
-};
-
-type ReviewStep = 1 | 2 | 3 | 4;
-
-type ReviewItem = {
-  label: string;
-  value: string;
-  step: ReviewStep;
-  sensitive?: boolean;
-};
-
-type ReviewSection = {
-  label: string;
-  items: ReviewItem[];
 };
 
 type ReferralPacketCanvasProps = {
@@ -101,18 +106,7 @@ type ReferralPacketCanvasProps = {
   onReferralDeleted?: () => void;
 };
 
-type PacketUploadResult = {
-  packetId: string;
-  status: PacketStatusResponse["status"];
-  pageCount: number;
-  fields?: PacketFieldsResponse;
-  document?: NonNullable<CompleteUploadResponse["documents"]>[number];
-  mock: boolean;
-};
-
-type InitialDocumentCategory = "face_sheet" | "referral_packet";
-
-type DirtyDraftKey = FieldKey | "conserved" | "tags" | "documents" | "initialPacket";
+type DirtyDraftKey = ReferralCanvasDirtyKey;
 
 type CanvasSessionDraft = PipelineReferralDraft;
 
@@ -133,33 +127,6 @@ type ExtractionReviewConflict = {
   field: ExtractedField;
   attemptedValue: string;
   latestValue: string;
-};
-
-type NarrativeKind = "summary" | "interview";
-
-type NarrativeSection = {
-  key: string;
-  label: string;
-  placeholder: string;
-};
-
-const narrativeSections: Record<NarrativeKind, readonly NarrativeSection[]> = {
-  summary: [
-    { key: "reason", label: "Reason for referral", placeholder: "Why the client was referred and what prompted this episode." },
-    { key: "presentation", label: "Current presentation", placeholder: "Current symptoms, behavior, and level of stability." },
-    { key: "concerns", label: "Clinical and safety concerns", placeholder: "Known risks, recent events, and immediate concerns." },
-    { key: "strengths", label: "Strengths and goals", placeholder: "Protective factors, engagement, preferences, and goals." },
-    { key: "placement", label: "Placement rationale", placeholder: "Why this level of care and community may be appropriate." },
-    { key: "additional", label: "Additional context", placeholder: "Relevant detail that does not fit another section." },
-  ],
-  interview: [
-    { key: "perspective", label: "Client perspective", placeholder: "How the client describes the situation and requested support." },
-    { key: "mental-status", label: "Mental status and symptoms", placeholder: "Orientation, mood, thought process, hallucinations, and current symptoms." },
-    { key: "medication", label: "Medication discussion", placeholder: "Adherence, effectiveness, side effects, refusals, and preferences." },
-    { key: "functional", label: "Functional support needs", placeholder: "ADLs, prompting, mobility, supervision, and daily support." },
-    { key: "preferences", label: "Preferences and goals", placeholder: "Placement preferences, personal goals, and conditions for success." },
-    { key: "additional", label: "Additional notes", placeholder: "Relevant interview detail that does not fit another section." },
-  ],
 };
 
 const packetSteps = [
@@ -921,7 +888,6 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
       }
 
       if (!referralId) {
-        const name = fields.name.value.trim() || "Pending packet review";
         const community = pipelineCommunities.includes(fields.county.value.trim() as PipelineCommunity)
           ? fields.county.value.trim() as PipelineCommunity
           : "Unassigned";
@@ -935,35 +901,17 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
             ];
 
         const now = new Date();
-        const createdReferral: ReferralCreateInput = {
-          name,
-          date: fields.referralReceived.value.trim() || now.toISOString().slice(0, 10),
-          stage: "New",
-          community,
-          source: fields.referent.value.trim() || "Referral packet",
-          priority: "standard",
-          tags: createTags,
-          documentName: initialPacket?.name ?? "",
-          documentSizeBytes: initialPacket?.size,
-          documentHash,
-          documentStatus: "Missing",
-          owner,
-          note: fields.summary.value.trim(),
-          createdAt: now.toISOString(),
-          dob: fields.dob.value.trim(),
-          gender: fields.gender.value.trim(),
-          reportedAge: fields.age.value.trim(),
-          ssn: fields.ssn.value.trim(),
-          admissionDate: fields.admissionDate.value.trim(),
-          responsiblePerson: fields.responsiblePerson.value.trim(),
-          interview: fields.interview.value.trim(),
+        const createdReferral: ReferralCreateInput = buildReferralCanvasCreateInput({
+          fields,
           conserved,
-          fieldSources: fieldSourcesFromFields(fields),
-          phone: "",
-          email: "",
-          payer: "",
+          community,
+          tags: createTags,
           requirements: admissionRequirements,
-        };
+          createdAt: now.toISOString(),
+          ...(initialPacket
+            ? { document: { name: initialPacket.name, size: initialPacket.size, hash: documentHash } }
+            : {}),
+        });
 
         payload = await fetchPipelineJson<{ referral?: Referral; error?: string }>("/api/referrals", {
           method: "POST",
@@ -1017,7 +965,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
           extractedForm[key].value !== fieldsRef.current[key].value
           || extractedForm[key].sourceFile !== fieldsRef.current[key].sourceFile
         )));
-        const extractedPatch = buildCanvasPatch({
+        const extractedPatch = buildReferralCanvasPatch({
           keys: extractedKeys,
           fields: extractedForm,
           conserved: conservedRef.current,
@@ -1544,9 +1492,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
       ],
     },
   ];
-  const reviewTotal = reviewSections.reduce((total, section) => total + section.items.length, 0);
-  const reviewComplete = reviewSections.reduce((total, section) => total + section.items.filter((item) => item.value.trim()).length, 0);
-  const reviewPercent = reviewTotal === 0 ? 0 : Math.round((reviewComplete / reviewTotal) * 100);
+  const reviewSummary = summarizeReviewSections(reviewSections);
   const packetCompletionBlockers = getPacketCompletionBlockers(loadedReferral, fields.owner.value, fields.county.value);
 
   const moveWorkspaceToTrash = async () => {
@@ -1982,14 +1928,14 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
               )}
             </PacketPage>
           ) : (
-            <DataReview
+            <ReferralReviewPanel
               clientName={fields.name.value}
               referral={loadedReferral}
               assessmentComplete={assessmentSummary.status === "complete"}
               sections={reviewSections}
-              complete={reviewComplete}
-              total={reviewTotal}
-              percent={reviewPercent}
+              complete={reviewSummary.complete}
+              total={reviewSummary.total}
+              percent={reviewSummary.percent}
               onOpenStep={openPage}
               onDecisionSaved={async (updatedReferral) => {
                 setLoadedReferral(updatedReferral);
@@ -2023,425 +1969,6 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
   );
 }
 
-function DeleteWorkspaceDialog({ name, busy, onConfirm, onClose }: { name: string; busy: boolean; onConfirm: () => void; onClose: () => void }) {
-  return createPortal(
-    <div role="presentation" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="delete-workspace-title" className="w-full max-w-md border border-[#cfcfcf] border-t-[3px] border-t-[#a9473d] bg-white p-5 shadow-xl">
-        <h2 id="delete-workspace-title" className="text-[16px] font-black text-[#111111]">Move workspace to trash?</h2>
-        <p className="mt-2 text-[12px] leading-5 text-[#595959]"><strong>{name}</strong> and its files will leave active work immediately. They can be restored from Trash for 30 days.</p>
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" disabled={busy} onClick={onClose} className="h-10 border border-[#c9ceca] px-4 text-[11px] font-black text-[#595959] hover:bg-[#f7faf9]">Cancel</button>
-          <button type="button" disabled={busy} onClick={onConfirm} className="h-10 bg-[#a9473d] px-4 text-[11px] font-black text-white hover:bg-[#8d382f] disabled:opacity-50">{busy ? "Moving..." : "Move to trash"}</button>
-        </div>
-      </section>
-    </div>,
-    document.body,
-  );
-}
-
-function DataReview({
-  clientName,
-  referral,
-  assessmentComplete,
-  sections,
-  complete,
-  total,
-  percent,
-  onOpenStep,
-  onDecisionSaved,
-}: {
-  clientName: string;
-  referral: Referral | null;
-  assessmentComplete: boolean;
-  sections: ReviewSection[];
-  complete: number;
-  total: number;
-  percent: number;
-  onOpenStep: (page: ReviewStep) => void;
-  onDecisionSaved: (referral: Referral) => void | Promise<void>;
-}) {
-  return (
-    <section aria-label="Review" className="py-1 sm:px-2 sm:py-2">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d9d9d9] pb-3">
-        <h2 className="text-[18px] font-black text-[#111111]">{clientName.trim() || "Unnamed client"}</h2>
-        <div className="min-w-[180px]">
-          <div className="flex items-baseline justify-between gap-3 text-[11px]">
-            <span className="font-black text-[#111111]">{complete} of {total} items present</span>
-            <span className="font-black text-[#0f8b73]">{percent}%</span>
-          </div>
-          <div className="mt-2 h-2 bg-[#e4e8e3]">
-            <div className="h-full bg-[#0f8b73] transition-all" style={{ width: `${percent}%` }} />
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        {sections.map((section) => {
-          const sectionComplete = section.items.filter((item) => item.value.trim()).length;
-          return (
-            <section key={section.label} className="border border-[#d9d9d9] bg-white">
-              <div className="flex items-center justify-between border-b border-[#d9d9d9] px-4 py-3">
-                <h3 className="text-[12px] font-black uppercase tracking-[0.1em] text-[#111111]">{section.label}</h3>
-                <span className="text-[11px] font-black text-[#0f8b73]">{sectionComplete}/{section.items.length}</span>
-              </div>
-              <div className="divide-y divide-[#eeeeee]">
-                {section.items.map((item) => {
-                  const present = item.value.trim().length > 0;
-                  const displayValue = present ? (item.sensitive ? "Entered" : item.value.trim()) : "Not entered";
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => onOpenStep(item.step)}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#f7faf9]"
-                    >
-                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${present ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#b98b1c] text-[#b98b1c]"}`}>
-                        {present ? <Check size={12} /> : <Circle size={8} />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[12px] font-black text-[#111111]">{item.label}</span>
-                        <span className={`mt-0.5 block truncate text-[11px] ${present ? "text-[#595959]" : "text-[#a06d17]"}`}>{displayValue}</span>
-                      </span>
-                      <ArrowRight size={14} className="shrink-0 text-[#0f8b73]" />
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-      <ReferralRequirementsEditor referral={referral} onReferralUpdated={onDecisionSaved} />
-      <AdmissionDecisionEditor
-        referral={referral}
-        assessmentComplete={assessmentComplete}
-        onSaved={onDecisionSaved}
-      />
-      <EhrHandoffEditor referral={referral} onSaved={onDecisionSaved} />
-      <ReferralActivityPanel referralId={referral?.id} version={referral?.version} />
-    </section>
-  );
-}
-
-function ManualIntakeDialog({
-  reason,
-  saving,
-  onReasonChange,
-  onConfirm,
-  onClose,
-}: {
-  reason: string;
-  saving: boolean;
-  onReasonChange: (value: string) => void;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const reasonRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !saving) onClose();
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    window.setTimeout(() => reasonRef.current?.focus(), 0);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [onClose, saving]);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/30 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !saving) onClose();
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="manual-intake-title"
-        className="w-full max-w-[640px] bg-white shadow-[0_24px_70px_rgba(17,17,17,0.2)]"
-      >
-        <header className="flex items-start justify-between gap-5 border-b-2 border-[#111111] px-5 py-5 sm:px-7">
-          <div>
-            <h2 id="manual-intake-title" className="text-[22px] font-black text-[#111111]">Continue with manual chart intake</h2>
-            <p className="mt-2 max-w-[58ch] text-[12px] leading-5 text-[#595959]">
-              This unlocks the assessment without claiming that a packet was uploaded or extracted. Source files stay outstanding until attached.
-            </p>
-          </div>
-          <button type="button" onClick={onClose} disabled={saving} aria-label="Close manual intake" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#c9ceca] text-[#303638] hover:bg-[#f7faf9] disabled:text-[#b3b3b3]">
-            <X size={18} />
-          </button>
-        </header>
-        <div className="px-5 py-5 sm:px-7">
-          <label className="block">
-            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Reason</span>
-            <textarea
-              ref={reasonRef}
-              value={reason}
-              maxLength={1_000}
-              rows={5}
-              onChange={(event) => onReasonChange(event.target.value)}
-              placeholder="For example: referral details were entered from the source system; scanned documents will be attached when received."
-              className="mt-2 w-full resize-y border border-[#c9ceca] p-3 text-[13px] leading-6 outline-none focus:border-[#0f8b73]"
-            />
-          </label>
-          <div className="mt-2 text-right text-[10px] text-[#737373]">{reason.trim().length} / 1,000</div>
-        </div>
-        <footer className="flex items-center justify-end gap-3 border-t border-[#d9d9d9] px-5 py-4 sm:px-7">
-          <button type="button" onClick={onClose} disabled={saving} className="h-10 px-4 text-[11px] font-black uppercase text-[#595959] hover:text-[#111111] disabled:text-[#b3b3b3]">Cancel</button>
-          <button type="button" onClick={onConfirm} disabled={saving || reason.trim().length < 10} className="h-10 bg-[#111111] px-5 text-[11px] font-black uppercase text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8]">
-            {saving ? "Authorizing..." : "Continue to assessment"}
-          </button>
-        </footer>
-      </section>
-    </div>,
-    document.body,
-  );
-}
-
-function EhrHandoffEditor({
-  referral,
-  onSaved,
-}: {
-  referral: Referral | null;
-  onSaved: (referral: Referral) => void | Promise<void>;
-}) {
-  const handoff = referral?.ehrHandoff;
-  const [failureReason, setFailureReason] = useState("");
-  const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
-  const accepted = referral?.stage === "Accepted / Admitted" && referral.admissionDecision?.outcome === "accepted";
-
-  const run = async (action: "queue" | "mark_sent" | "mark_failed" | "retry") => {
-    if (!referral) return;
-    setSaving(true);
-    setMessage("");
-    try {
-      const payload = await fetchPipelineJson<{ referral: Referral; ehr_handoff: EhrHandoffRecord }>(
-        `/api/referrals/${referral.id}/ehr-handoff`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            if_match: referral.version,
-            if_match_section: referral.sectionVersions?.decision ?? 1,
-            action,
-            failure_reason: action === "mark_failed" ? failureReason.trim() : "",
-          }),
-        },
-      );
-      await onSaved(payload.referral);
-      setFailureReason("");
-      setMessage({
-        queue: "EHR handoff queued.",
-        retry: "EHR handoff queued again.",
-        mark_sent: "EHR handoff recorded as sent.",
-        mark_failed: "EHR handoff failure recorded.",
-      }[action]);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "The EHR handoff could not be updated.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!referral?.admissionDecision || referral.admissionDecision.outcome !== "accepted") return null;
-
-  const status = handoff?.status ?? "not_ready";
-  return (
-    <section aria-label="EHR handoff" className="mt-5 border-t border-[#d9d9d9] pt-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">EHR handoff</div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-[13px] font-black capitalize">{status.replace("_", " ")}</span>
-            {handoff?.queuedAt ? (
-              <span className="text-[11px] text-[#737373]">Queued {new Date(handoff.queuedAt).toLocaleString()}</span>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {(status === "not_ready" || status === "ready") ? (
-            <button
-              type="button"
-              onClick={() => void run("queue")}
-              disabled={!accepted || saving}
-              className="h-9 bg-[#111111] px-4 text-[10px] font-black uppercase tracking-[0.08em] text-white hover:bg-[#0f8b73] disabled:bg-[#d9d9d9]"
-            >
-              Queue handoff
-            </button>
-          ) : null}
-          {status === "failed" ? (
-            <button type="button" onClick={() => void run("retry")} disabled={saving} className="h-9 bg-[#111111] px-4 text-[10px] font-black uppercase tracking-[0.08em] text-white hover:bg-[#0f8b73] disabled:bg-[#d9d9d9]">
-              Retry
-            </button>
-          ) : null}
-          {status === "queued" ? (
-            <>
-              <button type="button" onClick={() => void run("mark_sent")} disabled={saving} className="h-9 border border-[#0f8b73] px-4 text-[10px] font-black uppercase tracking-[0.08em] text-[#0f8b73] hover:bg-[#effaf5] disabled:text-[#b3b3b3]">
-                Mark sent
-              </button>
-              <input
-                value={failureReason}
-                onChange={(event) => setFailureReason(event.target.value)}
-                placeholder="Failure reason"
-                aria-label="EHR handoff failure reason"
-                className="h-9 w-44 border border-[#c9ceca] px-3 text-[11px] outline-none focus:border-[#a63d2f]"
-              />
-              <button type="button" onClick={() => void run("mark_failed")} disabled={saving || !failureReason.trim()} className="h-9 border border-[#a63d2f] px-4 text-[10px] font-black uppercase tracking-[0.08em] text-[#a63d2f] hover:bg-[#fff7f5] disabled:border-[#d9d9d9] disabled:text-[#b3b3b3]">
-                Mark failed
-              </button>
-            </>
-          ) : null}
-        </div>
-      </div>
-      <div className="mt-2 min-h-4 text-[11px] text-[#737373]">
-        {message || (!accepted ? "Move the accepted referral to Accepted / Admitted before queueing the handoff." : status === "not_ready" ? "Queue only after the accepted record and EHR requirements are complete." : handoff?.failureReason ?? "")}
-      </div>
-    </section>
-  );
-}
-
-function AdmissionDecisionEditor({
-  referral,
-  assessmentComplete,
-  onSaved,
-}: {
-  referral: Referral | null;
-  assessmentComplete: boolean;
-  onSaved: (referral: Referral) => void | Promise<void>;
-}) {
-  const existing = referral?.admissionDecision;
-  const [outcome, setOutcome] = useState<AdmissionDecision["outcome"] | "">(existing?.outcome ?? "");
-  const [reasonNote, setReasonNote] = useState(existing?.reasonNote ?? "");
-  const [status, setStatus] = useState("");
-  const [saving, setSaving] = useState(false);
-  const acceptedPending = existing?.outcome === "accepted" && referral?.stage === "Community Review";
-
-  useEffect(() => {
-    setOutcome(referral?.admissionDecision?.outcome ?? "");
-    setReasonNote(referral?.admissionDecision?.reasonNote ?? "");
-  }, [referral?.admissionDecision]);
-
-  const saveDecision = async () => {
-    if (!referral || !outcome) return;
-    setSaving(true);
-    setStatus("");
-    try {
-      const payload = await fetchPipelineJson<{ referral: Referral; decision: AdmissionDecision }>(
-        `/api/referrals/${referral.id}/decision`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            if_match: referral.version,
-            if_match_section: referral.sectionVersions?.decision ?? 1,
-            outcome,
-            reason_note: outcome === "declined" ? reasonNote : "",
-          }),
-        },
-      );
-      await onSaved(payload.referral);
-      setStatus("Decision saved");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Could not save the admission decision.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const finalizeAcceptance = async () => {
-    if (!referral || !acceptedPending) return;
-    setSaving(true);
-    setStatus("");
-    try {
-      const payload = await fetchPipelineJson<{ referral: Referral }>(
-        `/api/referrals/${referral.id}/transition`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            if_match: referral.version,
-            if_match_section: referral.sectionVersions?.workflow ?? 1,
-            target_stage: "Accepted / Admitted",
-          }),
-        },
-      );
-      await onSaved(payload.referral);
-      setStatus("Acceptance finalized");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Acceptance could not be finalized.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <section aria-label="Admission decision" className="mt-5 border-t border-[#d9d9d9] pt-5">
-      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Admission decision</div>
-          <div className="mt-2 flex border border-[#c9ceca] bg-white">
-            {(["accepted", "declined"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setOutcome(value)}
-                disabled={!referral || !assessmentComplete}
-                className={`h-10 flex-1 px-4 text-[11px] font-black uppercase ${outcome === value ? "bg-[#111111] text-white" : "text-[#595959] hover:bg-[#f7faf9]"} disabled:cursor-not-allowed disabled:text-[#b3b3b3]`}
-              >
-                {value === "accepted" ? "Yes" : "No"}
-              </button>
-            ))}
-          </div>
-        </div>
-        <label className="block">
-          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#595959]">Why no admission</span>
-          <textarea
-            value={reasonNote}
-            onChange={(event) => setReasonNote(event.target.value)}
-            disabled={outcome !== "declined"}
-            rows={2}
-            className="mt-2 w-full resize-none border border-[#c9ceca] px-3 py-2 text-[12px] outline-none focus:border-[#0f8b73] disabled:bg-[#f7f7f7]"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={saveDecision}
-          disabled={!referral || !assessmentComplete || !outcome || (outcome === "declined" && !reasonNote.trim()) || saving}
-          className="h-10 bg-[#111111] px-5 text-[11px] font-black uppercase text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d9d9d9]"
-        >
-          {saving ? "Saving" : "Save decision"}
-        </button>
-        {acceptedPending ? (
-          <button
-            type="button"
-            onClick={finalizeAcceptance}
-            disabled={saving}
-            className="h-10 border border-[#0f8b73] px-5 text-[11px] font-black uppercase text-[#0f8b73] hover:bg-[#effaf5] disabled:cursor-not-allowed disabled:border-[#d9d9d9] disabled:text-[#b3b3b3] lg:col-start-3"
-          >
-            Finalize acceptance
-          </button>
-        ) : null}
-      </div>
-      <div className="mt-2 min-h-4 text-[11px] text-[#737373]">
-        {status || (!referral
-          ? "Save the referral first."
-          : !assessmentComplete
-            ? "Complete the assessment before recording Yes or No."
-            : acceptedPending
-              ? "Clear the blocking requirements, then finalize acceptance."
-              : existing
-                ? `Recorded by ${existing.decidedByName}.`
-                : "")}
-      </div>
-    </section>
-  );
-}
 
 function ChartSection({
   title,
@@ -2667,10 +2194,6 @@ function InitialPacketDropzone({
   );
 }
 
-function reviewField(label: string, value: string, step: ReviewStep, sensitive = false): ReviewItem {
-  return { label, value, step, ...(sensitive ? { sensitive: true } : {}) };
-}
-
 function countCompleteFields(fields: Record<FieldKey, PacketField>, keys: readonly FieldKey[]) {
   return keys.filter((key) => {
     const value = fields[key].value.trim();
@@ -2787,207 +2310,6 @@ function EditablePacketField({
   );
 }
 
-function StructuredNarrativeField({
-  field,
-  kind,
-  onChange,
-}: {
-  field: PacketField;
-  kind: NarrativeKind;
-  onChange: (value: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const sections = narrativeSections[kind];
-  const values = parseStructuredNarrative(field.value, sections);
-  const completedSections = sections.filter((section) => values[section.key]?.trim()).length;
-  const previewSections = sections
-    .map((section) => ({ ...section, value: values[section.key]?.trim() ?? "" }))
-    .filter((section) => section.value)
-    .slice(0, 2);
-
-  const closeEditor = useCallback(() => {
-    setIsOpen(false);
-    window.setTimeout(() => triggerRef.current?.focus(), 0);
-  }, []);
-
-  return (
-    <>
-      <section aria-label={`${field.label} chart field`} className="flex min-h-[190px] flex-col border border-[#d7ddd9] bg-white p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#3f4745]">{field.label}</h3>
-            <p className="mt-1 text-[11px] font-semibold text-[#737373]">{completedSections} of {sections.length} sections</p>
-          </div>
-          {field.sourceFile ? <span className="text-[9px] font-black uppercase text-[#317f8f]">Imported</span> : null}
-        </div>
-
-        <div className="mt-4 flex-1 space-y-3">
-          {previewSections.length ? previewSections.map((section) => (
-            <div key={section.key}>
-              <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">{section.label}</div>
-              <p className="mt-1 line-clamp-2 text-[12px] font-medium leading-5 text-[#303638]">{section.value}</p>
-            </div>
-          )) : (
-            <p className="max-w-[36ch] text-[12px] leading-5 text-[#737373]">No {field.label.toLowerCase()} captured yet.</p>
-          )}
-        </div>
-
-        <div className="mt-4 flex items-end justify-between gap-3 border-t border-[#e3e6e4] pt-3">
-          <div className="min-w-0 text-[10px] text-[#737373]">
-            {field.sourceFile ? <span className="truncate">Source: {field.sourceFile}</span> : "Manual chart entry"}
-          </div>
-          <button
-            ref={triggerRef}
-            type="button"
-            onClick={() => setIsOpen(true)}
-            className="flex h-9 shrink-0 items-center gap-2 border border-[#0c705f] px-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#0c705f] hover:bg-[#effaf5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c705f]"
-          >
-            <PencilLine size={14} />
-            Edit {field.label.toLowerCase()}
-          </button>
-        </div>
-      </section>
-
-      {isOpen ? (
-        <StructuredNarrativeDialog
-          title={field.label}
-          sections={sections}
-          values={values}
-          onChange={(sectionKey, value) => {
-            onChange(serializeStructuredNarrative(sections, { ...values, [sectionKey]: value }));
-          }}
-          onClose={closeEditor}
-        />
-      ) : null}
-    </>
-  );
-}
-
-function StructuredNarrativeDialog({
-  title,
-  sections,
-  values,
-  onChange,
-  onClose,
-}: {
-  title: string;
-  sections: readonly NarrativeSection[];
-  values: Record<string, string>;
-  onChange: (sectionKey: string, value: string) => void;
-  onClose: () => void;
-}) {
-  const firstFieldRef = useRef<HTMLTextAreaElement>(null);
-  const completedSections = sections.filter((section) => values[section.key]?.trim()).length;
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    window.setTimeout(() => firstFieldRef.current?.focus(), 0);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [onClose]);
-
-  return createPortal(
-    <div className="fixed inset-0 z-[90] flex items-stretch justify-center bg-black/30 p-0 sm:p-5" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={`structured-${title.toLowerCase()}-title`}
-        className="flex h-full w-full max-w-[1080px] flex-col overflow-hidden bg-white shadow-[0_24px_70px_rgba(17,17,17,0.2)] sm:h-[calc(100vh-40px)]"
-      >
-        <header className="flex min-h-[76px] items-center justify-between gap-5 border-b-2 border-[#111111] px-5 sm:px-8">
-          <div>
-            <h2 id={`structured-${title.toLowerCase()}-title`} className="text-[24px] font-black text-[#111111] sm:text-[30px]">{title}</h2>
-            <div className="mt-1 text-[11px] font-black uppercase tracking-[0.08em] text-[#0c705f]">{completedSections} of {sections.length} sections complete</div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={`Close ${title.toLowerCase()} editor`}
-            title="Close"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#c9ceca] text-[#303638] hover:border-[#111111] hover:bg-[#f7faf9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
-          >
-            <X size={19} />
-          </button>
-        </header>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-7">
-          <div className="grid gap-x-8 gap-y-6 lg:grid-cols-2">
-            {sections.map((section, index) => (
-              <label key={section.key} className="block border-t border-[#cfd5d1] pt-3">
-                <span className="flex items-center justify-between gap-3">
-                  <span className="text-[11px] font-black uppercase tracking-[0.08em] text-[#303638]">{section.label}</span>
-                  {values[section.key]?.trim() ? <CheckCircle2 size={15} className="shrink-0 text-[#0c705f]" /> : null}
-                </span>
-                <textarea
-                  ref={index === 0 ? firstFieldRef : undefined}
-                  aria-label={`${title}: ${section.label}`}
-                  value={values[section.key] ?? ""}
-                  placeholder={section.placeholder}
-                  onChange={(event) => onChange(section.key, event.target.value)}
-                  className="mt-3 min-h-[132px] w-full resize-y border border-[#d7ddd9] bg-[#fbfdfc] p-3 text-[13px] font-medium leading-6 text-[#303638] outline-none placeholder:text-[#9a9a9a] focus:border-[#0f8b73] focus:bg-white"
-                />
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <footer className="flex min-h-[70px] items-center justify-end border-t border-[#d9d9d9] px-5 sm:px-8">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-10 bg-[#111111] px-6 text-[11px] font-black uppercase tracking-[0.08em] text-white hover:bg-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
-          >
-            Done
-          </button>
-        </footer>
-      </section>
-    </div>,
-    document.body,
-  );
-}
-
-function parseStructuredNarrative(value: string, sections: readonly NarrativeSection[]) {
-  const result = Object.fromEntries(sections.map((section) => [section.key, ""])) as Record<string, string>;
-  const normalized = value.trim();
-  if (!normalized) return result;
-
-  const headingMatches = sections
-    .map((section) => ({ section, marker: `## ${section.label}` }))
-    .map(({ section, marker }) => ({ section, index: normalized.indexOf(marker), marker }))
-    .filter((match) => match.index >= 0)
-    .sort((left, right) => left.index - right.index);
-
-  if (!headingMatches.length) {
-    result[sections[sections.length - 1].key] = normalized;
-    return result;
-  }
-
-  headingMatches.forEach((match, index) => {
-    const start = match.index + match.marker.length;
-    const end = headingMatches[index + 1]?.index ?? normalized.length;
-    result[match.section.key] = normalized.slice(start, end).trim();
-  });
-  return result;
-}
-
-function serializeStructuredNarrative(sections: readonly NarrativeSection[], values: Record<string, string>) {
-  return sections
-    .map((section) => ({ section, value: values[section.key]?.trim() ?? "" }))
-    .filter(({ value }) => value)
-    .map(({ section, value }) => `## ${section.label}\n${value}`)
-    .join("\n\n");
-}
-
 function DocumentDropRow({
   requirement,
   fileName,
@@ -3043,160 +2365,16 @@ function DocumentDropRow({
   );
 }
 
-function populateFormFromExtraction(
-  current: Record<FieldKey, PacketField>,
-  extractedFields: ExtractedField[],
-  sourceFile: string,
-  dirty: ReadonlySet<DirtyDraftKey> = new Set(),
-  manualOverrideKeys: ReadonlySet<FieldKey> = new Set(),
-) {
-  const extractedByKey = new Map(
-    extractedFields
-      .filter((field) => field.review_status !== "rejected")
-      .map((field) => [field.field_key, field] as const),
-  );
-  const firstName = extractedValue(extractedByKey, ["referral.first_name", "demographics.first_name"]);
-  const lastName = extractedValue(extractedByKey, ["referral.last_name", "demographics.last_name"]);
-  const directName = extractedValue(extractedByKey, ["referral.full_name", "demographics.full_name"]);
-  const compositeName = firstName?.value && lastName?.value
-    ? `${firstName.value} ${lastName.value}`
-    : "";
-  const fullName = directName?.value || compositeName;
-  const nameSource = directName?.field ?? firstName?.field ?? lastName?.field;
-  const compositeNameConfirmed = Boolean(
-    firstName?.field
-    && lastName?.field
-    && [firstName.field.review_status, lastName.field.review_status].every((status) => (
-      status === "accepted" || status === "edited"
-    )),
-  );
 
-  const updates: Partial<Record<FieldKey, { value: string; field?: ExtractedField; confirmed?: boolean }>> = {
-    ...(fullName
-      ? {
-          name: {
-            value: fullName,
-            ...(nameSource ? { field: nameSource } : {}),
-            ...(directName ? {} : { confirmed: compositeNameConfirmed }),
-          },
-        }
-      : {}),
-    dob: extractedValue(extractedByKey, ["referral.date_of_birth", "demographics.date_of_birth"]),
-    age: extractedValue(extractedByKey, ["referral.age", "demographics.age"]),
-    gender: extractedValue(extractedByKey, ["referral.gender", "demographics.gender"]),
-    admissionDate: extractedValue(extractedByKey, ["referral.preferred_admission_date"]),
-    referent: extractedValue(extractedByKey, [
-      "referral.source",
-      "referral.referring_provider",
-      "referral.referring_facility",
-    ]),
-    responsiblePerson: extractedValue(extractedByKey, [
-      "referral.emergency_contact",
-      "assessment.guardian_contact",
-    ]),
-    summary: extractedValue(extractedByKey, ["referral.packet_summary"]),
-    interview: extractedValue(extractedByKey, ["assessment.presenting_needs", "referral.notes"]),
-  };
-  const community = extractedValue(extractedByKey, ["assessment.community_preference"]);
-  if (community && pipelineCommunities.includes(community.value as PipelineCommunity)) {
-    updates.county = community;
-  }
-
-  let changed = false;
-  const next = { ...current };
-  for (const [key, update] of Object.entries(updates) as Array<[
-    FieldKey,
-    { value: string; field?: ExtractedField; confirmed?: boolean } | undefined,
-  ]>) {
-    if (!update?.value) continue;
-    if (dirty.has(key)) continue;
-    const humanConfirmed = update.confirmed
-      ?? (update.field?.review_status === "accepted" || update.field?.review_status === "edited");
-    const differsFromManualValue = Boolean(
-      current[key].value.trim()
-      && !current[key].sourceFile
-      && current[key].value !== update.value,
-    );
-    if (differsFromManualValue && !manualOverrideKeys.has(key)) continue;
-    if (!humanConfirmed && current[key].value.trim()) continue;
-    if (current[key].value === update.value && current[key].sourceFile === sourceFile) continue;
-
-    next[key] = {
-      ...current[key],
-      value: update.value,
-      sourceFile,
-    };
-    changed = true;
-  }
-
-  return changed ? next : current;
-}
-
-function extractedCanvasFieldKeys(fieldKey: string): PersistedFieldKey[] {
-  const mappings: Record<string, PersistedFieldKey[]> = {
-    "referral.first_name": ["name"],
-    "demographics.first_name": ["name"],
-    "referral.last_name": ["name"],
-    "demographics.last_name": ["name"],
-    "referral.full_name": ["name"],
-    "demographics.full_name": ["name"],
-    "referral.date_of_birth": ["dob"],
-    "demographics.date_of_birth": ["dob"],
-    "referral.age": ["age"],
-    "demographics.age": ["age"],
-    "referral.gender": ["gender"],
-    "demographics.gender": ["gender"],
-    "referral.preferred_admission_date": ["admissionDate"],
-    "referral.source": ["referent"],
-    "referral.referring_provider": ["referent"],
-    "referral.referring_facility": ["referent"],
-    "referral.emergency_contact": ["responsiblePerson"],
-    "assessment.guardian_contact": ["responsiblePerson"],
-    "referral.packet_summary": ["summary"],
-    "assessment.presenting_needs": ["interview"],
-    "referral.notes": ["interview"],
-    "assessment.community_preference": ["county"],
-  };
-  return mappings[fieldKey] ?? [];
-}
-
-const persistedFieldKeys = [
-  "name",
-  "gender",
-  "age",
-  "dob",
-  "ssn",
-  "owner",
-  "referralReceived",
-  "admissionDate",
-  "county",
-  "referent",
-  "responsiblePerson",
-  "summary",
-  "interview",
-] as const;
-type PersistedFieldKey = (typeof persistedFieldKeys)[number];
+const persistedFieldKeys = persistedCanvasFieldKeys;
+type PersistedFieldKey = PersistedCanvasFieldKey;
 
 function isPersistedFieldKey(value: DirtyDraftKey): value is PersistedFieldKey {
-  return (persistedFieldKeys as readonly string[]).includes(value);
+  return isPersistedCanvasFieldKey(value);
 }
 
 function referralDraftValue(referral: Referral, key: PersistedFieldKey) {
-  return {
-    name: referral.name,
-    gender: referral.gender ?? "",
-    age: referral.reportedAge ?? "",
-    dob: referral.dob,
-    ssn: referral.ssn ?? "",
-    owner: referral.owner,
-    referralReceived: referral.date,
-    admissionDate: referral.admissionDate ?? "",
-    county: referral.community,
-    referent: referral.source,
-    responsiblePerson: referral.responsiblePerson ?? "",
-    summary: referral.note,
-    interview: referral.interview ?? "",
-  }[key] ?? "";
+  return referralCanvasValue(referral, key);
 }
 
 function fieldsFromReferral(current: Record<FieldKey, PacketField>, referral: Referral) {
@@ -3310,14 +2488,6 @@ function documentNames(documents: Record<string, string>) {
   return Object.values(documents).filter(Boolean).sort().join(", ");
 }
 
-function fieldSourcesFromFields(fields: Record<FieldKey, PacketField>) {
-  return Object.fromEntries(
-    persistedFieldKeys
-      .map((key) => [key, fields[key].sourceFile?.trim()] as const)
-      .filter((entry): entry is readonly [FieldKey, string] => Boolean(entry[1])),
-  );
-}
-
 function buildCanvasPatch(input: {
   keys: ReadonlySet<DirtyDraftKey>;
   fields: Record<FieldKey, PacketField>;
@@ -3326,41 +2496,13 @@ function buildCanvasPatch(input: {
   requirements: Referral["requirements"];
   packet?: { file: File; hash: string };
 }): ReferralPatch {
-  const patch: ReferralPatch = {};
-  const fieldPatchKeys: Partial<Record<FieldKey, keyof ReferralPatch>> = {
-    name: "name",
-    gender: "gender",
-    age: "reportedAge",
-    dob: "dob",
-    ssn: "ssn",
-    owner: "owner",
-    referralReceived: "date",
-    admissionDate: "admissionDate",
-    county: "community",
-    referent: "source",
-    responsiblePerson: "responsiblePerson",
-    summary: "note",
-    interview: "interview",
-  };
-  let fieldChanged = false;
-  for (const key of persistedFieldKeys) {
-    if (!input.keys.has(key)) continue;
-    const patchKey = fieldPatchKeys[key];
-    if (!patchKey) continue;
-    fieldChanged = true;
-    (patch as Record<string, unknown>)[patchKey] = input.fields[key].value;
-  }
-  if (fieldChanged) patch.fieldSources = fieldSourcesFromFields(input.fields);
-  if (input.keys.has("conserved")) patch.conserved = input.conserved;
-  if (input.keys.has("tags")) patch.tags = input.tags;
-  if (input.keys.has("documents")) patch.requirements = input.requirements;
-  if (input.keys.has("initialPacket") && input.packet) {
-    patch.documentName = input.packet.file.name;
-    patch.documentSizeBytes = input.packet.file.size;
-    patch.documentHash = input.packet.hash;
-    patch.documentStatus = "Missing";
-  }
-  return patch;
+  const { packet, ...canvasInput } = input;
+  return buildReferralCanvasPatch({
+    ...canvasInput,
+    ...(packet
+      ? { packet: { name: packet.file.name, size: packet.file.size, hash: packet.hash } }
+      : {}),
+  });
 }
 
 function draftKeySignature(
@@ -3556,18 +2698,6 @@ function dedupePresence(items: ReferralPresenceView[]) {
   return [...byActorAndSection.values()];
 }
 
-function extractedValue(
-  fields: Map<string, ExtractedField>,
-  fieldKeys: string[],
-): { value: string; field: ExtractedField } | undefined {
-  for (const fieldKey of fieldKeys) {
-    const field = fields.get(fieldKey);
-    const value = (field?.final_value ?? field?.proposed_value ?? "").trim();
-    if (field && value) return { value, field };
-  }
-  return undefined;
-}
-
 function normalizeTags(value: string) {
   return Array.from(
     new Set(
@@ -3577,172 +2707,6 @@ function normalizeTags(value: string) {
         .filter(Boolean),
     ),
   ).slice(0, 12);
-}
-
-function createMutationId() {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `referral-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-async function hashPacket(file: File) {
-  if (!globalThis.crypto?.subtle) throw new Error("This browser cannot verify packet duplicates.");
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-async function uploadReferralPacket(
-  referral: Referral,
-  file: File,
-  sha256: string,
-  category: InitialDocumentCategory,
-): Promise<PacketUploadResult> {
-  const fileId = `file_${createMutationId()}`;
-  const reservation = await fetchPipelineJson<CreateUploadUrlResponse>("/api/uploads/create-url", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      referral_id: String(referral.id),
-      submitting_facility: referral.community,
-      source_type: "manual",
-      files: [
-        {
-          file_id: fileId,
-          filename: file.name,
-          content_type: getPacketContentType(file),
-          size: file.size,
-          sha256,
-          category,
-        },
-      ],
-    }),
-  });
-
-  const target = reservation.uploads.find((upload) => upload.file_id === fileId);
-  if (!target) throw new Error("Pipeline did not return an upload target for this packet.");
-  const mock = isMockUploadUrl(target.signed_url);
-
-  if (mock) {
-    const localUpload = new FormData();
-    localUpload.set("packet_id", reservation.packet_id);
-    localUpload.set("file_id", fileId);
-    localUpload.set("file", file, file.name);
-    await fetchPipelineJson<{
-      packet_id: string;
-      status: "ready_for_review";
-      page_count: number;
-      fields_total: number;
-    }>(
-      "/api/uploads/local",
-      { method: "POST", body: localUpload },
-      { timeoutMs: 120_000, maxResponseBytes: 256 * 1024 },
-    );
-  } else {
-    await putBlob(target.signed_url, file, getPacketContentType(file));
-    await putBlob(reservation.sentinel_url, new Blob([]), "application/octet-stream");
-  }
-
-  const completed = await fetchPipelineJson<CompleteUploadResponse>("/api/uploads/complete", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      packet_id: reservation.packet_id,
-      uploaded_file_ids: [fileId],
-    }),
-  });
-  const status = await fetchPipelineJson<PacketStatusResponse>(`/api/packets/${reservation.packet_id}/status`, {
-    cache: "no-store",
-  }).catch(() => ({
-    packet_id: reservation.packet_id,
-    status: completed.status,
-    page_count: 0,
-    counts: { fields_total: 0, pending_review: 0, conflicts: 0 },
-  }));
-
-  const packetFields = ["ready_for_review", "reviewed"].includes(status.status)
-    ? await fetchPipelineJson<PacketFieldsResponse>(`/api/packets/${reservation.packet_id}/fields`, { cache: "no-store" }).catch(() => undefined)
-    : undefined;
-
-  return {
-    packetId: reservation.packet_id,
-    status: status.status,
-    pageCount: status.page_count,
-    fields: packetFields,
-    document: completed.documents?.find((document) => document.file_id === fileId),
-    mock,
-  };
-}
-
-async function uploadReferralSupportingDocument(
-  referral: Referral,
-  file: File,
-  category: DocumentCategory,
-) {
-  const fileId = `file_${createMutationId()}`;
-  const sha256 = await hashPacket(file);
-  const reservation = await fetchPipelineJson<CreateUploadUrlResponse>("/api/uploads/create-url", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      referral_id: String(referral.id),
-      submitting_facility: referral.community,
-      source_type: "manual",
-      processing_intent: "preview_only",
-      files: [{
-        file_id: fileId,
-        filename: file.name,
-        content_type: getPacketContentType(file),
-        size: file.size,
-        sha256,
-        category,
-      }],
-    }),
-  });
-  const target = reservation.uploads.find((upload) => upload.file_id === fileId);
-  if (!target) throw new Error("Pipeline did not return an upload target for this document.");
-  if (!isMockUploadUrl(target.signed_url)) {
-    await putBlob(target.signed_url, file, getPacketContentType(file));
-    await putBlob(reservation.sentinel_url, new Blob([]), "application/octet-stream");
-  }
-  return fetchPipelineJson<CompleteUploadResponse>("/api/uploads/complete", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ packet_id: reservation.packet_id, uploaded_file_ids: [fileId] }),
-  });
-}
-
-async function putBlob(url: string, body: Blob, contentType: string) {
-  const response = await fetch(url, {
-    method: "PUT",
-    credentials: "omit",
-    headers: {
-      "Content-Type": contentType,
-      "x-ms-blob-type": "BlockBlob",
-    },
-    body,
-  });
-  if (!response.ok) throw new Error("The packet could not be written to secure storage. Retry the upload.");
-}
-
-function isMockUploadUrl(url: string) {
-  try {
-    return new URL(url).hostname === "mock-storage.local";
-  } catch {
-    return false;
-  }
-}
-
-function getPacketContentType(file: Pick<File, "name" | "type">) {
-  const type = file.type.trim().toLowerCase();
-  if ((allowedUploadContentTypes as readonly string[]).includes(type)) return type;
-
-  const extension = file.name.split(".").pop()?.toLowerCase();
-  if (extension === "pdf") return "application/pdf";
-  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
-  if (extension === "png") return "image/png";
-  if (extension === "tif" || extension === "tiff") return "image/tiff";
-  if (extension === "heic") return "image/heic";
-  return "application/octet-stream";
 }
 
 function isAssessmentStageAvailable(stage: Referral["stage"]) {

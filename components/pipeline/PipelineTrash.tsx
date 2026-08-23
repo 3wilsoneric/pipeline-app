@@ -49,17 +49,17 @@ export default function PipelineTrash() {
   };
 
   return (
-    <main className="h-full overflow-y-auto bg-white px-4 pb-8 pt-2 sm:px-6 lg:px-8">
+    <main aria-busy={loading} className="h-full overflow-y-auto bg-white px-4 pb-8 pt-2 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-[1240px]">
         <div className="flex min-h-14 items-center justify-between gap-4 border-b border-[#d9d9d9] pb-3">
           <div className="relative min-w-0 flex-1">
             <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#737373]" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search trash" placeholder="Search deleted workspaces..." className="h-11 w-full border border-[#c9ceca] bg-white pl-10 pr-3 text-[13px] text-[#111111] outline-none focus:border-[#0f8b73]" />
           </div>
-          <span className="shrink-0 text-[11px] text-[#737373]">{loading ? "Loading..." : `${referrals.length} in trash`}</span>
+          <span role="status" aria-live="polite" className="shrink-0 text-[11px] text-[#737373]">{loading ? "Loading trash..." : `${referrals.length} in trash`}</span>
         </div>
         <div className="mt-3 border-l-2 border-[#a16a16] bg-[#fff8ed] px-4 py-3 text-[11px] text-[#6f4b13]">Workspaces remain restorable for 30 days, then their records and files are permanently removed.</div>
-        {error ? <div className="mt-3 border-l-2 border-[#a9473d] bg-[#fff3f1] px-4 py-3 text-[11px] text-[#7c3229]">{error}</div> : null}
+        {error ? <div role="alert" className="mt-3 border-l-2 border-[#a9473d] bg-[#fff3f1] px-4 py-3 text-[11px] text-[#7c3229]">{error}</div> : null}
         {!loading && referrals.length === 0 ? (
           <div className="flex min-h-[320px] flex-col items-center justify-center text-center"><Trash2 size={24} className="text-[#0f8b73]" /><div className="mt-3 text-[13px] font-black text-[#111111]">Trash is empty</div><div className="mt-1 text-[11px] text-[#737373]">Deleted workspaces will appear here for recovery.</div></div>
         ) : (

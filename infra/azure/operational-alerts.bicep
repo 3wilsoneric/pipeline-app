@@ -4,8 +4,20 @@ param namePrefix string
 param environment string
 param location string
 param logAnalyticsWorkspaceId string
+param postgresServerId string
+param storageAccountId string
 param actionGroupResourceIds array = []
 param enabled bool = true
+
+@minValue(1)
+param postgresConnectionAlertThreshold int = 60
+
+@minValue(1)
+@maxValue(100)
+param postgresStorageAlertPercent int = 75
+
+@minValue(1073741824)
+param blobStorageAlertBytes int = 85899345920
 
 var common = {
   kind: 'LogAlert'
@@ -131,6 +143,104 @@ ContainerAppConsoleLogs_CL
 | summarize MetricValue = count()
 '''
   }
+  {
+    key: 'stale-presence-leases'
+    displayName: 'Pipeline stale editing leases'
+    description: 'Editing presence leases are expiring faster than routine cleanup should produce.'
+    severity: 2
+    frequency: 'PT5M'
+    window: 'PT15M'
+    threshold: 25
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) == 'pipeline.presence.stale_leases'
+| summarize MetricValue = sum(todouble(payload.value))
+'''
+  }
+  {
+    key: 'extraction-queue-depth'
+    displayName: 'Pipeline extraction queue depth'
+    description: 'More than 100 packet-processing jobs are waiting or running.'
+    severity: 2
+    frequency: 'PT5M'
+    window: 'PT30M'
+    threshold: 100
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) == 'pipeline.extraction.queue_depth'
+| where tostring(payload.dimensions.result) in ('queued', 'running')
+| summarize MetricValue = max(todouble(payload.value))
+'''
+  }
+  {
+    key: 'extraction-oldest-age'
+    displayName: 'Pipeline extraction queue age'
+    description: 'The oldest active packet-processing job has waited more than 30 minutes.'
+    severity: 1
+    frequency: 'PT5M'
+    window: 'PT15M'
+    threshold: 1800000
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) == 'pipeline.extraction.oldest_age'
+| summarize MetricValue = max(todouble(payload.value))
+'''
+  }
+  {
+    key: 'storage-failures'
+    displayName: 'Pipeline private storage failures'
+    description: 'Blob properties, deletion, or managed-identity delegation failed.'
+    severity: 1
+    frequency: 'PT5M'
+    window: 'PT15M'
+    threshold: 0
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) in ('pipeline.storage.failures', 'pipeline.storage.inventory_failures')
+| summarize MetricValue = sum(todouble(payload.value))
+'''
+  }
+  {
+    key: 'retention-failures'
+    displayName: 'Pipeline retention failures'
+    description: 'A scheduled document or workspace retention operation could not complete.'
+    severity: 1
+    frequency: 'PT15M'
+    window: 'PT30M'
+    threshold: 0
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) in ('pipeline.retention.documents', 'pipeline.retention.referrals')
+| where tostring(payload.dimensions.result) == 'failed'
+| summarize MetricValue = sum(todouble(payload.value))
+'''
+  }
+  {
+    key: 'clinical-freshness'
+    displayName: 'Pipeline clinical snapshot freshness'
+    description: 'The governed clinical snapshot is more than 25 hours old.'
+    severity: 1
+    frequency: 'PT15M'
+    window: 'PT30M'
+    threshold: 90000000
+    operator: 'GreaterThan'
+    query: '''
+ContainerAppConsoleLogs_CL
+| extend payload = parse_json(Log_s)
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) == 'pipeline.clinical.freshness_age'
+| summarize MetricValue = max(todouble(payload.value))
+'''
+  }
 ]
 
 resource operationalAlerts 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = [for alert in alerts: if (enabled) {
@@ -171,4 +281,97 @@ resource operationalAlerts 'Microsoft.Insights/scheduledQueryRules@2023-12-01' =
   }
 }]
 
-output alertRuleCount int = enabled ? length(alerts) : 0
+resource postgresConnectionsAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (enabled) {
+  name: take('${namePrefix}-${environment}-postgres-connections', 260)
+  location: 'global'
+  tags: common.tags
+  properties: {
+    description: 'PostgreSQL active connections are approaching the Pipeline application pool budget.'
+    severity: 2
+    enabled: true
+    scopes: [postgresServerId]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    autoMitigate: true
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          criterionType: 'StaticThresholdCriterion'
+          name: 'ActiveConnections'
+          metricName: 'active_connections'
+          metricNamespace: 'Microsoft.DBforPostgreSQL/flexibleServers'
+          operator: 'GreaterThan'
+          threshold: postgresConnectionAlertThreshold
+          timeAggregation: 'Average'
+          skipMetricValidation: false
+        }
+      ]
+    }
+    actions: [for actionGroupId in actionGroupResourceIds: { actionGroupId: actionGroupId }]
+  }
+}
+
+resource postgresStorageAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (enabled) {
+  name: take('${namePrefix}-${environment}-postgres-storage', 260)
+  location: 'global'
+  tags: common.tags
+  properties: {
+    description: 'PostgreSQL storage utilization exceeded the operational headroom target.'
+    severity: 1
+    enabled: true
+    scopes: [postgresServerId]
+    evaluationFrequency: 'PT15M'
+    windowSize: 'PT30M'
+    autoMitigate: true
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          criterionType: 'StaticThresholdCriterion'
+          name: 'StoragePercent'
+          metricName: 'storage_percent'
+          metricNamespace: 'Microsoft.DBforPostgreSQL/flexibleServers'
+          operator: 'GreaterThan'
+          threshold: postgresStorageAlertPercent
+          timeAggregation: 'Maximum'
+          skipMetricValidation: false
+        }
+      ]
+    }
+    actions: [for actionGroupId in actionGroupResourceIds: { actionGroupId: actionGroupId }]
+  }
+}
+
+resource blobCapacityAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (enabled) {
+  name: take('${namePrefix}-${environment}-blob-capacity', 260)
+  location: 'global'
+  tags: common.tags
+  properties: {
+    description: 'Pipeline Blob Storage tracked capacity exceeded the configured planning threshold.'
+    severity: 2
+    enabled: true
+    scopes: [storageAccountId]
+    evaluationFrequency: 'PT1H'
+    windowSize: 'PT6H'
+    autoMitigate: true
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          criterionType: 'StaticThresholdCriterion'
+          name: 'UsedCapacity'
+          metricName: 'UsedCapacity'
+          metricNamespace: 'Microsoft.Storage/storageAccounts'
+          operator: 'GreaterThan'
+          threshold: blobStorageAlertBytes
+          timeAggregation: 'Average'
+          skipMetricValidation: false
+        }
+      ]
+    }
+    actions: [for actionGroupId in actionGroupResourceIds: { actionGroupId: actionGroupId }]
+  }
+}
+
+output alertRuleCount int = enabled ? length(alerts) + 3 : 0

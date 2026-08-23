@@ -89,8 +89,13 @@ check("framework disclosure is disabled", nextConfig.includes("poweredByHeader: 
 const authSession = read(path.join(root, "app/api/auth/session/route.ts"));
 check("session mutations require same-origin requests", authSession.includes("requireSameOriginMutation(request)"));
 const ci = read(path.join(root, ".github/workflows/ci.yml"));
+const platformReadiness = read(path.join(root, "scripts/platform-readiness.mjs"));
 check("CI blocks high-severity dependency advisories", ci.includes("npm audit --audit-level=high"));
-check("CI audits every API method policy", ci.includes("npm run check:route-policy"));
+check(
+  "CI audits every API method policy without a duplicate workflow step",
+  ci.includes("npm run check:platform:fast")
+    && platformReadiness.includes('args: ["scripts/api-route-policy-audit.mjs"]'),
+);
 check("all third-party CI actions are immutable", !/uses:\s*[^\s]+@v\d+/m.test(ci));
 
 const clinicalAdapter = read(path.join(root, "lib/clinical/clinical-data.ts"));

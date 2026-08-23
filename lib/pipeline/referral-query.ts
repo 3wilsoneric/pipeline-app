@@ -11,63 +11,109 @@ type QueryResult =
 
 const priorities: Priority[] = ["urgent", "high", "standard"];
 const queues: ReferralQueueView[] = ["my_work", "unassigned", "packet_review", "assessment", "decision"];
+const workspaceStatuses = ["active", "historical", "archived", "all"] as const;
+
+type ReferralQueryValues = {
+  query: string;
+  cursor?: string;
+  stage?: string;
+  community?: string;
+  owner?: string;
+  priority?: string;
+  tag?: string;
+  month?: string;
+  active?: string;
+  workspace: string;
+  queue?: string;
+  sort: string;
+  limit?: number;
+};
+
+type QueryValidationRule = {
+  invalid: boolean;
+  message: string;
+};
 
 export function parseReferralListQuery(searchParams: URLSearchParams): QueryResult {
-  const query = searchParams.get("q")?.trim() ?? "";
-  const cursor = searchParams.get("cursor")?.trim() || undefined;
-  const stage = searchParams.get("stage")?.trim() || undefined;
-  const community = searchParams.get("community")?.trim() || undefined;
-  const owner = searchParams.get("owner")?.trim() || undefined;
-  const priority = searchParams.get("priority")?.trim() || undefined;
-  const tag = searchParams.get("tag")?.trim() || undefined;
-  const month = searchParams.get("month")?.trim() || undefined;
-  const active = searchParams.get("active")?.trim();
-  const workspace = searchParams.get("workspace")?.trim() || "active";
-  const queue = searchParams.get("queue")?.trim() || undefined;
-  const rawSort = searchParams.get("sort")?.trim() || "updated_desc";
-  const rawLimit = searchParams.get("limit")?.trim();
-  const limit = rawLimit ? Number(rawLimit) : undefined;
-
-  if (query.length > 200) return invalid("q must be 200 characters or fewer.");
-  if (!isReferralSort(rawSort)) return invalid("sort is invalid.");
-  if (cursor && !isReferralSortCursor(cursor, rawSort)) return invalid("cursor is invalid.");
-  if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 200)) {
-    return invalid("limit must be a whole number between 1 and 200.");
-  }
-  if (stage && !boardStages.includes(stage as ReferralStage)) return invalid("stage is invalid.");
-  if (community && !pipelineCommunities.includes(community as (typeof pipelineCommunities)[number])) {
-    return invalid("community is invalid.");
-  }
-  if (owner && owner.length > 200) return invalid("owner is invalid.");
-  if (priority && !priorities.includes(priority as Priority)) return invalid("priority is invalid.");
-  if (tag && (tag.length > 64 || !/^[a-zA-Z0-9 _.-]+$/.test(tag))) return invalid("tag is invalid.");
-  if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return invalid("month must use YYYY-MM.");
-  if (active !== undefined && active !== "" && active !== "true" && active !== "false") {
-    return invalid("active must be true or false.");
-  }
-  if (!new Set(["active", "historical", "archived", "all"]).has(workspace)) {
-    return invalid("workspace is invalid.");
-  }
-  if (queue && !queues.includes(queue as ReferralQueueView)) return invalid("queue is invalid.");
+  const values = readReferralQueryValues(searchParams);
+  const issue = validateReferralQueryValues(values);
+  if (issue) return invalid(issue);
 
   return {
     ok: true,
     value: {
-      query,
-      limit,
-      cursor,
-      stage: stage as ReferralStage | undefined,
-      community,
-      owner,
-      priority: priority as Priority | undefined,
-      tag,
-      month,
-      activeOnly: active === "true",
-      workspaceStatus: workspace as ReferralListOptions["workspaceStatus"],
-      queue: queue as ReferralQueueView | undefined,
-      sort: rawSort,
+      query: values.query,
+      limit: values.limit,
+      cursor: values.cursor,
+      stage: values.stage as ReferralStage | undefined,
+      community: values.community,
+      owner: values.owner,
+      priority: values.priority as Priority | undefined,
+      tag: values.tag,
+      month: values.month,
+      activeOnly: values.active === "true",
+      workspaceStatus: values.workspace as ReferralListOptions["workspaceStatus"],
+      queue: values.queue as ReferralQueueView | undefined,
+      sort: values.sort as ReferralListOptions["sort"],
     },
   };
+}
+
+function readReferralQueryValues(searchParams: URLSearchParams): ReferralQueryValues {
+  const rawLimit = trimmedParameter(searchParams, "limit");
+  return {
+    query: searchParams.get("q")?.trim() ?? "",
+    cursor: trimmedParameter(searchParams, "cursor") || undefined,
+    stage: trimmedParameter(searchParams, "stage") || undefined,
+    community: trimmedParameter(searchParams, "community") || undefined,
+    owner: trimmedParameter(searchParams, "owner") || undefined,
+    priority: trimmedParameter(searchParams, "priority") || undefined,
+    tag: trimmedParameter(searchParams, "tag") || undefined,
+    month: trimmedParameter(searchParams, "month") || undefined,
+    active: searchParams.get("active")?.trim(),
+    workspace: trimmedParameter(searchParams, "workspace") || "active",
+    queue: trimmedParameter(searchParams, "queue") || undefined,
+    sort: trimmedParameter(searchParams, "sort") || "updated_desc",
+    limit: rawLimit ? Number(rawLimit) : undefined,
+  };
+}
+
+function validateReferralQueryValues(values: ReferralQueryValues): string | undefined {
+  const rules: QueryValidationRule[] = [
+    { invalid: values.query.length > 200, message: "q must be 200 characters or fewer." },
+    { invalid: !isReferralSort(values.sort), message: "sort is invalid." },
+    {
+      invalid: Boolean(values.cursor && isReferralSort(values.sort) && !isReferralSortCursor(values.cursor, values.sort)),
+      message: "cursor is invalid.",
+    },
+    {
+      invalid: values.limit !== undefined && (!Number.isInteger(values.limit) || values.limit < 1 || values.limit > 200),
+      message: "limit must be a whole number between 1 and 200.",
+    },
+    { invalid: Boolean(values.stage && !boardStages.includes(values.stage as ReferralStage)), message: "stage is invalid." },
+    {
+      invalid: Boolean(values.community && !pipelineCommunities.includes(values.community as (typeof pipelineCommunities)[number])),
+      message: "community is invalid.",
+    },
+    { invalid: Boolean(values.owner && values.owner.length > 200), message: "owner is invalid." },
+    { invalid: Boolean(values.priority && !priorities.includes(values.priority as Priority)), message: "priority is invalid." },
+    {
+      invalid: Boolean(values.tag && (values.tag.length > 64 || !/^[a-zA-Z0-9 _.-]+$/.test(values.tag))),
+      message: "tag is invalid.",
+    },
+    { invalid: Boolean(values.month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(values.month)), message: "month must use YYYY-MM." },
+    {
+      invalid: values.active !== undefined && values.active !== "" && values.active !== "true" && values.active !== "false",
+      message: "active must be true or false.",
+    },
+    { invalid: !workspaceStatuses.includes(values.workspace as (typeof workspaceStatuses)[number]), message: "workspace is invalid." },
+    { invalid: Boolean(values.queue && !queues.includes(values.queue as ReferralQueueView)), message: "queue is invalid." },
+  ];
+  return rules.find((rule) => rule.invalid)?.message;
+}
+
+function trimmedParameter(searchParams: URLSearchParams, key: string): string {
+  return searchParams.get(key)?.trim() ?? "";
 }
 
 function invalid(message: string): QueryResult {

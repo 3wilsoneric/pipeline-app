@@ -471,6 +471,8 @@ module operationalAlerts 'operational-alerts.bicep' = {
     environment: environment
     location: location
     logAnalyticsWorkspaceId: logWorkspace.id
+    postgresServerId: postgres.id
+    storageAccountId: storage.id
     actionGroupResourceIds: alertActionGroupResourceIds
     enabled: enableOperationalAlerts
   }
@@ -503,3 +505,4 @@ output githubFederatedSubject string = githubSubject
 output tenantId string = subscription().tenantId
 output subscriptionId string = subscription().subscriptionId
 output operationalAlertRuleCount int = operationalAlerts.outputs.alertRuleCount
+output alertActionGroupResourceIds array = alertActionGroupResourceIds

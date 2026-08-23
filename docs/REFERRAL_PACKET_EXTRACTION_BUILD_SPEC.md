@@ -315,7 +315,7 @@ V1 should provision these resources before real extraction begins:
 
 | Resource | Purpose | Required configuration |
 | --- | --- | --- |
-| ADLS Gen2 Storage Account | Raw packets, normalized pages, OCR JSON, evidence crops, artifacts | Hierarchical namespace, versioning, raw-container immutability/WORM, soft delete, CORS for the exact Pipeline production origin |
+| ADLS Gen2 Storage Account | Raw packets, normalized pages, OCR JSON, evidence crops, artifacts | Hierarchical namespace, Blob and container soft delete, additive raw object keys, and CORS for the exact Pipeline production origin. Blob versioning and version-level WORM are unavailable with HNS; add a tested container-level WORM policy only after retention requirements are approved. |
 | User Delegation SAS | Browser direct uploads | Per-blob write-only SAS, short TTL, content-type pinned |
 | Event Grid System Topic | Blob-created processing trigger | Filter to `.upload-complete` sentinel; dead-letter and retry enabled |
 | Azure Function | Databricks trigger | Managed identity, no binary handling, secrets from Key Vault |

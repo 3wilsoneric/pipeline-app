@@ -1110,8 +1110,14 @@ function hasValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
   return value !== null;
 }
 
+let mutationSequence = 0;
+
 function mutationId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return `${prefix}-${globalThis.crypto.randomUUID()}`;
+  }
+  mutationSequence += 1;
+  return `${prefix}-${Date.now()}-${mutationSequence.toString(36)}`;
 }
 
 function messageFor(error: unknown, fallback: string) {

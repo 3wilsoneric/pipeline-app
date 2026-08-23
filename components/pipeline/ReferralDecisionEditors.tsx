@@ -1,0 +1,358 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+
+import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import type {
+  AdmissionDecision,
+  EhrHandoffRecord,
+  Referral,
+} from "@/lib/pipeline/referral-types";
+
+export function DeleteWorkspaceDialog({
+  name,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  name: string;
+  busy: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return createPortal(
+    <div role="presentation" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="delete-workspace-title" className="w-full max-w-md border border-[#cfcfcf] border-t-[3px] border-t-[#a9473d] bg-white p-5 shadow-xl">
+        <h2 id="delete-workspace-title" className="text-[16px] font-black text-[#111111]">Move workspace to trash?</h2>
+        <p className="mt-2 text-[12px] leading-5 text-[#595959]"><strong>{name}</strong> and its files will leave active work immediately. They can be restored from Trash for 30 days.</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" disabled={busy} onClick={onClose} className="h-10 border border-[#c9ceca] px-4 text-[11px] font-black text-[#595959] hover:bg-[#f7faf9]">Cancel</button>
+          <button type="button" disabled={busy} onClick={onConfirm} className="h-10 bg-[#a9473d] px-4 text-[11px] font-black text-white hover:bg-[#8d382f] disabled:opacity-50">{busy ? "Moving..." : "Move to trash"}</button>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+export function ManualIntakeDialog({
+  reason,
+  saving,
+  onReasonChange,
+  onConfirm,
+  onClose,
+}: {
+  reason: string;
+  saving: boolean;
+  onReasonChange: (value: string) => void;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !saving) onClose();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    window.setTimeout(() => reasonRef.current?.focus(), 0);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onClose, saving]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/30 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !saving) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manual-intake-title"
+        className="w-full max-w-[640px] bg-white shadow-[0_24px_70px_rgba(17,17,17,0.2)]"
+      >
+        <header className="flex items-start justify-between gap-5 border-b-2 border-[#111111] px-5 py-5 sm:px-7">
+          <div>
+            <h2 id="manual-intake-title" className="text-[22px] font-black text-[#111111]">Continue with manual chart intake</h2>
+            <p className="mt-2 max-w-[58ch] text-[12px] leading-5 text-[#595959]">
+              This unlocks the assessment without claiming that a packet was uploaded or extracted. Source files stay outstanding until attached.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} disabled={saving} aria-label="Close manual intake" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#c9ceca] text-[#303638] hover:bg-[#f7faf9] disabled:text-[#b3b3b3]">
+            <X size={18} />
+          </button>
+        </header>
+        <div className="px-5 py-5 sm:px-7">
+          <label className="block">
+            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Reason</span>
+            <textarea
+              ref={reasonRef}
+              value={reason}
+              maxLength={1_000}
+              rows={5}
+              onChange={(event) => onReasonChange(event.target.value)}
+              placeholder="For example: referral details were entered from the source system; scanned documents will be attached when received."
+              className="mt-2 w-full resize-y border border-[#c9ceca] p-3 text-[13px] leading-6 outline-none focus:border-[#0f8b73]"
+            />
+          </label>
+          <div className="mt-2 text-right text-[10px] text-[#737373]">{reason.trim().length} / 1,000</div>
+        </div>
+        <footer className="flex items-center justify-end gap-3 border-t border-[#d9d9d9] px-5 py-4 sm:px-7">
+          <button type="button" onClick={onClose} disabled={saving} className="h-10 px-4 text-[11px] font-black uppercase text-[#595959] hover:text-[#111111] disabled:text-[#b3b3b3]">Cancel</button>
+          <button type="button" onClick={onConfirm} disabled={saving || reason.trim().length < 10} className="h-10 bg-[#111111] px-5 text-[11px] font-black uppercase text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8]">
+            {saving ? "Authorizing..." : "Continue to assessment"}
+          </button>
+        </footer>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+export function EhrHandoffEditor({
+  referral,
+  onSaved,
+}: {
+  referral: Referral | null;
+  onSaved: (referral: Referral) => void | Promise<void>;
+}) {
+  const handoff = referral?.ehrHandoff;
+  const [failureReason, setFailureReason] = useState("");
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const accepted = referral?.stage === "Accepted / Admitted" && referral.admissionDecision?.outcome === "accepted";
+
+  const run = async (action: "queue" | "mark_sent" | "mark_failed" | "retry") => {
+    if (!referral) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const payload = await fetchPipelineJson<{ referral: Referral; ehr_handoff: EhrHandoffRecord }>(
+        `/api/referrals/${referral.id}/ehr-handoff`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            if_match: referral.version,
+            if_match_section: referral.sectionVersions?.decision ?? 1,
+            action,
+            failure_reason: action === "mark_failed" ? failureReason.trim() : "",
+          }),
+        },
+      );
+      await onSaved(payload.referral);
+      setFailureReason("");
+      setMessage({
+        queue: "EHR handoff queued.",
+        retry: "EHR handoff queued again.",
+        mark_sent: "EHR handoff recorded as sent.",
+        mark_failed: "EHR handoff failure recorded.",
+      }[action]);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The EHR handoff could not be updated.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!referral?.admissionDecision || referral.admissionDecision.outcome !== "accepted") return null;
+
+  const status = handoff?.status ?? "not_ready";
+  return (
+    <section aria-label="EHR handoff" className="mt-5 border-t border-[#d9d9d9] pt-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">EHR handoff</div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-[13px] font-black capitalize">{status.replace("_", " ")}</span>
+            {handoff?.queuedAt ? (
+              <span className="text-[11px] text-[#737373]">Queued {new Date(handoff.queuedAt).toLocaleString()}</span>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {(status === "not_ready" || status === "ready") ? (
+            <button
+              type="button"
+              onClick={() => void run("queue")}
+              disabled={!accepted || saving}
+              className="h-9 bg-[#111111] px-4 text-[10px] font-black uppercase tracking-[0.08em] text-white hover:bg-[#0f8b73] disabled:bg-[#d9d9d9]"
+            >
+              Queue handoff
+            </button>
+          ) : null}
+          {status === "failed" ? (
+            <button type="button" onClick={() => void run("retry")} disabled={saving} className="h-9 bg-[#111111] px-4 text-[10px] font-black uppercase tracking-[0.08em] text-white hover:bg-[#0f8b73] disabled:bg-[#d9d9d9]">
+              Retry
+            </button>
+          ) : null}
+          {status === "queued" ? (
+            <>
+              <button type="button" onClick={() => void run("mark_sent")} disabled={saving} className="h-9 border border-[#0f8b73] px-4 text-[10px] font-black uppercase tracking-[0.08em] text-[#0f8b73] hover:bg-[#effaf5] disabled:text-[#b3b3b3]">
+                Mark sent
+              </button>
+              <input
+                value={failureReason}
+                onChange={(event) => setFailureReason(event.target.value)}
+                placeholder="Failure reason"
+                aria-label="EHR handoff failure reason"
+                className="h-9 w-44 border border-[#c9ceca] px-3 text-[11px] outline-none focus:border-[#a63d2f]"
+              />
+              <button type="button" onClick={() => void run("mark_failed")} disabled={saving || !failureReason.trim()} className="h-9 border border-[#a63d2f] px-4 text-[10px] font-black uppercase tracking-[0.08em] text-[#a63d2f] hover:bg-[#fff7f5] disabled:border-[#d9d9d9] disabled:text-[#b3b3b3]">
+                Mark failed
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-2 min-h-4 text-[11px] text-[#737373]">
+        {message || (!accepted ? "Move the accepted referral to Accepted / Admitted before queueing the handoff." : status === "not_ready" ? "Queue only after the accepted record and EHR requirements are complete." : handoff?.failureReason ?? "")}
+      </div>
+    </section>
+  );
+}
+
+export function AdmissionDecisionEditor({
+  referral,
+  assessmentComplete,
+  onSaved,
+}: {
+  referral: Referral | null;
+  assessmentComplete: boolean;
+  onSaved: (referral: Referral) => void | Promise<void>;
+}) {
+  const existing = referral?.admissionDecision;
+  const [outcome, setOutcome] = useState<AdmissionDecision["outcome"] | "">(existing?.outcome ?? "");
+  const [reasonNote, setReasonNote] = useState(existing?.reasonNote ?? "");
+  const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
+  const acceptedPending = existing?.outcome === "accepted" && referral?.stage === "Community Review";
+
+  useEffect(() => {
+    setOutcome(referral?.admissionDecision?.outcome ?? "");
+    setReasonNote(referral?.admissionDecision?.reasonNote ?? "");
+  }, [referral?.admissionDecision]);
+
+  const saveDecision = async () => {
+    if (!referral || !outcome) return;
+    setSaving(true);
+    setStatus("");
+    try {
+      const payload = await fetchPipelineJson<{ referral: Referral; decision: AdmissionDecision }>(
+        `/api/referrals/${referral.id}/decision`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            if_match: referral.version,
+            if_match_section: referral.sectionVersions?.decision ?? 1,
+            outcome,
+            reason_note: outcome === "declined" ? reasonNote : "",
+          }),
+        },
+      );
+      await onSaved(payload.referral);
+      setStatus("Decision saved");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not save the admission decision.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const finalizeAcceptance = async () => {
+    if (!referral || !acceptedPending) return;
+    setSaving(true);
+    setStatus("");
+    try {
+      const payload = await fetchPipelineJson<{ referral: Referral }>(
+        `/api/referrals/${referral.id}/transition`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            if_match: referral.version,
+            if_match_section: referral.sectionVersions?.workflow ?? 1,
+            target_stage: "Accepted / Admitted",
+          }),
+        },
+      );
+      await onSaved(payload.referral);
+      setStatus("Acceptance finalized");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Acceptance could not be finalized.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section aria-label="Admission decision" className="mt-5 border-t border-[#d9d9d9] pt-5">
+      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Admission decision</div>
+          <div className="mt-2 flex border border-[#c9ceca] bg-white">
+            {(["accepted", "declined"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setOutcome(value)}
+                disabled={!referral || !assessmentComplete}
+                className={`h-10 flex-1 px-4 text-[11px] font-black uppercase ${outcome === value ? "bg-[#111111] text-white" : "text-[#595959] hover:bg-[#f7faf9]"} disabled:cursor-not-allowed disabled:text-[#b3b3b3]`}
+              >
+                {value === "accepted" ? "Yes" : "No"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="block">
+          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#595959]">Why no admission</span>
+          <textarea
+            value={reasonNote}
+            onChange={(event) => setReasonNote(event.target.value)}
+            disabled={outcome !== "declined"}
+            rows={2}
+            className="mt-2 w-full resize-none border border-[#c9ceca] px-3 py-2 text-[12px] outline-none focus:border-[#0f8b73] disabled:bg-[#f7f7f7]"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={saveDecision}
+          disabled={!referral || !assessmentComplete || !outcome || (outcome === "declined" && !reasonNote.trim()) || saving}
+          className="h-10 bg-[#111111] px-5 text-[11px] font-black uppercase text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d9d9d9]"
+        >
+          {saving ? "Saving" : "Save decision"}
+        </button>
+        {acceptedPending ? (
+          <button
+            type="button"
+            onClick={finalizeAcceptance}
+            disabled={saving}
+            className="h-10 border border-[#0f8b73] px-5 text-[11px] font-black uppercase text-[#0f8b73] hover:bg-[#effaf5] disabled:cursor-not-allowed disabled:border-[#d9d9d9] disabled:text-[#b3b3b3] lg:col-start-3"
+          >
+            Finalize acceptance
+          </button>
+        ) : null}
+      </div>
+      <div className="mt-2 min-h-4 text-[11px] text-[#737373]">
+        {status || (!referral
+          ? "Save the referral first."
+          : !assessmentComplete
+            ? "Complete the assessment before recording Yes or No."
+            : acceptedPending
+              ? "Clear the blocking requirements, then finalize acceptance."
+              : existing
+                ? `Recorded by ${existing.decidedByName}.`
+                : "")}
+      </div>
+    </section>
+  );
+}

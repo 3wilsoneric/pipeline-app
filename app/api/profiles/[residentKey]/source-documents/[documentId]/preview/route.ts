@@ -4,18 +4,22 @@ import {
   clinicalDataErrorResponse,
   getClinicalClientDocumentAsset,
 } from "@/lib/clinical/clinical-data";
+import {
+  parseClinicalClientDocumentIdentifiers,
+  type ClinicalClientDocumentRouteContext,
+} from "@/lib/clinical/client-document-identifiers";
 import { withApiLogging } from "@/lib/observability/api-logging";
 
 export const runtime = "nodejs";
 
 export async function GET(
   request: Request,
-  context: { params: Promise<{ residentKey: string; documentId: string }> },
+  context: ClinicalClientDocumentRouteContext,
 ) {
   return withApiLogging(request, "/api/profiles/[residentKey]/source-documents/[documentId]/preview", async () => {
     const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer", "viewer"]);
     if (!auth.ok) return auth.response;
-    const identifiers = await parseIdentifiers(context);
+    const identifiers = await parseClinicalClientDocumentIdentifiers(context);
     if (!identifiers) return Response.json({ error: "File preview not found." }, { status: 404 });
     try {
       return await getClinicalClientDocumentAsset(
@@ -29,18 +33,4 @@ export async function GET(
       throw error;
     }
   });
-}
-
-async function parseIdentifiers(context: { params: Promise<{ residentKey: string; documentId: string }> }) {
-  const { residentKey, documentId } = await context.params;
-  try {
-    const canonicalClientId = decodeURIComponent(residentKey).trim();
-    const normalizedDocumentId = decodeURIComponent(documentId).trim();
-    if (!canonicalClientId || canonicalClientId.length > 256 || !normalizedDocumentId || normalizedDocumentId.length > 256) {
-      return null;
-    }
-    return { canonicalClientId, documentId: normalizedDocumentId };
-  } catch {
-    return null;
-  }
 }

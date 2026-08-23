@@ -24,6 +24,12 @@ param databricksHost string = ''
 param databricksJobId string = ''
 param databricksClientId string = ''
 
+@description('Resource IDs of Azure Monitor action groups that receive runtime alerts.')
+param alertActionGroupResourceIds array = []
+
+@description('Deploy Container Apps restart and timeout alerts.')
+param enableRuntimeAlerts bool = true
+
 @allowed(['manual', 'azure_databricks'])
 param extractionBackend string = 'manual'
 
@@ -302,6 +308,68 @@ resource web 'Microsoft.App/containerApps@2025-01-01' = {
   }
 }
 
+resource webRestartAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (enableRuntimeAlerts) {
+  name: take('${namePrefix}-${environment}-web-restarts', 260)
+  location: 'global'
+  tags: tags
+  properties: {
+    description: 'Pipeline web replicas restarted repeatedly within a short window.'
+    severity: 1
+    enabled: true
+    scopes: [web.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    autoMitigate: true
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          criterionType: 'StaticThresholdCriterion'
+          name: 'RestartCount'
+          metricName: 'RestartCount'
+          metricNamespace: 'Microsoft.App/containerApps'
+          operator: 'GreaterThan'
+          threshold: 2
+          timeAggregation: 'Total'
+          skipMetricValidation: false
+        }
+      ]
+    }
+    actions: [for actionGroupId in alertActionGroupResourceIds: { actionGroupId: actionGroupId }]
+  }
+}
+
+resource webTimeoutAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (enableRuntimeAlerts) {
+  name: take('${namePrefix}-${environment}-web-timeouts', 260)
+  location: 'global'
+  tags: tags
+  properties: {
+    description: 'Pipeline Container Apps resiliency requests are timing out.'
+    severity: 1
+    enabled: true
+    scopes: [web.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    autoMitigate: true
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          criterionType: 'StaticThresholdCriterion'
+          name: 'ResiliencyRequestTimeouts'
+          metricName: 'ResiliencyRequestTimeouts'
+          metricNamespace: 'Microsoft.App/containerApps'
+          operator: 'GreaterThan'
+          threshold: 0
+          timeAggregation: 'Total'
+          skipMetricValidation: false
+        }
+      ]
+    }
+    actions: [for actionGroupId in alertActionGroupResourceIds: { actionGroupId: actionGroupId }]
+  }
+}
+
 resource databaseBootstrapJob 'Microsoft.App/jobs@2025-01-01' = if (initialDatabaseBootstrap) {
   name: databaseBootstrapJobName
   location: location
@@ -523,3 +591,4 @@ output pipelineApiScope string = pipelineApiScope
 output databaseBootstrapJobName string = databaseBootstrapJobName
 output databaseMigrationJobName string = databaseMigrationJob.name
 output scheduledJobNames array = map(filter(scheduledJobs, job => job.enabled), job => take('${namePrefix}-${environment}-${job.name}', 32))
+output runtimeAlertRuleCount int = enableRuntimeAlerts ? 2 : 0

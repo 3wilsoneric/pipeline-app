@@ -17,6 +17,21 @@ const globalForPipelineDatabase = globalThis as typeof globalThis & {
   __pipelineSql?: Sql;
 };
 
+const REQUIRED_PIPELINE_MIGRATIONS = [
+  "0001_pipeline_core",
+  "0002_workflow_engine",
+  "0003_operational_hardening",
+  "0004_document_processing",
+  "0005_collaboration",
+  "0006_user_workspace_state",
+  "0007_canonical_client_assessments",
+  "0008_client_workspaces",
+  "0009_assessment_collaboration",
+  "0010_provisional_workspace_members",
+  "0011_historical_material_workspaces",
+  "0012_referral_trash",
+] as const;
+
 export function getPipelineDatabaseMode(): PipelineDatabaseMode {
   const configured = process.env.PIPELINE_DATABASE_MODE?.trim();
   if (configured === "postgres") return "postgres";
@@ -70,14 +85,9 @@ export async function checkPipelineDatabaseConnection() {
   const rows = await sql<{ migration_id: string }[]>`
     select migration_id
     from pipeline.schema_migrations
-    where migration_id in (
-      '0001_pipeline_core', '0002_workflow_engine', '0003_operational_hardening',
-      '0004_document_processing', '0005_collaboration', '0006_user_workspace_state',
-      '0007_canonical_client_assessments', '0008_client_workspaces',
-      '0009_assessment_collaboration', '0010_provisional_workspace_members'
-    )
   `;
-  return new Set(rows.map((row) => row.migration_id)).size === 10;
+  const appliedMigrations = new Set(rows.map((row) => row.migration_id));
+  return REQUIRED_PIPELINE_MIGRATIONS.every((migrationId) => appliedMigrations.has(migrationId));
 }
 
 function databaseSslMode(): "require" | "verify-full" | false {

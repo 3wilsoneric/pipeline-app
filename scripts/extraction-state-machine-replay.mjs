@@ -5,8 +5,9 @@ import { readFileSync } from "node:fs";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const state = loadTypeScriptModule(process.cwd(), "lib/extraction/extraction-state.ts");
+const workerValidation = loadTypeScriptModule(process.cwd(), "lib/extraction/worker-report-validation.ts");
+const blobPaths = loadTypeScriptModule(process.cwd(), "lib/extraction/blob-paths.ts");
 const workerSource = readFileSync("lib/extraction/processing-worker.ts", "utf8");
-const signerSource = readFileSync("lib/extraction/azure-blob.ts", "utf8");
 const migration = readFileSync("database/migrations/0004_document_processing.sql", "utf8");
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -33,10 +34,65 @@ check("worker bounds provider retries", workerSource.includes("max_attempts") &&
 check("worker rejects stale callback attempts", workerSource.includes("stale_job_attempt") && workerSource.includes("attempt_token = ${input.attempt_token}"));
 check("provider success requires callback output", workerSource.includes("worker_callback_missing") && !workerSource.includes("finalizeSucceededRunWithoutCallback"));
 check("dead-letter replay clears provider state", workerSource.includes("dead_lettered_at = null") && workerSource.includes("provider_job_id = null"));
+check(
+  "worker persists callback collections with set-based writes",
+  workerSource.includes("upsertPreviewPages")
+    && workerSource.includes("upsertArtifacts")
+    && workerSource.includes("upsertExtractedFields")
+    && (workerSource.match(/jsonb_to_recordset/g) ?? []).length >= 4,
+);
+const validWorkerReport = {
+  extraction_job_id: "11111111-1111-4111-8111-111111111111",
+  attempt_count: 1,
+  attempt_token: "22222222-2222-4222-8222-222222222222",
+  status: "succeeded",
+};
+check("valid worker reports pass executable validation", throwsCode(() => workerValidation.validateWorkerReport(validWorkerReport)) === "");
+check(
+  "worker rejects duplicate extracted field identities",
+  throwsCode(() => workerValidation.validateWorkerReport({
+    ...validWorkerReport,
+    fields: [
+      { field_key: "identity.name", proposed_value: "A", confidence: 0.9 },
+      { field_key: "identity.name", proposed_value: "B", confidence: 0.8 },
+    ],
+  })) === "duplicate_field_key",
+);
+check(
+  "worker rejects duplicate preview page identities",
+  throwsCode(() => workerValidation.validateWorkerReport({
+    ...validWorkerReport,
+    preview: {
+      blob_container: "artifacts",
+      blob_key: "packet/preview.pdf",
+      content_type: "application/pdf",
+      pages: [1, 1].map((page_number) => ({
+        page_number,
+        blob_container: "artifacts",
+        blob_key: `packet/pages/${page_number}.png`,
+        content_type: "image/png",
+      })),
+    },
+  })) === "duplicate_preview_page",
+);
 check("database enforces one active job per document type", migration.includes("extraction_jobs_active_document_type_idx"));
-check("Blob paths use packet and opaque file ids", signerSource.includes("input.packet_id}/original") && signerSource.includes("opaqueFileName(file.file_id"));
-check("Blob signer never places facility or original basename in a path", !signerSource.includes("submitting_facility}/") && !signerSource.includes("filename.replace"));
+const opaquePath = blobPaths.buildOriginalBlobPath(
+  "33333333-3333-4333-8333-333333333333",
+  "file_001",
+  "Client Name Referral Packet.PDF",
+);
+check("Blob paths use packet and opaque file ids", opaquePath === "33333333-3333-4333-8333-333333333333/original/file_001.pdf");
+check("Blob paths never expose the original basename", !opaquePath.toLowerCase().includes("client") && !opaquePath.toLowerCase().includes("referral"));
 
 const failed = checks.filter((item) => !item.ok);
 console.log(JSON.stringify({ ok: failed.length === 0, checks }, null, 2));
 if (failed.length) process.exit(1);
+
+function throwsCode(fn) {
+  try {
+    fn();
+    return "";
+  } catch (error) {
+    return error && typeof error === "object" && "code" in error ? String(error.code) : "unknown";
+  }
+}

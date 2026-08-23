@@ -9,11 +9,17 @@
 - `app/api/files/[documentId]/route.ts` - bounded authenticated file metadata and preview-page pagination.
 - `app/api/files/[documentId]/preview/route.ts` - malware-gated, range- and size-bounded asset proxy.
 - `lib/extraction/contracts.ts` - API payload shapes, request size limits, and validators.
+- `lib/extraction/worker-report-validation.ts` - executable, database-independent extraction callback validation.
+- `lib/extraction/blob-paths.ts` - opaque source-Blob path construction that never exposes uploaded basenames.
+- `lib/extraction/document-processing-error.ts` - shared bounded processing failure contract.
+- `lib/pipeline/referral-packet-upload.ts` - browser upload reservation, Blob transfer, completion, and local-demo transport.
+- `lib/pipeline/structured-narrative.ts` - deterministic structured summary/interview parsing and serialization.
 - `lib/extraction/http-byte-range.ts` - reusable strict single-range validator for preview assets.
 - `lib/extraction/backend-config.ts` - extraction backend mode and readiness guardrails.
 - `lib/extraction/mock-store.ts` - local-only mock extraction state.
 - `lib/extraction/packet-referral.ts` - server-only packet-reservation ownership lookup used before packet-level authorization.
 - `lib/observability/api-logging.ts` - structured API logging and request-id handling.
+- `lib/observability/metric-contract.ts` - PHI-safe metric validation and low-cardinality dimension registry.
 - `lib/auth/pipeline-auth.ts` - Entra/header/mock auth mode and role gates.
 - `app/api/clinical/*` - authenticated Pipeline clinical health, census, roster, resident, and medication-summary routes.
 - `lib/clinical/clinical-data.ts` - server-only Alamo adapter and Entra client-credential/delegated-token handling.
@@ -21,6 +27,7 @@
 - `lib/clinical/clinical-contracts.ts` - strict Pipeline-facing clinical response schemas.
 - `lib/assessment/assessment-tool-schema.ts` - canonical 52-field assessment registry, aliases, validation, and coverage.
 - `lib/assessment/assessment-store.ts` - server-only assessment persistence boundary with local-development and transactional PostgreSQL adapters.
+- `lib/persistence/store-adapter.ts` - shared, side-effect-free local/PostgreSQL mode resolution and adapter selection.
 - `lib/assessment/assessment-client-identity.ts` - fail-closed server resolver from reviewed resident links to governed Alamo canonical client IDs.
 - `lib/assessment/assessment-validation.ts` - assessment create/update/import request validation.
 - `lib/assessment/assessment-file-parser.ts` - bounded deterministic CSV/JSON assessment import parser.
@@ -35,6 +42,11 @@
 - `database/migrations/0004_document_processing.sql` - durable upload, extraction job, field candidate, review, and preview state.
 - `database/migrations/0005_collaboration.sql` - referral section versions and editing presence leases.
 - `database/migrations/0006_user_workspace_state.sql` - expiring, per-principal recents and recovery drafts.
+- `database/migrations/0008_client_workspaces.sql` - canonical client documents and staged identity review.
+- `database/migrations/0009_assessment_collaboration.sql` - assessment section versions, drafts, and presence support.
+- `database/migrations/0010_provisional_workspace_members.sql` - explicit provisional member identities and merge state.
+- `database/migrations/0011_historical_material_workspaces.sql` - idempotent imported-material workspace ledger and status.
+- `database/migrations/0012_referral_trash.sql` - recoverable referral deletion and indexed 30-day retention window.
 - `database/migration-checksums.json` - append-only migration integrity baseline.
 - `lib/database/pipeline-database.ts` - server-only bounded PostgreSQL connection/readiness adapter.
 - `scripts/apply-database-migrations.mjs` - ordered advisory-lock migration runner with checksum drift protection.
@@ -64,13 +76,15 @@
 
 - `components/pipeline/PipelineAppShell.tsx` - app shell, sidebar, header, and shared search state.
 - `components/pipeline/PipelineHeader.tsx` - top tab header, search, and signed-in avatar.
-- `components/pipeline/PipelineSidebar.tsx` - main nav, reports dropdown, recent, and month/community folders.
 - `components/pipeline/ReferralHome.tsx` - searchable, filterable, paginated referral and file directory.
 - `components/pipeline/ReferralActionWorklist.tsx` - default action-first referral table with deterministic exception categories.
-- `components/pipeline/UserAvatar.tsx` - authenticated user/avatar rendering.
 - `components/pipeline/AssessmentWorkspace.tsx` - assessment history, editing, import review, and completion flow.
 - `components/pipeline/ClientAssessmentSummary.tsx` - resident-linked assessment coverage and history summary.
 - `components/pipeline/ReferralRequirementsEditor.tsx` - compact versioned requirement completion and recovery editor.
+- `components/pipeline/StructuredNarrativeField.tsx` - structured summary/interview editor extracted from the referral canvas.
+- `components/pipeline/ReferralDecisionEditors.tsx` - focused manual-intake, admission, EHR handoff, and deletion dialogs/editors.
+- `components/pipeline/ReferralReviewPanel.tsx` - final chart completeness, requirements, decision, handoff, and activity surface.
+- `lib/pipeline/referral-review.ts` - pure review-field completeness and section aggregation contract.
 - `components/pipeline/OperationsDashboard.tsx` - canonical requirement queue, workload, flow, and readiness view.
 
 ## Workflow And Reliability
@@ -82,6 +96,11 @@
 - `scripts/api-behavior-fixtures.mjs` - API contract/auth/backend behavior fixtures.
 - `scripts/referral-journey-replay.mjs` - workflow journey replay fixtures.
 - `scripts/platform-readiness.mjs` - bundled platform readiness runner.
+- `scripts/code-hygiene-audit.mjs` - complete repository inventory plus objective generated-output, duplicate-file, merge-marker, and ignore-rule gates.
+- `scripts/complete-repository-audit.mjs` - deterministic every-file and every-dependency risk inventory generator.
+- `docs/COMPLETE_REPOSITORY_AUDIT_2026-08-22.md` - human-readable per-file and package review ledger.
+- `docs/reliability/repository-file-inventory.json` and `docs/reliability/dependency-inventory.json` - machine-readable audit evidence.
+- `scripts/clean-local-artifacts.mjs` - safe removal of disposable Next.js and browser-test build output without touching private data.
 - `scripts/clinical-data-contracts.mjs` - sanitized clinical contract and server-boundary verification.
 - `scripts/import-demo-clinical-roster.mjs` - PHI-safe aggregate-only importer for a private one-time roster and reconciliation export.
 - `scripts/import-master-client-history.mjs` - guarded real-data importer for private longitudinal resident episodes and census reconciliation.
@@ -96,10 +115,15 @@
 - `scripts/http-load-smoke.mjs` - bounded concurrent HTTP latency/error smoke test.
 - `scripts/collaboration-load-smoke.mjs` - ten-user polling, presence, merge, conflict, and database-contention harness.
 - `scripts/postgres-integration-fixtures.mjs` - rollback-only synthetic relational fixture validation.
+- `scripts/postgres-query-plan-fixtures.mjs` - PostgreSQL 16 planner assertions for high-volume keyset and retention indexes.
 - `scripts/database-rollback-drill.mjs` - opt-in transactional migration rollback/recovery drill.
 - `scripts/seed-production-reference-data.mjs` - idempotent production reference-only seed.
 - `scripts/pilot-reset.mjs` - dry-run-first, doubly confirmed synthetic pilot reset.
 - `scripts/operational-metrics-readiness.mjs` - requested metrics and PHI-safe dimension gate.
+- `scripts/operational-metric-fixtures.mjs` - aggregate-only synthetic ten-user metric workload and cardinality checks.
+- `scripts/ci-change-impact.mjs` and `scripts/ci-change-impact-fixtures.mjs` - path-aware browser/PostgreSQL CI classification and behavior fixtures.
+- `lib/extraction/storage-inventory.ts` and `scripts/storage-capacity-readiness.mjs` - aggregate-only storage inventory and capacity-signal contracts.
+- `scripts/live-access-rehearsal.mjs` and `scripts/live-access-rehearsal-readiness.mjs` - token-file-based, PHI-safe live Entra role rehearsal and static safeguards.
 - `scripts/property-contracts.mjs` - deterministic generated checks for cursors, ranges, uploads, section contention, and transitions.
 - `scripts/extraction-quality-score.mjs` - golden-corpus field/evidence/correction quality scoring.
 - `scripts/backlog-rehearsal.mjs` - resumable synthetic 20-packet, 12,000-page orchestration rehearsal.
@@ -120,12 +144,15 @@
 - `docs/REFERRAL_PACKET_INGESTION_RUNBOOK.md` - backlog and steady-state ingestion runbook.
 - `docs/REFERRAL_OPERATING_RELIABILITY_PLAN.md` - operating reliability plan.
 - `docs/PRODUCTION_HARDENING_AUDIT.md` - production hardening summary and remaining backend work.
+- `docs/SPRING_CLEANING_AUDIT_2026-08-22.md` - dated whole-repository audit, completed cleanup, scale position, and prioritized external decisions.
 - `docs/CLINICAL_DATA_INTEGRATION.md` - Alamo clinical API, Entra permissions, failure behavior, and deployment runbook.
 - `docs/POSTGRES_DEPLOYMENT.md` - Azure PostgreSQL deployment order, server-only variables, and current adapter coverage.
 - `docs/PRODUCTION_DATA_OPERATIONS.md` - canvas recovery, previews, collaboration load, database drills, pilot reset, and metrics runbook.
 - `docs/DATABASE_RECOVERY.md` - backup cadence, restore drill, and recovery ownership.
 - `docs/RELEASE_OPERATIONS.md` - deployment order, compatibility rules, and rollback decision path.
 - `docs/PRODUCTION_READINESS.md` - canonical production runbook index and automated evidence map.
+- `docs/PRODUCTION_OPERATIONS_HANDOFF.md` - code-ready position, drill evidence, live gates, and go-live order.
+- `docs/LIVE_ACCESS_REHEARSAL.md` - read-only viewer/assessor/supervisor/admin Entra rehearsal.
 - `docs/PRODUCTION_ACCEPTANCE_CHECKLIST.md` - operator release go/no-go evidence checklist.
 - `docs/SUPPLY_CHAIN_AND_RELEASE_EVIDENCE.md` - dependency, CI provenance, SBOM, and release-bundle procedure.
 - `docs/ABUSE_AND_ALERTING.md` - application overload limits, required edge limits, safe metrics, and alert delivery.

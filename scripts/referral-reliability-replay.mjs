@@ -388,7 +388,7 @@ function checkProfileResilience() {
 }
 
 function checkCommunityLabels() {
-  const files = ["lib/pipeline/community-config.ts", "components/pipeline/ReferralHome.tsx", "components/pipeline/PipelineSidebar.tsx"];
+  const files = ["lib/pipeline/community-config.ts", "components/pipeline/ReferralHome.tsx"];
 
   for (const file of files) {
     const source = readText(file);
@@ -397,16 +397,11 @@ function checkCommunityLabels() {
 
   const config = readText("lib/pipeline/community-config.ts");
   const overview = readText("components/pipeline/ReferralHome.tsx");
-  const sidebar = readText("components/pipeline/PipelineSidebar.tsx");
 
   assert(config.includes("Victoria's House"), "Shared community registry should expose Victoria's House");
   assert(
     overview.includes("pipelineCommunities"),
     "ReferralHome should read community labels from the shared registry",
-  );
-  assert(
-    sidebar.includes("pipelineSidebarCommunities"),
-    "PipelineSidebar should read community labels from the shared registry",
   );
 }
 

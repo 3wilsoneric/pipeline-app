@@ -8,6 +8,17 @@ import { DatabricksAdapterError, getDatabricksJobAdapter } from "@/lib/extractio
 import { DocumentProcessingError } from "@/lib/extraction/document-processing";
 import { getExtractionFailureDisposition } from "@/lib/extraction/extraction-state";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
+import {
+  validateWorkerReport,
+  type ExtractionFieldInput,
+  type WorkerReport,
+} from "@/lib/extraction/worker-report-validation";
+
+export type {
+  ExtractionCandidateInput,
+  ExtractionFieldInput,
+  WorkerReport,
+} from "@/lib/extraction/worker-report-validation";
 
 type JobType = "referral_packet" | "assessment_workbook" | "document_preview";
 type JobRow = {
@@ -24,58 +35,6 @@ type JobRow = {
   blob_key: string;
   byte_size: number | string;
   sha256: string;
-};
-
-export type ExtractionCandidateInput = {
-  source: "document_intelligence" | "claude" | "human";
-  value: unknown;
-  confidence: number;
-  source_page?: number;
-  evidence_blob_key?: string;
-};
-
-export type ExtractionFieldInput = {
-  field_key: string;
-  proposed_value: unknown;
-  confidence: number;
-  source_page?: number;
-  evidence_blob_key?: string;
-  candidates?: ExtractionCandidateInput[];
-};
-
-export type WorkerReport = {
-  extraction_job_id: string;
-  attempt_count: number;
-  attempt_token: string;
-  status: "heartbeat" | "succeeded" | "failed";
-  provider_job_id?: string;
-  error_code?: string;
-  retryable?: boolean;
-  malware_scan_status?: "clean" | "infected" | "failed";
-  verified_sha256?: string;
-  page_count?: number;
-  preview?: {
-    blob_container: string;
-    blob_key: string;
-    content_type: string;
-    pages?: Array<{
-      page_number: number;
-      blob_container: string;
-      blob_key: string;
-      content_type: string;
-      byte_size?: number;
-      width?: number;
-      height?: number;
-    }>;
-  };
-  artifacts?: Array<{
-    kind: "normalized_page" | "ocr_json" | "preview" | "evidence" | "extraction_output" | "other";
-    blob_container: string;
-    blob_key: string;
-    content_type?: string;
-    byte_size?: number;
-  }>;
-  fields?: ExtractionFieldInput[];
 };
 
 export async function dispatchExtractionJobs(limit = 10, workerId = "pipeline-dispatch") {
@@ -265,67 +224,15 @@ export async function reportExtractionJob(input: WorkerReport) {
         failure_code = ${infected ? "malware_detected" : scanFailed ? "malware_scan_failed" : null}, version = version + 1, updated_at = now()
       where document_id = ${job.document_id}::uuid
     `;
-    if (input.preview?.pages) {
-      for (const page of input.preview.pages) {
-        await tx`
-          insert into pipeline.document_preview_pages (
-            document_id, page_number, blob_container, blob_key, content_type, byte_size, width, height
-          ) values (
-            ${job.document_id}::uuid, ${page.page_number}, ${page.blob_container}, ${page.blob_key},
-            ${page.content_type}, ${page.byte_size ?? null}, ${page.width ?? null}, ${page.height ?? null}
-          ) on conflict (document_id, page_number) do update set
-            blob_container = excluded.blob_container, blob_key = excluded.blob_key,
-            content_type = excluded.content_type, byte_size = excluded.byte_size,
-            width = excluded.width, height = excluded.height
-        `;
-      }
-    }
+    if (input.preview?.pages?.length) await upsertPreviewPages(tx, job.document_id, input.preview.pages);
     const artifacts = collectReportedArtifacts(input);
-    for (const artifact of artifacts) {
-      await tx`
-        insert into pipeline.document_artifacts (
-          document_id, artifact_kind, blob_container, blob_key, content_type, byte_size
-        ) values (
-          ${job.document_id}::uuid, ${artifact.kind}, ${artifact.blob_container}, ${artifact.blob_key},
-          ${artifact.content_type ?? null}, ${artifact.byte_size ?? null}
-        ) on conflict (blob_container, blob_key) do update set
-          document_id = excluded.document_id, artifact_kind = excluded.artifact_kind,
-          content_type = excluded.content_type, byte_size = excluded.byte_size
-      `;
-    }
+    if (artifacts.length) await upsertArtifacts(tx, job.document_id, artifacts);
     if (job.packet_id && !unsafe && input.fields?.length) {
       const packet = await tx<{ referral_id: number | string }[]>`
         select referral_id from pipeline.packet_uploads where packet_id = ${job.packet_id}::uuid limit 1
       `;
       if (!packet[0]) throw new DocumentProcessingError("packet_not_found", 404);
-      for (const field of input.fields) {
-        const fieldRows = await tx<{ referral_field_id: string }[]>`
-          insert into pipeline.referral_fields (
-            referral_id, field_key, proposed_value, confidence, review_status,
-            source_document_id, source_page, evidence_blob_key
-          ) values (
-            ${Number(packet[0].referral_id)}, ${field.field_key}, ${tx.json(field.proposed_value as never)},
-            ${field.confidence}, 'pending', ${job.document_id}::uuid, ${field.source_page ?? null},
-            ${field.evidence_blob_key ?? null}
-          ) on conflict (referral_id, field_key) do update set
-            proposed_value = excluded.proposed_value, confidence = excluded.confidence,
-            source_document_id = excluded.source_document_id, source_page = excluded.source_page,
-            evidence_blob_key = excluded.evidence_blob_key, updated_at = now(),
-            version = pipeline.referral_fields.version + 1
-          returning referral_field_id
-        `;
-        await tx`delete from pipeline.extraction_candidates where referral_field_id = ${fieldRows[0].referral_field_id}::uuid`;
-        for (const candidate of field.candidates ?? []) {
-          await tx`
-            insert into pipeline.extraction_candidates (
-              referral_field_id, source, candidate_value, confidence, source_page, evidence_blob_key
-            ) values (
-              ${fieldRows[0].referral_field_id}::uuid, ${candidate.source}, ${tx.json(candidate.value as never)},
-              ${candidate.confidence}, ${candidate.source_page ?? null}, ${candidate.evidence_blob_key ?? null}
-            )
-          `;
-        }
-      }
+      await upsertExtractedFields(tx, Number(packet[0].referral_id), job.document_id, input.fields);
     }
     if (job.packet_id) await refreshPacketState(tx, job.packet_id);
   });
@@ -355,9 +262,26 @@ export async function getExtractionQueueHealth() {
       extract(epoch from (now() - min(coalesce(next_attempt_at, queued_at)))) as oldest_seconds
     from pipeline.extraction_jobs group by status order by status
   `;
+  const queues = rows.map((row) => ({
+    status: row.status,
+    count: Number(row.count),
+    oldest_seconds: Math.max(0, Math.round(Number(row.oldest_seconds ?? 0))),
+  }));
+  for (const queue of queues) {
+    recordPipelineMetric("pipeline.extraction.queue_depth", queue.count, "count", {
+      operation: "queue_health",
+      result: queue.status,
+    });
+    if (queue.status === "queued" || queue.status === "running") {
+      recordPipelineMetric("pipeline.extraction.oldest_age", queue.oldest_seconds * 1000, "milliseconds", {
+        operation: "queue_health",
+        result: queue.status,
+      });
+    }
+  }
   return {
     generated_at: new Date().toISOString(),
-    queues: rows.map((row) => ({ status: row.status, count: Number(row.count), oldest_seconds: Math.max(0, Math.round(Number(row.oldest_seconds ?? 0))) })),
+    queues,
   };
 }
 
@@ -413,6 +337,7 @@ export async function runDocumentRetention(limit = 100, dryRun = true) {
     }
   }
   recordPipelineMetric("pipeline.retention.documents", deleted, "count", { operation: "retention", result: "deleted" });
+  recordPipelineMetric("pipeline.retention.documents", failed, "count", { operation: "retention", result: "failed" });
   return { dry_run: false, eligible: candidates.length, deleted, failed };
 }
 
@@ -480,73 +405,120 @@ async function refreshPacketState(tx: TransactionSql, packetId: string) {
   `;
 }
 
-function validateWorkerReport(input: WorkerReport) {
-  if (!input || !uuid(input.extraction_job_id)) throw new DocumentProcessingError("extraction_job_id_invalid", 400);
-  if (!Number.isInteger(input.attempt_count) || input.attempt_count < 1 || input.attempt_count > 1_000_000) {
-    throw new DocumentProcessingError("attempt_count_invalid", 400);
-  }
-  if (!uuid(input.attempt_token)) throw new DocumentProcessingError("attempt_token_invalid", 400);
-  if (!["heartbeat", "succeeded", "failed"].includes(input.status)) throw new DocumentProcessingError("worker_status_invalid", 400);
-  if (input.page_count !== undefined && (!Number.isInteger(input.page_count) || input.page_count < 0 || input.page_count > 50_000)) {
-    throw new DocumentProcessingError("page_count_invalid", 400);
-  }
-  if (input.verified_sha256 !== undefined && !/^[a-f0-9]{64}$/.test(input.verified_sha256)) {
-    throw new DocumentProcessingError("verified_sha256_invalid", 400);
-  }
-  if (input.malware_scan_status !== undefined && !["clean", "infected", "failed"].includes(input.malware_scan_status)) {
-    throw new DocumentProcessingError("malware_scan_status_invalid", 400);
-  }
-  if ((input.fields?.length ?? 0) > 1_000) throw new DocumentProcessingError("too_many_fields", 413);
-  if ((input.artifacts?.length ?? 0) > 10_000) throw new DocumentProcessingError("too_many_artifacts", 413);
-  for (const artifact of input.artifacts ?? []) {
-    if (!["normalized_page", "ocr_json", "preview", "evidence", "extraction_output", "other"].includes(artifact.kind)) {
-      throw new DocumentProcessingError("artifact_kind_invalid", 400);
-    }
-    safeBlobContainer(artifact.blob_container);
-    safeBlobKey(artifact.blob_key);
-    if (artifact.byte_size !== undefined && (!Number.isSafeInteger(artifact.byte_size) || artifact.byte_size < 0)) {
-      throw new DocumentProcessingError("artifact_size_invalid", 400);
-    }
-    if (artifact.content_type !== undefined && (!artifact.content_type || artifact.content_type.length > 128)) {
-      throw new DocumentProcessingError("artifact_content_type_invalid", 400);
-    }
-  }
-  for (const field of input.fields ?? []) {
-    if (!/^[a-z][a-z0-9_.-]{1,127}$/i.test(field.field_key)) throw new DocumentProcessingError("field_key_invalid", 400);
-    validateConfidence(field.confidence);
-    if ((field.candidates?.length ?? 0) > 20) throw new DocumentProcessingError("too_many_candidates", 413);
-    field.candidates?.forEach((candidate) => {
-      if (!["document_intelligence", "claude", "human"].includes(candidate.source)) {
-        throw new DocumentProcessingError("candidate_source_invalid", 400);
-      }
-      validateConfidence(candidate.confidence);
-    });
-    if (field.evidence_blob_key) safeBlobKey(field.evidence_blob_key);
-  }
-  if (input.preview) {
-    safeBlobContainer(input.preview.blob_container);
-    safeBlobKey(input.preview.blob_key);
-    if (input.preview.pages && input.preview.pages.length > 10_000) throw new DocumentProcessingError("too_many_preview_pages", 413);
-    input.preview.pages?.forEach((page) => {
-      if (!Number.isInteger(page.page_number) || page.page_number <= 0) throw new DocumentProcessingError("preview_page_invalid", 400);
-      safeBlobContainer(page.blob_container);
-      safeBlobKey(page.blob_key);
-    });
-  }
+async function upsertPreviewPages(
+  tx: TransactionSql,
+  documentId: string,
+  pages: NonNullable<NonNullable<WorkerReport["preview"]>["pages"]>,
+) {
+  const rows = pages.map((page) => ({
+    page_number: page.page_number,
+    blob_container: page.blob_container,
+    blob_key: page.blob_key,
+    content_type: page.content_type,
+    byte_size: page.byte_size ?? null,
+    width: page.width ?? null,
+    height: page.height ?? null,
+  }));
+  await tx`
+    insert into pipeline.document_preview_pages (
+      document_id, page_number, blob_container, blob_key, content_type, byte_size, width, height
+    )
+    select ${documentId}::uuid, page_number, blob_container, blob_key, content_type,
+      byte_size, width, height
+    from jsonb_to_recordset(${tx.json(rows as never)}::jsonb) as page_rows(
+      page_number integer, blob_container text, blob_key text, content_type text,
+      byte_size bigint, width integer, height integer
+    )
+    on conflict (document_id, page_number) do update set
+      blob_container = excluded.blob_container, blob_key = excluded.blob_key,
+      content_type = excluded.content_type, byte_size = excluded.byte_size,
+      width = excluded.width, height = excluded.height
+  `;
 }
 
-function validateConfidence(value: number) {
-  if (!Number.isFinite(value) || value < 0 || value > 1) throw new DocumentProcessingError("confidence_invalid", 400);
+async function upsertArtifacts(
+  tx: TransactionSql,
+  documentId: string,
+  artifacts: ReturnType<typeof collectReportedArtifacts>,
+) {
+  const rows = artifacts.map((artifact) => ({
+    artifact_kind: artifact.kind,
+    blob_container: artifact.blob_container,
+    blob_key: artifact.blob_key,
+    content_type: artifact.content_type ?? null,
+    byte_size: artifact.byte_size ?? null,
+  }));
+  await tx`
+    insert into pipeline.document_artifacts (
+      document_id, artifact_kind, blob_container, blob_key, content_type, byte_size
+    )
+    select ${documentId}::uuid, artifact_kind, blob_container, blob_key, content_type, byte_size
+    from jsonb_to_recordset(${tx.json(rows as never)}::jsonb) as artifact_rows(
+      artifact_kind text, blob_container text, blob_key text, content_type text, byte_size bigint
+    )
+    on conflict (blob_container, blob_key) do update set
+      document_id = excluded.document_id, artifact_kind = excluded.artifact_kind,
+      content_type = excluded.content_type, byte_size = excluded.byte_size
+  `;
 }
 
-function safeBlobKey(value: string) {
-  if (!value || value.length > 900 || value.includes("..") || /[?#\\]/.test(value)) throw new DocumentProcessingError("blob_key_invalid", 400);
-}
+async function upsertExtractedFields(
+  tx: TransactionSql,
+  referralId: number,
+  documentId: string,
+  fields: ExtractionFieldInput[],
+) {
+  const fieldRows = fields.map((field) => ({
+    field_key: field.field_key,
+    proposed_value: field.proposed_value ?? null,
+    confidence: field.confidence,
+    source_page: field.source_page ?? null,
+    evidence_blob_key: field.evidence_blob_key ?? null,
+  }));
+  const savedFields = await tx<{ referral_field_id: string; field_key: string }[]>`
+    insert into pipeline.referral_fields (
+      referral_id, field_key, proposed_value, confidence, review_status,
+      source_document_id, source_page, evidence_blob_key
+    )
+    select ${referralId}, field_key, proposed_value, confidence, 'pending',
+      ${documentId}::uuid, source_page, evidence_blob_key
+    from jsonb_to_recordset(${tx.json(fieldRows as never)}::jsonb) as field_rows(
+      field_key text, proposed_value jsonb, confidence numeric, source_page integer, evidence_blob_key text
+    )
+    on conflict (referral_id, field_key) do update set
+      proposed_value = excluded.proposed_value, confidence = excluded.confidence,
+      source_document_id = excluded.source_document_id, source_page = excluded.source_page,
+      evidence_blob_key = excluded.evidence_blob_key, updated_at = now(),
+      version = pipeline.referral_fields.version + 1
+    returning referral_field_id, field_key
+  `;
+  const fieldIdByKey = new Map(savedFields.map((field) => [field.field_key, field.referral_field_id]));
+  const fieldIds = savedFields.map((field) => field.referral_field_id);
+  await tx`delete from pipeline.extraction_candidates where referral_field_id in ${tx(fieldIds)}`;
 
-function safeBlobContainer(value: string) {
-  if (!/^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$/.test(value)) {
-    throw new DocumentProcessingError("blob_container_invalid", 400);
-  }
+  const candidateRows = fields.flatMap((field) => {
+    const referralFieldId = fieldIdByKey.get(field.field_key);
+    if (!referralFieldId) throw new DocumentProcessingError("field_upsert_failed", 503);
+    return (field.candidates ?? []).map((candidate) => ({
+      referral_field_id: referralFieldId,
+      source: candidate.source,
+      candidate_value: candidate.value ?? null,
+      confidence: candidate.confidence,
+      source_page: candidate.source_page ?? null,
+      evidence_blob_key: candidate.evidence_blob_key ?? null,
+    }));
+  });
+  if (!candidateRows.length) return;
+  await tx`
+    insert into pipeline.extraction_candidates (
+      referral_field_id, source, candidate_value, confidence, source_page, evidence_blob_key
+    )
+    select referral_field_id, source, candidate_value, confidence, source_page, evidence_blob_key
+    from jsonb_to_recordset(${tx.json(candidateRows as never)}::jsonb) as candidate_rows(
+      referral_field_id uuid, source text, candidate_value jsonb, confidence numeric,
+      source_page integer, evidence_blob_key text
+    )
+  `;
 }
 
 function collectReportedArtifacts(input: WorkerReport) {

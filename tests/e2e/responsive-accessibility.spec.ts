@@ -61,6 +61,52 @@ test.describe("Responsive and accessible application shell", () => {
     await expect(page.getByText("Signed Medication List", { exact: true })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
+
+    await page.getByRole("button", { name: "5 Review" }).click();
+    await expect(page.getByRole("region", { name: "Review" })).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Referral data completion" })).toHaveAttribute("aria-valuenow");
+    await expectNoPageOverflow(page);
+    await expectNoSeriousAxeViolations(page);
+  });
+
+  test("provides useful empty and failure recovery states", async ({ page }) => {
+    await page.route(/\/api\/referrals(?:\/directory)?\?/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          referrals: [],
+          total: 0,
+          revision: 0,
+          next_cursor: null,
+          progress: {},
+          facets: { communities: [], stages: [], owners: [], priorities: [], tags: [], months: [] },
+          file_total: 0,
+        }),
+      });
+    });
+
+    await page.goto("/?view=referrals");
+    await page.getByRole("button", { name: "All workspaces" }).click();
+    await expect(page.getByText("No workspaces yet", { exact: true })).toBeVisible();
+    await expect(page.getByText("Create a referral workspace from an initial face sheet or referral packet to get started.", { exact: true })).toBeVisible();
+    await expectNoPageOverflow(page);
+    await expectNoSeriousAxeViolations(page);
+
+    await page.unroute(/\/api\/referrals(?:\/directory)?\?/);
+    await page.route(/\/api\/referrals(?:\/directory)?\?/, async (route) => {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Referral refresh is temporarily unavailable." }),
+      });
+    });
+    await page.getByRole("button", { name: "Referral workflow" }).click();
+    const failure = page.getByRole("alert").filter({ hasText: "Referral refresh is temporarily unavailable." });
+    await expect(failure).toContainText("Referral refresh is temporarily unavailable.");
+    await expect(failure.getByRole("button", { name: "Retry" })).toBeVisible();
+    await expectNoPageOverflow(page);
+    await expectNoSeriousAxeViolations(page);
   });
 });
 

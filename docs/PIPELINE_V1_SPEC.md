@@ -96,7 +96,7 @@ Orchestration principle: boring and deterministic. One Databricks multi-task job
 
 | Resource | Purpose | Required configuration |
 | --- | --- | --- |
-| Storage Account / ADLS Gen2 | Immutable raw packets, normalized pages, OCR JSON, evidence crops, artifacts | Hierarchical namespace on, versioning on, raw container WORM/immutability, soft delete, approved network path, CORS for the exact Pipeline production origin |
+| Storage Account / ADLS Gen2 | Additive raw packets, normalized pages, OCR JSON, evidence crops, artifacts | Hierarchical namespace on, Blob and container soft delete, approved network path, and CORS for the exact Pipeline production origin. Blob versioning and version-level WORM are unavailable with HNS; use unique raw object keys and approve/test any container-level WORM policy before enabling it. |
 | User Delegation SAS | Short-lived signed upload URLs | Entra ID user delegation preferred, per-blob write-only SAS, 15 minute TTL, content type pinned |
 | Event Grid System Topic | Trigger processing after upload | Filter to raw prefix and `.upload-complete` sentinel, dead-letter to Blob, retries enabled |
 | Azure Function | Trigger Databricks Jobs REST API | Managed identity, no binary handling, secrets from Key Vault, short execution |

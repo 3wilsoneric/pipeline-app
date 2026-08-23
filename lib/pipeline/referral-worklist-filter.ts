@@ -2,6 +2,7 @@ import type {
   ReferralWorklistBucket,
   ReferralWorklistItem,
 } from "@/lib/pipeline/operations-types";
+import { fuzzyTokenMatches, tokenizeSearchText } from "@/lib/pipeline/fuzzy-search";
 
 export const referralWorklistBuckets: Array<{
   value: ReferralWorklistBucket;
@@ -33,14 +34,14 @@ export function matchesReferralWorklistItem(
 ) {
   if (bucket !== "all_actionable" && !item.categories.includes(bucket)) return false;
 
-  const queryTokens = tokenize(searchTerm);
+  const queryTokens = tokenizeSearchText(searchTerm);
   if (queryTokens.length === 0) return true;
 
   const categoryText = item.categories.map((category) => {
     const definition = referralWorklistBuckets.find((candidate) => candidate.value === category);
     return definition ? `${definition.label} ${definition.keywords}` : category;
   }).join(" ");
-  const candidateTokens = tokenize([
+  const candidateTokens = tokenizeSearchText([
     item.client_name,
     item.community,
     item.owner,
@@ -53,54 +54,11 @@ export function matchesReferralWorklistItem(
     categoryText,
   ].join(" "));
 
-  return queryTokens.every((queryToken) => candidateTokens.some((candidate) => tokenMatches(queryToken, candidate)));
+  return queryTokens.every((queryToken) => candidateTokens.some((candidate) => fuzzyTokenMatches(queryToken, candidate)));
 }
 
 export function referralWorklistCategoryLabel(
   bucket: Exclude<ReferralWorklistBucket, "all_actionable">,
 ) {
   return referralWorklistBuckets.find((item) => item.value === bucket)?.label ?? bucket;
-}
-
-function tokenMatches(query: string, candidate: string) {
-  if (candidate.includes(query) || query.includes(candidate)) return true;
-  return query.length >= 4 && candidate.length >= 4 && editDistanceAtMostOne(query, candidate);
-}
-
-function editDistanceAtMostOne(left: string, right: string) {
-  if (Math.abs(left.length - right.length) > 1) return false;
-  if (left === right) return true;
-
-  let leftIndex = 0;
-  let rightIndex = 0;
-  let differences = 0;
-
-  while (leftIndex < left.length && rightIndex < right.length) {
-    if (left[leftIndex] === right[rightIndex]) {
-      leftIndex += 1;
-      rightIndex += 1;
-      continue;
-    }
-    differences += 1;
-    if (differences > 1) return false;
-    if (left.length > right.length) leftIndex += 1;
-    else if (right.length > left.length) rightIndex += 1;
-    else {
-      leftIndex += 1;
-      rightIndex += 1;
-    }
-  }
-
-  return differences + Number(leftIndex < left.length || rightIndex < right.length) <= 1;
-}
-
-function tokenize(value: string) {
-  return value
-    .normalize("NFKD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .split(" ")
-    .filter(Boolean);
 }

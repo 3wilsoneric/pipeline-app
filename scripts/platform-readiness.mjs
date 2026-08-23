@@ -7,6 +7,11 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Tracked repository hygiene",
+    command: "node",
+    args: ["scripts/code-hygiene-audit.mjs"],
+  },
+  {
     name: "Alamo Admissions zone contracts",
     command: "node",
     args: ["scripts/admissions-zone-contracts.mjs"],
@@ -40,6 +45,11 @@ const checks = [
     name: "Workspace-state retention safeguards",
     command: "node",
     args: ["scripts/workspace-retention-readiness.mjs"],
+  },
+  {
+    name: "PHI-safe storage capacity inventory",
+    command: "node",
+    args: ["scripts/storage-capacity-readiness.mjs"],
   },
   {
     name: "Referral reliability replays",
@@ -87,6 +97,11 @@ const checks = [
     args: ["scripts/api-route-policy-audit.mjs"],
   },
   {
+    name: "Live Entra access rehearsal safeguards",
+    command: "node",
+    args: ["scripts/live-access-rehearsal-readiness.mjs"],
+  },
+  {
     name: "Dependency license and integrity policy",
     command: "node",
     args: ["scripts/license-policy-audit.mjs"],
@@ -95,6 +110,11 @@ const checks = [
     name: "Supply-chain workflow readiness",
     command: "node",
     args: ["scripts/supply-chain-readiness.mjs"],
+  },
+  {
+    name: "Path-aware CI impact behavior",
+    command: "node",
+    args: ["scripts/ci-change-impact-fixtures.mjs"],
   },
   {
     name: "Desktop distribution boundary",
@@ -140,6 +160,11 @@ const checks = [
     name: "Operational metric contracts",
     command: "node",
     args: ["scripts/operational-metrics-readiness.mjs"],
+  },
+  {
+    name: "Synthetic operational metric workload",
+    command: "node",
+    args: ["scripts/operational-metric-fixtures.mjs"],
   },
   {
     name: "Azure operational alert contracts",

@@ -49,8 +49,10 @@ Entra, and the production data plane.
 
 ## Still Required Before PHI Production Use
 
-1. Provision Azure PostgreSQL, apply all migrations with the migration runner,
-   configure the three PostgreSQL stores, and pass the live smoke test.
+1. Verify the deployed Azure PostgreSQL instance has all checksum-pinned
+   migrations, every transactional store is in PostgreSQL mode, and the live
+   smoke, fixture, backup/restore, and rollback drills pass against disposable
+   targets.
 2. Keep direct Entra JWT validation enabled at Pipeline. If Azure Front Door
    Premium/WAF is later approved as a separate cost and network decision, add
    it without enabling legacy trusted identity headers.
@@ -59,10 +61,10 @@ Entra, and the production data plane.
 4. Configure distributed rate limits at the trusted edge. The application
    already enforces per-instance concurrency limits; the edge must enforce the
    documented cross-instance request budgets before traffic reaches Next.js.
-5. Implement the signed Azure Blob upload/download adapter and workers for
-   malware scanning, PDF thumbnails/page previews, retention, extraction,
-   reconciliation, and evidence-page delivery. The durable states already
-   exist; the Azure workers do not.
+5. Validate the existing signed Azure Blob upload/download and extraction
+   workers against the approved production storage account, malware scanner,
+   representative 600-page packets, and evidence-page workflow. Runtime must
+   remain fail-closed until those live checks pass.
 6. Run the included load and failure checks against the deployed store for 10 concurrent
    users, thousands of referrals, large search result sets, concurrent edits,
    and 600-page packets.

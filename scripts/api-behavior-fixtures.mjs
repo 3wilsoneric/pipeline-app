@@ -13,6 +13,11 @@ const referralExtractionSchema = loadTypeScriptModule(root, "lib/extraction/refe
 const referralValidation = loadTypeScriptModule(root, "lib/pipeline/referral-validation.ts");
 const referralWorkflow = loadTypeScriptModule(root, "lib/pipeline/referral-workflow.ts");
 const referralQuery = loadTypeScriptModule(root, "lib/pipeline/referral-query.ts");
+const referralCanvasExtraction = loadTypeScriptModule(root, "lib/pipeline/referral-canvas-extraction.ts");
+const referralCanvasPersistence = loadTypeScriptModule(root, "lib/pipeline/referral-canvas-persistence.ts");
+const referralReview = loadTypeScriptModule(root, "lib/pipeline/referral-review.ts");
+const storeAdapter = loadTypeScriptModule(root, "lib/persistence/store-adapter.ts");
+const structuredNarrative = loadTypeScriptModule(root, "lib/pipeline/structured-narrative.ts");
 const residentLinkValidation = loadTypeScriptModule(root, "lib/pipeline/resident-link-validation.ts");
 const referralAccess = loadTypeScriptModule(root, "lib/pipeline/referral-access.ts");
 const requestSecurity = loadRequestSecurityModule({});
@@ -214,6 +219,41 @@ const results = [
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ workspace: "anything" })), "workspace is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ sort: "anything" })), "sort is invalid.");
   }),
+  run("referral list query preserves safe defaults and boundaries", () => {
+    const defaults = referralQuery.parseReferralListQuery(new URLSearchParams());
+    assertValid(defaults);
+    assert(defaults.value.query === "", "Expected an empty default query");
+    assert(defaults.value.sort === "updated_desc", "Expected the default updated sort");
+    assert(defaults.value.workspaceStatus === "active", "Expected active workspaces by default");
+    assert(defaults.value.activeOnly === false, "Expected closed stages to remain visible unless requested");
+    assert(defaults.value.limit === undefined, "Expected the store to choose the default page size");
+
+    const boundaries = referralQuery.parseReferralListQuery(new URLSearchParams({
+      q: "x".repeat(200),
+      owner: "o".repeat(200),
+      tag: "tag_name-1.2",
+      limit: "200",
+      active: "",
+      workspace: "archived",
+      queue: "decision",
+      month: "2026-12",
+    }));
+    assertValid(boundaries);
+    assert(boundaries.value.activeOnly === false, "An empty active filter must remain equivalent to false");
+    assert(boundaries.value.workspaceStatus === "archived", "Expected explicit archived workspace filtering");
+    assert(boundaries.value.queue === "decision", "Expected a recognized queue filter");
+  }),
+  run("referral list query rejects every malformed constrained filter", () => {
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ q: "x".repeat(201) })), "q must be 200 characters or fewer.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ owner: "o".repeat(201) })), "owner is invalid.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ priority: "critical" })), "priority is invalid.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ tag: "unsafe/tag" })), "tag is invalid.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ month: "2026-13" })), "month must use YYYY-MM.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ active: "1" })), "active must be true or false.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ queue: "everything" })), "queue is invalid.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ community: "Unknown" })), "community is invalid.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ limit: "1.5" })), "limit must be a whole number between 1 and 200.");
+  }),
   run("workspace outcomes use client admission history without inventing declines", () => {
     const base = {
       stage: "Packet Review",
@@ -231,6 +271,186 @@ const results = [
       admissionDate: "2024-01-15",
     });
     assert(declined.status === "not_admitted", "An explicit workspace decline must outrank prior client history");
+  }),
+  run("canvas extraction fills reviewed values without replacing active edits", () => {
+    const fields = emptyCanvasFields();
+    fields.summary.value = "Manual summary";
+    const extracted = [
+      extractedCanvasField("referral.first_name", "Avery", "accepted"),
+      extractedCanvasField("referral.last_name", "Example", "edited"),
+      extractedCanvasField("referral.packet_summary", "Extracted summary", "accepted"),
+      extractedCanvasField("referral.date_of_birth", "1982-05-14", "accepted"),
+    ];
+    const result = referralCanvasExtraction.populateFormFromExtraction(
+      fields,
+      extracted,
+      "packet.pdf",
+      new Set(["dob"]),
+    );
+    assert(result.name.value === "Avery Example", "Reviewed first and last names should compose a full name");
+    assert(result.name.sourceFile === "packet.pdf", "Populated fields should retain source provenance");
+    assert(result.summary.value === "Manual summary", "Extraction must not overwrite an unconfirmed manual value");
+    assert(result.dob.value === "", "Extraction must not overwrite a field being edited locally");
+  }),
+  run("canvas extraction requires explicit override before replacing manual chart data", () => {
+    const fields = emptyCanvasFields();
+    fields.referent.value = "Manual source";
+    const extracted = [extractedCanvasField("referral.source", "County Behavioral Health", "accepted")];
+    const preserved = referralCanvasExtraction.populateFormFromExtraction(fields, extracted, "packet.pdf");
+    assert(preserved === fields, "A no-op extraction should preserve object identity");
+    const replaced = referralCanvasExtraction.populateFormFromExtraction(
+      fields,
+      extracted,
+      "packet.pdf",
+      new Set(),
+      new Set(["referent"]),
+    );
+    assert(replaced.referent.value === "County Behavioral Health", "A reviewed manual override should apply explicitly");
+  }),
+  run("canvas persistence maps every visible chart field to the referral record", () => {
+    const fields = emptyCanvasFields();
+    for (const key of referralCanvasPersistence.persistedCanvasFieldKeys) {
+      fields[key] = { ...fields[key], value: `value-${key}`, sourceFile: "packet.pdf" };
+    }
+    const patch = referralCanvasPersistence.buildReferralCanvasPatch({
+      keys: new Set(referralCanvasPersistence.persistedCanvasFieldKeys),
+      fields,
+      conserved: "",
+      tags: [],
+      requirements: [],
+    });
+    const expected = {
+      name: "value-name",
+      gender: "value-gender",
+      reportedAge: "value-age",
+      dob: "value-dob",
+      ssn: "value-ssn",
+      owner: "value-owner",
+      date: "value-referralReceived",
+      admissionDate: "value-admissionDate",
+      community: "value-county",
+      source: "value-referent",
+      responsiblePerson: "value-responsiblePerson",
+      note: "value-summary",
+      interview: "value-interview",
+    };
+    for (const [key, value] of Object.entries(expected)) {
+      assert(patch[key] === value, `Canvas field mapping did not persist ${key}`);
+    }
+    assert(
+      Object.keys(patch.fieldSources).length === referralCanvasPersistence.persistedCanvasFieldKeys.length,
+      "Every persisted chart field should retain source provenance",
+    );
+  }),
+  run("new referral construction uses the same complete canvas persistence contract", () => {
+    const fields = emptyCanvasFields();
+    Object.assign(fields.name, { value: " Avery Example " });
+    Object.assign(fields.owner, { value: " Eric Wilson " });
+    Object.assign(fields.referralReceived, { value: "2026-08-22" });
+    Object.assign(fields.referent, { value: " County intake " });
+    Object.assign(fields.summary, { value: " Summary " });
+    Object.assign(fields.dob, { value: "1982-05-14" });
+    Object.assign(fields.age, { value: "44" });
+    const created = referralCanvasPersistence.buildReferralCanvasCreateInput({
+      fields,
+      conserved: "yes",
+      community: "San Pablo",
+      tags: ["manual-entry"],
+      requirements: [],
+      createdAt: "2026-08-22T12:00:00.000Z",
+      document: { name: "packet.pdf", size: 2048, hash: "abc123" },
+    });
+    assert(created.name === "Avery Example", "Create should trim the chart identity");
+    assert(created.owner === "Eric Wilson", "Create should persist the assigned owner");
+    assert(created.source === "County intake", "Create should persist the referral source");
+    assert(created.note === "Summary", "Create should persist the summary");
+    assert(created.reportedAge === "44", "Create should persist reported age separately from DOB");
+    assert(created.documentHash === "abc123", "Create should preserve packet identity");
+    assert(created.conserved === "yes", "Create should persist conservatorship selection");
+  }),
+  run("structured chart narratives survive a serialize and parse round trip", () => {
+    const sections = structuredNarrative.structuredNarrativeSections.summary;
+    const values = {
+      reason: "County referral after an acute episode.",
+      presentation: "Calm, oriented, and participating in review.",
+      concerns: "Recent safety concern requires follow-up.",
+      strengths: "Engaged family and clear housing goals.",
+      placement: "Needs this level of structured support.",
+      additional: "Interpreter requested for meetings.",
+    };
+    const serialized = structuredNarrative.serializeStructuredNarrative(sections, values);
+    const parsed = structuredNarrative.parseStructuredNarrative(serialized, sections);
+    assert(
+      sections.every((section) => parsed[section.key] === values[section.key]),
+      "Structured narrative sections must round-trip without data loss",
+    );
+  }),
+  run("legacy free text remains visible in the structured narrative editor", () => {
+    const sections = structuredNarrative.structuredNarrativeSections.interview;
+    const legacy = "Legacy interview detail that predates the structured editor.";
+    const parsed = structuredNarrative.parseStructuredNarrative(legacy, sections);
+    assert(
+      parsed[sections.at(-1).key] === legacy,
+      "Unstructured legacy text should be preserved in the final catch-all section",
+    );
+  }),
+  run("partial structured narratives preserve every recognized section", () => {
+    const sections = structuredNarrative.structuredNarrativeSections.summary;
+    const partial = "## Reason for referral\nUrgent county referral.\n\n## Additional context\nFamily will provide records.";
+    const parsed = structuredNarrative.parseStructuredNarrative(partial, sections);
+    assert(parsed.reason === "Urgent county referral.", "The first recognized section should remain intact");
+    assert(parsed.additional === "Family will provide records.", "The final recognized section should remain intact");
+    assert(parsed.presentation === "", "Missing sections should stay explicitly empty");
+  }),
+  run("review completion treats whitespace as missing and aggregates by section", () => {
+    const sections = [
+      {
+        label: "Identity",
+        items: [
+          referralReview.reviewField("Client name", "Avery Example", 1),
+          referralReview.reviewField("Date of birth", "   ", 1),
+        ],
+      },
+      {
+        label: "Assessment",
+        items: [referralReview.reviewField("Assessment data", "Reviewed", 4)],
+      },
+    ];
+    const summary = referralReview.summarizeReviewSections(sections);
+    assert(summary.complete === 2, "Two review values should be complete");
+    assert(summary.total === 3, "All review values should be counted");
+    assert(summary.percent === 67, "Completion should use rounded whole percentages");
+    assert(summary.sections[0].complete === 1, "Section completion should match the overall rules");
+  }),
+  run("an empty review has a stable zero percent result", () => {
+    const summary = referralReview.summarizeReviewSections([]);
+    assert(summary.complete === 0 && summary.total === 0, "Empty reviews should have zero counts");
+    assert(summary.percent === 0, "Empty reviews should not divide by zero");
+  }),
+  run("durable store selection honors explicit modes and database fallback", () => {
+    assert(
+      storeAdapter.resolveDurableStoreMode({ configuredModes: ["postgres"] }) === "postgres",
+      "Explicit PostgreSQL mode should select the durable adapter",
+    );
+    assert(
+      storeAdapter.resolveDurableStoreMode({ configuredModes: ["external"] }) === "postgres",
+      "The legacy external mode should remain PostgreSQL-compatible",
+    );
+    assert(
+      storeAdapter.resolveDurableStoreMode({ configuredModes: [], databaseMode: "postgres" }) === "postgres",
+      "Database mode should provide the unconfigured fallback",
+    );
+    assert(
+      storeAdapter.resolveDurableStoreMode({ configuredModes: ["local_file"], databaseMode: "postgres" }) === "local_file",
+      "An explicit local test mode should override the database fallback",
+    );
+  }),
+  run("durable store adapters are selected without invoking the inactive backend", () => {
+    const local = { name: "local" };
+    const postgres = { name: "postgres" };
+    const adapters = { local_file: local, postgres };
+    assert(storeAdapter.selectStoreAdapter("local_file", adapters) === local, "Expected local adapter identity");
+    assert(storeAdapter.selectStoreAdapter("postgres", adapters) === postgres, "Expected PostgreSQL adapter identity");
   }),
   ...authBehaviorResults(),
   ...backendBehaviorResults(),
@@ -1069,6 +1289,33 @@ function extractedAssessmentField(fieldKey, proposedValue) {
     source_page_no: 3,
     evidence_url: "evidence://page/3",
   };
+}
+
+function extractedCanvasField(fieldKey, proposedValue, reviewStatus) {
+  return {
+    field_key: fieldKey,
+    proposed_value: proposedValue,
+    confidence: 0.9,
+    review_status: reviewStatus,
+  };
+}
+
+function emptyCanvasFields() {
+  return Object.fromEntries([
+    "name",
+    "gender",
+    "age",
+    "dob",
+    "ssn",
+    "owner",
+    "referralReceived",
+    "admissionDate",
+    "county",
+    "referent",
+    "responsiblePerson",
+    "summary",
+    "interview",
+  ].map((key) => [key, { label: key, value: "" }]));
 }
 
 function validReferral() {

@@ -396,6 +396,9 @@ async function loadCandidateResidentLinks() {
     links.push(...page.links);
     cursor = page.next_cursor ?? undefined;
   } while (cursor && links.length < 5_000);
+  if (cursor) {
+    throw new Error("The resident-link candidate queue exceeded its safe reporting capacity.");
+  }
   return links;
 }
 
@@ -562,10 +565,14 @@ async function loadReferralPages(
   let cursor: string | undefined;
 
   do {
-    const page = await listReferrals({ ...filter, limit: 200, cursor });
+    const page = await listReferrals({ ...filter, limit: 200, cursor, includeTotal: false });
     referrals.push(...page.referrals);
     cursor = page.next_cursor;
   } while (cursor && referrals.length < 5_000);
+
+  if (cursor) {
+    throw new Error("The operational workspace report exceeded its safe reporting capacity.");
+  }
 
   return referrals;
 }

@@ -45,6 +45,8 @@ check("IaC contains no credential literals", !/(?:clientSecret|accountKey|token)
 check("Blob public access is disabled", bicep.includes("allowBlobPublicAccess: false"));
 check("storage shared-key access is disabled", bicep.includes("allowSharedKeyAccess: false"));
 check("storage uses ADLS Gen2 for governed Databricks access", bicep.includes("isHnsEnabled: true"));
+check("Blob and container soft delete are enabled", bicep.includes("deleteRetentionPolicy:") && bicep.includes("containerDeleteRetentionPolicy:"));
+check("HNS storage does not claim unsupported Blob versioning", !bicep.includes("isVersioningEnabled: true"));
 check("Databricks has managed-identity Blob access", bicep.includes("storageDatabricksRole") && bicep.includes("databricksAccessConnector.identity.principalId"));
 check("IaC does not silently buy a duplicate Databricks workspace", !bicep.includes("Microsoft.Databricks/workspaces@"));
 check("Document Intelligence local keys are disabled", bicep.includes("disableLocalAuth: true") && bicep.includes("documentIntelligenceDatabricksRole"));
@@ -124,7 +126,16 @@ check(
 );
 check("operational alert module is deployed", bicep.includes("operational-alerts.bicep"));
 check("operational alert recipients are explicit parameters", bicep.includes("alertActionGroupResourceIds") && alerts.includes("actionGroups: actionGroupResourceIds"));
-check("seven PHI-safe alert rules are declared", (alerts.match(/key:\s*'/g) ?? []).length === 7 && alerts.includes("dataClassification: 'phi-safe-metrics-only'"));
+check(
+  "PHI-safe operational and native capacity alerts are declared",
+  (alerts.match(/key:\s*'/g) ?? []).length >= 10
+    && alerts.includes("dataClassification: 'phi-safe-metrics-only'")
+    && alerts.includes("active_connections")
+    && alerts.includes("storage_percent")
+    && alerts.includes("UsedCapacity")
+    && runtime.includes("RestartCount")
+    && runtime.includes("ResiliencyRequestTimeouts"),
+);
 check("custom-domain automation distinguishes apex and subdomain records", domainConfiguration.includes('record_mode="apex"') && domainConfiguration.includes("validation_method=\"HTTP\"") && domainConfiguration.includes("validation_method=\"CNAME\""));
 check("custom-domain automation reads stable output-only foundation state", domainConfiguration.includes("--name pipeline-foundation-state"));
 check("custom-domain Blob CORS preserves existing service properties and origins", domainConfiguration.includes("blob_service=\"$(az rest --method GET") && domainConfiguration.includes("existing_origins=") && domainConfiguration.includes("$existingOrigins + [$productionOrigin, $generatedOrigin] | unique") && domainConfiguration.includes("--method PUT") && domainConfiguration.includes(".properties.cors = $cors"));

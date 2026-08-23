@@ -19,6 +19,7 @@ const importTool = read("scripts/import-confirmed-client-files.mjs");
 const reconciliationTool = read("scripts/reconcile-client-file-import.mjs");
 const rollbackTool = read("scripts/rollback-client-file-import.mjs");
 const referralCanvas = read("components/pipeline/ReferralPacketCanvas.tsx");
+const referralPacketUpload = read("lib/pipeline/referral-packet-upload.ts");
 const documentRequirements = read("lib/pipeline/document-requirements.ts");
 const documentReconciliation = read("lib/pipeline/document-requirement-reconciliation.ts");
 const uploadCompleteRoute = read("app/api/uploads/complete/route.ts");
@@ -71,8 +72,8 @@ check("client-file rollback qualifies joined document versions", rollbackTool.in
 check("document requirements have one category mapping", documentRequirements.includes("categoryByRequirement") && documentRequirements.includes("requirementByCategory"));
 check("upload completion reconciles checklist evidence server-side", uploadCompleteRoute.includes("reconcileUploadedDocumentRequirements") && documentReconciliation.includes("patchReferralWorkItem"));
 check("checklist reconciliation preserves reviewed evidence", documentReconciliation.includes('["reviewed", "waived"].includes(requirement.status)') && documentReconciliation.includes("requirement.evidenceDocumentId"));
-check("supporting drop zones upload immediately for saved referrals", referralCanvas.includes('processing_intent: "preview_only"') && referralCanvas.includes("refreshed.referral") && referralCanvas.includes("linkedRequirement?.evidenceDocumentId"));
-check("initial uploads require an explicit document type", referralCanvas.includes('aria-label="Initial document type"') && referralCanvas.includes('"face_sheet" | "referral_packet"'));
+check("supporting drop zones upload immediately for saved referrals", referralPacketUpload.includes('"preview_only"') && referralCanvas.includes("refreshed.referral") && referralCanvas.includes("linkedRequirement?.evidenceDocumentId"));
+check("initial uploads require an explicit document type", referralCanvas.includes('aria-label="Initial document type"') && referralPacketUpload.includes('"face_sheet" | "referral_packet"'));
 check("every material canvas becomes one idempotent historical workspace", historicalWorkspaceMigration.includes("referrals_source_workspace_unique_idx") && historicalWorkspaceImport.includes("on conflict (workspace_origin, source_workspace_id)"));
 check("historical workspace preparation never guesses an admission outcome", historicalWorkspacePrepare.includes('return "Packet Review"') && historicalWorkspacePrepare.includes('if (/\\b(accepted|admitted)\\b/') && historicalWorkspaceCommon.includes('"Packet Review", "Accepted / Admitted", "Declined"'));
 check("unique client-history admission evidence is preserved without overriding declines", historicalWorkspaceImport.includes("profile?.admit_date") && historicalAdmissionBackfill.includes("unique_profile_match") && historicalAdmissionBackfill.includes("explicit_declines_preserved"));

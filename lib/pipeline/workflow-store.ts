@@ -156,7 +156,7 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
   const [workItemRows, decisionRows, assessmentRows] = await Promise.all([
     sql<(WorkItemRow & { referral_id: number | string })[]>`
       select referral_id, work_item_id, type, label, gate, status, owner_id, owner_name, due_at,
-             next_action, blocker, evidence_document_name, waiver_reason, version, updated_at
+             next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
       from pipeline.work_items where referral_id = any(${ids}::bigint[])
       order by referral_id, created_at, work_item_id
     `,
@@ -172,13 +172,14 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
       order by referral_id, updated_at desc, assessment_id desc
     `,
   ]);
+  const workItemsByReferral = groupRowsByReferral(workItemRows);
+  const decisionsByReferral = indexRowsByReferral(decisionRows);
+  const assessmentsByReferral = indexRowsByReferral(assessmentRows);
 
   for (const referral of referrals) {
-    const workItems = workItemRows
-      .filter((row) => Number(row.referral_id) === referral.id)
-      .map(mapWorkItem);
-    const decisionRow = decisionRows.find((row) => Number(row.referral_id) === referral.id);
-    const assessmentRow = assessmentRows.find((row) => Number(row.referral_id) === referral.id);
+    const workItems = (workItemsByReferral.get(referral.id) ?? []).map(mapWorkItem);
+    const decisionRow = decisionsByReferral.get(referral.id);
+    const assessmentRow = assessmentsByReferral.get(referral.id);
     contexts.set(referral.id, {
       assessmentExists: Boolean(assessmentRow) || Boolean(referral.assessment),
       assessmentComplete: assessmentRow ? assessmentRow.status === "complete" : Boolean(referral.assessment?.completedAt),
@@ -190,6 +191,19 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
     });
   }
   return contexts;
+}
+
+function groupRowsByReferral<T extends { referral_id: number | string }>(rows: T[]) {
+  const grouped = new Map<number, T[]>();
+  for (const row of rows) {
+    const referralId = Number(row.referral_id);
+    grouped.set(referralId, [...(grouped.get(referralId) ?? []), row]);
+  }
+  return grouped;
+}
+
+function indexRowsByReferral<T extends { referral_id: number | string }>(rows: T[]) {
+  return new Map(rows.map((row) => [Number(row.referral_id), row]));
 }
 
 export async function transitionReferral(

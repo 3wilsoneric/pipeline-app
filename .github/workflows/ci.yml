@@ -2,8 +2,15 @@ name: Pipeline CI
 
 on:
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,6 +20,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      browser: ${{ steps.impact.outputs.browser }}
+      postgres: ${{ steps.impact.outputs.postgres }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+      - id: impact
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.sha }}
+        run: node scripts/ci-change-impact.mjs
+
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -24,10 +47,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm audit --audit-level=high
-      - run: npm run check:licenses
-      - run: npm run check:supply-chain
-      - run: npm run check:route-policy
-      - run: npm run check:platform
+      - name: Run the complete non-browser contract gate
+        run: npm run check:platform:fast
+      - name: Build the production artifact once
+        run: npm run build
+      - run: npm run check:artifacts
       - run: npm run release:evidence -- --out-dir /tmp/pipeline-release-evidence
       - run: PIPELINE_REQUIRE_CLEAN_RELEASE=true npm run release:evidence:verify -- --dir /tmp/pipeline-release-evidence
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -37,6 +61,8 @@ jobs:
           retention-days: 30
 
   browser:
+    needs: [changes, verify]
+    if: github.event_name != 'pull_request' && needs.changes.outputs.browser == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -118,6 +144,8 @@ jobs:
           retention-days: 7
 
   postgres:
+    needs: [changes, verify]
+    if: github.event_name != 'pull_request' && needs.changes.outputs.postgres == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     services:
@@ -163,6 +191,7 @@ jobs:
       - run: npm run database:migrate
       - run: npm run check:database:live
       - run: npm run database:fixtures
+      - run: npm run database:query-plans
       - run: npm run database:rollback:drill
       - run: npm run database:seed:production
       - run: npm run build

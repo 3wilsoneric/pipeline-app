@@ -20,6 +20,9 @@ import type {
   ReviewFieldResponse,
 } from "@/lib/extraction/contracts";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
+import { DocumentProcessingError } from "@/lib/extraction/document-processing-error";
+
+export { DocumentProcessingError } from "@/lib/extraction/document-processing-error";
 
 type Actor = { id: string; name: string };
 
@@ -76,17 +79,6 @@ const requiredPacketFields = [
   "referral.source",
   "clinical.summary",
 ] as const;
-
-export class DocumentProcessingError extends Error {
-  constructor(
-    public readonly code: string,
-    public readonly status: 400 | 404 | 409 | 410 | 413 | 415 | 502 | 503 = 400,
-    message = code,
-  ) {
-    super(message);
-    this.name = "DocumentProcessingError";
-  }
-}
 
 export async function createDurableUploadTargets(
   input: CreateUploadUrlRequest,

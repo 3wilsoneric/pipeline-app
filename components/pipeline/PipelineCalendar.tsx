@@ -67,7 +67,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   });
 
   return (
-    <main className="h-full overflow-y-auto bg-white px-4 pb-8 pt-1 sm:px-6 lg:px-8">
+    <main aria-busy={loading} className="h-full overflow-y-auto bg-white px-4 pb-8 pt-1 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-[1480px]">
         <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] py-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -77,7 +77,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
             <button type="button" onClick={() => setAnchor(todayKey())} className="ml-1 h-9 border border-[#111111] px-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#111111] hover:bg-[#111111] hover:text-white">Today</button>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden text-[10px] text-[#737373] sm:inline">{loading ? "Loading..." : `${visibleEvents.length} event${visibleEvents.length === 1 ? "" : "s"}`}</span>
+            <span role="status" aria-live="polite" className="hidden text-[10px] text-[#737373] sm:inline">{loading ? "Loading calendar events..." : `${visibleEvents.length} event${visibleEvents.length === 1 ? "" : "s"}`}</span>
             <div role="group" aria-label="Calendar view" className="flex border border-[#d9d9d9]">
               {(["month", "week", "agenda"] as const).map((option) => (
                 <button key={option} type="button" aria-pressed={view === option} onClick={() => setView(option)} className={`h-9 px-3 text-[10px] font-black uppercase tracking-[0.06em] ${view === option ? "bg-[#111111] text-white" : "bg-white text-[#595959] hover:text-[#111111]"}`}>{option}</button>
@@ -97,7 +97,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           {hasFilters ? <button type="button" onClick={() => { setCommunity(""); setOwner(""); setKind(""); }} className="flex h-8 shrink-0 items-center gap-1 px-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#a63d2f]"><X size={12} /> Clear</button> : null}
         </div>
 
-        {error ? <div className="mt-4 border-l-2 border-[#a16a16] bg-[#fff8ed] px-4 py-3 text-[12px] text-[#6f4b13]">{error} Refresh or try another range.</div> : null}
+        {error ? <div role="alert" className="mt-4 border-l-2 border-[#a16a16] bg-[#fff8ed] px-4 py-3 text-[12px] text-[#6f4b13]">{error} Refresh or try another range.</div> : null}
 
         <div className="hidden md:block">
           {view === "month" ? <MonthView month={anchor.slice(0, 7)} eventsByDate={eventsByDate} onOpen={openEvent} /> : null}

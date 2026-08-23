@@ -1,6 +1,6 @@
 # Azure deployment state
 
-Last verified: 12 August 2026
+Last verified: 22 August 2026
 
 This document contains identifiers and configuration state only. It must never
 contain passwords, client secrets, tokens, connection strings, packet content,
@@ -87,13 +87,13 @@ given access to ElderMark, clinical tables, or unrelated Alamo storage.
 
 ## GitHub boundary
 
-The repository is private. Actions permissions are restricted to GitHub-owned
-actions plus the selected Azure Login and Docker build actions. Workflow tokens
-are read-only and cannot approve pull requests.
+The repository is public and contains application source, sanitized fixtures,
+and nonsecret identifiers only. Actions permissions are restricted to
+GitHub-owned actions plus the selected Azure Login and Docker build actions.
+Workflow tokens are read-only and cannot approve pull requests. Runtime secrets,
+connection strings, tokens, packet content, and clinical data remain outside Git.
 
-GitHub Free does not provide the desired private-repository branch or
-environment protection rules. The deployment therefore uses two independent
-controls that do not require a paid GitHub plan:
+The deployment uses two independent controls:
 
 1. the workflow runs only from `refs/heads/main`;
 2. Azure OIDC accepts only
@@ -132,8 +132,8 @@ but the app does not claim that OCR or extraction ran.
 
 ## Deployed runtime
 
-GitHub Actions run `31670713359` deployed commit `fd4ecec` successfully. The
-healthy revision is `pipeline-prod-web--fd4ecec2e486b19b`; it receives 100% of
+GitHub Actions run `32608598422` deployed commit `71826ff` successfully. The
+healthy revision is `pipeline-prod-web--71826ff1b94fd22f`; it receives 100% of
 traffic and scales from one to three replicas.
 
 ```text
@@ -160,19 +160,19 @@ The one-time PostgreSQL bootstrap succeeded, invalidated its administrator
 credential, and was finalized. The administrator URL and bootstrap job were
 removed. Routine releases use only the checksum-guarded migrator.
 
-Clinical access is explicitly disconnected and optional for this pilot release.
-Clinical routes continue to fail closed; the app does not claim live census or
-EHR data. Packet processing is `manual`, so private uploads and manual charting
-work, while automatic OCR/extraction remains disabled.
+Clinical access uses the governed Alamo API with Entra client credentials and is
+required for the production readiness check. The health contract reports the
+adapter, authentication, and upstream connection as ready. It remains fail
+closed when Alamo is unavailable or stale. Packet processing is `manual`, so
+private uploads and manual charting work, while automatic OCR/extraction remains
+disabled until the dedicated Databricks production worker is approved.
 
 ## Remaining gates
 
-1. Generate the clinical client credential only at the local hidden prompt and
-   store it directly in Key Vault.
-2. Configure role groups or the final pilot user list. Do not leave the app open
+1. Configure role groups or the final pilot user list. Do not leave the app open
    to the tenant.
-3. Create the dedicated Databricks extraction principal and production worker
+2. Create the dedicated Databricks extraction principal and production worker
    before switching packet processing to `azure_databricks`.
-4. Add an Azure Monitor action group after alert recipients are approved.
-5. Confirm Microsoft agreement/BAA coverage and name the retention/deletion
+3. Add an Azure Monitor action group after alert recipients are approved.
+4. Confirm Microsoft agreement/BAA coverage and name the retention/deletion
    approver before real PHI is uploaded.

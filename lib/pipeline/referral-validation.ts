@@ -226,11 +226,31 @@ export function validateReferralPatch(
 }
 
 function validateCommonFields(value: Record<string, unknown>): ValidationSuccess<true> | ValidationFailure {
+  const validators = [
+    validateConserved,
+    validateFieldSources,
+    validateClientId,
+    validateDocumentHash,
+    validateTags,
+    validateDocumentSizes,
+    validatePacketState,
+  ];
+  for (const validate of validators) {
+    const result = validate(value);
+    if (!result.ok) return result;
+  }
+  return valid();
+}
+
+function validateConserved(value: Record<string, unknown>): ValidationSuccess<true> | ValidationFailure {
   if ("conserved" in value && value.conserved !== undefined) {
     const result = validateEnum(value.conserved, "conserved", ["yes", "no", ""] as const);
     if (!result.ok) return result;
   }
+  return valid();
+}
 
+function validateFieldSources(value: Record<string, unknown>): ValidationSuccess<true> | ValidationFailure {
   if ("fieldSources" in value && value.fieldSources !== undefined) {
     if (!isPlainObject(value.fieldSources)) return invalid("fieldSources must be an object.");
     const entries = Object.entries(value.fieldSources);
@@ -243,7 +263,10 @@ function validateCommonFields(value: Record<string, unknown>): ValidationSuccess
       if (!result.ok) return result;
     }
   }
+  return valid();
+}
 
+function validateClientId(value: Record<string, unknown>): ValidationSuccess<true> | ValidationFailure {
   if ("clientId" in value && value.clientId !== undefined) {
     const result = validateString(value.clientId, "clientId", stringLimits.clientId);
     if (!result.ok) return result;
@@ -251,7 +274,10 @@ function validateCommonFields(value: Record<string, unknown>): ValidationSuccess
       return invalid("clientId contains unsupported characters.");
     }
   }
+  return valid();
+}
 
+function validateDocumentHash(value: Record<string, unknown>): ValidationSuccess<true> | ValidationFailure {
   if ("documentHash" in value && value.documentHash !== undefined) {
     const result = validateString(value.documentHash, "documentHash", stringLimits.documentHash);
     if (!result.ok) return result;
@@ -259,7 +285,10 @@ function validateCommonFields(value: Record<string, unknown>): ValidationSuccess
       return invalid("documentHash must be a lowercase SHA-256 value.");
     }
   }
+  return valid();
+}
 
+function validateTags(value: Record<string, unknown>): ValidationSuccess<true> | ValidationFailure {
   if ("tags" in value && value.tags !== undefined) {
     if (!Array.isArray(value.tags) || value.tags.length > 20) {
       return invalid("tags must contain at most 20 values.");
@@ -269,7 +298,10 @@ function validateCommonFields(value: Record<string, unknown>): ValidationSuccess
       if (!result.ok) return result;
     }
   }
+  return valid();
+}
 
+function validateDocumentSizes(value: Record<string, unknown>): ValidationSuccess<true> | ValidationFailure {
   for (const [field, maximum] of [
     ["documentSizeBytes", 100 * 1024 * 1024],
     ["assessmentDocumentSizeBytes", 100 * 1024 * 1024],
@@ -279,7 +311,10 @@ function validateCommonFields(value: Record<string, unknown>): ValidationSuccess
       return invalid(`${field} must be a whole number between 0 and 100 MB.`);
     }
   }
+  return valid();
+}
 
+function validatePacketState(value: Record<string, unknown>): ValidationSuccess<true> | ValidationFailure {
   if ("packetFields" in value && value.packetFields !== undefined) {
     const result = validatePacketFields(value.packetFields);
     if (!result.ok) return result;
@@ -292,8 +327,7 @@ function validateCommonFields(value: Record<string, unknown>): ValidationSuccess
     const result = validateCompleteness(value.packetCompleteness);
     if (!result.ok) return result;
   }
-
-  return { ok: true, value: true };
+  return valid();
 }
 
 function validateAssessment(value: unknown): ValidationSuccess<true> | ValidationFailure {
@@ -342,50 +376,56 @@ function validateRequirements(value: unknown): ValidationSuccess<true> | Validat
   if (!Array.isArray(value) || value.length > 50) return invalid("requirements must contain at most 50 items.");
 
   for (const requirement of value) {
-    if (!isPlainObject(requirement)) return invalid("Each requirement must be an object.");
-    const fields: Array<[keyof AdmissionRequirement, number]> = [
-      ["id", 128],
-      ["label", 300],
-      ["owner", 200],
-      ["dueAt", 80],
-      ["nextStep", 500],
-      ["updatedAt", 80],
-    ];
-    for (const [field, maximum] of fields) {
-      const result = validateString(requirement[field], `requirements.${field}`, maximum);
-      if (!result.ok) return result;
-    }
-    if ("ownerId" in requirement && requirement.ownerId !== undefined) {
-      const result = validateString(requirement.ownerId, "requirements.ownerId", 256);
-      if (!result.ok) return result;
-    }
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(requirement.id))) {
-      return invalid("requirements.id must be a UUID.");
-    }
-    for (const field of ["dueAt", "updatedAt"] as const) {
-      const result = validateTimestamp(requirement[field], `requirements.${field}`);
-      if (!result.ok) return result;
-    }
-    for (const [field, values] of [
-      ["type", requirementTypes],
-      ["status", requirementStatuses],
-      ["requiredFor", requirementGates],
-    ] as const) {
-      const result = validateEnum(requirement[field], `requirements.${field}`, values);
-      if (!result.ok) return result;
-    }
-    if (typeof requirement.blocker !== "boolean") return invalid("requirements.blocker must be true or false.");
-    if ("version" in requirement && requirement.version !== undefined && (!Number.isInteger(requirement.version) || Number(requirement.version) < 1)) {
-      return invalid("requirements.version must be a positive whole number.");
-    }
-    for (const field of ["evidenceDocumentName", "waiverReason"] as const) {
-      if (!(field in requirement) || requirement[field] === undefined) continue;
-      const result = validateString(requirement[field], `requirements.${field}`, 2_000);
-      if (!result.ok) return result;
-    }
+    const result = validateRequirement(requirement);
+    if (!result.ok) return result;
   }
 
-  return { ok: true, value: true };
+  return valid();
+}
+
+function validateRequirement(value: unknown): ValidationSuccess<true> | ValidationFailure {
+  if (!isPlainObject(value)) return invalid("Each requirement must be an object.");
+  const fields: Array<[keyof AdmissionRequirement, number]> = [
+    ["id", 128],
+    ["label", 300],
+    ["owner", 200],
+    ["dueAt", 80],
+    ["nextStep", 500],
+    ["updatedAt", 80],
+  ];
+  for (const [field, maximum] of fields) {
+    const result = validateString(value[field], `requirements.${field}`, maximum);
+    if (!result.ok) return result;
+  }
+  if ("ownerId" in value && value.ownerId !== undefined) {
+    const result = validateString(value.ownerId, "requirements.ownerId", 256);
+    if (!result.ok) return result;
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value.id))) {
+    return invalid("requirements.id must be a UUID.");
+  }
+  for (const field of ["dueAt", "updatedAt"] as const) {
+    const result = validateTimestamp(value[field], `requirements.${field}`);
+    if (!result.ok) return result;
+  }
+  for (const [field, values] of [
+    ["type", requirementTypes],
+    ["status", requirementStatuses],
+    ["requiredFor", requirementGates],
+  ] as const) {
+    const result = validateEnum(value[field], `requirements.${field}`, values);
+    if (!result.ok) return result;
+  }
+  if (typeof value.blocker !== "boolean") return invalid("requirements.blocker must be true or false.");
+  if ("version" in value && value.version !== undefined && (!Number.isInteger(value.version) || Number(value.version) < 1)) {
+    return invalid("requirements.version must be a positive whole number.");
+  }
+  for (const field of ["evidenceDocumentName", "waiverReason"] as const) {
+    if (!(field in value) || value[field] === undefined) continue;
+    const result = validateString(value[field], `requirements.${field}`, 2_000);
+    if (!result.ok) return result;
+  }
+  return valid();
 }
 
 function validateAdmissionDecision(value: unknown): ValidationSuccess<true> | ValidationFailure {
@@ -410,28 +450,31 @@ function validateAdmissionDecision(value: unknown): ValidationSuccess<true> | Va
 function validatePacketFields(value: unknown): ValidationSuccess<true> | ValidationFailure {
   if (!Array.isArray(value) || value.length > 300) return invalid("packetFields must contain at most 300 fields.");
   for (const field of value) {
-    if (!isPlainObject(field)) return invalid("Each packet field must be an object.");
-    for (const [key, maximum] of [["field_key", 256], ["source_page_no", 20]] as const) {
-      if (key === "source_page_no") continue;
-      const result = validateString(field[key], key, maximum);
-      if (!result.ok) return result;
-    }
-    for (const key of ["proposed_value", "final_value"] as const) {
-      if (!(key in field) || field[key] === null || field[key] === undefined) continue;
-      const result = validateString(field[key], key, 20_000);
-      if (!result.ok) return result;
-    }
-    const confidence = field.confidence;
-    if (typeof confidence !== "number" || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
-      return invalid("packet field confidence must be between 0 and 1.");
-    }
-    if (typeof field.review_status !== "string" || !["pending", "accepted", "edited", "rejected"].includes(field.review_status)) {
-      return invalid("packet field review_status is invalid.");
-    }
-    if (typeof field.is_conflict !== "boolean") return invalid("packet field is_conflict must be true or false.");
-    if (!Array.isArray(field.candidates) || field.candidates.length > 20) return invalid("packet field candidates are invalid.");
+    const result = validatePacketField(field);
+    if (!result.ok) return result;
   }
-  return { ok: true, value: true };
+  return valid();
+}
+
+function validatePacketField(value: unknown): ValidationSuccess<true> | ValidationFailure {
+  if (!isPlainObject(value)) return invalid("Each packet field must be an object.");
+  const fieldKey = validateString(value.field_key, "field_key", 256);
+  if (!fieldKey.ok) return fieldKey;
+  for (const key of ["proposed_value", "final_value"] as const) {
+    if (!(key in value) || value[key] === null || value[key] === undefined) continue;
+    const result = validateString(value[key], key, 20_000);
+    if (!result.ok) return result;
+  }
+  const confidence = value.confidence;
+  if (typeof confidence !== "number" || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
+    return invalid("packet field confidence must be between 0 and 1.");
+  }
+  if (typeof value.review_status !== "string" || !["pending", "accepted", "edited", "rejected"].includes(value.review_status)) {
+    return invalid("packet field review_status is invalid.");
+  }
+  if (typeof value.is_conflict !== "boolean") return invalid("packet field is_conflict must be true or false.");
+  if (!Array.isArray(value.candidates) || value.candidates.length > 20) return invalid("packet field candidates are invalid.");
+  return valid();
 }
 
 function validateReadiness(value: unknown): ValidationSuccess<true> | ValidationFailure {
@@ -480,6 +523,10 @@ function validateEnum<T extends string>(value: unknown, field: string, allowed: 
 function optionalEnum<T extends string>(value: unknown, field: string, allowed: readonly T[]) {
   if (value === undefined) return { ok: true as const, value: true as const };
   return validateEnum(value, field, allowed);
+}
+
+function valid(): ValidationSuccess<true> {
+  return { ok: true, value: true };
 }
 
 function invalid(message: string, status = 400): ValidationFailure {

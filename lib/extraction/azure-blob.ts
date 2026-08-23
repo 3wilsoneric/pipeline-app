@@ -10,6 +10,8 @@ import {
 } from "@azure/storage-blob";
 
 import type { CreateUploadUrlRequest, CreateUploadUrlResponse } from "./contracts";
+import { buildOriginalBlobPath } from "@/lib/extraction/blob-paths";
+import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 
 export type AzureBlobUploadSigner = {
   createUploadUrls(input: CreateUploadUrlRequest): Promise<CreateUploadUrlResponse>;
@@ -44,10 +46,11 @@ export function getAzureBlobUploadSigner(): AzureBlobUploadSigner {
       if (!input.packet_id || !isUuid(input.packet_id)) {
         throw new Error("A durable packet id is required before signing uploads.");
       }
+      const packetId = input.packet_id;
 
       const expiresAt = new Date(Date.now() + uploadLifetimeSeconds() * 1000);
       const uploads = await Promise.all(input.files.map(async (file) => {
-        const blobPath = `${input.packet_id}/original/${opaqueFileName(file.file_id, file.filename)}`;
+        const blobPath = buildOriginalBlobPath(packetId, file.file_id, file.filename);
         return {
           file_id: file.file_id,
           signed_url: await createSignedBlobUrl(account, rawContainer, blobPath, "cw", expiresAt),
@@ -56,9 +59,9 @@ export function getAzureBlobUploadSigner(): AzureBlobUploadSigner {
         };
       }));
 
-      const sentinelPath = `${input.packet_id}/control/upload-complete`;
+      const sentinelPath = `${packetId}/control/upload-complete`;
       return {
-        packet_id: input.packet_id,
+        packet_id: packetId,
         uploads,
         sentinel_url: await createSignedBlobUrl(account, rawContainer, sentinelPath, "cw", expiresAt),
       };
@@ -86,6 +89,7 @@ export function getAzureBlobUploadSigner(): AzureBlobUploadSigner {
       } catch (error) {
         const status = azureStatus(error);
         if (status === 404) return { exists: false };
+        storageFailure("properties");
         throw new BlobStorageError("blob_properties_failed", status);
       }
     },
@@ -99,6 +103,7 @@ export function getAzureBlobUploadSigner(): AzureBlobUploadSigner {
           .deleteIfExists({ deleteSnapshots: "include" });
         return result.succeeded;
       } catch (error) {
+        storageFailure("delete");
         throw new BlobStorageError("blob_delete_failed", azureStatus(error));
       }
     },
@@ -167,15 +172,9 @@ async function getDelegationKey(account: string, requiredExpiry: Date) {
     delegationKeyCache = { account, key, expiresAtMs: expiresOn.getTime() };
     return key;
   } catch (error) {
+    storageFailure("delegation");
     throw new BlobStorageError("blob_delegation_key_failed", azureStatus(error));
   }
-}
-
-function opaqueFileName(fileId: string, filename: string) {
-  const safeId = fileId.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 96);
-  if (!safeId) throw new Error("The upload file id is invalid.");
-  const extension = filename.match(/\.([a-zA-Z0-9]{1,10})$/)?.[1]?.toLowerCase() ?? "bin";
-  return `${safeId}.${extension}`;
 }
 
 function assertSafeBlobPart(value: string, label: string) {
@@ -209,4 +208,8 @@ function azureStatus(error: unknown) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function storageFailure(operation: string) {
+  recordPipelineMetric("pipeline.storage.failures", 1, "count", { operation, result: "failed" });
 }

@@ -30,6 +30,8 @@ credentials, URLs containing secrets, client data, or packet contents.
 - [ ] The production Entra redirect is the exact HTTPS `/sign-in` URL.
 - [ ] Delegated API scope and app-role assignments received administrator consent.
 - [ ] Pilot users resolve to the intended Pipeline roles.
+- [ ] `npm run check:access:live` passed with short-lived token files for viewer,
+  assessor, supervisor, and administrator rehearsal principals.
 - [ ] A blocked user receives 403 and an unauthenticated user receives 401/sign-in recovery.
 - [ ] No client secret, database URL, Blob key, worker secret, or Alamo credential appears in browser configuration.
 
@@ -66,6 +68,9 @@ credentials, URLs containing secrets, client data, or packet contents.
 ## Observability and go/no-go
 
 - [ ] API error rate, p95 latency, database saturation, queue age, extraction failures, save conflicts, stale leases, Blob growth, and cron history are visible.
+- [ ] PostgreSQL active connections/storage, Blob used capacity, Container Apps
+  restarts/timeouts, logical document inventory, and clinical freshness are
+  visible with reviewed thresholds.
 - [ ] Alerts identify an owner and recovery action without including PHI or high-cardinality record identifiers.
 - [ ] Distributed edge limits are enabled and the application overload drill returns bounded `429` recovery responses.
 - [ ] Azure Monitor action groups receive a synthetic notification from every production rule.

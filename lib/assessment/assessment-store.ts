@@ -8,6 +8,11 @@ import type { TransactionSql } from "postgres";
 
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import {
+  resolveDurableStoreMode,
+  selectStoreAdapter,
+  type StoreAdapters,
+} from "@/lib/persistence/store-adapter";
+import {
   decodeKeysetCursor,
   encodeKeysetCursor,
   isAfterDescendingCursor,
@@ -146,13 +151,19 @@ state.mutationQueue ??= Promise.resolve();
 const maxAssessmentRows = 100_000;
 const maxPageSize = 200;
 const maxAuditEventsPerAssessment = 500;
+const knownAssessmentFieldKeys = new Set(
+  assessmentToolFieldDefinitions.map((definition) => definition.key),
+);
 
 export function getAssessmentStoreReadiness(): AssessmentStoreReadiness {
-  const configured = process.env.PIPELINE_ASSESSMENT_STORE_MODE?.trim() ||
-    process.env.PIPELINE_REFERRAL_STORE_MODE?.trim();
-  const postgresMode = configured === "postgres" || configured === "external" ||
-    (!configured && process.env.PIPELINE_DATABASE_MODE === "postgres");
-  if (postgresMode) {
+  const mode = resolveDurableStoreMode({
+    configuredModes: [
+      process.env.PIPELINE_ASSESSMENT_STORE_MODE,
+      process.env.PIPELINE_REFERRAL_STORE_MODE,
+    ],
+    databaseMode: process.env.PIPELINE_DATABASE_MODE,
+  });
+  if (mode === "postgres") {
     const database = getPipelineDatabaseReadiness();
     return {
       mode: "postgres",
@@ -206,10 +217,13 @@ const postgresAssessmentStore: AssessmentStore = {
   importExtraction: importPostgresAssessmentExtraction,
 };
 
+const assessmentStoreAdapters: StoreAdapters<AssessmentStore> = {
+  local_file: localAssessmentStore,
+  postgres: postgresAssessmentStore,
+};
+
 function getAssessmentStore() {
-  return getAssessmentStoreReadiness().mode === "postgres"
-    ? postgresAssessmentStore
-    : localAssessmentStore;
+  return selectStoreAdapter(getAssessmentStoreReadiness().mode, assessmentStoreAdapters);
 }
 
 export async function listAssessments(options: AssessmentListOptions = {}) {
@@ -452,55 +466,11 @@ async function patchLocalAssessment(
       return { ok: false, conflict: true, assessment: current };
     }
     assertPatchMatchesSection(patch, options.section);
-    if (patch.assigned_assessor !== undefined && current.status === "complete") {
-      throw new Error("Reopen the completed assessment before changing its assigned assessor.");
-    }
-
-    const currentData = pickAssessmentToolData(current);
-    const nextData = pickAssessmentToolData({ ...currentData, ...(patch.data ?? {}) });
-    if (patch.assigned_assessor !== undefined) {
-      nextData.assessor = patch.assigned_assessor?.name ?? null;
-    }
-    const issues = validateAssessmentToolData(nextData);
-    if (issues.length > 0) throw new Error(issues[0].message);
-    const changedFields = assessmentToolFieldDefinitions
-      .filter((definition) => !sameValue(currentData[definition.key], nextData[definition.key]))
-      .map((definition) => definition.key);
-    const changedSections = changedFields
-      .map(assessmentSectionForField)
-      .filter((section): section is AssessmentToolSection => Boolean(section));
-    const fieldProvenance = cloneProvenance(current.field_provenance);
-
-    for (const key of changedFields) {
-      appendProvenance(fieldProvenance, key, {
-        source_field_key: `manual.${key}`,
-        source_file: null,
-        confidence: 1,
-        review_status: "edited",
-        source_page_no: null,
-        evidence_url: null,
-      });
-    }
-
-    const acceptedFields: AssessmentToolFieldKey[] = [];
-    if (patch.accept_pending) {
-      for (const definition of assessmentToolFieldDefinitions) {
-        const history = fieldProvenance[definition.key] ?? [];
-        const latest = history.at(-1);
-        if (latest?.review_status !== "pending") continue;
-        appendProvenance(fieldProvenance, definition.key, { ...latest, review_status: "accepted" });
-        acceptedFields.push(definition.key);
-      }
-    }
-
-    const nextStatus = patch.status ?? (
-      patch.accept_pending && current.status === "needs_review" ? "draft" : current.status
-    );
-    const completesAssessment = nextStatus === "complete" && current.status !== "complete";
-    const localReferral = completesAssessment
+    const prepared = prepareAssessmentPatch(current, patch, actor);
+    const localReferral = prepared.completesAssessment
       ? await loadLocalAssessmentReferral(current.referral_id)
       : null;
-    if (completesAssessment && localReferral && !["Assessment", "Community Review"].includes(localReferral.stage)) {
+    if (prepared.completesAssessment && localReferral && !["Assessment", "Community Review"].includes(localReferral.stage)) {
       return {
         ok: false,
         blocked: true,
@@ -511,50 +481,20 @@ async function patchLocalAssessment(
         }],
       };
     }
-    const now = new Date().toISOString();
-    const candidate: PipelineAssessmentRecord = {
-      ...current,
-      ...nextData,
-      assessor_id: patch.assigned_assessor === undefined
-        ? current.assessor_id
-        : patch.assigned_assessor?.id ?? null,
-      canonical_client_id: preserveCanonicalClientId(current.canonical_client_id, patch.canonical_client_id),
-      resident_key: patch.resident_key === undefined
-        ? current.resident_key
-        : patch.resident_key?.trim() || null,
-      status: nextStatus,
-      completed_at: nextStatus === "complete" ? current.completed_at ?? now : null,
-      version: current.version + 1,
-      section_versions: incrementAssessmentSectionVersions(current.section_versions, [
-        ...changedSections,
-        ...acceptedFields
-          .map(assessmentSectionForField)
-          .filter((section): section is AssessmentToolSection => Boolean(section)),
-      ]),
-      updated_at: now,
-      updated_by: actor,
-      field_provenance: fieldProvenance,
-      audit_events: current.audit_events,
-    };
+    const candidate = prepared.candidate;
     const blockers = completionBlockers(candidate);
-    if (nextStatus === "complete" && blockers.length > 0) {
+    if (candidate.status === "complete" && blockers.length > 0) {
       return { ok: false, blocked: true, assessment: current, blockers };
     }
-
-    let action: AssessmentAuditAction = "assessment_updated";
-    if (patch.assigned_assessor !== undefined) action = "assessment_assigned";
-    if (acceptedFields.length > 0) action = "extraction_confirmed";
-    if (nextStatus === "complete" && current.status !== "complete") action = "assessment_completed";
-    if (nextStatus !== "complete" && current.status === "complete") action = "assessment_reopened";
     candidate.audit_events = appendAuditEvent(
       current.audit_events,
-      createAuditEvent(assessmentId, current.referral_id, action, actor, Array.from(new Set([...changedFields, ...acceptedFields]))),
+      createAuditEvent(assessmentId, current.referral_id, prepared.action, actor, prepared.changedFields),
     );
     state.assessments[index] = candidate;
     state.revision += 1;
     if (options.mutationId) state.patchMutations.set(options.mutationId, assessmentId);
     await persist();
-    if (completesAssessment && localReferral?.stage === "Assessment") {
+    if (prepared.completesAssessment && localReferral?.stage === "Assessment") {
       await advanceLocalReferralAfterAssessment(localReferral, actor);
     }
     return { ok: true, assessment: candidate, revision: state.revision };
@@ -580,60 +520,13 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
       return { ok: false, conflict: true, assessment: current };
     }
 
-    const mapping = mapExtractedAssessmentFields(input.fields, input.context);
-    const baseData = current
-      ? pickAssessmentToolData(current)
-      : pickAssessmentToolData({ ...createEmptyAssessmentToolData(), ...input.defaults });
-    const merged = mergeImportedData(baseData, mapping.data, mapping.field_provenance, mapping.unmapped_fields);
-    merged.data.assessor = current?.assessor ?? input.defaults.assessor ?? null;
-    const now = new Date().toISOString();
-    const assessmentId = current?.assessment_id ?? `asm_${randomUUID()}`;
-    const fieldProvenance = mergeProvenance(current?.field_provenance ?? {}, merged.fieldProvenance);
-    const unmappedFields = [
-      ...(current?.unmapped_fields ?? []),
-      ...merged.unmappedFields,
-    ].slice(-1_000);
-    const changedFields = assessmentToolFieldDefinitions
-      .filter((definition) => !sameValue(baseData[definition.key], merged.data[definition.key]))
-      .map((definition) => definition.key);
-    const changedSections = changedFields
-      .map(assessmentSectionForField)
-      .filter((section): section is AssessmentToolSection => Boolean(section));
-    const event = createAuditEvent(
-      assessmentId,
-      input.referralId,
-      "assessment_imported",
-      input.actor,
-      changedFields,
-    );
-    const assessment: PipelineAssessmentRecord = {
-      ...(current ?? {} as PipelineAssessmentRecord),
-      ...merged.data,
-      assessment_id: assessmentId,
-      referral_id: input.referralId,
-      assessor_id: current?.assessor_id ?? (merged.data.assessor === input.actor.name ? input.actor.id : null),
-      canonical_client_id: preserveCanonicalClientId(current?.canonical_client_id, input.canonicalClientId),
-      resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
-      status: "needs_review",
-      completed_at: null,
-      version: current ? current.version + 1 : 1,
-      section_versions: incrementAssessmentSectionVersions(
-        current?.section_versions ?? defaultAssessmentSectionVersions(),
-        changedSections,
-      ),
-      created_at: current?.created_at ?? now,
-      updated_at: now,
-      created_by: current?.created_by ?? input.actor,
-      updated_by: input.actor,
-      field_provenance: fieldProvenance,
-      unmapped_fields: unmappedFields,
-      audit_events: appendAuditEvent(current?.audit_events ?? [], event),
-    };
+    const prepared = prepareAssessmentImport(input, current);
+    const assessment = prepared.assessment;
 
     if (currentIndex >= 0) state.assessments[currentIndex] = assessment;
     else state.assessments = [assessment, ...state.assessments];
     state.revision += 1;
-    if (input.mutationId) state.importMutations.set(input.mutationId, assessmentId);
+    if (input.mutationId) state.importMutations.set(input.mutationId, assessment.assessment_id);
     await persist();
     return { ok: true, assessment, revision: state.revision };
   });
@@ -699,6 +592,12 @@ type AssessmentRelations = {
   provenance: AssessmentProvenanceRow[];
   unmapped: AssessmentUnmappedRow[];
   audits: AssessmentAuditRow[];
+};
+
+type IndexedAssessmentRelations = {
+  provenance: Map<string, AssessmentProvenanceRow[]>;
+  unmapped: Map<string, AssessmentUnmappedRow[]>;
+  audits: Map<string, AssessmentAuditRow[]>;
 };
 
 async function listPostgresAssessments(options: AssessmentListOptions = {}): Promise<AssessmentListResponse> {
@@ -885,48 +784,8 @@ async function patchPostgresAssessment(
       return { ok: false, conflict: true, assessment: current };
     }
     assertPatchMatchesSection(patch, options.section);
-    if (patch.assigned_assessor !== undefined && current.status === "complete") {
-      throw new Error("Reopen the completed assessment before changing its assigned assessor.");
-    }
-
-    const currentData = pickAssessmentToolData(current);
-    const nextData = pickAssessmentToolData({ ...currentData, ...(patch.data ?? {}) });
-    if (patch.assigned_assessor !== undefined) {
-      nextData.assessor = patch.assigned_assessor?.name ?? null;
-    }
-    const issues = validateAssessmentToolData(nextData);
-    if (issues.length > 0) throw new Error(issues[0].message);
-    const changedFields = assessmentToolFieldDefinitions
-      .filter((definition) => !sameValue(currentData[definition.key], nextData[definition.key]))
-      .map((definition) => definition.key);
-    const changedSections = changedFields
-      .map(assessmentSectionForField)
-      .filter((section): section is AssessmentToolSection => Boolean(section));
-    const fieldProvenance = cloneProvenance(current.field_provenance);
-    for (const key of changedFields) {
-      appendProvenance(fieldProvenance, key, {
-        source_field_key: `manual.${key}`,
-        source_file: null,
-        confidence: 1,
-        review_status: "edited",
-        source_page_no: null,
-        evidence_url: null,
-      });
-    }
-    const acceptedFields: AssessmentToolFieldKey[] = [];
-    if (patch.accept_pending) {
-      for (const definition of assessmentToolFieldDefinitions) {
-        const latest = fieldProvenance[definition.key]?.at(-1);
-        if (latest?.review_status !== "pending") continue;
-        appendProvenance(fieldProvenance, definition.key, { ...latest, review_status: "accepted" });
-        acceptedFields.push(definition.key);
-      }
-    }
-    const nextStatus = patch.status ?? (
-      patch.accept_pending && current.status === "needs_review" ? "draft" : current.status
-    );
-    const completesAssessment = nextStatus === "complete" && current.status !== "complete";
-    if (completesAssessment) {
+    const prepared = prepareAssessmentPatch(current, patch, actor);
+    if (prepared.completesAssessment) {
       const stageRows = await tx<{ stage: string }[]>`
         select stage from pipeline.referrals
         where referral_id = ${current.referral_id} and deleted_at is null
@@ -945,46 +804,19 @@ async function patchPostgresAssessment(
         };
       }
     }
-    const now = new Date().toISOString();
-    const candidate: PipelineAssessmentRecord = {
-      ...current,
-      ...nextData,
-      assessor_id: patch.assigned_assessor === undefined
-        ? current.assessor_id
-        : patch.assigned_assessor?.id ?? null,
-      canonical_client_id: preserveCanonicalClientId(current.canonical_client_id, patch.canonical_client_id),
-      resident_key: patch.resident_key === undefined ? current.resident_key : patch.resident_key?.trim() || null,
-      status: nextStatus,
-      completed_at: nextStatus === "complete" ? current.completed_at ?? now : null,
-      version: current.version + 1,
-      section_versions: incrementAssessmentSectionVersions(current.section_versions, [
-        ...changedSections,
-        ...acceptedFields
-          .map(assessmentSectionForField)
-          .filter((section): section is AssessmentToolSection => Boolean(section)),
-      ]),
-      updated_at: now,
-      updated_by: actor,
-      field_provenance: fieldProvenance,
-    };
+    const candidate = prepared.candidate;
     const blockers = completionBlockers(candidate);
-    if (nextStatus === "complete" && blockers.length > 0) {
+    if (candidate.status === "complete" && blockers.length > 0) {
       return { ok: false, blocked: true, assessment: current, blockers };
     }
-    let action: AssessmentAuditAction = "assessment_updated";
-    if (patch.assigned_assessor !== undefined) action = "assessment_assigned";
-    if (acceptedFields.length > 0) action = "extraction_confirmed";
-    if (nextStatus === "complete" && current.status !== "complete") action = "assessment_completed";
-    if (nextStatus !== "complete" && current.status === "complete") action = "assessment_reopened";
-    const allChangedFields = Array.from(new Set([...changedFields, ...acceptedFields]));
     const updated = await updateAssessmentRow(tx, candidate, current.version);
     if (!updated) {
       const latest = await getAssessmentInTransaction(tx, assessmentId);
       return latest ? { ok: false, conflict: true, assessment: latest } : null;
     }
-    await insertAssessmentProvenance(tx, assessmentId, fieldProvenance, current.field_provenance);
-    await writeAssessmentAudit(tx, candidate, action, actor, allChangedFields);
-    if (completesAssessment) {
+    await insertAssessmentProvenance(tx, assessmentId, candidate.field_provenance, current.field_provenance);
+    await writeAssessmentAudit(tx, candidate, prepared.action, actor, prepared.changedFields);
+    if (prepared.completesAssessment) {
       await advancePostgresReferralAfterAssessment(tx, current.referral_id, actor);
     }
     if (options.mutationId) {
@@ -1007,6 +839,181 @@ function assertPatchMatchesSection(
   if (mismatched.length > 0) {
     throw new Error(`Assessment section patch contains fields outside ${section}.`);
   }
+}
+
+function prepareAssessmentPatch(
+  current: PipelineAssessmentRecord,
+  patch: AssessmentPatchInput,
+  actor: AssessmentActor,
+) {
+  if (patch.assigned_assessor !== undefined && current.status === "complete") {
+    throw new Error("Reopen the completed assessment before changing its assigned assessor.");
+  }
+
+  const currentData = pickAssessmentToolData(current);
+  const nextData = pickAssessmentToolData({ ...currentData, ...(patch.data ?? {}) });
+  if (patch.assigned_assessor !== undefined) {
+    nextData.assessor = patch.assigned_assessor?.name ?? null;
+  }
+  const issues = validateAssessmentToolData(nextData);
+  if (issues.length > 0) throw new Error(issues[0].message);
+
+  const changedFields = assessmentToolFieldDefinitions
+    .filter((definition) => !sameValue(currentData[definition.key], nextData[definition.key]))
+    .map((definition) => definition.key);
+  const fieldProvenance = cloneProvenance(current.field_provenance);
+  for (const key of changedFields) appendManualProvenance(fieldProvenance, key);
+  const acceptedFields = patch.accept_pending
+    ? acceptPendingProvenance(fieldProvenance)
+    : [];
+  const nextStatus = patch.status ?? (
+    patch.accept_pending && current.status === "needs_review" ? "draft" : current.status
+  );
+  const now = new Date().toISOString();
+  const candidate: PipelineAssessmentRecord = {
+    ...current,
+    ...nextData,
+    assessor_id: patch.assigned_assessor === undefined
+      ? current.assessor_id
+      : patch.assigned_assessor?.id ?? null,
+    canonical_client_id: preserveCanonicalClientId(current.canonical_client_id, patch.canonical_client_id),
+    resident_key: patch.resident_key === undefined
+      ? current.resident_key
+      : patch.resident_key?.trim() || null,
+    status: nextStatus,
+    completed_at: nextStatus === "complete" ? current.completed_at ?? now : null,
+    version: current.version + 1,
+    section_versions: incrementAssessmentSectionVersions(current.section_versions, [
+      ...assessmentSectionsForFields(changedFields),
+      ...assessmentSectionsForFields(acceptedFields),
+    ]),
+    updated_at: now,
+    updated_by: actor,
+    field_provenance: fieldProvenance,
+    audit_events: current.audit_events,
+  };
+  return {
+    candidate,
+    completesAssessment: nextStatus === "complete" && current.status !== "complete",
+    changedFields: Array.from(new Set([...changedFields, ...acceptedFields])),
+    action: assessmentPatchAuditAction(current, patch, nextStatus, acceptedFields.length),
+  };
+}
+
+function prepareAssessmentImport(
+  input: AssessmentImportInput,
+  current: PipelineAssessmentRecord | null,
+) {
+  const mapping = mapExtractedAssessmentFields(input.fields, input.context);
+  const baseData = current
+    ? pickAssessmentToolData(current)
+    : pickAssessmentToolData({ ...createEmptyAssessmentToolData(), ...input.defaults });
+  const merged = mergeImportedData(
+    baseData,
+    mapping.data,
+    mapping.field_provenance,
+    mapping.unmapped_fields,
+  );
+  merged.data.assessor = current?.assessor ?? input.defaults.assessor ?? null;
+  const issues = validateAssessmentToolData(merged.data);
+  if (issues.length > 0) throw new Error(issues[0].message);
+
+  const now = new Date().toISOString();
+  const assessmentId = current?.assessment_id ?? `asm_${randomUUID()}`;
+  const changedFields = assessmentToolFieldDefinitions
+    .filter((definition) => !sameValue(baseData[definition.key], merged.data[definition.key]))
+    .map((definition) => definition.key);
+  const event = createAuditEvent(
+    assessmentId,
+    input.referralId,
+    "assessment_imported",
+    input.actor,
+    changedFields,
+  );
+  const assessment: PipelineAssessmentRecord = {
+    ...(current ?? {} as PipelineAssessmentRecord),
+    ...merged.data,
+    assessment_id: assessmentId,
+    referral_id: input.referralId,
+    assessor_id: current?.assessor_id
+      ?? (merged.data.assessor === input.actor.name ? input.actor.id : null),
+    canonical_client_id: preserveCanonicalClientId(
+      current?.canonical_client_id,
+      input.canonicalClientId,
+    ),
+    resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
+    status: "needs_review",
+    completed_at: null,
+    version: current ? current.version + 1 : 1,
+    section_versions: incrementAssessmentSectionVersions(
+      current?.section_versions ?? defaultAssessmentSectionVersions(),
+      assessmentSectionsForFields(changedFields),
+    ),
+    created_at: current?.created_at ?? now,
+    updated_at: now,
+    created_by: current?.created_by ?? input.actor,
+    updated_by: input.actor,
+    field_provenance: mergeProvenance(
+      current?.field_provenance ?? {},
+      merged.fieldProvenance,
+    ),
+    unmapped_fields: [
+      ...(current?.unmapped_fields ?? []),
+      ...merged.unmappedFields,
+    ].slice(-1_000),
+    audit_events: appendAuditEvent(current?.audit_events ?? [], event),
+  };
+  return {
+    assessment,
+    changedFields,
+    newUnmappedFields: merged.unmappedFields,
+  };
+}
+
+function appendManualProvenance(
+  provenance: PipelineAssessmentRecord["field_provenance"],
+  key: AssessmentToolFieldKey,
+) {
+  appendProvenance(provenance, key, {
+    source_field_key: `manual.${key}`,
+    source_file: null,
+    confidence: 1,
+    review_status: "edited",
+    source_page_no: null,
+    evidence_url: null,
+  });
+}
+
+function acceptPendingProvenance(
+  provenance: PipelineAssessmentRecord["field_provenance"],
+) {
+  const accepted: AssessmentToolFieldKey[] = [];
+  for (const definition of assessmentToolFieldDefinitions) {
+    const latest = provenance[definition.key]?.at(-1);
+    if (latest?.review_status !== "pending") continue;
+    appendProvenance(provenance, definition.key, { ...latest, review_status: "accepted" });
+    accepted.push(definition.key);
+  }
+  return accepted;
+}
+
+function assessmentSectionsForFields(fields: AssessmentToolFieldKey[]) {
+  return fields
+    .map(assessmentSectionForField)
+    .filter((section): section is AssessmentToolSection => Boolean(section));
+}
+
+function assessmentPatchAuditAction(
+  current: PipelineAssessmentRecord,
+  patch: AssessmentPatchInput,
+  nextStatus: PipelineAssessmentRecord["status"],
+  acceptedFieldCount: number,
+): AssessmentAuditAction {
+  if (nextStatus !== "complete" && current.status === "complete") return "assessment_reopened";
+  if (nextStatus === "complete" && current.status !== "complete") return "assessment_completed";
+  if (acceptedFieldCount > 0) return "extraction_confirmed";
+  if (patch.assigned_assessor !== undefined) return "assessment_assigned";
+  return "assessment_updated";
 }
 
 async function loadLocalAssessmentReferral(referralId: number) {
@@ -1088,45 +1095,9 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
       return { ok: false, conflict: true, assessment: current };
     }
 
-    const mapping = mapExtractedAssessmentFields(input.fields, input.context);
-    const baseData = current
-      ? pickAssessmentToolData(current)
-      : pickAssessmentToolData({ ...createEmptyAssessmentToolData(), ...input.defaults });
-    const merged = mergeImportedData(baseData, mapping.data, mapping.field_provenance, mapping.unmapped_fields);
-    merged.data.assessor = current?.assessor ?? input.defaults.assessor ?? null;
-    const issues = validateAssessmentToolData(merged.data);
-    if (issues.length > 0) throw new Error(issues[0].message);
-    const now = new Date().toISOString();
-    const assessmentId = current?.assessment_id ?? `asm_${randomUUID()}`;
-    const changedFields = assessmentToolFieldDefinitions
-      .filter((definition) => !sameValue(baseData[definition.key], merged.data[definition.key]))
-      .map((definition) => definition.key);
-    const changedSections = changedFields
-      .map(assessmentSectionForField)
-      .filter((section): section is AssessmentToolSection => Boolean(section));
-    const assessment: PipelineAssessmentRecord = {
-      ...(current ?? {} as PipelineAssessmentRecord),
-      ...merged.data,
-      assessment_id: assessmentId,
-      referral_id: input.referralId,
-      assessor_id: current?.assessor_id ?? (merged.data.assessor === input.actor.name ? input.actor.id : null),
-      canonical_client_id: preserveCanonicalClientId(current?.canonical_client_id, input.canonicalClientId),
-      resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
-      status: "needs_review",
-      completed_at: null,
-      version: current ? current.version + 1 : 1,
-      section_versions: incrementAssessmentSectionVersions(
-        current?.section_versions ?? defaultAssessmentSectionVersions(),
-        changedSections,
-      ),
-      created_at: current?.created_at ?? now,
-      updated_at: now,
-      created_by: current?.created_by ?? input.actor,
-      updated_by: input.actor,
-      field_provenance: mergeProvenance(current?.field_provenance ?? {}, merged.fieldProvenance),
-      unmapped_fields: [...(current?.unmapped_fields ?? []), ...merged.unmappedFields].slice(-1_000),
-      audit_events: current?.audit_events ?? [],
-    };
+    const prepared = prepareAssessmentImport(input, current);
+    const assessment = prepared.assessment;
+    const assessmentId = assessment.assessment_id;
 
     if (current) {
       const updated = await updateAssessmentRow(tx, assessment, current.version);
@@ -1138,8 +1109,8 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
       await insertAssessmentRow(tx, assessment);
     }
     await insertAssessmentProvenance(tx, assessmentId, assessment.field_provenance, current?.field_provenance);
-    await insertAssessmentUnmapped(tx, assessmentId, merged.unmappedFields);
-    await writeAssessmentAudit(tx, assessment, "assessment_imported", input.actor, changedFields);
+    await insertAssessmentUnmapped(tx, assessmentId, prepared.newUnmappedFields);
+    await writeAssessmentAudit(tx, assessment, "assessment_imported", input.actor, prepared.changedFields);
     if (input.mutationId) await saveAssessmentIdempotency(tx, "assessment_import", input.mutationId, assessmentId);
     const saved = await getAssessmentInTransaction(tx, assessmentId);
     if (!saved) throw new Error("The assessment could not be read after import.");
@@ -1191,7 +1162,7 @@ async function getAssessmentInTransaction(
 }
 
 function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelations) {
-  const knownFields = new Set(assessmentToolFieldDefinitions.map((definition) => definition.key));
+  const indexed = indexAssessmentRelations(relations);
   return rows.map((row) => {
     const rawData = isPlainRecord(row.data) ? row.data as Partial<AssessmentToolData> : {};
     const data = pickAssessmentToolData({
@@ -1201,8 +1172,8 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
       assessor: row.assessor_name ?? rawData.assessor,
     });
     const fieldProvenance: PipelineAssessmentRecord["field_provenance"] = {};
-    for (const source of relations.provenance.filter((item) => item.assessment_id === row.assessment_id)) {
-      if (!knownFields.has(source.field_key as AssessmentToolFieldKey)) continue;
+    for (const source of indexed.provenance.get(row.assessment_id) ?? []) {
+      if (!knownAssessmentFieldKeys.has(source.field_key as AssessmentToolFieldKey)) continue;
       appendProvenance(fieldProvenance, source.field_key as AssessmentToolFieldKey, {
         source_field_key: source.source_field_key,
         source_file: source.source_file,
@@ -1212,11 +1183,9 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
         evidence_url: source.evidence_blob_key,
       });
     }
-    const unmappedFields = relations.unmapped
-      .filter((item) => item.assessment_id === row.assessment_id)
+    const unmappedFields = (indexed.unmapped.get(row.assessment_id) ?? [])
       .map(mapUnmappedAssessmentRow);
-    const auditEvents = relations.audits
-      .filter((item) => item.entity_id === row.assessment_id)
+    const auditEvents = (indexed.audits.get(row.assessment_id) ?? [])
       .filter((item) => isAssessmentAuditAction(item.action))
       .map((item): AssessmentAuditEvent => ({
         event_id: item.audit_event_id,
@@ -1225,7 +1194,7 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
         action: item.action,
         actor_id: item.actor_id,
         actor_name: item.actor_name,
-        changed_fields: item.changed_fields.filter((field) => knownFields.has(field as AssessmentToolFieldKey)) as AssessmentToolFieldKey[],
+        changed_fields: item.changed_fields.filter((field) => knownAssessmentFieldKeys.has(field as AssessmentToolFieldKey)) as AssessmentToolFieldKey[],
         created_at: isoTimestamp(item.created_at),
       }))
       .slice(-maxAuditEventsPerAssessment);
@@ -1249,6 +1218,25 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
       audit_events: auditEvents,
     });
   });
+}
+
+function indexAssessmentRelations(relations: AssessmentRelations): IndexedAssessmentRelations {
+  return {
+    provenance: groupRows(relations.provenance, (row) => row.assessment_id),
+    unmapped: groupRows(relations.unmapped, (row) => row.assessment_id),
+    audits: groupRows(relations.audits, (row) => row.entity_id),
+  };
+}
+
+function groupRows<T>(rows: T[], keyFor: (row: T) => string) {
+  const grouped = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = keyFor(row);
+    const group = grouped.get(key);
+    if (group) group.push(row);
+    else grouped.set(key, [row]);
+  }
+  return grouped;
 }
 
 async function insertAssessmentRow(tx: TransactionSql, assessment: PipelineAssessmentRecord) {

@@ -185,36 +185,19 @@ export async function getUnifiedClientProfile(
       ...await loadLinkedDocuments(link, referrals),
     ]);
     projectionStage = "assemble_projection";
-    const requirements = referrals.flatMap((referral) => referral.requirements ?? []);
-    const latestAssessment = assessments[0] ?? null;
-    const latestCoverage = latestAssessment ? getAssessmentToolCoverage(latestAssessment) : null;
-    const openRequirements = requirements.filter((item) => !["reviewed", "waived"].includes(item.status));
-    const blockers = openRequirements.filter((item) => item.blocker);
 
     return {
       ...clinical,
       profile_origin: "alamo_platform",
       resident,
       history,
-      pipeline: {
+      pipeline: buildPipelineProjection({
         permissions,
         connection,
         referrals,
         assessments,
-        requirements,
         documents,
-        summary: {
-          referral_count: referrals.length,
-          active_referral_count: referrals.filter((referral) => !["Accepted / Admitted", "Declined"].includes(referral.stage)).length,
-          assessment_count: assessments.length,
-          latest_assessment_status: latestAssessment?.status ?? null,
-          latest_assessment_completion_pct: latestCoverage?.percent ?? null,
-          open_requirement_count: openRequirements.length,
-          blocker_count: blockers.length,
-          document_count: documents.length,
-          actions_needed: getActionsNeeded(referrals, assessments, blockers),
-        },
-      },
+      }),
     };
   } catch (error) {
     logApi("error", {
@@ -283,11 +266,6 @@ async function getPipelineOnlyClientProfile(
   const visibleReferralIds = new Set(referrals.map((referral) => referral.id));
   const visibleDocuments = documents
     .filter((document) => document.referralId === null || visibleReferralIds.has(document.referralId));
-  const requirements = referrals.flatMap((referral) => referral.requirements ?? []);
-  const latestAssessment = assessments[0] ?? null;
-  const latestCoverage = latestAssessment ? getAssessmentToolCoverage(latestAssessment) : null;
-  const openRequirements = requirements.filter((item) => !["reviewed", "waived"].includes(item.status));
-  const blockers = openRequirements.filter((item) => item.blocker);
   const generatedAt = new Date().toISOString();
   const dataAsOf = workspaceUpdatedAt.slice(0, 10);
   const communities = [...new Set(referrals.map((referral) => referral.community))];
@@ -344,7 +322,7 @@ async function getPipelineOnlyClientProfile(
     },
     resident: null,
     history: unavailableHistoricalProjection(),
-    pipeline: {
+    pipeline: buildPipelineProjection({
       permissions,
       connection: {
         status: "pipeline_only",
@@ -357,20 +335,8 @@ async function getPipelineOnlyClientProfile(
       },
       referrals,
       assessments,
-      requirements,
       documents: visibleDocuments,
-      summary: {
-        referral_count: referrals.length,
-        active_referral_count: referrals.filter((referral) => !["Accepted / Admitted", "Declined"].includes(referral.stage)).length,
-        assessment_count: assessments.length,
-        latest_assessment_status: latestAssessment?.status ?? null,
-        latest_assessment_completion_pct: latestCoverage?.percent ?? null,
-        open_requirement_count: openRequirements.length,
-        blocker_count: blockers.length,
-        document_count: visibleDocuments.length,
-        actions_needed: getActionsNeeded(referrals, assessments, blockers),
-      },
-    },
+    }),
   };
 }
 
@@ -522,6 +488,36 @@ function emptyPipelineProjection(
       blocker_count: 0,
       document_count: documents.length,
       actions_needed: [connection.status === "candidate" ? "Review the resident-link candidate" : "Create and review a resident link"],
+    },
+  };
+}
+
+function buildPipelineProjection(input: {
+  permissions: UnifiedClientProfileResponse["pipeline"]["permissions"];
+  connection: UnifiedProfileConnection;
+  referrals: Referral[];
+  assessments: PipelineAssessmentRecord[];
+  documents: UnifiedClientProfileResponse["pipeline"]["documents"];
+}): UnifiedClientProfileResponse["pipeline"] {
+  const requirements = input.referrals.flatMap((referral) => referral.requirements ?? []);
+  const latestAssessment = input.assessments[0] ?? null;
+  const latestCoverage = latestAssessment ? getAssessmentToolCoverage(latestAssessment) : null;
+  const openRequirements = requirements.filter((item) => !["reviewed", "waived"].includes(item.status));
+  const blockers = openRequirements.filter((item) => item.blocker);
+
+  return {
+    ...input,
+    requirements,
+    summary: {
+      referral_count: input.referrals.length,
+      active_referral_count: input.referrals.filter((referral) => !["Accepted / Admitted", "Declined"].includes(referral.stage)).length,
+      assessment_count: input.assessments.length,
+      latest_assessment_status: latestAssessment?.status ?? null,
+      latest_assessment_completion_pct: latestCoverage?.percent ?? null,
+      open_requirement_count: openRequirements.length,
+      blocker_count: blockers.length,
+      document_count: input.documents.length,
+      actions_needed: getActionsNeeded(input.referrals, input.assessments, blockers),
     },
   };
 }
