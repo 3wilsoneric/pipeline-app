@@ -1288,7 +1288,13 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
       from file_rows
       where (${queryTokens.length === 0} or not exists (
           select 1 from unnest(${queryTokens}::text[]) as search_term(value)
-          where lower(concat_ws(' ', name, category, referral_name, community, status)) not ilike ('%' || search_term.value || '%')
+          where not (
+            lower(coalesce(name, '')) ilike ('%' || search_term.value || '%')
+            or lower(coalesce(category, '')) ilike ('%' || search_term.value || '%')
+            or lower(coalesce(referral_name, '')) ilike ('%' || search_term.value || '%')
+            or lower(coalesce(community, '')) ilike ('%' || search_term.value || '%')
+            or lower(coalesce(status, '')) ilike ('%' || search_term.value || '%')
+          )
         ))
         and (${clientId}::text is null or external_client_id = ${clientId})
         and (${canonicalClientId}::text is null or canonical_client_id = ${canonicalClientId})
@@ -1930,14 +1936,30 @@ function isBrowserPreviewableContentType(contentType: string | null) {
 function referralSearchText(referral: Partial<Referral>) {
   return normalize([
     referral.name,
+    referral.dob,
+    referral.gender,
+    referral.reportedAge,
     referral.community,
     referral.source,
     referral.owner,
     referral.stage,
     referral.priority,
+    referral.admissionDate,
+    referral.responsiblePerson,
+    referral.phone,
+    referral.email,
+    referral.payer,
     referral.documentStatus,
     referral.packetStatus,
     referral.note,
+    referral.interview,
+    referral.assessment?.preAssessment.demographics,
+    referral.assessment?.preAssessment.referralSource,
+    referral.assessment?.assessment.carry,
+    referral.assessment?.assessment.careNeeds,
+    referral.assessment?.assessment.riskLevel,
+    referral.assessment?.postAssessment.decision,
+    referral.assessment?.postAssessment.reason,
     ...(referral.tags ?? []),
   ].filter(Boolean).join(" "));
 }

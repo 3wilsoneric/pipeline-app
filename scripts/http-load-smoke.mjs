@@ -24,7 +24,7 @@ const missions = [
   { name: "referrals", path: "/api/referrals?limit=100&active=true" },
   { name: "files", path: "/api/files?limit=100" },
   { name: "operations", path: "/api/operations/overview" },
-  { name: "search", path: "/api/search?q=San%20Pablo" },
+  { name: "search_local", path: "/api/search?scope=local&q=San%20Pablo" },
 ];
 const samples = [];
 

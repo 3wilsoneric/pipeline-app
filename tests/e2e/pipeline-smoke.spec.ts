@@ -1821,6 +1821,56 @@ test.describe("Pipeline home", () => {
     await expect(fileResult).toHaveAttribute("target", "_blank");
   });
 
+  test("shows local search results before governed client search completes", async ({ page }) => {
+    await page.route("**/api/search**", async (route) => {
+      const scope = new URL(route.request().url()).searchParams.get("scope");
+      if (scope === "clinical") {
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            query: "Maldonado",
+            interpreted_query: "maldonado",
+            referrals: [],
+            files: [],
+            clients: [],
+            destinations: [],
+            sources: { local: false, clinical: true, clinical_available: true },
+            counts: { referrals: 0, files: 0, clients: 0, destinations: 0, total: 0 },
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          query: "Maldonado",
+          interpreted_query: "maldonado",
+          referrals: [{
+            id: 91,
+            name: "Krishna Maldonado",
+            community: "San Pablo",
+            stage: "Packet Review",
+          }],
+          files: [],
+          clients: [],
+          destinations: [],
+          sources: { local: true, clinical: false, clinical_available: false },
+          counts: { referrals: 1, files: 0, clients: 0, destinations: 0, total: 1 },
+        }),
+      });
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open search" }).click();
+    await page.getByLabel("Search or ask").fill("Maldonado");
+    await expect(page.getByRole("button", { name: "Open referral for Krishna Maldonado" })).toBeVisible();
+    await expect(page.getByText("1 result · checking clients", { exact: true })).toBeVisible();
+    await expect(page.getByText("1 result", { exact: true })).toBeVisible({ timeout: 4_000 });
+  });
+
   test("opens a canonical client from search and restores it from Recents", async ({ page }) => {
     const client = (clinicalFixture.clients as {
       clients: Array<{

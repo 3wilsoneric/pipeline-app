@@ -19,6 +19,7 @@ const assessmentCollaborationRollback = await readFile("database/rollbacks/0009_
 const provisionalMembersRollback = await readFile("database/rollbacks/0010_provisional_workspace_members.sql", "utf8");
 const historicalWorkspacesRollback = await readFile("database/rollbacks/0011_historical_material_workspaces.sql", "utf8");
 const referralTrashRollback = await readFile("database/rollbacks/0012_referral_trash.sql", "utf8");
+const searchPerformanceRollback = await readFile("database/rollbacks/0013_search_performance.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -53,7 +54,10 @@ try {
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='workspace_status') as workspace_status,
       exists(select 1 from pipeline.schema_migrations where migration_id='0011_historical_material_workspaces') as historical_workspace_history,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='deleted_at') as referral_trash,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0012_referral_trash') as referral_trash_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0012_referral_trash') as referral_trash_history,
+      to_regclass('pipeline.people_display_name_search_trgm_idx') is not null as people_search_index,
+      to_regclass('pipeline.documents_file_name_search_trgm_idx') is not null as document_search_index,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0013_search_performance') as search_performance_history
   `;
   checks.push({
     name: "latest migrations exist before drill",
@@ -78,6 +82,23 @@ try {
       && before[0].historical_workspace_history
       && before[0].referral_trash
       && before[0].referral_trash_history
+      && before[0].people_search_index
+      && before[0].document_search_index
+      && before[0].search_performance_history
+    ),
+  });
+  await connection.unsafe(searchPerformanceRollback);
+  const searchPerformanceDuring = await connection`
+    select to_regclass('pipeline.people_display_name_search_trgm_idx') is null as people_search_index_removed,
+      to_regclass('pipeline.documents_file_name_search_trgm_idx') is null as document_search_index_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0013_search_performance') as history_removed
+  `;
+  checks.push({
+    name: "rollback removes search performance indexes",
+    ok: Boolean(
+      searchPerformanceDuring[0].people_search_index_removed
+      && searchPerformanceDuring[0].document_search_index_removed
+      && searchPerformanceDuring[0].history_removed
     ),
   });
   await connection.unsafe(referralTrashRollback);
@@ -196,7 +217,10 @@ try {
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='workspace_status') as workspace_status,
       exists(select 1 from pipeline.schema_migrations where migration_id='0011_historical_material_workspaces') as historical_workspace_history,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='deleted_at') as referral_trash,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0012_referral_trash') as referral_trash_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0012_referral_trash') as referral_trash_history,
+      to_regclass('pipeline.people_display_name_search_trgm_idx') is not null as people_search_index,
+      to_regclass('pipeline.documents_file_name_search_trgm_idx') is not null as document_search_index,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0013_search_performance') as search_performance_history
   `;
   checks.push({
     name: "drill transaction restores original schema",
@@ -223,6 +247,9 @@ try {
       && after[0].historical_workspace_history
       && after[0].referral_trash
       && after[0].referral_trash_history
+      && after[0].people_search_index
+      && after[0].document_search_index
+      && after[0].search_performance_history
     ),
   });
   const failed = checks.filter((check) => !check.ok);

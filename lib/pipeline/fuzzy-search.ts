@@ -3,7 +3,9 @@ export function tokenizeSearchText(value: string) {
 }
 
 export function fuzzyTokenMatches(query: string, candidate: string) {
-  if (candidate.includes(query) || query.includes(candidate)) return true;
+  if (query === candidate) return true;
+  if (query.length >= 2 && candidate.includes(query)) return true;
+  if (candidate.length >= 4 && query.includes(candidate)) return true;
   return query.length >= 4 && candidate.length >= 4 && editDistanceAtMostOne(query, candidate);
 }
 

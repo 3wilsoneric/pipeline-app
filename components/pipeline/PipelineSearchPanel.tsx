@@ -7,6 +7,7 @@ import type { ClinicalClientDirectoryItem } from "@/lib/clinical/clinical-contra
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineSiteDestination, PipelineSiteScreen } from "@/lib/pipeline/site-search";
+import { searchSiteDestinations } from "@/lib/pipeline/site-search";
 
 type SuggestedSearchMode = "active" | "unassigned" | "packet_review" | "assessment" | "decision" | "files";
 
@@ -31,6 +32,11 @@ type SearchResult = {
     clients: number;
     destinations?: number;
     total: number;
+  };
+  sources?: {
+    local: boolean;
+    clinical: boolean;
+    clinical_available: boolean;
   };
 };
 
@@ -112,33 +118,48 @@ export default function PipelineSearchPanel({
     }
 
     const controller = new AbortController();
-    // Keep keystroke coalescing short enough that search still feels immediate.
-    // Superseded requests are aborted below, so a long debounce only adds delay.
-    const delay = submitRequestedRef.current ? 0 : 40;
+    const immediateDestinations = searchSiteDestinations(query);
+    if (immediateDestinations.length > 0) {
+      setResult(emptySearchResult(query, immediateDestinations));
+    }
+    // Coalesce ordinary typing while preserving an immediate Enter submission.
+    // Local discovery starts first; governed clinical search waits long enough
+    // to avoid sending upstream work for every intermediate keystroke.
+    const immediateSubmit = submitRequestedRef.current;
     submitRequestedRef.current = false;
-    const timeout = window.setTimeout(() => {
-      setIsSearching(true);
-      setError("");
-      fetchPipelineJson<SearchResult>(`/api/search?q=${encodeURIComponent(query)}`, {
+    setIsSearching(true);
+    setError("");
+    let completed = 0;
+    let failed = 0;
+    const finish = () => {
+      completed += 1;
+      if (completed < 2 || controller.signal.aborted) return;
+      setIsSearching(false);
+      if (failed === 2) {
+        setResult(null);
+        setError("Search is unavailable right now.");
+      }
+    };
+    const runPhase = (scope: "local" | "clinical") => {
+      fetchPipelineJson<SearchResult>(`/api/search?scope=${scope}&q=${encodeURIComponent(query)}`, {
         cache: "no-store",
         signal: controller.signal,
       })
         .then((payload) => {
           if (!("counts" in payload)) throw new Error("Search is unavailable right now.");
-          setResult(payload);
+          setResult((current) => mergeSearchResults(current, payload, query));
         })
-        .catch((searchError) => {
-          if (controller.signal.aborted) return;
-          setResult(null);
-          setError(searchError instanceof Error ? searchError.message : "Search is unavailable right now.");
+        .catch(() => {
+          if (!controller.signal.aborted) failed += 1;
         })
-        .finally(() => {
-          if (!controller.signal.aborted) setIsSearching(false);
-        });
-    }, delay);
+        .finally(finish);
+    };
+    const localTimeout = window.setTimeout(() => runPhase("local"), immediateSubmit ? 0 : 50);
+    const clinicalTimeout = window.setTimeout(() => runPhase("clinical"), immediateSubmit ? 0 : 180);
 
     return () => {
-      window.clearTimeout(timeout);
+      window.clearTimeout(localTimeout);
+      window.clearTimeout(clinicalTimeout);
       controller.abort();
     };
   }, [searchText, searchNonce, selectedSuggestion]);
@@ -239,7 +260,7 @@ export default function PipelineSearchPanel({
 
         </>
       ) : null}
-      {isSearching ? (
+      {isSearching && !result ? (
         <div className="px-1 py-4 text-[13px] text-[#737373]" role="status" aria-live="polite">
           Searching...
         </div>
@@ -252,6 +273,7 @@ export default function PipelineSearchPanel({
       {result ? (
         <SearchResponse
           result={result}
+          isSearching={isSearching}
           onOpenPacket={onOpenPacket}
           onOpenProfile={onOpenProfile}
           onOpenDestination={onOpenDestination}
@@ -263,11 +285,13 @@ export default function PipelineSearchPanel({
 
 function SearchResponse({
   result,
+  isSearching,
   onOpenPacket,
   onOpenProfile,
   onOpenDestination,
 }: {
   result: SearchResult;
+  isSearching: boolean;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onOpenDestination: (screen: PipelineSiteScreen) => void;
@@ -275,7 +299,7 @@ function SearchResponse({
   if (result.counts.total === 0) {
     return (
       <div className="border-t border-[#d9d9d9] px-5 py-6 text-[13px] text-[#737373] md:px-6">
-        No records match that search.
+        {isSearching ? "Checking client records..." : "No records match that search."}
       </div>
     );
   }
@@ -284,7 +308,9 @@ function SearchResponse({
     <div className="border-t-2 border-[#111111]">
       <div className="flex items-center justify-between gap-3 px-5 py-4 md:px-6">
         <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[#0f8b73]">Results</span>
-        <span className="text-[12px] text-[#737373]">{result.counts.total} result{result.counts.total === 1 ? "" : "s"}</span>
+        <span className="text-[12px] text-[#737373]">
+          {result.counts.total} result{result.counts.total === 1 ? "" : "s"}{isSearching ? " · checking clients" : ""}
+        </span>
       </div>
       <div className="divide-y divide-[#d9d9d9]">
         {(result.destinations ?? []).map((destination) => (
@@ -343,6 +369,73 @@ function SearchResponse({
       ) : null}
     </div>
   );
+}
+
+function emptySearchResult(query: string, destinations: PipelineSiteDestination[] = []): SearchResult {
+  return {
+    query,
+    interpreted_query: query,
+    referrals: [],
+    files: [],
+    clients: [],
+    destinations,
+    clinical_warning: null,
+    counts: {
+      referrals: 0,
+      files: 0,
+      clients: 0,
+      destinations: destinations.length,
+      total: destinations.length,
+    },
+  };
+}
+
+function mergeSearchResults(current: SearchResult | null, incoming: SearchResult, query: string): SearchResult {
+  const base = current?.query === query ? current : emptySearchResult(query);
+  const referrals = uniqueBy([...base.referrals, ...incoming.referrals], (item) => String(item.id));
+  const files = uniqueBy([...base.files, ...incoming.files], (item) => item.id);
+  const clients = uniqueBy([...base.clients, ...incoming.clients], (item) => item.canonical_client_id);
+  const destinations = uniqueBy(
+    [...(base.destinations ?? []), ...(incoming.destinations ?? [])],
+    (item) => item.id,
+  );
+  const sources = {
+    local: Boolean(base.sources?.local || incoming.sources?.local),
+    clinical: Boolean(base.sources?.clinical || incoming.sources?.clinical),
+    clinical_available: Boolean(base.sources?.clinical_available || incoming.sources?.clinical_available),
+  };
+  const localCounts = incoming.sources?.local ? incoming.counts : base.sources?.local ? base.counts : null;
+  const clinicalCounts = incoming.sources?.clinical ? incoming.counts : base.sources?.clinical ? base.counts : null;
+  const referralsCount = localCounts?.referrals ?? referrals.length;
+  const filesCount = localCounts?.files ?? files.length;
+  const clientsCount = (localCounts?.clients ?? 0) + (clinicalCounts?.clients ?? 0);
+  return {
+    ...base,
+    ...incoming,
+    referrals,
+    files,
+    clients,
+    destinations,
+    clinical_warning: incoming.clinical_warning ?? base.clinical_warning,
+    sources,
+    counts: {
+      referrals: referralsCount,
+      files: filesCount,
+      clients: clientsCount,
+      destinations: destinations.length,
+      total: referralsCount + filesCount + clientsCount + destinations.length,
+    },
+  };
+}
+
+function uniqueBy<T>(values: T[], key: (value: T) => string) {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const identity = key(value);
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  });
 }
 
 function SearchResultRow({

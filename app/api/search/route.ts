@@ -65,6 +65,8 @@ const questionModes = new Set([
   "files",
 ]);
 
+const searchScopes = new Set(["all", "local", "clinical"]);
+
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/search", async () => {
     const auth = await requirePipelineUser(request);
@@ -72,12 +74,21 @@ export async function GET(request: Request) {
     const store = requireReferralStore();
     if (!store.ok) return store.response;
 
-    const rawQuery = new URL(request.url).searchParams.get("q")?.trim() ?? "";
-    const mode = new URL(request.url).searchParams.get("mode") ?? "";
+    const searchParams = new URL(request.url).searchParams;
+    const rawQuery = searchParams.get("q")?.trim() ?? "";
+    const mode = searchParams.get("mode") ?? "";
+    const scope = searchParams.get("scope") ?? "all";
 
     if (rawQuery.length > 200) {
       return Response.json(
         { error: "Search must be 200 characters or fewer." },
+        { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
+    }
+
+    if (!searchScopes.has(scope)) {
+      return Response.json(
+        { error: "Search scope is invalid." },
         { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } },
       );
     }
@@ -130,40 +141,92 @@ export async function GET(request: Request) {
       });
     }
 
-    const [referrals, files, clinical] = await Promise.all([
-      listReferrals(scopeReferralListOptions(auth.user, { query, limit: 12, workspaceStatus: "all" })),
-      listReferralFiles(scopeReferralListOptions(auth.user, { query, limit: 12, identityStatus: "linked" })),
-      searchClinical(query, request),
+    const includeLocal = scope !== "clinical";
+    const includeClinical = scope !== "local";
+    const [local, clinical] = await Promise.all([
+      includeLocal
+        ? searchLocal(query, auth.user)
+        : Promise.resolve(emptyLocalSearch()),
+      includeClinical
+        ? searchClinical(query, request)
+        : Promise.resolve(emptyClinicalSearch()),
     ]);
-    const pipelineClients = await listPipelineClientWorkspaces(auth.user, {
-      query,
-      limit: 12,
-      excludeConfirmed: clinical.available,
-    });
-    const clients = [...clinical.clients, ...pipelineClients.clients].slice(0, 12);
-    const destinations = searchSiteDestinations(query);
+
+    // The progressive browser search intentionally excludes confirmed Pipeline
+    // identities from its local phase so one person never appears twice. Any
+    // request that attempted governed search falls back to Pipeline workspaces
+    // when the governed directory is disconnected or temporarily unavailable.
+    const fallbackClients = includeClinical && !clinical.available
+      ? await listPipelineClientWorkspaces(auth.user, { query, limit: 12, excludeConfirmed: false })
+      : null;
+    const clients = [
+      ...clinical.clients,
+      ...(fallbackClients?.clients ?? local.clients),
+    ].slice(0, 12);
 
     return Response.json(
       {
         query: rawQuery,
         interpreted_query: query,
-        referrals: referrals.referrals,
-        files: files.files,
+        referrals: local.referrals,
+        files: local.files,
         clients,
-        destinations,
+        destinations: local.destinations,
         clinical_warning: clinical.warning,
+        sources: {
+          local: includeLocal,
+          clinical: includeClinical,
+          clinical_available: clinical.available,
+        },
         counts: {
-          referrals: referrals.total,
-          files: files.total,
-          clients: clinical.total + pipelineClients.total,
-          destinations: destinations.length,
-          total: referrals.total + files.total + clinical.total + pipelineClients.total + destinations.length,
+          referrals: local.counts.referrals,
+          files: local.counts.files,
+          clients: clinical.total + (fallbackClients?.total ?? local.counts.clients),
+          destinations: local.destinations.length,
+          total: local.counts.referrals
+            + local.counts.files
+            + clinical.total
+            + (fallbackClients?.total ?? local.counts.clients)
+            + local.destinations.length,
         },
         generated_at: new Date().toISOString(),
       },
       { headers: { "Cache-Control": "no-store, max-age=0" } },
     );
   });
+}
+
+async function searchLocal(query: string, user: Parameters<typeof scopeReferralListOptions>[0]) {
+  const [referrals, files, pipelineClients] = await Promise.all([
+    listReferrals(scopeReferralListOptions(user, { query, limit: 12, workspaceStatus: "all" })),
+    listReferralFiles(scopeReferralListOptions(user, { query, limit: 12, identityStatus: "linked" })),
+    listPipelineClientWorkspaces(user, { query, limit: 12, excludeConfirmed: true }),
+  ]);
+  return {
+    referrals: referrals.referrals,
+    files: files.files,
+    clients: pipelineClients.clients,
+    destinations: searchSiteDestinations(query),
+    counts: {
+      referrals: referrals.total,
+      files: files.total,
+      clients: pipelineClients.total,
+    },
+  };
+}
+
+function emptyLocalSearch() {
+  return {
+    referrals: [],
+    files: [],
+    clients: [],
+    destinations: [],
+    counts: { referrals: 0, files: 0, clients: 0 },
+  };
+}
+
+function emptyClinicalSearch() {
+  return { clients: [], total: 0, warning: null, available: false };
 }
 
 async function searchClinical(query: string, request: Request) {

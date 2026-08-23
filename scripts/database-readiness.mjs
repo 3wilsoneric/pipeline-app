@@ -17,6 +17,7 @@ const assessmentCollaborationMigration = read("database/migrations/0009_assessme
 const provisionalMembersMigration = read("database/migrations/0010_provisional_workspace_members.sql");
 const historicalWorkspacesMigration = read("database/migrations/0011_historical_material_workspaces.sql");
 const referralTrashMigration = read("database/migrations/0012_referral_trash.sql");
+const searchPerformanceMigration = read("database/migrations/0013_search_performance.sql");
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
 const canonicalClientVerifier = read("scripts/verify-database-migration-0007.mjs");
 const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
@@ -39,6 +40,7 @@ const assessmentCollaborationRollback = read("database/rollbacks/0009_assessment
 const provisionalMembersRollback = read("database/rollbacks/0010_provisional_workspace_members.sql");
 const historicalWorkspacesRollback = read("database/rollbacks/0011_historical_material_workspaces.sql");
 const referralTrashRollback = read("database/rollbacks/0012_referral_trash.sql");
+const searchPerformanceRollback = read("database/rollbacks/0013_search_performance.sql");
 const rollbackDrill = read("scripts/database-rollback-drill.mjs");
 const productionSeed = read("scripts/seed-production-reference-data.mjs");
 const pilotReset = read("scripts/pilot-reset.mjs");
@@ -211,6 +213,35 @@ check(
     && workspaceStateStore.includes("Number.isSafeInteger(version)"),
 );
 check("high-volume lists have keyset indexes", documentMigration.includes("referrals_updated_keyset_idx") && documentMigration.includes("documents_uploaded_keyset_idx"));
+check(
+  "global search paths have trigram indexes",
+  [
+    "people_display_name_search_trgm_idx",
+    "people_external_client_search_trgm_idx",
+    "documents_file_name_search_trgm_idx",
+    "documents_client_name_search_trgm_idx",
+    "documents_client_community_search_trgm_idx",
+  ].every((indexName) => searchPerformanceMigration.includes(indexName)),
+);
+check(
+  "file search predicates expose indexed metadata columns",
+  referralStore.includes("lower(coalesce(name, '')) ilike")
+    && referralStore.includes("lower(coalesce(referral_name, '')) ilike")
+    && referralStore.includes("lower(coalesce(community, '')) ilike")
+    && !referralStore.includes("lower(concat_ws(' ', name, category, referral_name, community, status))"),
+);
+check(
+  "search backfill includes reviewed chart fields",
+  searchPerformanceMigration.includes("data->>'dob'")
+    && searchPerformanceMigration.includes("data#>>'{assessment,assessment,careNeeds}'")
+    && searchPerformanceMigration.includes("data#>>'{assessment,postAssessment,reason}'"),
+);
+check(
+  "global search excludes SSNs and raw OCR artifacts",
+  !searchPerformanceMigration.includes("data->>'ssn'")
+    && !searchPerformanceMigration.includes("ocr_json")
+    && !searchPerformanceMigration.includes("normalized_page"),
+);
 check("migration runner serializes deployments", migrationRunner.includes("pg_advisory_lock"));
 check("migration runner rejects changed migration history", migrationRunner.includes("migration_checksum_mismatch"));
 check("migration runner backfills historical checksums atomically", migrationRunner.includes("checksum_sha256 is null"));
@@ -231,6 +262,13 @@ check("historical-workspace rollback removes only migration 0011 objects", histo
 check("referral trash has an indexed 30-day recovery window", referralTrashMigration.includes("delete_after > deleted_at") && referralTrashMigration.includes("referrals_trash_retention_idx") && referralStore.includes("interval '30 days'"));
 check("referral-trash rollback removes only migration 0012 objects", referralTrashRollback.includes("deleted_at") && referralTrashRollback.includes("0012_referral_trash") && !referralTrashRollback.includes("drop schema"));
 check(
+  "search-performance rollback removes only migration 0013 objects",
+  searchPerformanceRollback.includes("people_display_name_search_trgm_idx")
+    && searchPerformanceRollback.includes("documents_file_name_search_trgm_idx")
+    && searchPerformanceRollback.includes("0013_search_performance")
+    && !searchPerformanceRollback.includes("drop schema"),
+);
+check(
   "rollback scripts delegate transaction ownership to the drill or operator",
   ![
     collaborationRollback,
@@ -241,12 +279,13 @@ check(
     provisionalMembersRollback,
     historicalWorkspacesRollback,
     referralTrashRollback,
+    searchPerformanceRollback,
   ].some((rollback) => /^\s*(begin|commit)\s*;/im.test(rollback)),
 );
-check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
+check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
 check("production seed creates reference rows only", productionSeed.includes("synthetic_client_rows: 0") && !productionSeed.includes("insert into pipeline.people") && !productionSeed.includes("insert into pipeline.referrals"));
-check("production seed requires the latest workspace migration", productionSeed.includes("0012_referral_trash") && productionSeed.includes("migrations.length !== 12"));
-check("live database smoke requires the latest workspace migration", liveSmoke.includes("0012_referral_trash") && liveSmoke.includes("pipeline.client_update_outbox"));
+check("production seed requires the latest search migration", productionSeed.includes("0013_search_performance") && productionSeed.includes("migrations.length !== 13"));
+check("live database smoke requires the latest search migration", liveSmoke.includes("0013_search_performance") && liveSmoke.includes("migrations.length === 13") && liveSmoke.includes("pipeline.client_update_outbox"));
 check("restore verification includes workspace state", restoreVerify.includes("pipeline.user_workspace_state"));
 check("account-state purge is dry-run-first and identity-redacted", workspacePurge.includes('mode: execute ? "execute" : "dry_run"') && workspacePurge.includes("principal_configured: true"));
 check("CI exercises PostgreSQL migrations, rollback, fixtures, and contention", ["postgres:16", "database:migrate", "database:fixtures", "database:rollback:drill", "check:collaboration-load"].every((term) => ci.includes(term)));
@@ -275,7 +314,7 @@ const configuration = Object.fromEntries(
 
 console.log(JSON.stringify({
   ok: failed.length === 0,
-  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash"],
+  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance"],
   checks,
   configuration_present: configuration,
   note: "Configuration reports presence only; values are never printed.",

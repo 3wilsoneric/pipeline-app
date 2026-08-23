@@ -223,7 +223,9 @@ async function listPostgresPipelineClientWorkspaces(
     from client_rows
     where (${community}::text is null or client_rows.community = ${community})
       and (${query}::text is null
-        or lower(concat_ws(' ', display_name, external_client_id, client_rows.community)) like ('%' || lower(${query}) || '%'))
+        or lower(display_name) like ('%' || lower(${query}) || '%')
+        or lower(external_client_id) like ('%' || lower(${query}) || '%')
+        or lower(coalesce(client_rows.community, '')) like ('%' || lower(${query}) || '%'))
     order by lower(display_name), external_client_id
     limit ${limit} offset ${offset}
   `;
