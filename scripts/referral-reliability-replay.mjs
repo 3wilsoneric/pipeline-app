@@ -431,8 +431,8 @@ function checkWorkflowGuardrails() {
 
   assert(
     referralHome.includes("buildReferralParams") &&
-      referralHome.includes("boardStages") &&
-      referralHome.includes("getStageLabel"),
+      referralHome.includes("ReferralWorkflowTracker") &&
+      referralHome.includes("ReferralWorklist"),
     "ReferralHome should use server-side filtering and shared workflow display guardrails",
   );
   assert(
