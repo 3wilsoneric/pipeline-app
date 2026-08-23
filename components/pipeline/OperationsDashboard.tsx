@@ -163,7 +163,7 @@ function SnapshotContent({
 
   return (
     <>
-      <section className="mt-3 grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-2 lg:grid-cols-4" aria-label="Operations summary">
+      <section className="mt-3 grid grid-cols-2 gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] lg:grid-cols-4" aria-label="Operations summary">
         <SummaryMetric label="Active referrals" value={snapshot.metrics.active} />
         <SummaryMetric label="Needs action" value={snapshot.metrics.needs_action} attention={snapshot.metrics.needs_action > 0} />
         <SummaryMetric label="Overdue items" value={snapshot.metrics.overdue_requirements} attention={snapshot.metrics.overdue_requirements > 0} />
@@ -470,7 +470,7 @@ function WorkRow({
           <span className="text-[13px] font-black">{item.client_name}</span>
           <span className="text-[11px] text-[#737373]">{item.community}</span>
         </span>
-        <span className="mt-1 block text-[11px] text-[#737373]">{item.owner} · {item.stage}</span>
+        <span className="mt-1 block text-[11px] text-[#737373]">{item.owner}</span>
         <span className="mt-1.5 block truncate text-[11px] font-semibold text-[#111111]">{item.next_action ?? "Review next step"}</span>
       </span>
       <span className="flex items-center gap-2 pt-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#a63d2f]">

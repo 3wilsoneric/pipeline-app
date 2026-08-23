@@ -186,7 +186,7 @@ function ResidentProfile({
             </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-[30px] font-black md:text-[38px]">{client.display_name}</h1>
+                <h1 className="text-[26px] font-black sm:text-[30px] md:text-[38px]">{client.display_name}</h1>
                 {profile.pipeline.connection.status !== "unlinked" ? (
                   <span className={connectionBadgeClass(profile.pipeline.connection.status)}>
                     {connectionLabel(profile.pipeline.connection.status)}
@@ -204,7 +204,7 @@ function ResidentProfile({
           </div>
         </header>
 
-        <section className="mt-4 grid gap-px border-b border-[#d9d9d9] bg-[#d9d9d9] md:grid-cols-4" aria-label="Profile summary">
+        <section className="mt-4 grid grid-cols-2 gap-px border-b border-[#d9d9d9] bg-[#d9d9d9] md:grid-cols-4" aria-label="Profile summary">
           <Metric label="Profile data" value={pipelineOnly ? "Pipeline" : `${completeness.percent}%`} detail={pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral workspace" : "Client files" : `${completeness.complete} of ${completeness.total} fields available`} />
           <Metric label={pipelineOnly ? "Referrals" : "Current stay"} value={pipelineOnly ? String(profile.pipeline.summary.referral_count) : resident?.length_of_stay_days === null || resident?.length_of_stay_days === undefined ? "Not reported" : `${resident.length_of_stay_days.toLocaleString()} days`} detail={pipelineOnly ? `${profile.pipeline.summary.active_referral_count} active` : resident?.admit_date ? `Admitted ${formatDate(resident.admit_date)}` : "Admission date not reported"} />
           {hasPipelineHistory ? (
@@ -1218,7 +1218,7 @@ function IdentityLinkControls({
                           >
                             <span className="min-w-0">
                               <span className="block truncate text-[12px] font-black text-[#111111]">{suggestion.client_name}</span>
-                              <span className="mt-1 block truncate text-[10px] text-[#737373]">{suggestion.community} · {suggestion.stage}</span>
+                              <span className="mt-1 block truncate text-[10px] text-[#737373]">{suggestion.community}</span>
                               <span className="mt-1 block truncate text-[10px] font-semibold text-[#356759]">{suggestion.reasons.join(" · ")}</span>
                             </span>
                             <span className="shrink-0 text-right">
@@ -1253,7 +1253,7 @@ function IdentityLinkControls({
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-[12px] font-black text-[#111111]">{referral.name}</span>
-                        <span className="mt-1 block truncate text-[10px] text-[#737373]">{referral.community} · {referral.stage}</span>
+                        <span className="mt-1 block truncate text-[10px] text-[#737373]">{referral.community}</span>
                       </span>
                       {active ? <Check size={15} className="shrink-0 text-[#0f8b73]" /> : null}
                     </button>
@@ -1489,7 +1489,7 @@ function ProfileSection({ title, detail, children }: { title: string; detail?: s
 }
 
 function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return <div className="bg-white px-5 py-4"><div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#737373]">{label}</div><div className="mt-2 truncate text-[20px] font-black">{value}</div><div className="mt-1 truncate text-[11px] text-[#737373]">{detail}</div></div>;
+  return <div className="min-w-0 bg-white px-3 py-4 sm:px-5"><div className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#737373] sm:text-[10px] sm:tracking-[0.12em]">{label}</div><div className="mt-2 truncate text-[18px] font-black sm:text-[20px]">{value}</div><div className="mt-1 truncate text-[10px] text-[#737373] sm:text-[11px]">{detail}</div></div>;
 }
 
 function currentResidentFacts(resident: ClinicalResident | null): ClientProfileFact[] {

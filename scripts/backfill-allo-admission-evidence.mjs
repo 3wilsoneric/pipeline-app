@@ -48,8 +48,7 @@ try {
         count(*)::integer as matched_workspaces,
         count(*) filter (
           where coalesce(r.data->>'admissionDate', '') is distinct from evidence.admission_date
-        )::integer as workspaces_to_update,
-        count(*) filter (where r.stage = 'Declined')::integer as explicit_declines_preserved
+        )::integer as workspaces_to_update
       from evidence
       join pipeline.referrals r
         on r.workspace_origin = 'allo'
@@ -58,7 +57,6 @@ try {
     const counts = {
       matched_workspaces: Number(plan[0]?.matched_workspaces ?? 0),
       workspaces_to_update: Number(plan[0]?.workspaces_to_update ?? 0),
-      explicit_declines_preserved: Number(plan[0]?.explicit_declines_preserved ?? 0),
     };
     if (!apply) return { ...counts, updated_workspaces: 0 };
 

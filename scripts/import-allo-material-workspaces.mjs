@@ -25,6 +25,7 @@ const requirements = [
   ["provider_form", "Provider form", "pre_assessment", false],
   ["face_sheet", "Face sheet", "pre_assessment", true],
 ];
+const importedReferenceStage = "Packet Review";
 
 const args = argumentMap();
 const dryRun = args.has("--dry-run");
@@ -173,7 +174,6 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
     sourceMaterialCount: workspace.material_count,
     name: workspace.display_name,
     date: receivedDate ?? "",
-    stage: workspace.historical_stage,
     community: workspace.community,
     source: "Allo workspace import",
     priority: "standard",
@@ -212,7 +212,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
       source_project_id, source_project_name, source_material_count, workspace_import_batch_id,
       created_by, created_by_name, updated_by, updated_by_name, created_at, updated_at
     ) values (
-      ${personId}::uuid, ${workspace.historical_stage}, ${workspace.community}, ${ownerId}, ${ownerName},
+      ${personId}::uuid, ${importedReferenceStage}, ${workspace.community}, ${ownerId}, ${ownerName},
       'standard', 'Allo workspace import', ${receivedDate}::date, ${tags}, ${data.note}, ${searchText},
       ${tx.json(data)}, coalesce(${workspace.first_material_at}::timestamptz, now()),
       'allo', 'historical', ${workspace.source_workspace_id}, ${workspace.source_workspace_name},
@@ -223,6 +223,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
     on conflict (workspace_origin, source_workspace_id) where source_workspace_id is not null
     do update set
       person_id = excluded.person_id,
+      stage = excluded.stage,
       owner_id = excluded.owner_id,
       owner_name = excluded.owner_name,
       community = excluded.community,
@@ -232,7 +233,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
       source_material_count = excluded.source_material_count,
       workspace_import_batch_id = excluded.workspace_import_batch_id,
       search_text = excluded.search_text,
-      data = excluded.data || pipeline.referrals.data,
+      data = (excluded.data || pipeline.referrals.data) - 'stage',
       tags = (select array_agg(distinct tag) from unnest(pipeline.referrals.tags || excluded.tags) tag),
       updated_at = greatest(pipeline.referrals.updated_at, excluded.updated_at)
     returning referral_id, (xmax = 0) as inserted

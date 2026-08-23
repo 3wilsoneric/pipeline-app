@@ -254,23 +254,43 @@ const results = [
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ community: "Unknown" })), "community is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ limit: "1.5" })), "limit must be a whole number between 1 and 200.");
   }),
-  run("workspace outcomes use client admission history without inventing declines", () => {
+  run("workspace outcomes use governed admission history for imported workspaces", () => {
     const base = {
       stage: "Packet Review",
       workspaceStatus: "historical",
       admissionDate: "",
     };
-    const unknown = workspacePresentation.getWorkspaceAdmissionOutcome(base);
-    assert(unknown.status === "unknown", "Imported workspaces without evidence must stay unknown");
+    const unmatched = workspacePresentation.getWorkspaceAdmissionOutcome(base);
+    assert(unmatched.status === "unmatched", "Imported workspaces without a census match must not be presented as denied");
+    assert(unmatched.evidence === "no_census_match", "The absence of a census match must remain visible");
     const admitted = workspacePresentation.getWorkspaceAdmissionOutcome({ ...base, admissionDate: "2024-01-15" });
     assert(admitted.status === "admitted", "Recorded client admission history must count as admitted");
-    assert(admitted.evidence === "client_history", "Admission history evidence must remain explicit");
+    assert(admitted.evidence === "census_match", "Admission history evidence must remain explicit");
     const declined = workspacePresentation.getWorkspaceAdmissionOutcome({
       ...base,
+      workspaceStatus: "active",
       stage: "Declined",
-      admissionDate: "2024-01-15",
+      admissionDecision: { outcome: "declined" },
     });
-    assert(declined.status === "not_admitted", "An explicit workspace decline must outrank prior client history");
+    assert(declined.status === "denied", "An explicit active-workspace decline must remain denied");
+    assert(declined.evidence === "recorded", "A recorded decline must remain distinguishable from a missing census match");
+    const stageOnlyDecline = workspacePresentation.getWorkspaceAdmissionOutcome({
+      ...base,
+      workspaceStatus: "active",
+      stage: "Declined",
+    });
+    assert(stageOnlyDecline.status === "pending", "A stage label alone must not invent a declined decision");
+    const acceptedWithoutCensus = workspacePresentation.getWorkspaceAdmissionOutcome({
+      ...base,
+      workspaceStatus: "active",
+      stage: "Accepted / Admitted",
+    });
+    assert(acceptedWithoutCensus.status === "pending", "An accepted stage must not invent a governed admission match");
+    const recordedAcceptance = workspacePresentation.getWorkspaceAdmissionOutcome({
+      ...acceptedWithoutCensus,
+      admissionDecision: { outcome: "accepted" },
+    });
+    assert(recordedAcceptance.status === "accepted", "A recorded acceptance must remain distinct from a governed admission match");
   }),
   run("canvas extraction fills reviewed values without replacing active edits", () => {
     const fields = emptyCanvasFields();

@@ -16,10 +16,10 @@ export default function PipelineActionNav({
   onOpenSearch: () => void;
   onNavigate: (target: Exclude<PipelineNavTarget, null>) => void;
 }) {
-  const navSize = "h-11 w-11 px-0 sm:h-[54px] sm:w-[168px] sm:px-3.5";
+  const navSize = "h-11 w-11 px-0 max-[359px]:h-9 max-[359px]:w-9 xl:h-[54px] xl:w-[168px] xl:px-3.5";
   const navItem =
     "group flex shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border-2 outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current";
-  const labelClass = "hidden sm:inline";
+  const labelClass = "hidden xl:inline";
   const inactiveSearch =
     "border-transparent bg-transparent text-[#8a5a10] hover:border-[#c4832c] hover:bg-[#fff3dc] hover:shadow-[0_4px_14px_rgba(196,131,44,0.14)]";
   const inactiveReferrals =
@@ -32,7 +32,7 @@ export default function PipelineActionNav({
   return (
     <nav
       aria-label="Primary navigation"
-      className="flex flex-nowrap items-center gap-1.5 sm:gap-3"
+      className="flex flex-nowrap items-center gap-1.5 max-[359px]:gap-1 xl:gap-3"
     >
       <button
         type="button"

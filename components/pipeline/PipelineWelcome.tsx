@@ -17,7 +17,6 @@ import {
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import type { MyQueueSnapshot, MyQueueUrgency } from "@/lib/pipeline/operations-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { getStageLabel } from "@/lib/pipeline/referral-workflow";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 
 export default function PipelineWelcome({
@@ -40,7 +39,6 @@ export default function PipelineWelcome({
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeResolved, setWelcomeResolved] = useState(false);
   const [recentItems, setRecentItems] = useState<PipelineRecentDestination[]>([]);
-  const [queueForToday, setQueueForToday] = useState<MyQueueSnapshot | null>();
   const { searchOpen, setHomeMode } = usePipelineShell();
 
   useEffect(() => {
@@ -106,18 +104,16 @@ export default function PipelineWelcome({
         ) : null}
 
         {welcomeResolved && !searchOpen ? (
-          <div className={`${showWelcome ? "mt-8 md:mt-10" : "mt-1"} grid min-w-0 gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(300px,0.82fr)_minmax(250px,0.68fr)_minmax(380px,1.18fr)]`}>
+          <div className={`${showWelcome ? "mt-8 md:mt-10" : "mt-1"} grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.42fr)_minmax(340px,0.88fr)]`}>
             <MyQueue
               ownerName={welcomeName}
               onOpenPacket={onOpenPacket}
               onOpenOperations={onOpenOperations}
-              onQueueChange={setQueueForToday}
             />
-            <TodayWork queue={queueForToday} onOpenPacket={onOpenPacket} />
             <RecentWork
               items={recentItems}
               onOpenRecent={onOpenRecent}
-              className="mt-0 lg:col-span-2 xl:col-span-1"
+              className="mt-0"
             />
           </div>
         ) : null}
@@ -175,17 +171,14 @@ function MyQueue({
   ownerName,
   onOpenPacket,
   onOpenOperations,
-  onQueueChange,
 }: {
   ownerName: string;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenOperations: () => void;
-  onQueueChange: (queue: MyQueueSnapshot | null) => void;
 }) {
   const [queue, setQueue] = useState<MyQueueSnapshot | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const queueSequence = useRef(0);
-  const hasQueueSnapshot = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -202,8 +195,6 @@ function MyQueue({
         });
         if (!cancelled) {
           setQueue(payload);
-          hasQueueSnapshot.current = true;
-          onQueueChange(payload);
           if (Number.isSafeInteger(payload.sequence) && Number(payload.sequence) >= 0) {
             queueSequence.current = Number(payload.sequence);
           }
@@ -212,7 +203,6 @@ function MyQueue({
       } catch {
         if (!cancelled) {
           setLoadFailed(true);
-          if (!hasQueueSnapshot.current) onQueueChange(null);
         }
       } finally {
         loading = false;
@@ -246,40 +236,48 @@ function MyQueue({
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshOnFocus);
     };
-  }, [onQueueChange]);
+  }, []);
 
   const items = queue?.items.slice(0, 5) ?? [];
+  const summary = summarizeQueue(queue?.items ?? []);
 
   return (
-    <section aria-label="My queue" className="flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#d9d9d9] bg-white">
-      <div className="flex min-h-[72px] items-center justify-between gap-4 border-b border-[#d9d9d9] bg-[#fbfcfb] px-5 py-4">
+    <section aria-label="Your assigned work" className="flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#c9d3cf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_8px_24px_rgba(28,58,49,0.06)] sm:min-h-[330px] xl:min-h-[360px]">
+      <div className="flex min-h-[88px] items-center justify-between gap-5 border-b border-[#dce3e0] px-6 py-5 md:px-7">
         <div className="min-w-0">
-          <h2 className="text-[18px] font-black text-[#111111]">My queue</h2>
-          <p className="mt-1 truncate text-[11px] text-[#737373]">Your next referral actions</p>
+          <h2 className="text-[22px] font-black leading-tight text-[#111111]">Your work</h2>
+          <p className="mt-1.5 text-[13px] leading-5 text-[#656565]">Assigned referral actions, ordered by urgency</p>
         </div>
         <button
           type="button"
           onClick={onOpenOperations}
           title={loadFailed && queue ? "The latest queue refresh failed. Showing the last successful snapshot." : undefined}
-          className={`min-w-[104px] shrink-0 rounded border bg-white px-3 py-2 text-[11px] font-black ${loadFailed && queue ? "border-[#d7bd84] text-[#8a6118] hover:bg-[#fffaf0]" : "border-[#b8dacf] text-[#0c705f] hover:border-[#0f8b73] hover:bg-[#effaf5]"}`}
+          className={`min-w-[108px] shrink-0 rounded-sm border px-4 py-2.5 text-[12px] font-black transition-colors ${loadFailed && queue ? "border-[#d7bd84] bg-[#fffaf0] text-[#8a6118] hover:bg-[#fff5df]" : "border-[#9fcbbd] bg-[#f4faf7] text-[#0c705f] hover:border-[#0f8b73] hover:bg-[#e9f6f0]"}`}
         >
-          {queue ? loadFailed ? "Refresh failed" : `${queue.total} assigned` : ownerName || "Loading"}
+          {queue ? loadFailed ? "Refresh failed" : `${queue.total} open` : ownerName || "Loading"}
         </button>
       </div>
+      {queue ? (
+        <dl className="grid grid-cols-3 border-b border-[#dce3e0] bg-[#fafcfb]">
+          <QueueSummaryItem label="Due today" value={summary.dueToday} tone={summary.dueToday > 0 ? "attention" : "neutral"} />
+          <QueueSummaryItem label="Overdue" value={summary.overdue} tone={summary.overdue > 0 ? "critical" : "neutral"} />
+          <QueueSummaryItem label="Blocked" value={summary.blocked} tone={summary.blocked > 0 ? "critical" : "neutral"} last />
+        </dl>
+      ) : null}
       {loadFailed && !queue ? (
-        <button type="button" onClick={onOpenOperations} className="flex flex-1 flex-col justify-center px-6 py-10 text-left hover:bg-[#fff9f7]">
-          <span className="text-[14px] font-black text-[#a04436]">Queue unavailable</span>
-          <span className="mt-2 max-w-[380px] text-[12px] leading-5 text-[#737373]">Open Operations to review assigned work and retry the current snapshot.</span>
+        <button type="button" onClick={onOpenOperations} className="flex flex-1 flex-col justify-center px-7 py-10 text-left hover:bg-[#fff9f7]">
+          <span className="text-[16px] font-black text-[#a04436]">Assigned work is unavailable</span>
+          <span className="mt-2 max-w-[460px] text-[13px] leading-5 text-[#666666]">Open Operations to review assignments and retry the current snapshot.</span>
         </button>
       ) : !queue ? (
         <QueueSkeleton />
       ) : items.length === 0 ? (
-        <div className="flex flex-1 flex-col justify-center px-6 py-10">
-          <div className="text-[15px] font-black text-[#111111]">You&apos;re caught up</div>
-          <p className="mt-2 max-w-[380px] text-[12px] leading-5 text-[#737373]">No active referral work is assigned to you. New actions will appear here automatically.</p>
+        <div className="flex flex-1 flex-col justify-center px-7 py-10">
+          <div className="text-[17px] font-black text-[#111111]">No assigned actions</div>
+          <p className="mt-2 max-w-[470px] text-[13px] leading-6 text-[#666666]">Referral and requirement assignments will appear here with their deadline and next step.</p>
         </div>
       ) : (
-        <div className="flex-1 divide-y divide-[#e5e5e5]">
+        <div className="flex-1 divide-y divide-[#dfe5e2]">
           {items.map((item) => (
             <button
               key={item.id}
@@ -289,15 +287,18 @@ function MyQueue({
                 name: item.client_name,
                 community: item.community as Referral["community"],
               })}
-              className="group grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-4 border-l-[3px] border-transparent px-5 py-4 text-left hover:border-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none"
+              className="group grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-5 border-l-[3px] border-transparent px-6 py-4 text-left transition-colors hover:border-[#0f8b73] hover:bg-[#f6faf8] focus-visible:border-[#0f8b73] focus-visible:bg-[#f6faf8] focus-visible:outline-none md:px-7"
             >
               <span className="min-w-0">
-                <span className="block truncate text-[14px] font-black text-[#111111]">{item.client_name}</span>
-                <span className="mt-1 block truncate text-[11px] font-semibold text-[#595959]">{item.community} · {getStageLabel(item.stage)}</span>
-                <span className="mt-1.5 block line-clamp-2 text-[12px] leading-5 text-[#737373]">{item.next_action}</span>
+                <span className="block truncate text-[16px] font-black text-[#111111]">{item.client_name}</span>
+                <span className="mt-1 block truncate text-[12px] font-semibold text-[#595959]">{item.community}</span>
+                <span className="mt-2 block line-clamp-2 text-[13px] leading-5 text-[#666666]">{item.next_action}</span>
               </span>
-              <span className={`self-center text-[10px] font-black uppercase tracking-[0.08em] ${queueUrgencyColor(item.urgency)}`}>
-                {queueUrgencyLabel(item.urgency)}
+              <span className="self-center text-right">
+                <span className={`block text-[10px] font-black uppercase tracking-[0.08em] ${queueUrgencyColor(item.urgency)}`}>
+                  {queueUrgencyLabel(item.urgency)}
+                </span>
+                <span className="mt-1.5 block text-[11px] text-[#7a7a7a]">{formatQueueDueDate(item.due_at)}</span>
               </span>
             </button>
           ))}
@@ -324,38 +325,27 @@ function QueueSkeleton() {
   );
 }
 
-function TodayWork({ queue, onOpenPacket }: { queue: MyQueueSnapshot | null | undefined; onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const events = queue?.items.filter((item) => item.due_at?.slice(0, 10) === today) ?? [];
-  const visible = events.slice(0, 5);
+function QueueSummaryItem({
+  label,
+  value,
+  tone,
+  last = false,
+}: {
+  label: string;
+  value: number;
+  tone: "neutral" | "attention" | "critical";
+  last?: boolean;
+}) {
+  const toneClass = tone === "critical"
+    ? "text-[#a04436]"
+    : tone === "attention"
+      ? "text-[#9b5b0b]"
+      : "text-[#111111]";
   return (
-    <section aria-label="Today" className="flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#d9d9d9] bg-white">
-      <div className="flex min-h-[72px] items-center justify-between gap-4 border-b border-[#d9d9d9] bg-[#fbfcfb] px-5 py-4">
-        <div className="min-w-0">
-          <h2 className="text-[18px] font-black text-[#111111]">Today</h2>
-          <p className="mt-1 truncate text-[11px] text-[#737373]">Due in your queue</p>
-        </div>
-        <span className={`shrink-0 text-[10px] font-black uppercase tracking-[0.1em] ${queue === null ? "text-[#a04436]" : "text-[#0c705f]"}`}>
-          {queue === null ? "Unavailable" : queue ? `${events.length} due` : "Loading"}
-        </span>
-      </div>
-      {queue === null ? (
-        <div className="flex flex-1 flex-col justify-center px-5 py-8"><span className="text-[14px] font-black text-[#a04436]">Schedule unavailable</span><span className="mt-2 text-[12px] leading-5 text-[#737373]">Your queue and recent work remain available.</span></div>
-      ) : !queue ? (
-        <QueueSkeleton />
-      ) : visible.length === 0 ? (
-        <div className="flex flex-1 flex-col justify-center px-5 py-8"><span className="text-[14px] font-black text-[#111111]">Nothing due today</span><span className="mt-2 text-[12px] leading-5 text-[#737373]">Assigned assessments and requirements due today will appear here.</span></div>
-      ) : (
-        <div className="flex-1 divide-y divide-[#e5e5e5]">
-          {visible.map((event) => (
-            <button key={event.id} type="button" onClick={() => onOpenPacket({ id: event.referral_id, name: event.client_name, community: event.community as Referral["community"] })} className="block w-full border-l-[3px] border-transparent px-5 py-3 text-left hover:border-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none">
-              <span className="block truncate text-[13px] font-black text-[#111111]">{event.client_name}</span>
-              <span className="mt-1 block truncate text-[11px] text-[#737373]">{event.next_action} · {event.community}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
+    <div className={`px-6 py-4 ${last ? "" : "border-r border-[#dce3e0]"}`}>
+      <dt className="text-[10px] font-black uppercase tracking-[0.1em] text-[#737373]">{label}</dt>
+      <dd className={`mt-1 text-[22px] font-black leading-none ${toneClass}`}>{value}</dd>
+    </div>
   );
 }
 
@@ -369,36 +359,36 @@ function RecentWork({
   className?: string;
 }) {
   return (
-    <section aria-label="Recent" className={`flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#d9d9d9] bg-white ${className}`}>
-      <div className="flex min-h-[72px] items-center justify-between gap-4 border-b border-[#d9d9d9] bg-[#fbfcfb] px-5 py-4">
+    <section aria-label="Recent" className={`flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#c9d3cf] border-t-[3px] border-t-[#4568b1] bg-white shadow-[0_8px_24px_rgba(37,54,94,0.05)] sm:min-h-[330px] xl:min-h-[360px] ${className}`}>
+      <div className="flex min-h-[88px] items-center justify-between gap-5 border-b border-[#dce3e0] px-6 py-5">
         <div className="min-w-0">
-          <h2 className="text-[18px] font-black text-[#111111]">Recent</h2>
-          <p className="mt-1 truncate text-[11px] text-[#737373]">Resume where you left off</p>
+          <h2 className="text-[22px] font-black leading-tight text-[#111111]">Recent</h2>
+          <p className="mt-1.5 text-[13px] leading-5 text-[#656565]">Resume where you left off</p>
         </div>
-        <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.1em] text-[#737373]">Last five</span>
+        <span className="shrink-0 rounded-sm bg-[#f1f4fb] px-3 py-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#4568b1]">Last five</span>
       </div>
       {items.length === 0 ? (
-        <div className="flex flex-1 flex-col justify-center px-6 py-10">
-          <div className="text-[15px] font-black text-[#111111]">Nothing opened yet</div>
-          <p className="mt-2 max-w-[340px] text-[12px] leading-5 text-[#737373]">Client profiles and referral workspaces you open in this session will appear here.</p>
+        <div className="flex flex-1 flex-col justify-center px-7 py-10">
+          <div className="text-[17px] font-black text-[#111111]">Nothing opened yet</div>
+          <p className="mt-2 max-w-[360px] text-[13px] leading-6 text-[#666666]">Client profiles and referral workspaces you open will appear here.</p>
         </div>
       ) : (
-        <div className="flex-1 divide-y divide-[#e5e5e5]">
+        <div className="flex-1 divide-y divide-[#dfe5e2]">
           {items.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => onOpenRecent(item)}
-              className="group block w-full min-w-0 border-l-[3px] border-transparent px-5 py-4 text-left hover:border-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none"
+              className="group block w-full min-w-0 border-l-[3px] border-transparent px-6 py-4 text-left transition-colors hover:border-[#4568b1] hover:bg-[#f7f8fc] focus-visible:border-[#4568b1] focus-visible:bg-[#f7f8fc] focus-visible:outline-none"
             >
               <span className="flex min-w-0 items-start justify-between gap-4">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-black text-[#111111]">{recentTitle(item)}</span>
-                  <span className="mt-1 block truncate text-[12px] text-[#737373]">{recentDetail(item)}</span>
+                  <span className="block truncate text-[15px] font-black text-[#111111]">{recentTitle(item)}</span>
+                  <span className="mt-1.5 block truncate text-[13px] text-[#666666]">{recentDetail(item)}</span>
                 </span>
                 <span className="shrink-0 pt-0.5 text-right">
-                  <span className="block text-[9px] font-black uppercase tracking-[0.1em] text-[#0c705f]">{recentKindLabel(item)}</span>
-                  <span className="mt-1 block text-[10px] text-[#8a8a8a]">{formatRecentTime(item.visitedAt)}</span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.1em] text-[#4568b1]">{recentKindLabel(item)}</span>
+                  <span className="mt-1.5 block text-[11px] text-[#7a7a7a]">{formatRecentTime(item.visitedAt)}</span>
                 </span>
               </span>
             </button>
@@ -455,4 +445,31 @@ function queueUrgencyColor(urgency: MyQueueUrgency) {
     stale: "text-[#6b5b2c]",
     normal: "text-[#0f8b73]",
   }[urgency];
+}
+
+function summarizeQueue(items: MyQueueSnapshot["items"]) {
+  const today = localDateKey(new Date());
+  return {
+    dueToday: items.filter((item) => item.due_at?.slice(0, 10) === today).length,
+    overdue: items.filter((item) => item.urgency === "overdue").length,
+    blocked: items.filter((item) => item.urgency === "blocked").length,
+  };
+}
+
+function formatQueueDueDate(value: string | null) {
+  if (!value) return "No deadline";
+  const dateKey = value.slice(0, 10);
+  const today = localDateKey(new Date());
+  if (dateKey === today) return "Due today";
+
+  const parsed = new Date(`${dateKey}T12:00:00`);
+  if (!Number.isFinite(parsed.getTime())) return "Deadline set";
+  return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }

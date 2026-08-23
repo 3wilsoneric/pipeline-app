@@ -1,56 +1,56 @@
 import type { Referral } from "./referral-types";
 
 export type WorkspaceAdmissionOutcome = {
-  status: "admitted" | "not_admitted" | "pending" | "unknown";
-  label: "Admitted" | "Not admitted" | "Pending" | "Outcome not recorded";
-  evidence: "recorded" | "client_history" | "open" | "unknown";
+  status: "admitted" | "accepted" | "denied" | "pending" | "unmatched";
+  label: "Admitted" | "Accepted" | "Denied" | "In progress" | "No admission match";
+  evidence: "recorded" | "census_match" | "no_census_match" | "open";
   explanation: string;
 };
 
 const hiddenWorkspaceTags = new Set(["historical"]);
 
 export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmissionOutcome {
-  if (referral.admissionDecision?.outcome === "accepted" || referral.stage === "Accepted / Admitted") {
+  if (referral.admissionDate?.trim()) {
     return {
       status: "admitted",
       label: "Admitted",
-      evidence: "recorded",
-      explanation: "The workspace has a recorded accepted or admitted outcome.",
+      evidence: "census_match",
+      explanation: "The workspace matches a client with a governed admission record.",
     };
   }
 
-  if (referral.admissionDecision?.outcome === "declined" || referral.stage === "Declined") {
+  if (referral.admissionDecision?.outcome === "declined") {
     return {
-      status: "not_admitted",
-      label: "Not admitted",
+      status: "denied",
+      label: "Denied",
       evidence: "recorded",
       explanation: "The workspace has a recorded declined outcome.",
     };
   }
 
-  if (referral.admissionDate?.trim()) {
+  if (referral.admissionDecision?.outcome === "accepted") {
     return {
-      status: "admitted",
-      label: "Admitted",
-      evidence: "client_history",
-      explanation: "The linked client has a recorded admission date in the governed client history.",
+      status: "accepted",
+      label: "Accepted",
+      evidence: "recorded",
+      explanation: "The workspace has a recorded accepted decision but no governed admission match yet.",
     };
   }
 
   if (referral.workspaceStatus === "historical") {
     return {
-      status: "unknown",
-      label: "Outcome not recorded",
-      evidence: "unknown",
-      explanation: "The imported workspace has no explicit decision and is not linked to recorded admission history.",
+      status: "unmatched",
+      label: "No admission match",
+      evidence: "no_census_match",
+      explanation: "No governed admission record has been matched to this imported workspace. This does not mean the referral was denied.",
     };
   }
 
   return {
     status: "pending",
-    label: "Pending",
+    label: "In progress",
     evidence: "open",
-    explanation: "No admission decision has been recorded yet.",
+    explanation: "The referral is open and has no recorded decision or governed admission match yet.",
   };
 }
 

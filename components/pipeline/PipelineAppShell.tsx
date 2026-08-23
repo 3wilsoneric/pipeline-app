@@ -20,7 +20,7 @@ export default function PipelineAppShell({
         <Suspense fallback={<div aria-hidden="true" className="h-[82px] shrink-0 bg-white" />}>
           <PipelineHeader />
         </Suspense>
-        <main className="min-h-0 flex-1 overflow-hidden pt-10 lg:pt-0">{children}</main>
+        <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
       </div>
     </PipelineShellProvider>
   );

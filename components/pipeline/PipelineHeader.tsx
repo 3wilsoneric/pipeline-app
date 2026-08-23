@@ -90,7 +90,7 @@ export default function PipelineHeader() {
   };
 
   return (
-    <header className="relative flex h-[82px] shrink-0 items-center overflow-visible bg-white px-4 sm:px-6 lg:px-8">
+    <header className="relative flex h-[82px] shrink-0 items-center overflow-visible bg-white px-4 max-[359px]:px-2 sm:px-6 lg:px-8">
       <div className="relative z-10 flex shrink-0 items-center">
         <div
           role={isWelcomeSurface ? "img" : undefined}
@@ -119,13 +119,13 @@ export default function PipelineHeader() {
           title="Pipeline home"
           data-pipeline-home="true"
           data-platform-page-active="pipeline"
-          className="flex h-12 w-[72px] items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
+          className="flex h-12 w-[72px] items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] max-[359px]:w-14"
         >
           <PipelineLogoMark size={32} />
         </button>
       </div>
 
-      <div className="pipeline-nav-dock-enter ml-3 min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-3 sm:ml-6">
+      <div className="pipeline-nav-dock-enter ml-3 min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-3 max-[359px]:ml-1 sm:ml-6">
         <div className="pointer-events-auto w-max">
           <PipelineActionNav
             active={activeNav}
@@ -146,7 +146,7 @@ export default function PipelineHeader() {
             title={user ? `${user.name} · ${user.email}` : signedInName}
             data-profile-scope="signed-in-user"
             onClick={() => setIsProfileMenuOpen((open) => !open)}
-            className="flex h-12 max-w-[190px] shrink-0 items-center gap-2 rounded-md border border-transparent px-3 text-[#595959] outline-none transition-colors hover:bg-[#f7faf9] hover:text-[#111111] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 aria-expanded:border-[#b8dacf] aria-expanded:bg-[#effaf5]"
+            className="flex h-12 max-w-[190px] shrink-0 items-center gap-2 rounded-md border border-transparent px-3 text-[#595959] outline-none transition-colors hover:bg-[#f7faf9] hover:text-[#111111] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 aria-expanded:border-[#b8dacf] aria-expanded:bg-[#effaf5] max-[359px]:h-9 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0"
           >
             <UserRound size={18} strokeWidth={1.8} className="shrink-0 text-[#0f8b73]" />
             <span className="hidden truncate text-[12px] font-black uppercase tracking-[0.1em] xl:inline">{signedInName}</span>
@@ -157,7 +157,7 @@ export default function PipelineHeader() {
               role="dialog"
               aria-label="Profile menu"
               data-profile-menu="true"
-              className="absolute right-0 top-[calc(100%+8px)] z-50 w-[304px] overflow-hidden rounded-sm border border-[#cfcfcf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_10px_24px_rgba(17,17,17,0.12)]"
+              className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(304px,calc(100vw-2rem))] overflow-hidden rounded-sm border border-[#cfcfcf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_10px_24px_rgba(17,17,17,0.12)]"
             >
               <div className="flex min-h-[78px] items-center gap-3 px-4 py-3.5">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-[#b8dacf] bg-[#f4faf7] text-[#0f8b73]">

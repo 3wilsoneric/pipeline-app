@@ -26,16 +26,27 @@ const kindLabels: Record<PipelineCalendarEventKind, string> = {
 
 export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void }) {
   const [view, setView] = useState<CalendarView>("month");
+  const [compactViewport, setCompactViewport] = useState(false);
   const [anchor, setAnchor] = useState(todayKey);
   const [community, setCommunity] = useState("");
   const [owner, setOwner] = useState("");
   const [kind, setKind] = useState<PipelineCalendarEventKind | "">("");
-  const range = useMemo(() => calendarRange(view, anchor), [anchor, view]);
+  const displayView: CalendarView = compactViewport ? "agenda" : view;
+  const rangeView: CalendarView = compactViewport ? "month" : view;
+  const range = useMemo(() => calendarRange(rangeView, anchor), [anchor, rangeView]);
   const requestKey = `${range.from}:${range.to}`;
   const [result, setResult] = useState<{ key: string; events: PipelineCalendarEvent[]; error: string }>({ key: "", events: [], error: "" });
   const loading = result.key !== requestKey;
   const events = loading ? emptyEvents : result.events;
   const error = loading ? "" : result.error;
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const syncViewport = () => setCompactViewport(media.matches);
+    syncViewport();
+    media.addEventListener("change", syncViewport);
+    return () => media.removeEventListener("change", syncViewport);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,16 +82,16 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
       <div className="mx-auto w-full max-w-[1480px]">
         <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] py-2">
           <div className="flex min-w-0 items-center gap-2">
-            <button type="button" aria-label="Previous calendar range" onClick={() => setAnchor(shiftAnchor(view, anchor, -1))} className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d9d9d9] text-[#595959] hover:border-[#0f8b73] hover:text-[#0f8b73]"><ChevronLeft size={17} /></button>
-            <button type="button" aria-label="Next calendar range" onClick={() => setAnchor(shiftAnchor(view, anchor, 1))} className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d9d9d9] text-[#595959] hover:border-[#0f8b73] hover:text-[#0f8b73]"><ChevronRight size={17} /></button>
-            <h1 className="ml-1 truncate text-[18px] font-black text-[#111111] sm:text-[20px]">{rangeLabel(view, range)}</h1>
+            <button type="button" aria-label="Previous calendar range" onClick={() => setAnchor(shiftAnchor(rangeView, anchor, -1))} className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d9d9d9] text-[#595959] hover:border-[#0f8b73] hover:text-[#0f8b73]"><ChevronLeft size={17} /></button>
+            <button type="button" aria-label="Next calendar range" onClick={() => setAnchor(shiftAnchor(rangeView, anchor, 1))} className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d9d9d9] text-[#595959] hover:border-[#0f8b73] hover:text-[#0f8b73]"><ChevronRight size={17} /></button>
+            <h1 className="ml-1 truncate text-[17px] font-black text-[#111111] sm:text-[20px]">{rangeLabel(rangeView, range)}</h1>
             <button type="button" onClick={() => setAnchor(todayKey())} className="ml-1 h-9 border border-[#111111] px-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#111111] hover:bg-[#111111] hover:text-white">Today</button>
           </div>
           <div className="flex items-center gap-3">
             <span role="status" aria-live="polite" className="hidden text-[10px] text-[#737373] sm:inline">{loading ? "Loading calendar events..." : `${visibleEvents.length} event${visibleEvents.length === 1 ? "" : "s"}`}</span>
             <div role="group" aria-label="Calendar view" className="flex border border-[#d9d9d9]">
               {(["month", "week", "agenda"] as const).map((option) => (
-                <button key={option} type="button" aria-pressed={view === option} onClick={() => setView(option)} className={`h-9 px-3 text-[10px] font-black uppercase tracking-[0.06em] ${view === option ? "bg-[#111111] text-white" : "bg-white text-[#595959] hover:text-[#111111]"}`}>{option}</button>
+                <button key={option} type="button" aria-pressed={displayView === option} onClick={() => setView(option)} className={`${option === "agenda" ? "" : "hidden md:block"} h-9 px-3 text-[10px] font-black uppercase tracking-[0.06em] ${displayView === option ? "bg-[#111111] text-white" : "bg-white text-[#595959] hover:text-[#111111]"}`}>{option}</button>
               ))}
             </div>
           </div>

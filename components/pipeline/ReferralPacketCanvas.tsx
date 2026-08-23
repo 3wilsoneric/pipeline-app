@@ -1535,7 +1535,18 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
         <div className="sticky top-0 z-20 mb-1 bg-white/95 backdrop-blur-sm">
           <h1 className="sr-only">Referral workspace</h1>
           <div className="flex items-center gap-3 border-b border-[#d9d9d9]">
-            <nav aria-label="Referral workspace steps" className="flex min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3">
+            <label className="min-w-0 flex-1 lg:hidden">
+              <span className="sr-only">Referral workspace step</span>
+              <select
+                aria-label="Referral workspace step"
+                value={activePage}
+                onChange={(event) => openPage(Number(event.target.value) as 1 | 2 | 3 | 4 | 5)}
+                className="h-11 w-full border-0 border-b-2 border-[#0f8b73] bg-white px-2 text-[12px] font-black text-[#111111] outline-none"
+              >
+                {packetSteps.map(({ page, label }) => <option key={page} value={page}>{`0${page} ${label}`}</option>)}
+              </select>
+            </label>
+            <nav aria-label="Referral workspace steps" className="hidden min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3 lg:flex">
               {packetSteps.map(({ page, label }) => (
                 <button
                   key={page}
@@ -1563,10 +1574,11 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
                 type="button"
                 onClick={saveDraft}
                 disabled={isSaving || uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length)}
-                className="flex h-9 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8]"
+                className="flex h-9 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8] sm:px-4"
               >
                 <Save size={15} />
-                {isSaving ? "Saving..." : loadedReferral || referral?.id ? "Save workspace" : "Create workspace"}
+                <span className="hidden sm:inline">{isSaving ? "Saving..." : loadedReferral || referral?.id ? "Save workspace" : "Create workspace"}</span>
+                <span className="sm:hidden">{isSaving ? "Saving" : loadedReferral || referral?.id ? "Save" : "Create"}</span>
               </button>
               {loadedReferral ? (
                 <button

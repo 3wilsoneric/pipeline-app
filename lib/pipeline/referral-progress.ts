@@ -72,7 +72,7 @@ export function getReferralProgress(referral: Referral, context: WorkflowContext
         (decision?.outcome ?? legacyOutcome(referral)) === "declined",
       ),
     ]),
-    requirementsSection(context.requirements ?? referral.requirements ?? [], referral, decision),
+    requirementsSection(context.requirements ?? referral.requirements ?? [], decision, assessmentComplete),
   ];
 
   const allItems = sections.flatMap((current) => current.items);
@@ -85,7 +85,7 @@ export function getReferralProgress(referral: Referral, context: WorkflowContext
   const waiting = ["received", "normalizing", "extracting"].includes(referral.packetStatus ?? "");
   return {
     referral_id: referral.id,
-    phase: getPhase(referral),
+    phase: getPhase(referral, context, assessmentComplete, decision),
     overall: {
       complete,
       total: allItems.length,
@@ -108,8 +108,8 @@ function getNextAction(
   decision: Referral["admissionDecision"],
   blockers: string[],
 ) {
-  if (referral.stage === "Declined") return null;
-  if (referral.stage === "Accepted / Admitted") return blockers[0] ?? null;
+  if (decision?.outcome === "declined") return null;
+  if (decision?.outcome === "accepted") return blockers[0] ?? null;
   if (isUnassignedOwner(referral.owner)) return "Assign an owner";
   if (!hasManualIntakeAuthorization(referral)) {
     if (referral.documentStatus === "Missing" && !hasValue(referral.documentName)) return "Upload the initial packet";
@@ -133,10 +133,6 @@ function getNextAction(
       : "Complete the assessment";
   }
   if (!decision && (referral.assessment?.postAssessment.decision ?? "pending") === "pending") return "Record the admission decision";
-  if (decision?.outcome === "accepted" && referral.stage === "Community Review" && blockers.length === 0) {
-    return "Finalize acceptance";
-  }
-
   return blockers[0] ?? null;
 }
 
@@ -225,8 +221,8 @@ function assessmentSection(
 
 function requirementsSection(
   requirements: AdmissionRequirement[],
-  referral: Referral,
   decision: Referral["admissionDecision"],
+  assessmentComplete: boolean,
 ): ReferralProgressSection {
   const items = requirements.length > 0
     ? requirements.map((requirement) => {
@@ -235,7 +231,7 @@ function requirementsSection(
           `requirement:${requirement.id}`,
           requirement.label,
           complete,
-          requirement.blocker && isRequirementGateActive(requirement, referral, decision),
+          requirement.blocker && isRequirementGateActive(requirement, decision, assessmentComplete),
           requirement.status === "expired" ? "Evidence expired" : requirement.nextStep,
         );
       })
@@ -246,20 +242,19 @@ function requirementsSection(
 
 function isRequirementGateActive(
   requirement: AdmissionRequirement,
-  referral: Referral,
   decision: Referral["admissionDecision"],
+  assessmentComplete: boolean,
 ) {
   if (requirement.requiredFor === "pre_assessment") {
-    return !["Community Review", "Accepted / Admitted", "Declined"].includes(referral.stage);
+    return !assessmentComplete && !decision;
   }
   if (requirement.requiredFor === "admission_decision") {
-    return referral.stage === "Community Review" && !decision;
+    return assessmentComplete && !decision;
   }
   if (requirement.requiredFor === "move_in") {
-    return referral.stage === "Accepted / Admitted"
-      || (referral.stage === "Community Review" && decision?.outcome === "accepted");
+    return decision?.outcome === "accepted";
   }
-  return referral.stage === "Accepted / Admitted";
+  return decision?.outcome === "accepted";
 }
 
 function section(key: string, label: string, items: ReferralProgressItem[]): ReferralProgressSection {
@@ -304,9 +299,19 @@ function isRequirementComplete(requirement: AdmissionRequirement) {
   return ["received", "reviewed", "waived"].includes(requirement.status);
 }
 
-function getPhase(referral: Referral): ReferralProgressPhase {
-  if (referral.stage === "Assessment") return "assessment";
-  if (["Community Review", "Accepted / Admitted", "Declined"].includes(referral.stage)) return "post";
+function getPhase(
+  referral: Referral,
+  context: WorkflowContext,
+  assessmentComplete: boolean,
+  decision: Referral["admissionDecision"],
+): ReferralProgressPhase {
+  if (decision || assessmentComplete) return "post";
+  if (
+    (context.assessmentExists ?? Boolean(referral.assessment))
+    || referral.packetStatus === "reviewed"
+    || referral.packetReadiness?.ready === true
+    || hasManualIntakeAuthorization(referral)
+  ) return "assessment";
   return "pre";
 }
 

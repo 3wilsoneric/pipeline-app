@@ -699,8 +699,8 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
 
   return (
     <section aria-label="Assessment workspace" className="border border-[#d6ddd9] bg-white">
-      <div className="grid grid-cols-3 gap-px bg-[#d9dfdb] lg:grid-cols-[minmax(0,1fr)_190px_190px_190px]">
-        <div className="col-span-3 bg-white px-5 py-4 lg:col-span-1">
+      <div className="grid grid-cols-2 gap-px bg-[#d9dfdb] sm:grid-cols-3 lg:grid-cols-[minmax(0,1fr)_190px_190px_190px]">
+        <div className="col-span-2 bg-white px-4 py-4 sm:col-span-3 sm:px-5 lg:col-span-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-[18px] font-black">Assessment</h2>
             <StatusLabel status={selected.status} />
@@ -722,7 +722,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
           id="assessment-history"
           value={selectedId}
           onChange={(event) => setSelectedId(event.target.value)}
-          className="h-9 min-w-[210px] border border-[#c9ceca] bg-white px-3 text-[12px] font-semibold outline-none focus:border-[#0f8b73]"
+          className="h-9 min-w-0 flex-1 border border-[#c9ceca] bg-white px-3 text-[12px] font-semibold outline-none focus:border-[#0f8b73] sm:min-w-[210px] sm:flex-none"
         >
           {assessments.map((assessment, index) => (
             <option key={assessment.assessment_id} value={assessment.assessment_id}>
@@ -731,7 +731,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
           ))}
         </select>
         <button type="button" onClick={startAssessment} disabled={isBusy} className="h-9 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">New assessment</button>
-        <span className="ml-1 flex items-center gap-2">
+        <span className="flex min-w-0 flex-1 items-center gap-2 sm:ml-1 sm:flex-none">
           <UserRound size={14} className="text-[#0f8b73]" aria-hidden="true" />
           <label htmlFor="assessment-assessor" className="sr-only">Assigned assessor</label>
           <select
@@ -741,7 +741,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
             onChange={(event) => void assignAssessor(event.target.value)}
             disabled={isBusy || selected.status === "complete"}
             title={selected.status === "complete" ? "Reopen this assessment before changing its assessor." : "Assign the staff member responsible for this assessment."}
-            className="h-9 min-w-[190px] border border-[#c9ceca] bg-white px-3 text-[11px] font-black outline-none focus:border-[#0f8b73] disabled:bg-[#f4f6f5] disabled:text-[#737373]"
+            className="h-9 min-w-0 flex-1 border border-[#c9ceca] bg-white px-3 text-[11px] font-black outline-none focus:border-[#0f8b73] disabled:bg-[#f4f6f5] disabled:text-[#737373] sm:min-w-[190px]"
           >
             <option value="">Unassigned</option>
             {selected.assessor_id && !assessmentMembers.some((member) => member.principal_id === selected.assessor_id) ? (

@@ -86,8 +86,14 @@ export default function ReferralActionWorklist({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <div className="min-w-[1120px]">
+        <>
+          <div className="divide-y divide-[#e2e2e2] xl:hidden">
+            {items.map((item) => (
+              <CompactWorklistRow key={item.referral_id} item={item} onOpenPacket={onOpenPacket} />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto xl:block">
+            <div className="min-w-[1120px]">
             <div className="grid grid-cols-[minmax(190px,1fr)_minmax(240px,1.25fr)_minmax(190px,1fr)_125px_105px_110px_100px_36px] items-center border-b border-[#d9d9d9] bg-[#fafafa] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">
               <span>Client</span>
               <span>Next action</span>
@@ -103,10 +109,76 @@ export default function ReferralActionWorklist({
                 <WorklistRow key={item.referral_id} item={item} onOpenPacket={onOpenPacket} />
               ))}
             </div>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </section>
+  );
+}
+
+function CompactWorklistRow({
+  item,
+  onOpenPacket,
+}: {
+  item: ReferralWorklistItem;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenPacket({ id: item.referral_id, name: item.client_name, community: item.community })}
+      aria-label={`Open ${item.client_name} referral workspace`}
+      className="block w-full px-3 py-4 text-left transition-colors hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:px-4"
+    >
+      <span className="flex min-w-0 items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block truncate text-[13px] font-black text-[#111111]">{item.client_name}</span>
+          <span className="mt-1 block truncate text-[10px] text-[#737373]">{item.community}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className={categoryClass(item.primary_category)}>{referralWorklistCategoryLabel(item.primary_category)}</span>
+          <ArrowRight size={15} className="text-[#0f8b73]" />
+        </span>
+      </span>
+
+      <span className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1.25fr)_minmax(180px,0.75fr)] sm:items-end">
+        <span className="min-w-0">
+          <span className="flex items-start gap-2 text-[11px] font-black text-[#111111]">
+            {item.urgency !== "normal" ? <CircleAlert size={13} className={`mt-0.5 shrink-0 ${urgencyText(item.urgency)}`} /> : null}
+            <span className="line-clamp-2">{item.next_action}</span>
+          </span>
+          <span className={`mt-1 block line-clamp-2 text-[9px] font-semibold ${item.blockers.length > 0 ? "text-[#a4473c]" : "text-[#737373]"}`}>
+            {needsSummary(item)}
+          </span>
+        </span>
+
+        <span>
+          <span className="flex items-center justify-between gap-3 text-[10px]">
+            <span className="font-black text-[#111111]">Complete</span>
+            <span className="text-[#737373]">{item.completion_pct}%</span>
+          </span>
+          <span className="mt-1.5 block h-1.5 bg-[#e5e9e6]">
+            <span className="block h-full bg-[#0f8b73]" style={{ width: `${item.completion_pct}%` }} />
+          </span>
+        </span>
+      </span>
+
+      <span className="mt-3 grid grid-cols-3 gap-3 border-t border-[#ececec] pt-2.5 text-[9px] text-[#737373]">
+        <span className="min-w-0">
+          <span className="block uppercase tracking-[0.06em]">Owner</span>
+          <span className={`mt-1 block truncate text-[10px] font-semibold ${item.owner === "Unassigned" ? "text-[#a4473c]" : "text-[#404040]"}`}>{item.owner}</span>
+        </span>
+        <span>
+          <span className="block uppercase tracking-[0.06em]">Due</span>
+          <span className="mt-1 block text-[10px] font-semibold text-[#404040]">{dueOrAge(item)}</span>
+        </span>
+        <span>
+          <span className="block uppercase tracking-[0.06em]">Activity</span>
+          <span className="mt-1 block text-[10px] font-semibold text-[#404040]">{lastActivity(item.last_activity_at, item.age_hours)}</span>
+        </span>
+      </span>
+    </button>
   );
 }
 
@@ -126,7 +198,7 @@ function WorklistRow({
     >
       <span className="min-w-0 pr-4">
         <span className="block truncate text-[12px] font-black text-[#111111]">{item.client_name}</span>
-        <span className="mt-1 block truncate text-[10px] text-[#737373]">{item.community} · {item.stage}</span>
+        <span className="mt-1 block truncate text-[10px] text-[#737373]">{item.community}</span>
       </span>
 
       <span className="min-w-0 pr-4">

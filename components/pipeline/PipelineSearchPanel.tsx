@@ -241,11 +241,11 @@ export default function PipelineSearchPanel({
                 type="button"
                 onClick={() => runSuggestedSearch(suggestion)}
                 aria-label={suggestion.prompt}
-                className={`group flex min-h-[58px] w-full items-center gap-4 px-5 py-3 text-left hover:bg-[#f7faf9] md:px-6 ${
+                className={`group flex min-h-[58px] w-full items-center gap-3 px-3 py-3 text-left hover:bg-[#f7faf9] sm:gap-4 sm:px-5 md:px-6 ${
                   selectedSuggestion === suggestion.id ? "border-l-[3px] border-[#0f8b73] pl-[17px]" : "border-l-[3px] border-transparent"
                 }`}
               >
-                <span className="w-[112px] shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#737373] group-hover:text-[#0f8b73]">
+                <span className="w-[82px] shrink-0 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373] group-hover:text-[#0f8b73] sm:w-[112px] sm:text-[10px] sm:tracking-[0.14em]">
                   {suggestion.category}
                 </span>
                 <span className="min-w-0 flex-1 text-[14px] font-semibold text-[#111111] md:text-[15px]">
@@ -327,7 +327,7 @@ function SearchResponse({
           <SearchResultRow
             key={`referral-${referral.id}`}
             title={referral.name}
-            detail={`${referral.community} · ${referral.stage}`}
+            detail={referral.community}
             kind="Referral"
             ariaLabel={`Open referral for ${referral.name}`}
             onClick={() => onOpenPacket(referral)}

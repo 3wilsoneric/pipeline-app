@@ -4,7 +4,6 @@ import { ArrowRight, CircleAlert } from "lucide-react";
 
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import { getReferralProgress, type ReferralProgress, type ReferralProgressPhase } from "@/lib/pipeline/referral-progress";
-import { getStageLabel } from "@/lib/pipeline/referral-workflow";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 type WorkflowRow = {
@@ -13,9 +12,9 @@ type WorkflowRow = {
 };
 
 const phases: Array<{ key: ReferralProgressPhase; label: string }> = [
-  { key: "pre", label: "Pre" },
+  { key: "pre", label: "Intake" },
   { key: "assessment", label: "Assessment" },
-  { key: "post", label: "Post" },
+  { key: "post", label: "Decision & follow-up" },
 ];
 
 export default function ReferralWorkflowTracker({
@@ -110,7 +109,7 @@ function WorkflowCard({
 
       <span className="mt-3 flex items-center justify-between gap-3">
         <span className="truncate text-[9px] font-black uppercase tracking-[0.05em] text-[#404040]">
-          {getStageLabel(referral.stage)}
+          {progress.overall.complete} of {progress.overall.total} data items complete
         </span>
         <span className="shrink-0 text-[9px] font-black tabular-nums text-[#0c705f]">
           {progress.overall.percent}%

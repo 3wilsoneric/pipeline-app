@@ -30,7 +30,6 @@ export function cloudManifest(localManifest, containerName) {
       project_name: workspace.project_name,
       community: workspace.community,
       display_name: workspace.display_name,
-      historical_stage: workspace.historical_stage,
       primary_owner: workspace.primary_owner,
       owner_candidates: workspace.owner_candidates,
       profile_candidates: workspace.profile_candidates,
@@ -117,9 +116,6 @@ function validateWorkspace(workspace) {
   }
   if (!Number.isSafeInteger(workspace.material_count) || workspace.material_count < workspace.files.length) {
     throw new Error("workspace_material_count_invalid");
-  }
-  if (!new Set(["Packet Review", "Accepted / Admitted", "Declined"]).has(workspace.historical_stage)) {
-    throw new Error("workspace_stage_invalid");
   }
 }
 

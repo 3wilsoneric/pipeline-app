@@ -57,7 +57,6 @@ for (const row of inventoryRows) {
     project_name: value(row.project_name),
     community: communityFor(value(row.project_name)),
     display_name: displayNameFor(canvasName, profilesByName),
-    historical_stage: historicalStageFor(canvasName),
     owner_candidates: ownerCandidates(ownersByCanvas.get(normalize(canvasName)) ?? []),
     profile_candidates: profileCandidates(canvasName, profilesByName),
     files: [],
@@ -162,13 +161,6 @@ function displayNameFor(canvasName, index) {
     .replace(/\s+/g, " ")
     .trim();
   return cleaned || canvasName.trim();
-}
-
-function historicalStageFor(canvasName) {
-  const statusText = normalize(canvasName);
-  if (/\b(rejected|declined|not accepted)\b/.test(statusText)) return "Declined";
-  if (/\b(accepted|admitted)\b/.test(statusText)) return "Accepted / Admitted";
-  return "Packet Review";
 }
 
 function categoryFor(fileName, sourceCategory) {

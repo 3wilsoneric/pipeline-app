@@ -18,9 +18,9 @@ import {
   Users,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { pipelineCommunities } from "@/lib/pipeline/community-config";
-import { boardStages, getStageLabel, type ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
@@ -44,7 +44,6 @@ type ReferralFilter =
   | { kind: "files" }
   | { kind: "community"; value: string }
   | { kind: "month"; value: string }
-  | { kind: "stage"; value: ReferralStage }
   | { kind: "owner"; value: string }
   | { kind: "priority"; value: Referral["priority"] }
   | { kind: "tag"; value: string };
@@ -107,7 +106,7 @@ export default function ReferralHome({
   const [importItems, setImportItems] = useState<ClientFileImportReviewItem[] | null>(null);
   const [importTotal, setImportTotal] = useState(0);
   const [reviewItem, setReviewItem] = useState<ClientFileImportReviewItem | null>(null);
-  const [filter, setFilter] = useState<ReferralFilter>({ kind: "workflow" });
+  const [filter, setFilter] = useState<ReferralFilter>({ kind: "all" });
   const [sort, setSort] = useState<ReferralSort>("updated_desc");
   const [workflowTotal, setWorkflowTotal] = useState(0);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
@@ -210,6 +209,20 @@ export default function ReferralHome({
     void loadReferrals(controller.signal);
     return () => controller.abort();
   }, [loadReferrals]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const params = new URLSearchParams({ active: "true", limit: "1", sort: "updated_desc" });
+    fetchPipelineJson<{ total?: number }>(`/api/referrals?${params}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    }).then((payload) => {
+      if (typeof payload.total === "number") setWorkflowTotal(payload.total);
+    }).catch(() => {
+      // Keep the last known count; opening Current work retries through the normal list request.
+    });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (filter.kind !== "workflow") return;
@@ -373,9 +386,14 @@ export default function ReferralHome({
         : `${referralTotal} workspace${referralTotal === 1 ? "" : "s"}`;
 
   const refreshLabel = lastRefreshedAt === null ? "" : formatRefreshAge(lastRefreshedAt);
+  const sidebarCommunities = pipelineCommunities
+    .map((community) => ({
+      name: community,
+      count: facets.communities.find((entry) => entry.value === community)?.count ?? 0,
+    }));
 
   const workspaceSearch = (
-    <div className="flex h-10 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73]">
+    <div className="flex h-11 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73] xl:h-10">
       <Search size={16} className="shrink-0 text-[#0f8b73]" />
       <label htmlFor="workspace-directory-search" className="sr-only">{filter.kind === "files" ? "Search all uploaded files" : "Search all workspaces"}</label>
       <input
@@ -421,21 +439,12 @@ export default function ReferralHome({
   );
 
   const filterToolbar = (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-1.5">
-      <select
-        aria-label="Filter by stage"
-        value={filter.kind === "stage" ? filter.value : ""}
-        onChange={(event) => setFilter(event.target.value ? { kind: "stage", value: event.target.value as ReferralStage } : { kind: "all" })}
-        className="h-9 w-[145px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
-      >
-        <option value="">All stages</option>
-        {boardStages.map((stage) => <option key={stage} value={stage}>{getStageLabel(stage)}</option>)}
-      </select>
+    <div className="flex snap-x snap-mandatory flex-nowrap items-center gap-2 overflow-x-auto px-2 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <select
         aria-label="Filter workspaces by community"
         value={filter.kind === "community" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "community", value: event.target.value } : { kind: "all" })}
-        className="h-9 w-[150px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-10 w-[150px] shrink-0 snap-start border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73] xl:h-9"
       >
         <option value="">All communities</option>
         {facets.communities.map((community) => <option key={community.value} value={community.value}>{community.value}</option>)}
@@ -444,7 +453,7 @@ export default function ReferralHome({
         aria-label="Filter by owner"
         value={filter.kind === "owner" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "owner", value: event.target.value } : { kind: "all" })}
-        className="h-9 w-[150px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-10 w-[150px] shrink-0 snap-start border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73] xl:h-9"
       >
         <option value="">All owners</option>
         {ownerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
@@ -453,7 +462,7 @@ export default function ReferralHome({
         aria-label="Filter by priority"
         value={filter.kind === "priority" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "priority", value: event.target.value as Referral["priority"] } : { kind: "all" })}
-        className="h-9 w-[125px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-10 w-[125px] shrink-0 snap-start border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73] xl:h-9"
       >
         <option value="">All priorities</option>
         <option value="urgent">Urgent</option>
@@ -464,7 +473,7 @@ export default function ReferralHome({
         aria-label="Filter by creation month"
         value={filter.kind === "month" ? filter.value : ""}
         onChange={(event) => setFilter(event.target.value ? { kind: "month", value: event.target.value } : { kind: "all" })}
-        className="h-9 w-[175px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+        className="h-10 w-[175px] shrink-0 snap-start border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73] xl:h-9"
       >
         <option value="">All creation months</option>
         {monthOptions.map((month) => (
@@ -478,7 +487,7 @@ export default function ReferralHome({
           aria-label="Filter by tag"
           value={filter.kind === "tag" ? filter.value : ""}
           onChange={(event) => setFilter(event.target.value ? { kind: "tag", value: event.target.value } : { kind: "all" })}
-          className="h-9 w-[135px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73]"
+          className="h-10 w-[135px] shrink-0 snap-start border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73] xl:h-9"
         >
           <option value="">All tags</option>
           {tagOptions.map((tag) => <option key={tag} value={tag}>#{tag}</option>)}
@@ -489,7 +498,7 @@ export default function ReferralHome({
         aria-label="Sort workspaces"
         value={sort}
         onChange={(event) => setSort(event.target.value as ReferralSort)}
-        className="h-9 w-[176px] shrink-0 border-0 border-b border-[#88b8aa] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#0c705f] outline-none focus:border-[#0f8b73]"
+        className="h-10 w-[176px] shrink-0 snap-start border-0 border-b border-[#88b8aa] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#0c705f] outline-none focus:border-[#0f8b73] xl:h-9"
       >
         <option value="updated_desc">Recently updated</option>
         <option value="created_desc">Newest created</option>
@@ -553,7 +562,7 @@ export default function ReferralHome({
 
   return (
     <main aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
-      <div className="w-full px-5 pb-8 pt-0 md:px-8 lg:px-10">
+      <div className="w-full px-4 pb-8 pt-0 sm:px-5 md:px-6 lg:px-8 xl:px-10">
         <h1 className="sr-only">Referral workspaces</h1>
         <div className="min-w-0">
           {workspaceSearch}
@@ -567,89 +576,76 @@ export default function ReferralHome({
             </div>
           ) : null}
         </div>
-        <div className="grid gap-2 md:grid-cols-[168px_minmax(0,1fr)] md:gap-4 lg:grid-cols-[184px_minmax(0,1fr)]">
-          <aside className="min-w-0 bg-white pt-0 md:sticky md:top-0 md:self-start">
-            <div className="flex gap-1 overflow-x-auto border-b border-[#d9d9d9] pb-2 md:block md:border-b-0 md:pb-0">
-            <button
-              type="button"
-              aria-label="Referral workflow"
-              onClick={() => setFilter({ kind: "workflow" })}
-              className={`flex h-9 shrink-0 items-center gap-2 border-b-2 px-3 text-left text-[12px] font-black tracking-[0.01em] md:w-full md:border-b-0 md:border-l-[3px] ${
-                filter.kind === "workflow" ? "border-[#0f8b73] bg-white text-[#111111] md:pl-[9px]" : "border-transparent text-[#595959] hover:bg-[#fafafa]"
-              }`}
+        <div className="grid gap-3 xl:grid-cols-[184px_minmax(0,1fr)] xl:gap-4">
+          <aside aria-label="Workspace navigation" className="min-w-0 bg-white pt-0 xl:sticky xl:top-0 xl:self-start">
+            <nav
+              aria-label="Workspace views"
+              className="grid grid-cols-2 gap-2 pb-2 sm:grid-cols-4 xl:block xl:space-y-1 xl:pb-0"
             >
-              <ListChecks size={15} />
-              Board
-              <span className="ml-2 text-[11px] md:ml-auto">{workflowTotal}</span>
-            </button>
-            <button
-              type="button"
-              aria-label="Needs action"
-              onClick={() => setFilter({ kind: "work", value: "all_actionable" })}
-              className={`flex h-9 shrink-0 items-center gap-2 border-b-2 px-3 text-left text-[12px] font-black tracking-[0.01em] md:mt-1 md:w-full md:border-b-0 md:border-l-[3px] ${
-                filter.kind === "work" ? "border-[#0f8b73] bg-white text-[#111111] md:pl-[9px]" : "border-transparent text-[#595959] hover:bg-[#fafafa]"
-              }`}
-            >
-              <CircleAlert size={15} />
-              Needs action
-              {worklist ? <span className="ml-2 text-[11px] md:ml-auto">{worklist.total}</span> : null}
-            </button>
-            <button
-              type="button"
-              aria-label="All workspaces"
-              onClick={() => setFilter({ kind: "all" })}
-              className={`flex h-9 shrink-0 items-center gap-2 border-b-2 px-3 text-left text-[12px] font-black tracking-[0.01em] md:mt-1 md:w-full md:border-b-0 md:border-l-[3px] ${
-                filter.kind === "all" ? "border-[#0f8b73] bg-white text-[#111111] md:pl-[9px]" : "border-transparent text-[#595959] hover:bg-[#fafafa]"
-              }`}
-            >
-              <FolderOpen size={15} />
-              All workspaces
-              <span className="ml-2 text-[11px] md:ml-auto">{allPacketTotal}</span>
-            </button>
-            <button
-              type="button"
-              aria-label="All files"
-              onClick={() => {
-                setFilePage(0);
-                setFiles(null);
-                setReviewIdentity(false);
-                setFilter({ kind: "files" });
-              }}
-              className={`flex h-9 shrink-0 items-center gap-2 border-b-2 px-3 text-left text-[12px] font-black tracking-[0.01em] md:mt-1 md:w-full md:border-b-0 md:border-l-[3px] ${
-                filter.kind === "files" ? "border-[#0f8b73] bg-white text-[#111111] md:pl-[9px]" : "border-transparent text-[#595959] hover:bg-[#fafafa]"
-              }`}
-            >
-              <Files size={15} />
-              All files
-              <span className="ml-2 text-[11px] md:ml-auto">{allFileTotal}</span>
-            </button>
-            </div>
+              <WorkspaceNavItem
+                icon={ListChecks}
+                label="Current work"
+                count={workflowTotal}
+                active={filter.kind === "workflow"}
+                onClick={() => setFilter({ kind: "workflow" })}
+              />
+              <WorkspaceNavItem
+                icon={CircleAlert}
+                label="Needs action"
+                count={worklist?.total}
+                active={filter.kind === "work"}
+                onClick={() => setFilter({ kind: "work", value: "all_actionable" })}
+              />
+              <WorkspaceNavItem
+                icon={FolderOpen}
+                label="All workspaces"
+                count={allPacketTotal}
+                active={filter.kind === "all" || ["community", "month", "owner", "priority", "tag"].includes(filter.kind)}
+                onClick={() => setFilter({ kind: "all" })}
+              />
+              <WorkspaceNavItem
+                icon={Files}
+                label="All files"
+                count={allFileTotal}
+                active={filter.kind === "files"}
+                onClick={() => {
+                  setFilePage(0);
+                  setFiles(null);
+                  setReviewIdentity(false);
+                  setFilter({ kind: "files" });
+                }}
+              />
+            </nav>
 
-            <div className="hidden md:block">
-            <div className="mt-5 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-[#0c705f]"><Users size={14} /> Community</div>
-            <div className="mt-2 space-y-0.5">
-              {pipelineCommunities.map((community) => {
-                const count = facets.communities.find((entry) => entry.value === community)?.count ?? 0;
-                return (
-                  <button
-                    key={community}
-                    type="button"
-                    aria-label={`Filter by community ${community}, ${count} workspace${count === 1 ? "" : "s"}`}
-                    onClick={() => setFilter({ kind: "community", value: community })}
-                    className={`flex min-h-8 w-full items-center justify-between px-3 text-left text-[12px] font-black tracking-[0.01em] ${
-                      filter.kind === "community" && filter.value === community
-                        ? "border-l-[3px] border-[#0f8b73] bg-white pl-[9px] font-black text-[#111111]"
-                        : "border-l-[3px] border-transparent text-[#595959] hover:bg-[#fafafa]"
-                    }`}
-                  >
-                    <span>{community}</span>
-                    <span className="text-[11px]">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            </div>
+            {sidebarCommunities.length > 0 ? (
+              <div className="mt-7 hidden xl:block">
+                <div className="flex items-center gap-2 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#0c705f]">
+                  <Users size={14} /> Community
+                </div>
+                <div className="mt-2 space-y-1">
+                  {sidebarCommunities.map(({ name, count }) => {
+                    const active = filter.kind === "community" && filter.value === name;
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        aria-label={`Filter by community ${name}, ${count} workspace${count === 1 ? "" : "s"}`}
+                        aria-current={active ? "page" : undefined}
+                        onClick={() => setFilter({ kind: "community", value: name })}
+                        className={`flex min-h-10 w-full items-center justify-between border px-3 text-left text-[12px] font-black tracking-[0.01em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] xl:min-h-9 ${
+                          active
+                            ? "border-[#9fcfc2] bg-[#effaf5] text-[#0c705f]"
+                            : "border-transparent text-[#595959] hover:border-[#e2e2e2] hover:bg-[#fafafa] hover:text-[#111111]"
+                        }`}
+                      >
+                        <span className="truncate">{name}</span>
+                        <span className="ml-3 shrink-0 text-[11px] tabular-nums">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </aside>
 
           <section className="min-w-0 border-b border-[#d9d9d9] bg-white">
@@ -857,6 +853,38 @@ export default function ReferralHome({
   );
 }
 
+function WorkspaceNavItem({
+  icon: Icon,
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+      onClick={onClick}
+      className={`flex h-11 min-w-0 items-center gap-2 border px-3 text-left text-[12px] font-black tracking-[0.01em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] max-[359px]:gap-1.5 max-[359px]:px-2 max-[359px]:text-[11px] xl:h-9 xl:w-full ${
+        active
+          ? "border-[#9fcfc2] bg-[#effaf5] text-[#0c705f]"
+          : "border-transparent text-[#595959] hover:border-[#e2e2e2] hover:bg-[#fafafa] hover:text-[#111111]"
+      }`}
+    >
+      <Icon size={16} className="shrink-0 max-[359px]:hidden" />
+      <span className="truncate">{label}</span>
+      {typeof count === "number" ? <span className="ml-auto hidden shrink-0 text-[11px] tabular-nums xl:inline">{count}</span> : null}
+    </button>
+  );
+}
+
 function ImportIdentityReviewDialog({
   item,
   onClose,
@@ -983,7 +1011,7 @@ function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {
   if (searchTerm.trim()) {
     return {
       title: "No workspaces match this search",
-      detail: "Try a different client, community, stage, owner, or file name.",
+      detail: "Try a different client, community, owner, or file name.",
     };
   }
 
@@ -997,12 +1025,6 @@ function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {
     return {
       title: `No workspaces from ${formatMonthKey(filter.value)}`,
       detail: "Choose another month or show all workspaces.",
-    };
-  }
-  if (filter.kind === "stage") {
-    return {
-      title: `No workspaces in ${getStageLabel(filter.value)}`,
-      detail: "Choose another stage or show all workspaces.",
     };
   }
   if (filter.kind === "owner") {
@@ -1079,7 +1101,6 @@ function buildReferralParams(
 
   if (filter.kind === "community") params.set("community", filter.value);
   if (filter.kind === "month") params.set("month", filter.value);
-  if (filter.kind === "stage") params.set("stage", filter.value);
   if (filter.kind === "owner") params.set("owner", filter.value);
   if (filter.kind === "priority") params.set("priority", filter.value);
   if (filter.kind === "tag") params.set("tag", filter.value);

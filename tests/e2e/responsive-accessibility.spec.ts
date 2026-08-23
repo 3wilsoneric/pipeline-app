@@ -11,7 +11,7 @@ test.describe("Responsive and accessible application shell", () => {
   test("keeps home and referral navigation usable without page overflow", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { name: "Welcome, Playwright." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Welcome(?: back)?, .+\.$/ })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
@@ -48,7 +48,16 @@ test.describe("Responsive and accessible application shell", () => {
   test("keeps packet steps operable at the configured viewport", async ({ page }) => {
     await page.goto("/?view=referrals&screen=packet");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("navigation", { name: "Referral workspace steps" })).toBeVisible();
+    const compactSteps = (page.viewportSize()?.width ?? 0) < 1024;
+    const stepNavigation = page.getByRole("navigation", { name: "Referral workspace steps" });
+    const stepSelect = page.getByRole("combobox", { name: "Referral workspace step" });
+    if (compactSteps) {
+      await expect(stepNavigation).toBeHidden();
+      await expect(stepSelect).toBeVisible();
+    } else {
+      await expect(stepNavigation).toBeVisible();
+      await expect(stepSelect).toBeHidden();
+    }
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Summary", exact: true })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toBeFocused();
@@ -57,12 +66,20 @@ test.describe("Responsive and accessible application shell", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Summary", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Edit summary", exact: true })).toBeFocused();
-    await page.getByRole("button", { name: "2 Required files" }).click();
+    if (compactSteps) {
+      await stepSelect.selectOption("2");
+    } else {
+      await page.getByRole("button", { name: "2 Required files" }).click();
+    }
     await expect(page.getByText("Signed Medication List", { exact: true })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
 
-    await page.getByRole("button", { name: "5 Review" }).click();
+    if (compactSteps) {
+      await stepSelect.selectOption("5");
+    } else {
+      await page.getByRole("button", { name: "5 Review" }).click();
+    }
     await expect(page.getByRole("region", { name: "Review" })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Referral data completion" })).toHaveAttribute("aria-valuenow");
     await expectNoPageOverflow(page);
@@ -101,7 +118,7 @@ test.describe("Responsive and accessible application shell", () => {
         body: JSON.stringify({ error: "Referral refresh is temporarily unavailable." }),
       });
     });
-    await page.getByRole("button", { name: "Referral workflow" }).click();
+    await page.getByRole("button", { name: "Current work", exact: true }).click();
     const failure = page.getByRole("alert").filter({ hasText: "Referral refresh is temporarily unavailable." });
     await expect(failure).toContainText("Referral refresh is temporarily unavailable.");
     await expect(failure.getByRole("button", { name: "Retry" })).toBeVisible();
