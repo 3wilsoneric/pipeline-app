@@ -9,6 +9,32 @@ export type WorkspaceAdmissionOutcome = {
 
 const hiddenWorkspaceTags = new Set(["historical"]);
 
+const internalWorkspaceTags = new Set([
+  "allo-import",
+  "face-sheet",
+  "historical",
+  "needs-assignment",
+  "needs-review",
+  "real-intake",
+]);
+
+const countyNames = [
+  "Alameda",
+  "Calaveras",
+  "Contra Costa",
+  "Los Angeles",
+  "Marin",
+  "Merced",
+  "Monterey",
+  "Sacramento",
+  "San Francisco",
+  "San Joaquin",
+  "San Mateo",
+  "Santa Clara",
+  "Sonoma",
+  "Stanislaus",
+] as const;
+
 export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmissionOutcome {
   if (referral.admissionDate?.trim()) {
     return {
@@ -56,6 +82,33 @@ export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmis
 
 export function visibleWorkspaceTags(tags: string[] | undefined) {
   return (tags ?? []).filter((tag) => !hiddenWorkspaceTags.has(tag.trim().toLowerCase()));
+}
+
+export function isInternalWorkspaceTag(tag: string) {
+  const normalized = tag.trim().toLowerCase();
+  return internalWorkspaceTags.has(normalized)
+    || normalized.startsWith("allo-")
+    || normalized.startsWith("import-")
+    || normalized.startsWith("needs-");
+}
+
+export function getWorkspaceCounty(referral: Referral) {
+  const extractedCounty = referral.packetFields?.find((field) => {
+    const key = field.field_key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return key === "county" || key.endsWith("county");
+  });
+  const extractedValue = (extractedCounty?.final_value ?? extractedCounty?.proposed_value)?.trim();
+  if (extractedValue) return extractedValue;
+
+  const sourceText = [
+    referral.sourceWorkspaceName,
+    referral.sourceProjectName,
+    referral.payer,
+    referral.source,
+  ].filter(Boolean).join(" ");
+  if (/\bLA County\b/i.test(sourceText)) return "Los Angeles County";
+  const county = countyNames.find((name) => new RegExp(`\\b${name} County\\b`, "i").test(sourceText));
+  return county ? `${county} County` : "Not recorded";
 }
 
 export function presentWorkspaceNote(note: string) {

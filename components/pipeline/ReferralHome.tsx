@@ -28,6 +28,7 @@ import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-impo
 import type { ReferralFacets } from "@/lib/pipeline/referral-store";
 import type { ReferralSort } from "@/lib/pipeline/referral-sort";
 import type { ReferralWorklistBucket, ReferralWorklistSnapshot } from "@/lib/pipeline/operations-types";
+import { isInternalWorkspaceTag } from "@/lib/pipeline/workspace-presentation";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import {
   filterReferralWorklistItems,
@@ -350,7 +351,10 @@ export default function ReferralHome({
     [files, ownerOptions],
   );
   const fileMonthOptions = useMemo(() => recentMonthKeys(48), []);
-  const tagOptions = useMemo(() => facets.tags.map((entry) => entry.value), [facets.tags]);
+  const tagOptions = useMemo(
+    () => facets.tags.map((entry) => entry.value).filter((tag) => !isInternalWorkspaceTag(tag)),
+    [facets.tags],
+  );
   const allPacketTotal = useMemo(
     () => facets.communities.reduce((total, entry) => total + entry.count, 0),
     [facets.communities],

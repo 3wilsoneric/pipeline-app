@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CircleAlert } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
@@ -8,7 +8,7 @@ import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import {
   getWorkspaceAdmissionOutcome,
-  visibleWorkspaceTags,
+  getWorkspaceCounty,
 } from "@/lib/pipeline/workspace-presentation";
 
 export default function ReferralWorklist({
@@ -30,14 +30,14 @@ export default function ReferralWorklist({
       extractedTotal,
       extractedReviewed,
       outcome: getWorkspaceAdmissionOutcome(referral),
-      visibleTags: visibleWorkspaceTags(referral.tags),
+      county: getWorkspaceCounty(referral),
     };
   });
 
   return (
     <div aria-label="Referral worklist">
       <div className="divide-y divide-[#e2e2e2] lg:hidden">
-        {rows.map(({ referral, progress, extractedReviewed, extractedTotal, outcome, visibleTags }) => (
+        {rows.map(({ referral, progress, extractedReviewed, extractedTotal, outcome, county }) => (
           <CompactReferralRow
             key={referral.id}
             referral={referral}
@@ -45,7 +45,7 @@ export default function ReferralWorklist({
             extractedReviewed={extractedReviewed}
             extractedTotal={extractedTotal}
             outcome={outcome}
-            visibleTags={visibleTags}
+            county={county}
             onOpen={() => onOpenPacket(referral)}
           />
         ))}
@@ -53,9 +53,9 @@ export default function ReferralWorklist({
 
       <div className="hidden overflow-x-auto lg:block">
         <div className="min-w-[920px]">
-        <div className="grid grid-cols-[minmax(210px,1.2fr)_minmax(220px,1.35fr)_145px_170px_135px_90px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">
+        <div className="grid grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.9fr)_145px_170px_135px_90px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">
           <span>Client</span>
-          <span>Next action</span>
+          <span>County</span>
           <span>Admission</span>
           <span>Data capture</span>
           <span>Owner</span>
@@ -63,48 +63,19 @@ export default function ReferralWorklist({
           <span className="sr-only">Open</span>
         </div>
         <div className="divide-y divide-[#e2e2e2]">
-          {rows.map(({ referral, progress, extractedReviewed, extractedTotal, outcome, visibleTags }) => (
+          {rows.map(({ referral, progress, extractedReviewed, extractedTotal, outcome, county }) => (
             <button
               key={referral.id}
               type="button"
               onClick={() => onOpenPacket(referral)}
               aria-label={`Open ${referral.name} referral workspace`}
-              className="grid w-full grid-cols-[minmax(210px,1.2fr)_minmax(220px,1.35fr)_145px_170px_135px_90px_36px] items-center px-4 py-3 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
+              className="grid w-full grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.9fr)_145px_170px_135px_90px_36px] items-center px-4 py-3 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
             >
-              <span className="flex min-w-0 items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#b8dacf] bg-[#effaf5] text-[10px] font-black text-[#0c705f]">
-                  {getInitials(referral.name)}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[12px] font-black text-[#111111]">{referral.name}</span>
-                  <span className="mt-1 block truncate text-[10px] text-[#737373]">{referral.community || "Community pending"}</span>
-                  {visibleTags.length ? (
-                    <span className="mt-1 block truncate text-[9px] font-semibold text-[#0c705f]" title={visibleTags.map((tag) => `#${tag}`).join(" · ")}>
-                      {visibleTags.slice(0, 2).map((tag) => `#${tag}`).join(" · ")}
-                      {visibleTags.length > 2 ? ` +${visibleTags.length - 2}` : ""}
-                    </span>
-                  ) : null}
-                </span>
+              <span className="min-w-0 pr-4">
+                <span className="block truncate text-[12px] font-black text-[#111111]">{referral.name}</span>
               </span>
 
-              <span className="min-w-0 pr-4">
-                {referral.workspaceStatus === "historical" ? (
-                  <>
-                    <span className="block truncate text-[11px] font-black text-[#111111]">Imported workspace</span>
-                    <span className="mt-1 block truncate text-[9px] text-[#737373]">{referral.sourceProjectName || "Imported client materials"}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="flex items-start gap-2 text-[11px] font-black text-[#111111]">
-                      {progress.blockers.length > 0 ? <CircleAlert size={13} className="mt-0.5 shrink-0 text-[#b07b21]" /> : null}
-                      <span className="truncate">{progress.next_action || "No blocking action"}</span>
-                    </span>
-                    <span className="mt-1 block text-[9px] text-[#737373]">
-                      {progress.blockers.length} blocker{progress.blockers.length === 1 ? "" : "s"}
-                    </span>
-                  </>
-                )}
-              </span>
+              <span className="min-w-0 truncate pr-4 text-[10px] font-semibold text-[#404040]" title={county}>{county}</span>
 
               <span title={outcome.explanation}>
                 <span className={outcomeClass(outcome.status)}>{outcome.label}</span>
@@ -166,7 +137,7 @@ function CompactReferralRow({
   extractedReviewed,
   extractedTotal,
   outcome,
-  visibleTags,
+  county,
   onOpen,
 }: {
   referral: Referral;
@@ -174,7 +145,7 @@ function CompactReferralRow({
   extractedReviewed: number;
   extractedTotal: number;
   outcome: ReturnType<typeof getWorkspaceAdmissionOutcome>;
-  visibleTags: string[];
+  county: string;
   onOpen: () => void;
 }) {
   return (
@@ -187,13 +158,6 @@ function CompactReferralRow({
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="min-w-0">
           <span className="block truncate text-[13px] font-black text-[#111111]">{referral.name}</span>
-          <span className="mt-1 block truncate text-[10px] text-[#737373]">{referral.community || "Community pending"}</span>
-          {visibleTags.length ? (
-            <span className="mt-1 block truncate text-[9px] font-semibold text-[#0c705f]" title={visibleTags.map((tag) => `#${tag}`).join(" · ")}>
-              {visibleTags.slice(0, 2).map((tag) => `#${tag}`).join(" · ")}
-              {visibleTags.length > 2 ? ` +${visibleTags.length - 2}` : ""}
-            </span>
-          ) : null}
         </span>
         <span className="flex shrink-0 items-center gap-2" title={outcome.explanation}>
           <span className={outcomeClass(outcome.status)}>{outcome.label}</span>
@@ -201,17 +165,11 @@ function CompactReferralRow({
         </span>
       </span>
 
-      <span className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1.25fr)_minmax(170px,0.75fr)] sm:items-end">
+      <span className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,0.75fr)_minmax(170px,1.25fr)] sm:items-end">
         <span className="min-w-0">
-          <span className="flex items-start gap-2 text-[11px] font-black text-[#111111]">
-            {progress.blockers.length > 0 ? <CircleAlert size={13} className="mt-0.5 shrink-0 text-[#b07b21]" /> : null}
-            <span className="line-clamp-2">{progress.next_action || "No blocking action"}</span>
-          </span>
-          <span className="mt-1 block text-[9px] text-[#737373]">
-            {progress.blockers.length} blocker{progress.blockers.length === 1 ? "" : "s"}
-          </span>
+          <span className="block text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">County</span>
+          <span className="mt-1 block truncate text-[11px] font-semibold text-[#303638]" title={county}>{county}</span>
         </span>
-
         <span>
           <span className="flex items-center justify-between gap-3 text-[10px]">
             <span className="font-black text-[#111111]">Data capture</span>
@@ -232,13 +190,6 @@ function CompactReferralRow({
       </span>
     </button>
   );
-}
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
 }
 
 function outcomeClass(status: "admitted" | "accepted" | "denied" | "pending" | "unmatched") {

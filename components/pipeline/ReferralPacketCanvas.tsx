@@ -56,6 +56,7 @@ import { getReferralPatchSections, normalizeReferralSectionVersions } from "@/li
 import { documentCategoryForRequirement } from "@/lib/pipeline/document-requirements";
 import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
 import { hasManualIntakeAuthorization } from "@/lib/pipeline/referral-workflow";
+import { isInternalWorkspaceTag } from "@/lib/pipeline/workspace-presentation";
 import {
   allowedUploadContentTypes,
   maxUploadFileBytes,
@@ -461,7 +462,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
         setFields((current) => fieldsFromReferral(current, record));
         setOwnerPrincipalId(record.ownerId ?? "");
         setConserved(record.conserved ?? "");
-        setTagsInput((record.tags ?? []).join(", "));
+        setTagsInput(workspaceTagsInput(record.tags));
         setDocuments(documentsFromReferral(record));
         setInitialPacketCategory(initialDocumentCategoryFromReferral(record));
         setDirtyKeys(new Set());
@@ -565,7 +566,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
     setFields((current) => mergeRemoteReferralFields(current, latest, dirty));
     if (!dirty.has("conserved")) setConserved(latest.conserved ?? "");
     if (!dirty.has("owner")) setOwnerPrincipalId(latest.ownerId ?? "");
-    if (!dirty.has("tags")) setTagsInput((latest.tags ?? []).join(", "));
+    if (!dirty.has("tags")) setTagsInput(workspaceTagsInput(latest.tags));
     if (!dirty.has("documents")) setDocuments(documentsFromReferral(latest));
     if (!dirty.has("initialPacket")) setInitialPacket(null);
     setRemoteChange({
@@ -1386,7 +1387,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
           },
         }));
       } else if (conflict.key === "tags") {
-        setTagsInput((latest.tags ?? []).join(", "));
+        setTagsInput(workspaceTagsInput(latest.tags));
       } else if (conflict.key === "documents") {
         setDocuments(documentsFromReferral(latest));
       } else if (conflict.key === "conserved") {
@@ -1411,7 +1412,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
     if (current) {
       setFields((fields) => fieldsFromReferral(fields, current));
       setConserved(current.conserved ?? "");
-      setTagsInput((current.tags ?? []).join(", "));
+      setTagsInput(workspaceTagsInput(current.tags));
       setDocuments(documentsFromReferral(current));
       setInitialPacketCategory(initialDocumentCategoryFromReferral(current));
     } else {
@@ -1494,6 +1495,10 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
   ];
   const reviewSummary = summarizeReviewSections(reviewSections);
   const packetCompletionBlockers = getPacketCompletionBlockers(loadedReferral, fields.owner.value, fields.county.value);
+  const workspaceTitle = loadedReferral?.name?.trim()
+    || referral?.name?.trim()
+    || fields.name.value.trim()
+    || "New referral";
 
   const moveWorkspaceToTrash = async () => {
     const current = loadedReferralRef.current;
@@ -1533,8 +1538,10 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
         className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6"
       >
         <div className="sticky top-0 z-20 mb-1 bg-white/95 backdrop-blur-sm">
-          <h1 className="sr-only">Referral workspace</h1>
           <div className="flex items-center gap-3 border-b border-[#d9d9d9]">
+            <h1 className="max-w-[7rem] shrink-0 truncate text-[12px] font-black text-[#111111] sm:max-w-[11rem] lg:max-w-[15rem]" title={workspaceTitle}>
+              {workspaceTitle}
+            </h1>
             <label className="min-w-0 flex-1 lg:hidden">
               <span className="sr-only">Referral workspace step</span>
               <select
@@ -2708,6 +2715,10 @@ function dedupePresence(items: ReferralPresenceView[]) {
     if (!current || item.expires_at > current.expires_at) byActorAndSection.set(key, item);
   }
   return [...byActorAndSection.values()];
+}
+
+function workspaceTagsInput(tags: string[] | undefined) {
+  return (tags ?? []).filter((tag) => !isInternalWorkspaceTag(tag)).join(", ");
 }
 
 function normalizeTags(value: string) {
