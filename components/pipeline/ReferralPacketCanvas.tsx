@@ -1589,7 +1589,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
         <div className="sticky top-0 z-20 mb-1 bg-white/95 backdrop-blur-sm">
           <h1 className="sr-only">Referral workspace</h1>
           <div className="flex items-center gap-3 border-b border-[#d9d9d9]">
-            <nav aria-label="Referral workspace steps" className="flex min-w-0 flex-1 overflow-x-auto">
+            <nav aria-label="Referral workspace steps" className="flex min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3">
               {packetSteps.map(({ page, label }) => (
                 <button
                   key={page}

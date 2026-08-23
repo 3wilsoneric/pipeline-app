@@ -9,7 +9,6 @@ import {
   FileText,
   Files,
   FolderOpen,
-  Hash,
   Check,
   Eye,
   Link2,
@@ -151,7 +150,6 @@ export default function ReferralHome({
   const [worklist, setWorklist] = useState<ReferralWorklistSnapshot | null>(null);
   const [worklistLoading, setWorklistLoading] = useState(false);
   const [worklistError, setWorklistError] = useState("");
-  const [showAllTags, setShowAllTags] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [previewFile, setPreviewFile] = useState<ReferralFile | null>(null);
@@ -371,11 +369,6 @@ export default function ReferralHome({
   );
   const fileMonthOptions = useMemo(() => recentMonthKeys(48), []);
   const tagOptions = useMemo(() => facets.tags.map((entry) => entry.value), [facets.tags]);
-  const tagFacets = useMemo(
-    () => [...facets.tags].sort((left, right) => right.count - left.count || left.value.localeCompare(right.value)),
-    [facets.tags],
-  );
-  const visibleTagFacets = showAllTags ? tagFacets : tagFacets.slice(0, 6);
   const allPacketTotal = useMemo(
     () => facets.communities.reduce((total, entry) => total + entry.count, 0),
     [facets.communities],
@@ -686,39 +679,6 @@ export default function ReferralHome({
                 );
               })}
             </div>
-
-            {tagFacets.length > 0 ? (
-              <>
-                <div className="mt-5 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-[#0c705f]"><Hash size={14} /> Tags</div>
-                <div className="mt-2 space-y-0.5">
-                  {visibleTagFacets.map((tag) => (
-                    <button
-                      key={tag.value}
-                      type="button"
-                      aria-label={`Filter by tag ${tag.value}, ${tag.count} workspace${tag.count === 1 ? "" : "s"}`}
-                      onClick={() => setFilter({ kind: "tag", value: tag.value })}
-                      className={`flex min-h-8 w-full items-center gap-2 px-3 text-left text-[12px] font-black tracking-[0.01em] ${
-                        filter.kind === "tag" && filter.value === tag.value
-                          ? "border-l-[3px] border-[#0f8b73] bg-white pl-[9px] text-[#111111]"
-                          : "border-l-[3px] border-transparent text-[#595959] hover:bg-[#fafafa]"
-                      }`}
-                    >
-                      <span className="min-w-0 flex-1 truncate">#{tag.value}</span>
-                      <span className="text-[11px]">{tag.count}</span>
-                    </button>
-                  ))}
-                  {tagFacets.length > 6 ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllTags((expanded) => !expanded)}
-                      className="min-h-8 w-full px-3 text-left text-[10px] font-black text-[#0c705f] hover:bg-[#fafafa]"
-                    >
-                      {showAllTags ? "Show fewer tags" : `Show ${tagFacets.length - 6} more`}
-                    </button>
-                  ) : null}
-                </div>
-              </>
-            ) : null}
 
             </div>
           </aside>
