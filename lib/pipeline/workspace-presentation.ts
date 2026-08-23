@@ -97,6 +97,19 @@ export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmis
     };
   }
 
+  if (
+    referral.stage === "Accepted / Admitted"
+    && referral.admissionDecision?.outcome === "accepted"
+    && referral.admissionDecision.reasonCode === "supervisor_confirmed_admission"
+  ) {
+    return {
+      status: "admitted",
+      label: "Admitted",
+      evidence: "recorded",
+      explanation: "Admission was confirmed by a supervisor while the governed census link remains unavailable.",
+    };
+  }
+
   if (referral.admissionDecision?.outcome === "declined") {
     return {
       status: "denied",

@@ -283,17 +283,24 @@ const results = [
       stage: "Declined",
     });
     assert(stageOnlyDecline.status === "pending", "A stage label alone must not invent a declined decision");
-    const acceptedWithoutCensus = workspacePresentation.getWorkspaceAdmissionOutcome({
+    const acceptedReferralWithoutCensus = {
       ...base,
       workspaceStatus: "active",
       stage: "Accepted / Admitted",
-    });
+    };
+    const acceptedWithoutCensus = workspacePresentation.getWorkspaceAdmissionOutcome(acceptedReferralWithoutCensus);
     assert(acceptedWithoutCensus.status === "pending", "An accepted stage must not invent a governed admission match");
     const recordedAcceptance = workspacePresentation.getWorkspaceAdmissionOutcome({
-      ...acceptedWithoutCensus,
+      ...acceptedReferralWithoutCensus,
       admissionDecision: { outcome: "accepted" },
     });
     assert(recordedAcceptance.status === "accepted", "A recorded acceptance must remain distinct from a governed admission match");
+    const supervisorConfirmedAdmission = workspacePresentation.getWorkspaceAdmissionOutcome({
+      ...acceptedReferralWithoutCensus,
+      admissionDecision: { outcome: "accepted", reasonCode: "supervisor_confirmed_admission" },
+    });
+    assert(supervisorConfirmedAdmission.status === "admitted", "An explicit supervisor admission confirmation must close the unmatched admission gap");
+    assert(supervisorConfirmedAdmission.evidence === "recorded", "A supervisor confirmation must not be presented as a census match");
     assert(
       workspacePresentation.getWorkspaceCounty({ county: "Los Angeles County", community: "San Pablo" }) === "Los Angeles County",
       "A first-class county must take precedence over the destination community",
