@@ -38,7 +38,7 @@ import {
   isReferralStage,
   type ReferralStage,
 } from "@/lib/pipeline/referral-workflow";
-import { presentWorkspaceNote, visibleWorkspaceTags } from "@/lib/pipeline/workspace-presentation";
+import { presentWorkspaceNote, resolveWorkspaceCounty, visibleWorkspaceTags } from "@/lib/pipeline/workspace-presentation";
 
 type ReferralStoreState = {
   initialized: boolean;
@@ -69,6 +69,7 @@ export type ReferralListOptions = {
   sort?: ReferralSort;
   stage?: ReferralStage;
   community?: string;
+  county?: string;
   owner?: string;
   priority?: Priority;
   tag?: string;
@@ -92,6 +93,7 @@ export type ReferralFacetValue = {
 
 export type ReferralFacets = {
   communities: ReferralFacetValue[];
+  counties: ReferralFacetValue[];
   stages: ReferralFacetValue[];
   owners: ReferralFacetValue[];
   priorities: ReferralFacetValue[];
@@ -843,6 +845,7 @@ type ReferralRow = {
   version: number;
   stage: Referral["stage"];
   community: Referral["community"];
+  county: string | null;
   owner_name: string | null;
   owner_id: string | null;
   priority: Referral["priority"];
@@ -904,6 +907,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const queryTokens = normalizedSearchTokens(options.query ?? "");
   const stage = options.stage ?? null;
   const community = options.community?.trim() || null;
+  const county = options.county?.trim() || null;
   const owner = options.owner ? normalizeOwnerName(options.owner) : null;
   const assignedOwnerId = options.assignedOwnerId?.trim() || null;
   const assignedOwnerNames = options.assignedOwnerNames ?? [];
@@ -946,6 +950,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
         ))
         and (${stage}::text is null or r.stage = ${stage})
         and (${community}::text is null or r.community = ${community})
+        and (${county}::text is null or r.county = ${county})
         and (${owner}::text is null or case
           when lower(coalesce(nullif(trim(r.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending')
             then 'Unassigned'
@@ -1025,11 +1030,16 @@ async function listPostgresReferralFacets(
   and (${workspaceStatus} = 'all' or r.workspace_status = ${workspaceStatus})
   and (${assignedOwnerId}::text is null or r.owner_id = ${assignedOwnerId}
     or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${assignedOwnerNames}::text[])))`;
-  const [communities, stages, owners, priorities, tags, months] = await Promise.all([
+  const [communities, counties, stages, owners, priorities, tags, months] = await Promise.all([
     sql<FacetRow[]>`
       select r.community as value, count(*) as count
       from pipeline.referrals r where ${searchClause}
       group by r.community order by r.community
+    `,
+    sql<FacetRow[]>`
+      select r.county as value, count(*) as count
+      from pipeline.referrals r where ${searchClause} and nullif(trim(r.county), '') is not null
+      group by r.county order by r.county
     `,
     sql<FacetRow[]>`
       select r.stage as value, count(*) as count
@@ -1065,6 +1075,7 @@ async function listPostgresReferralFacets(
 
   return {
     communities: mapFacetRows(communities),
+    counties: mapFacetRows(counties),
     stages: mapFacetRows(stages),
     owners: mapFacetRows(owners),
     priorities: mapFacetRows(priorities),
@@ -1382,14 +1393,15 @@ async function createPostgresReferral(
             updated_at = now()
       returning person_id
     `;
-    const payload = { ...input, clientId };
+    const county = resolveWorkspaceCounty(input);
+    const payload = { ...input, clientId, county };
     const rows = await tx<ReferralRow[]>`
       insert into pipeline.referrals (
-        person_id, stage, community, owner_id, owner_name, priority, source, received_date,
+        person_id, stage, community, county, owner_id, owner_name, priority, source, received_date,
         tags, summary, document_sha256, search_text, data,
         closed_at, created_by, created_by_name, updated_by, updated_by_name
       ) values (
-        ${people[0].person_id}::uuid, ${input.stage}, ${input.community}, ${input.ownerId || null}, ${input.owner || null},
+        ${people[0].person_id}::uuid, ${input.stage}, ${input.community}, ${county ?? null}, ${input.ownerId || null}, ${input.owner || null},
         ${input.priority}, ${input.source}, ${dateToSql(input.date)}::date, ${input.tags ?? []},
         ${input.note || null}, ${input.documentHash ?? null}, ${referralSearchText(payload)}, ${tx.json(payload)},
         ${isClosedStage(input.stage) ? new Date() : null}, ${actor.id}, ${actor.name}, ${actor.id}, ${actor.name}
@@ -1477,6 +1489,7 @@ async function patchPostgresReferral(
       update pipeline.referrals r
       set stage = ${next.stage},
           community = ${next.community},
+          county = ${next.county ?? null},
           owner_id = ${next.ownerId || null},
           owner_name = ${next.owner || null},
           priority = ${next.priority},
@@ -1879,6 +1892,7 @@ function mapReferralRow(row: ReferralRow): Referral {
     name: row.display_name,
     stage: row.stage,
     community: row.community,
+    county: row.county ?? data.county ?? undefined,
     owner: row.owner_name ?? data.owner ?? "",
     ownerId: row.owner_id ?? data.ownerId ?? undefined,
     priority: row.priority,
@@ -1940,6 +1954,7 @@ function referralSearchText(referral: Partial<Referral>) {
     referral.gender,
     referral.reportedAge,
     referral.community,
+    referral.county,
     referral.source,
     referral.owner,
     referral.stage,
@@ -1994,6 +2009,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "date",
     "stage",
     "community",
+    "county",
     "source",
     "priority",
     "tags",
@@ -2071,6 +2087,7 @@ function normalizeReferral(input: Referral): Referral {
     clientId: normalizeClientId(input.clientId) || buildLocalClientId(Number(input.id)),
     workspaceOrigin: input.workspaceOrigin ?? "pipeline",
     workspaceStatus: input.workspaceStatus ?? "active",
+    county: resolveWorkspaceCounty(input),
     tags: visibleWorkspaceTags(input.tags),
     note: presentWorkspaceNote(input.note ?? ""),
     sourceMaterialCount: Number.isSafeInteger(input.sourceMaterialCount) && Number(input.sourceMaterialCount) >= 0
@@ -2119,6 +2136,7 @@ function matchesReferralFilters(referral: Referral, options: ReferralListOptions
   if (!matchesWorkspaceStatus(referral, options.workspaceStatus)) return false;
   if (options.stage && referral.stage !== options.stage) return false;
   if (options.community && referral.community !== options.community) return false;
+  if (options.county && resolveWorkspaceCounty(referral) !== options.county) return false;
   if (options.owner && normalizeOwnerName(referral.owner) !== normalizeOwnerName(options.owner)) return false;
   if (options.priority && referral.priority !== options.priority) return false;
   if (options.tag && !(referral.tags ?? []).includes(options.tag)) return false;
@@ -2161,6 +2179,7 @@ function matchesReferralQueue(referral: Referral, queue: ReferralQueueView) {
 function buildReferralFacets(referrals: Referral[]): ReferralFacets {
   return {
     communities: countFacet(referrals.map((referral) => referral.community)),
+    counties: countFacet(referrals.flatMap((referral) => resolveWorkspaceCounty(referral) ?? [])),
     stages: countFacet(referrals.map((referral) => referral.stage)),
     owners: countFacet(referrals.map((referral) => normalizeOwnerName(referral.owner))),
     priorities: countFacet(referrals.map((referral) => referral.priority)),
@@ -2195,6 +2214,7 @@ function searchableReferralText(referral: Referral) {
     [
       referral.name,
       referral.community,
+      referral.county,
       referral.source,
       referral.owner,
       referral.stage,

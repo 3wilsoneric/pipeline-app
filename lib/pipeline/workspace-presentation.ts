@@ -145,6 +145,13 @@ export function isInternalWorkspaceTag(tag: string) {
 }
 
 export function getWorkspaceCounty(referral: Referral) {
+  return resolveWorkspaceCounty(referral) ?? "Not recorded";
+}
+
+export function resolveWorkspaceCounty(referral: Partial<Referral>) {
+  const firstClassCounty = referral.county?.trim();
+  if (firstClassCounty) return canonicalCountyLabel(firstClassCounty) ?? firstClassCounty;
+
   const extractedCounty = referral.packetFields?.find((field) => {
     const key = field.field_key.toLowerCase().replace(/[^a-z0-9]/g, "");
     return key === "county" || key.endsWith("county");
@@ -152,7 +159,7 @@ export function getWorkspaceCounty(referral: Referral) {
   const extractedValue = (extractedCounty?.final_value ?? extractedCounty?.proposed_value)?.trim();
   if (extractedValue) return canonicalCountyLabel(extractedValue) ?? extractedValue;
 
-  const storedCounty = canonicalCountyLabel(referral.community);
+  const storedCounty = referral.community ? canonicalCountyLabel(referral.community) : null;
   if (storedCounty) return storedCounty;
 
   const sourceValues = [
@@ -168,7 +175,7 @@ export function getWorkspaceCounty(referral: Referral) {
     if (county) return county;
   }
 
-  return "Not recorded";
+  return undefined;
 }
 
 function canonicalCountyLabel(value: string) {

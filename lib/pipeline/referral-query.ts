@@ -18,6 +18,7 @@ type ReferralQueryValues = {
   cursor?: string;
   stage?: string;
   community?: string;
+  county?: string;
   owner?: string;
   priority?: string;
   tag?: string;
@@ -47,6 +48,7 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
       cursor: values.cursor,
       stage: values.stage as ReferralStage | undefined,
       community: values.community,
+      county: values.county,
       owner: values.owner,
       priority: values.priority as Priority | undefined,
       tag: values.tag,
@@ -66,6 +68,7 @@ function readReferralQueryValues(searchParams: URLSearchParams): ReferralQueryVa
     cursor: trimmedParameter(searchParams, "cursor") || undefined,
     stage: trimmedParameter(searchParams, "stage") || undefined,
     community: trimmedParameter(searchParams, "community") || undefined,
+    county: trimmedParameter(searchParams, "county") || undefined,
     owner: trimmedParameter(searchParams, "owner") || undefined,
     priority: trimmedParameter(searchParams, "priority") || undefined,
     tag: trimmedParameter(searchParams, "tag") || undefined,
@@ -94,6 +97,10 @@ function validateReferralQueryValues(values: ReferralQueryValues): string | unde
     {
       invalid: Boolean(values.community && !pipelineCommunities.includes(values.community as (typeof pipelineCommunities)[number])),
       message: "community is invalid.",
+    },
+    {
+      invalid: Boolean(values.county && (values.county.length > 100 || !/^[a-zA-Z .'-]+$/.test(values.county))),
+      message: "county is invalid.",
     },
     { invalid: Boolean(values.owner && values.owner.length > 200), message: "owner is invalid." },
     { invalid: Boolean(values.priority && !priorities.includes(values.priority as Priority)), message: "priority is invalid." },

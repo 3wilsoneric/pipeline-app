@@ -173,6 +173,8 @@ export type Referral = {
   date: string;
   stage: Stage;
   community: PipelineCommunity;
+  /** Referring county. This is distinct from the destination community. */
+  county?: string;
   source: string;
   priority: Priority;
   tags?: string[];

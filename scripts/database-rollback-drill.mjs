@@ -20,6 +20,7 @@ const provisionalMembersRollback = await readFile("database/rollbacks/0010_provi
 const historicalWorkspacesRollback = await readFile("database/rollbacks/0011_historical_material_workspaces.sql", "utf8");
 const referralTrashRollback = await readFile("database/rollbacks/0012_referral_trash.sql", "utf8");
 const searchPerformanceRollback = await readFile("database/rollbacks/0013_search_performance.sql", "utf8");
+const workspaceCountyRollback = await readFile("database/rollbacks/0014_workspace_county.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -57,7 +58,10 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0012_referral_trash') as referral_trash_history,
       to_regclass('pipeline.people_display_name_search_trgm_idx') is not null as people_search_index,
       to_regclass('pipeline.documents_file_name_search_trgm_idx') is not null as document_search_index,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0013_search_performance') as search_performance_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0013_search_performance') as search_performance_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='county') as workspace_county,
+      to_regclass('pipeline.referrals_county_created_idx') is not null as workspace_county_index,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0014_workspace_county') as workspace_county_history
   `;
   checks.push({
     name: "latest migrations exist before drill",
@@ -85,7 +89,20 @@ try {
       && before[0].people_search_index
       && before[0].document_search_index
       && before[0].search_performance_history
+      && before[0].workspace_county
+      && before[0].workspace_county_index
+      && before[0].workspace_county_history
     ),
+  });
+  await connection.unsafe(workspaceCountyRollback);
+  const workspaceCountyDuring = await connection`
+    select not exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='county') as county_removed,
+      to_regclass('pipeline.referrals_county_created_idx') is null as county_index_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0014_workspace_county') as history_removed
+  `;
+  checks.push({
+    name: "rollback removes workspace county facet",
+    ok: Boolean(workspaceCountyDuring[0].county_removed && workspaceCountyDuring[0].county_index_removed && workspaceCountyDuring[0].history_removed),
   });
   await connection.unsafe(searchPerformanceRollback);
   const searchPerformanceDuring = await connection`
@@ -220,7 +237,10 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0012_referral_trash') as referral_trash_history,
       to_regclass('pipeline.people_display_name_search_trgm_idx') is not null as people_search_index,
       to_regclass('pipeline.documents_file_name_search_trgm_idx') is not null as document_search_index,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0013_search_performance') as search_performance_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0013_search_performance') as search_performance_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='county') as workspace_county,
+      to_regclass('pipeline.referrals_county_created_idx') is not null as workspace_county_index,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0014_workspace_county') as workspace_county_history
   `;
   checks.push({
     name: "drill transaction restores original schema",
@@ -250,6 +270,9 @@ try {
       && after[0].people_search_index
       && after[0].document_search_index
       && after[0].search_performance_history
+      && after[0].workspace_county
+      && after[0].workspace_county_index
+      && after[0].workspace_county_history
     ),
   });
   const failed = checks.filter((check) => !check.ok);

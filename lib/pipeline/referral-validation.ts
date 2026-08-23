@@ -51,6 +51,7 @@ const stringLimits = {
   name: 200,
   date: 40,
   source: 200,
+  county: 100,
   owner: 200,
   note: 20_000,
   createdAt: 80,
@@ -113,7 +114,7 @@ export function validateReferralCreateInput(
     if (!result.ok) return result;
   }
 
-  for (const field of ["gender", "reportedAge", "ssn", "admissionDate", "responsiblePerson", "interview"] as const) {
+  for (const field of ["county", "gender", "reportedAge", "ssn", "admissionDate", "responsiblePerson", "interview"] as const) {
     if (!(field in value) || value[field] === undefined) continue;
     const result = validateString(value[field], field, stringLimits[field], false);
     if (!result.ok) return result;
@@ -159,6 +160,7 @@ export function validateReferralPatch(
     ["name", "name"],
     ["date", "date"],
     ["source", "source"],
+    ["county", "county"],
     ["documentName", "documentName"],
     ["owner", "owner"],
     ["note", "note"],

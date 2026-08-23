@@ -198,6 +198,7 @@ const results = [
     const result = referralQuery.parseReferralListQuery(new URLSearchParams({
       q: "San Pablo",
       community: "San Pablo",
+      county: "Los Angeles County",
       stage: "Assessment",
       priority: "high",
       month: "2026-08",
@@ -209,6 +210,7 @@ const results = [
     assertValid(result);
     assert(result.value.activeOnly === true, "Expected active-only filter");
     assert(result.value.community === "San Pablo", "Expected community filter");
+    assert(result.value.county === "Los Angeles County", "Expected county filter");
     assert(result.value.workspaceStatus === "all", "Expected historical workspaces to be explicitly selectable");
     assert(result.value.sort === "community_asc", "Expected the requested server sort");
   }),
@@ -252,6 +254,7 @@ const results = [
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ active: "1" })), "active must be true or false.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ queue: "everything" })), "queue is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ community: "Unknown" })), "community is invalid.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ county: "Los Angeles/County" })), "county is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ limit: "1.5" })), "limit must be a whole number between 1 and 200.");
   }),
   run("workspace outcomes use governed admission history for imported workspaces", () => {
@@ -291,6 +294,14 @@ const results = [
       admissionDecision: { outcome: "accepted" },
     });
     assert(recordedAcceptance.status === "accepted", "A recorded acceptance must remain distinct from a governed admission match");
+    assert(
+      workspacePresentation.getWorkspaceCounty({ county: "Los Angeles County", community: "San Pablo" }) === "Los Angeles County",
+      "A first-class county must take precedence over the destination community",
+    );
+    assert(
+      workspacePresentation.getWorkspaceCounty({ sourceProjectName: "Contra Costa County referrals" }) === "Contra Costa County",
+      "Recorded source metadata should recover a county for imported workspaces",
+    );
   }),
   run("canvas extraction fills reviewed values without replacing active edits", () => {
     const fields = emptyCanvasFields();

@@ -44,6 +44,7 @@ type ReferralFilter =
   | { kind: "all" }
   | { kind: "files" }
   | { kind: "community"; value: string }
+  | { kind: "county"; value: string }
   | { kind: "month"; value: string }
   | { kind: "owner"; value: string }
   | { kind: "priority"; value: Referral["priority"] }
@@ -51,6 +52,7 @@ type ReferralFilter =
 
 const emptyFacets: ReferralFacets = {
   communities: [],
+  counties: [],
   stages: [],
   owners: [],
   priorities: [],
@@ -395,6 +397,7 @@ export default function ReferralHome({
       name: community,
       count: facets.communities.find((entry) => entry.value === community)?.count ?? 0,
     }));
+  const sidebarCounties = facets.counties;
 
   const workspaceSearch = (
     <div className="flex h-11 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73] xl:h-10">
@@ -410,7 +413,7 @@ export default function ReferralHome({
           onSearchTermChange(value);
           if (value.trim() && (filter.kind === "workflow" || filter.kind === "work")) setFilter({ kind: "all" });
         }}
-        placeholder={filter.kind === "files" ? "Search files by name, client, community, owner, or type" : "Search all workspaces by client, community, owner, tag, or source"}
+        placeholder={filter.kind === "files" ? "Search files by name, client, community, owner, or type" : "Search all workspaces by client, community, county, owner, or source"}
         className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111111] outline-none placeholder:text-[#8a8a8a]"
       />
       {searchTerm ? (
@@ -451,7 +454,16 @@ export default function ReferralHome({
         className="h-10 w-[150px] shrink-0 snap-start border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73] xl:h-9"
       >
         <option value="">All communities</option>
-        {facets.communities.map((community) => <option key={community.value} value={community.value}>{community.value}</option>)}
+        {facets.communities.map((community) => <option key={community.value} value={community.value}>{presentCommunity(community.value)}</option>)}
+      </select>
+      <select
+        aria-label="Filter workspaces by county"
+        value={filter.kind === "county" ? filter.value : ""}
+        onChange={(event) => setFilter(event.target.value ? { kind: "county", value: event.target.value } : { kind: "all" })}
+        className="h-10 w-[160px] shrink-0 snap-start border-0 border-b border-[#d9d9d9] bg-white px-2 text-[12px] font-black tracking-[0.01em] text-[#111111] outline-none focus:border-[#0f8b73] xl:h-9"
+      >
+        <option value="">All counties</option>
+        {facets.counties.map((county) => <option key={county.value} value={county.value}>{county.value}</option>)}
       </select>
       <select
         aria-label="Filter by owner"
@@ -604,7 +616,7 @@ export default function ReferralHome({
                 icon={FolderOpen}
                 label="All workspaces"
                 count={allPacketTotal}
-                active={filter.kind === "all" || ["community", "month", "owner", "priority", "tag"].includes(filter.kind)}
+                active={filter.kind === "all" || ["community", "county", "month", "owner", "priority", "tag"].includes(filter.kind)}
                 onClick={() => setFilter({ kind: "all" })}
               />
               <WorkspaceNavItem
@@ -642,7 +654,30 @@ export default function ReferralHome({
                             : "border-transparent text-[#595959] hover:border-[#e2e2e2] hover:bg-[#fafafa] hover:text-[#111111]"
                         }`}
                       >
-                        <span className="truncate">{name}</span>
+                        <span className="truncate">{presentCommunity(name)}</span>
+                        <span className="ml-3 shrink-0 text-[11px] tabular-nums">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+            {sidebarCounties.length > 0 ? (
+              <div className="mt-7 hidden xl:block">
+                <div className="px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#0c705f]">County</div>
+                <div className="mt-2 space-y-1">
+                  {sidebarCounties.map(({ value, count }) => {
+                    const active = filter.kind === "county" && filter.value === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-label={`Filter by county ${value}, ${count} workspace${count === 1 ? "" : "s"}`}
+                        aria-current={active ? "page" : undefined}
+                        onClick={() => setFilter({ kind: "county", value })}
+                        className={`flex min-h-10 w-full items-center justify-between border px-3 text-left text-[12px] font-black tracking-[0.01em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] xl:min-h-9 ${active ? "border-[#9fcfc2] bg-[#effaf5] text-[#0c705f]" : "border-transparent text-[#595959] hover:border-[#e2e2e2] hover:bg-[#fafafa] hover:text-[#111111]"}`}
+                      >
+                        <span className="truncate">{value}</span>
                         <span className="ml-3 shrink-0 text-[11px] tabular-nums">{count}</span>
                       </button>
                     );
@@ -722,7 +757,7 @@ export default function ReferralHome({
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-black text-[#111111]">{file.name}</span>
                           <span className="mt-1 block truncate text-[11px] font-normal text-[#737373]">
-                            {file.referralName} · {file.community || "Unassigned"} · {file.owner || "Unassigned"} · {formatMonthKey(getMonthKey(file.uploadedAt))}
+                            {file.referralName} · {presentCommunity(file.community)} · {file.owner || "Unassigned"} · {formatMonthKey(getMonthKey(file.uploadedAt))}
                           </span>
                         </span>
                         <span className="hidden text-[11px] font-black text-[#737373] sm:block">{file.category}</span>
@@ -997,6 +1032,10 @@ function getMonthKey(value: string) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function presentCommunity(value?: string | null) {
+  return !value || value === "Unassigned" ? "Community not recorded" : value;
+}
+
 function openFileWorkspace(
   file: ReferralFile,
   onOpenProfile: (canonicalClientId: string) => void,
@@ -1021,8 +1060,14 @@ function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {
 
   if (filter.kind === "community") {
     return {
-      title: `No workspaces for ${filter.value}`,
+      title: `No workspaces for ${presentCommunity(filter.value)}`,
       detail: "Choose another community or show all workspaces.",
+    };
+  }
+  if (filter.kind === "county") {
+    return {
+      title: `No workspaces from ${filter.value}`,
+      detail: "Choose another county or show all workspaces.",
     };
   }
   if (filter.kind === "month") {
@@ -1104,6 +1149,7 @@ function buildReferralParams(
   if (cursor) params.set("cursor", cursor);
 
   if (filter.kind === "community") params.set("community", filter.value);
+  if (filter.kind === "county") params.set("county", filter.value);
   if (filter.kind === "month") params.set("month", filter.value);
   if (filter.kind === "owner") params.set("owner", filter.value);
   if (filter.kind === "priority") params.set("priority", filter.value);

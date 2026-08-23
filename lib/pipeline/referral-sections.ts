@@ -16,6 +16,7 @@ const sectionByField = {
   payer: "identity",
   date: "intake",
   community: "intake",
+  county: "intake",
   source: "intake",
   priority: "intake",
   tags: "intake",
