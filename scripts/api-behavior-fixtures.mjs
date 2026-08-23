@@ -23,8 +23,79 @@ const referralAccess = loadTypeScriptModule(root, "lib/pipeline/referral-access.
 const requestSecurity = loadRequestSecurityModule({});
 const workspaceStateTypes = loadTypeScriptModule(root, "lib/pipeline/user-workspace-state-types.ts");
 const workspacePresentation = loadTypeScriptModule(root, "lib/pipeline/workspace-presentation.ts");
+const assessmentCalendar = loadTypeScriptModule(root, "lib/pipeline/assessment-calendar.ts");
 
 const results = [
+  run("calendar uses persisted assessment ownership and status", () => {
+    const event = assessmentCalendar.assessmentCalendarEvent({
+      assessment_id: "assessment-1",
+      referral_id: 41,
+      assessment_date: "2026-08-25",
+      assessor_id: "assessor-1",
+      assessor: "Assigned Assessor",
+      status: "draft",
+    }, {
+      id: 41,
+      name: "Calendar Client",
+      community: "San Pablo",
+      ownerId: "referral-owner",
+      owner: "Referral Owner",
+    }, "2026-08-23");
+    assert(event?.kind === "assessment", "Expected an assessment event");
+    assert(event?.ownerId === "assessor-1" && event?.owner === "Assigned Assessor", "Expected assessment assignment to own the event");
+    assert(event?.status === "draft" && event?.title === "Assessment scheduled", "Expected scheduled draft status");
+  }),
+  run("calendar marks unfinished past assessments overdue", () => {
+    const event = assessmentCalendar.assessmentCalendarEvent({
+      assessment_id: "assessment-2",
+      referral_id: 42,
+      assessment_date: "2026-08-20",
+      assessor_id: null,
+      assessor: null,
+      status: "draft",
+    }, {
+      id: 42,
+      name: "Overdue Client",
+      community: "Turlock",
+      owner: "Unassigned",
+    }, "2026-08-23");
+    assert(event?.status === "overdue" && event?.title === "Assessment overdue", "Expected overdue status");
+  }),
+  run("calendar includes only assessment-gated open follow-ups", () => {
+    const base = {
+      id: 43,
+      name: "Follow-up Client",
+      community: "Santa Clarita",
+      owner: "Assessor",
+      ownerId: "assessor-1",
+      stage: "Assessment",
+    };
+    const requirements = [
+      { id: "pre", label: "Face sheet", status: "needed", requiredFor: "pre_assessment", owner: "Assessor", ownerId: "assessor-1", dueAt: "2026-08-24" },
+      { id: "move", label: "TB result", status: "needed", requiredFor: "move_in", owner: "Assessor", ownerId: "assessor-1", dueAt: "2026-08-24" },
+      { id: "done", label: "Provider form", status: "reviewed", requiredFor: "pre_assessment", owner: "Assessor", ownerId: "assessor-1", dueAt: "2026-08-24" },
+    ];
+    const events = assessmentCalendar.assessmentFollowUpEvents({ ...base, requirements }, "2026-08-23");
+    assert(events.length === 1 && events[0].id === "follow-up:pre", "Expected only the open assessment-gated follow-up");
+    assert(assessmentCalendar.assessmentFollowUpEvents({ ...base, stage: "Accepted / Admitted", requirements }, "2026-08-23").length === 0, "Closed workspaces must not produce follow-ups");
+  }),
+  run("calendar date stepping is exact and unscheduled work is explicit", () => {
+    assert(assessmentCalendar.addCalendarDays("2026-08-23", 1) === "2026-08-24", "Expected a one-day calendar step");
+    assert(assessmentCalendar.addCalendarDays("2026-08-23", 7) === "2026-08-30", "Expected a seven-day calendar step");
+    const item = assessmentCalendar.unscheduledAssessment({
+      id: 44,
+      name: "Needs Scheduling",
+      community: "San Pablo",
+      owner: "Assessor",
+      ownerId: "assessor-1",
+      date: "2026-08-22",
+      createdAt: "2026-08-22T12:00:00.000Z",
+      stage: "New",
+      workspaceOrigin: "pipeline",
+    }, false);
+    assert(item?.referralId === 44, "Expected a Pipeline referral without an assessment to need scheduling");
+    assert(assessmentCalendar.unscheduledAssessment({ ...item, id: 44, name: "Needs Scheduling", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "allo" }, false) === null, "Imported historical work must not enter the scheduling queue");
+  }),
   run("create upload rejects missing body", () => {
     const result = contracts.validateCreateUploadUrlRequest(null);
     assertInvalid(result, "Invalid JSON body.");
