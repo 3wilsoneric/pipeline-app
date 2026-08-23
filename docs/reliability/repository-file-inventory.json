@@ -27,8 +27,8 @@
       "path": ".github/dependabot.yml",
       "role": "CI or supply-chain configuration",
       "risk": "low",
-      "bytes": 588,
-      "lines": 25,
+      "bytes": 733,
+      "lines": 27,
       "detected_concerns": [],
       "review_focus": "Check least-privilege tokens, pinned actions, path filters, cache poisoning, secret exposure, cancellation/concurrency, and required-gate coverage.",
       "verification": "check:ci-impact + check:supply-chain + CI dry run"
@@ -79,8 +79,8 @@
       "path": ".gitignore",
       "role": "Build, runtime, or repository configuration",
       "risk": "low",
-      "bytes": 576,
-      "lines": 50,
+      "bytes": 558,
+      "lines": 47,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -93,16 +93,6 @@
       "risk": "low",
       "bytes": 3,
       "lines": 2,
-      "detected_concerns": [],
-      "review_focus": "Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults.",
-      "verification": "check:platform:fast and owning feature test"
-    },
-    {
-      "path": ".vercelignore",
-      "role": "Build, runtime, or repository configuration",
-      "risk": "low",
-      "bytes": 154,
-      "lines": 18,
       "detected_concerns": [],
       "review_focus": "Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults.",
       "verification": "check:platform:fast and owning feature test"
@@ -1845,8 +1835,8 @@
       "path": "docs/COMPLETE_REPOSITORY_AUDIT_2026-08-22.md",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 230197,
-      "lines": 1249,
+      "bytes": 229777,
+      "lines": 1247,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -2189,8 +2179,8 @@
       "path": "docs/reliability/dependency-inventory.json",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 196582,
-      "lines": 7132,
+      "bytes": 196557,
+      "lines": 7131,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -2199,8 +2189,8 @@
       "path": "docs/reliability/repository-file-inventory.json",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 229157,
-      "lines": 5049,
+      "bytes": 228261,
+      "lines": 5030,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -3594,18 +3584,6 @@
       "verification": "visual render, dimensions, compression, cache headers, and provenance"
     },
     {
-      "path": "public/vercel.svg",
-      "role": "Static asset",
-      "risk": "low",
-      "bytes": 128,
-      "lines": 1,
-      "detected_concerns": [
-        "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
-      ],
-      "review_focus": "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.",
-      "verification": "visual render, dimensions, compression, cache headers, and provenance"
-    },
-    {
       "path": "public/window.svg",
       "role": "Static asset",
       "risk": "low",
@@ -3876,7 +3854,7 @@
       "path": "scripts/complete-repository-audit.mjs",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 35312,
+      "bytes": 35280,
       "lines": 455,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",

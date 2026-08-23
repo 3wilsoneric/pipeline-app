@@ -14,7 +14,7 @@ const SELF_ANALYSIS_PATHS = new Set(["scripts/code-hygiene-audit.mjs", "scripts/
 const TEXT_EXTENSIONS = new Set([
   "", ".acr", ".bicep", ".cjs", ".css", ".dockerignore", ".example", ".gitignore",
   ".html", ".js", ".json", ".jsx", ".md", ".mjs", ".mts", ".nvmrc", ".operations",
-  ".ops", ".py", ".sh", ".sql", ".svg", ".ts", ".tsx", ".txt", ".vercelignore",
+  ".ops", ".py", ".sh", ".sql", ".svg", ".ts", ".tsx", ".txt",
   ".webmanifest", ".yaml", ".yml",
 ]);
 
@@ -100,7 +100,7 @@ function roleFor(path) {
   if (path.startsWith("public/") || /\.(?:ico|png|svg|woff2)$/u.test(path)) return "Static asset";
   if (path.startsWith(".github/")) return "CI or supply-chain configuration";
   if (path.startsWith("databricks/")) return "Databricks worker";
-  if (/^(?:Dockerfile|next\.config|playwright\.config|postcss\.config|eslint\.config|proxy\.|instrumentation\.|package|tsconfig|\.env|\.gitignore|\.dockerignore|\.nvmrc|\.vercelignore|databricks\.yml)/u.test(path)) return "Build, runtime, or repository configuration";
+  if (/^(?:Dockerfile|next\.config|playwright\.config|postcss\.config|eslint\.config|proxy\.|instrumentation\.|package|tsconfig|\.env|\.gitignore|\.dockerignore|\.nvmrc|databricks\.yml)/u.test(path)) return "Build, runtime, or repository configuration";
   return "Repository support file";
 }
 

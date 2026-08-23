@@ -323,7 +323,6 @@
         ".dockerignore",
         ".github/workflows/deploy-azure.yml",
         ".gitignore",
-        ".vercelignore",
         "AGENTS.md",
         "Dockerfile",
         "Dockerfile.acr",
