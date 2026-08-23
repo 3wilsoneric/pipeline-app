@@ -18,21 +18,73 @@ const internalWorkspaceTags = new Set([
   "real-intake",
 ]);
 
-const countyNames = [
+const californiaCountyNames = [
   "Alameda",
+  "Alpine",
+  "Amador",
+  "Butte",
   "Calaveras",
+  "Colusa",
   "Contra Costa",
+  "Del Norte",
+  "El Dorado",
+  "Fresno",
+  "Glenn",
+  "Humboldt",
+  "Imperial",
+  "Inyo",
+  "Kern",
+  "Kings",
+  "Lake",
+  "Lassen",
   "Los Angeles",
+  "Madera",
   "Marin",
+  "Mariposa",
+  "Mendocino",
   "Merced",
+  "Modoc",
+  "Mono",
   "Monterey",
+  "Napa",
+  "Nevada",
+  "Orange",
+  "Placer",
+  "Plumas",
+  "Riverside",
   "Sacramento",
+  "San Benito",
+  "San Bernardino",
+  "San Diego",
   "San Francisco",
   "San Joaquin",
+  "San Luis Obispo",
   "San Mateo",
+  "Santa Barbara",
   "Santa Clara",
+  "Santa Cruz",
+  "Shasta",
+  "Sierra",
+  "Siskiyou",
+  "Solano",
   "Sonoma",
   "Stanislaus",
+  "Sutter",
+  "Tehama",
+  "Trinity",
+  "Tulare",
+  "Tuolumne",
+  "Ventura",
+  "Yolo",
+  "Yuba",
+] as const;
+
+const countyAliases = [
+  { aliases: ["COCO", "CCC"], county: "Contra Costa" },
+  { aliases: ["LA", "LAC"], county: "Los Angeles" },
+  { aliases: ["SAC"], county: "Sacramento" },
+  { aliases: ["SB"], county: "San Bernardino" },
+  { aliases: ["SF"], county: "San Francisco" },
 ] as const;
 
 export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmissionOutcome {
@@ -98,17 +150,49 @@ export function getWorkspaceCounty(referral: Referral) {
     return key === "county" || key.endsWith("county");
   });
   const extractedValue = (extractedCounty?.final_value ?? extractedCounty?.proposed_value)?.trim();
-  if (extractedValue) return extractedValue;
+  if (extractedValue) return canonicalCountyLabel(extractedValue) ?? extractedValue;
 
-  const sourceText = [
+  const storedCounty = canonicalCountyLabel(referral.community);
+  if (storedCounty) return storedCounty;
+
+  const sourceValues = [
     referral.sourceWorkspaceName,
     referral.sourceProjectName,
     referral.payer,
     referral.source,
-  ].filter(Boolean).join(" ");
-  if (/\bLA County\b/i.test(sourceText)) return "Los Angeles County";
-  const county = countyNames.find((name) => new RegExp(`\\b${name} County\\b`, "i").test(sourceText));
-  return county ? `${county} County` : "Not recorded";
+    ...(referral.tags ?? []),
+  ].filter((value): value is string => Boolean(value?.trim()));
+
+  for (const value of sourceValues) {
+    const county = canonicalCountyLabel(value);
+    if (county) return county;
+  }
+
+  return "Not recorded";
+}
+
+function canonicalCountyLabel(value: string) {
+  const county = [...californiaCountyNames]
+    .sort((left, right) => right.length - left.length)
+    .find((name) => countyNamePattern(name).test(value));
+  if (county) return `${county} County`;
+
+  for (const definition of countyAliases) {
+    if (definition.aliases.some((alias) => new RegExp(`\\b${escapeRegExp(alias)}\\b`, "i").test(value))) {
+      return `${definition.county} County`;
+    }
+  }
+
+  return null;
+}
+
+function countyNamePattern(name: string) {
+  const countyName = escapeRegExp(name).replace(/\s+/g, "\\s+");
+  return new RegExp(`\\b(?:County\\s+(?:of\\s+)?${countyName}|${countyName}(?:\\s+County)?)\\b`, "i");
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function presentWorkspaceNote(note: string) {

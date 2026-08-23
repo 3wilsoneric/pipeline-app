@@ -3,6 +3,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { loadTypeScriptModule } from "./ts-module-loader.mjs";
+
 const root = process.cwd();
 
 const requiredModules = [
@@ -79,6 +81,7 @@ const checks = [
   checkAuthGuardrails,
   checkProfileResilience,
   checkCommunityLabels,
+  checkWorkspaceCountyResolution,
   checkWorkflowGuardrails,
   checkMissingInfoEnvelope,
   checkDuplicateDetection,
@@ -523,6 +526,37 @@ function checkFollowUpContextPatch() {
   assert(exported.scope.community === "San Pablo", "Community follow-up patch leaked context");
   assert(exported.scope.date_from === "2026-04-01", "Date follow-up patch lost April context");
   assert(exported.artifact === "csv", "Export follow-up did not patch artifact");
+}
+
+function checkWorkspaceCountyResolution() {
+  const { getWorkspaceCounty } = loadTypeScriptModule(root, "lib/pipeline/workspace-presentation.ts");
+  const referral = (overrides = {}) => ({
+    community: "Unassigned",
+    documentName: "",
+    name: "Example Client",
+    payer: "",
+    source: "",
+    tags: [],
+    ...overrides,
+  });
+
+  const cases = [
+    [referral({ packetFields: [{ field_key: "referral.county", final_value: "Stanislaus", proposed_value: "", review_status: "accepted" }] }), "Stanislaus County"],
+    [referral({ community: "Santa Clara" }), "Santa Clara County"],
+    [referral({ sourceWorkspaceName: "Example Client - 7/16/2025 Contra Costa" }), "Contra Costa County"],
+    [referral({ sourceWorkspaceName: "Example Client - 6/5/25 - Merced" }), "Merced County"],
+    [referral({ sourceWorkspaceName: "Example Client-7/31/2026-San Francisco-Possible Dementia" }), "San Francisco County"],
+    [referral({ sourceWorkspaceName: "Example Client - 8/1/2026 - COCO" }), "Contra Costa County"],
+    [referral({ sourceWorkspaceName: "Example Client - 8/1/2026 - SF" }), "San Francisco County"],
+    [referral({ sourceWorkspaceName: "Example Client - 8/1/2026 - LA" }), "Los Angeles County"],
+    [referral({ payer: "LAC DMH Medi-Cal" }), "Los Angeles County"],
+    [referral({ payer: "Medi-Cal LA Care LTC" }), "Los Angeles County"],
+  ];
+
+  for (const [input, expected] of cases) {
+    assert(getWorkspaceCounty(input) === expected, `Expected workspace county ${expected}`);
+  }
+  assert(getWorkspaceCounty(referral()) === "Not recorded", "County resolution must not invent missing data");
 }
 
 function checkDocsAndRunbooks() {
