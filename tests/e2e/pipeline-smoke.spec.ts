@@ -2034,7 +2034,9 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Assessments", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Source documents", exact: true })).toBeVisible();
-    await expect(page.getByText("Sanitized referral packet.pdf", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("article").getByText("Sanitized referral packet.pdf", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole("img", { name: "First-page thumbnail for Sanitized referral packet.pdf" })).toBeVisible();
     const sourceDocumentLink = page.getByRole("link", { name: "Open Sanitized referral packet.pdf" });
     await expect(sourceDocumentLink).toHaveAttribute("href", /\/source-documents\/doc-sanitized-100\/preview$/);
