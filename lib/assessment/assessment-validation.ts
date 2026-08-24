@@ -68,7 +68,7 @@ export function validateAssessmentPatchRequest(value: unknown): AssessmentValida
   if (!versionResult.ok) return versionResult;
   const patchResult = validatePatchFields(value.patch);
   if (!patchResult.ok) return patchResult;
-  const assigneeResult = validatePatchAssignee(value, section);
+  const assigneeResult = validatePatchAssignee(value);
   if (!assigneeResult.ok) return assigneeResult;
   const mutationResult = validateMutationId(value.client_mutation_id);
   if (!mutationResult.ok) return mutationResult;
@@ -121,15 +121,9 @@ function validatePatchFields(patch: Record<string, unknown>): AssessmentValidati
   return { ok: true, value: true };
 }
 
-function validatePatchAssignee(
-  value: Record<string, unknown>,
-  section: unknown,
-): AssessmentValidationResult<true> {
-  if (value.assessor_id !== undefined && value.assessor_id !== null && !isSafePrincipalId(value.assessor_id)) {
-    return invalid("assessor_id is invalid.");
-  }
-  if (section !== undefined && value.assessor_id !== undefined) {
-    return invalid("assessor_id cannot be changed in a section save.");
+function validatePatchAssignee(value: Record<string, unknown>): AssessmentValidationResult<true> {
+  if (value.assessor_id !== undefined) {
+    return invalid("Change the referral assignment to change its assessor.");
   }
   return { ok: true, value: true };
 }
@@ -261,10 +255,6 @@ function validateMutationId(value: unknown): AssessmentValidationResult<string |
 
 function isSafeId(value: unknown, maximum: number): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= maximum && /^[a-zA-Z0-9_.:-]+$/.test(value);
-}
-
-function isSafePrincipalId(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= 256 && /^[a-zA-Z0-9_.:@-]+$/.test(value);
 }
 
 function isBoundedString(value: unknown, maximum: number, required = false): value is string {

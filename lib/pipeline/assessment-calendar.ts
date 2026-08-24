@@ -8,11 +8,12 @@ import type { Referral } from "@/lib/pipeline/referral-types";
 const closedStages = new Set(["Accepted / Admitted", "Declined"]);
 
 export function assessmentCalendarEvent(
-  assessment: Pick<PipelineAssessmentRecord, "assessment_id" | "assessment_date" | "assessor_id" | "assessor" | "status" | "referral_id">,
+  assessment: Pick<PipelineAssessmentRecord, "assessment_id" | "assessor_id" | "assessor" | "status" | "referral_id" | "scheduled_start_at" | "scheduled_duration_minutes" | "scheduled_method" | "scheduled_location" | "schedule_status">,
   referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId">,
   today = calendarToday(),
 ): PipelineCalendarEvent | null {
-  const date = calendarDate(assessment.assessment_date ?? undefined);
+  if (!assessment.scheduled_start_at || !["scheduled", "rescheduled", "completed"].includes(assessment.schedule_status ?? "unscheduled")) return null;
+  const date = calendarDate(assessment.scheduled_start_at);
   if (!date) return null;
   const overdue = assessment.status !== "complete" && date < today;
   const title = assessment.status === "complete"
@@ -28,9 +29,13 @@ export function assessmentCalendarEvent(
     assessmentId: assessment.assessment_id,
     clientName: referral.name,
     community: referral.community,
-    ownerId: assessment.assessor_id ?? undefined,
-    owner: assessment.assessor?.trim() || "Unassigned",
+    ownerId: referral.ownerId ?? assessment.assessor_id ?? undefined,
+    owner: referral.owner?.trim() || assessment.assessor?.trim() || "Unassigned",
     date,
+    startsAt: assessment.scheduled_start_at,
+    durationMinutes: assessment.scheduled_duration_minutes ?? undefined,
+    method: assessment.scheduled_method ?? undefined,
+    location: assessment.scheduled_location?.trim() || undefined,
     kind: "assessment",
     status: overdue ? "overdue" : assessment.status,
     title,
@@ -72,10 +77,11 @@ export function assessmentFollowUpEvents(
 }
 
 export function unscheduledAssessment(
-  referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId" | "date" | "createdAt" | "stage" | "workspaceOrigin">,
-  hasAssessment: boolean,
+  referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId" | "date" | "createdAt" | "stage" | "workspaceOrigin" | "workflowStatus">,
+  hasScheduledAssessment: boolean,
 ): PipelineUnscheduledAssessment | null {
-  if (referral.workspaceOrigin !== "pipeline" || closedStages.has(referral.stage) || hasAssessment) return null;
+  if (referral.workspaceOrigin !== "pipeline" || closedStages.has(referral.stage) || hasScheduledAssessment) return null;
+  if (referral.workflowStatus && referral.workflowStatus !== "ready_to_schedule") return null;
   const receivedDate = calendarDate(referral.date) ?? calendarDate(referral.createdAt);
   if (!receivedDate) return null;
   return {

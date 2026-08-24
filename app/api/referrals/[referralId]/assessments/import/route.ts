@@ -13,7 +13,9 @@ import {
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { hasInitialDocument, profileIsReady } from "@/lib/pipeline/workflow-status";
 
 export const runtime = "nodejs";
 
@@ -37,6 +39,18 @@ export async function POST(
     const access = await requireReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
     const referral = access.referral;
+    if (!referral.ownerId?.trim() || isUnassignedOwner(referral.owner)) {
+      return jsonError("Assign this referral to an assessor before importing assessment data.", 422);
+    }
+    if (referral.ownerId !== auth.user.id) {
+      return jsonError("Only the assigned assessor can import assessment data.", 403);
+    }
+    if (!hasInitialDocument(referral) && !referral.manualIntakeAuthorization) {
+      return jsonError("Upload an initial referral document, or record a manual-intake authorization, before importing assessment data.", 422);
+    }
+    if (!profileIsReady(referral)) {
+      return jsonError("Complete the client name, DOB, community, and referral source before importing assessment data.", 422);
+    }
 
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
@@ -48,12 +62,13 @@ export async function POST(
     defaults.date_of_birth = isoDateOrNull(referral.dob);
     defaults.community = referral.community;
     defaults.assessment_date = new Date().toISOString().slice(0, 10);
-    defaults.assessor = auth.user.name;
+    defaults.assessor = referral.owner;
 
     try {
       const identity = await resolveAssessmentClientIdentity(request, referralId);
       const result = await importAssessmentExtraction({
         referralId,
+        assignedAssessor: { id: referral.ownerId, name: referral.owner },
         canonicalClientId: identity.canonicalClientId,
         residentKey: identity.residentKey,
         assessmentId: validated.value.assessment_id,

@@ -38,7 +38,11 @@ import {
   type ReviewSection,
 } from "@/lib/pipeline/referral-review";
 import type { ReferralCreateInput, ReferralPatch } from "@/lib/pipeline/referral-store";
-import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import {
+  fetchCurrentPipelineUser,
+  fetchPipelineJson,
+  PipelineApiError,
+} from "@/lib/auth/authenticated-fetch";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 import {
   clearServerReferralDraft,
@@ -252,6 +256,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
   const [extractionConflict, setExtractionConflict] = useState<ExtractionReviewConflict | null>(null);
   const [presence, setPresence] = useState<ReferralPresenceView[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [canSupervise, setCanSupervise] = useState(false);
   const [ownerPrincipalId, setOwnerPrincipalId] = useState("");
   const [manualIntakeOpen, setManualIntakeOpen] = useState(false);
   const [manualIntakeReason, setManualIntakeReason] = useState("");
@@ -327,6 +332,20 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
       })
       .catch(() => {
         if (!cancelled) setSaveError("The owner list could not be loaded. Existing work remains available.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCurrentPipelineUser()
+      .then(({ user }) => {
+        if (!cancelled) setCanSupervise(Boolean(user?.roles.some((role) => role === "admin" || role === "assessment_coordinator")));
+      })
+      .catch(() => {
+        if (!cancelled) setCanSupervise(false);
       });
     return () => {
       cancelled = true;
@@ -768,6 +787,13 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
       new Date().toISOString(),
       fieldsRef.current.owner.value.trim() || "Unassigned",
       ownerPrincipalIdRef.current || undefined,
+      {
+        date_of_birth: fieldsRef.current.dob.value,
+        community: pipelineCommunities.includes(fieldsRef.current.county.value.trim() as PipelineCommunity)
+          ? fieldsRef.current.county.value.trim()
+          : current.community,
+        referral_source: fieldsRef.current.referent.value,
+      },
     );
     const patch = buildCanvasPatch({
       keys,
@@ -866,12 +892,23 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
     try {
       const referralId = referral?.id ?? loadedReferral?.id;
       const tags = normalizeTags(tagsInput);
+      const fallbackCommunity = loadedReferral?.community ?? referral?.community;
+      const community: PipelineCommunity = pipelineCommunities.includes(fields.county.value.trim() as PipelineCommunity)
+        ? fields.county.value.trim() as PipelineCommunity
+        : pipelineCommunities.includes(fallbackCommunity as PipelineCommunity)
+          ? fallbackCommunity as PipelineCommunity
+          : "Unassigned";
       const admissionRequirements = createDefaultAdmissionRequirements(
         loadedReferral?.requirements ?? [],
         getEvidenceByType(documents),
         new Date().toISOString(),
         fields.owner.value.trim() || "Unassigned",
         ownerPrincipalId || undefined,
+        {
+          date_of_birth: fields.dob.value,
+          community,
+          referral_source: fields.referent.value,
+        },
       );
       let payload: { referral?: Referral; error?: string };
 
@@ -889,9 +926,6 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
       }
 
       if (!referralId) {
-        const community = pipelineCommunities.includes(fields.county.value.trim() as PipelineCommunity)
-          ? fields.county.value.trim() as PipelineCommunity
-          : "Unassigned";
         const owner = fields.owner.value.trim() || "Unassigned";
         const createTags = tags.length > 0
           ? tags
@@ -1587,7 +1621,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
                 <span className="hidden sm:inline">{isSaving ? "Saving..." : loadedReferral || referral?.id ? "Save workspace" : "Create workspace"}</span>
                 <span className="sm:hidden">{isSaving ? "Saving" : loadedReferral || referral?.id ? "Save" : "Create"}</span>
               </button>
-              {loadedReferral ? (
+              {loadedReferral && canSupervise ? (
                 <button
                   type="button"
                   aria-label="Move workspace to trash"
@@ -1862,7 +1896,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
                     </div>
                     <div className="mt-1 text-[10px] leading-4 text-[#3c665d]">Source files remain visible as outstanding until attached.</div>
                   </div>
-                ) : !loadedReferral?.packetFields?.length ? (
+                ) : !loadedReferral?.packetFields?.length && canSupervise ? (
                   <button
                     type="button"
                     onClick={() => setManualIntakeOpen(true)}
@@ -1951,6 +1985,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
               clientName={fields.name.value}
               referral={loadedReferral}
               assessmentComplete={assessmentSummary.status === "complete"}
+              assessmentId={assessmentSummary.assessmentId}
               sections={reviewSections}
               complete={reviewSummary.complete}
               total={reviewSummary.total}
@@ -2239,7 +2274,7 @@ function getRequirementReviewValue(requirement: Requirement, localFileName: stri
   if (localFileName) return localFileName;
   const savedRequirement = referral?.requirements?.find((item) => item.label === requirement.label || item.id === requirement.id);
   if (savedRequirement?.evidenceDocumentName) return savedRequirement.evidenceDocumentName;
-  if (savedRequirement && ["received", "reviewed", "waived"].includes(savedRequirement.status)) return "Recorded";
+  if (savedRequirement && ["received", "reviewed", "waived", "not_applicable"].includes(savedRequirement.status)) return "Recorded";
   return "";
 }
 

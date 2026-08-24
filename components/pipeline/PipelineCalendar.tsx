@@ -266,7 +266,7 @@ function AgendaView({ events, loading, hasFilters, onOpen }: { events: PipelineC
           <div className="divide-y divide-[#e5e5e5]">
             {dayEvents.map((event) => (
               <button key={event.id} type="button" onClick={() => onOpen(event)} className="grid w-full gap-2 px-4 py-3 text-left hover:bg-[#f7faf9] sm:grid-cols-[minmax(0,1fr)_160px_120px]">
-                <span className="min-w-0"><span className="block truncate text-[13px] font-black text-[#111111]">{event.clientName}</span><span className="mt-1 block truncate text-[11px] text-[#737373]">{event.title} · {event.detail}</span></span>
+                <span className="min-w-0"><span className="block truncate text-[13px] font-black text-[#111111]">{event.clientName}</span><span className="mt-1 block truncate text-[11px] text-[#737373]">{event.startsAt ? `${eventTime(event.startsAt)} · ` : ""}{event.title} · {event.detail}</span></span>
                 <span className="truncate text-[11px] font-semibold text-[#595959]">{event.community}</span>
                 <span className="truncate text-[10px] text-[#737373]">{event.owner}</span>
               </button>
@@ -285,7 +285,7 @@ function CalendarEventButton({ event, onOpen, compact = false }: { event: Pipeli
   return (
     <button type="button" onClick={() => onOpen(event)} title={`${event.clientName} · ${event.title} · ${event.owner}`} className={`block w-full border-l-2 px-2 text-left ${compact ? "py-1.5" : "py-2"} ${color}`}>
       <span className={`block truncate font-black ${compact ? "text-[9px]" : "text-[11px]"}`}>{event.clientName}</span>
-      <span className={`mt-0.5 block truncate opacity-80 ${compact ? "text-[8px]" : "text-[9px]"}`}>{event.title}</span>
+      <span className={`mt-0.5 block truncate opacity-80 ${compact ? "text-[8px]" : "text-[9px]"}`}>{event.startsAt ? `${eventTime(event.startsAt)} · ` : ""}{event.title}</span>
       {!compact ? <span className="mt-1 block truncate text-[8px] opacity-70">{event.owner}</span> : null}
     </button>
   );
@@ -369,6 +369,11 @@ function shortDate(value: string) {
 
 function longDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(parseDate(value));
+}
+
+function eventTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 function calendarDays(month: string) {

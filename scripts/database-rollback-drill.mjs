@@ -21,6 +21,7 @@ const historicalWorkspacesRollback = await readFile("database/rollbacks/0011_his
 const referralTrashRollback = await readFile("database/rollbacks/0012_referral_trash.sql", "utf8");
 const searchPerformanceRollback = await readFile("database/rollbacks/0013_search_performance.sql", "utf8");
 const workspaceCountyRollback = await readFile("database/rollbacks/0014_workspace_county.sql", "utf8");
+const assessorWorkflowRollback = await readFile("database/rollbacks/0015_assessor_workflow.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -61,7 +62,12 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0013_search_performance') as search_performance_history,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='county') as workspace_county,
       to_regclass('pipeline.referrals_county_created_idx') is not null as workspace_county_index,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0014_workspace_county') as workspace_county_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0014_workspace_county') as workspace_county_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='workflow_status') as assessor_workflow_status,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='signed_at') as assessment_signature,
+      to_regclass('pipeline.assessment_addenda') is not null as assessment_addenda,
+      to_regclass('pipeline.assessment_recommendations') is not null as assessment_recommendations,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0015_assessor_workflow') as assessor_workflow_history
   `;
   checks.push({
     name: "latest migrations exist before drill",
@@ -92,6 +98,29 @@ try {
       && before[0].workspace_county
       && before[0].workspace_county_index
       && before[0].workspace_county_history
+      && before[0].assessor_workflow_status
+      && before[0].assessment_signature
+      && before[0].assessment_addenda
+      && before[0].assessment_recommendations
+      && before[0].assessor_workflow_history
+    ),
+  });
+  await connection.unsafe(assessorWorkflowRollback);
+  const assessorWorkflowDuring = await connection`
+    select not exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='workflow_status') as workflow_status_removed,
+      not exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='signed_at') as signature_removed,
+      to_regclass('pipeline.assessment_addenda') is null as addenda_removed,
+      to_regclass('pipeline.assessment_recommendations') is null as recommendations_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0015_assessor_workflow') as history_removed
+  `;
+  checks.push({
+    name: "rollback removes assessor workflow extensions",
+    ok: Boolean(
+      assessorWorkflowDuring[0].workflow_status_removed
+      && assessorWorkflowDuring[0].signature_removed
+      && assessorWorkflowDuring[0].addenda_removed
+      && assessorWorkflowDuring[0].recommendations_removed
+      && assessorWorkflowDuring[0].history_removed
     ),
   });
   await connection.unsafe(workspaceCountyRollback);
@@ -240,7 +269,12 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0013_search_performance') as search_performance_history,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='county') as workspace_county,
       to_regclass('pipeline.referrals_county_created_idx') is not null as workspace_county_index,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0014_workspace_county') as workspace_county_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0014_workspace_county') as workspace_county_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='workflow_status') as assessor_workflow_status,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='signed_at') as assessment_signature,
+      to_regclass('pipeline.assessment_addenda') is not null as assessment_addenda,
+      to_regclass('pipeline.assessment_recommendations') is not null as assessment_recommendations,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0015_assessor_workflow') as assessor_workflow_history
   `;
   checks.push({
     name: "drill transaction restores original schema",
@@ -273,6 +307,11 @@ try {
       && after[0].workspace_county
       && after[0].workspace_county_index
       && after[0].workspace_county_history
+      && after[0].assessor_workflow_status
+      && after[0].assessment_signature
+      && after[0].assessment_addenda
+      && after[0].assessment_recommendations
+      && after[0].assessor_workflow_history
     ),
   });
   const failed = checks.filter((check) => !check.ok);

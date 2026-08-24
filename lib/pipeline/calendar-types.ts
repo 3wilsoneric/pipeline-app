@@ -13,6 +13,10 @@ export type PipelineCalendarEvent = {
   ownerId?: string;
   owner: string;
   date: string;
+  startsAt?: string;
+  durationMinutes?: number;
+  method?: string;
+  location?: string;
   kind: PipelineCalendarEventKind;
   status: PipelineCalendarEventStatus;
   title: string;

@@ -3,6 +3,7 @@ import { isUnassignedOwner } from "./referral-ownership";
 import type { WorkflowContext } from "./workflow-records";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
 import { hasManualIntakeAuthorization } from "./referral-workflow";
+import { hasInitialDocument } from "./workflow-status";
 
 export type ReferralProgressPhase = "pre" | "assessment" | "post";
 export type ReferralProgressItemStatus = "complete" | "missing" | "attention";
@@ -112,7 +113,7 @@ function getNextAction(
   if (decision?.outcome === "accepted") return blockers[0] ?? null;
   if (isUnassignedOwner(referral.owner)) return "Assign an owner";
   if (!hasManualIntakeAuthorization(referral)) {
-    if (referral.documentStatus === "Missing" && !hasValue(referral.documentName)) return "Upload the initial packet";
+    if (!hasInitialDocument(referral)) return "Upload the initial packet";
     if (referral.packetStatus === "failed") return "Retry packet extraction";
     if (["received", "normalizing", "extracting"].includes(referral.packetStatus ?? "")) return "Waiting for packet extraction";
 
@@ -143,7 +144,7 @@ function packetSection(referral: Referral): ReferralProgressSection {
       item(
         "packet_uploaded",
         "Source documents attached",
-        referral.documentStatus !== "Missing" || hasValue(referral.documentName),
+        hasInitialDocument(referral),
         false,
         "Attach source files when available",
       ),
@@ -161,7 +162,7 @@ function packetSection(referral: Referral): ReferralProgressSection {
     item(
       "packet_uploaded",
       "Initial packet uploaded",
-      referral.documentStatus !== "Missing" || hasValue(referral.documentName),
+      hasInitialDocument(referral),
       true,
     ),
     item("packet_linked", "Extraction packet linked", hasValue(referral.packetId), true),
@@ -296,7 +297,7 @@ function isPacketComplete(referral: Referral) {
 }
 
 function isRequirementComplete(requirement: AdmissionRequirement) {
-  return ["received", "reviewed", "waived"].includes(requirement.status);
+  return ["received", "reviewed", "waived", "not_applicable"].includes(requirement.status);
 }
 
 function getPhase(

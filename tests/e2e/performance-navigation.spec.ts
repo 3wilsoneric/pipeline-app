@@ -30,7 +30,7 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
     expect(documentRequests).toBe(initialDocumentRequests);
   });
 
-  test("loads the referral directory once and defers the action worklist", async ({ page }) => {
+  test("loads the referral directory once without requesting a derived action worklist", async ({ page }) => {
     let directoryRequests = 0;
     let worklistRequests = 0;
     page.on("request", (request) => {
@@ -44,9 +44,8 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
     await expect.poll(() => directoryRequests).toBe(1);
     expect(worklistRequests).toBe(0);
 
-    await page.getByRole("button", { name: "Needs action", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Referral action worklist" })).toBeVisible();
-    await expect.poll(() => worklistRequests).toBe(1);
+    await expect(page.getByRole("button", { name: "Needs action", exact: true })).toHaveCount(0);
+    expect(worklistRequests).toBe(0);
   });
 
   test("exposes an opaque referral change sequence", async ({ request }) => {

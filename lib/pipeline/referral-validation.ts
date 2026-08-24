@@ -25,6 +25,7 @@ const packetStatuses = [
 ] as const;
 const postAssessmentDecisions = ["accepted", "not-accepted", "pending"] as const;
 const requirementTypes = [
+  "profile_field",
   "medication_list",
   "tb_test",
   "signed_admission_agreement",
@@ -44,8 +45,10 @@ const requirementStatuses = [
   "reviewed",
   "waived",
   "expired",
+  "unavailable",
+  "not_applicable",
 ] as const;
-const requirementGates = ["pre_assessment", "admission_decision", "move_in", "ehr_export"] as const;
+const requirementGates = ["profile_completion", "pre_assessment", "admission_decision", "move_in", "ehr_export"] as const;
 
 const stringLimits = {
   name: 200,
@@ -150,7 +153,11 @@ export function validateReferralPatch(
 ): ReferralValidationResult<ReferralPatch> {
   if (!isPlainObject(value)) return invalid("The referral patch must be an object.");
 
-  for (const protectedField of ["id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId", "manualIntakeAuthorization", "ehrHandoff"] as const) {
+  for (const protectedField of [
+    "id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId",
+    "workflowStatus", "assignedAt", "assignmentDueAt", "assignmentVersion",
+    "assessmentRecommendation", "manualIntakeAuthorization", "ehrHandoff",
+  ] as const) {
     if (protectedField in value) {
       return invalid(`${protectedField} cannot be changed through a referral patch.`);
     }
@@ -422,10 +429,35 @@ function validateRequirement(value: unknown): ValidationSuccess<true> | Validati
   if ("version" in value && value.version !== undefined && (!Number.isInteger(value.version) || Number(value.version) < 1)) {
     return invalid("requirements.version must be a positive whole number.");
   }
-  for (const field of ["evidenceDocumentName", "waiverReason"] as const) {
+  for (const [field, maximum] of [
+    ["evidenceDocumentName", 2_000],
+    ["waiverReason", 2_000],
+    ["fieldKey", 256],
+    ["requestedFrom", 500],
+    ["unavailableReason", 2_000],
+  ] as const) {
     if (!(field in value) || value[field] === undefined) continue;
-    const result = validateString(value[field], `requirements.${field}`, 2_000);
+    const result = validateString(value[field], `requirements.${field}`, maximum);
     if (!result.ok) return result;
+  }
+  for (const field of ["requestedAt", "followUpAt"] as const) {
+    if (!(field in value) || value[field] === undefined) continue;
+    const result = validateTimestamp(value[field], `requirements.${field}`);
+    if (!result.ok) return result;
+  }
+  if (value.type === "profile_field" && typeof value.fieldKey !== "string") {
+    return invalid("requirements.fieldKey is required for profile completion work.");
+  }
+  if (value.status === "waived" && typeof value.waiverReason !== "string") {
+    return invalid("requirements.waiverReason is required when a requirement is waived.");
+  }
+  if (value.status === "requested"
+    && (typeof value.requestedFrom !== "string" || typeof value.followUpAt !== "string")) {
+    return invalid("Requested requirements need a source and follow-up date.");
+  }
+  if (["unavailable", "not_applicable"].includes(String(value.status))
+    && typeof value.unavailableReason !== "string") {
+    return invalid("Unavailable or not-applicable requirements need a reason.");
   }
   return valid();
 }

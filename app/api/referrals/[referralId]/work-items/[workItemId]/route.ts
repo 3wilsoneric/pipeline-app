@@ -6,13 +6,21 @@ import type { RequirementStatus } from "@/lib/pipeline/referral-types";
 import { patchReferralWorkItem } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
-import { isAssessorUser, requireReferralAccess } from "@/lib/pipeline/referral-access";
-import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
-import { getActiveWorkspaceMember, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
+import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
 
 export const runtime = "nodejs";
 
-const statuses: RequirementStatus[] = ["needed", "requested", "received", "reviewed", "waived", "expired"];
+const statuses: RequirementStatus[] = [
+  "needed",
+  "requested",
+  "received",
+  "reviewed",
+  "waived",
+  "expired",
+  "unavailable",
+  "not_applicable",
+];
 
 export async function PATCH(
   request: Request,
@@ -40,33 +48,15 @@ export async function PATCH(
     const patch = validatePatch(body.value.patch);
     if (!patch.ok) return jsonError(patch.error);
     await touchWorkspaceMember(auth.user);
-    const selectedOwner = typeof body.value.owner_principal_id === "string"
-      ? await getActiveWorkspaceMember(body.value.owner_principal_id)
-      : null;
-    if (body.value.owner_principal_id !== undefined && !selectedOwner) {
-      return jsonError("Choose an active Pipeline member as owner.", 422);
+    if (body.value.owner_principal_id !== undefined || body.value.handoff_reason !== undefined) {
+      return jsonError("Change the referral assignment to change requirement ownership.", 422);
     }
-    if (selectedOwner && isAssessorUser(auth.user) && selectedOwner.principal_id !== auth.user.id) {
-      return jsonError("Assessors cannot reassign requirements.", 403);
-    }
-    if (patch.value.owner !== undefined && !selectedOwner && !isUnassignedOwner(patch.value.owner)) {
-      return jsonError("Choose an active Pipeline member as owner.", 422);
-    }
-    const handoffReason = typeof body.value.handoff_reason === "string" ? body.value.handoff_reason.trim() : "";
-    if (handoffReason.length > 500) return jsonError("handoff_reason is too long.");
-    const resolvedPatch = selectedOwner
-      ? { ...patch.value, ownerId: selectedOwner.principal_id, owner: selectedOwner.display_name }
-      : patch.value.owner !== undefined
-        ? { ...patch.value, ownerId: undefined, owner: "Unassigned" }
-        : patch.value;
-
     const result = await patchReferralWorkItem(
       referralId,
       workItemId,
-      resolvedPatch,
+      patch.value,
       Number(body.value.if_match),
       { id: auth.user.id, name: auth.user.name },
-      handoffReason,
     );
     if (!result) return jsonError("Work item not found.", 404);
     if (!result.ok && "conflict" in result) {
@@ -84,18 +74,43 @@ export async function PATCH(
 }
 
 function validatePatch(value: Record<string, unknown>) {
-  const allowed = new Set(["status", "owner", "dueAt", "nextStep", "blocker", "evidenceDocumentId", "evidenceDocumentName", "waiverReason"]);
+  const allowed = new Set([
+    "status",
+    "dueAt",
+    "nextStep",
+    "blocker",
+    "evidenceDocumentId",
+    "evidenceDocumentName",
+    "waiverReason",
+    "fieldKey",
+    "requestedFrom",
+    "requestedAt",
+    "followUpAt",
+    "unavailableReason",
+  ]);
   if (Object.keys(value).some((key) => !allowed.has(key))) return { ok: false as const, error: "The work item patch contains an unsupported field." };
   if (value.status !== undefined && (typeof value.status !== "string" || !statuses.includes(value.status as RequirementStatus))) return { ok: false as const, error: "status is invalid." };
   if (value.blocker !== undefined && typeof value.blocker !== "boolean") return { ok: false as const, error: "blocker must be true or false." };
   if (value.evidenceDocumentId !== undefined && (typeof value.evidenceDocumentId !== "string" || !isSafeId(value.evidenceDocumentId))) {
     return { ok: false as const, error: "evidenceDocumentId is invalid." };
   }
-  for (const [field, maximum] of [["owner", 200], ["dueAt", 80], ["nextStep", 500], ["evidenceDocumentName", 2_000], ["waiverReason", 2_000]] as const) {
+  for (const [field, maximum] of [
+    ["dueAt", 80],
+    ["nextStep", 500],
+    ["evidenceDocumentName", 2_000],
+    ["waiverReason", 2_000],
+    ["fieldKey", 256],
+    ["requestedFrom", 500],
+    ["requestedAt", 80],
+    ["followUpAt", 80],
+    ["unavailableReason", 2_000],
+  ] as const) {
     if (value[field] !== undefined && (typeof value[field] !== "string" || value[field].length > maximum)) return { ok: false as const, error: `${field} is invalid.` };
   }
-  if (typeof value.dueAt === "string" && (!value.dueAt.trim() || !Number.isFinite(Date.parse(value.dueAt)))) {
-    return { ok: false as const, error: "dueAt must be a valid date." };
+  for (const field of ["dueAt", "requestedAt", "followUpAt"] as const) {
+    if (typeof value[field] === "string" && (!value[field].trim() || !Number.isFinite(Date.parse(value[field])))) {
+      return { ok: false as const, error: `${field} must be a valid date.` };
+    }
   }
   return { ok: true as const, value };
 }

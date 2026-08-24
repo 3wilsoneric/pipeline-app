@@ -38,6 +38,7 @@ import {
   isReferralStage,
   type ReferralStage,
 } from "@/lib/pipeline/referral-workflow";
+import { resolveReferralWorkflowStatus } from "@/lib/pipeline/workflow-status";
 import { presentWorkspaceNote, resolveWorkspaceCounty, visibleWorkspaceTags } from "@/lib/pipeline/workspace-presentation";
 
 type ReferralStoreState = {
@@ -172,6 +173,8 @@ export type ReferralActor = { id: string; name: string };
 export type ReferralMutationMetadata = {
   auditAction?: string;
   auditReason?: string;
+  /** Internal workflow commands may atomically persist a transition they already validated. */
+  workflowTransitionValidated?: boolean;
 };
 
 export type ReferralChangeMetadata = {
@@ -673,8 +676,14 @@ async function createLocalReferral(
     throw new Error("Referral capacity reached. Archive closed referrals before creating more.");
   }
 
+  const createdAt = input.createdAt || new Date().toISOString();
   const referral = normalizeReferral({
     ...input,
+    createdAt,
+    workflowStatus: input.workflowStatus ?? resolveReferralWorkflowStatus(input as Referral),
+    assignedAt: hasAssignedOwner(input) ? createdAt : undefined,
+    assignmentDueAt: hasAssignedOwner(input) ? input.assignmentDueAt ?? assignmentDueAt(createdAt) : undefined,
+    assignmentVersion: 1,
     id: state.nextId,
     version: 1,
     sectionVersions: defaultReferralSectionVersions(),
@@ -696,9 +705,8 @@ async function patchLocalReferral(
   actor: ReferralActor,
   expectedVersion?: number,
   expectedSectionVersions?: Partial<ReferralSectionVersions>,
-  _metadata?: ReferralMutationMetadata,
+  metadata?: ReferralMutationMetadata,
 ): Promise<ReferralMutation | null> {
-  void _metadata;
   await ensureLoaded();
 
   const index = state.referrals.findIndex((referral) => referral.id === id);
@@ -706,7 +714,33 @@ async function patchLocalReferral(
 
   const current = state.referrals[index];
   const safePatch = sanitizePatch(patch);
-  const touchedSections = getReferralPatchSections(safePatch);
+  const assignmentChanged = assignmentHasChanged(current, safePatch);
+  const now = new Date().toISOString();
+  const nextOwner = {
+    owner: safePatch.owner ?? current.owner,
+    ownerId: safePatch.ownerId === undefined ? current.ownerId : safePatch.ownerId,
+  };
+  const nextRequirements = assignmentChanged
+    ? synchronizeRequirementAssignment(safePatch.requirements ?? current.requirements, nextOwner, now)
+    : safePatch.requirements ?? current.requirements;
+  const nextAssigned = hasAssignedOwner(nextOwner);
+  const statusCandidate = { ...current, ...safePatch, ...nextOwner, requirements: nextRequirements } as Referral;
+  const nextWorkflowStatus = assignmentChanged && !nextAssigned
+    ? "intake_unassigned"
+    : safePatch.workflowStatus
+      ? safePatch.workflowStatus
+    : current.workflowStatus === "intake_unassigned" && nextAssigned
+      ? resolveReferralWorkflowStatus(statusCandidate)
+      : current.workflowStatus ?? resolveReferralWorkflowStatus(statusCandidate);
+  const touchedSections = getReferralPatchSections({
+    ...safePatch,
+    ...(assignmentChanged
+      ? {
+          workflowStatus: nextWorkflowStatus,
+          requirements: nextRequirements,
+        }
+      : {}),
+  });
   const sectionConflict = getSectionConflicts(
     normalizeReferralSectionVersions(current.sectionVersions),
     touchedSections,
@@ -719,7 +753,7 @@ async function patchLocalReferral(
     return { ok: false, conflict: true, referral: current };
   }
 
-  if (patch.stage && patch.stage !== current.stage) {
+  if (patch.stage && patch.stage !== current.stage && !metadata?.workflowTransitionValidated) {
     if (!isReferralStage(patch.stage)) {
       return {
         ok: false,
@@ -743,6 +777,14 @@ async function patchLocalReferral(
   const next = normalizeReferral({
     ...current,
     ...safePatch,
+    ...nextOwner,
+    requirements: nextRequirements,
+    workflowStatus: nextWorkflowStatus,
+    assignedAt: assignmentChanged ? nextAssigned ? now : undefined : current.assignedAt,
+    assignmentDueAt: assignmentChanged
+      ? nextAssigned ? safePatch.assignmentDueAt ?? assignmentDueAt(now) : undefined
+      : safePatch.assignmentDueAt ?? current.assignmentDueAt,
+    assignmentVersion: (current.assignmentVersion ?? 1) + (assignmentChanged ? 1 : 0),
     id: current.id,
     version: (current.version ?? 1) + 1,
     sectionVersions: incrementReferralSections(
@@ -750,9 +792,12 @@ async function patchLocalReferral(
       touchedSections,
     ),
     updatedBy: actor,
-    updatedAt: new Date().toISOString(),
+    updatedAt: now,
   });
 
+  if (assignmentChanged) {
+    await syncLocalOpenAssessmentAssignments(current.id, nextOwner, actor);
+  }
   state.referrals[index] = next;
   state.revision += 1;
   await persist();
@@ -764,6 +809,30 @@ async function hasCompleteLocalAssessment(referralId: number) {
   const { listAssessments } = await import("@/lib/assessment/assessment-store");
   const assessments = await listAssessments({ referralId, limit: 100 });
   return assessments.assessments.some((assessment) => assessment.status === "complete");
+}
+
+async function syncLocalOpenAssessmentAssignments(
+  referralId: number,
+  assignment: Pick<Referral, "owner" | "ownerId">,
+  actor: ReferralActor,
+) {
+  const { listAssessments, patchAssessment } = await import("@/lib/assessment/assessment-store");
+  const assessments = await listAssessments({ referralId, limit: 100 });
+  for (const assessment of assessments.assessments) {
+    if (assessment.status === "complete") continue;
+    const nextAssessor = hasAssignedOwner(assignment)
+      ? { id: assignment.ownerId!, name: assignment.owner }
+      : null;
+    if ((assessment.assessor_id ?? "") === (nextAssessor?.id ?? "")
+      && (assessment.assessor ?? "") === (nextAssessor?.name ?? "")) continue;
+    const result = await patchAssessment(
+      assessment.assessment_id,
+      { assigned_assessor: nextAssessor },
+      actor,
+      { expectedVersion: assessment.version },
+    );
+    if (!result?.ok) throw new Error("An open assessment changed while its referral was reassigned.");
+  }
 }
 
 async function listLocalDeletedReferrals(query = ""): Promise<DeletedReferralListResult> {
@@ -848,6 +917,10 @@ type ReferralRow = {
   county: string | null;
   owner_name: string | null;
   owner_id: string | null;
+  workflow_status?: Referral["workflowStatus"];
+  assigned_at?: Date | string | null;
+  assignment_due_at?: Date | string | null;
+  assignment_version?: number | string;
   priority: Referral["priority"];
   source: string;
   received_date: Date | string | null;
@@ -966,9 +1039,9 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
         and (
           ${queue}::text is null
           or (${queue} = 'unassigned' and lower(coalesce(nullif(trim(r.owner_name), ''), 'unassigned')) in ('unassigned', 'unknown', 'pending'))
-          or (${queue} = 'packet_review' and coalesce(r.data->>'packetStatus', '') in ('ready_for_review', 'failed'))
-          or (${queue} = 'assessment' and r.stage = 'Assessment')
-          or (${queue} = 'decision' and r.stage = 'Community Review')
+          or (${queue} = 'packet_review' and r.workflow_status in ('intake_documents_needed', 'profile_incomplete'))
+          or (${queue} = 'assessment' and r.workflow_status in ('ready_to_schedule', 'assessment_scheduled', 'assessment_in_progress', 'waiting_for_information', 'assessment_ready_to_sign'))
+          or (${queue} = 'decision' and r.workflow_status in ('assessment_signed', 'recommendation_submitted', 'decision_pending'))
         )
     )
     select filtered.*,
@@ -1394,14 +1467,30 @@ async function createPostgresReferral(
       returning person_id
     `;
     const county = resolveWorkspaceCounty(input);
-    const payload = { ...input, clientId, county };
+    const assigned = hasAssignedOwner(input);
+    const assignedAt = assigned ? new Date() : null;
+    const assignedDueAt = assignedAt ? new Date(assignmentDueAt(assignedAt.toISOString())) : null;
+    const workflowStatus = assigned
+      ? resolveReferralWorkflowStatus(input as Referral)
+      : "intake_unassigned";
+    const payload = {
+      ...input,
+      clientId,
+      county,
+      workflowStatus,
+      ...(assignedAt ? { assignedAt: assignedAt.toISOString() } : {}),
+      ...(assignedDueAt ? { assignmentDueAt: assignedDueAt.toISOString() } : {}),
+      assignmentVersion: 1,
+    };
     const rows = await tx<ReferralRow[]>`
       insert into pipeline.referrals (
-        person_id, stage, community, county, owner_id, owner_name, priority, source, received_date,
+        person_id, stage, workflow_status, community, county, owner_id, owner_name,
+        assigned_at, assignment_due_at, assignment_version, priority, source, received_date,
         tags, summary, document_sha256, search_text, data,
         closed_at, created_by, created_by_name, updated_by, updated_by_name
       ) values (
-        ${people[0].person_id}::uuid, ${input.stage}, ${input.community}, ${county ?? null}, ${input.ownerId || null}, ${input.owner || null},
+        ${people[0].person_id}::uuid, ${input.stage}, ${workflowStatus}, ${input.community}, ${county ?? null},
+        ${input.ownerId || null}, ${input.owner || null}, ${assignedAt}, ${assignedDueAt}, 1,
         ${input.priority}, ${input.source}, ${dateToSql(input.date)}::date, ${input.tags ?? []},
         ${input.note || null}, ${input.documentHash ?? null}, ${referralSearchText(payload)}, ${tx.json(payload)},
         ${isClosedStage(input.stage) ? new Date() : null}, ${actor.id}, ${actor.name}, ${actor.id}, ${actor.name}
@@ -1440,7 +1529,18 @@ async function patchPostgresReferral(
     const currentVersion = current.version ?? 1;
     const clientId = current.clientId ?? buildLocalClientId(current.id);
     const safePatch = sanitizePatch(patch);
-    const touchedSections = getReferralPatchSections(safePatch);
+    const assignmentChanged = assignmentHasChanged(current, safePatch);
+    const now = new Date().toISOString();
+    const nextOwner = {
+      owner: safePatch.owner ?? current.owner,
+      ownerId: safePatch.ownerId === undefined ? current.ownerId : safePatch.ownerId,
+    };
+    const nextRequirements = assignmentChanged
+      ? synchronizeRequirementAssignment(safePatch.requirements ?? current.requirements, nextOwner, now)
+      : safePatch.requirements ?? current.requirements;
+    const touchedSections = getReferralPatchSections(assignmentChanged
+      ? { ...safePatch, requirements: nextRequirements ?? [] }
+      : safePatch);
     const currentSectionVersions = normalizeReferralSectionVersions(current.sectionVersions);
     const sectionConflict = getSectionConflicts(
       currentSectionVersions,
@@ -1453,7 +1553,7 @@ async function patchPostgresReferral(
     if (!expectedSectionVersions && expectedVersion !== undefined && expectedVersion !== currentVersion) {
       return { ok: false, conflict: true, referral: current };
     }
-    if (patch.stage && patch.stage !== current.stage) {
+    if (patch.stage && patch.stage !== current.stage && !metadata?.workflowTransitionValidated) {
       if (!isReferralStage(patch.stage)) {
         return { ok: false, blocked: true, blockers: [{ code: "stage_invalid", label: "Choose a valid workflow stage." }], referral: current };
       }
@@ -1473,25 +1573,67 @@ async function patchPostgresReferral(
       if (duplicate[0]) throw new DuplicateReferralPacketError(Number(duplicate[0].referral_id));
     }
 
-    const changedFields = Object.keys(safePatch);
-    const nextSectionVersions = incrementReferralSections(currentSectionVersions, touchedSections);
+    const changedFields = Array.from(new Set([
+      ...Object.keys(safePatch),
+      ...(assignmentChanged
+        ? ["assignedAt", "assignmentDueAt", "assignmentVersion", "requirements", "workflowStatus"]
+        : []),
+    ]));
+    const nextAssigned = hasAssignedOwner(nextOwner);
+    const nextAssignedAt = assignmentChanged
+      ? nextAssigned ? now : undefined
+      : current.assignedAt;
+    const nextAssignmentDueAt = assignmentChanged
+      ? nextAssigned ? safePatch.assignmentDueAt ?? assignmentDueAt(now) : undefined
+      : safePatch.assignmentDueAt ?? current.assignmentDueAt;
+    const nextAssignmentVersion = (current.assignmentVersion ?? 1) + (assignmentChanged ? 1 : 0);
+    const statusCandidate = {
+      ...current,
+      ...safePatch,
+      owner: nextOwner.owner,
+      ownerId: nextOwner.ownerId,
+      requirements: nextRequirements,
+    } as Referral;
+    const nextWorkflowStatus = assignmentChanged && !nextAssigned
+      ? "intake_unassigned"
+      : safePatch.workflowStatus
+        ? safePatch.workflowStatus
+      : current.workflowStatus === "intake_unassigned" && nextAssigned
+        ? resolveReferralWorkflowStatus(statusCandidate)
+        : current.workflowStatus ?? resolveReferralWorkflowStatus(statusCandidate);
+    const internallyTouchedSections = assignmentChanged
+      ? [...new Set([...touchedSections, "workflow" as const])]
+      : touchedSections;
+    const nextSectionVersions = incrementReferralSections(currentSectionVersions, internallyTouchedSections);
     const next = normalizeReferral({
       ...current,
       ...safePatch,
+      owner: nextOwner.owner,
+      ownerId: nextOwner.ownerId,
+      requirements: nextRequirements,
+      workflowStatus: nextWorkflowStatus,
+      assignedAt: nextAssignedAt,
+      assignmentDueAt: nextAssignmentDueAt,
+      assignmentVersion: nextAssignmentVersion,
       id: current.id,
       clientId,
       version: currentVersion + 1,
       sectionVersions: nextSectionVersions,
       updatedBy: actor,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     });
+    const persistedWorkflowStatus = next.workflowStatus ?? "intake_unassigned";
     const rows = await tx<ReferralRow[]>`
       update pipeline.referrals r
       set stage = ${next.stage},
+          workflow_status = ${persistedWorkflowStatus},
           community = ${next.community},
           county = ${next.county ?? null},
           owner_id = ${next.ownerId || null},
           owner_name = ${next.owner || null},
+          assigned_at = ${next.assignedAt ? new Date(next.assignedAt) : null},
+          assignment_due_at = ${next.assignmentDueAt ? new Date(next.assignmentDueAt) : null},
+          assignment_version = ${next.assignmentVersion ?? 1},
           priority = ${next.priority},
           source = ${next.source},
           received_date = ${dateToSql(next.date)}::date,
@@ -1520,12 +1662,17 @@ async function patchPostgresReferral(
       where external_client_id = ${clientId}
     `;
     const referral = mapReferralRow({ ...rows[0], display_name: next.name });
-    if (safePatch.requirements) {
+    if (safePatch.requirements || assignmentChanged) {
       await syncPostgresWorkItems(tx, id, null, referral.requirements ?? []);
     }
+    if (assignmentChanged) {
+      await syncPostgresOpenAssessmentAssignments(tx, referral, actor);
+    }
     const auditAction = metadata?.auditAction
-      ?? (safePatch.owner !== undefined && safePatch.owner !== current.owner
-        ? "referral_reassigned"
+      ?? (assignmentChanged
+        ? nextAssigned
+          ? hasAssignedOwner(current) ? "referral_reassigned" : "referral_assigned"
+          : "referral_unassigned"
         : safePatch.ehrHandoff !== undefined
           ? "ehr_handoff_updated"
           : current.stage === referral.stage
@@ -1694,6 +1841,68 @@ async function writeReferralAudit(
   `;
 }
 
+async function syncPostgresOpenAssessmentAssignments(
+  tx: TransactionSql,
+  referral: Referral,
+  actor: ReferralActor,
+) {
+  const nextAssessor = hasAssignedOwner(referral)
+    ? { id: referral.ownerId!, name: referral.owner }
+    : null;
+  const rows = await tx<{
+    assessment_id: string;
+    assessor_id: string | null;
+    assessor_name: string | null;
+    version: number | string;
+  }[]>`
+    select assessment_id, assessor_id, assessor_name, version
+    from pipeline.assessments
+    where referral_id = ${referral.id}
+      and status <> 'complete'
+      and signed_at is null
+      and (
+        assessor_id is distinct from ${nextAssessor?.id ?? null}
+        or assessor_name is distinct from ${nextAssessor?.name ?? null}
+      )
+    order by created_at, assessment_id
+    for update
+  `;
+
+  for (const row of rows) {
+    const currentVersion = Number(row.version);
+    const updated = await tx<{ assessment_id: string }[]>`
+      update pipeline.assessments
+      set assessor_id = ${nextAssessor?.id ?? null},
+          assessor_name = ${nextAssessor?.name ?? null},
+          data = coalesce(data, '{}'::jsonb) || jsonb_build_object('assessor', ${nextAssessor?.name ?? null}),
+          section_versions = jsonb_set(
+            coalesce(section_versions, '{}'::jsonb),
+            '{identity}',
+            to_jsonb(coalesce((section_versions->>'identity')::integer, 1) + 1),
+            true
+          ),
+          version = version + 1,
+          updated_by = ${actor.id},
+          updated_by_name = ${actor.name},
+          updated_at = now()
+      where assessment_id = ${row.assessment_id} and version = ${currentVersion}
+      returning assessment_id
+    `;
+    if (!updated[0]) throw new Error("An open assessment changed while its referral was reassigned.");
+    await tx`
+      insert into pipeline.audit_events (
+        entity_type, entity_id, action, actor_id, actor_name,
+        from_version, to_version, changed_fields, before_values, after_values
+      ) values (
+        'assessment', ${row.assessment_id}, 'assessment_assigned', ${actor.id}, ${actor.name},
+        ${currentVersion}, ${currentVersion + 1}, ${["assessor"]},
+        ${tx.json({ assessor_id: row.assessor_id, assessor_name: row.assessor_name })},
+        ${tx.json({ assessor_id: nextAssessor?.id ?? null, assessor_name: nextAssessor?.name ?? null })}
+      )
+    `;
+  }
+}
+
 type WorkflowRequirementRow = {
   work_item_id: string;
   type: AdmissionRequirement["type"];
@@ -1708,6 +1917,11 @@ type WorkflowRequirementRow = {
   evidence_document_id: string | null;
   evidence_document_name: string | null;
   waiver_reason: string | null;
+  field_key: string | null;
+  requested_from: string | null;
+  requested_at: Date | string | null;
+  follow_up_at: Date | string | null;
+  unavailable_reason: string | null;
   version: number;
   updated_at: Date | string;
 };
@@ -1733,7 +1947,9 @@ async function getPostgresWorkflowContext(tx: TransactionSql, referralId: number
     `,
     tx<WorkflowRequirementRow[]>`
       select work_item_id, type, label, gate, status, owner_id, owner_name, due_at,
-             next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason, version, updated_at
+             next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason,
+             field_key, requested_from, requested_at, follow_up_at, unavailable_reason,
+             version, updated_at
       from pipeline.work_items
       where referral_id = ${referralId}
       order by created_at, work_item_id
@@ -1772,6 +1988,11 @@ function mapWorkflowRequirementRow(row: WorkflowRequirementRow): AdmissionRequir
     evidenceDocumentId: row.evidence_document_id ?? undefined,
     evidenceDocumentName: row.evidence_document_name ?? undefined,
     waiverReason: row.waiver_reason ?? undefined,
+    fieldKey: row.field_key ?? undefined,
+    requestedFrom: row.requested_from ?? undefined,
+    requestedAt: row.requested_at ? isoTimestamp(row.requested_at) : undefined,
+    followUpAt: row.follow_up_at ? isoTimestamp(row.follow_up_at) : undefined,
+    unavailableReason: row.unavailable_reason ?? undefined,
     updatedAt: isoTimestamp(row.updated_at),
   };
 }
@@ -1805,14 +2026,18 @@ async function syncPostgresWorkItems(
       insert into pipeline.work_items (
         work_item_id, referral_id, person_id, type, label, gate, status,
         owner_id, owner_name, due_at, next_action, blocker, evidence_document_id, evidence_document_name,
-        waiver_reason, version, updated_at
+        waiver_reason, field_key, requested_from, requested_at, follow_up_at, unavailable_reason,
+        version, updated_at
       ) values (
         ${requirement.id}::uuid, ${referralId}, ${personId}::uuid, ${requirement.type},
         ${requirement.label}, ${requirement.requiredFor}, ${requirement.status},
         ${requirement.ownerId || null}, ${requirement.owner || null}, ${requirement.dueAt ? new Date(requirement.dueAt) : null},
         ${requirement.nextStep}, ${requirement.blocker}, ${requirement.evidenceDocumentId ?? null}::uuid,
         ${requirement.evidenceDocumentName ?? null},
-        ${requirement.waiverReason ?? null}, ${requirement.version ?? 1}, ${new Date(requirement.updatedAt)}
+        ${requirement.waiverReason ?? null}, ${requirement.fieldKey ?? null}, ${requirement.requestedFrom ?? null},
+        ${requirement.requestedAt ? new Date(requirement.requestedAt) : null},
+        ${requirement.followUpAt ? new Date(requirement.followUpAt) : null}, ${requirement.unavailableReason ?? null},
+        ${requirement.version ?? 1}, ${new Date(requirement.updatedAt)}
       )
       on conflict (work_item_id) do update set
         type = excluded.type,
@@ -1827,6 +2052,11 @@ async function syncPostgresWorkItems(
         evidence_document_id = excluded.evidence_document_id,
         evidence_document_name = excluded.evidence_document_name,
         waiver_reason = excluded.waiver_reason,
+        field_key = excluded.field_key,
+        requested_from = excluded.requested_from,
+        requested_at = excluded.requested_at,
+        follow_up_at = excluded.follow_up_at,
+        unavailable_reason = excluded.unavailable_reason,
         version = greatest(pipeline.work_items.version, excluded.version),
         updated_at = excluded.updated_at
       where pipeline.work_items.referral_id = ${referralId}
@@ -1895,6 +2125,10 @@ function mapReferralRow(row: ReferralRow): Referral {
     county: row.county ?? data.county ?? undefined,
     owner: row.owner_name ?? data.owner ?? "",
     ownerId: row.owner_id ?? data.ownerId ?? undefined,
+    workflowStatus: row.workflow_status ?? data.workflowStatus,
+    assignedAt: row.assigned_at ? isoTimestamp(row.assigned_at) : data.assignedAt,
+    assignmentDueAt: row.assignment_due_at ? isoTimestamp(row.assignment_due_at) : data.assignmentDueAt,
+    assignmentVersion: Number(row.assignment_version ?? data.assignmentVersion ?? 1),
     priority: row.priority,
     source: row.source,
     tags: row.tags ?? [],
@@ -2008,6 +2242,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "name",
     "date",
     "stage",
+    "workflowStatus",
     "community",
     "county",
     "source",
@@ -2045,6 +2280,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "assessmentDocumentSizeBytes",
     "assessmentMessage",
     "requirements",
+    "assessmentRecommendation",
     "admissionDecision",
     "ehrHandoff",
   ];
@@ -2067,7 +2303,10 @@ function getSectionConflicts(
 
 function referralDataPayload(referral: Referral): JSONValue {
   const data: Record<string, unknown> = { ...referral };
-  for (const key of ["id", "sectionVersions", "updatedAt", "updatedBy", "version"]) delete data[key];
+  for (const key of [
+    "id", "sectionVersions", "updatedAt", "updatedBy", "version",
+    "workflowStatus", "assignedAt", "assignmentDueAt", "assignmentVersion",
+  ]) delete data[key];
   return JSON.parse(JSON.stringify(data)) as JSONValue;
 }
 
@@ -2081,7 +2320,7 @@ function assertPacketIsUnique(documentHash: string | undefined, currentReferralI
 }
 
 function normalizeReferral(input: Referral): Referral {
-  return {
+  const normalized = {
     ...input,
     id: Number(input.id),
     clientId: normalizeClientId(input.clientId) || buildLocalClientId(Number(input.id)),
@@ -2098,6 +2337,11 @@ function normalizeReferral(input: Referral): Referral {
       : 1,
     sectionVersions: normalizeReferralSectionVersions(input.sectionVersions),
     ownerId: input.ownerId?.trim() || undefined,
+    assignedAt: input.assignedAt?.trim() || undefined,
+    assignmentDueAt: input.assignmentDueAt?.trim() || undefined,
+    assignmentVersion: Number.isInteger(input.assignmentVersion) && Number(input.assignmentVersion) > 0
+      ? Number(input.assignmentVersion)
+      : 1,
     gender: input.gender ?? "",
     reportedAge: input.reportedAge ?? "",
     ssn: input.ssn ?? "",
@@ -2107,7 +2351,46 @@ function normalizeReferral(input: Referral): Referral {
     conserved: input.conserved ?? "",
     fieldSources: input.fieldSources ?? {},
     requirements: input.requirements ?? [],
+  } satisfies Referral;
+  return {
+    ...normalized,
+    workflowStatus: input.workflowStatus ?? resolveReferralWorkflowStatus(normalized),
   };
+}
+
+function hasAssignedOwner(value: Pick<Referral, "owner" | "ownerId">) {
+  return Boolean(value.ownerId?.trim()) && !isUnassignedOwner(value.owner);
+}
+
+function synchronizeRequirementAssignment(
+  requirements: AdmissionRequirement[] | undefined,
+  assignment: Pick<Referral, "owner" | "ownerId">,
+  updatedAt = new Date().toISOString(),
+) {
+  const owner = normalizeOwnerName(assignment.owner);
+  const ownerId = assignment.ownerId?.trim() || undefined;
+  return requirements?.map((requirement) => {
+    if (requirement.owner === owner && requirement.ownerId === ownerId) return requirement;
+    return {
+      ...requirement,
+      ownerId,
+      owner,
+      version: (requirement.version ?? 1) + 1,
+      updatedAt,
+    };
+  });
+}
+
+function assignmentHasChanged(current: Referral, patch: ReferralPatch) {
+  if (patch.owner === undefined && patch.ownerId === undefined) return false;
+  return normalizeOwnerName(patch.owner ?? current.owner) !== normalizeOwnerName(current.owner)
+    || (patch.ownerId?.trim() ?? current.ownerId?.trim() ?? "") !== (current.ownerId?.trim() ?? "");
+}
+
+function assignmentDueAt(from: string) {
+  const due = new Date(from);
+  due.setUTCDate(due.getUTCDate() + 2);
+  return due.toISOString();
 }
 
 function normalizeClientId(value: string | undefined) {
@@ -2170,9 +2453,9 @@ function matchesAssignmentScope(
 
 function matchesReferralQueue(referral: Referral, queue: ReferralQueueView) {
   if (queue === "unassigned") return isUnassignedOwner(referral.owner);
-  if (queue === "packet_review") return ["ready_for_review", "failed"].includes(referral.packetStatus ?? "");
-  if (queue === "assessment") return referral.stage === "Assessment";
-  if (queue === "decision") return referral.stage === "Community Review";
+  if (queue === "packet_review") return ["intake_documents_needed", "profile_incomplete"].includes(referral.workflowStatus ?? "");
+  if (queue === "assessment") return ["ready_to_schedule", "assessment_scheduled", "assessment_in_progress", "waiting_for_information", "assessment_ready_to_sign"].includes(referral.workflowStatus ?? "");
+  if (queue === "decision") return ["assessment_signed", "recommendation_submitted", "decision_pending"].includes(referral.workflowStatus ?? "");
   return true;
 }
 
@@ -2308,7 +2591,7 @@ function getReferralFiles(referral: Referral): ReferralFile[] {
 }
 
 function requirementFileCategory(type: AdmissionRequirement["type"]): ReferralFile["category"] {
-  const categories: Record<AdmissionRequirement["type"], ReferralFile["category"]> = {
+  const categories: Partial<Record<AdmissionRequirement["type"], ReferralFile["category"]>> = {
     medication_list: "Medication list",
     tb_test: "TB test",
     signed_admission_agreement: "Admission agreement",
@@ -2321,7 +2604,7 @@ function requirementFileCategory(type: AdmissionRequirement["type"]): ReferralFi
     responsible_party: "Responsible party",
     no_admission_reason: "Other",
   };
-  return categories[type];
+  return categories[type] ?? "Other";
 }
 
 function searchableFileText(file: ReferralFile) {

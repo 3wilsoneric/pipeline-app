@@ -105,6 +105,11 @@ export async function POST(request: Request) {
       assignedReferral.createdAt,
       assignedReferral.owner,
       assignedReferral.ownerId,
+      {
+        date_of_birth: assignedReferral.dob,
+        community: assignedReferral.community,
+        referral_source: assignedReferral.source,
+      },
     );
     const defaultTypes = new Set(defaultRequirements.map((requirement) => requirement.type));
     const referral = {

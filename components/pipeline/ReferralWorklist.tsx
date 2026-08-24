@@ -35,7 +35,7 @@ export default function ReferralWorklist({
   });
 
   return (
-    <div aria-label="Referral worklist">
+    <div role="region" aria-label="Referral worklist">
       <div className="divide-y divide-[#e2e2e2] lg:hidden">
         {rows.map(({ referral, progress, extractedReviewed, extractedTotal, outcome, county }) => (
           <CompactReferralRow
@@ -52,14 +52,14 @@ export default function ReferralWorklist({
       </div>
 
       <div className="hidden overflow-x-auto lg:block">
-        <div className="min-w-[920px]">
-        <div className="grid grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.9fr)_145px_170px_135px_90px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">
+        <div className="min-w-[940px]">
+        <div className="grid grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.9fr)_170px_135px_90px_110px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#666666]">
           <span>Client</span>
           <span>County</span>
-          <span>Admission</span>
           <span>Data capture</span>
           <span>Owner</span>
           <span>Updated</span>
+          <span className="text-right">Admission</span>
           <span className="sr-only">Open</span>
         </div>
         <div className="divide-y divide-[#e2e2e2]">
@@ -69,29 +69,16 @@ export default function ReferralWorklist({
               type="button"
               onClick={() => onOpenPacket(referral)}
               aria-label={`Open ${referral.name} referral workspace`}
-              className="grid w-full grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.9fr)_145px_170px_135px_90px_36px] items-center px-4 py-3 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
+              className="grid w-full grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.9fr)_170px_135px_90px_110px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
             >
               <span className="min-w-0 pr-4">
-                <span className="block truncate text-[12px] font-black text-[#111111]">{referral.name}</span>
-              </span>
-
-              <span className="min-w-0 truncate pr-4 text-[10px] font-semibold text-[#404040]" title={county}>{county}</span>
-
-              <span title={outcome.explanation}>
-                <span className={outcomeClass(outcome.status)}>{outcome.label}</span>
-                <span className="mt-1 block text-[8px] font-semibold uppercase tracking-[0.06em] text-[#737373]">
-                  {outcome.evidence === "census_match"
-                    ? "Census match"
-                    : outcome.evidence === "recorded"
-                      ? "Decision recorded"
-                      : outcome.evidence === "no_census_match"
-                        ? "No census match"
-                        : "In progress"}
-                </span>
+                <span className="block truncate text-[13px] font-black text-[#111111]">{referral.name}</span>
                 {referral.priority !== "standard" ? (
-                  <span className="mt-1 block text-[8px] font-black uppercase tracking-[0.06em] text-[#a04436]">{referral.priority} priority</span>
+                  <span className="mt-1 block text-[9px] font-semibold text-[#8c392f]">{referral.priority} priority</span>
                 ) : null}
               </span>
+
+              <span className="min-w-0 truncate pr-4 text-[11px] font-semibold text-[#404040]" title={county}>{county}</span>
 
               <span className="pr-5">
                 {referral.workspaceStatus === "historical" ? (
@@ -115,11 +102,14 @@ export default function ReferralWorklist({
                 )}
               </span>
 
-              <span className="truncate text-[10px] font-semibold text-[#404040]">{normalizeOwnerName(referral.owner)}</span>
-              <span className="text-[10px] text-[#737373]">
+              <span className="truncate text-[11px] font-semibold text-[#404040]">{normalizeOwnerName(referral.owner)}</span>
+              <span className="text-[11px] text-[#737373]">
                 {referral.workspaceStatus === "historical"
                   ? monthYearLabel(referral.createdAt)
                   : ageLabel(referral.updatedAt ?? referral.createdAt)}
+              </span>
+              <span className={`text-right text-[11px] ${outcomeTextClass(outcome.status)}`} title={outcome.explanation}>
+                {outcome.label}
               </span>
               <span className="flex h-8 w-8 items-center justify-center text-[#0f8b73]"><ArrowRight size={15} /></span>
             </button>
@@ -160,7 +150,7 @@ function CompactReferralRow({
           <span className="block truncate text-[13px] font-black text-[#111111]">{referral.name}</span>
         </span>
         <span className="flex shrink-0 items-center gap-2" title={outcome.explanation}>
-          <span className={outcomeClass(outcome.status)}>{outcome.label}</span>
+          <span className={`text-[11px] ${outcomeTextClass(outcome.status)}`}>{outcome.label}</span>
           <ArrowRight size={15} className="text-[#0f8b73]" />
         </span>
       </span>
@@ -192,13 +182,12 @@ function CompactReferralRow({
   );
 }
 
-function outcomeClass(status: "admitted" | "accepted" | "denied" | "pending" | "unmatched") {
-  const shared = "inline-flex border px-2 py-1 text-[9px] font-black uppercase";
-  if (status === "admitted") return `${shared} border-[#8fc7b7] bg-[#effaf5] text-[#0f705d]`;
-  if (status === "accepted") return `${shared} border-[#9eb0d8] bg-[#f1f5ff] text-[#405b9d]`;
-  if (status === "denied") return `${shared} border-[#d8aaa4] bg-[#fff3f1] text-[#8c392f]`;
-  if (status === "unmatched") return `${shared} border-[#d9d9d9] bg-[#f7f7f7] text-[#595959]`;
-  return `${shared} border-[#d8c58c] bg-[#fff9e8] text-[#745315]`;
+function outcomeTextClass(status: "admitted" | "accepted" | "denied" | "pending" | "unmatched") {
+  if (status === "admitted") return "font-semibold text-[#0f705d]";
+  if (status === "accepted") return "font-semibold text-[#405b9d]";
+  if (status === "denied") return "font-semibold text-[#8c392f]";
+  if (status === "unmatched") return "font-normal text-[#737373]";
+  return "font-normal text-[#6b5a2a]";
 }
 
 function ageLabel(value: string) {

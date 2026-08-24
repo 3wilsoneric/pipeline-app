@@ -14,6 +14,7 @@
     "check:platform": "node scripts/platform-readiness.mjs",
     "check:platform:fast": "node scripts/platform-readiness.mjs --skip-build",
     "check:admissions-zone": "node scripts/admissions-zone-contracts.mjs",
+    "check:assessor-workflow": "node scripts/assessor-workflow-contracts.mjs",
     "check:api": "node scripts/api-behavior-fixtures.mjs",
     "check:clinical": "node scripts/clinical-data-contracts.mjs && node scripts/demo-clinical-snapshot-contracts.mjs && node scripts/client-history-contracts.mjs",
     "check:clinical-presentation": "node scripts/clinical-value-presentation-contracts.mjs",

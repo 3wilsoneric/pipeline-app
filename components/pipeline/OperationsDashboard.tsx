@@ -13,7 +13,6 @@ import type { Referral } from "@/lib/pipeline/referral-types";
 import type {
   OperationsRequirementItem,
   OperationsSnapshot,
-  OperationsWorkItem,
   SupervisorExceptionItem,
   SupervisorExceptionKind,
   SupervisorExceptionSnapshot,
@@ -154,8 +153,6 @@ function SnapshotContent({
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
 }) {
   const [exceptionKind, setExceptionKind] = useState<SupervisorExceptionKind | "all">("all");
-  const attentionWork = snapshot.work.filter((item) => item.blocker_count > 0 || item.due_soon || item.stale);
-  const visibleWork = (attentionWork.length > 0 ? attentionWork : snapshot.work).slice(0, 8);
   const visibleRequirements = snapshot.requirements.slice(0, 10);
   const visibleExceptions = supervisorQueue?.items
     .filter((item) => exceptionKind === "all" || item.kind === exceptionKind)
@@ -165,7 +162,7 @@ function SnapshotContent({
     <>
       <section className="mt-3 grid grid-cols-2 gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] lg:grid-cols-4" aria-label="Operations summary">
         <SummaryMetric label="Active referrals" value={snapshot.metrics.active} />
-        <SummaryMetric label="Needs action" value={snapshot.metrics.needs_action} attention={snapshot.metrics.needs_action > 0} />
+        <SummaryMetric label="Open tasks" value={snapshot.metrics.open_tasks} attention={snapshot.metrics.open_tasks > 0} />
         <SummaryMetric label="Overdue items" value={snapshot.metrics.overdue_requirements} attention={snapshot.metrics.overdue_requirements > 0} />
         <SummaryMetric label="Decisions needed" value={snapshot.metrics.decisions_needed} attention={snapshot.metrics.decisions_needed > 0} />
       </section>
@@ -217,9 +214,7 @@ function SnapshotContent({
           <div className="divide-y divide-[#e5e5e5]">
             {visibleRequirements.length > 0 ? visibleRequirements.map((item) => (
               <RequirementRow key={item.work_item_id} item={item} onOpenPacket={onOpenPacket} />
-            )) : visibleWork.length > 0 ? visibleWork.map((item) => (
-              <WorkRow key={item.referral_id} item={item} onOpenPacket={onOpenPacket} />
-            )) : <EmptyState label="Nothing needs attention" detail="The referral queue is clear." />}
+            )) : <EmptyState label="No open tasks" detail="No recorded requirements are waiting for completion." />}
           </div>
         </section>
 
@@ -261,7 +256,7 @@ function AssessmentCompletionReport({
     <section className="mt-4 border-y border-[#d9d9d9] bg-white" aria-label="Monthly assessment completions">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] px-4 py-3 sm:px-5">
         <div className="flex items-baseline gap-3">
-          <h2 className="text-[14px] font-black">Assessments completed</h2>
+          <h2 className="text-[14px] font-black">Assessments signed</h2>
           <span className="text-[10px] text-[#737373]">{report.total_completed} total</span>
         </div>
         <div className="flex items-center gap-2">
@@ -291,7 +286,8 @@ function AssessmentCompletionReport({
           <thead>
             <tr className="border-b border-[#d9d9d9] text-[9px] font-black uppercase tracking-[0.1em] text-[#737373]">
               <th className="px-4 py-2.5 sm:px-5">Staff member</th>
-              <th className="w-40 px-4 py-2.5 text-right sm:px-5">Completed</th>
+              <th className="w-32 px-4 py-2.5 text-right sm:px-5">Signed</th>
+              <th className="w-40 px-4 py-2.5 text-right sm:px-5">Average time</th>
             </tr>
           </thead>
           <tbody>
@@ -299,6 +295,7 @@ function AssessmentCompletionReport({
               <tr key={row.assessor_id ?? `legacy:${row.assessor_name}`} className="border-b border-[#e5e5e5] last:border-b-0">
                 <td className="px-4 py-3 text-[12px] font-black sm:px-5">{row.assessor_name}</td>
                 <td className="px-4 py-3 text-right text-[14px] font-black text-[#0f8b73] sm:px-5">{row.completed_assessments}</td>
+                <td className="px-4 py-3 text-right text-[11px] text-[#595959] sm:px-5">{formatAssessmentDuration(row.average_duration_minutes)}</td>
               </tr>
             ))}
           </tbody>
@@ -322,8 +319,8 @@ function reportMonthOptions() {
 function downloadAssessmentReport(report: NonNullable<OperationsSnapshot["assessment_report"]>) {
   const escape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
   const csv = [
-    ["Month", "Staff member", "Completed assessments"],
-    ...report.rows.map((row) => [report.month, row.assessor_name, row.completed_assessments]),
+    ["Month", "Staff member", "Signed assessments", "Average duration minutes"],
+    ...report.rows.map((row) => [report.month, row.assessor_name, row.completed_assessments, row.average_duration_minutes ?? ""]),
   ].map((row) => row.map(escape).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
@@ -331,6 +328,14 @@ function downloadAssessmentReport(report: NonNullable<OperationsSnapshot["assess
   link.download = `pipeline-assessments-${report.month}.csv`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function formatAssessmentDuration(minutes: number | null) {
+  if (minutes === null) return "Not available";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
 function SupervisorExceptionRow({
@@ -375,6 +380,7 @@ function SupervisorExceptionRow({
 
 function exceptionLabel(kind: SupervisorExceptionKind) {
   return {
+    assignment_overdue: "Assignment",
     overdue_requirement: "Overdue",
     unassigned_referral: "No owner",
     unassigned_requirement: "No owner",
@@ -391,6 +397,7 @@ function exceptionLabel(kind: SupervisorExceptionKind) {
 
 function exceptionFilterLabel(kind: SupervisorExceptionKind) {
   return {
+    assignment_overdue: "Assignment deadline overdue",
     overdue_requirement: "Overdue requirement",
     unassigned_referral: "Referral has no owner",
     unassigned_requirement: "Requirement has no owner",
@@ -440,45 +447,6 @@ function formatRequirementDue(value: string | null) {
   if (!value) return "No due date";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "Invalid due date" : `Due ${date.toLocaleDateString([], { month: "short", day: "numeric" })}`;
-}
-
-function WorkRow({
-  item,
-  onOpenPacket,
-}: {
-  item: OperationsWorkItem;
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
-}) {
-  const open = () => onOpenPacket({
-    id: item.referral_id,
-    name: item.client_name,
-    community: item.community as Referral["community"],
-  });
-  const status = item.stale
-    ? "Stale"
-    : item.due_soon
-      ? "Due soon"
-      : item.blocker_count > 0
-        ? `${item.blocker_count} blocker${item.blocker_count === 1 ? "" : "s"}`
-        : "Review";
-
-  return (
-    <button type="button" onClick={open} className="group grid w-full grid-cols-[10px_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3 text-left hover:bg-[#f7faf9] sm:px-5">
-      <span className="mt-1.5 h-2 w-2 rounded-full bg-[#a63d2f]" />
-      <span className="min-w-0">
-        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="text-[13px] font-black">{item.client_name}</span>
-          <span className="text-[11px] text-[#737373]">{item.community}</span>
-        </span>
-        <span className="mt-1 block text-[11px] text-[#737373]">{item.owner}</span>
-        <span className="mt-1.5 block truncate text-[11px] font-semibold text-[#111111]">{item.next_action ?? "Review next step"}</span>
-      </span>
-      <span className="flex items-center gap-2 pt-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#a63d2f]">
-        {status}
-        <ArrowRight size={14} className="text-[#0f8b73] transition-transform group-hover:translate-x-1" />
-      </span>
-    </button>
-  );
 }
 
 function AssessorRow({ assessor }: { assessor: OperationsSnapshot["assessors"][number] }) {

@@ -7,6 +7,7 @@ import { X } from "lucide-react";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type {
   AdmissionDecision,
+  AssessmentRecommendation,
   EhrHandoffRecord,
   Referral,
 } from "@/lib/pipeline/referral-types";
@@ -223,23 +224,70 @@ export function EhrHandoffEditor({
 export function AdmissionDecisionEditor({
   referral,
   assessmentComplete,
+  assessmentId,
   onSaved,
 }: {
   referral: Referral | null;
   assessmentComplete: boolean;
+  assessmentId?: string;
   onSaved: (referral: Referral) => void | Promise<void>;
 }) {
   const existing = referral?.admissionDecision;
+  const [viewer, setViewer] = useState<{ id: string; roles: string[] } | null>(null);
+  const [savedRecommendation, setSavedRecommendation] = useState<AssessmentRecommendation | undefined>(referral?.assessmentRecommendation);
+  const recommendation = savedRecommendation;
+  const [recommendationOutcome, setRecommendationOutcome] = useState<AssessmentRecommendation["outcome"] | "">(recommendation?.outcome ?? "");
+  const [recommendationNote, setRecommendationNote] = useState(recommendation?.reasonNote ?? "");
   const [outcome, setOutcome] = useState<AdmissionDecision["outcome"] | "">(existing?.outcome ?? "");
   const [reasonNote, setReasonNote] = useState(existing?.reasonNote ?? "");
+  const [overrideReason, setOverrideReason] = useState("");
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
-  const acceptedPending = existing?.outcome === "accepted" && referral?.stage === "Community Review";
+  const isSupervisor = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator"));
+  const isAssignedAssessor = Boolean(viewer && referral?.ownerId === viewer.id);
+
+  useEffect(() => {
+    fetchPipelineJson<{ user: { id: string; roles: string[] } }>("/api/auth/me", { cache: "no-store" })
+      .then((payload) => setViewer(payload.user))
+      .catch(() => setViewer(null));
+  }, []);
 
   useEffect(() => {
     setOutcome(referral?.admissionDecision?.outcome ?? "");
     setReasonNote(referral?.admissionDecision?.reasonNote ?? "");
-  }, [referral?.admissionDecision]);
+    setSavedRecommendation(referral?.assessmentRecommendation);
+    setRecommendationOutcome(referral?.assessmentRecommendation?.outcome ?? "");
+    setRecommendationNote(referral?.assessmentRecommendation?.reasonNote ?? "");
+  }, [referral?.admissionDecision, referral?.assessmentRecommendation]);
+
+  const saveRecommendation = async () => {
+    if (!referral || !assessmentId || !recommendationOutcome) return;
+    setSaving(true);
+    setStatus("");
+    try {
+      const payload = await fetchPipelineJson<{ referral: Referral; recommendation: AssessmentRecommendation }>(
+        `/api/referrals/${referral.id}/recommendation`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            if_match: referral.version,
+            if_match_section: referral.sectionVersions?.decision ?? 1,
+            assessment_id: assessmentId,
+            outcome: recommendationOutcome,
+            reason_note: recommendationNote.trim(),
+          }),
+        },
+      );
+      setSavedRecommendation(payload.recommendation);
+      await onSaved(payload.referral);
+      setStatus("Recommendation submitted for supervisor review");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not save the recommendation.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const saveDecision = async () => {
     if (!referral || !outcome) return;
@@ -256,6 +304,7 @@ export function AdmissionDecisionEditor({
             if_match_section: referral.sectionVersions?.decision ?? 1,
             outcome,
             reason_note: outcome === "declined" ? reasonNote : "",
+            override_reason: recommendation ? "" : overrideReason.trim(),
           }),
         },
       );
@@ -268,37 +317,25 @@ export function AdmissionDecisionEditor({
     }
   };
 
-  const finalizeAcceptance = async () => {
-    if (!referral || !acceptedPending) return;
-    setSaving(true);
-    setStatus("");
-    try {
-      const payload = await fetchPipelineJson<{ referral: Referral }>(
-        `/api/referrals/${referral.id}/transition`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            if_match: referral.version,
-            if_match_section: referral.sectionVersions?.workflow ?? 1,
-            target_stage: "Accepted / Admitted",
-          }),
-        },
-      );
-      await onSaved(payload.referral);
-      setStatus("Acceptance finalized");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Acceptance could not be finalized.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <section aria-label="Admission decision" className="mt-5 border-t border-[#d9d9d9] pt-5">
-      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
+      {recommendation ? (
+        <div className="mb-4 border-l-2 border-[#0f8b73] bg-[#f2f8f5] px-4 py-3 text-[11px] text-[#315e50]">
+          <strong>Assessor recommendation: {recommendationLabel(recommendation.outcome)}</strong>
+          {recommendation.reasonNote ? <span className="mt-1 block whitespace-pre-wrap">{recommendation.reasonNote}</span> : null}
+          <span className="mt-1 block text-[9px] text-[#597168]">{recommendation.recommendedByName} · {new Date(recommendation.recommendedAt).toLocaleString()}</span>
+        </div>
+      ) : isAssignedAssessor && !existing ? (
+        <div className="mb-5 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_auto] lg:items-end">
+          <label className="block"><span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f8b73]">Assessor recommendation</span><select value={recommendationOutcome} onChange={(event) => setRecommendationOutcome(event.target.value as typeof recommendationOutcome)} disabled={!assessmentComplete} className="mt-2 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[11px] font-black outline-none focus:border-[#0f8b73]"><option value="">Choose recommendation</option><option value="accept">Recommend admission</option><option value="decline">Do not recommend admission</option><option value="needs_more_information">Need more information</option></select></label>
+          <label className="block"><span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#595959]">Clinical rationale</span><textarea value={recommendationNote} onChange={(event) => setRecommendationNote(event.target.value)} rows={2} className="mt-2 w-full resize-none border border-[#c9ceca] px-3 py-2 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
+          <button type="button" onClick={() => void saveRecommendation()} disabled={!assessmentComplete || !assessmentId || !recommendationOutcome || (recommendationOutcome !== "accept" && !recommendationNote.trim()) || saving} className="h-10 bg-[#111111] px-5 text-[11px] font-black uppercase text-white hover:bg-[#0f8b73] disabled:bg-[#d9d9d9]">Submit</button>
+        </div>
+      ) : null}
+
+      {isSupervisor ? <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Admission decision</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Supervisor decision</div>
           <div className="mt-2 flex border border-[#c9ceca] bg-white">
             {(["accepted", "declined"] as const).map((value) => (
               <button
@@ -323,36 +360,33 @@ export function AdmissionDecisionEditor({
             className="mt-2 w-full resize-none border border-[#c9ceca] px-3 py-2 text-[12px] outline-none focus:border-[#0f8b73] disabled:bg-[#f7f7f7]"
           />
         </label>
+        {!recommendation ? <label className="block lg:col-span-2"><span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#a16a16]">Override reason</span><input value={overrideReason} maxLength={1_000} onChange={(event) => setOverrideReason(event.target.value)} className="mt-2 h-10 w-full border border-[#d7bd84] bg-[#fffaf0] px-3 text-[12px] outline-none focus:border-[#a16a16]" /></label> : null}
         <button
           type="button"
           onClick={saveDecision}
-          disabled={!referral || !assessmentComplete || !outcome || (outcome === "declined" && !reasonNote.trim()) || saving}
+          disabled={!referral || !assessmentComplete || !outcome || (outcome === "declined" && !reasonNote.trim()) || (!recommendation && !overrideReason.trim()) || saving}
           className="h-10 bg-[#111111] px-5 text-[11px] font-black uppercase text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d9d9d9]"
         >
           {saving ? "Saving" : "Save decision"}
         </button>
-        {acceptedPending ? (
-          <button
-            type="button"
-            onClick={finalizeAcceptance}
-            disabled={saving}
-            className="h-10 border border-[#0f8b73] px-5 text-[11px] font-black uppercase text-[#0f8b73] hover:bg-[#effaf5] disabled:cursor-not-allowed disabled:border-[#d9d9d9] disabled:text-[#b3b3b3] lg:col-start-3"
-          >
-            Finalize acceptance
-          </button>
-        ) : null}
-      </div>
+      </div> : null}
       <div className="mt-2 min-h-4 text-[11px] text-[#737373]">
         {status || (!referral
           ? "Save the referral first."
           : !assessmentComplete
-            ? "Complete the assessment before recording Yes or No."
-            : acceptedPending
-              ? "Clear the blocking requirements, then finalize acceptance."
+            ? "Sign the assessment before recommendation or decision."
               : existing
                 ? `Recorded by ${existing.decidedByName}.`
-                : "")}
+                : !isSupervisor && !isAssignedAssessor
+                  ? "The assigned assessor submits the recommendation; a supervisor records the final decision."
+                  : "")}
       </div>
     </section>
   );
+}
+
+function recommendationLabel(value: AssessmentRecommendation["outcome"]) {
+  if (value === "accept") return "Admit";
+  if (value === "decline") return "Do not admit";
+  return "Needs more information";
 }

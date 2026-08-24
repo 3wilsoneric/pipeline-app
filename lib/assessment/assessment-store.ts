@@ -17,6 +17,7 @@ import {
   encodeKeysetCursor,
   isAfterDescendingCursor,
 } from "@/lib/pipeline/keyset-cursor";
+import type { ReferralWorkflowStatus } from "@/lib/pipeline/referral-types";
 
 import {
   assessmentToolFieldDefinitions,
@@ -38,6 +39,7 @@ import {
   type AssessmentActor,
   type AssessmentAuditAction,
   type AssessmentAuditEvent,
+  type AssessmentAddendum,
   type AssessmentCreateInput,
   type AssessmentListResponse,
   type AssessmentPatchInput,
@@ -105,8 +107,15 @@ export type AssessmentMutation =
       blockers: { code: string; label: string; fields?: AssessmentToolFieldKey[] }[];
     };
 
+export type AssessmentAddendumMutation =
+  | { ok: true; assessment: PipelineAssessmentRecord; addendum: AssessmentAddendum; revision: number }
+  | { ok: false; conflict: true; assessment: PipelineAssessmentRecord }
+  | { ok: false; blocked: true; assessment: PipelineAssessmentRecord; blockers: { code: string; label: string }[] };
+
 export type AssessmentImportInput = {
   referralId: number;
+  /** Server-resolved from the referral's authoritative assignment. */
+  assignedAssessor?: AssessmentActor | null;
   canonicalClientId?: string | null;
   residentKey?: string | null;
   assessmentId?: string;
@@ -124,6 +133,13 @@ export interface AssessmentStore {
   create(input: AssessmentCreateInput, actor: AssessmentActor, mutationId?: string): Promise<AssessmentMutation>;
   patch(assessmentId: string, patch: AssessmentPatchInput, actor: AssessmentActor, options?: AssessmentPatchOptions): Promise<AssessmentMutation | null>;
   importExtraction(input: AssessmentImportInput): Promise<AssessmentMutation | null>;
+  addAddendum(
+    assessmentId: string,
+    note: string,
+    reasonCode: string,
+    actor: AssessmentActor,
+    expectedVersion: number,
+  ): Promise<AssessmentAddendumMutation | null>;
 }
 
 const globalForAssessmentStore = globalThis as typeof globalThis & {
@@ -207,6 +223,7 @@ const localAssessmentStore: AssessmentStore = {
   create: createLocalAssessment,
   patch: patchLocalAssessment,
   importExtraction: importLocalAssessmentExtraction,
+  addAddendum: addLocalAssessmentAddendum,
 };
 
 const postgresAssessmentStore: AssessmentStore = {
@@ -215,6 +232,7 @@ const postgresAssessmentStore: AssessmentStore = {
   create: createPostgresAssessment,
   patch: patchPostgresAssessment,
   importExtraction: importPostgresAssessmentExtraction,
+  addAddendum: addPostgresAssessmentAddendum,
 };
 
 const assessmentStoreAdapters: StoreAdapters<AssessmentStore> = {
@@ -249,6 +267,16 @@ export async function patchAssessment(
 
 export async function importAssessmentExtraction(input: AssessmentImportInput) {
   return getAssessmentStore().importExtraction(input);
+}
+
+export async function addAssessmentAddendum(
+  assessmentId: string,
+  note: string,
+  reasonCode: string,
+  actor: AssessmentActor,
+  expectedVersion: number,
+) {
+  return getAssessmentStore().addAddendum(assessmentId, note, reasonCode, actor, expectedVersion);
 }
 
 export async function getAssessmentCompletionReport(month: string): Promise<AssessmentCompletionReport> {
@@ -370,21 +398,39 @@ async function getLocalAssessmentCompletionReport(
   range: { start: string; end: string },
 ): Promise<AssessmentCompletionReport> {
   await ensureLoaded();
-  const grouped = new Map<string, AssessmentCompletionReport["rows"][number]>();
+  const grouped = new Map<string, AssessmentCompletionReport["rows"][number] & {
+    duration_total: number;
+    duration_count: number;
+  }>();
   for (const assessment of state.assessments) {
-    const completedAt = assessment.completed_at;
-    if (assessment.status !== "complete" || !completedAt || completedAt < range.start || completedAt >= range.end) continue;
-    const assessorName = assessment.assessor?.trim() || "Unassigned";
-    const key = assessment.assessor_id?.trim() || `legacy:${normalize(assessorName)}`;
+    const signedAt = assessment.signed_at;
+    if (!signedAt || signedAt < range.start || signedAt >= range.end) continue;
+    const assessorName = assessment.signed_by?.name.trim() || assessment.assessor?.trim() || "Unassigned";
+    const assessorId = assessment.signed_by?.id.trim() || assessment.assessor_id?.trim() || null;
+    const key = assessorId || `legacy:${normalize(assessorName)}`;
     const current = grouped.get(key) ?? {
-      assessor_id: assessment.assessor_id?.trim() || null,
+      assessor_id: assessorId,
       assessor_name: assessorName,
       completed_assessments: 0,
+      average_duration_minutes: null,
+      duration_total: 0,
+      duration_count: 0,
     };
     current.completed_assessments += 1;
+    const duration = elapsedMinutes(assessment.started_at, signedAt);
+    if (duration !== null) {
+      current.duration_total += duration;
+      current.duration_count += 1;
+      current.average_duration_minutes = Math.round(current.duration_total / current.duration_count);
+    }
     grouped.set(key, current);
   }
-  return assessmentCompletionReport(month, range, [...grouped.values()]);
+  return assessmentCompletionReport(month, range, [...grouped.values()].map((row) => ({
+    assessor_id: row.assessor_id,
+    assessor_name: row.assessor_name,
+    completed_assessments: row.completed_assessments,
+    average_duration_minutes: row.average_duration_minutes,
+  })));
 }
 
 async function getLocalAssessment(assessmentId: string) {
@@ -416,11 +462,17 @@ async function createLocalAssessment(
       ...data,
       assessment_id: assessmentId,
       referral_id: input.referral_id,
-      assessor_id: data.assessor === actor.name ? actor.id : null,
+      assessor_id: input.assigned_assessor?.id ?? null,
       canonical_client_id: input.canonical_client_id?.trim() || null,
       resident_key: input.resident_key?.trim() || null,
       status,
       completed_at: status === "complete" ? now : null,
+      schedule_status: "unscheduled",
+      started_at: null,
+      signed_at: null,
+      signed_by: null,
+      signature_version: 1,
+      addenda: [],
       version: 1,
       section_versions: defaultAssessmentSectionVersions(),
       created_at: now,
@@ -440,6 +492,7 @@ async function createLocalAssessment(
     state.revision += 1;
     if (mutationId) state.createMutations.set(mutationId, assessmentId);
     await persist();
+    await syncLocalReferralWorkflow(assessment, actor, "assessment_created");
     return { ok: true, assessment, revision: state.revision };
   });
 }
@@ -467,20 +520,6 @@ async function patchLocalAssessment(
     }
     assertPatchMatchesSection(patch, options.section);
     const prepared = prepareAssessmentPatch(current, patch, actor);
-    const localReferral = prepared.completesAssessment
-      ? await loadLocalAssessmentReferral(current.referral_id)
-      : null;
-    if (prepared.completesAssessment && localReferral && !["Assessment", "Community Review"].includes(localReferral.stage)) {
-      return {
-        ok: false,
-        blocked: true,
-        assessment: current,
-        blockers: [{
-          code: "assessment_stage_required",
-          label: "Move the referral into Assessment before completing this assessment.",
-        }],
-      };
-    }
     const candidate = prepared.candidate;
     const blockers = completionBlockers(candidate);
     if (candidate.status === "complete" && blockers.length > 0) {
@@ -494,9 +533,7 @@ async function patchLocalAssessment(
     state.revision += 1;
     if (options.mutationId) state.patchMutations.set(options.mutationId, assessmentId);
     await persist();
-    if (prepared.completesAssessment && localReferral?.stage === "Assessment") {
-      await advanceLocalReferralAfterAssessment(localReferral, actor);
-    }
+    await syncLocalReferralWorkflow(candidate, actor, prepared.action);
     return { ok: true, assessment: candidate, revision: state.revision };
   });
 }
@@ -519,6 +556,7 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
     if (current && input.expectedVersion !== undefined && input.expectedVersion !== current.version) {
       return { ok: false, conflict: true, assessment: current };
     }
+    if (current?.signed_at) throw new Error("This assessment is signed. Import into a new assessment instead.");
 
     const prepared = prepareAssessmentImport(input, current);
     const assessment = prepared.assessment;
@@ -528,7 +566,58 @@ async function importLocalAssessmentExtraction(input: AssessmentImportInput): Pr
     state.revision += 1;
     if (input.mutationId) state.importMutations.set(input.mutationId, assessment.assessment_id);
     await persist();
+    await syncLocalReferralWorkflow(assessment, input.actor, "assessment_imported");
     return { ok: true, assessment, revision: state.revision };
+  });
+}
+
+async function addLocalAssessmentAddendum(
+  assessmentId: string,
+  note: string,
+  reasonCode: string,
+  actor: AssessmentActor,
+  expectedVersion: number,
+): Promise<AssessmentAddendumMutation | null> {
+  await ensureLoaded();
+  return withMutation(async () => {
+    const index = state.assessments.findIndex((assessment) => assessment.assessment_id === assessmentId);
+    if (index < 0) return null;
+    const current = state.assessments[index];
+    if (current.version !== expectedVersion) return { ok: false, conflict: true, assessment: current };
+    if (!current.signed_at) {
+      return {
+        ok: false,
+        blocked: true,
+        assessment: current,
+        blockers: [{ code: "assessment_signature_required", label: "Sign the assessment before adding an addendum." }],
+      };
+    }
+    const now = new Date().toISOString();
+    const addendum: AssessmentAddendum = {
+      addendum_id: randomUUID(),
+      assessment_id: assessmentId,
+      version: 1,
+      note,
+      reason_code: reasonCode,
+      authored_by: actor.id,
+      authored_by_name: actor.name,
+      created_at: now,
+    };
+    const assessment = normalizeAssessmentRecord({
+      ...current,
+      version: current.version + 1,
+      updated_at: now,
+      updated_by: actor,
+      addenda: [...(current.addenda ?? []), addendum],
+      audit_events: appendAuditEvent(
+        current.audit_events,
+        createAuditEvent(assessmentId, current.referral_id, "assessment_addendum_added", actor, []),
+      ),
+    });
+    state.assessments[index] = assessment;
+    state.revision += 1;
+    await persist();
+    return { ok: true, assessment, addendum, revision: state.revision };
   });
 }
 
@@ -546,6 +635,16 @@ type AssessmentRow = {
   version: number;
   section_versions: unknown;
   completed_at: Date | string | null;
+  scheduled_start_at: Date | string | null;
+  scheduled_duration_minutes: number | string | null;
+  scheduled_method: PipelineAssessmentRecord["scheduled_method"];
+  scheduled_location: string | null;
+  schedule_status: PipelineAssessmentRecord["schedule_status"];
+  started_at: Date | string | null;
+  signed_at: Date | string | null;
+  signed_by: string | null;
+  signed_by_name: string | null;
+  signature_version: number | string;
   created_by: string;
   created_by_name: string;
   updated_by: string;
@@ -588,16 +687,29 @@ type AssessmentAuditRow = {
   created_at: Date | string;
 };
 
+type AssessmentAddendumRow = {
+  addendum_id: string;
+  assessment_id: string;
+  version: number | string;
+  note: string;
+  reason_code: string;
+  authored_by: string;
+  authored_by_name: string;
+  created_at: Date | string;
+};
+
 type AssessmentRelations = {
   provenance: AssessmentProvenanceRow[];
   unmapped: AssessmentUnmappedRow[];
   audits: AssessmentAuditRow[];
+  addenda: AssessmentAddendumRow[];
 };
 
 type IndexedAssessmentRelations = {
   provenance: Map<string, AssessmentProvenanceRow[]>;
   unmapped: Map<string, AssessmentUnmappedRow[]>;
   audits: Map<string, AssessmentAuditRow[]>;
+  addenda: Map<string, AssessmentAddendumRow[]>;
 };
 
 async function listPostgresAssessments(options: AssessmentListOptions = {}): Promise<AssessmentListResponse> {
@@ -646,6 +758,7 @@ type AssessmentCompletionCountRow = {
   assessor_id: string | null;
   assessor_name: string | null;
   completed_assessments: number | string;
+  average_duration_minutes: number | string | null;
 };
 
 async function getPostgresAssessmentCompletionReport(
@@ -654,19 +767,21 @@ async function getPostgresAssessmentCompletionReport(
 ): Promise<AssessmentCompletionReport> {
   const sql = getPipelineSql();
   const rows = await sql<AssessmentCompletionCountRow[]>`
-    select assessor_id, coalesce(nullif(btrim(assessor_name), ''), 'Unassigned') as assessor_name,
-      count(*)::integer as completed_assessments
+    select signed_by as assessor_id,
+      coalesce(nullif(btrim(signed_by_name), ''), nullif(btrim(assessor_name), ''), 'Unassigned') as assessor_name,
+      count(*)::integer as completed_assessments,
+      round(avg(extract(epoch from (signed_at - started_at)) / 60.0))::integer as average_duration_minutes
     from pipeline.assessments
-    where status = 'complete'
-      and completed_at >= ${range.start}::timestamptz
-      and completed_at < ${range.end}::timestamptz
-    group by assessor_id, coalesce(nullif(btrim(assessor_name), ''), 'Unassigned')
-    order by count(*) desc, lower(coalesce(nullif(btrim(assessor_name), ''), 'Unassigned')), assessor_id nulls last
+    where signed_at >= ${range.start}::timestamptz
+      and signed_at < ${range.end}::timestamptz
+    group by signed_by, coalesce(nullif(btrim(signed_by_name), ''), nullif(btrim(assessor_name), ''), 'Unassigned')
+    order by count(*) desc, lower(coalesce(nullif(btrim(signed_by_name), ''), nullif(btrim(assessor_name), ''), 'Unassigned')), signed_by nulls last
   `;
   return assessmentCompletionReport(month, range, rows.map((row) => ({
     assessor_id: row.assessor_id,
     assessor_name: row.assessor_name?.trim() || "Unassigned",
     completed_assessments: Number(row.completed_assessments),
+    average_duration_minutes: row.average_duration_minutes === null ? null : Number(row.average_duration_minutes),
   })));
 }
 
@@ -681,9 +796,9 @@ async function getPostgresAssessment(assessmentId: string) {
 }
 
 async function loadPostgresAssessmentRelations(assessmentIds: string[]): Promise<AssessmentRelations> {
-  if (assessmentIds.length === 0) return { provenance: [], unmapped: [], audits: [] };
+  if (assessmentIds.length === 0) return { provenance: [], unmapped: [], audits: [], addenda: [] };
   const sql = getPipelineSql();
-  const [provenance, unmapped, audits] = await Promise.all([
+  const [provenance, unmapped, audits, addenda] = await Promise.all([
     sql<AssessmentProvenanceRow[]>`
       select assessment_id, field_key, source_field_key, source_file, source_page,
         confidence, evidence_blob_key, review_status
@@ -704,8 +819,15 @@ async function loadPostgresAssessmentRelations(assessmentIds: string[]): Promise
       where entity_type = 'assessment' and entity_id = any(${assessmentIds}::text[])
       order by created_at, audit_event_id
     `,
+    sql<AssessmentAddendumRow[]>`
+      select addendum_id, assessment_id, version, note, reason_code,
+        authored_by, authored_by_name, created_at
+      from pipeline.assessment_addenda
+      where assessment_id = any(${assessmentIds}::text[])
+      order by created_at, addendum_id
+    `,
   ]);
-  return { provenance, unmapped, audits };
+  return { provenance, unmapped, audits, addenda };
 }
 
 async function createPostgresAssessment(
@@ -723,11 +845,17 @@ async function createPostgresAssessment(
     ...data,
     assessment_id: assessmentId,
     referral_id: input.referral_id,
-    assessor_id: data.assessor === actor.name ? actor.id : null,
+    assessor_id: input.assigned_assessor?.id ?? null,
     canonical_client_id: input.canonical_client_id?.trim() || null,
     resident_key: input.resident_key?.trim() || null,
     status,
     completed_at: status === "complete" ? now : null,
+    schedule_status: "unscheduled",
+    started_at: null,
+    signed_at: null,
+    signed_by: null,
+    signature_version: 1,
+    addenda: [],
     version: 1,
     section_versions: defaultAssessmentSectionVersions(),
     created_at: now,
@@ -754,6 +882,7 @@ async function createPostgresAssessment(
     await insertAssessmentProvenance(tx, assessmentId, assessment.field_provenance);
     await insertAssessmentUnmapped(tx, assessmentId, assessment.unmapped_fields);
     await writeAssessmentAudit(tx, assessment, "assessment_created", actor, []);
+    await syncPostgresReferralWorkflow(tx, assessment, actor, "assessment_created");
     if (mutationId) await saveAssessmentIdempotency(tx, "assessment_create", mutationId, assessmentId);
     const saved = await getAssessmentInTransaction(tx, assessmentId);
     if (!saved) throw new Error("The assessment could not be read after creation.");
@@ -786,23 +915,12 @@ async function patchPostgresAssessment(
     assertPatchMatchesSection(patch, options.section);
     const prepared = prepareAssessmentPatch(current, patch, actor);
     if (prepared.completesAssessment) {
-      const stageRows = await tx<{ stage: string }[]>`
-        select stage from pipeline.referrals
+      const referralRows = await tx<{ referral_id: number | string }[]>`
+        select referral_id from pipeline.referrals
         where referral_id = ${current.referral_id} and deleted_at is null
         for update
       `;
-      if (!stageRows[0]) throw new Error("The assessment referral no longer exists.");
-      if (!["Assessment", "Community Review"].includes(stageRows[0].stage)) {
-        return {
-          ok: false,
-          blocked: true,
-          assessment: current,
-          blockers: [{
-            code: "assessment_stage_required",
-            label: "Move the referral into Assessment before completing this assessment.",
-          }],
-        };
-      }
+      if (!referralRows[0]) throw new Error("The assessment referral no longer exists.");
     }
     const candidate = prepared.candidate;
     const blockers = completionBlockers(candidate);
@@ -816,9 +934,7 @@ async function patchPostgresAssessment(
     }
     await insertAssessmentProvenance(tx, assessmentId, candidate.field_provenance, current.field_provenance);
     await writeAssessmentAudit(tx, candidate, prepared.action, actor, prepared.changedFields);
-    if (prepared.completesAssessment) {
-      await advancePostgresReferralAfterAssessment(tx, current.referral_id, actor);
-    }
+    await syncPostgresReferralWorkflow(tx, candidate, actor, prepared.action);
     if (options.mutationId) {
       await saveAssessmentIdempotency(tx, "assessment_patch", options.mutationId, assessmentId);
     }
@@ -846,8 +962,24 @@ function prepareAssessmentPatch(
   patch: AssessmentPatchInput,
   actor: AssessmentActor,
 ) {
+  if (current.signed_at && (
+    patch.data !== undefined
+    || patch.status !== undefined
+    || patch.assigned_assessor !== undefined
+    || patch.schedule !== undefined
+    || patch.mark_started
+    || patch.signer
+  )) {
+    throw new Error("This assessment is signed. Record later clinical information as an addendum.");
+  }
   if (patch.assigned_assessor !== undefined && current.status === "complete") {
     throw new Error("Reopen the completed assessment before changing its assigned assessor.");
+  }
+  if (patch.mark_started && current.status === "complete") {
+    throw new Error("A completed assessment cannot be started again.");
+  }
+  if (patch.signer && !current.started_at && current.status !== "complete") {
+    throw new Error("Begin the assessment before signing it.");
   }
 
   const currentData = pickAssessmentToolData(current);
@@ -866,10 +998,11 @@ function prepareAssessmentPatch(
   const acceptedFields = patch.accept_pending
     ? acceptPendingProvenance(fieldProvenance)
     : [];
-  const nextStatus = patch.status ?? (
+  const nextStatus = patch.signer ? "complete" : patch.status ?? (
     patch.accept_pending && current.status === "needs_review" ? "draft" : current.status
   );
   const now = new Date().toISOString();
+  const schedule = patch.schedule;
   const candidate: PipelineAssessmentRecord = {
     ...current,
     ...nextData,
@@ -882,6 +1015,21 @@ function prepareAssessmentPatch(
       : patch.resident_key?.trim() || null,
     status: nextStatus,
     completed_at: nextStatus === "complete" ? current.completed_at ?? now : null,
+    scheduled_start_at: schedule === undefined ? current.scheduled_start_at ?? null : schedule.start_at,
+    scheduled_duration_minutes: schedule === undefined
+      ? current.scheduled_duration_minutes ?? null
+      : schedule.duration_minutes,
+    scheduled_method: schedule === undefined ? current.scheduled_method ?? null : schedule.method,
+    scheduled_location: schedule === undefined ? current.scheduled_location ?? null : schedule.location,
+    schedule_status: patch.signer
+      ? "completed"
+      : schedule?.status ?? current.schedule_status ?? "unscheduled",
+    started_at: patch.mark_started
+      ? current.started_at ?? now
+      : current.started_at ?? null,
+    signed_at: patch.signer ? now : current.signed_at ?? null,
+    signed_by: patch.signer ?? current.signed_by ?? null,
+    signature_version: current.signature_version ?? 1,
     version: current.version + 1,
     section_versions: incrementAssessmentSectionVersions(current.section_versions, [
       ...assessmentSectionsForFields(changedFields),
@@ -914,7 +1062,7 @@ function prepareAssessmentImport(
     mapping.field_provenance,
     mapping.unmapped_fields,
   );
-  merged.data.assessor = current?.assessor ?? input.defaults.assessor ?? null;
+  merged.data.assessor = current?.assessor ?? input.assignedAssessor?.name ?? input.defaults.assessor ?? null;
   const issues = validateAssessmentToolData(merged.data);
   if (issues.length > 0) throw new Error(issues[0].message);
 
@@ -935,8 +1083,7 @@ function prepareAssessmentImport(
     ...merged.data,
     assessment_id: assessmentId,
     referral_id: input.referralId,
-    assessor_id: current?.assessor_id
-      ?? (merged.data.assessor === input.actor.name ? input.actor.id : null),
+    assessor_id: current?.assessor_id ?? input.assignedAssessor?.id ?? null,
     canonical_client_id: preserveCanonicalClientId(
       current?.canonical_client_id,
       input.canonicalClientId,
@@ -944,6 +1091,12 @@ function prepareAssessmentImport(
     resident_key: current?.resident_key ?? (input.residentKey?.trim() || null),
     status: "needs_review",
     completed_at: null,
+    schedule_status: current?.schedule_status ?? "unscheduled",
+    started_at: current?.started_at ?? null,
+    signed_at: current?.signed_at ?? null,
+    signed_by: current?.signed_by ?? null,
+    signature_version: current?.signature_version ?? 1,
+    addenda: current?.addenda ?? [],
     version: current ? current.version + 1 : 1,
     section_versions: incrementAssessmentSectionVersions(
       current?.section_versions ?? defaultAssessmentSectionVersions(),
@@ -1009,6 +1162,12 @@ function assessmentPatchAuditAction(
   nextStatus: PipelineAssessmentRecord["status"],
   acceptedFieldCount: number,
 ): AssessmentAuditAction {
+  if (patch.signer) return "assessment_signed";
+  if (patch.mark_started) return "assessment_started";
+  if (patch.schedule?.status === "cancelled") return "assessment_cancelled";
+  if (patch.schedule?.status === "no_show") return "assessment_no_show";
+  if (patch.schedule?.status === "rescheduled") return "assessment_rescheduled";
+  if (patch.schedule) return "assessment_scheduled";
   if (nextStatus !== "complete" && current.status === "complete") return "assessment_reopened";
   if (nextStatus === "complete" && current.status !== "complete") return "assessment_completed";
   if (acceptedFieldCount > 0) return "extraction_confirmed";
@@ -1021,32 +1180,40 @@ async function loadLocalAssessmentReferral(referralId: number) {
   return getReferral(referralId);
 }
 
-async function advanceLocalReferralAfterAssessment(
-  referral: NonNullable<Awaited<ReturnType<typeof loadLocalAssessmentReferral>>>,
+async function syncLocalReferralWorkflow(
+  assessment: PipelineAssessmentRecord,
   actor: AssessmentActor,
+  action: AssessmentAuditAction,
 ) {
+  if (action === "assessment_assigned") return;
+  const referral = await loadLocalAssessmentReferral(assessment.referral_id);
+  if (!referral) throw new Error("The assessment referral no longer exists.");
   const { patchReferral } = await import("@/lib/pipeline/referral-store");
+  const workflowStatus = workflowStatusAfterAssessment(assessment, action);
+  if (referral.workflowStatus === workflowStatus) return;
   const result = await patchReferral(
     referral.id,
-    { stage: "Community Review" },
+    { workflowStatus },
     referral.version,
     actor,
     { workflow: referral.sectionVersions?.workflow ?? 1 },
-    { auditAction: "assessment_completed", auditReason: "Canonical assessment completed." },
+    { auditAction: action, auditReason: "Assessment lifecycle synchronized." },
   );
   if (!result?.ok) {
-    throw new Error("The assessment was saved, but the referral could not advance to community review.");
+    throw new Error("The assessment was saved, but the referral workflow could not be updated.");
   }
 }
 
-async function advancePostgresReferralAfterAssessment(
+async function syncPostgresReferralWorkflow(
   tx: TransactionSql,
-  referralId: number,
+  assessment: PipelineAssessmentRecord,
   actor: AssessmentActor,
+  action: AssessmentAuditAction,
 ) {
-  const rows = await tx<{ version: number; stage: string }[]>`
+  const workflowStatus = workflowStatusAfterAssessment(assessment, action);
+  const rows = await tx<{ version: number; workflow_status: string }[]>`
     update pipeline.referrals
-    set stage = 'Community Review',
+    set workflow_status = ${workflowStatus},
         version = version + 1,
         section_versions = jsonb_set(
           section_versions,
@@ -1056,8 +1223,10 @@ async function advancePostgresReferralAfterAssessment(
         updated_by = ${actor.id},
         updated_by_name = ${actor.name},
         updated_at = now()
-    where referral_id = ${referralId} and stage = 'Assessment'
-    returning version, stage
+    where referral_id = ${assessment.referral_id}
+      and workflow_status not in ('accepted', 'declined', 'closed')
+      and workflow_status is distinct from ${workflowStatus}
+    returning version, workflow_status
   `;
   if (!rows[0]) return;
 
@@ -1066,9 +1235,9 @@ async function advancePostgresReferralAfterAssessment(
       entity_type, entity_id, action, actor_id, actor_name,
       from_version, to_version, changed_fields, metadata
     ) values (
-      'referral', ${String(referralId)}, 'assessment_completed', ${actor.id}, ${actor.name},
-      ${rows[0].version - 1}, ${rows[0].version}, ${["stage"]},
-      ${tx.json({ from_stage: "Assessment", to_stage: "Community Review" })}
+      'referral', ${String(assessment.referral_id)}, ${action}, ${actor.id}, ${actor.name},
+      ${rows[0].version - 1}, ${rows[0].version}, ${["workflowStatus"]},
+      ${tx.json({ workflow_status: workflowStatus })}
     )
   `;
   await tx`
@@ -1076,6 +1245,25 @@ async function advancePostgresReferralAfterAssessment(
     set revision = revision + 1, updated_at = now()
     where store_name in ('referrals', 'workflow')
   `;
+}
+
+function workflowStatusAfterAssessment(
+  assessment: PipelineAssessmentRecord,
+  action: AssessmentAuditAction,
+): ReferralWorkflowStatus {
+  if (assessment.signed_at) return "assessment_signed";
+  if (action === "assessment_cancelled" || action === "assessment_no_show") return "ready_to_schedule";
+  // Completed legacy records predate explicit start/sign events. Keep their
+  // clinical content ready for review without inventing either timestamp.
+  if (assessment.status === "complete") return "assessment_ready_to_sign";
+  if (!assessment.started_at) {
+    if (assessment.schedule_status === "scheduled" || assessment.schedule_status === "rescheduled") {
+      return "assessment_scheduled";
+    }
+    return "ready_to_schedule";
+  }
+  if (completionBlockers(assessment).length === 0) return "assessment_ready_to_sign";
+  return "assessment_in_progress";
 }
 
 async function importPostgresAssessmentExtraction(input: AssessmentImportInput): Promise<AssessmentMutation | null> {
@@ -1094,6 +1282,7 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
     if (current && input.expectedVersion !== undefined && input.expectedVersion !== current.version) {
       return { ok: false, conflict: true, assessment: current };
     }
+    if (current?.signed_at) throw new Error("This assessment is signed. Import into a new assessment instead.");
 
     const prepared = prepareAssessmentImport(input, current);
     const assessment = prepared.assessment;
@@ -1111,10 +1300,71 @@ async function importPostgresAssessmentExtraction(input: AssessmentImportInput):
     await insertAssessmentProvenance(tx, assessmentId, assessment.field_provenance, current?.field_provenance);
     await insertAssessmentUnmapped(tx, assessmentId, prepared.newUnmappedFields);
     await writeAssessmentAudit(tx, assessment, "assessment_imported", input.actor, prepared.changedFields);
+    await syncPostgresReferralWorkflow(tx, assessment, input.actor, "assessment_imported");
     if (input.mutationId) await saveAssessmentIdempotency(tx, "assessment_import", input.mutationId, assessmentId);
     const saved = await getAssessmentInTransaction(tx, assessmentId);
     if (!saved) throw new Error("The assessment could not be read after import.");
     return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx) };
+  });
+}
+
+async function addPostgresAssessmentAddendum(
+  assessmentId: string,
+  note: string,
+  reasonCode: string,
+  actor: AssessmentActor,
+  expectedVersion: number,
+): Promise<AssessmentAddendumMutation | null> {
+  const sql = getPipelineSql();
+  return sql.begin(async (tx) => {
+    const current = await getAssessmentInTransaction(tx, assessmentId, true);
+    if (!current) return null;
+    if (current.version !== expectedVersion) return { ok: false, conflict: true, assessment: current };
+    if (!current.signed_at) {
+      return {
+        ok: false,
+        blocked: true,
+        assessment: current,
+        blockers: [{ code: "assessment_signature_required", label: "Sign the assessment before adding an addendum." }],
+      };
+    }
+    const rows = await tx<AssessmentAddendumRow[]>`
+      insert into pipeline.assessment_addenda (
+        assessment_id, note, reason_code, authored_by, authored_by_name
+      ) values (
+        ${assessmentId}, ${note}, ${reasonCode}, ${actor.id}, ${actor.name}
+      )
+      returning addendum_id, assessment_id, version, note, reason_code,
+        authored_by, authored_by_name, created_at
+    `;
+    const updated = await tx<{ assessment_id: string }[]>`
+      update pipeline.assessments
+      set version = version + 1,
+          updated_by = ${actor.id},
+          updated_by_name = ${actor.name},
+          updated_at = now()
+      where assessment_id = ${assessmentId} and version = ${expectedVersion}
+      returning assessment_id
+    `;
+    if (!updated[0]) throw new Error("The assessment changed while its addendum was being recorded.");
+    await tx`
+      insert into pipeline.audit_events (
+        entity_type, entity_id, action, actor_id, actor_name,
+        from_version, to_version, changed_fields, metadata
+      ) values (
+        'assessment', ${assessmentId}, 'assessment_addendum_added', ${actor.id}, ${actor.name},
+        ${expectedVersion}, ${expectedVersion + 1}, ${[] as string[]},
+        ${tx.json({ addendum_id: rows[0].addendum_id, reason_code: reasonCode })}
+      )
+    `;
+    const assessment = await getAssessmentInTransaction(tx, assessmentId);
+    if (!assessment) throw new Error("The assessment could not be read after adding its addendum.");
+    return {
+      ok: true,
+      assessment,
+      addendum: mapAssessmentAddendumRow(rows[0]),
+      revision: await bumpAssessmentRevision(tx),
+    };
   });
 }
 
@@ -1136,7 +1386,7 @@ async function getAssessmentInTransaction(
       `;
   if (!rows[0]) return null;
   const assessmentIds = [assessmentId];
-  const [provenance, unmapped, audits] = await Promise.all([
+  const [provenance, unmapped, audits, addenda] = await Promise.all([
     tx<AssessmentProvenanceRow[]>`
       select assessment_id, field_key, source_field_key, source_file, source_page,
         confidence, evidence_blob_key, review_status
@@ -1157,8 +1407,15 @@ async function getAssessmentInTransaction(
       where entity_type = 'assessment' and entity_id = any(${assessmentIds}::text[])
       order by created_at, audit_event_id
     `,
+    tx<AssessmentAddendumRow[]>`
+      select addendum_id, assessment_id, version, note, reason_code,
+        authored_by, authored_by_name, created_at
+      from pipeline.assessment_addenda
+      where assessment_id = any(${assessmentIds}::text[])
+      order by created_at, addendum_id
+    `,
   ]);
-  return hydrateAssessmentRows(rows, { provenance, unmapped, audits })[0];
+  return hydrateAssessmentRows(rows, { provenance, unmapped, audits, addenda })[0];
 }
 
 function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelations) {
@@ -1198,6 +1455,7 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
         created_at: isoTimestamp(item.created_at),
       }))
       .slice(-maxAuditEventsPerAssessment);
+    const addenda = (indexed.addenda.get(row.assessment_id) ?? []).map(mapAssessmentAddendumRow);
     return normalizeAssessmentRecord({
       ...data,
       assessment_id: row.assessment_id,
@@ -1207,6 +1465,20 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
       resident_key: row.resident_key,
       status: row.status,
       completed_at: row.completed_at ? isoTimestamp(row.completed_at) : null,
+      scheduled_start_at: row.scheduled_start_at ? isoTimestamp(row.scheduled_start_at) : null,
+      scheduled_duration_minutes: row.scheduled_duration_minutes === null
+        ? null
+        : Number(row.scheduled_duration_minutes),
+      scheduled_method: row.scheduled_method ?? null,
+      scheduled_location: row.scheduled_location,
+      schedule_status: row.schedule_status ?? "unscheduled",
+      started_at: row.started_at ? isoTimestamp(row.started_at) : null,
+      signed_at: row.signed_at ? isoTimestamp(row.signed_at) : null,
+      signed_by: row.signed_by && row.signed_by_name
+        ? { id: row.signed_by, name: row.signed_by_name }
+        : null,
+      signature_version: Number(row.signature_version ?? 1),
+      addenda,
       version: Number(row.version),
       section_versions: normalizeAssessmentSectionVersions(row.section_versions),
       created_at: isoTimestamp(row.created_at),
@@ -1225,6 +1497,20 @@ function indexAssessmentRelations(relations: AssessmentRelations): IndexedAssess
     provenance: groupRows(relations.provenance, (row) => row.assessment_id),
     unmapped: groupRows(relations.unmapped, (row) => row.assessment_id),
     audits: groupRows(relations.audits, (row) => row.entity_id),
+    addenda: groupRows(relations.addenda, (row) => row.assessment_id),
+  };
+}
+
+function mapAssessmentAddendumRow(row: AssessmentAddendumRow): AssessmentAddendum {
+  return {
+    addendum_id: row.addendum_id,
+    assessment_id: row.assessment_id,
+    version: Number(row.version),
+    note: row.note,
+    reason_code: row.reason_code,
+    authored_by: row.authored_by,
+    authored_by_name: row.authored_by_name,
+    created_at: isoTimestamp(row.created_at),
   };
 }
 
@@ -1244,6 +1530,8 @@ async function insertAssessmentRow(tx: TransactionSql, assessment: PipelineAsses
     insert into pipeline.assessments (
       assessment_id, referral_id, canonical_client_id, resident_key, resident_number, assessment_date,
       assessor_id, assessor_name, status, data, version, completed_at,
+      scheduled_start_at, scheduled_duration_minutes, scheduled_method, scheduled_location,
+      schedule_status, started_at, signed_at, signed_by, signed_by_name, signature_version,
       section_versions, created_by, created_by_name, updated_by, updated_by_name, created_at, updated_at
     ) values (
       ${assessment.assessment_id}, ${assessment.referral_id}, ${assessment.canonical_client_id}, ${assessment.resident_key},
@@ -1251,6 +1539,11 @@ async function insertAssessmentRow(tx: TransactionSql, assessment: PipelineAsses
       ${assessment.assessor_id},
       ${assessment.assessor}, ${assessment.status},
       ${tx.json(pickAssessmentToolData(assessment))}, ${assessment.version}, ${assessment.completed_at}::timestamptz,
+      ${assessment.scheduled_start_at ?? null}::timestamptz, ${assessment.scheduled_duration_minutes ?? null},
+      ${assessment.scheduled_method ?? null}, ${assessment.scheduled_location ?? null},
+      ${assessment.schedule_status ?? "unscheduled"}, ${assessment.started_at ?? null}::timestamptz,
+      ${assessment.signed_at ?? null}::timestamptz, ${assessment.signed_by?.id ?? null},
+      ${assessment.signed_by?.name ?? null}, ${assessment.signature_version ?? 1},
       ${tx.json(assessment.section_versions)},
       ${assessment.created_by.id}, ${assessment.created_by.name}, ${assessment.updated_by.id},
       ${assessment.updated_by.name}, ${assessment.created_at}::timestamptz, ${assessment.updated_at}::timestamptz
@@ -1276,6 +1569,16 @@ async function updateAssessmentRow(
         section_versions = ${tx.json(assessment.section_versions)},
         version = version + 1,
         completed_at = ${assessment.completed_at}::timestamptz,
+        scheduled_start_at = ${assessment.scheduled_start_at ?? null}::timestamptz,
+        scheduled_duration_minutes = ${assessment.scheduled_duration_minutes ?? null},
+        scheduled_method = ${assessment.scheduled_method ?? null},
+        scheduled_location = ${assessment.scheduled_location ?? null},
+        schedule_status = ${assessment.schedule_status ?? "unscheduled"},
+        started_at = ${assessment.started_at ?? null}::timestamptz,
+        signed_at = ${assessment.signed_at ?? null}::timestamptz,
+        signed_by = ${assessment.signed_by?.id ?? null},
+        signed_by_name = ${assessment.signed_by?.name ?? null},
+        signature_version = ${assessment.signature_version ?? 1},
         updated_by = ${assessment.updated_by.id},
         updated_by_name = ${assessment.updated_by.name},
         updated_at = ${assessment.updated_at}::timestamptz
@@ -1453,6 +1756,13 @@ function isAssessmentAuditAction(value: string): value is AssessmentAuditAction 
     "extraction_confirmed",
     "assessment_completed",
     "assessment_reopened",
+    "assessment_scheduled",
+    "assessment_rescheduled",
+    "assessment_cancelled",
+    "assessment_no_show",
+    "assessment_started",
+    "assessment_signed",
+    "assessment_addendum_added",
   ].includes(value);
 }
 
@@ -1554,6 +1864,18 @@ function normalizeAssessmentRecord(value: PipelineAssessmentRecord): PipelineAss
     resident_key: value.resident_key?.trim() || null,
     status: ["draft", "needs_review", "complete"].includes(value.status) ? value.status : "draft",
     completed_at: value.completed_at ?? null,
+    scheduled_start_at: value.scheduled_start_at ?? null,
+    scheduled_duration_minutes: value.scheduled_duration_minutes ?? null,
+    scheduled_method: value.scheduled_method ?? null,
+    scheduled_location: value.scheduled_location?.trim() || null,
+    schedule_status: value.schedule_status ?? "unscheduled",
+    started_at: value.started_at ?? null,
+    signed_at: value.signed_at ?? null,
+    signed_by: value.signed_by ?? null,
+    signature_version: Number.isInteger(value.signature_version) && Number(value.signature_version) > 0
+      ? Number(value.signature_version)
+      : 1,
+    addenda: Array.isArray(value.addenda) ? value.addenda : [],
     field_provenance: value.field_provenance ?? {},
     unmapped_fields: Array.isArray(value.unmapped_fields) ? value.unmapped_fields.slice(-1_000) : [],
     audit_events: Array.isArray(value.audit_events) ? value.audit_events.slice(-maxAuditEventsPerAssessment) : [],
@@ -1590,6 +1912,12 @@ function assessmentCompletionReport(
     rows: sorted,
     generated_at: new Date().toISOString(),
   };
+}
+
+function elapsedMinutes(startedAt: string | null | undefined, signedAt: string) {
+  if (!startedAt) return null;
+  const elapsed = Date.parse(signedAt) - Date.parse(startedAt);
+  return Number.isFinite(elapsed) && elapsed >= 0 ? Math.round(elapsed / 60_000) : null;
 }
 
 function isAssessmentRecord(value: unknown): value is PipelineAssessmentRecord {

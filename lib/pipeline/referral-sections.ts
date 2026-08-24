@@ -21,6 +21,9 @@ const sectionByField = {
   priority: "intake",
   tags: "intake",
   owner: "intake",
+  assignedAt: "intake",
+  assignmentDueAt: "intake",
+  assignmentVersion: "intake",
   note: "intake",
   admissionDate: "intake",
   responsiblePerson: "intake",
@@ -43,8 +46,10 @@ const sectionByField = {
   assessmentDocumentSizeBytes: "assessment",
   assessmentMessage: "assessment",
   stage: "workflow",
+  workflowStatus: "workflow",
   requirements: "workflow",
   admissionDecision: "decision",
+  assessmentRecommendation: "decision",
   ehrHandoff: "decision",
 } satisfies Partial<Record<keyof Referral, ReferralSection>>;
 

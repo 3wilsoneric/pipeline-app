@@ -17,6 +17,11 @@ const checks = [
     args: ["scripts/admissions-zone-contracts.mjs"],
   },
   {
+    name: "Assessor workflow contracts",
+    command: "node",
+    args: ["scripts/assessor-workflow-contracts.mjs"],
+  },
+  {
     name: "Release compatibility",
     command: "node",
     args: ["scripts/release-compatibility.mjs"],

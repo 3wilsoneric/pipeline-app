@@ -59,7 +59,7 @@ export async function DELETE(
   context: { params: Promise<{ referralId: string }> },
 ) {
   return withApiLogging(request, "/api/referrals/[referralId]", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -131,7 +131,9 @@ export async function PATCH(
     if (!ownerResult.ok) return ownerResult.response;
     const sectionVersions = validateSectionVersions(
       body.value.if_match_sections,
-      getReferralPatchSections(ownerResult.patch),
+      getReferralPatchSections(ownerResult.ownerChanged
+        ? { ...ownerResult.patch, requirements: access.referral.requirements ?? [] }
+        : ownerResult.patch),
     );
     if (!sectionVersions.ok) return jsonError(sectionVersions.message);
 

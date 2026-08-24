@@ -23,7 +23,11 @@ export async function GET(
     if (!access.ok) return access.response;
     const snapshot = await getReferralWorkflowSnapshot(referralId);
     if (!snapshot) return jsonError("Referral not found.", 404);
-    return Response.json({ decision: snapshot.decision }, { headers: privateHeaders() });
+    return Response.json({
+      decision: snapshot.decision,
+      recommendation: snapshot.recommendation,
+      can_decide: auth.user.roles.some((role) => role === "admin" || role === "assessment_coordinator"),
+    }, { headers: privateHeaders() });
   });
 }
 
@@ -32,7 +36,7 @@ export async function PUT(
   context: { params: Promise<{ referralId: string }> },
 ) {
   return withApiLogging(request, "/api/referrals/[referralId]/decision", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator", "reviewer"]);
+    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -55,7 +59,7 @@ export async function PUT(
     if (body.value.outcome !== "accepted" && body.value.outcome !== "declined") {
       return jsonError("outcome must be accepted or declined.");
     }
-    for (const [field, maximum] of [["reason_code", 128], ["reason_note", 20_000]] as const) {
+    for (const [field, maximum] of [["reason_code", 128], ["reason_note", 20_000], ["override_reason", 1_000]] as const) {
       if (body.value[field] !== undefined && (typeof body.value[field] !== "string" || body.value[field].length > maximum)) {
         return jsonError(`${field} is invalid.`);
       }
@@ -67,6 +71,8 @@ export async function PUT(
         outcome: body.value.outcome,
         reasonCode: typeof body.value.reason_code === "string" ? body.value.reason_code : "",
         reasonNote: typeof body.value.reason_note === "string" ? body.value.reason_note : "",
+        overrideReason: typeof body.value.override_reason === "string" ? body.value.override_reason : "",
+        decidedByRole: auth.user.roles.includes("admin") ? "admin" : "assessment_coordinator",
       },
       Number(body.value.if_match),
       Number(body.value.if_match_section),

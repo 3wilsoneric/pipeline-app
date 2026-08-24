@@ -1,7 +1,8 @@
 import type { ReferralWorkflowStatus } from "@/lib/reliability/referral-operating-model";
 import { isUnassignedOwner } from "./referral-ownership";
 import type { Referral } from "./referral-types";
-import type { WorkflowContext } from "./workflow-records";
+import { isRequirementComplete, type WorkflowContext } from "./workflow-records";
+import { hasInitialDocument } from "./workflow-status";
 
 export type ReferralStage =
   | "New"
@@ -226,9 +227,7 @@ export function getReferralTransitionBlockers(
 
 function hasInitialPacket(referral: Referral) {
   return hasManualIntakeAuthorization(referral)
-    || referral.documentStatus !== "Missing"
-    || hasValue(referral.documentName)
-    || hasValue(referral.packetId);
+    || hasInitialDocument(referral);
 }
 
 function isPacketReviewed(referral: Referral) {
@@ -260,10 +259,6 @@ function getDecisionOutcome(referral: Referral, context: WorkflowContext) {
   if (referral.assessment?.postAssessment.decision === "accepted") return "accepted";
   if (referral.assessment?.postAssessment.decision === "not-accepted") return "declined";
   return null;
-}
-
-function isRequirementComplete(status: string) {
-  return ["received", "reviewed", "waived"].includes(status);
 }
 
 function hasValue(value: unknown) {

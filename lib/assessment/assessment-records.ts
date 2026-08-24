@@ -21,7 +21,43 @@ export type AssessmentAuditAction =
   | "assessment_updated"
   | "extraction_confirmed"
   | "assessment_completed"
-  | "assessment_reopened";
+  | "assessment_reopened"
+  | "assessment_scheduled"
+  | "assessment_rescheduled"
+  | "assessment_cancelled"
+  | "assessment_no_show"
+  | "assessment_started"
+  | "assessment_signed"
+  | "assessment_addendum_added";
+
+export type AssessmentScheduleStatus =
+  | "unscheduled"
+  | "scheduled"
+  | "rescheduled"
+  | "cancelled"
+  | "no_show"
+  | "completed";
+
+export type AssessmentScheduleMethod = "in_person" | "phone" | "video" | "record_review";
+
+export type AssessmentScheduleUpdate = {
+  start_at: string | null;
+  duration_minutes: number | null;
+  method: AssessmentScheduleMethod | null;
+  location: string | null;
+  status: Exclude<AssessmentScheduleStatus, "completed">;
+};
+
+export type AssessmentAddendum = {
+  addendum_id: string;
+  assessment_id: string;
+  version: number;
+  note: string;
+  reason_code: string;
+  authored_by: string;
+  authored_by_name: string;
+  created_at: string;
+};
 
 export type AssessmentAuditEvent = {
   event_id: string;
@@ -43,6 +79,16 @@ export type PipelineAssessmentRecord = AssessmentToolRecord & {
   updated_by: AssessmentActor;
   audit_events: AssessmentAuditEvent[];
   section_versions: AssessmentSectionVersions;
+  scheduled_start_at?: string | null;
+  scheduled_duration_minutes?: number | null;
+  scheduled_method?: AssessmentScheduleMethod | null;
+  scheduled_location?: string | null;
+  schedule_status?: AssessmentScheduleStatus;
+  started_at?: string | null;
+  signed_at?: string | null;
+  signed_by?: AssessmentActor | null;
+  signature_version?: number;
+  addenda?: AssessmentAddendum[];
 };
 
 export type AssessmentListResponse = {
@@ -59,6 +105,8 @@ export type AssessmentListResponse = {
 
 export type AssessmentCreateInput = {
   referral_id: number;
+  /** Server-resolved from the referral's authoritative assignment. */
+  assigned_assessor?: AssessmentActor | null;
   canonical_client_id?: string | null;
   resident_key?: string | null;
   data: AssessmentToolData;
@@ -76,12 +124,18 @@ export type AssessmentPatchInput = {
   resident_key?: string | null;
   status?: AssessmentWorkflowStatus;
   accept_pending?: boolean;
+  /** Server-only lifecycle commands. Browser payload validation rejects these fields. */
+  schedule?: AssessmentScheduleUpdate;
+  mark_started?: boolean;
+  signer?: AssessmentActor;
 };
 
 export type AssessmentCompletionReportRow = {
   assessor_id: string | null;
   assessor_name: string;
+  /** Signed clinical encounters in the selected month. */
   completed_assessments: number;
+  average_duration_minutes: number | null;
 };
 
 export type AssessmentCompletionReport = {

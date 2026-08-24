@@ -9,6 +9,21 @@ import type { ReferralStage as Stage } from "@/lib/pipeline/referral-workflow";
 export type Priority = "urgent" | "high" | "standard";
 export type WorkspaceOrigin = "pipeline" | "allo" | "import";
 export type WorkspaceStatus = "active" | "historical" | "archived";
+export type ReferralWorkflowStatus =
+  | "intake_unassigned"
+  | "intake_documents_needed"
+  | "profile_incomplete"
+  | "ready_to_schedule"
+  | "assessment_scheduled"
+  | "assessment_in_progress"
+  | "waiting_for_information"
+  | "assessment_ready_to_sign"
+  | "assessment_signed"
+  | "recommendation_submitted"
+  | "decision_pending"
+  | "accepted"
+  | "declined"
+  | "closed";
 
 export const referralSectionNames = [
   "identity",
@@ -44,6 +59,7 @@ export type CanvasWorkflowStage = "pre" | "assessment" | "post";
 export type PostAssessmentDecision = "accepted" | "not-accepted" | "pending";
 
 export type RequirementType =
+  | "profile_field"
   | "medication_list"
   | "tb_test"
   | "signed_admission_agreement"
@@ -62,9 +78,12 @@ export type RequirementStatus =
   | "received"
   | "reviewed"
   | "waived"
-  | "expired";
+  | "expired"
+  | "unavailable"
+  | "not_applicable";
 
 export type RequirementGate =
+  | "profile_completion"
   | "pre_assessment"
   | "admission_decision"
   | "move_in"
@@ -85,7 +104,24 @@ export type AdmissionRequirement = {
   evidenceDocumentId?: string;
   evidenceDocumentName?: string;
   waiverReason?: string;
+  fieldKey?: string;
+  requestedFrom?: string;
+  requestedAt?: string;
+  followUpAt?: string;
+  unavailableReason?: string;
   updatedAt: string;
+};
+
+export type AssessmentRecommendation = {
+  recommendationId: string;
+  assessmentId: string;
+  outcome: "accept" | "decline" | "needs_more_information";
+  reasonCode: string;
+  reasonNote: string;
+  recommendedBy: string;
+  recommendedByName: string;
+  recommendedAt: string;
+  version: number;
 };
 
 export type AdmissionDecision = {
@@ -97,6 +133,8 @@ export type AdmissionDecision = {
   decidedByName: string;
   decidedAt: string;
   version: number;
+  recommendationId?: string;
+  decidedByRole?: string;
 };
 
 export type EhrHandoffStatus = "not_ready" | "ready" | "queued" | "sent" | "failed";
@@ -172,6 +210,8 @@ export type Referral = {
   name: string;
   date: string;
   stage: Stage;
+  /** Explicit operational state. Legacy stage remains a compatibility projection. */
+  workflowStatus?: ReferralWorkflowStatus;
   community: PipelineCommunity;
   /** Referring county. This is distinct from the destination community. */
   county?: string;
@@ -186,6 +226,9 @@ export type Referral = {
   /** Stable Entra object id for assignment enforcement. */
   ownerId?: string;
   owner: string;
+  assignedAt?: string;
+  assignmentDueAt?: string;
+  assignmentVersion?: number;
   note: string;
   createdAt: string;
   updatedAt?: string;
@@ -217,6 +260,8 @@ export type Referral = {
   requirements?: AdmissionRequirement[];
   /** Synchronized decision projection. PostgreSQL stores the authoritative row separately. */
   admissionDecision?: AdmissionDecision;
+  /** Latest assessor recommendation. The supervisor's decision remains authoritative. */
+  assessmentRecommendation?: AssessmentRecommendation;
   /** Pipeline-owned handoff state. This never represents an EHR write unless status is sent. */
   ehrHandoff?: EhrHandoffRecord;
 };

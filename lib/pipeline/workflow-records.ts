@@ -1,20 +1,25 @@
 import type {
   AdmissionDecision,
   AdmissionRequirement,
+  AssessmentRecommendation,
   RequirementGate,
   RequirementStatus,
   RequirementType,
 } from "./referral-types";
-import type { AssessmentWorkflowStatus } from "@/lib/assessment/assessment-records";
+import type { AssessmentScheduleStatus, AssessmentWorkflowStatus } from "@/lib/assessment/assessment-records";
 import type { AssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
 
 export type WorkflowContext = {
   assessmentExists?: boolean;
   assessmentComplete?: boolean;
+  assessmentSigned?: boolean;
+  assessmentStarted?: boolean;
+  assessmentScheduleStatus?: AssessmentScheduleStatus | null;
   assessmentDate?: string | null;
   assessmentStatus?: AssessmentWorkflowStatus | null;
   assessmentData?: AssessmentToolData | null;
   decision?: AdmissionDecision | null;
+  recommendation?: AssessmentRecommendation | null;
   requirements?: AdmissionRequirement[];
 };
 
@@ -22,18 +27,30 @@ export type AdmissionDecisionInput = {
   outcome: AdmissionDecision["outcome"];
   reasonCode?: string;
   reasonNote?: string;
+  overrideReason?: string;
+  decidedByRole?: string;
+};
+
+export type AssessmentRecommendationInput = {
+  assessmentId: string;
+  outcome: AssessmentRecommendation["outcome"];
+  reasonCode?: string;
+  reasonNote?: string;
 };
 
 export type WorkItemPatch = {
   status?: RequirementStatus;
-  ownerId?: string;
-  owner?: string;
   dueAt?: string;
   nextStep?: string;
   blocker?: boolean;
   evidenceDocumentId?: string;
   evidenceDocumentName?: string;
   waiverReason?: string;
+  fieldKey?: string;
+  requestedFrom?: string;
+  requestedAt?: string;
+  followUpAt?: string;
+  unavailableReason?: string;
 };
 
 type DefaultRequirement = {
@@ -42,9 +59,40 @@ type DefaultRequirement = {
   requiredFor: RequirementGate;
   nextStep: string;
   blocker: boolean;
+  fieldKey?: keyof ProfileCompletionFields;
+};
+
+export type ProfileCompletionFields = {
+  date_of_birth?: string;
+  community?: string;
+  referral_source?: string;
 };
 
 export const defaultAdmissionRequirements: readonly DefaultRequirement[] = [
+  {
+    type: "profile_field",
+    fieldKey: "date_of_birth",
+    label: "Date of birth",
+    requiredFor: "profile_completion",
+    nextStep: "Confirm the client's date of birth from a source document or referral contact.",
+    blocker: true,
+  },
+  {
+    type: "profile_field",
+    fieldKey: "community",
+    label: "Community",
+    requiredFor: "profile_completion",
+    nextStep: "Select the community responsible for this referral.",
+    blocker: true,
+  },
+  {
+    type: "profile_field",
+    fieldKey: "referral_source",
+    label: "Referral source",
+    requiredFor: "profile_completion",
+    nextStep: "Record the referring facility, county, or other referral source.",
+    blocker: true,
+  },
   {
     type: "medication_list",
     label: "Signed medication list",
@@ -109,34 +157,72 @@ export function createDefaultAdmissionRequirements(
   now = new Date().toISOString(),
   owner = "Unassigned",
   ownerId?: string,
+  profile: ProfileCompletionFields = {},
 ) {
   const dueAt = new Date(new Date(now).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
   return defaultAdmissionRequirements.map((definition) => {
-    const current = existing.find((item) => item.type === definition.type);
+    const current = definition.fieldKey
+      ? existing.find((item) => item.type === definition.type && item.fieldKey === definition.fieldKey)
+      : existing.find((item) => item.type === definition.type);
     const evidenceDocumentName = evidenceByType[definition.type]?.trim() || current?.evidenceDocumentName;
-    if (current && !evidenceDocumentName) return current;
-    const evidenceChanged = Boolean(current && evidenceDocumentName !== current.evidenceDocumentName);
+    const profileComplete = definition.fieldKey ? hasProfileValue(profile[definition.fieldKey]) : false;
+    const status = definition.fieldKey
+      ? profileComplete
+        ? "reviewed"
+        : current && !["received", "reviewed"].includes(current.status)
+          ? current.status
+          : "needed"
+      : evidenceDocumentName
+        ? current && ["reviewed", "waived", "not_applicable"].includes(current.status)
+          ? current.status
+          : "received"
+        : current?.status ?? "needed";
+    const changed = Boolean(current && (
+      evidenceDocumentName !== current.evidenceDocumentName
+      || status !== current.status
+      || current.ownerId !== ownerId
+      || current.owner !== (owner.trim() || "Unassigned")
+    ));
 
     return {
       id: current?.id && isUuid(current.id) ? current.id : globalThis.crypto.randomUUID(),
-      version: evidenceChanged ? (current?.version ?? 1) + 1 : current?.version ?? 1,
       ...definition,
-      status: evidenceDocumentName ? "received" : current?.status ?? "needed",
-      ownerId: current?.ownerId ?? ownerId,
-      owner: (current?.owner ?? owner.trim()) || "Unassigned",
+      version: changed ? (current?.version ?? 1) + 1 : current?.version ?? 1,
+      status,
+      ownerId,
+      owner: owner.trim() || "Unassigned",
       dueAt: current?.dueAt ?? dueAt,
       evidenceDocumentId: current?.evidenceDocumentId,
       evidenceDocumentName,
       waiverReason: current?.waiverReason,
-      updatedAt: evidenceChanged
+      requestedFrom: current?.requestedFrom,
+      requestedAt: current?.requestedAt,
+      followUpAt: current?.followUpAt,
+      unavailableReason: current?.unavailableReason,
+      updatedAt: changed
         ? now
         : current?.updatedAt ?? now,
     } satisfies AdmissionRequirement;
   });
 }
 
+function hasProfileValue(value: string | undefined) {
+  const normalized = value?.trim().toLowerCase();
+  return Boolean(normalized && ![
+    "unassigned",
+    "unknown",
+    "pending",
+    "not reported",
+    "n/a",
+    "referral packet",
+  ].includes(normalized));
+}
+
 export function isRequirementComplete(status: RequirementStatus) {
-  return status === "received" || status === "reviewed" || status === "waived";
+  return status === "received"
+    || status === "reviewed"
+    || status === "waived"
+    || status === "not_applicable";
 }
 
 function isUuid(value: string) {

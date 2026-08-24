@@ -20,6 +20,7 @@ export default function ReferralReviewPanel({
   clientName,
   referral,
   assessmentComplete,
+  assessmentId,
   sections,
   complete,
   total,
@@ -30,6 +31,7 @@ export default function ReferralReviewPanel({
   clientName: string;
   referral: Referral | null;
   assessmentComplete: boolean;
+  assessmentId?: string;
   sections: ReviewSection[];
   complete: number;
   total: number;
@@ -101,7 +103,7 @@ export default function ReferralReviewPanel({
         })}
       </div>
       <ReferralRequirementsEditor referral={referral} onReferralUpdated={onDecisionSaved} />
-      <AdmissionDecisionEditor referral={referral} assessmentComplete={assessmentComplete} onSaved={onDecisionSaved} />
+      <AdmissionDecisionEditor referral={referral} assessmentComplete={assessmentComplete} assessmentId={assessmentId} onSaved={onDecisionSaved} />
       <EhrHandoffEditor referral={referral} onSaved={onDecisionSaved} />
       <ReferralActivityPanel referralId={referral?.id} version={referral?.version} />
     </section>

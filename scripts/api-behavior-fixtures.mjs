@@ -26,11 +26,12 @@ const workspacePresentation = loadTypeScriptModule(root, "lib/pipeline/workspace
 const assessmentCalendar = loadTypeScriptModule(root, "lib/pipeline/assessment-calendar.ts");
 
 const results = [
-  run("calendar uses persisted assessment ownership and status", () => {
+  run("calendar uses explicit scheduling and canonical referral assignment", () => {
     const event = assessmentCalendar.assessmentCalendarEvent({
       assessment_id: "assessment-1",
       referral_id: 41,
-      assessment_date: "2026-08-25",
+      scheduled_start_at: "2026-08-25T16:00:00.000Z",
+      schedule_status: "scheduled",
       assessor_id: "assessor-1",
       assessor: "Assigned Assessor",
       status: "draft",
@@ -42,14 +43,15 @@ const results = [
       owner: "Referral Owner",
     }, "2026-08-23");
     assert(event?.kind === "assessment", "Expected an assessment event");
-    assert(event?.ownerId === "assessor-1" && event?.owner === "Assigned Assessor", "Expected assessment assignment to own the event");
+    assert(event?.ownerId === "referral-owner" && event?.owner === "Referral Owner", "Expected the referral assignment to own the event");
     assert(event?.status === "draft" && event?.title === "Assessment scheduled", "Expected scheduled draft status");
   }),
   run("calendar marks unfinished past assessments overdue", () => {
     const event = assessmentCalendar.assessmentCalendarEvent({
       assessment_id: "assessment-2",
       referral_id: 42,
-      assessment_date: "2026-08-20",
+      scheduled_start_at: "2026-08-20T16:00:00.000Z",
+      schedule_status: "scheduled",
       assessor_id: null,
       assessor: null,
       status: "draft",
@@ -1184,9 +1186,13 @@ function assessmentValidationResults() {
         assessmentValidation.validateAssessmentPatchRequest({ if_match: 1, patch: { invented: true } }),
         "Unknown assessment patch field: invented.",
       );
-      assertValid(assessmentValidation.validateAssessmentPatchRequest({
+      assertInvalid(assessmentValidation.validateAssessmentPatchRequest({
         if_match: 2,
         assessor_id: "assessor@pipeline.local",
+        patch: { data: { resident_number: "EM-1001" }, status: "draft" },
+      }), "Change the referral assignment to change its assessor.");
+      assertValid(assessmentValidation.validateAssessmentPatchRequest({
+        if_match: 2,
         patch: { data: { resident_number: "EM-1001" }, status: "draft" },
       }));
       assertInvalid(
@@ -1196,11 +1202,11 @@ function assessmentValidationResults() {
           assessor_id: "entra-assessor-1",
           patch: { data: {} },
         }),
-        "assessor_id cannot be changed in a section save.",
+        "Change the referral assignment to change its assessor.",
       );
       assertInvalid(
         assessmentValidation.validateAssessmentPatchRequest({ if_match: 2, assessor_id: "bad id", patch: {} }),
-        "assessor_id is invalid.",
+        "Change the referral assignment to change its assessor.",
       );
     }),
     run("assessment import forces extracted values into pending review", () => {

@@ -167,26 +167,26 @@ await measureJourney("search_to_referrals", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open referrals", exact: true }));
   await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("referral_stage_filter", "filter", async () => {
+await measureJourney("referral_community_filter", "filter", async () => {
   const filteredDirectory = page.waitForResponse((candidate) => {
     const url = new URL(candidate.url());
     return candidate.request().method() === "GET"
       && candidate.ok()
       && ["/api/referrals", "/api/referrals/directory"].includes(url.pathname)
-      && url.searchParams.get("stage") === "New";
+      && url.searchParams.get("community") === "San Pablo";
   });
-  await page.getByLabel("Filter by stage").selectOption("New");
+  await page.getByLabel("Filter workspaces by community").selectOption("San Pablo");
   await filteredDirectory;
   await page.getByRole("button", { name: `Open ${seededReferralName} referral workspace`, exact: true }).waitFor({ state: "visible" });
 });
-await page.getByLabel("Filter by stage").selectOption("");
-await measureJourney("referrals_to_action_queue", "queue", async () => {
-  await activate(page.getByRole("button", { name: "Needs action", exact: true }));
-  await page.getByRole("region", { name: "Referral action worklist", exact: true }).waitFor({ state: "visible" });
-});
-await measureJourney("action_queue_to_workflow", "queue", async () => {
-  await activate(page.getByRole("button", { name: "Referral workflow", exact: true }));
+await page.getByLabel("Filter workspaces by community").selectOption("");
+await measureJourney("referrals_to_current_work", "queue", async () => {
+  await activate(page.getByRole("button", { name: "Current work", exact: true }));
   await page.getByRole("region", { name: "Referral workflow tracker", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("current_work_to_all_workspaces", "queue", async () => {
+  await activate(page.getByRole("button", { name: "All workspaces", exact: true }));
+  await page.getByLabel("Referral worklist", { exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("referrals_to_clients", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open client profiles", exact: true }));
@@ -223,7 +223,7 @@ await measureJourney("packet_step_change", "tab", async () => {
 });
 await measureJourney("new_referral_to_home", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Pipeline home", exact: true }));
-  await page.getByRole("region", { name: "My queue", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("region", { name: "Your assigned work", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("home_to_operations", "navigation", async () => {
   await activate(page.getByRole("button", { name: /Open profile menu for/ }));

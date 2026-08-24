@@ -1,6 +1,6 @@
 import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { PipelineCommunity } from "@/lib/pipeline/community-config";
-import type { RequirementType } from "@/lib/pipeline/referral-types";
+import type { ReferralWorkflowStatus, RequirementType } from "@/lib/pipeline/referral-types";
 import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
 
 export type OperationsWorkItem = {
@@ -9,6 +9,7 @@ export type OperationsWorkItem = {
   client_name: string;
   community: string;
   stage: ReferralStage;
+  workflow_status: ReferralWorkflowStatus;
   owner_id?: string;
   owner: string;
   priority: string;
@@ -21,6 +22,8 @@ export type OperationsWorkItem = {
   age_hours: number;
   stale: boolean;
   due_soon: boolean;
+  assignment_due_at: string | null;
+  assignment_overdue: boolean;
   assessment_date?: string;
   assessment_complete: boolean;
   has_decision: boolean;
@@ -125,6 +128,7 @@ export type SupervisorExceptionKind =
   | "overdue_requirement"
   | "unassigned_referral"
   | "unassigned_requirement"
+  | "assignment_overdue"
   | "blocked_referral"
   | "stale_referral"
   | "extraction_failed"
@@ -161,7 +165,7 @@ export type OperationsSnapshot = {
   generated_at: string;
   metrics: {
     active: number;
-    needs_action: number;
+    open_tasks: number;
     stale: number;
     unassigned: number;
     due_soon: number;

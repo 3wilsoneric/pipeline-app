@@ -3,19 +3,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  CalendarClock,
   Check,
   CheckCircle2,
   ChevronRight,
   FileSpreadsheet,
   History,
   LoaderCircle,
+  Play,
+  Plus,
   RefreshCw,
   Save,
   UploadCloud,
   UserRound,
 } from "lucide-react";
 
-import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import {
+  fetchCurrentPipelineUser,
+  fetchPipelineJson,
+  PipelineApiError,
+  type PipelineCurrentUser,
+} from "@/lib/auth/authenticated-fetch";
 import { parseAssessmentFile } from "@/lib/assessment/assessment-file-parser";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
 import type {
@@ -79,13 +87,6 @@ type AssessmentRemoteChange = {
   conflicts: AssessmentFieldConflict[];
 };
 
-type AssessmentMember = {
-  principal_id: string;
-  display_name: string;
-  roles: string[];
-  identity_status: "entra_linked" | "provisional" | "merged";
-};
-
 export default function AssessmentWorkspace({ referralId, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -96,9 +97,17 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   const [dirtySections, setDirtySections] = useState<Set<AssessmentToolSection>>(new Set());
   const [remoteChange, setRemoteChange] = useState<AssessmentRemoteChange | null>(null);
   const [presence, setPresence] = useState<EditingPresence[]>([]);
-  const [members, setMembers] = useState<AssessmentMember[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [scheduleStart, setScheduleStart] = useState("");
+  const [scheduleDuration, setScheduleDuration] = useState("60");
+  const [scheduleMethod, setScheduleMethod] = useState<"in_person" | "phone" | "video" | "record_review">("in_person");
+  const [scheduleLocation, setScheduleLocation] = useState("");
+  const [showAddendum, setShowAddendum] = useState(false);
+  const [addendumReason, setAddendumReason] = useState("");
+  const [addendumNote, setAddendumNote] = useState("");
+  const [viewer, setViewer] = useState<PipelineCurrentUser | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<PipelineAssessmentRecord | null>(null);
   const draftRef = useRef<AssessmentToolData>(draft);
@@ -111,6 +120,9 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   const dirty = dirtySections.size > 0;
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
+  const canSupervise = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator"));
+  const canEditClinical = Boolean(viewer && selected?.assessor_id === viewer.id);
+  const canAddAddendum = Boolean(viewer && (selected?.signed_by?.id === viewer.id || canSupervise));
   const coverage = useMemo(() => getAssessmentToolCoverage(draft), [draft]);
   const completion = useMemo(() => getAssessmentCompletionSummary(draft), [draft]);
   const pendingFields = useMemo(() => getPendingFields(selected), [selected]);
@@ -118,9 +130,20 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     () => assessmentToolFieldDefinitions.filter((definition) => definition.section === activeSection && definition.key !== "assessor"),
     [activeSection],
   );
-  const assessmentMembers = useMemo(() => members
-    .filter((member) => member.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role)))
-    .sort((left, right) => left.display_name.localeCompare(right.display_name)), [members]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCurrentPipelineUser()
+      .then(({ user }) => {
+        if (!cancelled) setViewer(user ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setViewer(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!referralId) {
@@ -152,20 +175,6 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   }, [referralId]);
 
   useEffect(() => {
-    if (!referralId) return;
-    const controller = new AbortController();
-    fetchPipelineJson<{ members: AssessmentMember[] }>("/api/members", {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then((payload) => setMembers(payload.members))
-      .catch(() => {
-        if (!controller.signal.aborted) setError("Staff assignments could not be loaded. Refresh and try again.");
-      });
-    return () => controller.abort();
-  }, [referralId]);
-
-  useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
 
@@ -191,6 +200,12 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     setDraft(data);
     setDirtySections(new Set());
     setRemoteChange(null);
+    setScheduleStart(toLocalDateTimeInput(selected.scheduled_start_at));
+    setScheduleDuration(String(selected.scheduled_duration_minutes ?? 60));
+    setScheduleMethod(selected.scheduled_method ?? "in_person");
+    setScheduleLocation(selected.scheduled_location ?? "");
+    setShowSchedule(false);
+    setShowAddendum(false);
     void loadRecoveryDraft(selected, data);
   }, [selected]);
 
@@ -203,11 +218,11 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     });
   }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.status]);
 
-  const startAssessment = async () => {
+  const createAssessmentDraft = async () => {
     if (!referralId) return;
     setIsBusy(true);
     setError("");
-    setMessage("Starting assessment...");
+    setMessage("Creating assessment record...");
     try {
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
         `/api/referrals/${referralId}/assessments`,
@@ -220,7 +235,35 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
       setMessage("Assessment draft created");
       setActiveSection("identity");
     } catch (createError) {
-      setError(messageFor(createError, "The assessment could not be started."));
+      setError(messageFor(createError, "The assessment record could not be created."));
+      setMessage("");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const beginAssessment = async () => {
+    const current = selectedRef.current;
+    if (!current || current.started_at || current.signed_at) return;
+    setIsBusy(true);
+    setError("");
+    setMessage("Beginning assessment...");
+    try {
+      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+        `/api/assessments/${encodeURIComponent(current.assessment_id)}/start`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            if_match: current.version,
+            client_mutation_id: mutationId("assessment-start"),
+          }),
+        },
+      );
+      upsertAssessment(payload.assessment, true);
+      await onAssessmentSaved?.(payload.assessment);
+      setMessage("Assessment in progress");
+    } catch (startError) {
+      setError(messageFor(startError, "The assessment could not be begun."));
       setMessage("");
     } finally {
       setIsBusy(false);
@@ -373,30 +416,103 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     }
   };
 
-  const assignAssessor = async (assessorId: string) => {
+  const signAssessment = async () => {
     setIsBusy(true);
     setError("");
-    setMessage("Updating assessor...");
+    setMessage("Signing assessment...");
     try {
       await flushDirtySections();
       const current = selectedRef.current;
       if (!current) return;
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
-        `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
+        `/api/assessments/${encodeURIComponent(current.assessment_id)}/sign`,
         {
-          method: "PATCH",
+          method: "POST",
           body: JSON.stringify({
             if_match: current.version,
-            assessor_id: assessorId || null,
-            client_mutation_id: mutationId("assessment-assignment"),
-            patch: {},
+            client_mutation_id: mutationId("assessment-sign"),
           }),
         },
       );
       upsertAssessment(payload.assessment, true);
-      setMessage(payload.assessment.assessor ? `Assigned to ${payload.assessment.assessor}` : "Assessment is unassigned");
-    } catch (assignmentError) {
-      setError(messageFor(assignmentError, "The assessor assignment could not be changed."));
+      await onAssessmentSaved?.(payload.assessment);
+      void clearRecoveryDraft(payload.assessment.assessment_id);
+      setMessage("Assessment signed");
+    } catch (signError) {
+      setError(messageFor(signError, "The assessment could not be signed."));
+      setMessage("");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const saveSchedule = async () => {
+    const current = selectedRef.current;
+    if (!current || !scheduleStart) return;
+    const start = new Date(scheduleStart);
+    if (Number.isNaN(start.getTime())) {
+      setError("Choose a valid assessment date and time.");
+      return;
+    }
+    setIsBusy(true);
+    setError("");
+    setMessage("Saving schedule...");
+    try {
+      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+        `/api/assessments/${encodeURIComponent(current.assessment_id)}/schedule`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            if_match: current.version,
+            client_mutation_id: mutationId("assessment-schedule"),
+            schedule: {
+              status: current.schedule_status === "scheduled" || current.schedule_status === "rescheduled" ? "rescheduled" : "scheduled",
+              start_at: start.toISOString(),
+              duration_minutes: Number(scheduleDuration),
+              method: scheduleMethod,
+              location: scheduleLocation.trim(),
+            },
+          }),
+        },
+      );
+      upsertAssessment(payload.assessment, true);
+      await onAssessmentSaved?.(payload.assessment);
+      setShowSchedule(false);
+      setMessage("Assessment scheduled");
+    } catch (scheduleError) {
+      setError(messageFor(scheduleError, "The assessment schedule could not be saved."));
+      setMessage("");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const addAddendum = async () => {
+    const current = selectedRef.current;
+    if (!current || !addendumReason.trim() || !addendumNote.trim()) return;
+    setIsBusy(true);
+    setError("");
+    setMessage("Saving addendum...");
+    try {
+      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+        `/api/assessments/${encodeURIComponent(current.assessment_id)}/addenda`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            if_match: current.version,
+            reason_code: addendumReason.trim(),
+            note: addendumNote.trim(),
+          }),
+        },
+      );
+      upsertAssessment(payload.assessment, true);
+      await onAssessmentSaved?.(payload.assessment);
+      setAddendumReason("");
+      setAddendumNote("");
+      setShowAddendum(false);
+      setMessage("Addendum added");
+    } catch (addendumError) {
+      setError(messageFor(addendumError, "The addendum could not be saved."));
       setMessage("");
     } finally {
       setIsBusy(false);
@@ -689,9 +805,9 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   if (!selected) {
     return (
       <AssessmentEmpty
-        title="No assessment started"
-        detail="Start a draft, enter answers directly, or import a CSV assessment. Repeated assessments remain separate history records."
-        action={<button type="button" onClick={startAssessment} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Start assessment</button>}
+        title="No assessment record"
+        detail="Create a record to schedule the assessment, import source values, or begin direct entry. Repeated assessments remain separate history records."
+        action={<button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Create assessment</button>}
         error={error}
       />
     );
@@ -730,39 +846,69 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
             </option>
           ))}
         </select>
-        <button type="button" onClick={startAssessment} disabled={isBusy} className="h-9 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">New assessment</button>
-        <span className="flex min-w-0 flex-1 items-center gap-2 sm:ml-1 sm:flex-none">
+        <button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-9 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">New assessment</button>
+        {!selected.signed_at && (canEditClinical || canSupervise) ? (
+          <button type="button" onClick={() => setShowSchedule((value) => !value)} disabled={isBusy} className="flex h-9 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">
+            <CalendarClock size={14} /> {selected.scheduled_start_at ? "Reschedule" : "Schedule"}
+          </button>
+        ) : null}
+        {!selected.signed_at && !selected.started_at && selected.status !== "complete" && canEditClinical ? (
+          <button type="button" onClick={() => void beginAssessment()} disabled={isBusy} className="flex h-9 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">
+            <Play size={13} fill="currentColor" /> Begin
+          </button>
+        ) : null}
+        <span
+          className="flex h-9 min-w-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#333333] sm:ml-1"
+          title="Assessment ownership follows the referral assignment."
+        >
           <UserRound size={14} className="text-[#0f8b73]" aria-hidden="true" />
-          <label htmlFor="assessment-assessor" className="sr-only">Assigned assessor</label>
-          <select
-            id="assessment-assessor"
-            aria-label="Assigned assessor"
-            value={selected.assessor_id ?? ""}
-            onChange={(event) => void assignAssessor(event.target.value)}
-            disabled={isBusy || selected.status === "complete"}
-            title={selected.status === "complete" ? "Reopen this assessment before changing its assessor." : "Assign the staff member responsible for this assessment."}
-            className="h-9 min-w-0 flex-1 border border-[#c9ceca] bg-white px-3 text-[11px] font-black outline-none focus:border-[#0f8b73] disabled:bg-[#f4f6f5] disabled:text-[#737373] sm:min-w-[190px]"
-          >
-            <option value="">Unassigned</option>
-            {selected.assessor_id && !assessmentMembers.some((member) => member.principal_id === selected.assessor_id) ? (
-              <option value={selected.assessor_id}>{selected.assessor || "Inactive staff member"}</option>
-            ) : null}
-            {assessmentMembers.map((member) => (
-              <option key={member.principal_id} value={member.principal_id}>
-                {member.display_name}{member.identity_status === "provisional" ? " · Microsoft access pending" : ""}
-              </option>
-            ))}
-          </select>
+          <span className="truncate">{selected.assessor || "Unassigned"}</span>
         </span>
         <div className="min-w-0 flex-1" />
         <span aria-live="polite" className={`text-[11px] ${error ? "text-[#a63d2f]" : "text-[#737373]"}`}>{error || message}</span>
-        <button type="button" onClick={() => saveAssessment(selected.status)} disabled={isBusy || !dirty} className="flex h-9 items-center gap-2 border border-[#111111] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35"><Save size={14} /> Save</button>
-        {selected.status === "complete" ? (
-          <button type="button" onClick={() => window.confirm("Reopen this completed assessment?") && saveAssessment("draft")} disabled={isBusy} className="h-9 bg-[#fff3dc] px-3 text-[11px] font-black text-[#8a5a10] disabled:opacity-50">Reopen</button>
-        ) : (
-          <button type="button" onClick={() => window.confirm("Mark this assessment complete?") && saveAssessment("complete")} disabled={isBusy} className="h-9 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Complete</button>
-        )}
+        {canEditClinical ? <button type="button" onClick={() => saveAssessment(selected.status)} disabled={isBusy || !dirty || !selected.started_at || Boolean(selected.signed_at)} className="flex h-9 items-center gap-2 border border-[#111111] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35"><Save size={14} /> Save</button> : null}
+        {selected.signed_at ? (
+          <>
+            <span className="h-9 bg-[#e8f4ef] px-3 py-2 text-[11px] font-black text-[#0f6f5e]">Signed</span>
+            {canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-9 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50"><Plus size={14} /> Addendum</button> : null}
+          </>
+        ) : !selected.started_at && selected.status !== "complete" ? (
+          <span className="h-9 bg-[#f4f6f5] px-3 py-2 text-[11px] font-black text-[#595959]">Not begun</span>
+        ) : canEditClinical ? (
+          <button type="button" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-9 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Sign assessment</button>
+        ) : null}
       </div>
+
+      {showSchedule ? (
+        <div className="grid gap-3 border-t border-[#d9dfdb] bg-[#f8faf9] px-4 py-4 sm:grid-cols-[minmax(210px,1fr)_100px_150px_minmax(180px,1fr)_auto] sm:items-end">
+          <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Date and time</span><input type="datetime-local" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
+          <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Minutes</span><input type="number" min={15} max={480} step={15} value={scheduleDuration} onChange={(event) => setScheduleDuration(event.target.value)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
+          <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Method</span><select value={scheduleMethod} onChange={(event) => setScheduleMethod(event.target.value as typeof scheduleMethod)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]"><option value="in_person">In person</option><option value="video">Video</option><option value="phone">Phone</option><option value="record_review">Record review</option></select></label>
+          <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Location or link</span><input value={scheduleLocation} maxLength={500} onChange={(event) => setScheduleLocation(event.target.value)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
+          <button type="button" onClick={() => void saveSchedule()} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="h-10 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:bg-[#c9ceca]">Save schedule</button>
+        </div>
+      ) : null}
+
+      {showAddendum ? (
+        <div className="border-t border-[#d9dfdb] bg-[#f8faf9] px-4 py-4">
+          <div className="grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)_auto] sm:items-end">
+            <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Reason</span><input value={addendumReason} maxLength={128} onChange={(event) => setAddendumReason(event.target.value)} placeholder="Correction or later information" className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
+            <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Addendum</span><textarea value={addendumNote} maxLength={20_000} rows={2} onChange={(event) => setAddendumNote(event.target.value)} className="mt-1 w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none focus:border-[#0f8b73]" /></label>
+            <button type="button" onClick={() => void addAddendum()} disabled={isBusy || !addendumReason.trim() || !addendumNote.trim()} className="h-10 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:bg-[#c9ceca]">Add</button>
+          </div>
+        </div>
+      ) : null}
+
+      {selected.signed_at ? (
+        <div className="border-t border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
+          Signed by <strong>{selected.signed_by?.name ?? selected.assessor ?? "Assigned assessor"}</strong> on {new Date(selected.signed_at).toLocaleString()}.
+          {(selected.addenda ?? []).length > 0 ? (
+            <div className="mt-3 divide-y divide-[#e5e5e5] border-y border-[#e5e5e5]">
+              {(selected.addenda ?? []).map((addendum) => <div key={addendum.addendum_id} className="py-3"><div className="font-black text-[#111111]">{addendum.reason_code}</div><div className="mt-1 whitespace-pre-wrap leading-5">{addendum.note}</div><div className="mt-1 text-[9px] text-[#737373]">{addendum.authored_by_name} · {new Date(addendum.created_at).toLocaleString()}</div></div>)}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
         <div className="border-t border-[#c9d9d3] bg-[#f2f8f5] px-4 py-2 text-[11px] text-[#315e50]">
@@ -806,7 +952,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
       ) : null}
 
       <AssessmentImport
-        busy={isBusy}
+        busy={isBusy || Boolean(selected.signed_at) || !canEditClinical}
         pendingFields={pendingFields}
         assessment={selected}
         inputRef={fileInputRef}
@@ -855,6 +1001,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
               definition={definition}
               value={draft[definition.key]}
               pending={pendingFields.includes(definition.key)}
+              disabled={Boolean(selected.signed_at) || !selected.started_at || !canEditClinical}
               onChange={(value) => updateField(definition.key, value)}
             />
           ))}
@@ -951,15 +1098,17 @@ function AssessmentField({
   definition,
   value,
   pending,
+  disabled,
   onChange,
 }: {
   definition: AssessmentToolFieldDefinition;
   value: AssessmentToolData[AssessmentToolFieldKey];
   pending: boolean;
+  disabled: boolean;
   onChange: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
 }) {
   const id = `assessment-${definition.key}`;
-  const readOnly = extractionOwnedFields.has(definition.key);
+  const readOnly = disabled || extractionOwnedFields.has(definition.key);
   const stringValue = Array.isArray(value) ? value.join("\n") : value === null ? "" : String(value);
   const multiline = definition.value_type === "string_list" || [
     "assessment_notes",
@@ -1130,4 +1279,12 @@ function formatDate(value: string | null) {
   return Number.isNaN(parsed.getTime())
     ? value
     : parsed.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+function toLocalDateTimeInput(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
 }

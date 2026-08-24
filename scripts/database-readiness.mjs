@@ -18,6 +18,8 @@ const provisionalMembersMigration = read("database/migrations/0010_provisional_w
 const historicalWorkspacesMigration = read("database/migrations/0011_historical_material_workspaces.sql");
 const referralTrashMigration = read("database/migrations/0012_referral_trash.sql");
 const searchPerformanceMigration = read("database/migrations/0013_search_performance.sql");
+const workspaceCountyMigration = read("database/migrations/0014_workspace_county.sql");
+const assessorWorkflowMigration = read("database/migrations/0015_assessor_workflow.sql");
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
 const canonicalClientVerifier = read("scripts/verify-database-migration-0007.mjs");
 const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
@@ -41,6 +43,8 @@ const provisionalMembersRollback = read("database/rollbacks/0010_provisional_wor
 const historicalWorkspacesRollback = read("database/rollbacks/0011_historical_material_workspaces.sql");
 const referralTrashRollback = read("database/rollbacks/0012_referral_trash.sql");
 const searchPerformanceRollback = read("database/rollbacks/0013_search_performance.sql");
+const workspaceCountyRollback = read("database/rollbacks/0014_workspace_county.sql");
+const assessorWorkflowRollback = read("database/rollbacks/0015_assessor_workflow.sql");
 const rollbackDrill = read("scripts/database-rollback-drill.mjs");
 const productionSeed = read("scripts/seed-production-reference-data.mjs");
 const pilotReset = read("scripts/pilot-reset.mjs");
@@ -268,6 +272,18 @@ check(
     && searchPerformanceRollback.includes("0013_search_performance")
     && !searchPerformanceRollback.includes("drop schema"),
 );
+check("workspace county is a first-class indexed facet", workspaceCountyMigration.includes("add column if not exists county") && workspaceCountyMigration.includes("referrals_county_created_idx"));
+check("workspace-county rollback removes only migration 0014 objects", workspaceCountyRollback.includes("referrals_county_created_idx") && workspaceCountyRollback.includes("0014_workspace_county") && !workspaceCountyRollback.includes("drop schema"));
+check(
+  "assessor workflow has one referral assignment source and immutable signed records",
+  assessorWorkflowMigration.includes("workflow_status")
+    && assessorWorkflowMigration.includes("assignment_version")
+    && assessorWorkflowMigration.includes("signed_at")
+    && assessorWorkflowMigration.includes("assessment_addenda")
+    && assessorWorkflowMigration.includes("assessment_recommendations")
+    && !assessorWorkflowMigration.includes("assessment_signed'\n  when exists"),
+);
+check("assessor-workflow rollback removes only migration 0015 objects", assessorWorkflowRollback.includes("assessment_recommendations") && assessorWorkflowRollback.includes("0015_assessor_workflow") && !assessorWorkflowRollback.includes("drop schema"));
 check(
   "rollback scripts delegate transaction ownership to the drill or operator",
   ![
@@ -280,12 +296,14 @@ check(
     historicalWorkspacesRollback,
     referralTrashRollback,
     searchPerformanceRollback,
+    workspaceCountyRollback,
+    assessorWorkflowRollback,
   ].some((rollback) => /^\s*(begin|commit)\s*;/im.test(rollback)),
 );
-check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
+check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("workspaceCountyRollback") && rollbackDrill.includes("assessorWorkflowRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
 check("production seed creates reference rows only", productionSeed.includes("synthetic_client_rows: 0") && !productionSeed.includes("insert into pipeline.people") && !productionSeed.includes("insert into pipeline.referrals"));
-check("production seed requires the latest search migration", productionSeed.includes("0013_search_performance") && productionSeed.includes("migrations.length !== 13"));
-check("live database smoke requires the latest search migration", liveSmoke.includes("0013_search_performance") && liveSmoke.includes("migrations.length === 13") && liveSmoke.includes("pipeline.client_update_outbox"));
+check("production seed requires the latest workflow migration", productionSeed.includes("0015_assessor_workflow") && productionSeed.includes("migrations.length !== 15"));
+check("live database smoke requires the latest workflow migration", liveSmoke.includes("0015_assessor_workflow") && liveSmoke.includes("migrations.length === 15") && liveSmoke.includes("pipeline.client_update_outbox"));
 check("restore verification includes workspace state", restoreVerify.includes("pipeline.user_workspace_state"));
 check("account-state purge is dry-run-first and identity-redacted", workspacePurge.includes('mode: execute ? "execute" : "dry_run"') && workspacePurge.includes("principal_configured: true"));
 check("CI exercises PostgreSQL migrations, rollback, fixtures, and contention", ["postgres:16", "database:migrate", "database:fixtures", "database:rollback:drill", "check:collaboration-load"].every((term) => ci.includes(term)));
@@ -314,7 +332,7 @@ const configuration = Object.fromEntries(
 
 console.log(JSON.stringify({
   ok: failed.length === 0,
-  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance"],
+  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance", "0014_workspace_county", "0015_assessor_workflow"],
   checks,
   configuration_present: configuration,
   note: "Configuration reports presence only; values are never printed.",
