@@ -87,7 +87,8 @@ test.describe("Responsive and accessible application shell", () => {
   });
 
   test("provides useful empty and failure recovery states", async ({ page }) => {
-    await page.route(/\/api\/referrals(?:\/directory)?\?/, async (route) => {
+    const referralDirectoryRequest = /\/api\/referrals(?:\/directory)?(?:\?|$)/;
+    await page.route(referralDirectoryRequest, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -97,21 +98,20 @@ test.describe("Responsive and accessible application shell", () => {
           revision: 0,
           next_cursor: null,
           progress: {},
-          facets: { communities: [], stages: [], owners: [], priorities: [], tags: [], months: [] },
+          facets: { communities: [], counties: [], stages: [], owners: [], priorities: [], tags: [], months: [] },
           file_total: 0,
         }),
       });
     });
 
     await page.goto("/?view=referrals");
-    await page.getByRole("button", { name: "All workspaces" }).click();
     await expect(page.getByText("No workspaces yet", { exact: true })).toBeVisible();
     await expect(page.getByText("Create a referral workspace from an initial face sheet or referral packet to get started.", { exact: true })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
 
-    await page.unroute(/\/api\/referrals(?:\/directory)?\?/);
-    await page.route(/\/api\/referrals(?:\/directory)?\?/, async (route) => {
+    await page.unroute(referralDirectoryRequest);
+    await page.route(referralDirectoryRequest, async (route) => {
       await route.fulfill({
         status: 503,
         contentType: "application/json",

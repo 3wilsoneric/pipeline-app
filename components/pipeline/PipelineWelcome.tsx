@@ -298,7 +298,7 @@ function MyQueue({
                 <span className={`block text-[10px] font-black uppercase tracking-[0.08em] ${queueUrgencyColor(item.urgency)}`}>
                   {queueUrgencyLabel(item.urgency)}
                 </span>
-                <span className="mt-1.5 block text-[11px] text-[#7a7a7a]">{formatQueueDueDate(item.due_at)}</span>
+                <span className="mt-1.5 block text-[11px] text-[#6f6f6f]">{formatQueueDueDate(item.due_at)}</span>
               </span>
             </button>
           ))}
@@ -388,7 +388,7 @@ function RecentWork({
                 </span>
                 <span className="shrink-0 pt-0.5 text-right">
                   <span className="block text-[10px] font-black uppercase tracking-[0.1em] text-[#4568b1]">{recentKindLabel(item)}</span>
-                  <span className="mt-1.5 block text-[11px] text-[#7a7a7a]">{formatRecentTime(item.visitedAt)}</span>
+                  <span className="mt-1.5 block text-[11px] text-[#6f6f6f]">{formatRecentTime(item.visitedAt)}</span>
                 </span>
               </span>
             </button>
