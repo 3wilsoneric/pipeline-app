@@ -14,7 +14,7 @@ const evidence = [
   item("performance.errors", "Any observed API error fails certification", "scripts/pipeline-performance-scorecard.mjs", "api_errors: apiSummary.errors === 0"),
   item("shell.persistent", "Navigation keeps one mounted application shell", "tests/e2e/performance-navigation.spec.ts", "keeps one shell and restores work surfaces through browser history"),
   item("shell.local-loading", "Loading is localized instead of blanking the application", "app/(pipeline)/loading.tsx", "aria-label=\"Loading Pipeline\""),
-  item("data.directory", "Referral directory uses a bounded screen-specific read model", "tests/e2e/performance-navigation.spec.ts", "loads the referral directory once and defers the action worklist"),
+  item("data.directory", "Referral directory uses a bounded screen-specific read model", "tests/e2e/performance-navigation.spec.ts", "loads the referral directory once without requesting a derived action worklist"),
   item("data.canvas", "Referral canvas has a purpose-built read endpoint", "app/api/referrals/[referralId]/canvas/route.ts", "export async function GET"),
   item("data.dashboard", "Operations dashboard has a purpose-built read endpoint", "app/api/operations/dashboard/route.ts", "export async function GET"),
   item("data.pagination", "Referral pagination is deterministic and conflict-safe", "tests/e2e/pipeline-smoke.spec.ts", "pages without duplicates and rejects a competing stale save"),
