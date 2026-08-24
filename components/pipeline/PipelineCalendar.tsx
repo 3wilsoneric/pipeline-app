@@ -12,6 +12,7 @@ import type {
   PipelineUnscheduledAssessment,
 } from "@/lib/pipeline/calendar-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 
 type CalendarView = "month" | "week" | "agenda";
 
@@ -137,8 +138,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
             <button type="button" onClick={() => setAnchor(todayKey())} className="ml-1 h-9 border border-[#111111] px-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#111111] hover:bg-[#111111] hover:text-white">Today</button>
           </div>
           <div className="flex items-center gap-3">
-            <span role="status" aria-live="polite" className="hidden text-[10px] text-[#737373] sm:inline">{loading ? "Loading assessment schedule..." : refreshing ? "Refreshing assessment schedule..." : `${visibleEvents.length} scheduled item${visibleEvents.length === 1 ? "" : "s"}`}</span>
-            <button type="button" aria-label="Refresh assessment schedule" onClick={() => setRefreshToken((value) => value + 1)} className="flex h-9 w-9 items-center justify-center text-[#737373] hover:text-[#0f8b73]"><RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /></button>
+            <span role="status" aria-live="polite" className="hidden text-[10px] text-[#737373] sm:inline">{loading ? "Loading assessment schedule..." : refreshing ? "Refreshing assessment schedule..." : `${visibleEvents.length} calendar item${visibleEvents.length === 1 ? "" : "s"}`}</span>
+            <button type="button" aria-label="Refresh assessment schedule" onClick={() => setRefreshToken((value) => value + 1)} className="hidden h-9 w-9 items-center justify-center text-[#737373] hover:text-[#0f8b73] sm:flex"><RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /></button>
             <div role="group" aria-label="Calendar view" className="flex border border-[#d9d9d9]">
               {(["month", "week", "agenda"] as const).map((option) => (
                 <button key={option} type="button" aria-pressed={displayView === option} onClick={() => setView(option)} className={`${option === "agenda" ? "" : "hidden md:block"} h-9 px-3 text-[10px] font-black uppercase tracking-[0.06em] ${displayView === option ? "bg-[#111111] text-white" : "bg-white text-[#595959] hover:text-[#111111]"}`}>{option}</button>
@@ -161,15 +162,15 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
 
         {error ? <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a16a16] bg-[#fff8ed] px-4 py-3 text-[12px] text-[#6f4b13]"><span>{error}</span><button type="button" onClick={() => setRefreshToken((value) => value + 1)} className="shrink-0 font-black uppercase tracking-[0.06em]">Try again</button></div> : null}
 
-        <UnscheduledAssessments items={visibleUnscheduled} total={result.unscheduledTotal} filtered={hasFilters} onOpen={(item) => onOpenPacket({ id: item.referralId, name: item.clientName, community: item.community as Referral["community"] })} />
+        <AssessmentPreparation items={visibleUnscheduled} total={result.unscheduledTotal} filtered={hasFilters} onOpen={(item) => onOpenPacket({ id: item.referralId, name: item.clientName, community: item.community as Referral["community"] })} />
 
         <div className="hidden md:block">
           {view === "month" ? <MonthView month={anchor.slice(0, 7)} eventsByDate={eventsByDate} onOpen={openEvent} /> : null}
           {view === "week" ? <WeekView range={range} eventsByDate={eventsByDate} onOpen={openEvent} /> : null}
-          {view === "agenda" ? <AgendaView events={visibleEvents} loading={loading} hasFilters={hasFilters} onOpen={openEvent} /> : null}
+          {view === "agenda" ? <AgendaView events={visibleEvents} loading={loading} hasFilters={hasFilters} preparationCount={visibleUnscheduled.length} onOpen={openEvent} /> : null}
         </div>
         <div className="md:hidden">
-          <AgendaView events={visibleEvents} loading={loading} hasFilters={hasFilters} onOpen={openEvent} />
+          <AgendaView events={visibleEvents} loading={loading} hasFilters={hasFilters} preparationCount={visibleUnscheduled.length} onOpen={openEvent} />
         </div>
       </div>
     </main>
@@ -194,12 +195,11 @@ function OwnerFilter({ value, onChange, options }: { value: string; onChange: (v
   );
 }
 
-function UnscheduledAssessments({ items, total, filtered, onOpen }: { items: PipelineUnscheduledAssessment[]; total: number; filtered: boolean; onOpen: (item: PipelineUnscheduledAssessment) => void }) {
-  if (total === 0 && !filtered) return null;
+function AssessmentPreparation({ items, total, filtered, onOpen }: { items: PipelineUnscheduledAssessment[]; total: number; filtered: boolean; onOpen: (item: PipelineUnscheduledAssessment) => void }) {
   return (
-    <section aria-label="Assessments needing scheduling" className="border-b border-[#e5e5e5] py-3">
+    <section aria-label="Assessment preparation" className="border-b border-[#e5e5e5] py-3">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-[11px] font-black text-[#111111]">Needs scheduling <span className="ml-1 text-[#737373]">{filtered ? items.length : total}</span></h2>
+        <h2 className="text-[11px] font-black text-[#111111]">Assessment preparation <span className="ml-1 text-[#737373]">{filtered ? items.length : total}</span></h2>
         {total > items.length && !filtered ? <span className="text-[9px] text-[#737373]">Showing {items.length} oldest</span> : null}
       </div>
       {items.length > 0 ? (
@@ -207,11 +207,13 @@ function UnscheduledAssessments({ items, total, filtered, onOpen }: { items: Pip
           {items.map((item) => (
             <button key={item.referralId} type="button" onClick={() => onOpen(item)} className="min-w-[210px] border border-[#d9d9d9] px-3 py-2 text-left hover:border-[#0f8b73] hover:bg-[#f7faf9]">
               <span className="block truncate text-[11px] font-black text-[#111111]">{item.clientName}</span>
+              <span className={`mt-1 block truncate text-[9px] font-bold ${item.workflowStatus === "ready_to_schedule" ? "text-[#0c705f]" : "text-[#8a5a10]"}`}>{workflowStatusLabels[item.workflowStatus]}</span>
               <span className="mt-1 block truncate text-[9px] text-[#737373]">{item.owner} · received {shortDate(item.receivedDate)}</span>
             </button>
           ))}
         </div>
-      ) : <div className="mt-2 text-[10px] text-[#737373]">No unscheduled assessments match these filters.</div>}
+      ) : <div className="mt-2 text-[10px] text-[#737373]">{filtered ? "No assessment preparation matches these filters." : "No open assessment work is waiting for preparation or scheduling."}</div>}
+      <p className="mt-2 text-[9px] leading-4 text-[#737373]">Dates appear on the calendar only after an assessment is scheduled from its workspace.</p>
     </section>
   );
 }
@@ -224,7 +226,7 @@ function MonthView({ month, eventsByDate, onOpen }: { month: string; eventsByDat
       {days.map((day) => {
         const dayEvents = eventsByDate.get(day.date) ?? [];
         return (
-          <div key={day.date} className={`min-h-[132px] border-b border-r border-[#d9d9d9] p-2 ${day.inMonth ? "bg-white" : "bg-[#fafafa]"}`}>
+          <div key={day.date} className={`min-h-[88px] border-b border-r border-[#d9d9d9] p-2 ${day.inMonth ? "bg-white" : "bg-[#fafafa]"}`}>
             <div className={`mb-2 text-[10px] font-black ${day.today ? "text-[#0f8b73]" : day.inMonth ? "text-[#595959]" : "text-[#a0a0a0]"}`}>{day.day}</div>
             <div className="space-y-1.5">
               {dayEvents.slice(0, 4).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}
@@ -255,11 +257,16 @@ function WeekView({ range, eventsByDate, onOpen }: { range: { from: string; to: 
   );
 }
 
-function AgendaView({ events, loading, hasFilters, onOpen }: { events: PipelineCalendarEvent[]; loading: boolean; hasFilters: boolean; onOpen: (event: PipelineCalendarEvent) => void }) {
+function AgendaView({ events, loading, hasFilters, preparationCount, onOpen }: { events: PipelineCalendarEvent[]; loading: boolean; hasFilters: boolean; preparationCount: number; onOpen: (event: PipelineCalendarEvent) => void }) {
   const groups = groupEventsByDate(events);
   return (
     <div className="mt-4 border-y border-[#d9d9d9]">
-      {!loading && events.length === 0 ? <div className="py-14 text-center text-[12px] text-[#737373]">{hasFilters ? "No assessment work matches these filters." : "No assessments or follow-ups are scheduled in this range."}</div> : null}
+      {!loading && events.length === 0 ? (
+        <div className="px-4 py-14 text-center">
+          <div className="text-[12px] font-black text-[#333333]">{hasFilters ? "No scheduled work matches these filters." : "No assessments are scheduled in this range."}</div>
+          <div className="mx-auto mt-2 max-w-[520px] text-[10px] leading-5 text-[#737373]">{preparationCount > 0 ? "Open a workspace from Assessment preparation above to set the date, time, and assessor." : "Scheduled assessments and dated follow-ups will appear here automatically."}</div>
+        </div>
+      ) : null}
       {[...groups.entries()].map(([date, dayEvents]) => (
         <section key={date} className="grid border-b border-[#e5e5e5] last:border-b-0 md:grid-cols-[150px_minmax(0,1fr)]">
           <div className="bg-[#fafafa] px-4 py-4"><div className="text-[12px] font-black text-[#111111]">{longDate(date)}</div><div className="mt-1 text-[9px] font-black uppercase tracking-[0.08em] text-[#0c705f]">{dayEvents.length} event{dayEvents.length === 1 ? "" : "s"}</div></div>

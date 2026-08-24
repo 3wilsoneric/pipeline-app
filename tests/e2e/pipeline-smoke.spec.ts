@@ -219,7 +219,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(activePacket).toHaveCSS("background-color", "rgb(255, 240, 237)");
     await expect(activePacket).toHaveCSS("border-color", "rgb(200, 91, 77)");
     await expect(activePacket).toHaveCSS("justify-content", "center");
-    await expect(activePacket).toHaveCSS("height", "54px");
+    await expect(activePacket).toHaveCSS("height", "50px");
     await expect(activePacket).toHaveCSS("gap", "10px");
     await expect(activePacket.locator("svg")).toBeVisible();
     const steps = page.getByRole("navigation", { name: "Referral workspace steps" });
@@ -366,6 +366,61 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
+  });
+
+  test("shows scheduled assessments and honest preparation work on the calendar", async ({ page }) => {
+    await page.route("**/api/calendar/events?*", async (route) => {
+      const requestUrl = new URL(route.request().url());
+      const from = requestUrl.searchParams.get("from") ?? new Date().toISOString().slice(0, 8) + "01";
+      const to = requestUrl.searchParams.get("to") ?? from;
+      const eventDate = `${from.slice(0, 8)}10`;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          from,
+          to,
+          events: [{
+            id: "assessment:calendar-fixture",
+            referralId: 301,
+            assessmentId: "calendar-fixture",
+            clientName: "Scheduled Client",
+            community: "San Pablo",
+            ownerId: "playwright-user",
+            owner: "Playwright QA",
+            date: eventDate,
+            startsAt: `${eventDate}T16:00:00.000Z`,
+            durationMinutes: 60,
+            method: "in_person",
+            kind: "assessment",
+            status: "draft",
+            title: "Assessment scheduled",
+            detail: "Scheduled assessment",
+          }],
+          unscheduled: [{
+            referralId: 302,
+            clientName: "Preparation Client",
+            community: "Turlock",
+            ownerId: "playwright-user",
+            owner: "Playwright QA",
+            receivedDate: from,
+            workflowStatus: "intake_documents_needed",
+          }],
+          unscheduledTotal: 1,
+          viewer: { id: "playwright-user", name: "Playwright QA" },
+          generated_at: new Date().toISOString(),
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: "Open calendar" }).click();
+    await expect(page.getByRole("region", { name: "Assessment preparation" })).toBeVisible();
+    await expect(page.getByText("Preparation Client", { exact: true })).toBeVisible();
+    await expect(page.getByText("Needs initial documents", { exact: true })).toBeVisible();
+    await expect(page.getByText("Scheduled Client", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(3);
+    await expect(page.getByRole("button", { name: "Open search" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
   });
 
   test("deduplicates startup identity and retries a transient referral read", async ({ page }) => {
@@ -1742,13 +1797,12 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
     await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
-    await expect(page.getByText("New referral", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Create new referral" }).hover();
-    await expect(page.getByText("New referral", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Open search" }).hover();
-    await expect(page.getByText("New referral", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Create new referral" }).hover();
-    await expect(page.getByText("New referral", { exact: true })).toBeVisible();
+    await expect(page.getByText("Calendar", { exact: true })).toBeVisible();
+    await expect(page.getByText("Clients", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open search" })).toBeVisible();
+    await expect(page.getByText("New referral", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Search", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Referral workspaces", { exact: true })).toHaveCount(0);
     const signedInProfile = page.getByRole("button", { name: "Open profile menu for Playwright QA" });
     await signedInProfile.click();

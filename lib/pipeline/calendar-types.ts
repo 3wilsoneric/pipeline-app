@@ -1,4 +1,5 @@
 import type { AssessmentWorkflowStatus } from "@/lib/assessment/assessment-records";
+import type { ReferralWorkflowStatus } from "@/lib/pipeline/referral-types";
 
 export type PipelineCalendarEventKind = "assessment" | "follow_up";
 
@@ -30,6 +31,7 @@ export type PipelineUnscheduledAssessment = {
   ownerId?: string;
   owner: string;
   receivedDate: string;
+  workflowStatus: ReferralWorkflowStatus;
 };
 
 export type PipelineCalendarResponse = {

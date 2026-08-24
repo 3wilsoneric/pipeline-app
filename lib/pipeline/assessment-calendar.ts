@@ -6,6 +6,12 @@ import type {
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 const closedStages = new Set(["Accepted / Admitted", "Declined"]);
+const assessmentPreparationStatuses = new Set([
+  "intake_unassigned",
+  "intake_documents_needed",
+  "profile_incomplete",
+  "ready_to_schedule",
+]);
 
 export function assessmentCalendarEvent(
   assessment: Pick<PipelineAssessmentRecord, "assessment_id" | "assessor_id" | "assessor" | "status" | "referral_id" | "scheduled_start_at" | "scheduled_duration_minutes" | "scheduled_method" | "scheduled_location" | "schedule_status">,
@@ -76,12 +82,13 @@ export function assessmentFollowUpEvents(
   });
 }
 
-export function unscheduledAssessment(
+export function assessmentPreparationItem(
   referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId" | "date" | "createdAt" | "stage" | "workspaceOrigin" | "workflowStatus">,
   hasScheduledAssessment: boolean,
 ): PipelineUnscheduledAssessment | null {
   if (referral.workspaceOrigin !== "pipeline" || closedStages.has(referral.stage) || hasScheduledAssessment) return null;
-  if (referral.workflowStatus && referral.workflowStatus !== "ready_to_schedule") return null;
+  const workflowStatus = referral.workflowStatus ?? "intake_unassigned";
+  if (!assessmentPreparationStatuses.has(workflowStatus)) return null;
   const receivedDate = calendarDate(referral.date) ?? calendarDate(referral.createdAt);
   if (!receivedDate) return null;
   return {
@@ -91,6 +98,7 @@ export function unscheduledAssessment(
     ownerId: referral.ownerId,
     owner: referral.owner?.trim() || "Unassigned",
     receivedDate,
+    workflowStatus,
   };
 }
 

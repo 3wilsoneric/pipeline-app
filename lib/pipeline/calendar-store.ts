@@ -5,9 +5,9 @@ import { listAssessments } from "@/lib/assessment/assessment-store";
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import {
   assessmentCalendarEvent,
+  assessmentPreparationItem,
   assessmentFollowUpEvents,
   calendarToday,
-  unscheduledAssessment,
 } from "@/lib/pipeline/assessment-calendar";
 import type {
   PipelineCalendarEvent,
@@ -55,6 +55,7 @@ type UnscheduledCalendarRow = {
   owner_id: string | null;
   owner_name: string | null;
   received_date: string;
+  workflow_status: NonNullable<Referral["workflowStatus"]>;
   total_count: number | string;
 };
 
@@ -118,19 +119,25 @@ async function getPostgresAssessmentCalendar(
       select r.referral_id, p.display_name as client_name, r.community::text as community,
         r.owner_id, r.owner_name,
         coalesce(r.received_date, r.created_at::date)::text as received_date,
+        r.workflow_status,
         count(*) over() as total_count
       from pipeline.referrals r
       join pipeline.people p on p.person_id = r.person_id
       where r.workspace_origin = 'pipeline' and r.workspace_status = 'active'
         and r.closed_at is null and r.deleted_at is null and ${access}
-        and r.workflow_status = 'ready_to_schedule'
+        and r.workflow_status in (
+          'intake_unassigned',
+          'intake_documents_needed',
+          'profile_incomplete',
+          'ready_to_schedule'
+        )
         and not exists (
           select 1 from pipeline.assessments a
           where a.referral_id = r.referral_id
             and a.schedule_status in ('scheduled', 'rescheduled')
         )
       order by coalesce(r.received_date, r.created_at::date), lower(p.display_name), r.referral_id
-      limit 12
+      limit 20
     `,
   ]);
 
@@ -178,6 +185,7 @@ async function getPostgresAssessmentCalendar(
       ownerId: row.owner_id ?? undefined,
       owner: row.owner_name?.trim() || "Unassigned",
       receivedDate: row.received_date,
+      workflowStatus: row.workflow_status,
     })),
     unscheduledTotal: Number(unscheduledRows[0]?.total_count ?? 0),
   };
@@ -225,10 +233,10 @@ async function getLocalAssessmentCalendar(
       .filter((event) => event.date >= range.from && event.date <= range.to),
   ].sort(compareCalendarEvents);
   const allUnscheduled = referrals.flatMap((referral) => {
-    const item = unscheduledAssessment(referral, referralIdsWithScheduledAssessments.has(referral.id));
+    const item = assessmentPreparationItem(referral, referralIdsWithScheduledAssessments.has(referral.id));
     return item ? [item] : [];
   }).sort((left, right) => left.receivedDate.localeCompare(right.receivedDate) || left.clientName.localeCompare(right.clientName));
-  return { events, unscheduled: allUnscheduled.slice(0, 12), unscheduledTotal: allUnscheduled.length };
+  return { events, unscheduled: allUnscheduled.slice(0, 20), unscheduledTotal: allUnscheduled.length };
 }
 
 function compareCalendarEvents(left: PipelineCalendarEvent, right: PipelineCalendarEvent) {

@@ -84,7 +84,7 @@ const results = [
   run("calendar date stepping is exact and unscheduled work is explicit", () => {
     assert(assessmentCalendar.addCalendarDays("2026-08-23", 1) === "2026-08-24", "Expected a one-day calendar step");
     assert(assessmentCalendar.addCalendarDays("2026-08-23", 7) === "2026-08-30", "Expected a seven-day calendar step");
-    const item = assessmentCalendar.unscheduledAssessment({
+    const item = assessmentCalendar.assessmentPreparationItem({
       id: 44,
       name: "Needs Scheduling",
       community: "San Pablo",
@@ -94,9 +94,12 @@ const results = [
       createdAt: "2026-08-22T12:00:00.000Z",
       stage: "New",
       workspaceOrigin: "pipeline",
+      workflowStatus: "ready_to_schedule",
     }, false);
     assert(item?.referralId === 44, "Expected a Pipeline referral without an assessment to need scheduling");
-    assert(assessmentCalendar.unscheduledAssessment({ ...item, id: 44, name: "Needs Scheduling", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "allo" }, false) === null, "Imported historical work must not enter the scheduling queue");
+    const blocked = assessmentCalendar.assessmentPreparationItem({ ...item, id: 45, name: "Needs Documents", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "pipeline", workflowStatus: "intake_documents_needed" }, false);
+    assert(blocked?.workflowStatus === "intake_documents_needed", "Expected blocked intake work to remain visible before scheduling");
+    assert(assessmentCalendar.assessmentPreparationItem({ ...item, id: 44, name: "Needs Scheduling", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "allo" }, false) === null, "Imported historical work must not enter the scheduling queue");
   }),
   run("create upload rejects missing body", () => {
     const result = contracts.validateCreateUploadUrlRequest(null);
