@@ -55,6 +55,7 @@ check("not-applicable requirements satisfy gates only through an explicit reason
 
 const referralStore = read("lib/pipeline/referral-store.ts");
 const assessmentStore = read("lib/assessment/assessment-store.ts");
+const assessmentAccess = read("lib/assessment/assessment-access.ts");
 const assessmentCreateRoute = read("app/api/referrals/[referralId]/assessments/route.ts");
 const assessmentImportRoute = read("app/api/referrals/[referralId]/assessments/import/route.ts");
 const signRoute = read("app/api/assessments/[assessmentId]/sign/route.ts");
@@ -75,15 +76,15 @@ check("recommendations survive the referral store boundary", referralStore.inclu
 check("explicit workflow status updates are persisted in both referral stores", referralStore.match(/safePatch\.workflowStatus/g)?.length >= 2);
 check("signed assessments are immutable and use append-only addenda", assessmentStore.includes("This assessment is signed") && assessmentStore.includes("addAssessmentAddendum") && migration.includes("assessment_addenda"));
 check("creating or importing an assessment does not start its performance clock", assessmentStore.match(/started_at: null,/g)?.length >= 2 && assessmentStore.includes("started_at: current?.started_at ?? null"));
-check("assessment creation and import require an assigned assessor", assessmentCreateRoute.includes("Assign this referral to an assessor before starting") && assessmentImportRoute.includes("Assign this referral to an assessor before importing"));
-check("only the assigned assessor can create or import clinical assessment data", assessmentCreateRoute.includes("Only the assigned assessor can create an assessment") && assessmentImportRoute.includes("Only the assigned assessor can import assessment data"));
+check("assessment assignment is preserved while supervisors can cover unassigned work", assessmentAccess.includes("assessmentAssigneeForReferral") && assessmentAccess.includes("referral.ownerId") && assessmentAccess.includes("isAssessmentSupervisor(user)"));
+check("assessment creation and import use one assigned-assessor-or-supervisor rule", assessmentCreateRoute.includes("canWorkAssessment") && assessmentImportRoute.includes("canWorkAssessment") && assessmentCreateRoute.includes("assigned assessor or a supervisor") && assessmentImportRoute.includes("assigned assessor or a supervisor"));
 check("assessment creation and import require initial evidence or audited manual authorization", assessmentCreateRoute.includes("manualIntakeAuthorization") && assessmentImportRoute.includes("manualIntakeAuthorization"));
-check("only the assigned assessor can sign", signRoute.includes("Only the assigned assessor can sign"));
-check("only the assigned assessor can edit clinical assessment fields", assessmentRoute.includes("Only the assigned assessor can edit this assessment"));
-check("assessment start is explicit and cannot rewrite completed history", startRoute.includes("Only the assigned assessor can start") && startRoute.includes("A completed assessment cannot be started again"));
+check("assigned assessors and supervisors can sign", signRoute.includes("canWorkAssessment") && signRoute.includes("assigned assessor or a supervisor"));
+check("assigned assessors and supervisors can edit clinical assessment fields", assessmentRoute.includes("canWorkAssessment") && assessmentRoute.includes("assigned assessor or a supervisor"));
+check("assessment start is explicit, supervisor-capable, and cannot rewrite completed history", startRoute.includes("canWorkAssessment") && startRoute.includes("assigned assessor or a supervisor") && startRoute.includes("A completed assessment cannot be started again"));
 check("new assessments must be begun before signing", signRoute.includes("Begin the assessment before signing it"));
 check("signed addenda are limited to the signer or a supervisor", addendumRoute.includes("assessment.signed_by?.id !== auth.user.id") && addendumRoute.includes("Only the signing assessor or a supervisor"));
-check("only the assigned assessor can submit a recommendation", recommendationRoute.includes("recordAssessmentRecommendation") && workflowStore.includes("Only the assigned assessor can submit this recommendation"));
+check("assigned assessors and supervisors can submit a recommendation", recommendationRoute.includes("allowSupervisorOverride") && workflowStore.includes("allowSupervisorOverride") && workflowStore.includes("assigned assessor or a supervisor"));
 check("only supervisors can record final decisions", decisionRoute.includes('["admin", "assessment_coordinator"]'));
 check("only supervisors can move a referral to trash", referralRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
 check("only supervisors can authorize intake without an initial packet", manualIntakeRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));

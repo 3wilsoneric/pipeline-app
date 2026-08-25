@@ -26,8 +26,31 @@ const requestSecurity = loadRequestSecurityModule({});
 const workspaceStateTypes = loadTypeScriptModule(root, "lib/pipeline/user-workspace-state-types.ts");
 const workspacePresentation = loadTypeScriptModule(root, "lib/pipeline/workspace-presentation.ts");
 const assessmentCalendar = loadTypeScriptModule(root, "lib/pipeline/assessment-calendar.ts");
+const assessmentAccess = loadTypeScriptModule(root, "lib/assessment/assessment-access.ts");
 
 const results = [
+  run("assessment work is limited to the assigned assessor or a supervisor", () => {
+    const assigned = { id: "assessor-1", email: "assessor@example.com", name: "Assigned Assessor", roles: ["reviewer"] };
+    const otherAssessor = { id: "assessor-2", email: "other@example.com", name: "Other Assessor", roles: ["reviewer"] };
+    const supervisor = { id: "supervisor-1", email: "supervisor@example.com", name: "Supervisor", roles: ["assessment_coordinator", "reviewer"] };
+    assert(assessmentAccess.canWorkAssessment(assigned, "assessor-1"), "The assigned assessor should be able to work the assessment");
+    assert(!assessmentAccess.canWorkAssessment(otherAssessor, "assessor-1"), "Another assessor must remain blocked");
+    assert(assessmentAccess.canWorkAssessment(supervisor, "assessor-1"), "A supervisor should be able to assist without reassignment");
+  }),
+  run("supervisor assessment access does not overwrite an existing referral assignment", () => {
+    const supervisor = { id: "supervisor-1", email: "supervisor@example.com", name: "Supervisor", roles: ["assessment_coordinator", "reviewer"] };
+    const assigned = assessmentAccess.assessmentAssigneeForReferral(supervisor, {
+      id: 1,
+      owner: "Assigned Assessor",
+      ownerId: "assessor-1",
+    });
+    const unassigned = assessmentAccess.assessmentAssigneeForReferral(supervisor, {
+      id: 2,
+      owner: "Unassigned",
+    });
+    assert(assigned?.id === "assessor-1", "The referral assignment must remain the assessment assignment");
+    assert(unassigned?.id === "supervisor-1", "A supervisor should be able to start an otherwise unassigned assessment");
+  }),
   run("calendar uses explicit scheduling and canonical referral assignment", () => {
     const event = assessmentCalendar.assessmentCalendarEvent({
       assessment_id: "assessment-1",

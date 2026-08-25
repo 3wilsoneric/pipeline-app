@@ -11,10 +11,10 @@ import {
   assessmentClientIdentityErrorResponse,
   resolveAssessmentClientIdentity,
 } from "@/lib/assessment/assessment-client-identity";
+import { assessmentAssigneeForReferral, canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
-import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { hasInitialDocument, profileIsReady } from "@/lib/pipeline/workflow-status";
 
@@ -58,11 +58,12 @@ export async function POST(
     const access = await requireReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
     const referral = access.referral;
-    if (!referral.ownerId?.trim() || isUnassignedOwner(referral.owner)) {
+    const assessmentAssignee = assessmentAssigneeForReferral(auth.user, referral);
+    if (!assessmentAssignee) {
       return jsonError("Assign this referral to an assessor before starting an assessment.", 422);
     }
-    if (referral.ownerId !== auth.user.id) {
-      return jsonError("Only the assigned assessor can create an assessment.", 403);
+    if (!canWorkAssessment(auth.user, referral.ownerId)) {
+      return jsonError("Only the assigned assessor or a supervisor can create an assessment.", 403);
     }
     if (!hasInitialDocument(referral) && !referral.manualIntakeAuthorization) {
       return jsonError("Upload an initial referral document, or record a manual-intake authorization, before starting the assessment.", 422);
@@ -81,7 +82,7 @@ export async function POST(
     defaults.date_of_birth = isoDateOrNull(referral.dob);
     defaults.community = referral.community;
     defaults.assessment_date = new Date().toISOString().slice(0, 10);
-    defaults.assessor = referral.owner;
+    defaults.assessor = assessmentAssignee.name;
     const data = pickAssessmentToolData({ ...defaults, ...validated.value.data });
 
     try {
@@ -89,7 +90,7 @@ export async function POST(
       const result = await createAssessment(
         {
           referral_id: referralId,
-          assigned_assessor: { id: referral.ownerId, name: referral.owner },
+          assigned_assessor: assessmentAssignee,
           canonical_client_id: identity.canonicalClientId,
           resident_key: identity.residentKey,
           data,

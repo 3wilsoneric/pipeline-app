@@ -121,7 +121,8 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
   const canSupervise = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator"));
-  const canEditClinical = Boolean(viewer && selected?.assessor_id === viewer.id);
+  const canCreateClinical = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator" || role === "reviewer"));
+  const canEditClinical = Boolean(viewer && selected && (selected.assessor_id === viewer.id || canSupervise));
   const canAddAddendum = Boolean(viewer && (selected?.signed_by?.id === viewer.id || canSupervise));
   const coverage = useMemo(() => getAssessmentInterviewCoverage(draft), [draft]);
   const completion = useMemo(() => getAssessmentCompletionSummary(draft), [draft]);
@@ -811,7 +812,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
       <AssessmentEmpty
         title="No assessment yet"
         detail="Create the assessment to schedule the client interview, import questionnaire answers, or begin direct entry. Repeated assessments remain separate history records."
-        action={<button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Create assessment</button>}
+        action={canCreateClinical ? <button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Create assessment</button> : null}
         error={error}
       />
     );
@@ -850,7 +851,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
             </option>
           ))}
         </select>
-        <button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-9 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">New assessment</button>
+        {canCreateClinical ? <button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-9 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">New assessment</button> : null}
         {!selected.signed_at && (canEditClinical || canSupervise) ? (
           <button type="button" onClick={() => setShowSchedule((value) => !value)} disabled={isBusy} className="flex h-9 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">
             <CalendarClock size={14} /> {selected.scheduled_start_at ? "Reschedule" : "Schedule"}
@@ -867,6 +868,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
         >
           <UserRound size={14} className="text-[#0f8b73]" aria-hidden="true" />
           <span className="truncate">{selected.assessor || "Unassigned"}</span>
+          {canSupervise && selected.assessor_id !== viewer?.id ? <span className="sr-only">Supervisor access</span> : null}
         </span>
         <div className="min-w-0 flex-1" />
         <span aria-live="polite" className={`text-[11px] ${error ? "text-[#a63d2f]" : "text-[#737373]"}`}>{error || message}</span>

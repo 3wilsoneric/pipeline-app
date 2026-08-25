@@ -128,9 +128,11 @@ and changed-file inventory are in
   review. Partial extracted names cannot replace a complete client name.
 - The workspace has four operator surfaces: Referral, Documents, Assessment,
   and Decision. The assessment surface is the client interview and governed
-  questionnaire. Starting it requires the canonical assignee, client name,
-  DOB, community, referral source, and initial document; it does not require a
-  separate intake-review ceremony.
+  questionnaire. Starting it requires the client name, DOB, community, referral
+  source, and initial document; it does not require a separate intake-review
+  ceremony. The assigned assessor owns ordinary clinical work, while Admin and
+  Assessment Coordinator users can cover any assessment without changing the
+  referral assignment. Their edits and signatures remain attributable.
 
 ## Scope
 - App Router shell

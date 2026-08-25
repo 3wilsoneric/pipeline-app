@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { isAssessmentSupervisor } from "@/lib/assessment/assessment-access";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -55,6 +56,7 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
       Number(body.value.if_match),
       Number(body.value.if_match_section),
       { id: auth.user.id, name: auth.user.name },
+      { allowSupervisorOverride: isAssessmentSupervisor(auth.user) },
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) return Response.json({ error: "This recommendation changed in another session.", ...result }, { status: 409 });

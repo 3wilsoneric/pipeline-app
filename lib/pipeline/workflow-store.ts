@@ -297,6 +297,7 @@ export async function recordAssessmentRecommendation(
   expectedVersion: number,
   expectedDecisionVersion: number,
   actor: ReferralActor,
+  options: { allowSupervisorOverride?: boolean } = {},
 ): Promise<WorkflowRecordMutation<AssessmentRecommendation> | null> {
   const snapshot = await getReferralWorkflowSnapshot(referralId);
   if (!snapshot) return null;
@@ -320,12 +321,12 @@ export async function recordAssessmentRecommendation(
       blockers: [{ code: "signed_assessment_required", label: "Sign the assessment before submitting a recommendation." }],
     };
   }
-  if (assessment.assessor_id !== actor.id) {
+  if (assessment.assessor_id !== actor.id && !options.allowSupervisorOverride) {
     return {
       ok: false,
       blocked: true,
       referral: snapshot.referral,
-      blockers: [{ code: "assigned_assessor_required", label: "Only the assigned assessor can submit this recommendation." }],
+      blockers: [{ code: "assigned_assessor_required", label: "Only the assigned assessor or a supervisor can submit this recommendation." }],
     };
   }
   if (input.outcome !== "accept" && !input.reasonNote?.trim()) {
@@ -374,6 +375,7 @@ export async function recordAssessmentRecommendation(
     expectedDecisionVersion,
     actor,
     snapshot.referral,
+    options,
   ));
   if (!result.ok) return result;
   const referral = await getReferral(referralId);
@@ -628,6 +630,7 @@ async function recordPostgresRecommendation(
   expectedDecisionVersion: number,
   actor: ReferralActor,
   fallback: Referral,
+  options: { allowSupervisorOverride?: boolean },
 ): Promise<WorkflowRecordMutation<AssessmentRecommendation>> {
   const referralRows = await tx<{ version: number; data: unknown; section_versions: unknown }[]>`
     select version, data, section_versions
@@ -656,12 +659,12 @@ async function recordPostgresRecommendation(
       blockers: [{ code: "signed_assessment_required", label: "Sign the assessment before submitting a recommendation." }],
     };
   }
-  if (assessment.assessor_id !== actor.id) {
+  if (assessment.assessor_id !== actor.id && !options.allowSupervisorOverride) {
     return {
       ok: false,
       blocked: true,
       referral: fallback,
-      blockers: [{ code: "assigned_assessor_required", label: "Only the assigned assessor can submit this recommendation." }],
+      blockers: [{ code: "assigned_assessor_required", label: "Only the assigned assessor or a supervisor can submit this recommendation." }],
     };
   }
   const decisionRows = await tx<{ exists: boolean }[]>`

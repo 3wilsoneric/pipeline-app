@@ -10,6 +10,7 @@ import {
   assessmentClientIdentityErrorResponse,
   resolveAssessmentClientIdentity,
 } from "@/lib/assessment/assessment-client-identity";
+import { canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
@@ -62,8 +63,8 @@ export async function PATCH(
       if (!current) return jsonError("Assessment not found.", 404);
       const access = await requireReferralAccess(auth.user, current.referral_id);
       if (!access.ok) return access.response;
-      if (current.assessor_id !== auth.user.id) {
-        return jsonError("Only the assigned assessor can edit this assessment.", 403);
+      if (!canWorkAssessment(auth.user, current.assessor_id)) {
+        return jsonError("Only the assigned assessor or a supervisor can edit this assessment.", 403);
       }
       const identity = await resolveAssessmentClientIdentity(request, current.referral_id);
       const result = await patchAssessment(

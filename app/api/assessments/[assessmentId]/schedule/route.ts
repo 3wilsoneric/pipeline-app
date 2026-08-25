@@ -1,4 +1,5 @@
 import { getAssessment, patchAssessment, requireAssessmentStore } from "@/lib/assessment/assessment-store";
+import { canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { validateAssessmentScheduleCommand } from "@/lib/assessment/assessment-lifecycle-validation";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -22,6 +23,9 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     if (!assessment) return jsonError("Assessment not found.", 404);
     const access = await requireReferralAccess(auth.user, assessment.referral_id);
     if (!access.ok) return access.response;
+    if (!canWorkAssessment(auth.user, assessment.assessor_id)) {
+      return jsonError("Only the assigned assessor or a supervisor can schedule this assessment.", 403);
+    }
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const command = validateAssessmentScheduleCommand(body.value);

@@ -1,4 +1,5 @@
 import { getAssessment, patchAssessment, requireAssessmentStore } from "@/lib/assessment/assessment-store";
+import { canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { validateAssessmentLifecycleCommand } from "@/lib/assessment/assessment-lifecycle-validation";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
@@ -22,8 +23,8 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     if (!assessment) return jsonError("Assessment not found.", 404);
     const access = await requireReferralAccess(auth.user, assessment.referral_id);
     if (!access.ok) return access.response;
-    if (assessment.assessor_id !== auth.user.id) {
-      return jsonError("Only the assigned assessor can sign this assessment.", 403);
+    if (!canWorkAssessment(auth.user, assessment.assessor_id)) {
+      return jsonError("Only the assigned assessor or a supervisor can sign this assessment.", 403);
     }
     if (!assessment.started_at && assessment.status !== "complete") {
       return jsonError("Begin the assessment before signing it.", 422);

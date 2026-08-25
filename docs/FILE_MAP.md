@@ -79,6 +79,7 @@
 - `components/pipeline/ReferralHome.tsx` - searchable, filterable, paginated referral and file directory.
 - `components/pipeline/ReferralActionWorklist.tsx` - default action-first referral table with deterministic exception categories.
 - `components/pipeline/AssessmentWorkspace.tsx` - assessment history, editing, import review, and completion flow.
+- `lib/assessment/assessment-access.ts` - one server-side assigned-assessor and supervisor-override rule for assessment mutations.
 - `components/pipeline/ClientAssessmentSummary.tsx` - resident-linked assessment coverage and history summary.
 - `components/pipeline/ReferralRequirementsEditor.tsx` - compact versioned requirement completion and recovery editor.
 - `components/pipeline/StructuredNarrativeField.tsx` - structured summary/interview editor extracted from the referral canvas.
