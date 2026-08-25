@@ -68,6 +68,7 @@ const referralRoute = read("app/api/referrals/[referralId]/route.ts");
 const manualIntakeRoute = read("app/api/referrals/[referralId]/manual-intake/route.ts");
 const workflowStore = read("lib/pipeline/workflow-store.ts");
 const workItemRoute = read("app/api/referrals/[referralId]/work-items/[workItemId]/route.ts");
+const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
 const migration = read("database/migrations/0015_assessor_workflow.sql");
 const rollback = read("database/rollbacks/0015_assessor_workflow.sql");
 
@@ -104,6 +105,14 @@ check(
     && referralStore.match(/!metadata\?\.workflowTransitionValidated/g)?.length >= 2,
 );
 check("requirements cannot drift from the referral assignment", workItemRoute.includes("Change the referral assignment to change requirement ownership") && !workItemRoute.includes('"ownerId",'));
+check(
+  "assessment interview uses one focused shell with grouped responsive navigation",
+  assessmentWorkspace.includes('createPortal(')
+    && assessmentWorkspace.includes('aria-label="Assessment interview"')
+    && assessmentWorkspace.includes("assessmentNavigationGroups")
+    && assessmentWorkspace.includes('aria-label="More assessment actions"')
+    && !assessmentWorkspace.includes('role="tablist" aria-label="Assessment sections"'),
+);
 check("requested information requires a source and follow-up date", workflowStore.includes("requested_from_required") && workflowStore.includes("follow_up_required"));
 check("legacy profile requirements are materialized without invented values", migration.includes("'profile_field'") && migration.includes("when definition.field_key = 'date_of_birth'") && migration.includes("else 'needed'"));
 check("legacy backfill never invents a signature", migration.includes("then 'assessment_ready_to_sign'") && !migration.includes("then 'assessment_signed'"));

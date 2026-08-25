@@ -1,21 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   CalendarClock,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
   History,
   LoaderCircle,
+  MoreHorizontal,
   Play,
   Plus,
   RefreshCw,
-  Save,
   UploadCloud,
-  UserRound,
+  X,
 } from "lucide-react";
 
 import {
@@ -75,6 +78,16 @@ const extractionOwnedFields = new Set<AssessmentToolFieldKey>([
   "extraction_date",
 ]);
 
+const assessmentNavigationGroups: ReadonlyArray<{
+  label: string;
+  sections: readonly AssessmentToolSection[];
+}> = [
+  { label: "Intake", sections: ["identity", "prior_placement", "prior_history"] },
+  { label: "Clinical interview", sections: ["diagnosis_clinical", "functional_adl", "medication", "substance_use"] },
+  { label: "Safety and care", sections: ["behavioral_risk", "physical_health", "legal_conservatorship"] },
+  { label: "Plan and review", sections: ["social_support", "provenance_qc"] },
+];
+
 type AssessmentFieldConflict = {
   field: AssessmentToolFieldKey;
   localValue: AssessmentToolData[AssessmentToolFieldKey];
@@ -100,6 +113,9 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("60");
   const [scheduleMethod, setScheduleMethod] = useState<"in_person" | "phone" | "video" | "record_review">("in_person");
@@ -117,6 +133,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   const draftVersionRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const initializedAssessmentIdRef = useRef("");
+  const focusedAssessmentIdRef = useRef("");
   const dirty = dirtySections.size > 0;
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
@@ -135,6 +152,9 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     () => new Set(getRequiredAssessmentInterviewQuestions(draft).map((question) => question.field)),
     [draft],
   );
+  const activeSectionIndex = assessmentInterviewSections.findIndex((section) => section.key === activeSection);
+  const activeSectionCaptured = sectionQuestions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length;
+  const nextUnansweredQuestion = sectionQuestions.find((question) => !hasAssessmentInterviewValue(draft[question.field]));
 
   useEffect(() => {
     let cancelled = false;
@@ -213,6 +233,26 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     setShowAddendum(false);
     void loadRecoveryDraft(selected, data);
   }, [selected]);
+
+  useEffect(() => {
+    if (!selected?.assessment_id || focusedAssessmentIdRef.current === selected.assessment_id) return;
+    focusedAssessmentIdRef.current = selected.assessment_id;
+    setIsFocused(true);
+  }, [selected?.assessment_id]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsFocused(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isFocused]);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -818,85 +858,72 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     );
   }
 
-  return (
-    <section aria-label="Assessment workspace" className="border border-[#d6ddd9] bg-white">
-      <div className="grid grid-cols-2 gap-px bg-[#d9dfdb] sm:grid-cols-3 lg:grid-cols-[minmax(0,1fr)_190px_190px_190px]">
-        <div className="col-span-2 bg-white px-4 py-4 sm:col-span-3 sm:px-5 lg:col-span-1">
+  if (!isFocused) {
+    return (
+      <section aria-label="Assessment" className="flex min-h-48 items-center justify-between gap-5 border border-[#d6ddd9] bg-white px-6 py-8">
+        <div>
+          <div className="flex items-center gap-2"><h2 className="text-[18px] font-black">Assessment</h2><StatusLabel status={selected.status} /></div>
+          <p className="mt-2 text-[12px] text-[#737373]">{completion.complete} of {completion.total} required areas complete · {selected.assessor || "Unassigned"}</p>
+        </div>
+        <button type="button" onClick={() => setIsFocused(true)} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73]">Open assessment</button>
+      </section>
+    );
+  }
+
+  return createPortal(
+    <section role="dialog" aria-modal="true" aria-label="Assessment interview" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
+      <header className="relative flex min-h-16 shrink-0 flex-wrap items-center gap-3 border-b border-[#d9dfdb] bg-white px-3 py-2 sm:px-5">
+        <button type="button" onClick={() => { setShowMobileActions(false); setIsFocused(false); }} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
+        <div className="min-w-[170px] flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[18px] font-black">Assessment</h2>
+            <h2 className="truncate text-[17px] font-black">{draft.resident_name || "Client"} assessment</h2>
             <StatusLabel status={selected.status} />
-            {dirty ? <span className="text-[11px] font-semibold text-[#a66b17]">Unsaved</span> : null}
           </div>
-          <div className="mt-1 text-[11px] text-[#737373]">
-            {formatDate(selected.assessment_date)} · version {selected.version}
+          <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[#737373]">
+            <span>{formatDate(selected.assessment_date)}</span><span aria-hidden="true">·</span><span>{selected.assessor || "Unassigned"}</span>
+            {canSupervise && selected.assessor_id !== viewer?.id ? <span className="sr-only">Supervisor access</span> : null}
           </div>
         </div>
-        <AssessmentMetric label="Captured" value={`${coverage.captured} / ${coverage.total}`} detail={`${coverage.percent}% of assessment fields`} />
-        <AssessmentMetric label="Ready to complete" value={`${completion.complete} / ${completion.total}`} detail={completion.missing.length ? `${completion.missing.length} required area${completion.missing.length === 1 ? "" : "s"} left` : "Ready"} />
-        <AssessmentMetric label="Needs review" value={String(pendingFields.length)} detail={selected.unmapped_fields.length ? `${selected.unmapped_fields.length} banked values` : "No banked values"} />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-t border-[#d9dfdb] px-4 py-3">
-        <History size={15} className="text-[#0f8b73]" />
-        <label htmlFor="assessment-history" className="sr-only">Assessment history</label>
-        <select
-          id="assessment-history"
-          value={selectedId}
-          onChange={(event) => setSelectedId(event.target.value)}
-          className="h-9 min-w-0 flex-1 border border-[#c9ceca] bg-white px-3 text-[12px] font-semibold outline-none focus:border-[#0f8b73] sm:min-w-[210px] sm:flex-none"
-        >
-          {assessments.map((assessment, index) => (
-            <option key={assessment.assessment_id} value={assessment.assessment_id}>
-              {formatDate(assessment.assessment_date)} · {assessment.status.replace("_", " ")}{index === 0 ? " · latest" : ""}
-            </option>
-          ))}
-        </select>
-        {canCreateClinical ? <button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-9 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">New assessment</button> : null}
-        {!selected.signed_at && (canEditClinical || canSupervise) ? (
-          <button type="button" onClick={() => setShowSchedule((value) => !value)} disabled={isBusy} className="flex h-9 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50">
-            <CalendarClock size={14} /> {selected.scheduled_start_at ? "Reschedule" : "Schedule"}
-          </button>
-        ) : null}
-        {!selected.signed_at && !selected.started_at && selected.status !== "complete" && canEditClinical ? (
-          <button type="button" onClick={() => void beginAssessment()} disabled={isBusy} className="flex h-9 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">
-            <Play size={13} fill="currentColor" /> Begin
-          </button>
-        ) : null}
-        <span
-          className="flex h-9 min-w-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#333333] sm:ml-1"
-          title="Assessment ownership follows the referral assignment."
-        >
-          <UserRound size={14} className="text-[#0f8b73]" aria-hidden="true" />
-          <span className="truncate">{selected.assessor || "Unassigned"}</span>
-          {canSupervise && selected.assessor_id !== viewer?.id ? <span className="sr-only">Supervisor access</span> : null}
-        </span>
-        <div className="min-w-0 flex-1" />
-        <span aria-live="polite" className={`text-[11px] ${error ? "text-[#a63d2f]" : "text-[#737373]"}`}>{error || message}</span>
-        {canEditClinical ? <button type="button" onClick={() => saveAssessment(selected.status)} disabled={isBusy || !dirty || !selected.started_at || Boolean(selected.signed_at)} className="flex h-9 items-center gap-2 border border-[#111111] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35"><Save size={14} /> Save</button> : null}
+        <span aria-live="polite" className={`hidden max-w-[240px] truncate text-[10px] lg:block ${error ? "text-[#a63d2f]" : dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{error || (dirty ? "Saving changes..." : message || "All changes saved")}</span>
+        <div className="relative hidden min-w-[210px] sm:block">
+          <History size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#0f8b73]" />
+          <select id="assessment-history" aria-label="Assessment history" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className="h-10 w-full appearance-none border border-[#c9ceca] bg-white pl-9 pr-9 text-[11px] font-semibold outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]">
+            {assessments.map((assessment, index) => <option key={assessment.assessment_id} value={assessment.assessment_id}>{formatDate(assessment.assessment_date)} · {assessment.status.replace("_", " ")}{index === 0 ? " · latest" : ""}</option>)}
+          </select>
+          <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
+        </div>
+        {canCreateClinical ? <button type="button" onClick={createAssessmentDraft} disabled={isBusy} aria-label="New assessment" title="New assessment" className="hidden h-10 w-10 items-center justify-center border border-[#c9ceca] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50 sm:flex"><Plus size={17} /></button> : null}
+        <button type="button" onClick={() => setShowImport((value) => !value)} aria-label="Import assessment answers" title="Import assessment answers" className={`hidden h-10 items-center gap-2 border px-3 text-[11px] font-black sm:flex ${showImport ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-[#c9ceca] hover:border-[#0f8b73] hover:text-[#0f8b73]"}`}><UploadCloud size={15} /> <span className="hidden md:inline">Import</span></button>
+        {!selected.signed_at && (canEditClinical || canSupervise) ? <button type="button" onClick={() => setShowSchedule((value) => !value)} disabled={isBusy} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} title={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="hidden h-10 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50 sm:flex"><CalendarClock size={15} /> <span className="hidden md:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button> : null}
+        {!selected.signed_at && !selected.started_at && selected.status !== "complete" && canEditClinical ? <button type="button" onClick={() => void beginAssessment()} disabled={isBusy} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50"><Play size={13} fill="currentColor" /> Begin interview</button> : null}
         {selected.signed_at ? (
-          <>
-            <span className="h-9 bg-[#e8f4ef] px-3 py-2 text-[11px] font-black text-[#0f6f5e]">Signed</span>
-            {canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-9 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50"><Plus size={14} /> Addendum</button> : null}
-          </>
-        ) : !selected.started_at && selected.status !== "complete" ? (
-          <span className="h-9 bg-[#f4f6f5] px-3 py-2 text-[11px] font-black text-[#595959]">Not begun</span>
-        ) : canEditClinical ? (
-          <button type="button" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-9 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Sign assessment</button>
+          canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"><Plus size={14} /> Addendum</button> : <span className="text-[11px] font-black text-[#0f6f5e]">Signed</span>
+        ) : selected.started_at && canEditClinical ? (
+          <button type="button" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-10 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button>
         ) : null}
-      </div>
+        <button type="button" onClick={() => setShowMobileActions((value) => !value)} aria-label="More assessment actions" aria-expanded={showMobileActions} className="flex h-10 w-10 items-center justify-center border border-[#c9ceca] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73] sm:hidden"><MoreHorizontal size={18} /></button>
+        {showMobileActions ? (
+          <div role="menu" aria-label="Assessment actions" className="absolute right-3 top-[calc(100%+1px)] z-20 w-[min(310px,calc(100vw-24px))] border border-[#c9ceca] bg-white p-2 shadow-[0_12px_30px_rgba(17,17,17,0.12)] sm:hidden">
+            {assessments.length > 1 ? <div className="relative mb-2"><History size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#0f8b73]" /><select aria-label="Assessment history" value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setShowMobileActions(false); }} className="h-10 w-full appearance-none border border-[#c9ceca] bg-white pl-9 pr-9 text-[11px] font-semibold outline-none focus:border-[#0f8b73]">{assessments.map((assessment, index) => <option key={assessment.assessment_id} value={assessment.assessment_id}>{formatDate(assessment.assessment_date)} · {assessment.status.replace("_", " ")}{index === 0 ? " · latest" : ""}</option>)}</select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></div> : null}
+            {canCreateClinical ? <button role="menuitem" type="button" onClick={() => { setShowMobileActions(false); void createAssessmentDraft(); }} disabled={isBusy} className="flex h-10 w-full items-center gap-3 px-3 text-left text-[11px] font-black hover:bg-[#f4f7f5] disabled:opacity-50"><Plus size={15} /> New assessment</button> : null}
+            <button role="menuitem" type="button" onClick={() => { setShowMobileActions(false); setShowImport((value) => !value); }} className="flex h-10 w-full items-center gap-3 px-3 text-left text-[11px] font-black hover:bg-[#f4f7f5]"><UploadCloud size={15} /> Import answers</button>
+            {!selected.signed_at && (canEditClinical || canSupervise) ? <button role="menuitem" type="button" onClick={() => { setShowMobileActions(false); setShowSchedule((value) => !value); }} disabled={isBusy} className="flex h-10 w-full items-center gap-3 px-3 text-left text-[11px] font-black hover:bg-[#f4f7f5] disabled:opacity-50"><CalendarClock size={15} /> {selected.scheduled_start_at ? "Reschedule" : "Schedule"}</button> : null}
+          </div>
+        ) : null}
+      </header>
 
       {showSchedule ? (
-        <div className="grid gap-3 border-t border-[#d9dfdb] bg-[#f8faf9] px-4 py-4 sm:grid-cols-[minmax(210px,1fr)_100px_150px_minmax(180px,1fr)_auto] sm:items-end">
+        <div className="grid shrink-0 gap-3 border-b border-[#d9dfdb] bg-[#f8faf9] px-4 py-4 sm:grid-cols-[minmax(210px,1fr)_100px_150px_minmax(180px,1fr)_auto] sm:items-end">
           <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Date and time</span><input type="datetime-local" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
           <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Minutes</span><input type="number" min={15} max={480} step={15} value={scheduleDuration} onChange={(event) => setScheduleDuration(event.target.value)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
-          <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Method</span><select value={scheduleMethod} onChange={(event) => setScheduleMethod(event.target.value as typeof scheduleMethod)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]"><option value="in_person">In person</option><option value="video">Video</option><option value="phone">Phone</option><option value="record_review">Record review</option></select></label>
+          <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Method</span><span className="relative mt-1 block"><select value={scheduleMethod} onChange={(event) => setScheduleMethod(event.target.value as typeof scheduleMethod)} className="h-10 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="in_person">In person</option><option value="video">Video</option><option value="phone">Phone</option><option value="record_review">Record review</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
           <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Location or link</span><input value={scheduleLocation} maxLength={500} onChange={(event) => setScheduleLocation(event.target.value)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
           <button type="button" onClick={() => void saveSchedule()} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="h-10 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:bg-[#c9ceca]">Save schedule</button>
         </div>
       ) : null}
 
       {showAddendum ? (
-        <div className="border-t border-[#d9dfdb] bg-[#f8faf9] px-4 py-4">
+        <div className="shrink-0 border-b border-[#d9dfdb] bg-[#f8faf9] px-4 py-4">
           <div className="grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)_auto] sm:items-end">
             <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Reason</span><input value={addendumReason} maxLength={128} onChange={(event) => setAddendumReason(event.target.value)} placeholder="Correction or later information" className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
             <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Addendum</span><textarea value={addendumNote} maxLength={20_000} rows={2} onChange={(event) => setAddendumNote(event.target.value)} className="mt-1 w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none focus:border-[#0f8b73]" /></label>
@@ -906,7 +933,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
       ) : null}
 
       {selected.signed_at ? (
-        <div className="border-t border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
+        <div className="shrink-0 border-b border-[#d9dfdb] px-4 py-3 text-[11px] text-[#595959]">
           Signed by <strong>{selected.signed_by?.name ?? selected.assessor ?? "Assigned assessor"}</strong> on {new Date(selected.signed_at).toLocaleString()}.
           {(selected.addenda ?? []).length > 0 ? (
             <div className="mt-3 divide-y divide-[#e5e5e5] border-y border-[#e5e5e5]">
@@ -916,17 +943,53 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
         </div>
       ) : null}
 
-      {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
-        <div className="border-t border-[#c9d9d3] bg-[#f2f8f5] px-4 py-2 text-[11px] text-[#315e50]">
+      <div className="flex min-h-0 flex-1">
+        <aside className="hidden w-[230px] shrink-0 overflow-y-auto border-r border-[#d9dfdb] bg-[#f8faf9] px-3 py-4 lg:block">
+          <div className="mb-5 px-2">
+            <div className="flex items-end justify-between"><span className="text-[10px] font-black uppercase text-[#666666]">Required</span><strong className="text-[15px]">{completion.complete}/{completion.total}</strong></div>
+            <div className="mt-2 h-1.5 bg-[#dfe5e1]"><div className="h-full bg-[#0f8b73] transition-[width]" style={{ width: `${completion.percent}%` }} /></div>
+            <p className="mt-2 text-[10px] leading-4 text-[#737373]">{completion.missing.length ? `${completion.missing.length} required areas remain` : "Ready to sign"}</p>
+          </div>
+          <nav aria-label="Assessment sections" className="space-y-5">
+            {assessmentNavigationGroups.map((group) => (
+              <div key={group.label}>
+                <div className="px-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#8a8a8a]">{group.label}</div>
+                <div className="mt-1 space-y-0.5">
+                  {group.sections.map((sectionKey) => {
+                    const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey);
+                    if (!section) return null;
+                    const questions = getAssessmentInterviewQuestions(section.key, draft);
+                    const filled = questions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length;
+                    const active = activeSection === section.key;
+                    return <button key={section.key} type="button" onClick={() => setActiveSection(section.key)} aria-current={active ? "step" : undefined} className={`flex w-full items-center justify-between gap-3 border-l-2 px-3 py-2.5 text-left text-[11px] font-black transition-colors ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#595959] hover:bg-white hover:text-[#0f8b73]"}`}><span>{section.label}</span><span className="text-[9px] font-semibold opacity-65">{filled}/{questions.length}</span></button>;
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+        </aside>
+
+        <main className="min-w-0 flex-1 overflow-y-auto bg-white">
+          <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
+            <label htmlFor="assessment-section-mobile" className="mb-1 block text-[9px] font-black uppercase text-[#737373]">Assessment section</label>
+            <div className="relative">
+              <select id="assessment-section-mobile" value={activeSection} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-10 text-[12px] font-black outline-none focus:border-[#0f8b73]">{assessmentNavigationGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.sections.map((sectionKey) => { const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey); return section ? <option key={section.key} value={section.key}>{section.label}</option> : null; })}</optgroup>)}</select>
+              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
+            </div>
+          </div>
+
+          {error ? <div role="alert" className="border-b border-[#e1b6ad] bg-[#fff5f2] px-5 py-3 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
+          {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
+            <div className="border-b border-[#c9d9d3] bg-[#f2f8f5] px-5 py-2 text-[11px] text-[#315e50]">
           {presence
             .filter((item) => item.section === `assessment:${activeSection}`)
             .map((item) => item.actor_name)
             .join(", ")} {presence.filter((item) => item.section === `assessment:${activeSection}`).length === 1 ? "is" : "are"} also editing {sectionLabels[activeSection]}.
-        </div>
-      ) : null}
+            </div>
+          ) : null}
 
-      {remoteChange ? (
-        <div className={`border-t px-4 py-3 ${remoteChange.conflicts.length > 0 ? "border-[#d9b56c] bg-[#fff8e9]" : "border-[#a9d2c3] bg-[#f2faf7]"}`}>
+          {remoteChange ? (
+            <div className={`border-b px-5 py-3 ${remoteChange.conflicts.length > 0 ? "border-[#d9b56c] bg-[#fff8e9]" : "border-[#a9d2c3] bg-[#f2faf7]"}`}>
           <div className="flex items-center gap-2 text-[11px] font-black text-[#333333]">
             <RefreshCw size={13} className="text-[#0f8b73]" />
             {remoteChange.conflicts.length > 0
@@ -954,66 +1017,22 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
               })}
             </div>
           ) : null}
-        </div>
-      ) : null}
+            </div>
+          ) : null}
 
-      <AssessmentImport
-        busy={isBusy || Boolean(selected.signed_at) || !canEditClinical}
-        pendingFields={pendingFields}
-        assessment={selected}
-        inputRef={fileInputRef}
-        onFile={importFile}
-        onConfirm={() => saveAssessment("draft", true)}
-        onOpenField={(field) => {
-          const definition = assessmentToolFieldDefinitions.find((candidate) => candidate.key === field);
-          if (definition) setActiveSection(definition.section);
-        }}
-      />
+          {showImport ? <AssessmentImport busy={isBusy || Boolean(selected.signed_at) || !canEditClinical} pendingFields={pendingFields} assessment={selected} inputRef={fileInputRef} onFile={importFile} onConfirm={() => saveAssessment("draft", true)} onOpenField={(field) => { const definition = assessmentToolFieldDefinitions.find((candidate) => candidate.key === field); if (definition) { setActiveSection(definition.section); setShowImport(false); } }} /> : null}
 
-      <div className="border-t border-[#d9dfdb] px-4 py-4">
-        <div className="mb-2 text-[10px] font-black uppercase text-[#666666]">Interview snapshot</div>
-        <div className="grid gap-px overflow-hidden border border-[#d9dfdb] bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-          {interviewSnapshot.map((item) => (
-            <button key={item.label} type="button" onClick={() => setActiveSection(item.section)} className="min-h-16 bg-white px-3 py-2 text-left hover:bg-[#f2f8f5]">
-              <span className="block text-[9px] font-black uppercase text-[#737373]">{item.label}</span>
-              <span className={`mt-1 block text-[12px] font-black ${item.value === "Not answered" ? "text-[#9a6115]" : "text-[#111111]"}`}>{item.value}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="border-t border-[#d9dfdb] px-4 py-3">
-        <div className="flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label="Assessment sections">
-          {assessmentInterviewSections.map((section) => {
-            const questions = getAssessmentInterviewQuestions(section.key, draft);
-            const filled = questions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length;
-            const active = activeSection === section.key;
-            return (
-              <button
-                key={section.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setActiveSection(section.key)}
-                className={`min-h-11 min-w-[136px] shrink-0 border px-3 py-2 text-left text-[11px] font-black leading-4 transition-colors ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#686868] hover:bg-[#f4f7f5] hover:text-[#0f8b73]"}`}
-              >
-                <span className="block">{section.label}</span>
-                <span className="mt-0.5 block text-[9px] font-semibold opacity-70">{filled} of {questions.length}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="border-t border-[#d9dfdb] px-5 py-5">
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <h3 className="text-[15px] font-black">{sectionDefinition.label}</h3>
-            <p className="mt-1 text-[11px] text-[#737373]">{sectionDefinition.description}</p>
-          </div>
-          <span className="text-[11px] font-semibold text-[#737373]">{sectionQuestions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length} of {sectionQuestions.length} captured</span>
-        </div>
-        <div className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
+          <div className="mx-auto max-w-[980px] px-5 py-7 sm:px-8">
+            <div className="mb-7 flex flex-wrap items-start justify-between gap-4 border-b border-[#d9dfdb] pb-5">
+              <div className="max-w-2xl">
+                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Section {activeSectionIndex + 1} of {assessmentInterviewSections.length}</div>
+                <h3 className="mt-1 text-[22px] font-black">{sectionDefinition.label}</h3>
+                <p className="mt-1 text-[12px] leading-5 text-[#737373]">{sectionDefinition.description}</p>
+                <p className={`mt-3 text-[11px] font-semibold ${selected.started_at ? "text-[#315e50]" : "text-[#9a6115]"}`}>{!selected.started_at ? "Review the questionnaire now. Choose Begin interview when you are ready to enter answers." : nextUnansweredQuestion ? `Next: ${assessmentInterviewFieldLabel(nextUnansweredQuestion.field)}` : "This section is complete. Continue when ready."}</p>
+              </div>
+              <div className="text-right"><div className="text-[18px] font-black">{activeSectionCaptured}/{sectionQuestions.length}</div><div className="text-[9px] font-black uppercase text-[#8a8a8a]">captured here</div></div>
+            </div>
+            <div className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
           {sectionGroups.map((group) => (
             <div key={group.label} className="grid gap-4 py-5 lg:grid-cols-[190px_minmax(0,1fr)]">
               <div>
@@ -1045,11 +1064,15 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
               </div>
             </div>
           ))}
-        </div>
-      </div>
+            </div>
 
-      {selected.unmapped_fields.length > 0 ? (
-        <details className="border-t border-[#d9dfdb] px-5 py-4">
+            <div className="mt-7 flex items-center justify-between gap-3">
+              <button type="button" onClick={() => setActiveSection(assessmentInterviewSections[Math.max(0, activeSectionIndex - 1)].key)} disabled={activeSectionIndex <= 0} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} /> Previous</button>
+              <button type="button" onClick={() => setActiveSection(assessmentInterviewSections[Math.min(assessmentInterviewSections.length - 1, activeSectionIndex + 1)].key)} disabled={activeSectionIndex >= assessmentInterviewSections.length - 1} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-35">Next section <ChevronRight size={14} /></button>
+            </div>
+
+            {selected.unmapped_fields.length > 0 ? (
+              <details className="mt-7 border-t border-[#d9dfdb] py-4">
           <summary className="cursor-pointer text-[12px] font-black text-[#9a6115]">{selected.unmapped_fields.length} banked values need mapping</summary>
           <div className="mt-3 divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
             {selected.unmapped_fields.map((field, index) => (
@@ -1060,9 +1083,30 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
               </div>
             ))}
           </div>
-        </details>
-      ) : null}
-    </section>
+              </details>
+            ) : null}
+          </div>
+        </main>
+
+        <aside className="hidden w-[270px] shrink-0 overflow-y-auto border-l border-[#d9dfdb] bg-[#fbfcfb] px-5 py-5 xl:block">
+          <h3 className="text-[12px] font-black">Interview guide</h3>
+          <p className="mt-1 text-[10px] leading-4 text-[#737373]">Answers save automatically. Conditional questions appear only when relevant.</p>
+          <div className="mt-5 border-y border-[#d9dfdb] py-4">
+            <div className="flex items-end justify-between"><span className="text-[9px] font-black uppercase text-[#737373]">Overall progress</span><strong className="text-[20px]">{completion.percent}%</strong></div>
+            <div className="mt-2 h-1.5 bg-[#dfe5e1]"><div className="h-full bg-[#0f8b73]" style={{ width: `${completion.percent}%` }} /></div>
+            <p className="mt-2 text-[10px] text-[#737373]">{coverage.captured} of {coverage.total} total fields captured</p>
+          </div>
+          <div className="mt-5">
+            <div className="text-[9px] font-black uppercase text-[#737373]">Key answers</div>
+            <div className="mt-2 divide-y divide-[#e1e4e2]">
+              {interviewSnapshot.map((item) => <button key={item.label} type="button" onClick={() => setActiveSection(item.section)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left hover:text-[#0f8b73]"><span className="text-[10px] font-semibold text-[#595959]">{item.label}</span><span className={`text-[10px] font-black ${item.value === "Not answered" ? "text-[#9a6115]" : "text-[#111111]"}`}>{item.value}</span></button>)}
+            </div>
+          </div>
+          {completion.missing.length > 0 ? <div className="mt-5"><div className="text-[9px] font-black uppercase text-[#737373]">Still required</div><div className="mt-2 space-y-2">{completion.missing.slice(0, 6).map((item) => <div key={item.key} className="text-[10px] leading-4 text-[#595959]">{item.label}</div>)}</div>{completion.missing.length > 6 ? <div className="mt-2 text-[9px] text-[#8a8a8a]">+ {completion.missing.length - 6} more</div> : null}</div> : null}
+        </aside>
+      </div>
+    </section>,
+    document.body,
   );
 }
 
@@ -1219,11 +1263,14 @@ function AssessmentField({
           })}
         </div>
       ) : question.control === "select" ? (
-        <select id={id} value={stringValue} disabled={readOnly} onChange={(event) => onChange(event.target.value || null)} className="h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73] disabled:bg-[#f4f6f5]">
-          <option value="">Select...</option>
-          {selectHasCurrentValue ? <option value={stringValue}>{stringValue}</option> : null}
-          {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
+        <div className="relative">
+          <select id={id} value={stringValue} disabled={readOnly} onChange={(event) => onChange(event.target.value || null)} className="h-10 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none transition-colors hover:border-[#8ca59c] focus:border-[#0f8b73] disabled:bg-[#f4f6f5] disabled:text-[#737373]">
+            <option value="">Select...</option>
+            {selectHasCurrentValue ? <option value={stringValue}>{stringValue}</option> : null}
+            {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
+        </div>
       ) : question.control === "multi_select" ? (
         <div id={id} className="grid gap-px border border-[#c9ceca] bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label={definition.label}>
           {[...options, ...extraOptions].map((option) => {
@@ -1281,10 +1328,6 @@ function AssessmentEmpty({ title, detail, action, error }: { title: string; deta
       </div>
     </section>
   );
-}
-
-function AssessmentMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return <div className="bg-white px-4 py-4"><div className="text-[9px] font-black uppercase text-[#737373]">{label}</div><div className="mt-1 text-[18px] font-black">{value}</div><div className="mt-1 truncate text-[10px] text-[#737373]">{detail}</div></div>;
 }
 
 function StatusLabel({ status }: { status: PipelineAssessmentRecord["status"] }) {
