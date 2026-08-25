@@ -6,6 +6,8 @@ const root = process.cwd();
 
 const contracts = loadTypeScriptModule(root, "lib/extraction/contracts.ts");
 const assessmentSchema = loadTypeScriptModule(root, "lib/assessment/assessment-tool-schema.ts");
+const assessmentInterview = loadTypeScriptModule(root, "lib/assessment/assessment-interview-schema.ts");
+const assessmentCompletion = loadTypeScriptModule(root, "lib/assessment/assessment-completion.ts");
 const assessmentRecords = loadTypeScriptModule(root, "lib/assessment/assessment-records.ts");
 const assessmentValidation = loadTypeScriptModule(root, "lib/assessment/assessment-validation.ts");
 const clientUpdateContracts = loadTypeScriptModule(root, "lib/integration/client-update-contracts.ts");
@@ -1077,11 +1079,34 @@ function referralHardeningResults() {
 
 function assessmentSchemaResults() {
   return [
-    run("assessment schema exposes all 52 governed fields", () => {
-      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 52, "Expected 52 assessment fields");
+    run("assessment schema exposes the complete governed interview", () => {
+      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 155, "Expected 155 assessment fields");
       assert(
-        referralExtractionSchema.assessmentWorkbookExtractionTargets.length === 49,
-        "Expected 49 model targets plus three job-supplied provenance fields",
+        new Set(assessmentSchema.assessmentToolFieldDefinitions.map((definition) => definition.key)).size === assessmentSchema.assessmentToolFieldDefinitions.length,
+        "Every governed assessment field must be defined exactly once",
+      );
+      assert(assessmentInterview.assessmentInterviewQuestions.length === 150, "Expected 150 user-facing interview questions");
+      assert(
+        new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field)).size === assessmentInterview.assessmentInterviewQuestions.length,
+        "Every interview field must appear exactly once",
+      );
+      const interviewFields = new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field));
+      const nonInterviewFields = assessmentSchema.assessmentToolFieldDefinitions
+        .map((definition) => definition.key)
+        .filter((field) => !interviewFields.has(field));
+      assert(
+        JSON.stringify(nonInterviewFields) === JSON.stringify(["assessor", "unable_to_assess_reasons", "source_file", "match_confidence", "extraction_date"]),
+        "Only assignment, unable-response support, and extraction-owned fields may stay outside the interview",
+      );
+      assert(
+        assessmentInterview.assessmentInterviewSections.every((section) => (
+          assessmentInterview.assessmentInterviewQuestions.some((question) => assessmentSchema.assessmentToolFieldDefinitions.find((definition) => definition.key === question.field)?.section === section.key)
+        )),
+        "Every interview section must contain at least one question",
+      );
+      assert(
+        referralExtractionSchema.assessmentWorkbookExtractionTargets.length === assessmentSchema.assessmentToolFieldDefinitions.length - 5,
+        "Expected every user-facing field except server-owned assignment and job-supplied provenance",
       );
       assert(
         referralExtractionSchema.referralPacketExtractionTargets.every((field) => field.field_key.startsWith("referral.")),
@@ -1136,6 +1161,7 @@ function assessmentSchemaResults() {
         medications_at_intake: "Olanzapine, Metformin",
         prior_hospitalizations_count: -1,
         match_confidence: 1.4,
+        unable_to_assess_reasons: { invented_field: "No source available" },
         invented_field: "must remain visible",
       };
       const issues = assessmentSchema.validateAssessmentToolData(invalid);
@@ -1143,23 +1169,62 @@ function assessmentSchemaResults() {
       assert(issues.some((issue) => issue.field === "medications_at_intake"), "Expected list shape issue");
       assert(issues.some((issue) => issue.field === "prior_hospitalizations_count"), "Expected count issue");
       assert(issues.some((issue) => issue.field === "match_confidence"), "Expected confidence issue");
+      assert(issues.some((issue) => issue.field === "unable_to_assess_reasons"), "Expected malformed unable-reason map issue");
       assert(issues.some((issue) => issue.message.includes("invented_field")), "Expected unknown field issue");
     }),
-    run("assessment completeness is derived from required identity fields", () => {
+    run("assessment completeness requires the governed interview without requiring a pre-admission resident number", () => {
       const empty = assessmentSchema.createEmptyAssessmentToolData();
       const initial = assessmentSchema.getAssessmentToolCompleteness(empty);
-      assert(initial.required_total === 6 && initial.required_ready === 0, "Expected six required identity fields");
+      assert(initial.required_total === assessmentSchema.requiredAssessmentToolFields.length && initial.required_total === 54, "Expected all 54 core interview answers");
+      assert(!initial.missing_fields.includes("resident_number"), "A pre-admission assessment must not require an ElderMark resident number");
 
-      const ready = assessmentSchema.getAssessmentToolCompleteness({
+      const identified = assessmentSchema.getAssessmentToolCompleteness({
         ...empty,
-        resident_number: "EM-1001",
         resident_name: "Avery Example",
         date_of_birth: "1982-05-14",
         community: "San Pablo",
         assessment_date: "2026-08-08",
         assessor: "Eric Wilson",
+        referral_received_date: "2026-08-01",
+        referrer_name: "County Clinician",
+        referrer_contact: "555-0100",
+        current_location: "County hospital",
       });
-      assert(ready.percent === 100 && ready.missing_fields.length === 0, "Expected complete identity join");
+      assert(identified.required_ready === 9, "Expected the nine core identity and referral answers to be captured");
+      assert(identified.missing_fields.includes("diagnosis_categories"), "Clinical interview answers must remain visibly incomplete");
+    }),
+    run("assessment interview reveals and requires conditional follow-ups", () => {
+      const data = assessmentSchema.createEmptyAssessmentToolData();
+      assert(!assessmentInterview.getAssessmentInterviewQuestions("functional_adl", data).some((question) => question.field === "language_barrier_details"), "Hidden language detail must not clutter the initial interview");
+      data.language_barrier = "yes";
+      assert(assessmentInterview.getAssessmentInterviewQuestions("functional_adl", data).some((question) => question.field === "language_barrier_details"), "A language barrier must reveal its detail question");
+      assert(assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "language_barrier_details"), "A revealed language support detail must be required");
+      data.dress_assistance_level = "independent";
+      data.bathing_assistance_level = "some_assistance";
+      assert(assessmentInterview.getAssessmentInterviewSnapshot(data).find((item) => item.label === "ADL assistance")?.value === "Yes", "The snapshot must derive ADL assistance from detailed answers");
+    }),
+    run("unable-to-assess answers require a question-specific explanation", () => {
+      const data = assessmentSchema.createEmptyAssessmentToolData();
+      data.language_barrier = "unable_to_assess";
+      const blocked = assessmentCompletion.getAssessmentCompletionSummary(data);
+      assert(
+        blocked.missing.some((rule) => rule.key === "unable:language_barrier"),
+        "An unable-to-assess answer without an explanation must block completion",
+      );
+      data.unable_to_assess_reasons = assessmentInterview.setAssessmentUnableReason(
+        data.unable_to_assess_reasons,
+        "language_barrier",
+        "The client could not participate and no collateral source was available.",
+      );
+      const explained = assessmentCompletion.getAssessmentCompletionSummary(data);
+      assert(
+        !explained.missing.some((rule) => rule.key === "unable:language_barrier"),
+        "A stored question-specific explanation must satisfy the unable-to-assess rule",
+      );
+      assert(
+        assessmentInterview.getAssessmentInterviewSnapshot(data).find((item) => item.label === "Language barrier")?.value === "Unable to assess",
+        "The interview snapshot must present the third response in plain language",
+      );
     }),
   ];
 }
@@ -1175,6 +1240,19 @@ function assessmentValidationResults() {
         assessmentValidation.validateAssessmentCreateRequest({ data: { assessor: "Browser supplied name" } }),
         "assessor must be assigned from active workspace members.",
       );
+    }),
+    run("assessment APIs restrict unable explanations to yes/no questions", () => {
+      assertInvalid(
+        assessmentValidation.validateAssessmentPatchRequest({
+          if_match: 1,
+          patch: { data: { unable_to_assess_reasons: { primary_diagnosis: "Not available" } } },
+        }),
+        "Unable-to-assess explanations may only reference yes/no questions: primary_diagnosis.",
+      );
+      assertValid(assessmentValidation.validateAssessmentPatchRequest({
+        if_match: 1,
+        patch: { data: { unable_to_assess_reasons: { language_barrier: "The client could not participate." } } },
+      }));
     }),
     run("assessment patch requires optimistic versions and known fields", () => {
       assertInvalid(

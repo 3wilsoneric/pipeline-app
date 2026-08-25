@@ -20,12 +20,9 @@ type PacketExtractionReviewProps = {
   developmentOnly?: boolean;
   busyFieldKey?: string;
   bulkBusy?: boolean;
-  completionBusy?: boolean;
-  completionBlockers?: string[];
   onAccept: (field: ExtractedField) => Promise<void>;
   onAcceptAll: (fields: ExtractedField[]) => Promise<void>;
   onEdit: (field: ExtractedField, value: string) => Promise<void>;
-  onContinue: () => Promise<void>;
 };
 
 const knownLabels: Record<string, string> = {
@@ -63,12 +60,9 @@ export default function PacketExtractionReview({
   developmentOnly = false,
   busyFieldKey,
   bulkBusy = false,
-  completionBusy = false,
-  completionBlockers = [],
   onAccept,
   onAcceptAll,
   onEdit,
-  onContinue,
 }: PacketExtractionReviewProps) {
   const [editingFieldKey, setEditingFieldKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -170,16 +164,13 @@ export default function PacketExtractionReview({
       ) : null}
 
       {reviewComplete ? (
-        <div className={`flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 ${completionBlockers.length === 0 ? "border-[#b8dacf] bg-[#eff8f4]" : "border-[#e1c998] bg-[#fffaf0]"}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#b8dacf] bg-[#eff8f4] px-4 py-3">
           <div>
             <div className="text-[11px] font-black text-[#111111]">Extraction review complete</div>
             <div className="mt-0.5 text-[10px] text-[#595959]">
-              {completionBlockers.length === 0 ? "The reviewed packet can move into assessment." : completionBlockers.join(" ")}
+              Confirmed values are saved to the referral chart. The assessment remains available throughout intake.
             </div>
           </div>
-          <button type="button" onClick={() => void onContinue().catch(() => undefined)} disabled={completionBusy || completionBlockers.length > 0} className="h-9 bg-[#0f8b73] px-4 text-[10px] font-black uppercase text-white hover:bg-[#0a6a58] disabled:bg-[#c4cac7]">
-            {completionBusy ? "Advancing..." : "Continue to assessment"}
-          </button>
         </div>
       ) : null}
 

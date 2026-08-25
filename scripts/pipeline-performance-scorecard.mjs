@@ -218,7 +218,7 @@ if (isLocalTarget) {
   });
 }
 await measureJourney("packet_step_change", "tab", async () => {
-  await activate(page.getByRole("button", { name: "2 Required files" }));
+  await activate(page.getByRole("button", { name: "02 Documents" }));
   await page.getByText("Signed Medication List", { exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("new_referral_to_home", "navigation", async () => {

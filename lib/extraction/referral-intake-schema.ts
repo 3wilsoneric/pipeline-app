@@ -742,14 +742,17 @@ export const assessmentPacketExtractionFields: ReadonlyArray<
 ];
 
 const assessmentContextFields = new Set<AssessmentToolFieldKey>([
+  "assessor",
+  "unable_to_assess_reasons",
   "source_file",
   "match_confidence",
   "extraction_date",
 ]);
 
 /**
- * Canonical assessment extraction contract. Process metadata is supplied by
- * the extraction job, so it is intentionally excluded from model targets.
+ * Canonical assessment extraction contract. Assignment is server-owned and
+ * process metadata is supplied by the extraction job, so neither is requested
+ * from the extraction model.
  */
 export const assessmentToolExtractionFields: ReadonlyArray<
   ExtractionFieldDefinition<AssessmentToolFieldKey>
@@ -817,6 +820,7 @@ function assessmentPageClasses(
     legal_conservatorship: ["legal_consent", "risk_safety", "assessment"],
     medication: ["medication_list", "assessment"],
     substance_use: ["assessment", "risk_safety"],
+    physical_health: ["allergies_medical", "assessment"],
     social_support: ["assessment", "demographics", "legal_consent"],
     provenance_qc: ["assessment"],
   };

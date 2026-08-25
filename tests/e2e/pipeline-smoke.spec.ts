@@ -4,6 +4,14 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import {
+  assessmentToolFieldDefinitions,
+  type AssessmentToolData,
+  type AssessmentToolFieldKey,
+} from "../../lib/assessment/assessment-tool-schema";
+import { assessmentInterviewQuestions } from "../../lib/assessment/assessment-interview-schema";
+import type { PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
+
 const clinicalFixture = JSON.parse(
   readFileSync(path.join(process.cwd(), "scripts/fixtures/alamo-pipeline-clinical.sanitized.json"), "utf8"),
 ) as {
@@ -70,6 +78,45 @@ const clientDirectoryFixture = {
     document_count: 0,
   })),
 };
+
+const assessmentServerOwnedFields = new Set<AssessmentToolFieldKey>([
+  "assessor",
+  "unable_to_assess_reasons",
+  "source_file",
+  "match_confidence",
+  "extraction_date",
+]);
+const assessmentYesNoFields = new Set(
+  assessmentInterviewQuestions.filter((question) => question.control === "yes_no").map((question) => question.field),
+);
+
+function completedAssessmentPatch(current: Partial<AssessmentToolData>) {
+  const patch: Partial<AssessmentToolData> = {};
+  for (const definition of assessmentToolFieldDefinitions) {
+    if (!definition.required_for_completion || assessmentServerOwnedFields.has(definition.key)) continue;
+    if (hasAssessmentTestValue(current[definition.key])) continue;
+    patch[definition.key] = assessmentTestValue(definition.key, definition.value_type) as never;
+  }
+  return patch;
+}
+
+function assessmentTestValue(field: AssessmentToolFieldKey, valueType: string) {
+  if (field === "diagnosis_categories") return ["schizophrenia"];
+  if (field === "dress_assistance_level" || field === "bathing_assistance_level") return "independent";
+  if (field === "conservatorship_type") return "non_conserved";
+  if (field === "ambulatory" || field === "linear_conversation" || field === "medication_adherence") return "yes";
+  if (valueType === "date") return "2026-08-25";
+  if (valueType === "integer") return field.endsWith("_rating") ? 3 : 0;
+  if (valueType === "string_list") return ["Recorded"];
+  if (assessmentYesNoFields.has(field)) return "no";
+  return field === "resident_name" ? "Assessment Test Client" : "Recorded in test interview";
+}
+
+function hasAssessmentTestValue(value: AssessmentToolData[AssessmentToolFieldKey] | undefined) {
+  if (Array.isArray(value)) return value.some((item) => item.trim().length > 0);
+  if (typeof value === "string") return value.trim().length > 0;
+  return value !== null && value !== undefined;
+}
 
 test.describe("Referral home and packet canvas", () => {
   test.beforeEach(async ({ page }) => {
@@ -255,21 +302,28 @@ test.describe("Referral home and packet canvas", () => {
     expect(queue.items).toEqual([]);
   });
 
-  test("creates and recalls a chart entered without an imported packet", async ({ page }) => {
-    const clientName = `Manual chart ${randomUUID().slice(0, 8)}`;
+  test("requires an initial document and recalls the saved referral chart", async ({ page }) => {
+    const clientName = `Referral chart ${randomUUID().slice(0, 8)}`;
     await page.getByRole("button", { name: "Create new referral" }).click();
 
-    await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Referral", exact: true })).toBeVisible();
     await expect(page.getByRole("complementary", { name: "Chart completion and documents" })).toBeVisible();
-    await expect(page.getByText("You can create and complete the chart without importing a file.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Upload a face sheet or referral packet to create the referral.", { exact: true })).toBeVisible();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("textbox", { name: "DOB", exact: true }).fill("06/12/1984");
     await page.getByRole("combobox", { name: "County:" }).selectOption("San Pablo");
     await page.getByRole("textbox", { name: "Referent:", exact: true }).fill("San Pablo intake team");
     await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption({ label: "Playwright QA" });
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
-    await page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true }).fill("Manual referral chart created without extraction.");
+    await page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true }).fill("Referral chart created from the initial document.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page.getByRole("button", { name: "Create workspace", exact: true }).click();
+    await expect(page.getByText("Upload the initial face sheet or referral packet before creating this referral.", { exact: true })).toBeVisible();
+    await page.getByTestId("initial-packet-input").setInputFiles({
+      name: "required-face-sheet.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from(`required-face-sheet-${randomUUID()}`),
+    });
     await page.getByRole("button", { name: "Create workspace", exact: true }).click();
 
     await expect(page.getByRole("button", { name: "Save workspace", exact: true })).toBeVisible();
@@ -285,15 +339,15 @@ test.describe("Referral home and packet canvas", () => {
     expect(payload.referrals).toHaveLength(1);
     expect(payload.referrals[0]).toMatchObject({
       id: Number(referralId),
-      documentStatus: "Missing",
-      note: "## Reason for referral\nManual referral chart created without extraction.",
+      documentStatus: "Uploaded",
+      note: "## Reason for referral\nReferral chart created from the initial document.",
     });
-    expect(payload.referrals[0].tags).toEqual(expect.arrayContaining(["manual-entry", "needs-documents"]));
+    expect(payload.referrals[0].tags).toEqual(expect.arrayContaining(["packet-import", "needs-review"]));
 
     await page.reload();
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
-    await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toHaveValue("Manual referral chart created without extraction.");
+    await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toHaveValue("Referral chart created from the initial document.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await expect(page.getByRole("button", { name: /Signed Medication List: missing/i })).toBeVisible();
   });
@@ -314,7 +368,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Create new referral" }).click();
     const packetSteps = page.getByRole("navigation", { name: "Referral workspace steps" });
     const savePacket = page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ });
-    const firstPacketPage = page.getByRole("region", { name: "Chart", exact: true });
+    const firstPacketPage = page.getByRole("region", { name: "Referral", exact: true });
     const [stepsBox, saveBox, firstPageBox] = await Promise.all([
       packetSteps.boundingBox(),
       savePacket.boundingBox(),
@@ -325,8 +379,8 @@ test.describe("Referral home and packet canvas", () => {
       - ((saveBox?.y ?? 0) + (saveBox?.height ?? 0) / 2),
     )).toBeLessThan(1);
 
-    await page.getByRole("button", { name: "2 Required files" }).click();
-    const secondPageBox = await page.getByRole("region", { name: "Required files" }).boundingBox();
+    await page.getByRole("button", { name: "02 Documents" }).click();
+    const secondPageBox = await page.getByRole("region", { name: "Documents" }).boundingBox();
     expect(Math.abs((firstPageBox?.y ?? 0) - (secondPageBox?.y ?? 0))).toBeLessThan(1);
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -878,29 +932,29 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "Summary: Additional context", exact: true })).toHaveValue("Legacy free-text summary.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
-    await page.getByRole("button", { name: "Edit interview", exact: true }).click();
-    const interview = page.getByRole("textbox", { name: "Interview: Additional notes", exact: true });
-    await interview.fill("Recovered synthetic interview draft.");
+    await page.getByRole("button", { name: "Edit summary", exact: true }).click();
+    const summary = page.getByRole("textbox", { name: "Summary: Additional context", exact: true });
+    await summary.fill("Recovered synthetic summary draft.");
     await expect.poll(async () => page.evaluate((referralId) => (
-      window.sessionStorage.getItem(`pipeline-referral-draft:${referralId}`)?.includes("Recovered synthetic interview draft.") ?? false
+      window.sessionStorage.getItem(`pipeline-referral-draft:${referralId}`)?.includes("Recovered synthetic summary draft.") ?? false
     ), created.referral.id)).toBeTruthy();
 
     page.once("dialog", (dialog) => void dialog.accept());
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByRole("region", { name: "Recovered draft" })).toBeVisible();
-    await page.getByRole("button", { name: "Edit interview", exact: true }).click();
-    await expect(page.getByRole("textbox", { name: "Interview: Additional notes", exact: true })).toHaveValue("Recovered synthetic interview draft.");
+    await page.getByRole("button", { name: "Edit summary", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Summary: Additional context", exact: true })).toHaveValue("Recovered synthetic summary draft.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
 
     await expect.poll(async () => {
       const response = await page.request.get(`/api/referrals/${created.referral.id}`);
-      return ((await response.json()) as { referral: { interview?: string } }).referral.interview;
-    }, { timeout: 8_000 }).toBe("## Additional notes\nRecovered synthetic interview draft.");
+      return ((await response.json()) as { referral: { note?: string } }).referral.note;
+    }, { timeout: 8_000 }).toContain("## Additional context\nRecovered synthetic summary draft.");
     await expect(page.getByText(/Autosaved/).first()).toBeVisible();
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Edit interview", exact: true }).click();
-    await expect(page.getByRole("textbox", { name: "Interview: Additional notes", exact: true })).toHaveValue("Recovered synthetic interview draft.");
+    await page.getByRole("button", { name: "Edit summary", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Summary: Additional context", exact: true })).toHaveValue("Recovered synthetic summary draft.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
   });
 
@@ -947,9 +1001,6 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true }).fill("Referral summary for packet review.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
-    await page.getByRole("button", { name: "Edit interview", exact: true }).click();
-    await page.getByRole("textbox", { name: "Interview: Additional notes", exact: true }).fill("Synthetic interview notes.");
-    await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByRole("textbox", { name: "Tags", exact: true }).fill("Urgent Review, county-intake");
     await page.getByRole("button", { name: "yes", exact: true }).click();
 
@@ -960,8 +1011,10 @@ test.describe("Referral home and packet canvas", () => {
     });
     await page.getByLabel("Initial document type").selectOption("face_sheet");
 
-    await page.getByRole("button", { name: "2 Required files" }).click();
-    const medicationButton = page.getByRole("region", { name: "Required files" })
+    await page.getByRole("button", { name: "02 Documents" }).click();
+    const documentsRegion = page.getByRole("region", { name: "Documents" });
+    const medicationButton = documentsRegion
+      .getByRole("region", { name: "Required for admission" })
       .getByRole("button", { name: "Drop document or browse" })
       .first();
     await medicationButton.locator("xpath=..").locator('input[type="file"]').setInputFiles({
@@ -969,8 +1022,8 @@ test.describe("Referral home and packet canvas", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from("synthetic-medication-list"),
     });
-    await page.getByRole("button", { name: "3 Other files" }).click();
-    const providerButton = page.getByRole("region", { name: "Other files" })
+    const providerButton = documentsRegion
+      .getByRole("region", { name: "Assessment and supporting files" })
       .getByRole("button", { name: "Drop document or browse" })
       .first();
     await providerButton.locator("xpath=..").locator('input[type="file"]').setInputFiles({
@@ -978,7 +1031,7 @@ test.describe("Referral home and packet canvas", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from("synthetic-provider-form"),
     });
-    await page.getByRole("button", { name: "1 Chart" }).click();
+    await page.getByRole("button", { name: "01 Referral" }).click();
 
     await expect(page.getByText("face-sheet.pdf", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
@@ -1006,7 +1059,7 @@ test.describe("Referral home and packet canvas", () => {
     await extractionReview.getByRole("button", { name: "Confirm values", exact: true }).click();
     await expect(extractionReview.getByText("Extraction review complete", { exact: true })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
-    await extractionReview.getByRole("button", { name: "Continue to assessment", exact: true }).click();
+    await page.getByRole("button", { name: "03 Assessment" }).click();
     await expect(page.getByRole("region", { name: "Assessment" })).toBeVisible();
     await page.getByRole("button", { name: "Create assessment", exact: true }).click();
     await expect(page.getByRole("button", { name: "Begin", exact: true })).toBeVisible();
@@ -1041,9 +1094,9 @@ test.describe("Referral home and packet canvas", () => {
     };
     expect(referralList.referrals[0]).toMatchObject({
       documentName: "face-sheet.pdf",
-      documentStatus: "Reviewed",
-      packetStatus: "reviewed",
-      stage: "Assessment",
+      documentStatus: "Uploaded",
+      packetStatus: "ready_for_review",
+      stage: "New",
       date: "2026-08-09",
       source: "Synthetic County Access",
       owner: "Playwright QA",
@@ -1054,7 +1107,7 @@ test.describe("Referral home and packet canvas", () => {
       ssn: "000-00-0000",
       admissionDate: "2026-08-20",
       responsiblePerson: "Synthetic Responsible Person",
-      interview: "## Additional notes\nSynthetic interview notes.",
+      interview: "",
       conserved: "yes",
       tags: ["urgent-review", "county-intake"],
     });
@@ -1113,8 +1166,8 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("textbox", { name: "AGE", exact: true })).toHaveValue("74");
     await expect(page.getByRole("textbox", { name: "DOB", exact: true })).toHaveValue("1951-08-15");
     await expect(page.getByRole("textbox", { name: "SSN", exact: true })).toHaveValue("000-00-0000");
-    await page.getByRole("button", { name: "Edit interview", exact: true }).click();
-    await expect(page.getByRole("textbox", { name: "Interview: Additional notes", exact: true })).toHaveValue("Synthetic interview notes.");
+    await page.getByRole("button", { name: "Edit summary", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toHaveValue("Referral summary for packet review.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await expect(page.getByRole("button", { name: "yes", exact: true })).toHaveClass(/bg-\[#111111\]/);
 
@@ -1223,29 +1276,24 @@ test.describe("Referral home and packet canvas", () => {
 
   test("switches packet steps without stacking the sections", async ({ page }) => {
     await page.getByRole("button", { name: "Create new referral" }).click();
-    await expect(page.getByRole("button", { name: "1 Chart" })).toHaveAttribute("aria-current", "page");
-    await page.getByRole("button", { name: "2 Required files" }).click();
-    await expect(page.getByRole("button", { name: "2 Required files" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("heading", { name: "Chart", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "01 Referral" })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("button", { name: "02 Documents" }).click();
+    await expect(page.getByRole("button", { name: "02 Documents" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("region", { name: "Referral", exact: true })).toHaveCount(0);
     await expect(page.getByText("Signed Medication List", { exact: true })).toBeVisible();
     await expect(page.getByText("TB Test-Results", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Drop document or browse" }).first()).toBeVisible();
-
-    await page.getByRole("button", { name: "3 Other files" }).click();
-    await expect(page.getByRole("button", { name: "3 Other files" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("heading", { name: "Required files", exact: true })).toHaveCount(0);
     await expect(page.getByText("Provider Form", { exact: true })).toBeVisible();
     await expect(page.getByText("Face Sheet", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "4 Assessment" }).click();
+    await page.getByRole("button", { name: "03 Assessment" }).click();
     await expect(page.getByText("Save the referral before starting the assessment", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "5 Review" }).click();
-    await expect(page.getByRole("region", { name: "Review" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Unnamed client", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "04 Decision" }).click();
+    await expect(page.getByRole("region", { name: "Decision", exact: true })).toBeVisible();
     await expect(page.getByText("Not entered", { exact: true }).first()).toBeVisible();
     await page.getByRole("button", { name: /Client name Not entered/ }).click();
-    await expect(page.getByRole("button", { name: "1 Chart" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("button", { name: "01 Referral" })).toHaveAttribute("aria-current", "page");
   });
 
   test("creates, imports, reviews, completes, and recalls an assessment", async ({ page }) => {
@@ -1266,11 +1314,9 @@ test.describe("Referral home and packet canvas", () => {
       .getByRole("button", { name: /assessment-referral\.pdf Uploaded/ })).toBeVisible();
     const packetReview = page.getByRole("region", { name: "Extraction review" });
     await expect(packetReview).toBeVisible();
-    await page.getByRole("button", { name: "4 Assessment" }).click();
-    await expect(page.getByRole("region", { name: "Assessment prerequisites" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Start assessment" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Review intake" }).click();
-    await expect(page.getByRole("button", { name: "1 Chart" })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("button", { name: "03 Assessment" }).click();
+    await expect(page.getByRole("button", { name: "Create assessment" })).toBeVisible();
+    await page.getByRole("button", { name: "01 Referral" }).click();
     await packetReview.getByRole("button", { name: "Review fields", exact: true }).click();
     await packetReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ }).click();
     await packetReview.getByRole("button", { name: "Confirm values", exact: true }).click();
@@ -1280,12 +1326,26 @@ test.describe("Referral home and packet canvas", () => {
       await remainingConfirmations.first().click();
     }
     await expect(packetReview.getByText("Extraction review complete", { exact: true })).toBeVisible();
-    await packetReview.getByRole("button", { name: "Continue to assessment", exact: true }).click();
-    await expect(page.getByRole("button", { name: "4 Assessment" })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("button", { name: "03 Assessment" }).click();
+    await expect(page.getByRole("button", { name: "03 Assessment" })).toHaveAttribute("aria-current", "page");
     await page.getByRole("button", { name: "Create assessment" }).click();
     await expect(page.getByRole("region", { name: "Assessment workspace" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Assessment workspace" }).getByText("Playwright QA", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Begin", exact: true }).click();
+    await page.getByRole("tab", { name: /^Function/ }).click();
+    const languageBarrier = page.getByRole("group", { name: "Language barrier", exact: true });
+    await languageBarrier.getByRole("button", { name: "Yes", exact: true }).click();
+    await expect(page.getByLabel(/Language support needed/)).toBeVisible();
+    await page.getByLabel(/Language support needed/).fill("Interpreter requested");
+    await languageBarrier.getByRole("button", { name: "No", exact: true }).click();
+    await expect(page.getByLabel(/Language support needed/)).toHaveCount(0);
+    await languageBarrier.getByRole("button", { name: "Unable to assess", exact: true }).click();
+    const unableReason = page.getByLabel("Why could this not be assessed? *", { exact: true });
+    await expect(unableReason).toBeVisible();
+    await expect(page.getByText("An explanation is required before this assessment can be signed.", { exact: true })).toBeVisible();
+    await unableReason.fill("The client could not participate and no collateral source was available.");
+    await expect(page.getByText("An explanation is required before this assessment can be signed.", { exact: true })).toHaveCount(0);
+    await page.getByRole("tab", { name: /^Client & referral/ }).click();
     await page.getByLabel(/Resident number/).fill(`EM-${randomUUID().slice(0, 8)}`);
     await page.getByLabel(/Date of birth/).fill("1984-06-12");
     await page.getByRole("button", { name: /^Save$/ }).click();
@@ -1301,6 +1361,20 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Confirm 4 values" }).click();
     await expect(page.getByText("Imported values confirmed", { exact: true })).toBeVisible();
 
+    const referralsBeforeSignature = await page.request.get(`/api/referrals?q=${encodeURIComponent(clientName)}`);
+    const referralBeforeSignaturePayload = await referralsBeforeSignature.json() as { referrals: Array<{ id: number }> };
+    const assessmentsBeforeSignature = await page.request.get(`/api/referrals/${referralBeforeSignaturePayload.referrals[0].id}/assessments`);
+    const assessmentsBeforeSignaturePayload = await assessmentsBeforeSignature.json() as { assessments: Array<PipelineAssessmentRecord> };
+    const assessmentBeforeSignature = assessmentsBeforeSignaturePayload.assessments[0];
+    const completeInterview = await page.request.patch(`/api/assessments/${assessmentBeforeSignature.assessment_id}`, {
+      data: {
+        if_match: assessmentBeforeSignature.version,
+        patch: { data: completedAssessmentPatch(assessmentBeforeSignature) },
+      },
+    });
+    expect(completeInterview.status(), await completeInterview.text()).toBe(200);
+    await expect(page.getByRole("button", { name: "Sign assessment", exact: true })).toBeEnabled({ timeout: 6_000 });
+
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.getByText("Assessment signed", { exact: true })).toBeVisible();
@@ -1309,7 +1383,7 @@ test.describe("Referral home and packet canvas", () => {
     const referralPayload = await referrals.json() as { referrals: Array<{ id: number; version: number }> };
     const history = await page.request.get(`/api/referrals/${referralPayload.referrals[0].id}/assessments`);
     expect(history.ok()).toBeTruthy();
-    const historyPayload = await history.json() as { assessments: Array<{ assessment_id: string; status: string; primary_diagnosis: string; medications_at_intake: string[]; version: number; assessor_id: string | null; assessor: string | null; completed_at: string | null; signed_at: string | null; signed_by: { id: string; name: string } | null }> };
+    const historyPayload = await history.json() as { assessments: Array<{ assessment_id: string; status: string; primary_diagnosis: string; medications_at_intake: string[]; unable_to_assess_reasons: Record<string, string>; version: number; assessor_id: string | null; assessor: string | null; completed_at: string | null; signed_at: string | null; signed_by: { id: string; name: string } | null }> };
     expect(historyPayload.assessments[0]).toMatchObject({
       status: "complete",
       primary_diagnosis: "Schizoaffective disorder",
@@ -1318,6 +1392,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(historyPayload.assessments[0].assessor_id).toBeTruthy();
     expect(historyPayload.assessments[0].assessor).toBe("Playwright QA");
     expect(historyPayload.assessments[0].signed_by?.name).toBe("Playwright QA");
+    expect(historyPayload.assessments[0].unable_to_assess_reasons.language_barrier).toBe("The client could not participate and no collateral source was available.");
     const reportMonth = historyPayload.assessments[0].signed_at!.slice(0, 7);
     const operations = await page.request.get(`/api/operations/dashboard?month=${reportMonth}`);
     expect(operations.ok()).toBeTruthy();
@@ -1345,7 +1420,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(workItemPayload.work_items.filter((item) => item.type === "profile_field")).toHaveLength(3);
     expect(workItemPayload.work_items.find((item) => item.type === "tb_test")).toMatchObject({ status: "needed", version: 1 });
 
-    await page.getByRole("button", { name: "5 Review" }).click();
+    await page.getByRole("button", { name: "04 Decision" }).click();
     const activityPanel = page.getByRole("region", { name: "Referral ownership and activity" });
     await expect(activityPanel).toBeVisible();
     await expect(activityPanel.getByText("Ownership and timing", { exact: true })).toBeVisible();

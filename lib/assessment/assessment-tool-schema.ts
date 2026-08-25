@@ -8,12 +8,15 @@ export const assessmentToolSections = [
   "legal_conservatorship",
   "medication",
   "substance_use",
+  "physical_health",
   "social_support",
   "provenance_qc",
 ] as const;
 
 export type AssessmentToolSection = (typeof assessmentToolSections)[number];
-export type AssessmentValueType = "confidence" | "date" | "integer" | "string" | "string_list" | "timestamp";
+export type AssessmentValueType = "confidence" | "date" | "integer" | "reason_map" | "string" | "string_list" | "timestamp";
+
+export type AssessmentUnableReasonMap = Partial<Record<string, string>>;
 
 export type AssessmentToolData = {
   resident_number: string | null;
@@ -22,6 +25,11 @@ export type AssessmentToolData = {
   community: string | null;
   assessment_date: string | null;
   assessor: string | null;
+  referral_received_date: string | null;
+  referrer_name: string | null;
+  referrer_contact: string | null;
+  current_location: string | null;
+  time_at_current_location: string | null;
 
   referring_facility: string | null;
   prior_setting_bucket: string | null;
@@ -37,6 +45,9 @@ export type AssessmentToolData = {
 
   primary_diagnosis: string | null;
   secondary_diagnoses: string[];
+  diagnosis_categories: string[];
+  diagnosis_other_detail: string | null;
+  current_symptoms: string | null;
   acuity_level: string | null;
   cognition_orientation: string | null;
 
@@ -44,6 +55,22 @@ export type AssessmentToolData = {
   prompting_level: string | null;
   mobility: string | null;
   self_care_status: string | null;
+  dress_assistance_level: string | null;
+  dress_assistance_details: string | null;
+  bathing_assistance_level: string | null;
+  bathing_assistance_details: string | null;
+  overall_hygiene_rating: number | null;
+  language_barrier: string | null;
+  language_barrier_details: string | null;
+  linear_conversation: string | null;
+  linear_conversation_details: string | null;
+  peer_interaction_rating: number | null;
+  peer_interaction_notes: string | null;
+  staff_interaction_rating: number | null;
+  staff_interaction_notes: string | null;
+  participates_in_programming: string | null;
+  programming_notes: string | null;
+  ambulatory: string | null;
 
   behavioral_history: string | null;
   triggers: string | null;
@@ -51,6 +78,36 @@ export type AssessmentToolData = {
   elopement_risk: string | null;
   aggression_risk: string | null;
   responds_to_internal_stimuli: string | null;
+  physical_altercations: string | null;
+  physical_altercation_details: string | null;
+  self_harm_history: string | null;
+  last_self_harm_incident: string | null;
+  current_self_harm_ideation: string | null;
+  current_self_harm_details: string | null;
+  current_safety_measures: string | null;
+  assault_history: string | null;
+  last_assault_details: string | null;
+  assaults_last_two_years_count: number | null;
+  elopement_history: string | null;
+  auditory_hallucinations: string | null;
+  auditory_hallucination_nature: string | null;
+  auditory_hallucination_frequency: string | null;
+  auditory_hallucination_triggers: string | null;
+  visual_hallucinations: string | null;
+  visual_hallucination_details: string | null;
+  visual_hallucination_recent: string | null;
+  olfactory_hallucinations: string | null;
+  olfactory_hallucination_details: string | null;
+  olfactory_hallucination_impact: string | null;
+  tactile_hallucinations: string | null;
+  tactile_hallucination_details: string | null;
+  tactile_hallucination_frequency: string | null;
+  gustatory_hallucinations: string | null;
+  gustatory_hallucination_details: string | null;
+  hallucination_coping_strategies: string | null;
+  hallucination_distress_impairment: string | null;
+  hallucination_functional_impact: string | null;
+  hallucination_treatment_history: string | null;
 
   conservatorship_status: string | null;
   conservatorship_type: string | null;
@@ -58,22 +115,72 @@ export type AssessmentToolData = {
   hold_type: string | null;
   court_dates: string | null;
   probation_parole_justice: string | null;
+  forensic_involvement: string | null;
+  forensic_involvement_details: string | null;
+  arrest_history: string | null;
+  most_recent_arrest_date: string | null;
+  most_recent_arrest_charge: string | null;
+  most_recent_arrest_jail_time: string | null;
+  arrest_in_last_two_years: string | null;
+  arrest_last_two_years_details: string | null;
+  total_arrests: number | null;
+  pc290_registration: string | null;
+  arson_history: string | null;
+  diversion_client: string | null;
+  court_requirements: string | null;
 
   medications_at_intake: string[];
   medication_adherence: string | null;
   lai_vs_oral: string | null;
   prn_patterns: string | null;
+  last_medication_refusal_date: string | null;
+  medication_refused: string | null;
+  medication_refusals_30_days: number | null;
+  im_injections: string | null;
 
   substances: string[];
   use_pattern: string | null;
   treatment_history: string | null;
+  substance_abuse_history: string | null;
+  active_substance_use: string | null;
+  last_substance_use_date: string | null;
+  substance_effect_on_baseline: string | null;
+  longest_sobriety_months: number | null;
+  substance_use_insight: string | null;
+  substance_use_insight_details: string | null;
+
+  physical_health_concerns: string | null;
+  physical_health_diagnoses: string | null;
+  physical_health_measures: string | null;
+  diabetic: string | null;
+  diabetic_details: string | null;
+  special_diet: string | null;
+  special_diet_details: string | null;
+  skin_integrity_issue: string | null;
+  skin_integrity_details: string | null;
+  uses_dentures: string | null;
+  uses_hearing_aids: string | null;
+  uses_glasses: string | null;
+  uses_oxygen: string | null;
+  uses_hospital_bed: string | null;
+  uses_cpap: string | null;
+  catheter_care: string | null;
+  colostomy: string | null;
+  ileostomy: string | null;
+  additional_health_notes: string | null;
 
   family_involvement: string | null;
   housing_history: string | null;
   prior_living_situation: string | null;
   benefits_income_status: string | null;
   discharge_planning_goals: string | null;
+  friendships_social_connections: string | null;
+  preferred_facility_characteristics: string | null;
+  placement_preferences_concerns: string | null;
+  additional_information: string | null;
+  placement_process_questions: string | null;
 
+  unable_to_assess_reasons: AssessmentUnableReasonMap;
   source_file: string | null;
   match_confidence: number | null;
   assessment_notes: string | null;
@@ -147,19 +254,24 @@ export type AssessmentValidationIssue = {
 };
 
 export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinition[] = [
-  field("resident_number", "Resident number", "identity", "string", true, ["eldermark.resident_number", "referral.resident_number", "demographics.resident_number"]),
+  field("resident_number", "Resident number", "identity", "string", false, ["eldermark.resident_number", "referral.resident_number", "demographics.resident_number"]),
   field("resident_name", "Resident name", "identity", "string", true, ["referral.full_name", "demographics.full_name", "resident.name"]),
   field("date_of_birth", "Date of birth", "identity", "date", true, ["referral.date_of_birth", "demographics.date_of_birth"]),
   field("community", "Community", "identity", "string", true, ["assessment.community", "resident.community"]),
   field("assessment_date", "Assessment date", "identity", "date", true),
   field("assessor", "Assessor", "identity", "string", true),
+  field("referral_received_date", "Date referral received", "identity", "date", true, ["referral.received_date"]),
+  field("referrer_name", "Referrer", "identity", "string", true, ["referral.referrer_name", "referral.contact_name"]),
+  field("referrer_contact", "Referrer contact", "identity", "string", true, ["referral.referring_phone", "referral.referrer_contact"]),
+  field("current_location", "Current location", "identity", "string", true, ["referral.current_location"]),
+  field("time_at_current_location", "Time at current location", "identity", "string", false),
 
   field("referring_facility", "Referring facility", "prior_placement", "string", false, ["referral.referring_facility"]),
   field("prior_setting_bucket", "Prior setting", "prior_placement", "string", false),
   field("county", "County", "prior_placement", "string", false, ["referral.county"]),
   field("admit_date", "Admit date", "prior_placement", "date", false, ["resident.admit_date"]),
 
-  field("prior_hospitalizations_count", "Prior hospitalizations", "prior_history", "integer", false),
+  field("prior_hospitalizations_count", "Prior hospitalizations", "prior_history", "integer", true),
   field("most_recent_hospitalization", "Most recent hospitalization", "prior_history", "date", false),
   field("prior_5150_5250_holds", "Prior 5150 / 5250 holds", "prior_history", "string", false),
   field("prior_placements", "Prior placements", "prior_history", "string", false),
@@ -168,6 +280,9 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
 
   field("primary_diagnosis", "Primary diagnosis", "diagnosis_clinical", "string", false, ["referral.primary_diagnosis"]),
   field("secondary_diagnoses", "Secondary diagnoses", "diagnosis_clinical", "string_list", false),
+  field("diagnosis_categories", "Diagnosis categories", "diagnosis_clinical", "string_list", true),
+  field("diagnosis_other_detail", "Other diagnosis", "diagnosis_clinical", "string", false),
+  field("current_symptoms", "Current symptoms", "diagnosis_clinical", "string", true),
   field("acuity_level", "Acuity level", "diagnosis_clinical", "string", false),
   field("cognition_orientation", "Cognition / orientation", "diagnosis_clinical", "string", false),
 
@@ -175,6 +290,22 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("prompting_level", "Prompting level", "functional_adl", "string", false),
   field("mobility", "Mobility", "functional_adl", "string", false, ["assessment.mobility"]),
   field("self_care_status", "Self-care status", "functional_adl", "string", false),
+  field("dress_assistance_level", "Ability to dress", "functional_adl", "string", true),
+  field("dress_assistance_details", "Dressing assistance needed", "functional_adl", "string", false),
+  field("bathing_assistance_level", "Ability to bathe", "functional_adl", "string", true),
+  field("bathing_assistance_details", "Bathing assistance needed", "functional_adl", "string", false),
+  field("overall_hygiene_rating", "Overall hygiene", "functional_adl", "integer", true),
+  field("language_barrier", "Language barrier", "functional_adl", "string", true),
+  field("language_barrier_details", "Language support needed", "functional_adl", "string", false),
+  field("linear_conversation", "Can hold a linear conversation", "functional_adl", "string", true),
+  field("linear_conversation_details", "Conversation barriers", "functional_adl", "string", false),
+  field("peer_interaction_rating", "Interaction with peers", "functional_adl", "integer", true),
+  field("peer_interaction_notes", "Peer interaction notes", "functional_adl", "string", false),
+  field("staff_interaction_rating", "Interaction with staff", "functional_adl", "integer", true),
+  field("staff_interaction_notes", "Staff interaction notes", "functional_adl", "string", false),
+  field("participates_in_programming", "Participates in programming", "functional_adl", "string", true),
+  field("programming_notes", "Programming notes", "functional_adl", "string", false),
+  field("ambulatory", "Ambulatory", "functional_adl", "string", true),
 
   field("behavioral_history", "Behavioral history", "behavioral_risk", "string", false, ["assessment.behaviors"]),
   field("triggers", "Triggers", "behavioral_risk", "string", false),
@@ -182,29 +313,109 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("elopement_risk", "Elopement risk", "behavioral_risk", "string", false),
   field("aggression_risk", "Aggression risk", "behavioral_risk", "string", false),
   field("responds_to_internal_stimuli", "Responds to internal stimuli", "behavioral_risk", "string", false),
+  field("physical_altercations", "Physical altercations", "behavioral_risk", "string", true),
+  field("physical_altercation_details", "Physical altercation details", "behavioral_risk", "string", false),
+  field("self_harm_history", "History of self-harm", "behavioral_risk", "string", true),
+  field("last_self_harm_incident", "Last documented self-harm incident", "behavioral_risk", "string", false),
+  field("current_self_harm_ideation", "Current self-harm ideation", "behavioral_risk", "string", true),
+  field("current_self_harm_details", "Current self-harm ideation details", "behavioral_risk", "string", false),
+  field("current_safety_measures", "Current safety measures", "behavioral_risk", "string", false),
+  field("assault_history", "History of assaults", "behavioral_risk", "string", true),
+  field("last_assault_details", "Most recent assault", "behavioral_risk", "string", false),
+  field("assaults_last_two_years_count", "Assaults in the last two years", "behavioral_risk", "integer", false),
+  field("elopement_history", "History of elopement", "behavioral_risk", "string", true),
+  field("auditory_hallucinations", "Auditory hallucinations", "behavioral_risk", "string", true),
+  field("auditory_hallucination_nature", "Nature of auditory hallucinations", "behavioral_risk", "string", false),
+  field("auditory_hallucination_frequency", "Current auditory frequency", "behavioral_risk", "string", false),
+  field("auditory_hallucination_triggers", "Auditory triggers", "behavioral_risk", "string", false),
+  field("visual_hallucinations", "Visual hallucinations", "behavioral_risk", "string", true),
+  field("visual_hallucination_details", "Nature and frequency of visual hallucinations", "behavioral_risk", "string", false),
+  field("visual_hallucination_recent", "Recent visual hallucinations", "behavioral_risk", "string", false),
+  field("olfactory_hallucinations", "Olfactory hallucinations", "behavioral_risk", "string", true),
+  field("olfactory_hallucination_details", "Olfactory hallucination details", "behavioral_risk", "string", false),
+  field("olfactory_hallucination_impact", "Impact of olfactory hallucinations", "behavioral_risk", "string", false),
+  field("tactile_hallucinations", "Tactile hallucinations", "behavioral_risk", "string", true),
+  field("tactile_hallucination_details", "Tactile hallucination details", "behavioral_risk", "string", false),
+  field("tactile_hallucination_frequency", "Tactile hallucination frequency", "behavioral_risk", "string", false),
+  field("gustatory_hallucinations", "Gustatory hallucinations", "behavioral_risk", "string", true),
+  field("gustatory_hallucination_details", "Gustatory hallucination details", "behavioral_risk", "string", false),
+  field("hallucination_coping_strategies", "Hallucination coping strategies", "behavioral_risk", "string", false),
+  field("hallucination_distress_impairment", "Hallucination distress or impairment", "behavioral_risk", "string", false),
+  field("hallucination_functional_impact", "Impact on daily functioning", "behavioral_risk", "string", false),
+  field("hallucination_treatment_history", "Professional discussion and treatment", "behavioral_risk", "string", false),
 
   field("conservatorship_status", "Conservatorship status", "legal_conservatorship", "string", false),
-  field("conservatorship_type", "Conservatorship type", "legal_conservatorship", "string", false),
+  field("conservatorship_type", "Conservatorship type", "legal_conservatorship", "string", true),
   field("conservator_name", "Conservator name", "legal_conservatorship", "string", false),
   field("hold_type", "Hold type", "legal_conservatorship", "string", false),
   field("court_dates", "Court dates", "legal_conservatorship", "string", false),
   field("probation_parole_justice", "Probation / parole / justice", "legal_conservatorship", "string", false),
+  field("forensic_involvement", "Forensic involvement", "legal_conservatorship", "string", true),
+  field("forensic_involvement_details", "Forensic involvement details", "legal_conservatorship", "string", false),
+  field("arrest_history", "History of arrest", "legal_conservatorship", "string", true),
+  field("most_recent_arrest_date", "Most recent arrest date", "legal_conservatorship", "date", false),
+  field("most_recent_arrest_charge", "Most recent arrest charge", "legal_conservatorship", "string", false),
+  field("most_recent_arrest_jail_time", "Time in jail", "legal_conservatorship", "string", false),
+  field("arrest_in_last_two_years", "Arrest in the last two years", "legal_conservatorship", "string", false),
+  field("arrest_last_two_years_details", "Recent arrest details", "legal_conservatorship", "string", false),
+  field("total_arrests", "Total recorded arrests", "legal_conservatorship", "integer", false),
+  field("pc290_registration", "PC 290 registration", "legal_conservatorship", "string", true),
+  field("arson_history", "Arson history", "legal_conservatorship", "string", true),
+  field("diversion_client", "Diversion client", "legal_conservatorship", "string", true),
+  field("court_requirements", "Court requirements", "legal_conservatorship", "string", false),
 
   field("medications_at_intake", "Medications at intake", "medication", "string_list", false, ["referral.current_medications"]),
-  field("medication_adherence", "Medication adherence", "medication", "string", false),
+  field("medication_adherence", "Medication compliant", "medication", "string", true),
   field("lai_vs_oral", "LAI vs oral", "medication", "string", false),
   field("prn_patterns", "PRN patterns", "medication", "string", false),
+  field("last_medication_refusal_date", "Date of last medication refusal", "medication", "date", false),
+  field("medication_refused", "Medication refused", "medication", "string", false),
+  field("medication_refusals_30_days", "Refusals in the last 30 days", "medication", "integer", false),
+  field("im_injections", "IM injections", "medication", "string", true),
 
   field("substances", "Substances", "substance_use", "string_list", false),
   field("use_pattern", "Use pattern", "substance_use", "string", false),
   field("treatment_history", "Treatment history", "substance_use", "string", false),
+  field("substance_abuse_history", "History of substance abuse", "substance_use", "string", true),
+  field("active_substance_use", "Active substance use", "substance_use", "string", true),
+  field("last_substance_use_date", "Last substance use", "substance_use", "date", false),
+  field("substance_effect_on_baseline", "Effect on baseline behavior", "substance_use", "string", false),
+  field("longest_sobriety_months", "Longest sobriety in the last five years", "substance_use", "integer", false),
+  field("substance_use_insight", "Insight into substance use", "substance_use", "string", false),
+  field("substance_use_insight_details", "Substance-use insight details", "substance_use", "string", false),
+
+  field("physical_health_concerns", "Physical health concerns", "physical_health", "string", true),
+  field("physical_health_diagnoses", "Physical health diagnoses", "physical_health", "string", false),
+  field("physical_health_measures", "Current health measures", "physical_health", "string", false),
+  field("diabetic", "Diabetic", "physical_health", "string", true),
+  field("diabetic_details", "Diabetes care details", "physical_health", "string", false),
+  field("special_diet", "Special diet", "physical_health", "string", true),
+  field("special_diet_details", "Dietary restrictions", "physical_health", "string", false),
+  field("skin_integrity_issue", "Skin integrity issue", "physical_health", "string", true),
+  field("skin_integrity_details", "Skin integrity details", "physical_health", "string", false),
+  field("uses_dentures", "Dentures", "physical_health", "string", true),
+  field("uses_hearing_aids", "Hearing aids", "physical_health", "string", true),
+  field("uses_glasses", "Glasses", "physical_health", "string", true),
+  field("uses_oxygen", "Oxygen", "physical_health", "string", true),
+  field("uses_hospital_bed", "Hospital bed", "physical_health", "string", true),
+  field("uses_cpap", "CPAP", "physical_health", "string", true),
+  field("catheter_care", "Catheter care", "physical_health", "string", true),
+  field("colostomy", "Colostomy", "physical_health", "string", true),
+  field("ileostomy", "Ileostomy", "physical_health", "string", true),
+  field("additional_health_notes", "Additional health information", "physical_health", "string", false),
 
   field("family_involvement", "Family involvement", "social_support", "string", false),
   field("housing_history", "Housing history", "social_support", "string", false),
   field("prior_living_situation", "Prior living situation", "social_support", "string", false),
   field("benefits_income_status", "Benefits / income status", "social_support", "string", false),
   field("discharge_planning_goals", "Discharge planning goals", "social_support", "string", false),
+  field("friendships_social_connections", "Friendships and social connections", "social_support", "string", false),
+  field("preferred_facility_characteristics", "Preferred facility characteristics", "social_support", "string", false),
+  field("placement_preferences_concerns", "Placement preferences and concerns", "social_support", "string", false),
+  field("additional_information", "Additional information", "provenance_qc", "string", false),
+  field("placement_process_questions", "Placement questions or concerns", "provenance_qc", "string", false),
 
+  field("unable_to_assess_reasons", "Unable-to-assess explanations", "provenance_qc", "reason_map", false),
   field("source_file", "Source file", "provenance_qc", "string", false),
   field("match_confidence", "Match confidence", "provenance_qc", "confidence", false),
   field("assessment_notes", "Assessment notes", "provenance_qc", "string", false, ["assessment.presenting_needs", "assessment.risk_notes", "assessment.medical_history", "referral.notes"]),
@@ -234,6 +445,11 @@ export function createEmptyAssessmentToolData(): AssessmentToolData {
     community: null,
     assessment_date: null,
     assessor: null,
+    referral_received_date: null,
+    referrer_name: null,
+    referrer_contact: null,
+    current_location: null,
+    time_at_current_location: null,
     referring_facility: null,
     prior_setting_bucket: null,
     county: null,
@@ -246,36 +462,134 @@ export function createEmptyAssessmentToolData(): AssessmentToolData {
     prior_awol_failed_placements: null,
     primary_diagnosis: null,
     secondary_diagnoses: [],
+    diagnosis_categories: [],
+    diagnosis_other_detail: null,
+    current_symptoms: null,
     acuity_level: null,
     cognition_orientation: null,
     adl_needs: null,
     prompting_level: null,
     mobility: null,
     self_care_status: null,
+    dress_assistance_level: null,
+    dress_assistance_details: null,
+    bathing_assistance_level: null,
+    bathing_assistance_details: null,
+    overall_hygiene_rating: null,
+    language_barrier: null,
+    language_barrier_details: null,
+    linear_conversation: null,
+    linear_conversation_details: null,
+    peer_interaction_rating: null,
+    peer_interaction_notes: null,
+    staff_interaction_rating: null,
+    staff_interaction_notes: null,
+    participates_in_programming: null,
+    programming_notes: null,
+    ambulatory: null,
     behavioral_history: null,
     triggers: null,
     si_hi_history: null,
     elopement_risk: null,
     aggression_risk: null,
     responds_to_internal_stimuli: null,
+    physical_altercations: null,
+    physical_altercation_details: null,
+    self_harm_history: null,
+    last_self_harm_incident: null,
+    current_self_harm_ideation: null,
+    current_self_harm_details: null,
+    current_safety_measures: null,
+    assault_history: null,
+    last_assault_details: null,
+    assaults_last_two_years_count: null,
+    elopement_history: null,
+    auditory_hallucinations: null,
+    auditory_hallucination_nature: null,
+    auditory_hallucination_frequency: null,
+    auditory_hallucination_triggers: null,
+    visual_hallucinations: null,
+    visual_hallucination_details: null,
+    visual_hallucination_recent: null,
+    olfactory_hallucinations: null,
+    olfactory_hallucination_details: null,
+    olfactory_hallucination_impact: null,
+    tactile_hallucinations: null,
+    tactile_hallucination_details: null,
+    tactile_hallucination_frequency: null,
+    gustatory_hallucinations: null,
+    gustatory_hallucination_details: null,
+    hallucination_coping_strategies: null,
+    hallucination_distress_impairment: null,
+    hallucination_functional_impact: null,
+    hallucination_treatment_history: null,
     conservatorship_status: null,
     conservatorship_type: null,
     conservator_name: null,
     hold_type: null,
     court_dates: null,
     probation_parole_justice: null,
+    forensic_involvement: null,
+    forensic_involvement_details: null,
+    arrest_history: null,
+    most_recent_arrest_date: null,
+    most_recent_arrest_charge: null,
+    most_recent_arrest_jail_time: null,
+    arrest_in_last_two_years: null,
+    arrest_last_two_years_details: null,
+    total_arrests: null,
+    pc290_registration: null,
+    arson_history: null,
+    diversion_client: null,
+    court_requirements: null,
     medications_at_intake: [],
     medication_adherence: null,
     lai_vs_oral: null,
     prn_patterns: null,
+    last_medication_refusal_date: null,
+    medication_refused: null,
+    medication_refusals_30_days: null,
+    im_injections: null,
     substances: [],
     use_pattern: null,
     treatment_history: null,
+    substance_abuse_history: null,
+    active_substance_use: null,
+    last_substance_use_date: null,
+    substance_effect_on_baseline: null,
+    longest_sobriety_months: null,
+    substance_use_insight: null,
+    substance_use_insight_details: null,
+    physical_health_concerns: null,
+    physical_health_diagnoses: null,
+    physical_health_measures: null,
+    diabetic: null,
+    diabetic_details: null,
+    special_diet: null,
+    special_diet_details: null,
+    skin_integrity_issue: null,
+    skin_integrity_details: null,
+    uses_dentures: null,
+    uses_hearing_aids: null,
+    uses_glasses: null,
+    uses_oxygen: null,
+    uses_hospital_bed: null,
+    uses_cpap: null,
+    catheter_care: null,
+    colostomy: null,
+    ileostomy: null,
+    additional_health_notes: null,
     family_involvement: null,
     housing_history: null,
     prior_living_situation: null,
     benefits_income_status: null,
     discharge_planning_goals: null,
+    friendships_social_connections: null,
+    preferred_facility_characteristics: null,
+    placement_preferences_concerns: null,
+    additional_information: null,
+    placement_process_questions: null,
+    unable_to_assess_reasons: {},
     source_file: null,
     match_confidence: null,
     assessment_notes: null,
@@ -346,7 +660,7 @@ export function mapExtractedAssessmentFields(
         );
       }
     } else {
-      assignAssessmentValue(data, target, parsed.value);
+      assignAssessmentToolValue(data, target, parsed.value);
     }
     appendProvenance(fieldProvenance, target, provenance);
   }
@@ -381,6 +695,12 @@ export function validateAssessmentToolData(value: unknown): AssessmentValidation
     if (definition.value_type === "string_list") {
       if (!Array.isArray(current) || current.length > 200 || current.some((item) => typeof item !== "string" || !item.trim() || item.length > 2000)) {
         issues.push({ field: definition.key, message: `${definition.label} must be a list of non-empty text values.` });
+      }
+      continue;
+    }
+    if (definition.value_type === "reason_map") {
+      if (!isValidUnableReasonMap(current, knownKeys)) {
+        issues.push({ field: definition.key, message: `${definition.label} must contain valid question keys and non-empty explanations.` });
       }
       continue;
     }
@@ -445,7 +765,7 @@ export function pickAssessmentToolData(value: Partial<AssessmentToolData>): Asse
   const data = createEmptyAssessmentToolData();
   for (const definition of assessmentToolFieldDefinitions) {
     const current = value[definition.key];
-    if (current !== undefined) assignAssessmentValue(data, definition.key, current);
+    if (current !== undefined) assignAssessmentToolValue(data, definition.key, current);
   }
   return data;
 }
@@ -487,9 +807,11 @@ function appendProvenance(
   provenance[key] = [...(provenance[key] ?? []), value];
 }
 
-function parseExtractionValue(value: string | null, valueType: AssessmentValueType): { ok: true; value: string | string[] | number | null } | { ok: false } {
+function parseExtractionValue(value: string | null, valueType: AssessmentValueType): { ok: true; value: string | string[] | number | AssessmentUnableReasonMap | null } | { ok: false } {
   if (value === null || !value.trim()) return { ok: true, value: valueType === "string_list" ? [] : null };
   const trimmed = value.trim();
+
+  if (valueType === "reason_map") return { ok: false };
 
   if (valueType === "string_list") {
     if (trimmed.startsWith("[")) {
@@ -519,24 +841,29 @@ function parseExtractionValue(value: string | null, valueType: AssessmentValueTy
   return { ok: true, value: trimmed };
 }
 
-function assignAssessmentValue(
+export function assignAssessmentToolValue(
   data: AssessmentToolData,
   key: AssessmentToolFieldKey,
-  value: string | string[] | number | null,
+  value: AssessmentToolData[AssessmentToolFieldKey],
 ) {
-  if (key === "secondary_diagnoses" || key === "medications_at_intake" || key === "substances") {
-    if (Array.isArray(value)) data[key] = value;
-    return;
+  const definition = definitionByKey.get(key);
+  if (!definition) return;
+  const target = data as unknown as Record<AssessmentToolFieldKey, AssessmentToolData[AssessmentToolFieldKey]>;
+  if (definition.value_type === "string_list") {
+    if (Array.isArray(value)) target[key] = value;
+  } else if (definition.value_type === "reason_map") {
+    if (isRecord(value) && !Array.isArray(value)) {
+      target[key] = Object.fromEntries(
+        Object.entries(value)
+          .filter(([, reason]) => typeof reason === "string" && reason.trim())
+          .map(([fieldKey, reason]) => [fieldKey, String(reason)]),
+      );
+    }
+  } else if (definition.value_type === "integer" || definition.value_type === "confidence") {
+    if (typeof value === "number" || value === null) target[key] = value;
+  } else if (typeof value === "string" || value === null) {
+    target[key] = value;
   }
-  if (key === "prior_hospitalizations_count") {
-    if (typeof value === "number" || value === null) data[key] = value;
-    return;
-  }
-  if (key === "match_confidence") {
-    if (typeof value === "number" || value === null) data[key] = value;
-    return;
-  }
-  if (typeof value === "string" || value === null) data[key] = value;
 }
 
 function appendAssessmentNote(current: string | null, label: string, value: string) {
@@ -547,7 +874,20 @@ function appendAssessmentNote(current: string | null, label: string, value: stri
 function hasAssessmentValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === "string") return value.trim().length > 0;
+  if (isRecord(value)) return Object.keys(value).length > 0;
   return value !== null;
+}
+
+function isValidUnableReasonMap(value: unknown, knownKeys: ReadonlySet<AssessmentToolFieldKey>) {
+  if (!isRecord(value) || Array.isArray(value)) return false;
+  const entries = Object.entries(value);
+  return entries.length <= 100 && entries.every(([key, reason]) => (
+    key !== "unable_to_assess_reasons"
+      && knownKeys.has(key as AssessmentToolFieldKey)
+      && typeof reason === "string"
+      && reason.trim().length > 0
+      && reason.length <= 2000
+  ));
 }
 
 function isIsoDate(value: string) {

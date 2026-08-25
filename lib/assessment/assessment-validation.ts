@@ -7,6 +7,7 @@ import {
   type AssessmentToolFieldKey,
 } from "./assessment-tool-schema";
 import { isAssessmentToolSection } from "./assessment-sections";
+import { assessmentYesNoQuestionFields } from "./assessment-interview-schema";
 import type { AssessmentToolSection } from "./assessment-tool-schema";
 import type {
   AssessmentPatchInput,
@@ -41,6 +42,7 @@ export type AssessmentImportRequest = {
 
 const statuses: readonly AssessmentWorkflowStatus[] = ["draft", "needs_review", "complete"];
 const knownFieldKeys = new Set(assessmentToolFieldDefinitions.map((definition) => definition.key));
+const yesNoFieldKeys = new Set<AssessmentToolFieldKey>(assessmentYesNoQuestionFields);
 const extractionOwnedFields = new Set<AssessmentToolFieldKey>(["assessor", "source_file", "match_confidence", "extraction_date"]);
 
 export function validateAssessmentCreateRequest(value: unknown): AssessmentValidationResult<AssessmentCreateRequest> {
@@ -239,6 +241,13 @@ function validatePartialData(value: Record<string, unknown>): AssessmentValidati
     if (!knownFieldKeys.has(key as AssessmentToolFieldKey)) return invalid(`Unknown assessment field: ${key}.`);
     if (key === "assessor") return invalid("assessor must be assigned from active workspace members.");
     if (extractionOwnedFields.has(key as AssessmentToolFieldKey)) return invalid(`${key} is supplied by the extraction job.`);
+  }
+  if (value.unable_to_assess_reasons !== undefined && isRecord(value.unable_to_assess_reasons)) {
+    for (const field of Object.keys(value.unable_to_assess_reasons)) {
+      if (!yesNoFieldKeys.has(field as AssessmentToolFieldKey)) {
+        return invalid(`Unable-to-assess explanations may only reference yes/no questions: ${field}.`);
+      }
+    }
   }
   const issues = validateAssessmentToolData(value);
   return issues.length > 0

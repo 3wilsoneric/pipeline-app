@@ -69,18 +69,18 @@ test.describe("Responsive and accessible application shell", () => {
     if (compactSteps) {
       await stepSelect.selectOption("2");
     } else {
-      await page.getByRole("button", { name: "2 Required files" }).click();
+      await page.getByRole("button", { name: "02 Documents" }).click();
     }
     await expect(page.getByText("Signed Medication List", { exact: true })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
 
     if (compactSteps) {
-      await stepSelect.selectOption("5");
+      await stepSelect.selectOption("4");
     } else {
-      await page.getByRole("button", { name: "5 Review" }).click();
+      await page.getByRole("button", { name: "04 Decision" }).click();
     }
-    await expect(page.getByRole("region", { name: "Review" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Decision", exact: true })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Referral data completion" })).toHaveAttribute("aria-valuenow");
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);

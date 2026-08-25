@@ -21,6 +21,7 @@ import type { ReferralWorkflowStatus } from "@/lib/pipeline/referral-types";
 
 import {
   assessmentToolFieldDefinitions,
+  assignAssessmentToolValue,
   createEmptyAssessmentToolData,
   mapExtractedAssessmentFields,
   pickAssessmentToolData,
@@ -1984,13 +1985,7 @@ function assignValue(
   key: AssessmentToolFieldKey,
   value: AssessmentToolData[AssessmentToolFieldKey],
 ) {
-  if (key === "secondary_diagnoses" || key === "medications_at_intake" || key === "substances") {
-    if (Array.isArray(value)) data[key] = value;
-  } else if (key === "prior_hospitalizations_count" || key === "match_confidence") {
-    if (typeof value === "number" || value === null) data[key] = value;
-  } else if (typeof value === "string" || value === null) {
-    data[key] = value;
-  }
+  assignAssessmentToolValue(data, key, value);
 }
 
 function sameValue(left: AssessmentToolData[AssessmentToolFieldKey], right: AssessmentToolData[AssessmentToolFieldKey]) {
@@ -2000,11 +1995,13 @@ function sameValue(left: AssessmentToolData[AssessmentToolFieldKey], right: Asse
 function hasValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === "string") return value.trim().length > 0;
+  if (value && typeof value === "object") return Object.keys(value).length > 0;
   return value !== null;
 }
 
 function serializeAssessmentValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
   if (Array.isArray(value)) return JSON.stringify(value);
+  if (value && typeof value === "object") return JSON.stringify(value);
   return value === null ? null : String(value);
 }
 

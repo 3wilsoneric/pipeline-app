@@ -3,6 +3,12 @@ import {
   type AssessmentToolData,
   type AssessmentToolFieldKey,
 } from "./assessment-tool-schema";
+import {
+  assessmentInterviewFieldLabel,
+  getAssessmentUnableReason,
+  getRequiredAssessmentInterviewQuestions,
+  getUnableToAssessQuestions,
+} from "./assessment-interview-schema";
 
 export type AssessmentCompletionRule = {
   key: string;
@@ -11,46 +17,37 @@ export type AssessmentCompletionRule = {
   mode: "all" | "any";
 };
 
-export const assessmentCompletionRules: readonly AssessmentCompletionRule[] = [
-  ...requiredAssessmentToolFields.map((field) => ({
+export const assessmentCompletionRules: readonly AssessmentCompletionRule[] = requiredAssessmentToolFields.map((field) => ({
     key: `field:${field}`,
     label: requiredFieldLabel(field),
     fields: [field],
     mode: "all" as const,
-  })),
-  {
-    key: "clinical_picture",
-    label: "Clinical picture",
-    fields: ["primary_diagnosis", "acuity_level", "cognition_orientation", "assessment_notes"],
-    mode: "any",
-  },
-  {
-    key: "functional_needs",
-    label: "Functional and ADL needs",
-    fields: ["adl_needs", "prompting_level", "mobility", "self_care_status"],
-    mode: "any",
-  },
-  {
-    key: "behavioral_risk",
-    label: "Behavioral and safety risk",
-    fields: ["behavioral_history", "si_hi_history", "elopement_risk", "aggression_risk"],
-    mode: "any",
-  },
-  {
-    key: "medication",
-    label: "Medication at intake",
-    fields: ["medications_at_intake", "medication_adherence", "lai_vs_oral", "prn_patterns"],
-    mode: "any",
-  },
-] as const;
+  }));
 
 export function getAssessmentCompletionSummary(data: AssessmentToolData) {
-  const rules = assessmentCompletionRules.map((rule) => ({
+  const fields = new Set<AssessmentToolFieldKey>([
+    ...requiredAssessmentToolFields,
+    ...getRequiredAssessmentInterviewQuestions(data).map((question) => question.field),
+  ]);
+  const answerRules = [...fields].map((field) => ({
+    key: `field:${field}`,
+    label: requiredFieldLabel(field),
+    fields: [field] as readonly AssessmentToolFieldKey[],
+    mode: "all" as const,
+  })).map((rule) => ({
     ...rule,
     complete: rule.mode === "all"
       ? rule.fields.every((field) => hasAssessmentValue(data[field]))
       : rule.fields.some((field) => hasAssessmentValue(data[field])),
   }));
+  const unableReasonRules = getUnableToAssessQuestions(data).map((question) => ({
+    key: `unable:${question.field}`,
+    label: `${assessmentInterviewFieldLabel(question.field)}: explain why it could not be assessed`,
+    fields: ["unable_to_assess_reasons"] as readonly AssessmentToolFieldKey[],
+    mode: "all" as const,
+    complete: Boolean(getAssessmentUnableReason(data, question.field).trim()),
+  }));
+  const rules = [...answerRules, ...unableReasonRules];
   const complete = rules.filter((rule) => rule.complete).length;
   return {
     complete,
@@ -64,6 +61,7 @@ export function getAssessmentCompletionSummary(data: AssessmentToolData) {
 function hasAssessmentValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
   if (Array.isArray(value)) return value.some((item) => item.trim().length > 0);
   if (typeof value === "string") return value.trim().length > 0;
+  if (value && typeof value === "object") return Object.keys(value).length > 0;
   return value !== null && value !== undefined;
 }
 
@@ -75,5 +73,5 @@ function requiredFieldLabel(field: AssessmentToolFieldKey) {
     community: "Community",
     assessment_date: "Assessment date",
     assessor: "Assessor",
-  } as Partial<Record<AssessmentToolFieldKey, string>>)[field] ?? field;
+  } as Partial<Record<AssessmentToolFieldKey, string>>)[field] ?? assessmentInterviewFieldLabel(field);
 }

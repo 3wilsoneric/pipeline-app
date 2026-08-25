@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type {
@@ -32,86 +31,6 @@ export function DeleteWorkspaceDialog({
           <button type="button" disabled={busy} onClick={onClose} className="h-10 border border-[#c9ceca] px-4 text-[11px] font-black text-[#595959] hover:bg-[#f7faf9]">Cancel</button>
           <button type="button" disabled={busy} onClick={onConfirm} className="h-10 bg-[#a9473d] px-4 text-[11px] font-black text-white hover:bg-[#8d382f] disabled:opacity-50">{busy ? "Moving..." : "Move to trash"}</button>
         </div>
-      </section>
-    </div>,
-    document.body,
-  );
-}
-
-export function ManualIntakeDialog({
-  reason,
-  saving,
-  onReasonChange,
-  onConfirm,
-  onClose,
-}: {
-  reason: string;
-  saving: boolean;
-  onReasonChange: (value: string) => void;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const reasonRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !saving) onClose();
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    window.setTimeout(() => reasonRef.current?.focus(), 0);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [onClose, saving]);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/30 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !saving) onClose();
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="manual-intake-title"
-        className="w-full max-w-[640px] bg-white shadow-[0_24px_70px_rgba(17,17,17,0.2)]"
-      >
-        <header className="flex items-start justify-between gap-5 border-b-2 border-[#111111] px-5 py-5 sm:px-7">
-          <div>
-            <h2 id="manual-intake-title" className="text-[22px] font-black text-[#111111]">Continue with manual chart intake</h2>
-            <p className="mt-2 max-w-[58ch] text-[12px] leading-5 text-[#595959]">
-              This unlocks the assessment without claiming that a packet was uploaded or extracted. Source files stay outstanding until attached.
-            </p>
-          </div>
-          <button type="button" onClick={onClose} disabled={saving} aria-label="Close manual intake" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#c9ceca] text-[#303638] hover:bg-[#f7faf9] disabled:text-[#b3b3b3]">
-            <X size={18} />
-          </button>
-        </header>
-        <div className="px-5 py-5 sm:px-7">
-          <label className="block">
-            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Reason</span>
-            <textarea
-              ref={reasonRef}
-              value={reason}
-              maxLength={1_000}
-              rows={5}
-              onChange={(event) => onReasonChange(event.target.value)}
-              placeholder="For example: referral details were entered from the source system; scanned documents will be attached when received."
-              className="mt-2 w-full resize-y border border-[#c9ceca] p-3 text-[13px] leading-6 outline-none focus:border-[#0f8b73]"
-            />
-          </label>
-          <div className="mt-2 text-right text-[10px] text-[#737373]">{reason.trim().length} / 1,000</div>
-        </div>
-        <footer className="flex items-center justify-end gap-3 border-t border-[#d9d9d9] px-5 py-4 sm:px-7">
-          <button type="button" onClick={onClose} disabled={saving} className="h-10 px-4 text-[11px] font-black uppercase text-[#595959] hover:text-[#111111] disabled:text-[#b3b3b3]">Cancel</button>
-          <button type="button" onClick={onConfirm} disabled={saving || reason.trim().length < 10} className="h-10 bg-[#111111] px-5 text-[11px] font-black uppercase text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8]">
-            {saving ? "Authorizing..." : "Continue to assessment"}
-          </button>
-        </footer>
       </section>
     </div>,
     document.body,

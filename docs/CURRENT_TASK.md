@@ -121,15 +121,16 @@ and changed-file inventory are in
   `409` conflicts for same-section contention. PostgreSQL contention and durable
   per-user workspace-state checks still require a disposable
   `PIPELINE_TEST_DATABASE_URL`; never point those drills at production.
-- Packet review supports an explicit, reversible confirmation step for
-  non-conflicting values at 90% confidence or higher. Lower-confidence,
-  missing, and conflicted values remain individual review work. Owner and
-  community routing use the canonical referral fields directly below the
-  initial packet, before the extraction list.
-- Completing packet review requires a real owner, community, and fully reviewed
-  extraction. It records reviewed document state and advances through the
-  existing versioned transition API into Assessment. Partial extracted names
-  cannot replace a complete client name.
+- New referral creation requires an initial face sheet or referral packet.
+  Extraction is an optional assist: it proposes chart values with reversible
+  confirmation and correction, but it is not a gate in front of assessment.
+  Lower-confidence, missing, and conflicted values remain visible for later
+  review. Partial extracted names cannot replace a complete client name.
+- The workspace has four operator surfaces: Referral, Documents, Assessment,
+  and Decision. The assessment surface is the client interview and governed
+  questionnaire. Starting it requires the canonical assignee, client name,
+  DOB, community, referral source, and initial document; it does not require a
+  separate intake-review ceremony.
 
 ## Scope
 - App Router shell

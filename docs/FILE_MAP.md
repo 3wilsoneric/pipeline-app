@@ -82,8 +82,8 @@
 - `components/pipeline/ClientAssessmentSummary.tsx` - resident-linked assessment coverage and history summary.
 - `components/pipeline/ReferralRequirementsEditor.tsx` - compact versioned requirement completion and recovery editor.
 - `components/pipeline/StructuredNarrativeField.tsx` - structured summary/interview editor extracted from the referral canvas.
-- `components/pipeline/ReferralDecisionEditors.tsx` - focused manual-intake, admission, EHR handoff, and deletion dialogs/editors.
-- `components/pipeline/ReferralReviewPanel.tsx` - final chart completeness, requirements, decision, handoff, and activity surface.
+- `components/pipeline/ReferralDecisionEditors.tsx` - focused admission, EHR handoff, and deletion dialogs/editors.
+- `components/pipeline/ReferralReviewPanel.tsx` - final data-completeness, decision, handoff, and activity surface.
 - `lib/pipeline/referral-review.ts` - pure review-field completeness and section aggregation contract.
 - `components/pipeline/OperationsDashboard.tsx` - canonical requirement queue, workload, flow, and readiness view.
 

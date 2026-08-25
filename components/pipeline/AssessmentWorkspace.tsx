@@ -32,15 +32,25 @@ import type {
 } from "@/lib/assessment/assessment-records";
 import {
   assessmentToolFieldDefinitions,
-  assessmentToolSections,
   createEmptyAssessmentToolData,
-  getAssessmentToolCoverage,
   pickAssessmentToolData,
   type AssessmentToolData,
   type AssessmentToolFieldDefinition,
   type AssessmentToolFieldKey,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
+import {
+  assessmentInterviewFieldLabel,
+  assessmentInterviewSections,
+  getAssessmentUnableReason,
+  getAssessmentInterviewCoverage,
+  getAssessmentInterviewQuestions,
+  getRequiredAssessmentInterviewQuestions,
+  getAssessmentInterviewSnapshot,
+  hasAssessmentInterviewValue,
+  setAssessmentUnableReason,
+  type AssessmentInterviewQuestion,
+} from "@/lib/assessment/assessment-interview-schema";
 import {
   fieldsForAssessmentSection,
   normalizeAssessmentSectionVersions,
@@ -54,19 +64,9 @@ type AssessmentWorkspaceProps = {
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord) => void | Promise<void>;
 };
 
-const sectionLabels: Record<AssessmentToolSection, string> = {
-  identity: "Identity",
-  prior_placement: "Placement",
-  prior_history: "History",
-  diagnosis_clinical: "Clinical",
-  functional_adl: "ADLs",
-  behavioral_risk: "Risk",
-  legal_conservatorship: "Legal",
-  medication: "Medication",
-  substance_use: "Substance use",
-  social_support: "Support",
-  provenance_qc: "Review notes",
-};
+const sectionLabels = Object.fromEntries(
+  assessmentInterviewSections.map((section) => [section.key, section.label]),
+) as Record<AssessmentToolSection, string>;
 
 const extractionOwnedFields = new Set<AssessmentToolFieldKey>([
   "assessor",
@@ -123,12 +123,16 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   const canSupervise = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator"));
   const canEditClinical = Boolean(viewer && selected?.assessor_id === viewer.id);
   const canAddAddendum = Boolean(viewer && (selected?.signed_by?.id === viewer.id || canSupervise));
-  const coverage = useMemo(() => getAssessmentToolCoverage(draft), [draft]);
+  const coverage = useMemo(() => getAssessmentInterviewCoverage(draft), [draft]);
   const completion = useMemo(() => getAssessmentCompletionSummary(draft), [draft]);
   const pendingFields = useMemo(() => getPendingFields(selected), [selected]);
-  const sectionDefinitions = useMemo(
-    () => assessmentToolFieldDefinitions.filter((definition) => definition.section === activeSection && definition.key !== "assessor"),
-    [activeSection],
+  const sectionQuestions = useMemo(() => getAssessmentInterviewQuestions(activeSection, draft), [activeSection, draft]);
+  const sectionDefinition = assessmentInterviewSections.find((section) => section.key === activeSection) ?? assessmentInterviewSections[0];
+  const sectionGroups = useMemo(() => groupAssessmentQuestions(sectionQuestions), [sectionQuestions]);
+  const interviewSnapshot = useMemo(() => getAssessmentInterviewSnapshot(draft), [draft]);
+  const requiredInterviewFields = useMemo(
+    () => new Set(getRequiredAssessmentInterviewQuestions(draft).map((question) => question.field)),
+    [draft],
   );
 
   useEffect(() => {
@@ -805,8 +809,8 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   if (!selected) {
     return (
       <AssessmentEmpty
-        title="No assessment record"
-        detail="Create a record to schedule the assessment, import source values, or begin direct entry. Repeated assessments remain separate history records."
+        title="No assessment yet"
+        detail="Create the assessment to schedule the client interview, import questionnaire answers, or begin direct entry. Repeated assessments remain separate history records."
         action={<button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Create assessment</button>}
         error={error}
       />
@@ -964,22 +968,35 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
         }}
       />
 
+      <div className="border-t border-[#d9dfdb] px-4 py-4">
+        <div className="mb-2 text-[10px] font-black uppercase text-[#666666]">Interview snapshot</div>
+        <div className="grid gap-px overflow-hidden border border-[#d9dfdb] bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          {interviewSnapshot.map((item) => (
+            <button key={item.label} type="button" onClick={() => setActiveSection(item.section)} className="min-h-16 bg-white px-3 py-2 text-left hover:bg-[#f2f8f5]">
+              <span className="block text-[9px] font-black uppercase text-[#737373]">{item.label}</span>
+              <span className={`mt-1 block text-[12px] font-black ${item.value === "Not answered" ? "text-[#9a6115]" : "text-[#111111]"}`}>{item.value}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="border-t border-[#d9dfdb] px-4 py-3">
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11" role="tablist" aria-label="Assessment sections">
-          {assessmentToolSections.map((section) => {
-            const definitions = assessmentToolFieldDefinitions.filter((definition) => definition.section === section);
-            const filled = definitions.filter((definition) => hasValue(draft[definition.key])).length;
-            const active = activeSection === section;
+        <div className="flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label="Assessment sections">
+          {assessmentInterviewSections.map((section) => {
+            const questions = getAssessmentInterviewQuestions(section.key, draft);
+            const filled = questions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length;
+            const active = activeSection === section.key;
             return (
               <button
-                key={section}
+                key={section.key}
                 type="button"
                 role="tab"
                 aria-selected={active}
-                onClick={() => setActiveSection(section)}
-                className={`min-h-10 border px-2 py-2 text-center text-[11px] font-black leading-4 transition-colors ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#686868] hover:bg-[#f4f7f5] hover:text-[#0f8b73]"}`}
+                onClick={() => setActiveSection(section.key)}
+                className={`min-h-11 min-w-[136px] shrink-0 border px-3 py-2 text-left text-[11px] font-black leading-4 transition-colors ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#686868] hover:bg-[#f4f7f5] hover:text-[#0f8b73]"}`}
               >
-                {sectionLabels[section]} <span className="ml-1 font-semibold opacity-70">{filled}/{definitions.length}</span>
+                <span className="block">{section.label}</span>
+                <span className="mt-0.5 block text-[9px] font-semibold opacity-70">{filled} of {questions.length}</span>
               </button>
             );
           })}
@@ -989,21 +1006,42 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
       <div className="border-t border-[#d9dfdb] px-5 py-5">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <h3 className="text-[15px] font-black">{sectionLabels[activeSection]}</h3>
-            <p className="mt-1 text-[11px] text-[#737373]">Missing values remain visible. Changes save to this assessment version.</p>
+            <h3 className="text-[15px] font-black">{sectionDefinition.label}</h3>
+            <p className="mt-1 text-[11px] text-[#737373]">{sectionDefinition.description}</p>
           </div>
-          <span className="text-[11px] font-semibold text-[#737373]">{sectionDefinitions.filter((definition) => hasValue(draft[definition.key])).length} of {sectionDefinitions.length} captured</span>
+          <span className="text-[11px] font-semibold text-[#737373]">{sectionQuestions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length} of {sectionQuestions.length} captured</span>
         </div>
-        <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
-          {sectionDefinitions.map((definition) => (
-            <AssessmentField
-              key={definition.key}
-              definition={definition}
-              value={draft[definition.key]}
-              pending={pendingFields.includes(definition.key)}
-              disabled={Boolean(selected.signed_at) || !selected.started_at || !canEditClinical}
-              onChange={(value) => updateField(definition.key, value)}
-            />
+        <div className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
+          {sectionGroups.map((group) => (
+            <div key={group.label} className="grid gap-4 py-5 lg:grid-cols-[190px_minmax(0,1fr)]">
+              <div>
+                <h4 className="text-[11px] font-black text-[#333333]">{group.label}</h4>
+                <p className="mt-1 text-[10px] leading-4 text-[#8a8a8a]">Answer what is known; conditional follow-ups appear as needed.</p>
+              </div>
+              <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
+                {group.questions.map((question) => {
+                  const definition = assessmentToolFieldDefinitions.find((candidate) => candidate.key === question.field);
+                  if (!definition) return null;
+                  return (
+                    <AssessmentField
+                      key={question.field}
+                      definition={definition}
+                      question={question}
+                      value={draft[question.field]}
+                      unableReason={getAssessmentUnableReason(draft, question.field)}
+                      required={requiredInterviewFields.has(question.field)}
+                      pending={pendingFields.includes(question.field)}
+                      disabled={Boolean(selected.signed_at) || !selected.started_at || !canEditClinical}
+                      onChange={(value) => updateField(question.field, value)}
+                      onUnableReasonChange={(reason) => updateField(
+                        "unable_to_assess_reasons",
+                        setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, question.field, reason),
+                      )}
+                    />
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -1096,55 +1134,126 @@ function AssessmentImport({
 
 function AssessmentField({
   definition,
+  question,
   value,
+  unableReason,
+  required,
   pending,
   disabled,
   onChange,
+  onUnableReasonChange,
 }: {
   definition: AssessmentToolFieldDefinition;
+  question: AssessmentInterviewQuestion;
   value: AssessmentToolData[AssessmentToolFieldKey];
+  unableReason: string;
+  required: boolean;
   pending: boolean;
   disabled: boolean;
   onChange: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
+  onUnableReasonChange: (reason: string) => void;
 }) {
   const id = `assessment-${definition.key}`;
   const readOnly = disabled || extractionOwnedFields.has(definition.key);
   const stringValue = Array.isArray(value) ? value.join("\n") : value === null ? "" : String(value);
-  const multiline = definition.value_type === "string_list" || [
-    "assessment_notes",
-    "behavioral_history",
-    "prior_placements",
-    "adl_needs",
-    "triggers",
-    "housing_history",
-    "discharge_planning_goals",
-  ].includes(definition.key);
+  const options = question.options ?? [];
+  const selectedValues = Array.isArray(value) ? value : [];
+  const extraOptions = selectedValues
+    .filter((selected) => !options.some((option) => option.value === selected))
+    .map((selected) => ({ value: selected, label: selected }));
+  const selectHasCurrentValue = typeof value === "string" && value.length > 0 && !options.some((option) => option.value === value);
 
   return (
-    <div className={multiline ? "md:col-span-2" : ""}>
+    <div className={question.span === "full" ? "md:col-span-2" : ""}>
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-[10px] font-black uppercase text-[#555555]">{definition.label}{definition.required_for_completion ? " *" : ""}</label>
-        {pending ? <span className="bg-[#fff3dc] px-2 py-0.5 text-[9px] font-black uppercase text-[#9a6115]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : <span className="text-[9px] font-semibold uppercase text-[#999999]">Missing</span>}
+        <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{definition.label}{required ? " *" : ""}</label>
+        {pending ? <span className="bg-[#fff3dc] px-2 py-0.5 text-[9px] font-black uppercase text-[#9a6115]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : required ? <span className="text-[9px] font-semibold uppercase text-[#9a6115]">Required</span> : <span className="text-[9px] font-semibold uppercase text-[#999999]">Optional</span>}
       </div>
-      {multiline ? (
+      {question.control === "yes_no" ? (
+        <>
+          <div id={id} className="grid min-h-10 grid-cols-[0.7fr_0.7fr_1.35fr]" role="group" aria-label={definition.label}>
+            {(question.options ?? []).map((option) => {
+              const active = value === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={readOnly}
+                  aria-pressed={active}
+                  onClick={() => {
+                    if (option.value !== "unable_to_assess" && value === "unable_to_assess") onUnableReasonChange("");
+                    onChange(option.value);
+                  }}
+                  className={`border border-r-0 px-2 py-2 text-[10px] font-black leading-4 transition-colors last:border-r ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-[#c9ceca] bg-white text-[#737373] hover:bg-[#f4f7f5]"} disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+          {value === "unable_to_assess" ? (
+            <div className="mt-2 border-l-2 border-[#c9892a] bg-[#fffaf0] px-3 py-2.5">
+              <label htmlFor={`${id}-unable-reason`} className="text-[10px] font-black text-[#70480d]">Why could this not be assessed? *</label>
+              <textarea
+                id={`${id}-unable-reason`}
+                value={unableReason}
+                readOnly={readOnly}
+                required
+                rows={3}
+                maxLength={2000}
+                onChange={(event) => onUnableReasonChange(event.target.value)}
+                placeholder="Record the missing source, unavailable client response, or other reason."
+                className="mt-1.5 w-full resize-y border border-[#d7bd8e] bg-white px-3 py-2 text-[11px] leading-5 outline-none placeholder:text-[#a58b65] focus:border-[#9a6115] read-only:bg-[#f5f1e9]"
+              />
+              {!unableReason.trim() ? <p className="mt-1 text-[9px] font-semibold text-[#9a6115]">An explanation is required before this assessment can be signed.</p> : null}
+            </div>
+          ) : null}
+        </>
+      ) : question.control === "rating" ? (
+        <div id={id} className="grid h-10 grid-cols-5" role="group" aria-label={`${definition.label}, 1 through 5`}>
+          {[1, 2, 3, 4, 5].map((rating) => {
+            const active = value === rating;
+            return <button key={rating} type="button" disabled={readOnly} aria-pressed={active} onClick={() => onChange(rating)} className={`border border-r-0 text-[11px] font-black last:border-r ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-[#c9ceca] bg-white text-[#737373] hover:bg-[#f4f7f5]"} disabled:cursor-not-allowed disabled:opacity-60`}>{rating}</button>;
+          })}
+        </div>
+      ) : question.control === "select" ? (
+        <select id={id} value={stringValue} disabled={readOnly} onChange={(event) => onChange(event.target.value || null)} className="h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73] disabled:bg-[#f4f6f5]">
+          <option value="">Select...</option>
+          {selectHasCurrentValue ? <option value={stringValue}>{stringValue}</option> : null}
+          {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      ) : question.control === "multi_select" ? (
+        <div id={id} className="grid gap-px border border-[#c9ceca] bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label={definition.label}>
+          {[...options, ...extraOptions].map((option) => {
+            const active = selectedValues.includes(option.value);
+            return (
+              <label key={option.value} className={`flex min-h-10 items-center gap-2 bg-white px-3 text-[11px] font-semibold ${readOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-[#f4f7f5]"}`}>
+                <input type="checkbox" checked={active} disabled={readOnly} onChange={() => onChange(active ? selectedValues.filter((item) => item !== option.value) : [...selectedValues, option.value])} className="h-4 w-4 accent-[#0f8b73]" />
+                <span>{option.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      ) : question.control === "textarea" ? (
         <textarea
           id={id}
           value={stringValue}
           readOnly={readOnly}
           rows={definition.value_type === "string_list" ? 3 : 4}
           onChange={(event) => onChange(definition.value_type === "string_list" ? listFromLines(event.target.value) : event.target.value || null)}
-          placeholder={definition.value_type === "string_list" ? "One item per line" : "Enter assessment detail"}
+          placeholder={question.placeholder ?? (definition.value_type === "string_list" ? "One item per line" : "Enter assessment detail")}
           className="w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none placeholder:text-[#a3a3a3] focus:border-[#0f8b73] read-only:bg-[#f4f6f5]"
         />
       ) : (
         <input
           id={id}
-          type={definition.value_type === "date" ? "date" : definition.value_type === "integer" || definition.value_type === "confidence" ? "number" : "text"}
-          min={definition.value_type === "integer" || definition.value_type === "confidence" ? 0 : undefined}
-          max={definition.value_type === "confidence" ? 1 : undefined}
+          type={question.control === "date" ? "date" : question.control === "number" ? "number" : "text"}
+          min={question.min ?? (definition.value_type === "integer" || definition.value_type === "confidence" ? 0 : undefined)}
+          max={question.max ?? (definition.value_type === "confidence" ? 1 : undefined)}
           step={definition.value_type === "confidence" ? 0.01 : definition.value_type === "integer" ? 1 : undefined}
           value={stringValue}
           readOnly={readOnly}
+          placeholder={question.placeholder}
           onChange={(event) => onChange(
             definition.value_type === "integer" || definition.value_type === "confidence"
               ? event.target.value === "" ? null : Number(event.target.value)
@@ -1153,6 +1262,7 @@ function AssessmentField({
           className="h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none placeholder:text-[#a3a3a3] focus:border-[#0f8b73] read-only:bg-[#f4f6f5]"
         />
       )}
+      {question.help ? <p className="mt-1.5 text-[10px] leading-4 text-[#737373]">{question.help}</p> : null}
     </div>
   );
 }
@@ -1228,6 +1338,12 @@ function assessmentDraftStorageKey(assessmentId: string) {
 
 function displayAssessmentValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
   if (Array.isArray(value)) return value.join(", ") || "Empty";
+  if (value && typeof value === "object") {
+    const text = Object.entries(value)
+      .map(([field, reason]) => `${assessmentInterviewFieldLabel(field as AssessmentToolFieldKey)}: ${reason}`)
+      .join("; ");
+    return text.length === 0 ? "Empty" : text.length > 180 ? `${text.slice(0, 177)}...` : text;
+  }
   if (value === null || String(value).trim() === "") return "Empty";
   const text = String(value);
   return text.length > 180 ? `${text.slice(0, 177)}...` : text;
@@ -1239,14 +1355,19 @@ function setAssessmentValue(
   value: AssessmentToolData[AssessmentToolFieldKey],
 ) {
   const next = pickAssessmentToolData(data);
-  if (key === "secondary_diagnoses" || key === "medications_at_intake" || key === "substances") {
-    if (Array.isArray(value)) next[key] = value;
-  } else if (key === "prior_hospitalizations_count" || key === "match_confidence") {
-    if (typeof value === "number" || value === null) next[key] = value;
-  } else if (typeof value === "string" || value === null) {
-    next[key] = value;
-  }
+  const target = next as unknown as Record<AssessmentToolFieldKey, AssessmentToolData[AssessmentToolFieldKey]>;
+  target[key] = Array.isArray(value) ? [...value] : value && typeof value === "object" ? { ...value } : value;
   return next;
+}
+
+function groupAssessmentQuestions(questions: readonly AssessmentInterviewQuestion[]) {
+  const groups: Array<{ label: string; questions: AssessmentInterviewQuestion[] }> = [];
+  for (const question of questions) {
+    const current = groups.at(-1);
+    if (!current || current.label !== question.group) groups.push({ label: question.group, questions: [question] });
+    else current.questions.push(question);
+  }
+  return groups;
 }
 
 function listFromLines(value: string) {
@@ -1256,6 +1377,7 @@ function listFromLines(value: string) {
 function hasValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === "string") return value.trim().length > 0;
+  if (value && typeof value === "object") return Object.keys(value).length > 0;
   return value !== null;
 }
 

@@ -17,7 +17,6 @@ import {
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 export default function ReferralReviewPanel({
-  clientName,
   referral,
   assessmentComplete,
   assessmentId,
@@ -28,7 +27,6 @@ export default function ReferralReviewPanel({
   onOpenStep,
   onDecisionSaved,
 }: {
-  clientName: string;
   referral: Referral | null;
   assessmentComplete: boolean;
   assessmentId?: string;
@@ -44,9 +42,8 @@ export default function ReferralReviewPanel({
   );
 
   return (
-    <section aria-label="Review" className="py-1 sm:px-2 sm:py-2">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d9d9d9] pb-3">
-        <h2 className="text-[18px] font-black text-[#111111]">{clientName.trim() || "Unnamed client"}</h2>
+    <section aria-label="Decision" className="py-1 sm:px-2 sm:py-2">
+      <div className="flex flex-wrap items-center justify-end gap-4 border-b border-[#d9d9d9] pb-3">
         <div className="min-w-[180px]">
           <div className="flex items-baseline justify-between gap-3 text-[11px]">
             <span className="font-black text-[#111111]">{complete} of {total} items present</span>
