@@ -15,7 +15,6 @@ import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { hasInitialDocument, profileIsReady } from "@/lib/pipeline/workflow-status";
 
 export const runtime = "nodejs";
 
@@ -46,13 +45,6 @@ export async function POST(
     if (!canWorkAssessment(auth.user, referral.ownerId)) {
       return jsonError("Only the assigned assessor or a supervisor can import assessment data.", 403);
     }
-    if (!hasInitialDocument(referral) && !referral.manualIntakeAuthorization) {
-      return jsonError("Upload an initial referral document, or record a manual-intake authorization, before importing assessment data.", 422);
-    }
-    if (!profileIsReady(referral)) {
-      return jsonError("Complete the client name, DOB, community, and referral source before importing assessment data.", 422);
-    }
-
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const validated = validateAssessmentImportRequest(body.value);

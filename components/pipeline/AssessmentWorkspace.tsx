@@ -811,8 +811,8 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     return (
       <AssessmentEmpty
         title="No assessment yet"
-        detail="Create the assessment to schedule the client interview, import questionnaire answers, or begin direct entry. Repeated assessments remain separate history records."
-        action={canCreateClinical ? <button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Create assessment</button> : null}
+        detail="Open the questionnaire to review it, import answers, schedule the interview, or enter information directly."
+        action={canCreateClinical ? <button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Open assessment</button> : null}
         error={error}
       />
     );

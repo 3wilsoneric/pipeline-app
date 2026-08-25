@@ -78,7 +78,13 @@ check("signed assessments are immutable and use append-only addenda", assessment
 check("creating or importing an assessment does not start its performance clock", assessmentStore.match(/started_at: null,/g)?.length >= 2 && assessmentStore.includes("started_at: current?.started_at ?? null"));
 check("assessment assignment is preserved while supervisors can cover unassigned work", assessmentAccess.includes("assessmentAssigneeForReferral") && assessmentAccess.includes("referral.ownerId") && assessmentAccess.includes("isAssessmentSupervisor(user)"));
 check("assessment creation and import use one assigned-assessor-or-supervisor rule", assessmentCreateRoute.includes("canWorkAssessment") && assessmentImportRoute.includes("canWorkAssessment") && assessmentCreateRoute.includes("assigned assessor or a supervisor") && assessmentImportRoute.includes("assigned assessor or a supervisor"));
-check("assessment creation and import require initial evidence or audited manual authorization", assessmentCreateRoute.includes("manualIntakeAuthorization") && assessmentImportRoute.includes("manualIntakeAuthorization"));
+check(
+  "assessment drafts remain open when intake evidence or profile fields are incomplete",
+  !assessmentCreateRoute.includes("hasInitialDocument")
+    && !assessmentImportRoute.includes("hasInitialDocument")
+    && !assessmentCreateRoute.includes("profileIsReady")
+    && !assessmentImportRoute.includes("profileIsReady"),
+);
 check("assigned assessors and supervisors can sign", signRoute.includes("canWorkAssessment") && signRoute.includes("assigned assessor or a supervisor"));
 check("assigned assessors and supervisors can edit clinical assessment fields", assessmentRoute.includes("canWorkAssessment") && assessmentRoute.includes("assigned assessor or a supervisor"));
 check("assessment start is explicit, supervisor-capable, and cannot rewrite completed history", startRoute.includes("canWorkAssessment") && startRoute.includes("assigned assessor or a supervisor") && startRoute.includes("A completed assessment cannot be started again"));
