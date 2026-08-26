@@ -29,6 +29,9 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     if (assessment.status === "complete" || assessment.signed_at) {
       return jsonError("A completed assessment cannot be started again.", 422);
     }
+    if (!assessment.scheduled_start_at || !["scheduled", "rescheduled"].includes(assessment.schedule_status ?? "unscheduled")) {
+      return jsonError("Schedule the assessment before beginning the interview.", 422);
+    }
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const command = validateAssessmentLifecycleCommand(body.value);

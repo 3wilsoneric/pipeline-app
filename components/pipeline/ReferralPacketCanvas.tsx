@@ -18,6 +18,7 @@ import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/comm
 import { californiaCountyOptions } from "@/lib/pipeline/workspace-presentation";
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
 import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
+import type { AssessmentListResponse } from "@/lib/assessment/assessment-records";
 import { DeleteWorkspaceDialog } from "@/components/pipeline/ReferralDecisionEditors";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
 import ReferralReviewPanel from "@/components/pipeline/ReferralReviewPanel";
@@ -244,6 +245,9 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
     total: number;
     status: string;
     assessmentId?: string;
+    scheduledStartAt?: string | null;
+    startedAt?: string | null;
+    signedAt?: string | null;
   }>({
     captured: 0,
     total: 52,
@@ -279,6 +283,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
   const isSavingRef = useRef(isSaving);
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
   const handoffReasonRef = useRef("");
+  const assessmentRoutingReferralRef = useRef<number | null>(null);
 
   useEffect(() => {
     loadedReferralRef.current = loadedReferral;
@@ -319,6 +324,42 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
   useEffect(() => {
     ownerPrincipalIdRef.current = ownerPrincipalId;
   }, [ownerPrincipalId]);
+
+  useEffect(() => {
+    const referralId = referral?.id;
+    if (!referralId) {
+      assessmentRoutingReferralRef.current = null;
+      setActivePage(1);
+      return;
+    }
+    if (assessmentRoutingReferralRef.current === referralId) return;
+    assessmentRoutingReferralRef.current = referralId;
+    setActivePage(1);
+    setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
+    let cancelled = false;
+    fetchPipelineJson<AssessmentListResponse>(`/api/referrals/${referralId}/assessments`, { cache: "no-store" })
+      .then((payload) => {
+        if (cancelled) return;
+        const assessment = payload.assessments[0];
+        if (!assessment) return;
+        setAssessmentSummary({
+          captured: 0,
+          total: 52,
+          status: assessment.status,
+          assessmentId: assessment.assessment_id,
+          scheduledStartAt: assessment.scheduled_start_at,
+          startedAt: assessment.started_at,
+          signedAt: assessment.signed_at,
+        });
+        if (!assessment.signed_at && (assessment.scheduled_start_at || assessment.started_at)) setActivePage(2);
+      })
+      .catch(() => {
+        // Intake remains usable if assessment routing cannot be resolved.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [referral?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1760,6 +1801,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
             <PacketPage id="packet-page-2" title="Assessment">
                 <AssessmentWorkspace
                   referralId={loadedReferral?.id ?? referral?.id}
+                  assignedAssessorId={loadedReferral?.ownerId}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onAssessmentSaved={async (assessment) => {
@@ -1848,7 +1890,15 @@ function ChartCompletionRail({
   fieldTotal: number;
   documents: Record<string, string>;
   referral: Referral | null;
-  assessmentSummary: { captured: number; total: number; status: string; assessmentId?: string };
+  assessmentSummary: {
+    captured: number;
+    total: number;
+    status: string;
+    assessmentId?: string;
+    scheduledStartAt?: string | null;
+    startedAt?: string | null;
+    signedAt?: string | null;
+  };
   onOpenStep: (page: WorkspaceView) => void;
 }) {
   const documentItems = [

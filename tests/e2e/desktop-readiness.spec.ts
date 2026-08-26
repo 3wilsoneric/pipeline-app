@@ -269,19 +269,33 @@ test.describe("desktop feature enabled", () => {
     });
     const assessmentPayload = await assessmentResponse.json();
     expect(assessmentResponse.status(), JSON.stringify(assessmentPayload)).toBe(201);
+    const scheduleResponse = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/schedule`, {
+      data: {
+        if_match: assessmentPayload.assessment.version,
+        client_mutation_id: `offline-schedule-${token}`,
+        schedule: {
+          status: "scheduled",
+          start_at: "2026-08-26T16:00:00.000Z",
+          duration_minutes: 60,
+          method: "in_person",
+          location: "San Pablo",
+        },
+      },
+    });
+    const schedulePayload = await scheduleResponse.json();
+    expect(scheduleResponse.ok(), JSON.stringify(schedulePayload)).toBeTruthy();
 
     await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}`);
-    await page.getByRole("button", { name: "02 Assessment" }).click();
     const assessmentDialog = page.getByRole("dialog", { name: "Assessment interview" });
     const openAssessment = page.getByRole("button", { name: "Open assessment", exact: true });
     await expect(assessmentDialog.or(openAssessment)).toBeVisible();
     if (await openAssessment.isVisible()) await openAssessment.click();
     await expect(assessmentDialog).toBeVisible();
-    const setupDialog = page.getByRole("dialog", { name: "Prepare interview" });
-    await expect(setupDialog).toBeVisible();
-    const begin = page.getByRole("button", { name: "Begin interview", exact: true });
+    const beginDialog = page.getByRole("dialog", { name: "Begin assessment" });
+    await expect(beginDialog).toBeVisible();
+    const begin = beginDialog.getByRole("button", { name: "Begin assessment", exact: true });
     await begin.click();
-    await expect(setupDialog).toBeHidden();
+    await expect(beginDialog).toBeHidden();
     const location = page.getByRole("textbox", { name: "Current location *", exact: true });
     await expect(location).toBeVisible();
 

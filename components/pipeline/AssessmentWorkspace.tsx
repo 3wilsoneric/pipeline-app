@@ -6,18 +6,13 @@ import {
   AlertTriangle,
   CalendarClock,
   Check,
-  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Download,
-  FileSpreadsheet,
-  History,
   LoaderCircle,
   Play,
   Plus,
   RefreshCw,
-  UploadCloud,
   X,
 } from "lucide-react";
 
@@ -27,8 +22,6 @@ import {
   PipelineApiError,
   type PipelineCurrentUser,
 } from "@/lib/auth/authenticated-fetch";
-import { parseAssessmentFile } from "@/lib/assessment/assessment-file-parser";
-import { assessmentWorkbookTemplatePath } from "@/lib/assessment/assessment-workbook-contract";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
 import type {
   AssessmentListResponse,
@@ -61,7 +54,6 @@ import {
   normalizeAssessmentSectionVersions,
 } from "@/lib/assessment/assessment-sections";
 import type { EditingPresence } from "@/lib/pipeline/editing-presence";
-import { toPipelinePath } from "@/lib/pipeline/base-path";
 import type { PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
 import { usesServerUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-client";
 import {
@@ -76,8 +68,17 @@ import {
 
 type AssessmentWorkspaceProps = {
   referralId?: number;
+  assignedAssessorId?: string;
   packetEvidenceVersion?: string;
-  onSummaryChange?: (summary: { captured: number; total: number; status: string; assessmentId?: string }) => void;
+  onSummaryChange?: (summary: {
+    captured: number;
+    total: number;
+    status: string;
+    assessmentId?: string;
+    scheduledStartAt?: string | null;
+    startedAt?: string | null;
+    signedAt?: string | null;
+  }) => void;
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord) => void | Promise<void>;
 };
 
@@ -114,7 +115,7 @@ type AssessmentRemoteChange = {
   conflicts: AssessmentFieldConflict[];
 };
 
-export default function AssessmentWorkspace({ referralId, packetEvidenceVersion, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
+export default function AssessmentWorkspace({ referralId, assignedAssessorId, packetEvidenceVersion, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
@@ -126,7 +127,8 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
   const [presence, setPresence] = useState<EditingPresence[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [showInterviewSetup, setShowInterviewSetup] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [showBeginDialog, setShowBeginDialog] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("60");
@@ -138,7 +140,6 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
   const [viewer, setViewer] = useState<PipelineCurrentUser | null>(null);
   const [networkOnline, setNetworkOnline] = useState(true);
   const [pendingOfflineSaves, setPendingOfflineSaves] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<PipelineAssessmentRecord | null>(null);
   const draftRef = useRef<AssessmentToolData>(draft);
   const baseDataRef = useRef<AssessmentToolData>(draft);
@@ -156,6 +157,7 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
   const canSupervise = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator"));
   const canCreateClinical = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator" || role === "reviewer"));
   const canEditClinical = Boolean(viewer && selected && (selected.assessor_id === viewer.id || canSupervise));
+  const canCreateAssignedAssessment = Boolean(viewer && canCreateClinical && (assignedAssessorId === viewer.id || canSupervise));
   const canAddAddendum = Boolean(viewer && (selected?.signed_by?.id === viewer.id || canSupervise));
   const coverage = useMemo(() => getAssessmentInterviewCoverage(draft), [draft]);
   const completion = useMemo(() => getAssessmentCompletionSummary(draft), [draft]);
@@ -380,7 +382,8 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
     setScheduleDuration(String(selected.scheduled_duration_minutes ?? 60));
     setScheduleMethod(selected.scheduled_method ?? "in_person");
     setScheduleLocation(selected.scheduled_location ?? "");
-    setShowInterviewSetup(!selected.started_at && !selected.signed_at);
+    setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
+    setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
     setShowAddendum(false);
     void loadRecoveryDraft(selected, data);
   }, [loadRecoveryDraft, offlinePrincipal, selected]);
@@ -419,16 +422,18 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
     if (!selected?.assessment_id || focusedAssessmentIdRef.current === selected.assessment_id) return;
     focusedAssessmentIdRef.current = selected.assessment_id;
     setIsFocused(true);
-    setShowInterviewSetup(!selected.started_at && !selected.signed_at);
-  }, [selected?.assessment_id, selected?.signed_at, selected?.started_at]);
+    setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
+    setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
+  }, [selected?.assessment_id, selected?.scheduled_start_at, selected?.signed_at, selected?.started_at]);
 
   useEffect(() => {
     if (!isFocused) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (showInterviewSetup) setShowInterviewSetup(false);
-      else setIsFocused(false);
+      if (showBeginDialog) setShowBeginDialog(false);
+      if (showScheduleDialog) setShowScheduleDialog(false);
+      setIsFocused(false);
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
@@ -436,7 +441,7 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isFocused, showInterviewSetup]);
+  }, [isFocused, showBeginDialog, showScheduleDialog]);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -444,8 +449,11 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
       total: coverage.total,
       status: selected?.status ?? "not_started",
       assessmentId: selected?.assessment_id,
+      scheduledStartAt: selected?.scheduled_start_at,
+      startedAt: selected?.started_at,
+      signedAt: selected?.signed_at,
     });
-  }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.status]);
+  }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.scheduled_start_at, selected?.signed_at, selected?.started_at, selected?.status]);
 
   const createAssessmentDraft = async () => {
     if (!referralId) return;
@@ -463,7 +471,8 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
       upsertAssessment(payload.assessment, true);
       setMessage("Assessment draft created");
       setActiveSection("identity");
-      setShowInterviewSetup(true);
+      setShowScheduleDialog(true);
+      setShowBeginDialog(false);
     } catch (createError) {
       setError(messageFor(createError, "The assessment record could not be created."));
       setMessage("");
@@ -492,7 +501,7 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
       upsertAssessment(payload.assessment, true);
       await onAssessmentSaved?.(payload.assessment);
       setMessage("Assessment in progress");
-      setShowInterviewSetup(false);
+      setShowBeginDialog(false);
     } catch (startError) {
       setError(messageFor(startError, "The assessment could not be begun."));
       setMessage("");
@@ -714,53 +723,6 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
     }
   };
 
-  const saveAssessment = async (nextStatus = selectedRef.current?.status ?? "draft", acceptPending = false) => {
-    const initial = selectedRef.current;
-    if (!initial) return;
-    setIsBusy(true);
-    setError("");
-    setMessage(nextStatus === "complete" ? "Checking assessment..." : "Saving assessment...");
-    try {
-      await flushDirtySections();
-      const current = selectedRef.current;
-      if (!current) return;
-      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
-        `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            if_match: current.version,
-            client_mutation_id: mutationId(`assessment-${nextStatus}`),
-            patch: {
-              status: nextStatus,
-              ...(acceptPending ? { accept_pending: true } : {}),
-            },
-          }),
-        },
-      );
-      upsertAssessment(payload.assessment, true);
-      try {
-        await onAssessmentSaved?.(payload.assessment);
-      } catch {
-        setMessage("Assessment saved; workspace refresh will retry automatically");
-        return;
-      }
-      void clearRecoveryDraft(payload.assessment.assessment_id);
-      setMessage(
-        nextStatus === "complete"
-          ? "Assessment completed"
-          : acceptPending
-            ? "Imported values confirmed"
-            : "Assessment saved",
-      );
-    } catch (saveError) {
-      setError(messageFor(saveError, "The assessment could not be saved."));
-      setMessage("");
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
   const signAssessment = async () => {
     setIsBusy(true);
     setError("");
@@ -823,6 +785,8 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
       upsertAssessment(payload.assessment, true);
       await onAssessmentSaved?.(payload.assessment);
       setMessage("Assessment scheduled");
+      setShowScheduleDialog(false);
+      if (!payload.assessment.started_at && !payload.assessment.signed_at) setShowBeginDialog(true);
     } catch (scheduleError) {
       setError(messageFor(scheduleError, "The assessment schedule could not be saved."));
       setMessage("");
@@ -859,59 +823,6 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
       setError(messageFor(addendumError, "The addendum could not be saved."));
       setMessage("");
     } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const importFile = async (file: File | undefined) => {
-    if (!file || !referralId) return;
-    setIsBusy(true);
-    setError("");
-    setMessage("Reading assessment file...");
-    let requestBody = "";
-    try {
-      const parsed = await parseAssessmentFile(file);
-      setMessage(`Mapping ${parsed.fields.length} extracted values...`);
-      requestBody = JSON.stringify({
-        assessment_id: selected?.assessment_id,
-        if_match: selected?.version,
-        fields: parsed.fields,
-        context: {
-          source_file: file.name,
-          extraction_date: new Date().toISOString(),
-          match_confidence: parsed.matchConfidence,
-        },
-        client_mutation_id: mutationId("assessment-import"),
-      });
-      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
-        `/api/referrals/${referralId}/assessments/import`,
-        {
-          method: "POST",
-          body: requestBody,
-        },
-      );
-      upsertAssessment(payload.assessment, true);
-      setMessage("Extracted values are ready for review");
-    } catch (importError) {
-      if (importError instanceof PipelineApiError && importError.status === 0 && offlinePrincipal && requestBody) {
-        await queueOfflineAssessmentMutation(offlinePrincipal, {
-          dedupeKey: `${selected?.assessment_id ?? referralId}:import:${file.name}:${file.size}:${file.lastModified}`,
-          url: `/api/referrals/${referralId}/assessments/import`,
-          method: "POST",
-          body: requestBody,
-          createdAt: new Date().toISOString(),
-        });
-        const queued = await pendingOfflineAssessmentMutations(offlinePrincipal);
-        setPendingOfflineSaves(queued);
-        setNetworkOnline(false);
-        setMessage(`Workbook read · import queued until connection returns`);
-        setError("");
-        return;
-      }
-      setError(messageFor(importError, "The assessment file could not be imported."));
-      setMessage("");
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = "";
       setIsBusy(false);
     }
   };
@@ -1052,9 +963,9 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
   if (!selected) {
     return (
       <AssessmentEmpty
-        title="No assessment yet"
-        detail="Open the questionnaire to review packet evidence beside matching questions, schedule the interview, or enter information directly."
-        action={canCreateClinical ? <button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Open assessment</button> : null}
+        title="Assessment not scheduled"
+        detail="The assigned assessor schedules the interview here. Pipeline will keep the same assessment open through scheduling, interview, review, and signature."
+        action={canCreateAssignedAssessment ? <button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Schedule assessment</button> : null}
         error={error}
       />
     );
@@ -1067,7 +978,11 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
           <div className="flex items-center gap-2"><h2 className="text-[18px] font-black">Assessment</h2><StatusLabel status={selected.status} /></div>
           <p className="mt-2 text-[12px] text-[#737373]">{completion.complete} of {completion.total} required areas complete · {selected.assessor || "Unassigned"}</p>
         </div>
-        <button type="button" onClick={() => { setIsFocused(true); setShowInterviewSetup(!selected.started_at && !selected.signed_at); }} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73]">Open assessment</button>
+        <button type="button" onClick={() => {
+          setIsFocused(true);
+          setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
+          setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
+        }} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73]">Open assessment</button>
       </section>
     );
   }
@@ -1075,7 +990,7 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
   return createPortal(
     <section role="dialog" aria-modal="true" aria-label="Assessment interview" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
       <header className="relative flex min-h-16 shrink-0 items-center gap-3 border-b border-[#d9dfdb] bg-white px-3 py-2 sm:px-5">
-        <button type="button" onClick={() => { setShowInterviewSetup(false); setIsFocused(false); }} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
+        <button type="button" onClick={() => { setShowScheduleDialog(false); setShowBeginDialog(false); setIsFocused(false); }} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
         <div className="min-w-[170px] flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate text-[17px] font-black">{draft.resident_name || "Client"} assessment</h2>
@@ -1087,7 +1002,12 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
           </div>
         </div>
         <span aria-live="polite" className={`hidden max-w-[280px] truncate text-[10px] lg:block ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{error || (!networkOnline ? `Offline${pendingOfflineSaves > 0 ? ` · ${pendingOfflineSaves} queued` : ""}` : pendingOfflineSaves > 0 ? `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync` : dirty ? "Saving changes..." : message || "All changes saved")}</span>
-        <button type="button" onClick={() => setShowInterviewSetup(true)} aria-label="Open interview setup" className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">Interview setup</span></button>
+        {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? (
+          <button type="button" onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button>
+        ) : null}
+        {!selected.signed_at && !selected.started_at && selected.scheduled_start_at && canEditClinical ? (
+          <button type="button" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] sm:px-4"><Play size={13} fill="currentColor" /><span className="hidden sm:inline">Begin assessment</span><span className="sm:hidden">Begin</span></button>
+        ) : null}
         {selected.signed_at ? (
           canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"><Plus size={14} /> Addendum</button> : <span className="text-[11px] font-black text-[#0f6f5e]">Signed</span>
         ) : selected.started_at && canEditClinical ? (
@@ -1280,140 +1200,64 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
         </aside>
       </div>
 
-      {showInterviewSetup ? (
+      {showScheduleDialog ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 p-0 sm:p-5">
-          <section role="dialog" aria-modal="true" aria-label="Prepare interview" className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-[0_24px_80px_rgba(17,17,17,0.24)] sm:h-auto sm:max-h-[calc(100dvh-40px)] sm:max-w-[900px]">
+          <section role="dialog" aria-modal="true" aria-label="Schedule assessment" className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-[0_24px_80px_rgba(17,17,17,0.24)] sm:h-auto sm:max-w-[640px]">
             <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d9dfdb] px-5 py-4 sm:px-7 sm:py-5">
               <div>
-                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Assessment setup</div>
-                <h3 className="mt-1 text-[22px] font-black">{selected.started_at ? "Interview details" : "Prepare interview"}</h3>
-                <p className="mt-1 max-w-[620px] text-[11px] leading-5 text-[#737373]">Choose the assessment record, schedule the interview, and import any prepared answers here. The questionnaire stays clear for the interview itself.</p>
+                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Assigned to {selected.assessor || "Unassigned"}</div>
+                <h3 className="mt-1 text-[22px] font-black">{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</h3>
+                <p className="mt-1 max-w-[520px] text-[11px] leading-5 text-[#737373]">Set the interview time once. It will appear on the assigned assessor calendar and remain attached to this referral.</p>
               </div>
-              <button type="button" onClick={() => setShowInterviewSetup(false)} aria-label="Close interview setup" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
+              <button type="button" onClick={() => { setShowScheduleDialog(false); setIsFocused(false); }} aria-label="Close schedule" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">
-              <section className="border-b border-[#d9dfdb] pb-5">
-                <div className="flex flex-wrap items-end gap-3">
-                  <label className="min-w-[260px] flex-1">
-                    <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Assessment record</span>
-                    <span className="relative mt-1 block">
-                      <History size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#0f8b73]" />
-                      <select aria-label="Assessment history" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white pl-9 pr-9 text-[12px] font-semibold outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]">
-                        {assessments.map((assessment, index) => <option key={assessment.assessment_id} value={assessment.assessment_id}>{formatDate(assessment.assessment_date)} · {assessment.status.replace("_", " ")}{index === 0 ? " · latest" : ""}</option>)}
-                      </select>
-                      <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
-                    </span>
-                  </label>
-                  {canCreateClinical ? <button type="button" onClick={() => void createAssessmentDraft()} disabled={isBusy} className="flex h-11 shrink-0 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-50"><Plus size={15} /> New assessment</button> : null}
-                </div>
-              </section>
-
-              {!selected.signed_at && (canEditClinical || canSupervise) ? (
-                <section className="border-b border-[#d9dfdb] py-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div><h4 className="text-[13px] font-black">Schedule interview</h4><p className="mt-1 text-[10px] leading-4 text-[#737373]">Optional. Saving a time adds it to the assessment calendar.</p></div>
-                    {selected.scheduled_start_at ? <div className="text-[10px] font-semibold text-[#0f6f5d]">Currently {new Date(selected.scheduled_start_at).toLocaleString()}</div> : null}
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(210px,1.2fr)_100px_150px_minmax(180px,1fr)]">
-                    <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Date and time</span><input type="datetime-local" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
-                    <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Minutes</span><input type="number" min={15} max={480} step={15} value={scheduleDuration} onChange={(event) => setScheduleDuration(event.target.value)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
-                    <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Method</span><span className="relative mt-1 block"><select value={scheduleMethod} onChange={(event) => setScheduleMethod(event.target.value as typeof scheduleMethod)} className="h-10 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="in_person">In person</option><option value="video">Video</option><option value="phone">Phone</option><option value="record_review">Record review</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
-                    <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Location or link</span><input value={scheduleLocation} maxLength={500} onChange={(event) => setScheduleLocation(event.target.value)} className="mt-1 h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
-                  </div>
-                  <div className="mt-3 flex justify-end"><button type="button" onClick={() => void saveSchedule()} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="h-9 border border-[#0f8b73] px-4 text-[10px] font-black text-[#0f6f5d] hover:bg-[#e7f3ee] disabled:border-[#c9ceca] disabled:text-[#a0a0a0]">Save schedule</button></div>
-                </section>
-              ) : null}
-
-              <section className="py-5">
-                <div><h4 className="text-[13px] font-black">Bring in prepared answers</h4><p className="mt-1 text-[10px] leading-4 text-[#737373]">Optional. Import the Pipeline workbook, review the extracted values, then continue into the questionnaire.</p></div>
-                <AssessmentImport busy={isBusy || Boolean(selected.signed_at) || !canEditClinical} pendingFields={pendingFields} assessment={selected} inputRef={fileInputRef} onFile={importFile} onConfirm={() => saveAssessment("draft", true)} onOpenField={(field) => { const definition = assessmentToolFieldDefinitions.find((candidate) => candidate.key === field); if (definition) { setActiveSection(definition.section); setShowInterviewSetup(false); } }} />
-              </section>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+              {selected.scheduled_start_at ? <div className="mb-5 border-l-2 border-[#0f8b73] bg-[#f4f8f6] px-4 py-3 text-[11px] text-[#315e50]">Currently scheduled for <strong>{new Date(selected.scheduled_start_at).toLocaleString()}</strong>.</div> : null}
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px]">
+                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Date and time</span><input aria-label="Assessment date and time" type="datetime-local" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
+                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Duration</span><span className="relative mt-1 block"><select aria-label="Assessment duration" value={scheduleDuration} onChange={(event) => setScheduleDuration(event.target.value)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120">2 hours</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Method</span><span className="relative mt-1 block"><select aria-label="Assessment method" value={scheduleMethod} onChange={(event) => setScheduleMethod(event.target.value as typeof scheduleMethod)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="in_person">In person</option><option value="video">Video</option><option value="phone">Phone</option><option value="record_review">Record review</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
+                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Location or link</span><input aria-label="Assessment location or link" value={scheduleLocation} maxLength={500} onChange={(event) => setScheduleLocation(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
+              </div>
+              {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
             </div>
 
-            <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#d9dfdb] bg-[#f8faf9] px-5 py-4 sm:px-7">
-              <div className="text-[10px] text-[#737373]">{selected.started_at ? "Interview in progress · answers save automatically" : "You can preview the questions without starting the interview."}</div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setShowInterviewSetup(false)} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]">{selected.started_at ? "Continue interview" : "Review questions"}</button>
-                {!selected.signed_at && !selected.started_at && selected.status !== "complete" && canEditClinical ? <button type="button" onClick={() => void beginAssessment()} disabled={isBusy} className="flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50"><Play size={13} fill="currentColor" /> Begin interview</button> : null}
-              </div>
+            <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-[#d9dfdb] bg-[#f8faf9] px-5 py-4 sm:px-7">
+              <button type="button" onClick={() => { setShowScheduleDialog(false); setIsFocused(false); }} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]">Back to workspace</button>
+              <button type="button" onClick={() => void saveSchedule()} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="h-10 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : selected.scheduled_start_at ? "Save new time" : "Schedule assessment"}</button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+
+      {showBeginDialog ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 p-4">
+          <section role="dialog" aria-modal="true" aria-label="Begin assessment" className="w-full max-w-[500px] bg-white shadow-[0_24px_80px_rgba(17,17,17,0.24)]">
+            <header className="border-b border-[#d9dfdb] px-6 py-5">
+              <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">{selected.assessor || "Assigned assessor"}</div>
+              <h3 className="mt-1 text-[23px] font-black">Begin assessment</h3>
+              <p className="mt-2 text-[11px] leading-5 text-[#737373]">Starting records the interview start time and unlocks the questionnaire. Every answer saves back to this assessment as you work.</p>
+            </header>
+            <div className="px-6 py-5">
+              <dl className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
+                <BeginAssessmentDetail label="Scheduled" value={selected.scheduled_start_at ? new Date(selected.scheduled_start_at).toLocaleString() : "Not scheduled"} />
+                <BeginAssessmentDetail label="Method" value={formatScheduleMethod(selected.scheduled_method)} />
+                {selected.scheduled_location ? <BeginAssessmentDetail label="Location" value={selected.scheduled_location} /> : null}
+              </dl>
+              {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
+            </div>
+            <footer className="flex items-center justify-end gap-2 border-t border-[#d9dfdb] bg-[#f8faf9] px-6 py-4">
+              <button type="button" onClick={() => { setShowBeginDialog(false); setIsFocused(false); }} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]">Back to workspace</button>
+              <button type="button" onClick={() => void beginAssessment()} disabled={isBusy || !canEditClinical} className="flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-45"><Play size={13} fill="currentColor" /> {isBusy ? "Starting..." : "Begin assessment"}</button>
             </footer>
           </section>
         </div>
       ) : null}
     </section>,
     document.body,
-  );
-}
-
-function AssessmentImport({
-  busy,
-  pendingFields,
-  assessment,
-  inputRef,
-  onFile,
-  onConfirm,
-  onOpenField,
-}: {
-  busy: boolean;
-  pendingFields: AssessmentToolFieldKey[];
-  assessment: PipelineAssessmentRecord;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  onFile: (file: File | undefined) => void;
-  onConfirm: () => void;
-  onOpenField: (field: AssessmentToolFieldKey) => void;
-}) {
-  return (
-    <div className="mt-4 bg-[#fbfdfc] py-4">
-      <div className="grid items-start gap-4 lg:grid-cols-[310px_minmax(0,1fr)]">
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            onFile(event.dataTransfer.files[0]);
-          }}
-          disabled={busy}
-          className="flex min-h-24 items-center gap-4 border border-dashed border-[#8cb9aa] bg-white px-4 text-left hover:border-[#0f8b73] disabled:opacity-50"
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3ee] text-[#0f8b73]"><UploadCloud size={19} /></span>
-          <span>
-            <span className="block text-[12px] font-black">Drop assessment file</span>
-            <span className="mt-1 block text-[10px] leading-4 text-[#737373]">Pipeline XLSX, CSV, TSV, or JSON. Workbook values are read from fixed source cells.</span>
-          </span>
-        </button>
-        <input ref={inputRef} type="file" accept=".csv,.tsv,.json,.xlsx,.xls" className="hidden" aria-label="Upload assessment file" onChange={(event) => onFile(event.target.files?.[0])} />
-
-        <div aria-label="Imported assessment values" className="min-w-0">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-[12px] font-black"><FileSpreadsheet size={15} className="text-[#0f8b73]" /> Imported values</div>
-              <div className="mt-1 text-[10px] text-[#737373]">{assessment.source_file || "No assessment file imported"}</div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <a href={toPipelinePath(assessmentWorkbookTemplatePath)} download className="flex h-9 items-center gap-2 border border-[#a9b8b2] bg-white px-3 text-[11px] font-black text-[#176f5f] hover:border-[#0f8b73]"><Download size={14} /> Excel workbook</a>
-              {pendingFields.length > 0 ? <button type="button" onClick={onConfirm} disabled={busy} className="flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[11px] font-black text-white hover:bg-[#0b6d5b] disabled:opacity-50"><Check size={14} /> Confirm {pendingFields.length} values</button> : null}
-            </div>
-          </div>
-          {pendingFields.length > 0 ? (
-            <div className="mt-3 grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
-              {pendingFields.map((field) => {
-                const definition = assessmentToolFieldDefinitions.find((candidate) => candidate.key === field);
-                return (
-                  <button key={field} type="button" onClick={() => onOpenField(field)} className="flex min-w-0 items-center justify-between gap-2 border-b border-[#d9dfdb] px-2 py-2 text-left hover:bg-white">
-                    <span className="truncate text-[11px] font-semibold">{definition?.label ?? field}</span>
-                    <ChevronRight size={13} className="shrink-0 text-[#0f8b73]" />
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="mt-3 flex items-center gap-2 text-[11px] text-[#737373]"><CheckCircle2 size={14} className="text-[#0f8b73]" /> No imported values are waiting for review.</div>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -1463,7 +1307,7 @@ function AssessmentField({
       {pending && pendingProvenance ? (
         <div className="mb-2 border-l-2 border-[#c9892a] bg-[#fffaf0] px-3 py-2">
           <div className="text-[10px] leading-4 text-[#70480d]">
-            Suggested from <strong>{pendingProvenance.source_file || "the uploaded packet"}</strong>
+            Suggested from <strong>{assessmentEvidenceSource(pendingProvenance)}</strong>
             {assessmentEvidenceLocation(pendingProvenance)}
             {Number.isFinite(pendingProvenance.confidence) ? ` · ${Math.round(pendingProvenance.confidence * 100)}% confidence` : ""}
           </div>
@@ -1579,7 +1423,7 @@ function AssessmentEmpty({ title, detail, action, error }: { title: string; deta
   return (
     <section className="flex min-h-64 items-center justify-center border border-[#d6ddd9] bg-white px-6 py-12 text-center">
       <div className="max-w-lg">
-        <FileSpreadsheet size={25} className="mx-auto text-[#0f8b73]" />
+        <CalendarClock size={25} className="mx-auto text-[#0f8b73]" />
         <h2 className="mt-4 text-[17px] font-black">{title}</h2>
         <p className="mx-auto mt-2 max-w-md text-[12px] leading-5 text-[#737373]">{detail}</p>
         {action ? <div className="mt-5">{action}</div> : null}
@@ -1587,6 +1431,22 @@ function AssessmentEmpty({ title, detail, action, error }: { title: string; deta
       </div>
     </section>
   );
+}
+
+function BeginAssessmentDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-3">
+      <dt className="text-[10px] font-black uppercase tracking-[0.08em] text-[#737373]">{label}</dt>
+      <dd className="max-w-[68%] text-right text-[11px] font-semibold text-[#303638]">{value}</dd>
+    </div>
+  );
+}
+
+function formatScheduleMethod(method: PipelineAssessmentRecord["scheduled_method"]) {
+  if (!method) return "Not recorded";
+  if (method === "in_person") return "In person";
+  if (method === "record_review") return "Record review";
+  return method[0].toUpperCase() + method.slice(1);
 }
 
 function StatusLabel({ status }: { status: PipelineAssessmentRecord["status"] }) {
@@ -1658,15 +1518,15 @@ function displayAssessmentValue(value: AssessmentToolData[AssessmentToolFieldKey
 }
 
 function assessmentEvidenceLocation(provenance: AssessmentFieldProvenance) {
-  const workbookCell = provenance.evidence_url?.match(/^workbook:\/\/([^!]+)!([A-Z]{1,3}[1-9][0-9]*)$/i);
-  if (workbookCell) {
-    try {
-      return `, ${decodeURIComponent(workbookCell[1])} ${workbookCell[2].toUpperCase()}`;
-    } catch {
-      return `, workbook cell ${workbookCell[2].toUpperCase()}`;
-    }
-  }
+  if (provenance.evidence_url?.startsWith("workbook://")) return "";
   return provenance.source_page_no ? `, page ${provenance.source_page_no}` : "";
+}
+
+function assessmentEvidenceSource(provenance: AssessmentFieldProvenance) {
+  if (provenance.evidence_url?.startsWith("workbook://") || /\.(xlsx?|csv|tsv)$/i.test(provenance.source_file ?? "")) {
+    return "existing assessment data";
+  }
+  return provenance.source_file || "the uploaded packet";
 }
 
 function setAssessmentValue(

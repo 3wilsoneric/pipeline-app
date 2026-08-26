@@ -1068,9 +1068,9 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
     await page.getByRole("button", { name: "02 Assessment" }).click();
     await expect(page.getByRole("region", { name: "Assessment" })).toBeVisible();
-    await page.getByRole("button", { name: "Open assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Begin interview", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Schedule assessment" })).toBeVisible();
 
     const referralResponse = await page.request.get(`/api/referrals?q=${encodeURIComponent(clientName)}`);
     expect(referralResponse.ok()).toBeTruthy();
@@ -1313,7 +1313,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "01 Intake" })).toHaveAttribute("aria-current", "page");
   });
 
-  test("creates, imports, reviews, completes, and recalls an assessment", async ({ page }) => {
+  test("schedules, completes, signs, and recalls an assessment", async ({ page }) => {
     const clientName = `Assessment ${randomUUID().slice(0, 8)}`;
     await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
@@ -1333,7 +1333,7 @@ test.describe("Referral home and packet canvas", () => {
     const packetReview = page.getByRole("region", { name: "Extraction review" });
     await expect(packetReview).toBeVisible();
     await page.getByRole("button", { name: "02 Assessment" }).click();
-    await expect(page.getByRole("button", { name: "Open assessment" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Schedule assessment" })).toBeVisible();
     await page.getByRole("button", { name: "01 Intake" }).click();
     await packetReview.getByRole("button", { name: "Review fields", exact: true }).click();
     const bulkPacketConfirm = packetReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ });
@@ -1349,11 +1349,17 @@ test.describe("Referral home and packet canvas", () => {
     await expect(packetReview.getByText("Extraction review complete", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "02 Assessment" }).click();
     await expect(page.getByRole("button", { name: "02 Assessment" })).toHaveAttribute("aria-current", "page");
-    await page.getByRole("button", { name: "Open assessment" }).click();
+    await page.getByRole("button", { name: "Schedule assessment" }).click();
     const assessmentInterview = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(assessmentInterview).toBeVisible();
     await expect(assessmentInterview.getByText("Playwright QA", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Begin interview", exact: true }).click();
+    const scheduleDialog = page.getByRole("dialog", { name: "Schedule assessment" });
+    await scheduleDialog.getByLabel("Assessment date and time").fill("2026-08-26T09:00");
+    await scheduleDialog.getByLabel("Assessment location or link").fill("San Pablo interview room");
+    await scheduleDialog.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    const beginDialog = page.getByRole("dialog", { name: "Begin assessment" });
+    await expect(beginDialog).toBeVisible();
+    await beginDialog.getByRole("button", { name: "Begin assessment", exact: true }).click();
     await page.getByRole("button", { name: /^Function/ }).click();
     const languageBarrier = page.getByRole("group", { name: "Language barrier", exact: true });
     await languageBarrier.getByRole("button", { name: "Yes", exact: true }).click();
@@ -1372,17 +1378,6 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByLabel(/Date of birth/).fill("1984-06-12");
     await expect(page.getByText("All changes saved", { exact: true })).toBeVisible({ timeout: 8_000 });
 
-    await page.getByRole("button", { name: "Import assessment answers", exact: true }).click();
-    await page.getByLabel("Upload assessment file").setInputFiles({
-      name: "assessment.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from("primary_diagnosis,adl_needs,elopement_risk,medication_adherence\nSchizoaffective disorder,Needs reminders,Low,Consistent with support\n"),
-    });
-    await expect(page.getByText("Extracted values are ready for review", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Confirm 4 values" })).toBeVisible();
-    await page.getByRole("button", { name: "Confirm 4 values" }).click();
-    await expect(page.getByText("Imported values confirmed", { exact: true })).toBeVisible();
-
     const referralsBeforeSignature = await page.request.get(`/api/referrals?q=${encodeURIComponent(clientName)}`);
     const referralBeforeSignaturePayload = await referralsBeforeSignature.json() as { referrals: Array<{ id: number }> };
     const assessmentsBeforeSignature = await page.request.get(`/api/referrals/${referralBeforeSignaturePayload.referrals[0].id}/assessments`);
@@ -1391,7 +1386,12 @@ test.describe("Referral home and packet canvas", () => {
     const completeInterview = await page.request.patch(`/api/assessments/${assessmentBeforeSignature.assessment_id}`, {
       data: {
         if_match: assessmentBeforeSignature.version,
-        patch: { data: completedAssessmentPatch(assessmentBeforeSignature) },
+        patch: {
+          data: {
+            ...completedAssessmentPatch(assessmentBeforeSignature),
+            primary_diagnosis: "Schizoaffective disorder",
+          },
+        },
       },
     });
     expect(completeInterview.status(), await completeInterview.text()).toBe(200);
@@ -1564,9 +1564,24 @@ test.describe("Referral home and packet canvas", () => {
     });
     const assessmentPayload = await assessmentCreate.json();
     expect(assessmentCreate.status(), JSON.stringify(assessmentPayload)).toBe(201);
-    const startedAssessment = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/start`, {
+    const scheduledAssessment = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/schedule`, {
       data: {
         if_match: assessmentPayload.assessment.version,
+        client_mutation_id: `ehr-schedule-${randomUUID()}`,
+        schedule: {
+          status: "scheduled",
+          start_at: "2026-08-26T16:00:00.000Z",
+          duration_minutes: 60,
+          method: "in_person",
+          location: "San Pablo",
+        },
+      },
+    });
+    const scheduledAssessmentPayload = await scheduledAssessment.json();
+    expect(scheduledAssessment.ok(), JSON.stringify(scheduledAssessmentPayload)).toBeTruthy();
+    const startedAssessment = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/start`, {
+      data: {
+        if_match: scheduledAssessmentPayload.assessment.version,
         client_mutation_id: `ehr-start-${randomUUID()}`,
       },
     });
@@ -1770,9 +1785,24 @@ test.describe("Referral home and packet canvas", () => {
     });
     const assessmentPayload = await assessmentCreate.json();
     expect(assessmentCreate.status(), JSON.stringify(assessmentPayload)).toBe(201);
-    const start = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/start`, {
+    const schedule = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/schedule`, {
       data: {
         if_match: assessmentPayload.assessment.version,
+        client_mutation_id: `decline-schedule-${randomUUID()}`,
+        schedule: {
+          status: "scheduled",
+          start_at: "2026-08-26T16:00:00.000Z",
+          duration_minutes: 60,
+          method: "in_person",
+          location: "San Pablo",
+        },
+      },
+    });
+    const schedulePayload = await schedule.json();
+    expect(schedule.ok(), JSON.stringify(schedulePayload)).toBeTruthy();
+    const start = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/start`, {
+      data: {
+        if_match: schedulePayload.assessment.version,
         client_mutation_id: `decline-start-${randomUUID()}`,
       },
     });
