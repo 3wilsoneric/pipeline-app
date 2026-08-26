@@ -12,6 +12,8 @@ type DraftResponse = {
   version?: unknown;
 };
 
+export type ReferralRecoveryDraftKey = number | `new-${string}` | undefined;
+
 const versions = new Map<string, number>();
 const saveQueues = new Map<string, Promise<void>>();
 
@@ -19,20 +21,20 @@ export function usesServerReferralDrafts() {
   return usesServerUserWorkspaceState();
 }
 
-export async function loadServerReferralDraft(referralId?: number) {
-  const key = draftKey(referralId);
-  const payload = await fetchPipelineJson<DraftResponse>(`/api/me/referral-drafts/${key}`, { cache: "no-store" });
+export async function loadServerReferralDraft(draftReference?: ReferralRecoveryDraftKey) {
+  const key = draftKey(draftReference);
+  const payload = await fetchPipelineJson<DraftResponse>(`/api/me/referral-drafts/${encodeURIComponent(key)}`, { cache: "no-store" });
   const version = Number.isSafeInteger(payload.version) && Number(payload.version) >= 0 ? Number(payload.version) : 0;
   versions.set(key, version);
   if (!payload.draft) return null;
   return parsePipelineReferralDraft(payload.draft);
 }
 
-export function saveServerReferralDraft(referralId: number | undefined, draft: PipelineReferralDraft) {
-  const key = draftKey(referralId);
+export function saveServerReferralDraft(draftReference: ReferralRecoveryDraftKey, draft: PipelineReferralDraft) {
+  const key = draftKey(draftReference);
   const previous = saveQueues.get(key) ?? Promise.resolve();
   const next = previous.catch(() => undefined).then(async () => {
-    const payload = await fetchPipelineJson<DraftResponse>(`/api/me/referral-drafts/${key}`, {
+    const payload = await fetchPipelineJson<DraftResponse>(`/api/me/referral-drafts/${encodeURIComponent(key)}`, {
       method: "PUT",
       body: JSON.stringify({ if_match: versions.get(key) ?? 0, draft }),
     }, { maxResponseBytes: 512 * 1024 });
@@ -46,11 +48,11 @@ export function saveServerReferralDraft(referralId: number | undefined, draft: P
   return next;
 }
 
-export function clearServerReferralDraft(referralId?: number) {
-  const key = draftKey(referralId);
+export function clearServerReferralDraft(draftReference?: ReferralRecoveryDraftKey) {
+  const key = draftKey(draftReference);
   const previous = saveQueues.get(key) ?? Promise.resolve();
   const next = previous.catch(() => undefined).then(async () => {
-    await fetchPipelineJson(`/api/me/referral-drafts/${key}`, {
+    await fetchPipelineJson(`/api/me/referral-drafts/${encodeURIComponent(key)}`, {
       method: "DELETE",
       body: JSON.stringify({ if_match: versions.get(key) ?? 0 }),
     });
@@ -63,6 +65,12 @@ export function clearServerReferralDraft(referralId?: number) {
   return next;
 }
 
-function draftKey(referralId?: number) {
-  return referralId ? String(referralId) : "new";
+function draftKey(draftReference?: ReferralRecoveryDraftKey) {
+  if (typeof draftReference === "number" && Number.isSafeInteger(draftReference) && draftReference > 0) {
+    return String(draftReference);
+  }
+  if (typeof draftReference === "string" && /^new-[0-9a-f-]{36}$/i.test(draftReference)) {
+    return draftReference;
+  }
+  return "new";
 }

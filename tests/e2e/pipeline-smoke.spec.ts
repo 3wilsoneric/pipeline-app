@@ -354,6 +354,54 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: /Signed Medication List: missing/i })).toBeVisible();
   });
 
+  test("starts a clean intake every time New referral is explicitly opened", async ({ page }) => {
+    const existingName = `Existing ${randomUUID().slice(0, 8)}`;
+    const createdResponse = await page.request.post("/api/referrals", {
+      data: {
+        client_mutation_id: `new-intake-reset-${randomUUID()}`,
+        referral: {
+          name: existingName,
+          date: "2026-08-26",
+          stage: "New",
+          community: "San Pablo",
+          source: "New intake reset test",
+          priority: "standard",
+          tags: [],
+          documentName: "",
+          documentStatus: "Missing",
+          owner: "Playwright QA",
+          note: "",
+          createdAt: new Date().toISOString(),
+          dob: "",
+          phone: "",
+          email: "",
+          payer: "",
+          requirements: [],
+        },
+      },
+    });
+    expect(createdResponse.ok()).toBeTruthy();
+    const created = await createdResponse.json() as { referral: { id: number } };
+
+    await page.goto(`/?view=referrals&screen=packet&referralId=${created.referral.id}`);
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(existingName);
+
+    await page.getByRole("button", { name: "Create new referral", exact: true }).click();
+    await expect(page).toHaveURL(/screen=packet.*draftId=/);
+    expect(new URL(page.url()).searchParams.get("referralId")).toBeNull();
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("");
+
+    await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Abandoned unsaved intake");
+    await page.waitForTimeout(500);
+    const firstDraftId = new URL(page.url()).searchParams.get("draftId");
+    await page.getByRole("button", { name: "Open client profiles", exact: true }).click();
+    await page.getByRole("button", { name: "Create new referral", exact: true }).click();
+    const secondDraftId = new URL(page.url()).searchParams.get("draftId");
+    expect(secondDraftId).toBeTruthy();
+    expect(secondDraftId).not.toBe(firstDraftId);
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue("");
+  });
+
   test("keeps work surfaces anchored while navigating and compacts referral facets on mobile", async ({ page }) => {
     const header = page.locator("header");
     await expect(header).toHaveCSS("height", "82px");

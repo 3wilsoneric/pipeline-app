@@ -40,6 +40,7 @@ import {
   clearServerReferralDraft,
   loadServerReferralDraft,
   saveServerReferralDraft,
+  type ReferralRecoveryDraftKey,
   usesServerReferralDrafts,
 } from "@/lib/pipeline/referral-draft-recovery";
 import {
@@ -98,6 +99,7 @@ type ReferralPacketCanvasProps = {
     name?: string;
     community?: string;
   };
+  newDraftKey?: `new-${string}`;
   onReferralSaved?: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onReferralDeleted?: () => void;
 };
@@ -219,7 +221,7 @@ const attachments: Requirement[] = [
   { id: "face-sheet", label: "Face Sheet", type: "face_sheet" },
 ];
 
-export default function ReferralPacketCanvas({ referral, onReferralSaved, onReferralDeleted }: ReferralPacketCanvasProps = {}) {
+export default function ReferralPacketCanvas({ referral, newDraftKey, onReferralSaved, onReferralDeleted }: ReferralPacketCanvasProps = {}) {
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
     name: { ...initialFields.name, value: referral?.name ?? "" },
@@ -414,19 +416,19 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
         initialPacketCategory,
       };
       if (usesServerReferralDrafts()) {
-        void saveServerReferralDraft(referral?.id ?? loadedReferral?.id, draft).catch(() => {
+        void saveServerReferralDraft(referral?.id ?? loadedReferral?.id ?? newDraftKey, draft).catch(() => {
           setSaveError("Could not save the recovery draft. Save the referral before leaving this page.");
         });
         return;
       }
       try {
-        window.sessionStorage.setItem(canvasDraftStorageKey(referral?.id ?? loadedReferral?.id), JSON.stringify(draft));
+        window.sessionStorage.setItem(canvasDraftStorageKey(referral?.id ?? loadedReferral?.id ?? newDraftKey), JSON.stringify(draft));
       } catch {
         setSaveError("This browser could not keep a refresh-recovery draft. Save before leaving this page.");
       }
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [conserved, dirtyKeys, documents, fields, initialPacket, initialPacketCategory, isSaving, loadedReferral, pendingDocuments, referral?.id, tagsInput]);
+  }, [conserved, dirtyKeys, documents, fields, initialPacket, initialPacketCategory, isSaving, loadedReferral, newDraftKey, pendingDocuments, referral?.id, tagsInput]);
 
   useEffect(() => {
     if (dirtyKeys.size === 0) return;
@@ -469,7 +471,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
       };
       if (usesServerReferralDrafts()) {
         setDraftRecoveryLoading(true);
-        void loadServerReferralDraft(undefined).then((draft) => {
+        void loadServerReferralDraft(newDraftKey).then((draft) => {
           if (cancelled) return;
           const recovered = draft ? applyRecoveryDraft(draft, setters) : null;
           setSavedAt(recovered ? "Recovered unsaved changes" : "Begin with the chart or import documents");
@@ -480,7 +482,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
         });
       } else {
         setDraftRecoveryLoading(false);
-        const recovered = restoreSessionDraft(undefined, setters);
+        const recovered = restoreSessionDraft(newDraftKey, setters);
         setSavedAt(recovered ? "Recovered unsaved changes" : "Begin with the chart or import documents");
       }
       return () => {
@@ -566,7 +568,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
     return () => {
       cancelled = true;
     };
-  }, [referral?.id]);
+  }, [newDraftKey, referral?.id]);
 
   useEffect(() => {
     const extractedFields = loadedReferral?.packetFields;
@@ -1070,7 +1072,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
 
       setDirtyKeys(new Set());
       setPendingDocuments({});
-      if (!referralId) await clearSessionDraft();
+      if (!referralId) await clearSessionDraft(newDraftKey);
       await clearSessionDraft(savedReferral.id);
       onReferralSaved?.({ id: savedReferral.id, name: savedReferral.name, community: savedReferral.community });
       setRecoveredDraftAt("");
@@ -1313,7 +1315,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
     setRemoteChange(null);
     setRecoveredDraftAt("");
     setRecoveredPacketName("");
-    void clearSessionDraft(current?.id ?? referral?.id);
+    void clearSessionDraft(current?.id ?? referral?.id ?? newDraftKey);
     setSavedAt(current ? "Saved record restored" : "Draft cleared");
   };
 
@@ -2384,15 +2386,15 @@ type DraftRestoreSetters = {
   setRecoveredPacketName: Dispatch<SetStateAction<string>>;
 };
 
-function restoreSessionDraft(referralId: number | undefined, setters: DraftRestoreSetters) {
+function restoreSessionDraft(draftReference: ReferralRecoveryDraftKey, setters: DraftRestoreSetters) {
   let draft: CanvasSessionDraft | null = null;
   try {
-    const raw = window.sessionStorage.getItem(canvasDraftStorageKey(referralId));
+    const raw = window.sessionStorage.getItem(canvasDraftStorageKey(draftReference));
     if (!raw) return null;
     draft = parsePipelineReferralDraft(JSON.parse(raw));
     if (!draft) return null;
   } catch {
-    void clearSessionDraft(referralId);
+    void clearSessionDraft(draftReference);
     return null;
   }
 
@@ -2481,17 +2483,17 @@ function conservedLabel(value: Referral["conserved"]) {
   return value === "yes" ? "Yes" : value === "no" ? "No" : "Not entered";
 }
 
-function canvasDraftStorageKey(referralId?: number) {
-  return `pipeline-referral-draft:${referralId ?? "new"}`;
+function canvasDraftStorageKey(draftReference?: ReferralRecoveryDraftKey) {
+  return `pipeline-referral-draft:${draftReference ?? "new"}`;
 }
 
-async function clearSessionDraft(referralId?: number) {
+async function clearSessionDraft(draftReference?: ReferralRecoveryDraftKey) {
   if (usesServerReferralDrafts()) {
-    await clearServerReferralDraft(referralId).catch(() => undefined);
+    await clearServerReferralDraft(draftReference).catch(() => undefined);
     return;
   }
   try {
-    window.sessionStorage.removeItem(canvasDraftStorageKey(referralId));
+    window.sessionStorage.removeItem(canvasDraftStorageKey(draftReference));
   } catch {
     // Session recovery is best effort; canonical data remains server-side.
   }

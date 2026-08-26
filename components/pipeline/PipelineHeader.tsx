@@ -80,7 +80,7 @@ export default function PipelineHeader() {
       : target === "profiles"
         ? "/?screen=profiles"
         : target === "packet"
-          ? "/?view=referrals&screen=packet"
+          ? `/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}`
           : target === "operations"
             ? "/?screen=operations"
             : target === "trash"

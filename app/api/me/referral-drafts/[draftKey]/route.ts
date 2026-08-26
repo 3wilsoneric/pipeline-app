@@ -125,7 +125,11 @@ export async function DELETE(
 
 async function parseDraftKey(context: { params: Promise<{ draftKey: string }> }) {
   const { draftKey } = await context.params;
-  return draftKey === "new" || /^[1-9]\d{0,15}$/.test(draftKey) ? draftKey : null;
+  return draftKey === "new"
+    || /^new-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(draftKey)
+    || /^[1-9]\d{0,15}$/.test(draftKey)
+    ? draftKey
+    : null;
 }
 
 function requireWorkspaceState() {

@@ -37,6 +37,9 @@ export default function PipelineOverviewRoute() {
   const screen = getScreenFromParams(activeSearchParams);
   const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
   const routeReferral = screen === "packet" ? getReferralFromParams(activeSearchParams) : undefined;
+  const newReferralDraftKey = screen === "packet" && !routeReferral
+    ? getNewReferralDraftKey(activeSearchParams)
+    : undefined;
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
   const selectedReferral = routeReferral && referralDetails?.id === routeReferral.id
     ? referralDetails
@@ -71,6 +74,11 @@ export default function PipelineOverviewRoute() {
       params.set("referralId", String(referral.id));
     } else {
       params.delete("referralId");
+    }
+    if (nextScreen === "packet" && !referral?.id) {
+      params.set("draftId", crypto.randomUUID());
+    } else {
+      params.delete("draftId");
     }
     pushPipelineHistory(params.size ? `/?${params.toString()}` : "/");
     recordNavigation(nextScreen, referral);
@@ -126,13 +134,16 @@ export default function PipelineOverviewRoute() {
   if (screen === "packet") {
     page = (
       <ReferralPacketCanvas
+        key={routeReferral ? `referral-${routeReferral.id}` : `new-referral-${newReferralDraftKey ?? "resume"}`}
         referral={selectedReferral}
+        newDraftKey={newReferralDraftKey}
         onReferralSaved={(savedReferral) => {
           setReferralDetails(savedReferral);
           const params = new URLSearchParams(activeSearchParams.toString());
           params.set("view", "referrals");
           params.set("screen", "packet");
           params.set("referralId", String(savedReferral.id));
+          params.delete("draftId");
           replacePipelineHistory(`/?${params.toString()}`);
         }}
         onReferralDeleted={() => navigate("referrals")}
@@ -201,6 +212,13 @@ function getReferralFromParams(params: URLSearchParams): ReferralSelection | und
   if (!raw || !/^\d{1,15}$/.test(raw)) return undefined;
   const id = Number(raw);
   return Number.isSafeInteger(id) && id > 0 ? { id } : undefined;
+}
+
+function getNewReferralDraftKey(params: URLSearchParams): `new-${string}` | undefined {
+  const draftId = params.get("draftId");
+  return draftId && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(draftId)
+    ? `new-${draftId}`
+    : undefined;
 }
 
 function recordNavigation(
