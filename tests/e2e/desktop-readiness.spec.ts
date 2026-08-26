@@ -277,8 +277,11 @@ test.describe("desktop feature enabled", () => {
     await expect(assessmentDialog.or(openAssessment)).toBeVisible();
     if (await openAssessment.isVisible()) await openAssessment.click();
     await expect(assessmentDialog).toBeVisible();
+    const setupDialog = page.getByRole("dialog", { name: "Prepare interview" });
+    await expect(setupDialog).toBeVisible();
     const begin = page.getByRole("button", { name: "Begin interview", exact: true });
-    if (await begin.count()) await begin.click();
+    await begin.click();
+    await expect(setupDialog).toBeHidden();
     const location = page.getByRole("textbox", { name: "Current location *", exact: true });
     await expect(location).toBeVisible();
 
