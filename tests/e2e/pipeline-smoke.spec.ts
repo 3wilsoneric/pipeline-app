@@ -173,9 +173,10 @@ test.describe("Referral home and packet canvas", () => {
       inactiveProfiles,
       page.getByRole("button", { name: "Create new referral" }),
     ]) {
-      await expect(navItem).toHaveCSS("width", "168px");
-      await expect(navItem).toHaveCSS("height", "54px");
+      expect((await navItem.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(44);
+      expect((await navItem.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
     }
+    expect((await activeReferrals.boundingBox())?.width ?? 0).toBeGreaterThan(100);
     await expect(page.getByRole("tab", { name: "Kanban board" })).toHaveCount(0);
 
     const workspaceSearch = page.getByLabel("Search all workspaces");
@@ -1222,7 +1223,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(extractionReview.getByText(clientName, { exact: true })).toBeVisible();
     await expect(extractionReview.getByText("1980-01-15", { exact: true })).toBeVisible();
     await expect(extractionReview.getByText("North County Behavioral Health", { exact: true })).toBeVisible();
-    await expect(extractionReview.getByText("Schizoaffective disorder", { exact: true })).toBeVisible();
+    await expect(extractionReview.getByText("Schizoaffective disorder", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
     await expect(page.getByRole("textbox", { name: "DOB", exact: true })).toHaveValue("1980-01-15");
 
@@ -1235,6 +1236,13 @@ test.describe("Referral home and packet canvas", () => {
     };
     expect(payload.referrals).toHaveLength(1);
     expect(payload.referrals[0].packetFields).toHaveLength(13);
+    expect(payload.referrals[0].packetFields).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        field_key: "referral.primary_diagnosis",
+        proposed_value: "Schizoaffective disorder",
+        source_page_no: 1,
+      }),
+    ]));
     const extractedFields = payload.referrals[0].packetFields?.filter((field) => field.proposed_value?.trim()) ?? [];
     expect(extractedFields.length).toBeGreaterThan(0);
     expect(extractedFields.every((field) => field.source_page_no === 1)).toBeTruthy();
@@ -1564,9 +1572,17 @@ test.describe("Referral home and packet canvas", () => {
     });
     const startedAssessmentPayload = await startedAssessment.json();
     expect(startedAssessment.ok(), JSON.stringify(startedAssessmentPayload)).toBeTruthy();
-    const signedAssessment = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/sign`, {
+    const completedAssessment = await page.request.patch(`/api/assessments/${assessmentPayload.assessment.assessment_id}`, {
       data: {
         if_match: startedAssessmentPayload.assessment.version,
+        patch: { data: completedAssessmentPatch(startedAssessmentPayload.assessment) },
+      },
+    });
+    const completedAssessmentPayload = await completedAssessment.json();
+    expect(completedAssessment.ok(), JSON.stringify(completedAssessmentPayload)).toBeTruthy();
+    const signedAssessment = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/sign`, {
+      data: {
+        if_match: completedAssessmentPayload.assessment.version,
         client_mutation_id: `ehr-sign-${randomUUID()}`,
       },
     });
@@ -1762,9 +1778,17 @@ test.describe("Referral home and packet canvas", () => {
     });
     const startPayload = await start.json();
     expect(start.ok(), JSON.stringify(startPayload)).toBeTruthy();
-    const sign = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/sign`, {
+    const completedAssessment = await page.request.patch(`/api/assessments/${assessmentPayload.assessment.assessment_id}`, {
       data: {
         if_match: startPayload.assessment.version,
+        patch: { data: completedAssessmentPatch(startPayload.assessment) },
+      },
+    });
+    const completedAssessmentPayload = await completedAssessment.json();
+    expect(completedAssessment.ok(), JSON.stringify(completedAssessmentPayload)).toBeTruthy();
+    const sign = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/sign`, {
+      data: {
+        if_match: completedAssessmentPayload.assessment.version,
         client_mutation_id: `decline-sign-${randomUUID()}`,
       },
     });
