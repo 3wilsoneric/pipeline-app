@@ -101,6 +101,20 @@ test.describe("desktop feature enabled", () => {
 
   test("stores recents and versioned recovery drafts per signed-in user", async ({ page }) => {
     await page.goto("/");
+    const cleanup = await page.evaluate(async () => {
+      const current = await fetch("/api/me/referral-drafts/new", { cache: "no-store" });
+      const payload = await current.json() as { version?: number };
+      const version = Number(payload.version ?? 0);
+      if (version === 0) return { status: 200, deleted: false };
+      const response = await fetch("/api/me/referral-drafts/new", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ if_match: version }),
+      });
+      return { status: response.status, deleted: response.ok };
+    });
+    expect(cleanup.status).toBe(200);
+
     await page.getByRole("button", { name: "Open referrals" }).click();
     await expect.poll(async () => {
       const response = await page.request.get("/api/me/recents");
@@ -171,6 +185,11 @@ test.describe("desktop feature enabled", () => {
       const payload = await response.json() as { draft?: unknown };
       return Boolean(payload.draft);
     }).toBeTruthy();
+    await page.getByTestId("initial-packet-input").setInputFiles({
+      name: "desktop-recovery-face-sheet.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from(`desktop-recovery-face-sheet-${Date.now()}`),
+    });
     await page.getByRole("button", { name: "Create workspace" }).click();
     await expect.poll(async () => {
       const response = await page.request.get("/api/me/referral-drafts/new");
