@@ -29,7 +29,7 @@ const evidence = [
   item("interaction.rapid-nav", "Rapid navigation cannot reveal stale work surfaces", "tests/e2e/pipeline-smoke.spec.ts", "keeps rapid header navigation deterministic"),
   item("referral.concurrent", "Two authenticated sessions coordinate edits and conflicts", "tests/e2e/pipeline-smoke.spec.ts", "coordinates section edits, presence leases, and remote conflicts across two sessions"),
   item("referral.drafts", "Draft recovery and section autosave survive refresh", "tests/e2e/pipeline-smoke.spec.ts", "recovers a tab-scoped draft after refresh and then section-autosaves it"),
-  item("assessment.journey", "Assessment create, import, review, completion, and recall are verified", "tests/e2e/pipeline-smoke.spec.ts", "creates, imports, reviews, completes, and recalls an assessment"),
+  item("assessment.journey", "Assessment scheduling, completion, signature, and recall are verified", "tests/e2e/pipeline-smoke.spec.ts", "schedules, completes, signs, and recalls an assessment"),
   item("documents.preview", "Document metadata, previews, and pagination fail closed", "tests/e2e/pipeline-smoke.spec.ts", "fails document metadata and previews closed with bounded pagination"),
   item("extraction.journey", "Packet ingestion exposes extracted values for review", "tests/e2e/pipeline-smoke.spec.ts", "ingests a new packet from the file alone and exposes OCR values for review"),
   item("clinical.profile", "Governed Alamo client directory and profile are verified", "tests/e2e/pipeline-smoke.spec.ts", "opens the Alamo enhanced client directory and governed profile"),
