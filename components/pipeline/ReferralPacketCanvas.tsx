@@ -1597,11 +1597,12 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
             <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
               <div className="min-w-0 space-y-5">
                 <ChartSection title="Identity" detail="Core identifiers for this referral episode" complete={countCompleteFields(fields, ["name", "gender", "age", "dob", "ssn"])} total={5}>
-                  <div className="grid gap-px overflow-hidden border border-[#d7ddd9] bg-[#d7ddd9] sm:grid-cols-2 sm:[&>*:last-child:nth-child(odd)]:col-span-2 lg:grid-cols-5 lg:[&>*:last-child]:col-span-1">
+                  <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 lg:grid-cols-5">
                     {(["name", "gender", "age", "dob", "ssn"] as FieldKey[]).map((key) => (
                       <EditablePacketField
                         key={key}
                         field={fields[key]}
+                        className={key === "ssn" ? "sm:col-span-2 lg:col-span-1" : undefined}
                         onChange={(value) => updateField(key, value)}
                       />
                     ))}
@@ -1609,7 +1610,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
                 </ChartSection>
 
                 <ChartSection title="Routing and assignment" detail="Who owns the referral, where it came from, and where it may be placed" complete={countCompleteFields(fields, ["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"])} total={7}>
-                  <div aria-label="Referral routing" className="grid gap-px overflow-hidden border border-[#d7ddd9] bg-[#d7ddd9] sm:grid-cols-2 sm:[&>*:last-child:nth-child(odd)]:col-span-2 lg:grid-cols-3 lg:[&>*:last-child]:col-span-1">
+                  <div aria-label="Referral routing" className="grid overflow-hidden border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 lg:grid-cols-3">
                     {(["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"] as FieldKey[]).map((key) => (
                       key === "owner" ? (
                         <OwnerPacketField
@@ -1636,12 +1637,13 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
                         <EditablePacketField
                           key={key}
                           field={fields[key]}
+                          className={key === "responsiblePerson" ? "sm:col-span-2 lg:col-span-1" : undefined}
                           options={key === "community" ? pipelineCommunities : key === "county" ? californiaCountyOptions : undefined}
                           onChange={(value) => updateField(key, value)}
                         />
                       )
                     ))}
-                    <div className="min-h-[86px] bg-white p-3 lg:col-span-2">
+                    <div className="min-h-[86px] border-b border-r border-[#d7ddd9] bg-white p-3">
                       <label htmlFor="packet-tags" className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">Tags</label>
                       <input
                         id="packet-tags"
@@ -1657,7 +1659,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
                       />
                       <div className="mt-1 text-[10px] text-[#737373]">Comma-separated; searchable everywhere.</div>
                     </div>
-                    <div className="flex min-h-[86px] items-center justify-between gap-3 bg-white p-3">
+                    <div className="flex min-h-[86px] items-center justify-between gap-3 border-b border-r border-[#d7ddd9] bg-white p-3">
                       <div>
                         <div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">Conserved</div>
                         <div className="mt-1 text-[10px] text-[#737373]">Record the current legal status.</div>
@@ -2068,7 +2070,7 @@ function OwnerPacketField({
 }) {
   const hasLegacyOwner = !ownerPrincipalId && !isUnassignedOwner(field.value);
   return (
-    <div className="group min-h-[86px] border border-transparent bg-white p-3 transition-colors focus-within:border-[#0f8b73] focus-within:bg-[#fbfdfc] hover:bg-[#fbfdfc]">
+    <div className="group relative min-h-[86px] border-b border-r border-[#d7ddd9] bg-white p-3 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73]">
       <label className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">{field.label}</label>
       <select
         aria-label={field.label}
@@ -2092,14 +2094,16 @@ function OwnerPacketField({
 function EditablePacketField({
   field,
   options,
+  className,
   onChange,
 }: {
   field: PacketField;
   options?: readonly string[];
+  className?: string;
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="group min-h-[86px] border border-transparent bg-white p-3 transition-colors focus-within:border-[#0f8b73] focus-within:bg-[#fbfdfc] hover:bg-[#fbfdfc]">
+    <div className={`group relative min-h-[86px] border-b border-r border-[#d7ddd9] bg-white p-3 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-2">
         <label className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">{field.label}</label>
         {field.sourceFile ? <span className="text-[9px] font-black uppercase text-[#317f8f]">Imported</span> : null}
