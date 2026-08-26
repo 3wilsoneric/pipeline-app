@@ -19,23 +19,16 @@ import { californiaCountyOptions } from "@/lib/pipeline/workspace-presentation";
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
 import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
 import type { AssessmentListResponse } from "@/lib/assessment/assessment-records";
-import { DeleteWorkspaceDialog } from "@/components/pipeline/ReferralDecisionEditors";
+import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
-import ReferralReviewPanel from "@/components/pipeline/ReferralReviewPanel";
 import StructuredNarrativeField from "@/components/pipeline/StructuredNarrativeField";
 import type {
-  AdmissionDecision,
   Referral,
   ReferralCanvasFieldKey,
   ReferralSection,
   RequirementType,
 } from "@/lib/pipeline/referral-types";
 import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
-import {
-  reviewField,
-  summarizeReviewSections,
-  type ReviewSection,
-} from "@/lib/pipeline/referral-review";
 import type { ReferralCreateInput, ReferralPatch } from "@/lib/pipeline/referral-store";
 import {
   fetchCurrentPipelineUser,
@@ -132,13 +125,12 @@ type ExtractionReviewConflict = {
   latestValue: string;
 };
 
-type WorkspaceStage = 1 | 2 | 3;
+type WorkspaceStage = 1 | 2;
 type WorkspaceView = WorkspaceStage | "files" | "activity";
 
 const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
   { page: 1, label: "Intake" },
   { page: 2, label: "Assessment" },
-  { page: 3, label: "Decision" },
 ] as const;
 
 const initialFields: Record<FieldKey, PacketField> = {
@@ -499,14 +491,10 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
 
     let cancelled = false;
     if (usesServerReferralDrafts()) setDraftRecoveryLoading(true);
-    fetchPipelineJson<{
-      referral?: Referral;
-      decision?: AdmissionDecision | null;
-    }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" }).then((canvasPayload) => {
+    fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" }).then((canvasPayload) => {
       if (cancelled) return;
       const savedRecord = canvasPayload.referral ?? null;
-      const decision = canvasPayload.decision;
-      const record = savedRecord && decision ? { ...savedRecord, admissionDecision: decision } : savedRecord;
+      const record = savedRecord;
       setLoadedReferral(record);
       if (record) {
         recordRecentDestination({
@@ -1332,64 +1320,6 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
   const fieldCount = countCompleteFields(fields, visibleChartFieldKeys);
   const admissionDocumentCount = requirements.filter((requirement) => Boolean(documents[requirement.id])).length;
   const attachmentCount = attachments.filter((attachment) => Boolean(documents[attachment.id])).length;
-  const reviewSections: ReviewSection[] = [
-    {
-      label: "Identity",
-      items: [
-        reviewField("Client name", fields.name.value, 1),
-        reviewField("Gender", fields.gender.value, 1),
-        reviewField("Age", fields.age.value, 1),
-        reviewField("Date of birth", fields.dob.value, 1),
-        reviewField("SSN", fields.ssn.value, 1, true),
-      ],
-    },
-    {
-      label: "Referral details",
-      items: [
-        reviewField("Owner", isAssignedValue(fields.owner.value) ? fields.owner.value : "", 1),
-        reviewField("Referral received", fields.referralReceived.value, 1),
-        reviewField("Admission date", fields.admissionDate.value, 1),
-        reviewField("Community", isAssignedValue(fields.community.value) ? fields.community.value : "", 1),
-        reviewField("Referring county", fields.county.value, 1),
-        reviewField("Referent", fields.referent.value, 1),
-        reviewField("Responsible person", fields.responsiblePerson.value, 1),
-        reviewField("Tags", tagsInput, 1),
-      ],
-    },
-    {
-      label: "Narrative",
-      items: [
-        reviewField("Summary", fields.summary.value, 1),
-      ],
-    },
-    {
-      label: "Documents",
-      items: [
-        reviewField(
-          "Initial packet",
-          loadedReferral?.documentStatus !== "Missing"
-            ? loadedReferral?.documentName ?? "Recorded"
-            : "",
-          1,
-        ),
-        ...requirements.map((requirement) => reviewField(requirement.label, getRequirementReviewValue(requirement, documents[requirement.id], loadedReferral), "files")),
-        ...attachments.map((requirement) => reviewField(requirement.label, documents[requirement.id] ?? "", "files")),
-      ],
-    },
-    {
-      label: "Assessment",
-      items: [
-        reviewField(
-          "Assessment data",
-          assessmentSummary.assessmentId
-            ? `${assessmentSummary.captured} of ${assessmentSummary.total} fields · ${assessmentSummary.status.replace("_", " ")}`
-            : "",
-          2,
-        ),
-      ],
-    },
-  ];
-  const reviewSummary = summarizeReviewSections(reviewSections);
   const workspaceTitle = loadedReferral?.name?.trim()
     || referral?.name?.trim()
     || fields.name.value.trim()
@@ -1815,20 +1745,6 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
                   }}
                 />
             </PacketPage>
-          ) : activePage === 3 ? (
-            <ReferralReviewPanel
-              referral={loadedReferral}
-              assessmentComplete={assessmentSummary.status === "complete"}
-              assessmentId={assessmentSummary.assessmentId}
-              sections={reviewSections}
-              complete={reviewSummary.complete}
-              total={reviewSummary.total}
-              percent={reviewSummary.percent}
-              onOpenStep={openPage}
-              onDecisionSaved={async (updatedReferral) => {
-                setLoadedReferral(updatedReferral);
-              }}
-            />
           ) : (
             <PacketPage id="packet-activity" title="Activity">
               <ReferralActivityPanel referralId={loadedReferral?.id ?? referral?.id} version={loadedReferral?.version} />
@@ -2595,7 +2511,6 @@ function presenceSection(page: WorkspaceView): ReferralSection {
   if (page === "files") return "documents";
   if (page === "activity") return "workflow";
   if (page === 2) return "assessment";
-  if (page === 3) return "decision";
   return "intake";
 }
 
@@ -2606,7 +2521,7 @@ function presenceSectionLabel(section: ReferralSection) {
     documents: "Documents",
     assessment: "Assessment",
     workflow: "Workflow",
-    decision: "Admission decision",
+    decision: "Workflow",
   }[section];
 }
 

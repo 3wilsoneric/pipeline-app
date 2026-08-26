@@ -9,7 +9,7 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineSiteDestination, PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { searchSiteDestinations } from "@/lib/pipeline/site-search";
 
-type SuggestedSearchMode = "active" | "unassigned" | "packet_review" | "assessment" | "decision" | "files";
+type SuggestedSearchMode = "active" | "unassigned" | "packet_review" | "assessment" | "files";
 
 type PipelineSuggestedSearch = {
   id: string;
@@ -64,12 +64,6 @@ const suggestedSearches: PipelineSuggestedSearch[] = [
     category: "ASSESSMENTS",
     prompt: "Which referrals are in assessment?",
     mode: "assessment",
-  },
-  {
-    id: "admission-decisions",
-    category: "DECISIONS",
-    prompt: "Which referrals are waiting for an admission decision?",
-    mode: "decision",
   },
   {
     id: "uploaded-files",

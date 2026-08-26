@@ -1306,11 +1306,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "02 Assessment" }).click();
     await expect(page.getByText("Save the referral before starting the assessment", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "03 Decision" }).click();
-    await expect(page.getByRole("region", { name: "Decision", exact: true })).toBeVisible();
-    await expect(page.getByText("Not entered", { exact: true }).first()).toBeVisible();
-    await page.getByRole("button", { name: /Client name Not entered/ }).click();
-    await expect(page.getByRole("button", { name: "01 Intake" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("button", { name: "03 Decision" })).toHaveCount(0);
   });
 
   test("schedules, completes, signs, and recalls an assessment", async ({ page }) => {
@@ -1449,40 +1445,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(activityPanel.getByText("Ownership and timing", { exact: true })).toBeVisible();
     await expect(activityPanel.getByText("Playwright QA", { exact: true }).first()).toBeVisible();
     await expect(activityPanel.getByText("Assessment time", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "03 Decision" }).click();
-    const requirementsEditor = page.getByRole("region", { name: "Follow-up requirements" });
-    await expect(requirementsEditor).toBeVisible();
-    await requirementsEditor.getByRole("button", { name: /TB test result/ }).click();
-    await requirementsEditor.getByRole("combobox", { name: "Status" }).selectOption("requested");
-    await requirementsEditor.getByRole("textbox", { name: "Next action" }).fill("Confirm the scheduled TB test result.");
-    await requirementsEditor.getByLabel("Due").fill("2026-08-20");
-    await requirementsEditor.getByRole("textbox", { name: "Evidence" }).fill("synthetic-tb-result.pdf");
-    await requirementsEditor.getByRole("textbox", { name: "Requested from" }).fill("San Pablo intake team");
-    await requirementsEditor.getByLabel("Follow up").fill("2026-08-20");
-    await requirementsEditor.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(requirementsEditor.getByText("TB test result updated.", { exact: true })).toBeVisible();
-
-    const updatedWorkItems = await page.request.get(`/api/referrals/${referralPayload.referrals[0].id}/work-items`);
-    const updatedWorkItemPayload = await updatedWorkItems.json() as { work_items: Array<{ type: string; status: string; owner: string; nextStep: string; evidenceDocumentName?: string; version: number }> };
-    expect(updatedWorkItemPayload.work_items.find((item) => item.type === "tb_test")).toMatchObject({
-      status: "requested",
-      owner: "Playwright QA",
-      nextStep: "Confirm the scheduled TB test result.",
-      evidenceDocumentName: "synthetic-tb-result.pdf",
-      version: 2,
-    });
-
-    const decision = page.getByRole("region", { name: "Admission decision" });
-    await decision.getByRole("combobox", { name: "Assessor recommendation" }).selectOption("accept");
-    await decision.getByRole("button", { name: "Submit", exact: true }).click();
-    await expect(decision.getByText("Recommendation submitted for supervisor review", { exact: true })).toBeVisible();
-    await decision.getByRole("button", { name: "Yes" }).click();
-    await decision.getByRole("button", { name: "Save decision" }).click();
-    await expect(decision.getByText("Decision saved", { exact: true })).toBeVisible();
-
-    const savedDecision = await page.request.get(`/api/referrals/${referralPayload.referrals[0].id}/decision`);
-    expect(savedDecision.ok()).toBeTruthy();
-    await expect(savedDecision.json()).resolves.toMatchObject({ decision: { outcome: "accepted", decidedByName: "Playwright QA" } });
+    await expect(page.getByRole("button", { name: "03 Decision" })).toHaveCount(0);
   });
 
   test("versions the EHR handoff and records failure recovery explicitly", async ({ page }) => {
@@ -1963,7 +1926,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByLabel("Search or ask")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Welcome, Playwright." })).toHaveCount(0);
     await page.getByLabel("Search or ask").click();
-    await expect(page.getByText("6 suggested searches", { exact: true })).toBeVisible();
+    await expect(page.getByText("5 suggested searches", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Show all active referrals." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Which active referrals are unassigned?" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Which packets need document review?" })).toBeVisible();

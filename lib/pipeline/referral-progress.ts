@@ -5,7 +5,7 @@ import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-comp
 import { hasManualIntakeAuthorization } from "./referral-workflow";
 import { hasInitialDocument } from "./workflow-status";
 
-export type ReferralProgressPhase = "pre" | "assessment" | "post";
+export type ReferralProgressPhase = "pre" | "assessment";
 export type ReferralProgressItemStatus = "complete" | "missing" | "attention";
 
 export type ReferralProgressItem = {
@@ -59,20 +59,6 @@ export function getReferralProgress(referral: Referral, context: WorkflowContext
     ]),
     packetSection(referral),
     assessmentSection(referral, context, canonicalAssessment, assessmentComplete),
-    section("decision", "Admission decision", [
-      item(
-        "admission_decision",
-        "Admission yes/no recorded",
-        Boolean(decision?.outcome) || (referral.assessment?.postAssessment.decision !== undefined && referral.assessment.postAssessment.decision !== "pending"),
-        true,
-      ),
-      item(
-        "no_admission_reason",
-        "Reason recorded when not admitted",
-        (decision?.outcome ?? legacyOutcome(referral)) !== "declined" || hasValue(decision?.reasonNote ?? referral.assessment?.postAssessment.reason),
-        (decision?.outcome ?? legacyOutcome(referral)) === "declined",
-      ),
-    ]),
     requirementsSection(context.requirements ?? referral.requirements ?? [], decision, assessmentComplete),
   ];
 
@@ -86,7 +72,7 @@ export function getReferralProgress(referral: Referral, context: WorkflowContext
   const waiting = ["received", "normalizing", "extracting"].includes(referral.packetStatus ?? "");
   return {
     referral_id: referral.id,
-    phase: getPhase(referral, context, assessmentComplete, decision),
+    phase: getPhase(referral, context),
     overall: {
       complete,
       total: allItems.length,
@@ -133,7 +119,6 @@ function getNextAction(
       ? `Complete assessment: ${missingAssessmentRule.label}`
       : "Complete the assessment";
   }
-  if (!decision && (referral.assessment?.postAssessment.decision ?? "pending") === "pending") return "Record the admission decision";
   return blockers[0] ?? null;
 }
 
@@ -181,12 +166,6 @@ function packetSection(referral: Referral): ReferralProgressSection {
       referral.packetReadiness?.blockers?.[0],
     ),
   ]);
-}
-
-function legacyOutcome(referral: Referral) {
-  if (referral.assessment?.postAssessment.decision === "not-accepted") return "declined";
-  if (referral.assessment?.postAssessment.decision === "accepted") return "accepted";
-  return null;
 }
 
 function assessmentSection(
@@ -303,10 +282,7 @@ function isRequirementComplete(requirement: AdmissionRequirement) {
 function getPhase(
   referral: Referral,
   context: WorkflowContext,
-  assessmentComplete: boolean,
-  decision: Referral["admissionDecision"],
 ): ReferralProgressPhase {
-  if (decision || assessmentComplete) return "post";
   if (
     (context.assessmentExists ?? Boolean(referral.assessment))
     || referral.packetStatus === "reviewed"

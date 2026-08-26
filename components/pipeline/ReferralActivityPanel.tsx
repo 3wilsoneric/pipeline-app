@@ -72,7 +72,7 @@ export default function ReferralActivityPanel({ referralId, version }: { referra
           detail={assessmentDetail(metadata)}
         />
         <WorkflowFact
-          label={metadata.timing.decision_recorded ? "Referral to decision" : "Referral open"}
+          label="Referral age"
           value={formatDuration(metadata.timing.total_minutes)}
           detail={metadata.timing.referral_to_assessment_minutes === null
             ? "Assessment not started"

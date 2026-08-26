@@ -25,7 +25,7 @@ test.describe("Responsive and accessible application shell", () => {
 
     await page.getByRole("button", { name: "Open search" }).click();
     await expect(page.getByLabel("Search or ask")).toBeVisible();
-    await expect(page.getByText("6 suggested searches", { exact: true })).toBeVisible();
+    await expect(page.getByText("5 suggested searches", { exact: true })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
 
@@ -72,12 +72,12 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoSeriousAxeViolations(page);
 
     if (compactSteps) {
-      await stepSelect.selectOption("3");
+      await stepSelect.selectOption("2");
     } else {
-      await page.getByRole("button", { name: "03 Decision" }).click();
+      await page.getByRole("button", { name: "02 Assessment" }).click();
     }
-    await expect(page.getByRole("region", { name: "Decision", exact: true })).toBeVisible();
-    await expect(page.getByRole("progressbar", { name: "Referral data completion" })).toHaveAttribute("aria-valuenow");
+    await expect(page.getByRole("region", { name: "Assessment", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "03 Decision" })).toHaveCount(0);
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
   });

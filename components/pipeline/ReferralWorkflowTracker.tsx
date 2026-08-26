@@ -14,7 +14,6 @@ type WorkflowRow = {
 const phases: Array<{ key: ReferralProgressPhase; label: string }> = [
   { key: "pre", label: "Intake" },
   { key: "assessment", label: "Assessment" },
-  { key: "post", label: "Decision & follow-up" },
 ];
 
 export default function ReferralWorkflowTracker({
@@ -39,7 +38,7 @@ export default function ReferralWorkflowTracker({
 
   return (
     <section aria-label="Referral workflow tracker" className="min-w-0 bg-white">
-      <div className="grid min-w-0 border-y border-[#d9d9d9] bg-[#d9d9d9] md:grid-cols-3 md:gap-px">
+      <div className="grid min-w-0 border-y border-[#d9d9d9] bg-[#d9d9d9] md:grid-cols-2 md:gap-px">
         {lanes.map((lane) => (
           <section
             key={lane.key}
@@ -159,19 +158,16 @@ function sortWorkflowRows(rows: WorkflowRow[]) {
 
 function laneBorderClass(phase: ReferralProgressPhase) {
   if (phase === "assessment") return "border-[#cf8b24]";
-  if (phase === "post") return "border-[#4d69ae]";
   return "border-[#0f8b73]";
 }
 
 function laneTextClass(phase: ReferralProgressPhase) {
   if (phase === "assessment") return "text-[#9b6111]";
-  if (phase === "post") return "text-[#405b9d]";
   return "text-[#0c705f]";
 }
 
 function progressBarClass(phase: ReferralProgressPhase) {
   if (phase === "assessment") return "bg-[#cf8b24]";
-  if (phase === "post") return "bg-[#4d69ae]";
   return "bg-[#0f8b73]";
 }
 

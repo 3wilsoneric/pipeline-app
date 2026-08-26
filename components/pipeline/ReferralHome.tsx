@@ -1014,7 +1014,7 @@ function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {
   if (filter.kind === "workflow") {
     return {
       title: "No active workspaces",
-      detail: "New referral workspaces remain here until an admission decision closes them.",
+      detail: "New referral workspaces remain here while intake or assessment work is active.",
     };
   }
 

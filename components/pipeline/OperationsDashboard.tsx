@@ -110,8 +110,8 @@ export default function OperationsDashboard({
 function OperationsSkeleton() {
   return (
     <div aria-label="Loading operations" aria-busy="true" className="animate-pulse">
-      <section className="mt-3 grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
+      <section className="mt-3 grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => (
           <div key={index} className="min-h-[92px] bg-white px-5 py-4">
             <div className="h-2.5 w-24 rounded bg-[#edf0ee]" />
             <div className="mt-3 h-7 w-14 rounded bg-[#e7eae8]" />
@@ -154,17 +154,17 @@ function SnapshotContent({
 }) {
   const [exceptionKind, setExceptionKind] = useState<SupervisorExceptionKind | "all">("all");
   const visibleRequirements = snapshot.requirements.slice(0, 10);
-  const visibleExceptions = supervisorQueue?.items
+  const decisionFreeExceptions = supervisorQueue?.items.filter((item) => item.kind !== "decision_needed") ?? [];
+  const visibleExceptions = decisionFreeExceptions
     .filter((item) => exceptionKind === "all" || item.kind === exceptionKind)
-    .slice(0, 12) ?? [];
+    .slice(0, 12);
 
   return (
     <>
-      <section className="mt-3 grid grid-cols-2 gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] lg:grid-cols-4" aria-label="Operations summary">
+      <section className="mt-3 grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-3" aria-label="Operations summary">
         <SummaryMetric label="Active referrals" value={snapshot.metrics.active} />
         <SummaryMetric label="Open tasks" value={snapshot.metrics.open_tasks} attention={snapshot.metrics.open_tasks > 0} />
         <SummaryMetric label="Overdue items" value={snapshot.metrics.overdue_requirements} attention={snapshot.metrics.overdue_requirements > 0} />
-        <SummaryMetric label="Decisions needed" value={snapshot.metrics.decisions_needed} attention={snapshot.metrics.decisions_needed > 0} />
       </section>
 
       {supervisorQueue ? (
@@ -172,7 +172,7 @@ function SnapshotContent({
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] px-4 py-3 sm:px-5">
             <div className="flex items-baseline gap-3">
               <h2 className="text-[14px] font-black">Exceptions</h2>
-              <span className="text-[10px] text-[#737373]">{supervisorQueue.total} unresolved</span>
+              <span className="text-[10px] text-[#737373]">{decisionFreeExceptions.length} unresolved</span>
             </div>
             <select
               aria-label="Filter supervisor exceptions"
@@ -181,7 +181,7 @@ function SnapshotContent({
               className="h-8 border border-[#c9ceca] bg-white px-2 text-[11px] font-semibold outline-none focus:border-[#0f8b73]"
             >
               <option value="all">All exceptions</option>
-              {Object.entries(supervisorQueue.counts).map(([kind, count]) => (
+              {Object.entries(supervisorQueue.counts).filter(([kind]) => kind !== "decision_needed").map(([kind, count]) => (
                 <option key={kind} value={kind}>{exceptionFilterLabel(kind as SupervisorExceptionKind)} ({count})</option>
               ))}
             </select>
@@ -192,8 +192,8 @@ function SnapshotContent({
             ))}
             {visibleExceptions.length === 0 ? (
               <EmptyState
-                label={supervisorQueue.items.length === 0 ? "No open exceptions" : "No exceptions match this filter"}
-                detail={supervisorQueue.items.length === 0 ? "The supervisor queue is clear." : "Choose another exception type."}
+                label={decisionFreeExceptions.length === 0 ? "No open exceptions" : "No exceptions match this filter"}
+                detail={decisionFreeExceptions.length === 0 ? "The supervisor queue is clear." : "Choose another exception type."}
               />
             ) : null}
           </div>
@@ -230,11 +230,10 @@ function SnapshotContent({
 
           <section className="border-t border-[#d9d9d9]" aria-label="Data gaps">
             <SectionHeading title="Data gaps" detail="Open records" />
-            <div className="grid grid-cols-2 gap-px bg-[#d9d9d9]">
+            <div className="grid grid-cols-3 gap-px bg-[#d9d9d9]">
               <DataGap label="Owner" value={snapshot.data_quality.missing_owner} />
               <DataGap label="Packet" value={snapshot.data_quality.missing_packet} />
               <DataGap label="Assessment" value={snapshot.data_quality.missing_assessment} />
-              <DataGap label="Decision" value={snapshot.data_quality.missing_decision} />
             </div>
           </section>
         </aside>

@@ -46,7 +46,10 @@ check("started assessment is in progress", workflow.resolveReferralWorkflowStatu
 check("an unstarted draft with complete fields remains ready to schedule", workflow.resolveReferralWorkflowStatus(referral, { assessment: { ...assessment, resident_number: "71", resident_name: "Workflow Fixture", date_of_birth: "1980-01-02", community: "San Pablo", assessment_date: "2026-08-23", assessor: "Assigned Assessor", primary_diagnosis: "Fixture", adl_needs: "Fixture", behavioral_history: "Fixture", medications_at_intake: ["Fixture"] } }) === "ready_to_schedule");
 check("legacy completion is ready to sign, never silently signed", workflow.resolveReferralWorkflowStatus(referral, { assessment: { ...assessment, status: "complete" } }) === "assessment_ready_to_sign");
 check("only an explicit signature produces signed status", workflow.resolveReferralWorkflowStatus(referral, { assessment: { ...assessment, status: "complete", signed_at: "2026-08-23T16:00:00.000Z" } }) === "assessment_signed");
-check("assessor recommendation creates supervisor decision work", workflow.resolveReferralWorkflowStatus(referral, { recommendation: { recommendationId: "rec-1" } }) === "decision_pending");
+check("signed assessments remain signed even when historical recommendations exist", workflow.resolveReferralWorkflowStatus(referral, {
+  assessment: { ...assessment, status: "complete", signed_at: "2026-08-23T16:00:00.000Z" },
+  recommendation: { recommendationId: "rec-1" },
+}) === "assessment_signed");
 check("final decision closes to accepted", workflow.resolveReferralWorkflowStatus(referral, { decision: { outcome: "accepted" } }) === "accepted");
 
 const seededAssessment = assessmentSeed.buildAssessmentSeedFromReferral({

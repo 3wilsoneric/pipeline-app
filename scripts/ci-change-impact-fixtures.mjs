@@ -10,7 +10,7 @@ const cases = [
   },
   {
     name: "component changes run browser coverage without a database drill",
-    files: ["components/pipeline/ReferralReviewPanel.tsx"],
+    files: ["components/pipeline/ReferralPacketCanvas.tsx"],
     expected: { browser: true, postgres: false },
   },
   {

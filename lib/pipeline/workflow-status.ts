@@ -41,8 +41,6 @@ export function resolveReferralWorkflowStatus(
   if (isUnassignedOwner(referral.owner) || !referral.ownerId?.trim()) return "intake_unassigned";
 
   const assessment = evidence.assessment;
-  const recommendation = evidence.recommendation ?? referral.assessmentRecommendation;
-  if (recommendation) return "decision_pending";
   if (assessment?.signed_at) return "assessment_signed";
   // Legacy "complete" records predate signatures. Preserve their completed
   // content, but require an explicit signer before calling them signed.
