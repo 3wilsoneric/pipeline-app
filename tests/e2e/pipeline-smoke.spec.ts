@@ -669,7 +669,6 @@ test.describe("Referral home and packet canvas", () => {
         unassigned: expect.any(Number),
         packet_review: expect.any(Number),
         assessment_due: expect.any(Number),
-        decision_needed: expect.any(Number),
         missing_documents: expect.any(Number),
         blocked: expect.any(Number),
       },
@@ -1931,7 +1930,6 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("button", { name: "Which active referrals are unassigned?" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Which packets need document review?" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Which referrals are in assessment?" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Which referrals are waiting for an admission decision?" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Show uploaded referral and assessment files." })).toBeVisible();
     await page.getByRole("button", { name: "Show all active referrals." }).click();
     await expect(
@@ -1959,9 +1957,8 @@ test.describe("Pipeline home", () => {
       unassigned: "unassigned",
       packet_review: "packet_review",
       assessment: "assessment_due",
-      decision: "decision_needed",
     } as const;
-    const modes = ["active", "unassigned", "packet_review", "assessment", "decision", "files"] as const;
+    const modes = ["active", "unassigned", "packet_review", "assessment", "files"] as const;
     for (const mode of modes) {
       const response = await page.request.get(`/api/search?mode=${mode}&q=${encodeURIComponent(mode)}`);
       expect(response.ok()).toBeTruthy();
