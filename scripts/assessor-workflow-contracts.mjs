@@ -129,6 +129,7 @@ check("assessment suggestions support field-level accept and reject", assessment
 check("assigned assessors and supervisors can sign", signRoute.includes("canWorkAssessment") && signRoute.includes("assigned assessor or a supervisor"));
 check("assigned assessors and supervisors can edit clinical assessment fields", assessmentRoute.includes("canWorkAssessment") && assessmentRoute.includes("assigned assessor or a supervisor"));
 check("assessment start is explicit, supervisor-capable, and cannot rewrite completed history", startRoute.includes("canWorkAssessment") && startRoute.includes("assigned assessor or a supervisor") && startRoute.includes("A completed assessment cannot be started again"));
+check("assessment start requires an explicit schedule", startRoute.includes("Schedule the assessment before beginning the interview."));
 check("new assessments must be begun before signing", signRoute.includes("Begin the assessment before signing it"));
 check("signed addenda are limited to the signer or a supervisor", addendumRoute.includes("assessment.signed_by?.id !== auth.user.id") && addendumRoute.includes("Only the signing assessor or a supervisor"));
 check("assigned assessors and supervisors can submit a recommendation", recommendationRoute.includes("allowSupervisorOverride") && workflowStore.includes("allowSupervisorOverride") && workflowStore.includes("assigned assessor or a supervisor"));
@@ -146,11 +147,13 @@ check(
 );
 check("requirements cannot drift from the referral assignment", workItemRoute.includes("Change the referral assignment to change requirement ownership") && !workItemRoute.includes('"ownerId",'));
 check(
-  "assessment interview uses one focused shell with grouped responsive navigation",
+  "assessment interview uses one focused schedule-then-begin shell with grouped responsive navigation",
   assessmentWorkspace.includes('createPortal(')
     && assessmentWorkspace.includes('aria-label="Assessment interview"')
     && assessmentWorkspace.includes("assessmentNavigationGroups")
-    && assessmentWorkspace.includes('aria-label="More assessment actions"')
+    && assessmentWorkspace.includes('aria-label="Schedule assessment"')
+    && assessmentWorkspace.includes('aria-label="Begin assessment"')
+    && !assessmentWorkspace.includes("assessmentWorkbookTemplatePath")
     && !assessmentWorkspace.includes('role="tablist" aria-label="Assessment sections"'),
 );
 check("requested information requires a source and follow-up date", workflowStore.includes("requested_from_required") && workflowStore.includes("follow_up_required"));
