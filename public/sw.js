@@ -1,11 +1,13 @@
 const CACHE_PREFIX = "pipeline-static-";
-const CACHE_NAME = `${CACHE_PREFIX}v1`;
-const OFFLINE_URL = "/offline.html";
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
+const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+const scopedPath = (path) => `${SCOPE_PATH}${path}`;
+const OFFLINE_URL = scopedPath("/offline.html");
 const STATIC_ASSETS = [
   OFFLINE_URL,
-  "/pwa/icon-192.png",
-  "/pwa/icon-512.png",
-  "/pwa/icon-maskable-512.png",
+  scopedPath("/pwa/icon-192.png"),
+  scopedPath("/pwa/icon-512.png"),
+  scopedPath("/pwa/icon-maskable-512.png"),
 ];
 
 self.addEventListener("install", (event) => {
@@ -56,7 +58,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (!url.search && (isExplicitStaticAsset(url.pathname) || url.pathname.startsWith("/_next/static/"))) {
+  if (!url.search && (isExplicitStaticAsset(url.pathname) || url.pathname.startsWith(scopedPath("/_next/static/")))) {
     event.respondWith(cacheStaticAsset(request));
   }
 });

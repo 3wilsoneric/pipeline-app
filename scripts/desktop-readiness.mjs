@@ -34,16 +34,24 @@ check(
   layout.includes('isPipelineDesktopEnabled() ? toPipelinePath("/desktop-manifest.webmanifest") : undefined'),
 );
 check("worker registration is feature gated", runtime.includes("if (!isPipelineDesktopEnabled())") && runtime.includes("serviceWorker.register"));
+check("worker scope follows the Pipeline application base path", runtime.includes("PIPELINE_SERVICE_WORKER_SCOPE") && config.includes('toPipelinePath("/")'));
 check("disabled runtime unregisters Pipeline worker", runtime.includes("registration.unregister()") && runtime.includes("PIPELINE_DESKTOP_CACHE_PREFIX"));
-check("worker has a versioned Pipeline-only cache", worker.includes('CACHE_NAME = `${CACHE_PREFIX}v1`') && worker.includes('CACHE_PREFIX = "pipeline-static-"'));
-check("worker caches only explicit assets and hashed Next assets", worker.includes("isExplicitStaticAsset") && worker.includes('url.pathname.startsWith("/_next/static/")'));
+check("worker has a versioned Pipeline-only cache", worker.includes('CACHE_NAME = `${CACHE_PREFIX}v2`') && worker.includes('CACHE_PREFIX = "pipeline-static-"'));
+check("worker static paths are confined to its registration scope", worker.includes("self.registration.scope") && worker.includes("scopedPath"));
+check("worker caches only explicit assets and scoped hashed Next assets", worker.includes("isExplicitStaticAsset") && worker.includes('url.pathname.startsWith(scopedPath("/_next/static/"))'));
 check("worker never caches navigations", worker.includes('request.mode === "navigate"') && worker.includes("fetch(request).catch"));
 check("worker has no API caching branch", !/cacheStaticAsset\([^)]*\/api/.test(worker) && !worker.includes('pathname.startsWith("/api/")'));
 check("worker reads only its named cache", !worker.includes("caches.match("));
 check("worker script is never HTTP cached", nextConfig.includes('source: "/sw.js"') && nextConfig.includes('no-cache, no-store, must-revalidate'));
 check("offline page contains no runtime script", !/<script/i.test(offline));
-check("offline page states that records are unavailable", offline.includes("never stored for offline use"));
-check("manifest is standalone and same-origin scoped", manifest.includes('display: "standalone"') && manifest.includes('start_url: "/"') && manifest.includes('scope: "/"'));
+check("offline page explains encrypted active-assessment recovery", offline.includes("encrypted changes sync when the connection returns"));
+const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
+const offlineStore = read("lib/offline/offline-assessment-store.ts");
+check("assessment drafts use encrypted IndexedDB", assessmentWorkspace.includes("saveOfflineAssessmentDraft") && offlineStore.includes('name: "AES-GCM"'));
+check("assessment recovery never writes browser session storage", !assessmentWorkspace.includes("sessionStorage"));
+check("offline assessment saves replay on reconnect", assessmentWorkspace.includes("flushOfflineAssessmentMutations") && assessmentWorkspace.includes('window.addEventListener("online"'));
+check("offline records expire and sign-out cleanup exists", offlineStore.includes("expiryMs") && read("components/auth/PipelineAuthProvider.tsx").includes("clearPipelineOfflineData"));
+check("manifest is standalone and scoped through the Pipeline base path", manifest.includes('display: "standalone"') && manifest.includes("pipelineScope") && manifest.includes("toPipelinePath"));
 
 for (const file of ["public/pwa/icon-192.png", "public/pwa/icon-512.png", "public/pwa/icon-maskable-512.png"]) {
   check(`${file} is a non-empty PNG`, statSync(file).size > 1_000 && createHash("sha256").update(readFileSync(file)).digest("hex").length === 64);

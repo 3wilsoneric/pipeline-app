@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import {
   PIPELINE_DESKTOP_CACHE_PREFIX,
   PIPELINE_SERVICE_WORKER_PATH,
+  PIPELINE_SERVICE_WORKER_SCOPE,
   isPipelineDesktopEnabled,
 } from "@/lib/desktop/desktop-config";
 
@@ -23,7 +24,7 @@ export default function DesktopRuntime() {
     const register = async () => {
       try {
         const registration = await navigator.serviceWorker.register(PIPELINE_SERVICE_WORKER_PATH, {
-          scope: "/",
+          scope: PIPELINE_SERVICE_WORKER_SCOPE,
           updateViaCache: "none",
         });
         if (!cancelled) {

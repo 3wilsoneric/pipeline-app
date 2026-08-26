@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Download,
   FileSpreadsheet,
   History,
   LoaderCircle,
@@ -28,6 +29,7 @@ import {
   type PipelineCurrentUser,
 } from "@/lib/auth/authenticated-fetch";
 import { parseAssessmentFile } from "@/lib/assessment/assessment-file-parser";
+import { assessmentWorkbookTemplatePath } from "@/lib/assessment/assessment-workbook-contract";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
 import type {
   AssessmentListResponse,
@@ -60,8 +62,18 @@ import {
   normalizeAssessmentSectionVersions,
 } from "@/lib/assessment/assessment-sections";
 import type { EditingPresence } from "@/lib/pipeline/editing-presence";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 import type { PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
 import { usesServerUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-client";
+import {
+  flushOfflineAssessmentMutations,
+  initializeOfflineAssessmentStore,
+  loadOfflineAssessmentDraft,
+  pendingOfflineAssessmentMutations,
+  queueOfflineAssessmentMutation,
+  removeOfflineAssessmentDraft,
+  saveOfflineAssessmentDraft,
+} from "@/lib/offline/offline-assessment-store";
 
 type AssessmentWorkspaceProps = {
   referralId?: number;
@@ -127,6 +139,8 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
   const [addendumReason, setAddendumReason] = useState("");
   const [addendumNote, setAddendumNote] = useState("");
   const [viewer, setViewer] = useState<PipelineCurrentUser | null>(null);
+  const [networkOnline, setNetworkOnline] = useState(true);
+  const [pendingOfflineSaves, setPendingOfflineSaves] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<PipelineAssessmentRecord | null>(null);
   const draftRef = useRef<AssessmentToolData>(draft);
@@ -139,6 +153,7 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
   const focusedAssessmentIdRef = useRef("");
   const packetSyncKeysRef = useRef(new Set<string>());
   const dirty = dirtySections.size > 0;
+  const offlinePrincipal = viewer?.id ?? viewer?.email ?? "";
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
   const canSupervise = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator"));
@@ -172,6 +187,117 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
     setRemoteChange(null);
   }, []);
 
+  const loadRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord, currentData: AssessmentToolData) => {
+    let recovered: PipelineAssessmentDraft | null = null;
+    let recoveredVersion = 0;
+    if (offlinePrincipal) {
+      try {
+        recovered = await loadOfflineAssessmentDraft(offlinePrincipal, assessment.assessment_id);
+      } catch {
+        // Server recovery remains available when encrypted browser storage is unavailable.
+      }
+    }
+    if (usesServerUserWorkspaceState()) {
+      try {
+        const payload = await fetchPipelineJson<{ draft: PipelineAssessmentDraft | null; version: number }>(
+          `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
+          { cache: "no-store" },
+        );
+        if (payload.draft && (!recovered || Date.parse(payload.draft.savedAt) >= Date.parse(recovered.savedAt))) {
+          recovered = payload.draft;
+        }
+        recoveredVersion = payload.version;
+      } catch {
+        // Browser recovery remains available during a transient server-state outage.
+      }
+    }
+    draftVersionRef.current = recoveredVersion;
+    if (!recovered || recovered.assessmentId !== assessment.assessment_id || recovered.dirtySections.length === 0) return;
+
+    const merged = pickAssessmentToolData(currentData);
+    const conflicts: AssessmentFieldConflict[] = [];
+    for (const definition of assessmentToolFieldDefinitions) {
+      const field = definition.key;
+      const localChanged = !sameAssessmentValue(recovered.data[field], recovered.baseData[field]);
+      if (!localChanged) continue;
+      const remoteChanged = !sameAssessmentValue(currentData[field], recovered.baseData[field]);
+      merged[field] = recovered.data[field] as never;
+      if (remoteChanged && !sameAssessmentValue(recovered.data[field], currentData[field])) {
+        conflicts.push({
+          field,
+          localValue: recovered.data[field],
+          remoteValue: currentData[field],
+          section: definition.section,
+        });
+      }
+    }
+    baseDataRef.current = currentData;
+    draftRef.current = merged;
+    setDraft(merged);
+    const recoveredDirty = dirtyAssessmentSections(merged, currentData);
+    setDirtySections(recoveredDirty);
+    setRemoteChange(conflicts.length > 0 ? { assessment, conflicts } : null);
+    setMessage(conflicts.length > 0 ? "Recovered changes need conflict review" : "Recovered unsaved assessment changes");
+  }, [offlinePrincipal]);
+
+  const persistRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
+    if (dirtySectionsRef.current.size === 0) return;
+    const recovery: PipelineAssessmentDraft = {
+      schema: 1,
+      assessmentId: assessment.assessment_id,
+      savedAt: new Date().toISOString(),
+      baseVersion: assessment.version,
+      sectionVersions: normalizeAssessmentSectionVersions(assessment.section_versions),
+      dirtySections: [...dirtySectionsRef.current],
+      data: pickAssessmentToolData(draftRef.current),
+      baseData: pickAssessmentToolData(baseDataRef.current),
+    };
+    if (offlinePrincipal) {
+      try {
+        await saveOfflineAssessmentDraft(offlinePrincipal, assessment.assessment_id, recovery);
+      } catch {
+        // The server draft remains authoritative when browser storage is unavailable.
+      }
+    }
+    if (usesServerUserWorkspaceState()) {
+      try {
+        const payload = await fetchPipelineJson<{ version: number }>(
+          `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ if_match: draftVersionRef.current, draft: recovery }),
+          },
+        );
+        draftVersionRef.current = payload.version;
+      } catch (draftError) {
+        if (draftError instanceof PipelineApiError && draftError.status === 409) {
+          const payload = draftError.payload as { version?: unknown } | undefined;
+          if (Number.isSafeInteger(payload?.version)) draftVersionRef.current = Number(payload?.version);
+        }
+      }
+    }
+  }, [offlinePrincipal]);
+
+  const clearRecoveryDraft = useCallback(async (assessmentId: string) => {
+    if (offlinePrincipal) {
+      try {
+        await removeOfflineAssessmentDraft(offlinePrincipal, assessmentId);
+      } catch {
+        // The expiring encrypted recovery copy is harmless if cleanup is unavailable.
+      }
+    }
+    if (draftVersionRef.current < 1) return;
+    try {
+      await fetchPipelineJson(`/api/me/assessment-drafts/${encodeURIComponent(assessmentId)}`, {
+        method: "DELETE",
+        body: JSON.stringify({ if_match: draftVersionRef.current }),
+      });
+      draftVersionRef.current = 0;
+    } catch {
+      // Expiring server drafts are harmless once the canonical assessment is saved.
+    }
+  }, [offlinePrincipal]);
+
   useEffect(() => {
     let cancelled = false;
     fetchCurrentPipelineUser()
@@ -183,6 +309,17 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
       });
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const updateConnection = () => setNetworkOnline(window.navigator.onLine);
+    updateConnection();
+    window.addEventListener("online", updateConnection);
+    window.addEventListener("offline", updateConnection);
+    return () => {
+      window.removeEventListener("online", updateConnection);
+      window.removeEventListener("offline", updateConnection);
     };
   }, []);
 
@@ -233,8 +370,9 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
 
   useEffect(() => {
     if (!selected) return;
-    if (initializedAssessmentIdRef.current === selected.assessment_id) return;
-    initializedAssessmentIdRef.current = selected.assessment_id;
+    const initializationKey = `${selected.assessment_id}:${offlinePrincipal || "server"}`;
+    if (initializedAssessmentIdRef.current === initializationKey) return;
+    initializedAssessmentIdRef.current = initializationKey;
     const data = pickAssessmentToolData(selected);
     selectedRef.current = selected;
     baseDataRef.current = data;
@@ -248,7 +386,7 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
     setShowSchedule(false);
     setShowAddendum(false);
     void loadRecoveryDraft(selected, data);
-  }, [selected]);
+  }, [loadRecoveryDraft, offlinePrincipal, selected]);
 
   useEffect(() => {
     if (!referralId || !selected || selected.signed_at || !packetEvidenceVersion || dirty) return;
@@ -405,17 +543,18 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
     }
 
     const sentData = editableSectionData(draftRef.current, section);
+    const requestBody = JSON.stringify({
+      section,
+      if_match_section: normalizeAssessmentSectionVersions(current.section_versions)[section],
+      client_mutation_id: mutationId(`assessment-${section}`),
+      patch: { data: sentData },
+    });
     try {
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
         `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
         {
           method: "PATCH",
-          body: JSON.stringify({
-            section,
-            if_match_section: normalizeAssessmentSectionVersions(current.section_versions)[section],
-            client_mutation_id: mutationId(`assessment-${section}`),
-            patch: { data: sentData },
-          }),
+          body: requestBody,
         },
       );
       const saved = payload.assessment;
@@ -439,6 +578,29 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
       setError("");
       if (nextDirty.size === 0) void clearRecoveryDraft(saved.assessment_id);
     } catch (saveError) {
+      if (saveError instanceof PipelineApiError && saveError.status === 0 && offlinePrincipal) {
+        await queueOfflineAssessmentMutation(offlinePrincipal, {
+          dedupeKey: `${current.assessment_id}:${section}`,
+          url: `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
+          method: "PATCH",
+          body: requestBody,
+          createdAt: new Date().toISOString(),
+        });
+        const nextBase = pickAssessmentToolData(baseDataRef.current);
+        for (const field of fieldsForAssessmentSection(section)) {
+          if (sentData[field] !== undefined) nextBase[field] = sentData[field] as never;
+        }
+        baseDataRef.current = nextBase;
+        const nextDirty = dirtyAssessmentSections(draftRef.current, nextBase);
+        dirtySectionsRef.current = nextDirty;
+        setDirtySections(nextDirty);
+        const queued = await pendingOfflineAssessmentMutations(offlinePrincipal);
+        setPendingOfflineSaves(queued);
+        setNetworkOnline(false);
+        setMessage(`${queued} offline change${queued === 1 ? "" : "s"} queued`);
+        setError("");
+        return;
+      }
       if (saveError instanceof PipelineApiError && saveError.status === 409) {
         const latest = assessmentFromConflict(saveError.payload);
         if (latest) receiveRemoteAssessment(latest);
@@ -447,7 +609,57 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
       setMessage("");
       throw saveError;
     }
-  }, [receiveRemoteAssessment]);
+  }, [clearRecoveryDraft, offlinePrincipal, receiveRemoteAssessment]);
+
+  const syncOfflineChanges = useCallback(async () => {
+    if (!offlinePrincipal || !window.navigator.onLine) return;
+    const result = await flushOfflineAssessmentMutations(offlinePrincipal, async (mutation) => {
+      await fetchPipelineJson(mutation.url, { method: mutation.method, body: mutation.body });
+    });
+    setPendingOfflineSaves(result.remaining);
+    if (result.conflicts > 0) {
+      setMessage(`${result.conflicts} synced change${result.conflicts === 1 ? "" : "s"} need conflict review`);
+    } else if (result.completed > 0) {
+      setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : "Offline changes synced");
+    }
+    const current = selectedRef.current;
+    if (result.completed > 0 && current) {
+      try {
+        const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+          `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
+          { cache: "no-store" },
+        );
+        receiveRemoteAssessment(payload.assessment, false);
+        if (result.remaining === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
+      } catch {
+        // The normal active-assessment poll will reconcile the saved version.
+      }
+    }
+  }, [offlinePrincipal, receiveRemoteAssessment]);
+
+  useEffect(() => {
+    if (!offlinePrincipal) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        await initializeOfflineAssessmentStore(offlinePrincipal);
+        const count = await pendingOfflineAssessmentMutations(offlinePrincipal);
+        if (!cancelled) setPendingOfflineSaves(count);
+      } catch {
+        // The server autosave remains available when encrypted browser storage is unavailable.
+      }
+    };
+    const onStateChange = () => void refresh();
+    const onOnline = () => void syncOfflineChanges();
+    void refresh().then(() => syncOfflineChanges());
+    window.addEventListener("pipeline:offline-state-changed", onStateChange);
+    window.addEventListener("online", onOnline);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pipeline:offline-state-changed", onStateChange);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [offlinePrincipal, syncOfflineChanges]);
 
   const queueSectionSave = useCallback((section: AssessmentToolSection) => {
     const next = saveQueueRef.current.then(() => saveSectionNow(section));
@@ -655,29 +867,46 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
     setIsBusy(true);
     setError("");
     setMessage("Reading assessment file...");
+    let requestBody = "";
     try {
       const parsed = await parseAssessmentFile(file);
       setMessage(`Mapping ${parsed.fields.length} extracted values...`);
+      requestBody = JSON.stringify({
+        assessment_id: selected?.assessment_id,
+        if_match: selected?.version,
+        fields: parsed.fields,
+        context: {
+          source_file: file.name,
+          extraction_date: new Date().toISOString(),
+          match_confidence: parsed.matchConfidence,
+        },
+        client_mutation_id: mutationId("assessment-import"),
+      });
       const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
         `/api/referrals/${referralId}/assessments/import`,
         {
           method: "POST",
-          body: JSON.stringify({
-            assessment_id: selected?.assessment_id,
-            if_match: selected?.version,
-            fields: parsed.fields,
-            context: {
-              source_file: file.name,
-              extraction_date: new Date().toISOString(),
-              match_confidence: parsed.matchConfidence,
-            },
-            client_mutation_id: mutationId("assessment-import"),
-          }),
+          body: requestBody,
         },
       );
       upsertAssessment(payload.assessment, true);
       setMessage("Extracted values are ready for review");
     } catch (importError) {
+      if (importError instanceof PipelineApiError && importError.status === 0 && offlinePrincipal && requestBody) {
+        await queueOfflineAssessmentMutation(offlinePrincipal, {
+          dedupeKey: `${selected?.assessment_id ?? referralId}:import:${file.name}:${file.size}:${file.lastModified}`,
+          url: `/api/referrals/${referralId}/assessments/import`,
+          method: "POST",
+          body: requestBody,
+          createdAt: new Date().toISOString(),
+        });
+        const queued = await pendingOfflineAssessmentMutations(offlinePrincipal);
+        setPendingOfflineSaves(queued);
+        setNetworkOnline(false);
+        setMessage(`Workbook read · import queued until connection returns`);
+        setError("");
+        return;
+      }
       setError(messageFor(importError, "The assessment file could not be imported."));
       setMessage("");
     } finally {
@@ -697,112 +926,6 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
     setMessage("Saving changes...");
     setError("");
   };
-
-  async function loadRecoveryDraft(assessment: PipelineAssessmentRecord, currentData: AssessmentToolData) {
-    let recovered: PipelineAssessmentDraft | null = null;
-    let recoveredVersion = 0;
-    try {
-      const local = window.sessionStorage.getItem(assessmentDraftStorageKey(assessment.assessment_id));
-      if (local) recovered = JSON.parse(local) as PipelineAssessmentDraft;
-    } catch {
-      // Server recovery remains available when session storage is unavailable.
-    }
-    if (usesServerUserWorkspaceState()) {
-      try {
-        const payload = await fetchPipelineJson<{ draft: PipelineAssessmentDraft | null; version: number }>(
-          `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
-          { cache: "no-store" },
-        );
-        if (payload.draft && (!recovered || Date.parse(payload.draft.savedAt) >= Date.parse(recovered.savedAt))) {
-          recovered = payload.draft;
-        }
-        recoveredVersion = payload.version;
-      } catch {
-        // Browser recovery remains available during a transient server-state outage.
-      }
-    }
-    draftVersionRef.current = recoveredVersion;
-    if (!recovered || recovered.assessmentId !== assessment.assessment_id || recovered.dirtySections.length === 0) return;
-
-    const merged = pickAssessmentToolData(currentData);
-    const conflicts: AssessmentFieldConflict[] = [];
-    for (const definition of assessmentToolFieldDefinitions) {
-      const field = definition.key;
-      const localChanged = !sameAssessmentValue(recovered.data[field], recovered.baseData[field]);
-      if (!localChanged) continue;
-      const remoteChanged = !sameAssessmentValue(currentData[field], recovered.baseData[field]);
-      merged[field] = recovered.data[field] as never;
-      if (remoteChanged && !sameAssessmentValue(recovered.data[field], currentData[field])) {
-        conflicts.push({
-          field,
-          localValue: recovered.data[field],
-          remoteValue: currentData[field],
-          section: definition.section,
-        });
-      }
-    }
-    baseDataRef.current = currentData;
-    draftRef.current = merged;
-    setDraft(merged);
-    const recoveredDirty = dirtyAssessmentSections(merged, currentData);
-    setDirtySections(recoveredDirty);
-    setRemoteChange(conflicts.length > 0 ? { assessment, conflicts } : null);
-    setMessage(conflicts.length > 0 ? "Recovered changes need conflict review" : "Recovered unsaved assessment changes");
-  }
-
-  async function persistRecoveryDraft(assessment: PipelineAssessmentRecord) {
-    if (dirtySectionsRef.current.size === 0) return;
-    const recovery: PipelineAssessmentDraft = {
-      schema: 1,
-      assessmentId: assessment.assessment_id,
-      savedAt: new Date().toISOString(),
-      baseVersion: assessment.version,
-      sectionVersions: normalizeAssessmentSectionVersions(assessment.section_versions),
-      dirtySections: [...dirtySectionsRef.current],
-      data: pickAssessmentToolData(draftRef.current),
-      baseData: pickAssessmentToolData(baseDataRef.current),
-    };
-    try {
-      window.sessionStorage.setItem(assessmentDraftStorageKey(assessment.assessment_id), JSON.stringify(recovery));
-    } catch {
-      // The server draft remains authoritative when browser storage is unavailable.
-    }
-    if (usesServerUserWorkspaceState()) {
-      try {
-        const payload = await fetchPipelineJson<{ version: number }>(
-          `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
-          {
-            method: "PUT",
-            body: JSON.stringify({ if_match: draftVersionRef.current, draft: recovery }),
-          },
-        );
-        draftVersionRef.current = payload.version;
-      } catch (draftError) {
-        if (draftError instanceof PipelineApiError && draftError.status === 409) {
-          const payload = draftError.payload as { version?: unknown } | undefined;
-          if (Number.isSafeInteger(payload?.version)) draftVersionRef.current = Number(payload?.version);
-        }
-      }
-    }
-  }
-
-  async function clearRecoveryDraft(assessmentId: string) {
-    try {
-      window.sessionStorage.removeItem(assessmentDraftStorageKey(assessmentId));
-    } catch {
-      // Nothing else is required for browser storage cleanup.
-    }
-    if (draftVersionRef.current < 1) return;
-    try {
-      await fetchPipelineJson(`/api/me/assessment-drafts/${encodeURIComponent(assessmentId)}`, {
-        method: "DELETE",
-        body: JSON.stringify({ if_match: draftVersionRef.current }),
-      });
-      draftVersionRef.current = 0;
-    } catch {
-      // Expiring server drafts are harmless once the canonical assessment is saved.
-    }
-  }
 
   const resolveAssessmentConflict = (field: AssessmentToolFieldKey, useLatest: boolean) => {
     const change = remoteChangeRef.current;
@@ -840,7 +963,7 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
     if (!current || dirtySections.size === 0) return;
     const timer = window.setTimeout(() => void persistRecoveryDraft(current), 350);
     return () => window.clearTimeout(timer);
-  }, [dirtySections, draft]);
+  }, [dirtySections, draft, persistRecoveryDraft]);
 
   useEffect(() => {
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -962,7 +1085,7 @@ export default function AssessmentWorkspace({ referralId, packetEvidenceVersion,
             {canSupervise && selected.assessor_id !== viewer?.id ? <span className="sr-only">Supervisor access</span> : null}
           </div>
         </div>
-        <span aria-live="polite" className={`hidden max-w-[240px] truncate text-[10px] lg:block ${error ? "text-[#a63d2f]" : dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{error || (dirty ? "Saving changes..." : message || "All changes saved")}</span>
+        <span aria-live="polite" className={`hidden max-w-[280px] truncate text-[10px] lg:block ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{error || (!networkOnline ? `Offline${pendingOfflineSaves > 0 ? ` · ${pendingOfflineSaves} queued` : ""}` : pendingOfflineSaves > 0 ? `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync` : dirty ? "Saving changes..." : message || "All changes saved")}</span>
         <div className="relative hidden min-w-[210px] sm:block">
           <History size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#0f8b73]" />
           <select id="assessment-history" aria-label="Assessment history" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className="h-10 w-full appearance-none border border-[#c9ceca] bg-white pl-9 pr-9 text-[11px] font-semibold outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]">
@@ -1225,7 +1348,7 @@ function AssessmentImport({
           <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#e7f3ee] text-[#0f8b73]"><UploadCloud size={19} /></span>
           <span>
             <span className="block text-[12px] font-black">Drop assessment file</span>
-            <span className="mt-1 block text-[10px] leading-4 text-[#737373]">CSV or JSON locally. XLSX routes to Azure when connected.</span>
+            <span className="mt-1 block text-[10px] leading-4 text-[#737373]">Pipeline XLSX, CSV, TSV, or JSON. Workbook values are read from fixed source cells.</span>
           </span>
         </button>
         <input ref={inputRef} type="file" accept=".csv,.tsv,.json,.xlsx,.xls" className="hidden" aria-label="Upload assessment file" onChange={(event) => onFile(event.target.files?.[0])} />
@@ -1236,7 +1359,10 @@ function AssessmentImport({
               <div className="flex items-center gap-2 text-[12px] font-black"><FileSpreadsheet size={15} className="text-[#0f8b73]" /> Imported values</div>
               <div className="mt-1 text-[10px] text-[#737373]">{assessment.source_file || "No assessment file imported"}</div>
             </div>
-            {pendingFields.length > 0 ? <button type="button" onClick={onConfirm} disabled={busy} className="flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[11px] font-black text-white hover:bg-[#0b6d5b] disabled:opacity-50"><Check size={14} /> Confirm {pendingFields.length} values</button> : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <a href={toPipelinePath(assessmentWorkbookTemplatePath)} download className="flex h-9 items-center gap-2 border border-[#a9b8b2] bg-white px-3 text-[11px] font-black text-[#176f5f] hover:border-[#0f8b73]"><Download size={14} /> Excel workbook</a>
+              {pendingFields.length > 0 ? <button type="button" onClick={onConfirm} disabled={busy} className="flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[11px] font-black text-white hover:bg-[#0b6d5b] disabled:opacity-50"><Check size={14} /> Confirm {pendingFields.length} values</button> : null}
+            </div>
           </div>
           {pendingFields.length > 0 ? (
             <div className="mt-3 grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
@@ -1306,7 +1432,7 @@ function AssessmentField({
         <div className="mb-2 border-l-2 border-[#c9892a] bg-[#fffaf0] px-3 py-2">
           <div className="text-[10px] leading-4 text-[#70480d]">
             Suggested from <strong>{pendingProvenance.source_file || "the uploaded packet"}</strong>
-            {pendingProvenance.source_page_no ? `, page ${pendingProvenance.source_page_no}` : ""}
+            {assessmentEvidenceLocation(pendingProvenance)}
             {Number.isFinite(pendingProvenance.confidence) ? ` · ${Math.round(pendingProvenance.confidence * 100)}% confidence` : ""}
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -1486,10 +1612,6 @@ function assessmentFromConflict(payload: unknown) {
     : null;
 }
 
-function assessmentDraftStorageKey(assessmentId: string) {
-  return `pipeline:assessment-draft:${assessmentId}`;
-}
-
 function displayAssessmentValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
   if (Array.isArray(value)) return value.join(", ") || "Empty";
   if (value && typeof value === "object") {
@@ -1501,6 +1623,18 @@ function displayAssessmentValue(value: AssessmentToolData[AssessmentToolFieldKey
   if (value === null || String(value).trim() === "") return "Empty";
   const text = String(value);
   return text.length > 180 ? `${text.slice(0, 177)}...` : text;
+}
+
+function assessmentEvidenceLocation(provenance: AssessmentFieldProvenance) {
+  const workbookCell = provenance.evidence_url?.match(/^workbook:\/\/([^!]+)!([A-Z]{1,3}[1-9][0-9]*)$/i);
+  if (workbookCell) {
+    try {
+      return `, ${decodeURIComponent(workbookCell[1])} ${workbookCell[2].toUpperCase()}`;
+    } catch {
+      return `, workbook cell ${workbookCell[2].toUpperCase()}`;
+    }
+  }
+  return provenance.source_page_no ? `, page ${provenance.source_page_no}` : "";
 }
 
 function setAssessmentValue(

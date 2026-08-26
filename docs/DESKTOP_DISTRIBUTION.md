@@ -33,9 +33,14 @@ When desktop support is enabled:
 - Drafts expire after 30 days. Recents expire after 180 days.
 - Draft writes use optimistic versions; another signed-in session cannot
   silently replace a newer draft.
+- Open assessment drafts and queued section saves use a separate, per-user,
+  non-extractable AES-GCM key in IndexedDB. They expire after seven days and
+  are deleted on explicit sign-out.
 
-This mode is online-only by design. Offline clinical or referral workflows are
-out of scope.
+The installed app supports continuity when an assessment is already open and
+connectivity drops. Cold-start offline access, file previews, new referrals,
+and signed clinical actions remain online-only so authentication and protected
+records cannot be bypassed.
 
 ## Production prerequisites
 
@@ -61,14 +66,19 @@ After deployment:
 1. Sign in through Microsoft Entra and open a protected deep link.
 2. In Edge DevTools, confirm `/sw.js` controls the page and the manifest reports
    the expected icons, `start_url`, and standalone display.
-3. Inspect Cache Storage. Only `pipeline-static-v1` may exist, and it may contain
-   only `/offline.html`, `/pwa/*`, and `/_next/static/*` URLs.
+3. Inspect Cache Storage. Only `pipeline-static-v2` may exist, and it may contain
+   only the Pipeline-scoped offline page, `/pwa/*`, and `/_next/static/*` URLs.
+   When Pipeline uses a base path, confirm every cached URL, the manifest
+   `start_url`, and the worker scope remain below that base path.
 4. Open and edit a referral. Confirm no `pipeline-referral-draft:*` or
    `pipeline.recent-destinations.v1` value is written to browser storage.
 5. Reload and confirm the signed-in user recovers only their own draft and
    recents.
-6. Disconnect networking. The generic connection-required screen may appear;
-   no Pipeline record or uploaded document may render offline.
+6. Disconnect networking. An assessment that is already open remains editable.
+   Drafts and section-save mutations are encrypted in IndexedDB, expire after
+   seven days, and replay when connectivity returns. A cold navigation still
+   shows the generic connection-required screen; protected HTML and uploaded
+   documents are never written to Cache Storage.
 7. Run `npm run test:e2e:desktop`. The browser suite installs the worker,
    verifies the generic offline fallback, replaces an old Pipeline cache,
    preserves an unrelated cache, exercises the hosted kill switch, and checks

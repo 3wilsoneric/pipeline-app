@@ -30,6 +30,7 @@ import {
   restorePipelineAccountSilently,
 } from "@/lib/auth/browser-session";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
+import { clearPipelineOfflineData } from "@/lib/offline/offline-assessment-store";
 
 type AuthStatus = "disabled" | "initializing" | "signed_out" | "redirecting" | "signed_in" | "error";
 
@@ -242,6 +243,7 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
     },
     signOut: async () => {
       clearPostLoginPath();
+      await clearPipelineOfflineData().catch(() => undefined);
       await fetch(toPipelinePath("/api/auth/session"), { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
       await instance.logoutRedirect({ postLogoutRedirectUri: `${window.location.origin}${toPipelinePath("/sign-in")}` });
     },

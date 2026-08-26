@@ -1,14 +1,18 @@
 import type { MetadataRoute } from "next";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 export const dynamic = "force-static";
 
+const pipelineRoot = toPipelinePath("/");
+const pipelineScope = pipelineRoot === "/" ? "/" : `${pipelineRoot}/`;
+
 const manifest: MetadataRoute.Manifest = {
-  id: "/",
+  id: pipelineScope,
   name: "Pipeline",
   short_name: "Pipeline",
   description: "Pipeline referral packets, assessments, and client records.",
-  start_url: "/",
-  scope: "/",
+  start_url: pipelineScope,
+  scope: pipelineScope,
   display: "standalone",
   background_color: "#ffffff",
   theme_color: "#118c78",
@@ -16,17 +20,17 @@ const manifest: MetadataRoute.Manifest = {
   categories: ["business", "medical", "productivity"],
   icons: [
     {
-      src: "/pwa/icon-192.png",
+      src: toPipelinePath("/pwa/icon-192.png"),
       sizes: "192x192",
       type: "image/png",
     },
     {
-      src: "/pwa/icon-512.png",
+      src: toPipelinePath("/pwa/icon-512.png"),
       sizes: "512x512",
       type: "image/png",
     },
     {
-      src: "/pwa/icon-maskable-512.png",
+      src: toPipelinePath("/pwa/icon-maskable-512.png"),
       sizes: "512x512",
       type: "image/png",
       purpose: "maskable",

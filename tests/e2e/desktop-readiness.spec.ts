@@ -45,7 +45,7 @@ test.describe("desktop feature enabled", () => {
       }))).flat();
       return { names, urls };
     });
-    expect(cacheAudit.names).toEqual(["pipeline-static-v1"]);
+    expect(cacheAudit.names).toEqual(["pipeline-static-v2"]);
     expect(cacheAudit.urls.some((url) => new URL(url).pathname.startsWith("/api/"))).toBeFalsy();
     expect(cacheAudit.urls.every((url) => {
       const path = new URL(url).pathname;
@@ -63,7 +63,7 @@ test.describe("desktop feature enabled", () => {
     try {
       await page.goto("/referrals", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "A connection is required." })).toBeVisible();
-      await expect(page.getByText("Client and referral data is never stored for offline use.")).toBeVisible();
+      await expect(page.getByText("An assessment already open can keep working offline", { exact: false })).toBeVisible();
       await expect(page.locator("script")).toHaveCount(0);
     } finally {
       await context.setOffline(false);
@@ -83,7 +83,7 @@ test.describe("desktop feature enabled", () => {
     });
 
     await expect.poll(async () => page.evaluate(async () => (await caches.keys()).sort())).toEqual([
-      "pipeline-static-v1",
+      "pipeline-static-v2",
       "unrelated-application-cache",
     ]);
 
@@ -195,6 +195,125 @@ test.describe("desktop feature enabled", () => {
       const response = await page.request.get("/api/me/referral-drafts/new");
       return (await response.json()) as { draft?: unknown; version?: number };
     }).toMatchObject({ draft: null, version: 0 });
+  });
+
+  test("encrypts offline assessment edits and syncs them after reconnecting", async ({ context, page }) => {
+    await page.goto("/");
+    const membersResponse = await page.request.get("/api/members");
+    const members = await membersResponse.json() as {
+      members: Array<{ principal_id: string; display_name: string }>;
+      current_principal_id: string;
+    };
+    const current = members.members.find((member) => member.principal_id === members.current_principal_id);
+    expect(current).toBeTruthy();
+
+    const token = Date.now().toString(36);
+    const createdResponse = await page.request.post("/api/referrals", {
+      data: {
+        client_mutation_id: `offline-referral-${token}`,
+        referral: {
+          name: `Offline assessment ${token}`,
+          date: "2026-08-25",
+          stage: "New",
+          community: "San Pablo",
+          source: "Offline browser verification",
+          priority: "standard",
+          tags: [],
+          documentName: `offline-${token}.pdf`,
+          documentStatus: "Reviewed",
+          packetStatus: "reviewed",
+          owner: current!.display_name,
+          assignee_id: current!.principal_id,
+          note: "",
+          createdAt: new Date().toISOString(),
+          dob: "1980-01-01",
+          phone: "",
+          email: "",
+          payer: "",
+          requirements: [],
+        },
+      },
+    });
+    const createdPayload = await createdResponse.json();
+    expect(createdResponse.status(), JSON.stringify(createdPayload)).toBe(201);
+    const referralId = Number(createdPayload.referral.id);
+    let referral = createdPayload.referral as {
+      id: number;
+      version: number;
+      sectionVersions: { workflow: number };
+    };
+    for (const target_stage of ["Packet Needed", "Packet Review", "Assessment"]) {
+      const transitionResponse = await page.request.post(`/api/referrals/${referralId}/transition`, {
+        data: {
+          if_match: referral.version,
+          if_match_section: referral.sectionVersions.workflow,
+          target_stage,
+        },
+      });
+      const transitionPayload = await transitionResponse.json();
+      expect(transitionResponse.ok(), JSON.stringify(transitionPayload)).toBeTruthy();
+      referral = transitionPayload.referral;
+    }
+    const assessmentResponse = await page.request.post(`/api/referrals/${referralId}/assessments`, {
+      data: {
+        client_mutation_id: `offline-assessment-${token}`,
+        data: {
+          resident_name: `Offline assessment ${token}`,
+          date_of_birth: "1980-01-01",
+          community: "San Pablo",
+          assessment_date: "2026-08-25",
+          referral_received_date: "2026-08-25",
+          referrer_name: "Offline browser verification",
+        },
+      },
+    });
+    const assessmentPayload = await assessmentResponse.json();
+    expect(assessmentResponse.status(), JSON.stringify(assessmentPayload)).toBe(201);
+
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}`);
+    await page.getByRole("button", { name: "02 Assessment" }).click();
+    const assessmentDialog = page.getByRole("dialog", { name: "Assessment interview" });
+    const openAssessment = page.getByRole("button", { name: "Open assessment", exact: true });
+    await expect(assessmentDialog.or(openAssessment)).toBeVisible();
+    if (await openAssessment.isVisible()) await openAssessment.click();
+    await expect(assessmentDialog).toBeVisible();
+    const begin = page.getByRole("button", { name: "Begin interview", exact: true });
+    if (await begin.count()) await begin.click();
+    const location = page.getByRole("textbox", { name: "Current location *", exact: true });
+    await expect(location).toBeVisible();
+
+    const offlineValue = `Offline location ${token}`;
+    await context.setOffline(true);
+    try {
+      await location.fill(offlineValue);
+      await expect(page.getByText("Offline · 1 queued", { exact: true })).toBeVisible({ timeout: 10_000 });
+      const encrypted = await page.evaluate(async (plaintext) => {
+        const database = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open("pipeline-offline-v1");
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        const records = await new Promise<unknown[]>((resolve, reject) => {
+          const request = database.transaction("mutations").objectStore("mutations").getAll();
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        database.close();
+        const serialized = JSON.stringify(records);
+        return { count: records.length, containsPlaintext: serialized.includes(plaintext) };
+      }, offlineValue);
+      expect(encrypted.count).toBeGreaterThan(0);
+      expect(encrypted.containsPlaintext).toBeFalsy();
+    } finally {
+      await context.setOffline(false);
+    }
+
+    await expect(page.getByText("Offline changes synced", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect.poll(async () => {
+      const response = await page.request.get(`/api/assessments/${assessmentPayload.assessment.assessment_id}`);
+      const payload = await response.json() as { assessment?: { current_location?: string } };
+      return payload.assessment?.current_location ?? "";
+    }).toBe(offlineValue);
   });
 });
 
