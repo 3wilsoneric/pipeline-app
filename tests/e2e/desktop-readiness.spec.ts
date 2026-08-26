@@ -179,9 +179,12 @@ test.describe("desktop feature enabled", () => {
     expect(deleted).toMatchObject({ status: 200, payload: { deleted: true } });
 
     await page.getByRole("button", { name: "Create new referral" }).click();
+    const draftId = new URL(page.url()).searchParams.get("draftId");
+    expect(draftId).toMatch(/^[0-9a-f-]{36}$/i);
+    const draftEndpoint = `/api/me/referral-drafts/new-${draftId}`;
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Desktop draft cleanup check");
     await expect.poll(async () => {
-      const response = await page.request.get("/api/me/referral-drafts/new");
+      const response = await page.request.get(draftEndpoint);
       const payload = await response.json() as { draft?: unknown };
       return Boolean(payload.draft);
     }).toBeTruthy();
@@ -192,7 +195,7 @@ test.describe("desktop feature enabled", () => {
     });
     await page.getByRole("button", { name: "Create workspace" }).click();
     await expect.poll(async () => {
-      const response = await page.request.get("/api/me/referral-drafts/new");
+      const response = await page.request.get(draftEndpoint);
       return (await response.json()) as { draft?: unknown; version?: number };
     }).toMatchObject({ draft: null, version: 0 });
   });
