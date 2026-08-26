@@ -276,6 +276,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
   const dirtyKeysRef = useRef(dirtyKeys);
   const isSavingRef = useRef(isSaving);
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
+  const defaultOwnerRef = useRef<{ principalId: string; displayName: string } | null>(null);
   const handoffReasonRef = useRef("");
   const assessmentRoutingReferralRef = useRef<number | null>(null);
 
@@ -361,8 +362,11 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
       .then((payload) => {
         if (cancelled) return;
         setMembers(payload.members);
+        const current = payload.members.find((member) => member.principal_id === payload.current_principal_id);
+        defaultOwnerRef.current = current
+          ? { principalId: current.principal_id, displayName: current.display_name }
+          : null;
         if (!loadedReferralRef.current && !fieldsRef.current.owner.value.trim()) {
-          const current = payload.members.find((member) => member.principal_id === payload.current_principal_id);
           if (current) {
             setOwnerPrincipalId(current.principal_id);
             setFields((fields) => ({ ...fields, owner: { ...fields.owner, value: current.display_name } }));
@@ -452,13 +456,29 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
   useEffect(() => {
     if (!referral?.id) {
       let cancelled = false;
+      const defaultOwner = defaultOwnerRef.current;
+      setFields({
+        ...initialFields,
+        name: { ...initialFields.name },
+        owner: { ...initialFields.owner, value: defaultOwner?.displayName ?? "" },
+      });
+      setOwnerPrincipalId(defaultOwner?.principalId ?? "");
+      setConserved("");
+      setTagsInput("");
+      setDocuments({});
+      setInitialPacket(null);
+      setInitialPacketCategory("face_sheet");
       setLoadedReferral(null);
+      loadedReferralRef.current = null;
       setDirtyKeys(new Set());
       setRemoteChange(null);
       setExtractionConflict(null);
       setPresence([]);
       setPendingDocuments({});
       setUploadingDocumentIds(new Set());
+      setRecoveredDraftAt("");
+      setRecoveredPacketName("");
+      setSaveError("");
       const setters = {
         setFields,
         setConserved,

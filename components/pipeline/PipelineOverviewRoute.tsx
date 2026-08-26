@@ -134,7 +134,6 @@ export default function PipelineOverviewRoute() {
   if (screen === "packet") {
     page = (
       <ReferralPacketCanvas
-        key={routeReferral ? `referral-${routeReferral.id}` : `new-referral-${newReferralDraftKey ?? "resume"}`}
         referral={selectedReferral}
         newDraftKey={newReferralDraftKey}
         onReferralSaved={(savedReferral) => {
