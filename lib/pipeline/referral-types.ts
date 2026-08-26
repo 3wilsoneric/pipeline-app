@@ -46,11 +46,11 @@ export const referralCanvasFieldKeys = [
   "owner",
   "referralReceived",
   "admissionDate",
+  "community",
   "county",
   "referent",
   "responsiblePerson",
   "summary",
-  "interview",
 ] as const;
 
 export type ReferralCanvasFieldKey = (typeof referralCanvasFieldKeys)[number];
@@ -239,6 +239,7 @@ export type Referral = {
   ssn?: string;
   admissionDate?: string;
   responsiblePerson?: string;
+  /** @deprecated Legacy Allo-era narrative. New interview answers belong to assessment records. */
   interview?: string;
   conserved?: "yes" | "no" | "";
   fieldSources?: Partial<Record<ReferralCanvasFieldKey, string>>;
@@ -253,6 +254,7 @@ export type Referral = {
   packetMessage?: string;
   /** Explicit, audited authorization to complete intake from the chart while source files remain outstanding. */
   manualIntakeAuthorization?: ManualIntakeAuthorization;
+  /** @deprecated Legacy embedded assessment projection. Canonical assessments use the assessment store. */
   assessment?: AssessmentProfile;
   assessmentDocumentName?: string;
   assessmentDocumentSizeBytes?: number;

@@ -2,7 +2,6 @@
 
 import { ArrowRight, Check, Circle } from "lucide-react";
 
-import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
 import {
   AdmissionDecisionEditor,
   EhrHandoffEditor,
@@ -102,7 +101,6 @@ export default function ReferralReviewPanel({
       <ReferralRequirementsEditor referral={referral} onReferralUpdated={onDecisionSaved} />
       <AdmissionDecisionEditor referral={referral} assessmentComplete={assessmentComplete} assessmentId={assessmentId} onSaved={onDecisionSaved} />
       <EhrHandoffEditor referral={referral} onSaved={onDecisionSaved} />
-      <ReferralActivityPanel referralId={referral?.id} version={referral?.version} />
     </section>
   );
 }

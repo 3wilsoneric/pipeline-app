@@ -437,6 +437,11 @@ for (const definition of assessmentToolFieldDefinitions) {
 const firstNameKeys = new Set(["assessment_tool.first_name", "assessment.first_name", "referral.first_name", "demographics.first_name"]);
 const lastNameKeys = new Set(["assessment_tool.last_name", "assessment.last_name", "referral.last_name", "demographics.last_name"]);
 
+export function assessmentToolFieldForExtractionKey(fieldKey: string): AssessmentToolFieldKey | undefined {
+  if (firstNameKeys.has(fieldKey) || lastNameKeys.has(fieldKey)) return "resident_name";
+  return targetByExtractionKey.get(fieldKey);
+}
+
 export function createEmptyAssessmentToolData(): AssessmentToolData {
   return {
     resident_number: null,

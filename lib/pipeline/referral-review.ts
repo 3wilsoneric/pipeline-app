@@ -1,4 +1,4 @@
-export type ReviewStep = 1 | 2 | 3 | 4;
+export type ReviewStep = 1 | 2 | 3 | "files";
 
 export type ReviewItem = {
   label: string;

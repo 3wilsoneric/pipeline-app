@@ -9,6 +9,7 @@ const read = (file) => readFileSync(file, "utf8");
 const workflow = loadTypeScriptModule(root, "lib/pipeline/workflow-status.ts");
 const lifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
 const records = loadTypeScriptModule(root, "lib/pipeline/workflow-records.ts");
+const assessmentSeed = loadTypeScriptModule(root, "lib/assessment/assessment-seed.ts");
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -48,6 +49,39 @@ check("only an explicit signature produces signed status", workflow.resolveRefer
 check("assessor recommendation creates supervisor decision work", workflow.resolveReferralWorkflowStatus(referral, { recommendation: { recommendationId: "rec-1" } }) === "decision_pending");
 check("final decision closes to accepted", workflow.resolveReferralWorkflowStatus(referral, { decision: { outcome: "accepted" } }) === "accepted");
 
+const seededAssessment = assessmentSeed.buildAssessmentSeedFromReferral({
+  ...referral,
+  date: "2026-08-23",
+  county: "Contra Costa County",
+  createdAt: "2026-08-23T08:00:00.000Z",
+  packetFields: [
+    {
+      field_key: "assessment_tool.mobility",
+      version: 1,
+      proposed_value: "Independent",
+      confidence: 0.91,
+      review_status: "pending",
+      source_page_no: 14,
+      is_conflict: false,
+      candidates: [],
+    },
+    {
+      field_key: "assessment_tool.community",
+      version: 1,
+      proposed_value: "Wrong community",
+      confidence: 0.8,
+      review_status: "pending",
+      source_page_no: 2,
+      is_conflict: false,
+      candidates: [],
+    },
+  ],
+}, "Assigned Assessor", new Date("2026-08-25T12:00:00.000Z"));
+check("packet clinical evidence seeds the assessment as reviewable", seededAssessment.data.mobility === "Independent" && seededAssessment.status === "needs_review");
+check("referral context remains authoritative during assessment seeding", seededAssessment.data.community === "San Pablo" && seededAssessment.data.county === "Contra Costa County");
+check("seeded assessment evidence retains page provenance", seededAssessment.field_provenance.mobility?.at(-1)?.source_page_no === 14);
+check("referral-owned packet duplicates do not enter assessment review", !seededAssessment.field_provenance.community?.some((entry) => entry.review_status === "pending"));
+
 check("schedule requires time, duration, and method", !lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: null, duration_minutes: null, method: null, location: null } }).ok);
 check("schedule accepts a timezone-aware appointment", lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: "2026-08-25T09:00:00-07:00", duration_minutes: 60, method: "in_person", location: "San Pablo" } }).ok);
 check("addenda require an expected version", !lifecycle.validateAssessmentAddendumCommand({ note: "Later information", reason_code: "correction" }).ok);
@@ -69,6 +103,8 @@ const manualIntakeRoute = read("app/api/referrals/[referralId]/manual-intake/rou
 const workflowStore = read("lib/pipeline/workflow-store.ts");
 const workItemRoute = read("app/api/referrals/[referralId]/work-items/[workItemId]/route.ts");
 const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
+const assessmentSeedSource = read("lib/assessment/assessment-seed.ts");
+const referralCanvasPersistence = read("lib/pipeline/referral-canvas-persistence.ts");
 const migration = read("database/migrations/0015_assessor_workflow.sql");
 const rollback = read("database/rollbacks/0015_assessor_workflow.sql");
 
@@ -86,6 +122,10 @@ check(
     && !assessmentCreateRoute.includes("profileIsReady")
     && !assessmentImportRoute.includes("profileIsReady"),
 );
+check("new assessment creation uses the packet-to-assessment handoff", assessmentCreateRoute.includes("buildAssessmentSeedFromReferral") && assessmentCreateRoute.includes("field_provenance: seed.field_provenance"));
+check("packet context and interview answers have explicit ownership", assessmentSeedSource.includes('assessmentFieldOwner(target) === "assessment_answer"'));
+check("new referral saves do not write the legacy interview duplicate", !referralCanvasPersistence.includes('interview: fields.interview'));
+check("assessment suggestions support field-level accept and reject", assessmentWorkspace.includes("reviewExtractedField") && assessmentWorkspace.includes('review_extraction: [{ field, action }]'));
 check("assigned assessors and supervisors can sign", signRoute.includes("canWorkAssessment") && signRoute.includes("assigned assessor or a supervisor"));
 check("assigned assessors and supervisors can edit clinical assessment fields", assessmentRoute.includes("canWorkAssessment") && assessmentRoute.includes("assigned assessor or a supervisor"));
 check("assessment start is explicit, supervisor-capable, and cannot rewrite completed history", startRoute.includes("canWorkAssessment") && startRoute.includes("assigned assessor or a supervisor") && startRoute.includes("A completed assessment cannot be started again"));

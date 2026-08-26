@@ -100,7 +100,7 @@ export default function PacketExtractionReview({
               ) : null}
             </div>
             <p className="mt-0.5 truncate text-[11px] text-[#595959]">
-              {fields.length} values stripped from {fileName}. Confirm them or correct anything the packet got wrong.
+              {fields.length} referral facts found in {fileName}. Confirm them or correct anything the packet got wrong.
             </p>
           </div>
         </div>
@@ -168,7 +168,7 @@ export default function PacketExtractionReview({
           <div>
             <div className="text-[11px] font-black text-[#111111]">Extraction review complete</div>
             <div className="mt-0.5 text-[10px] text-[#595959]">
-              Confirmed values are saved to the referral chart. The assessment remains available throughout intake.
+              Confirmed facts are saved to the referral chart. Clinical evidence from the packet is reviewed beside its question in the assessment.
             </div>
           </div>
         </div>

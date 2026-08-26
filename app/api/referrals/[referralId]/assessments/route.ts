@@ -5,7 +5,8 @@ import {
   listAssessments,
   requireAssessmentStore,
 } from "@/lib/assessment/assessment-store";
-import { createEmptyAssessmentToolData, pickAssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
+import { buildAssessmentSeedFromReferral } from "@/lib/assessment/assessment-seed";
+import { pickAssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
 import { validateAssessmentCreateRequest } from "@/lib/assessment/assessment-validation";
 import {
   assessmentClientIdentityErrorResponse,
@@ -69,13 +70,19 @@ export async function POST(
     const validated = validateAssessmentCreateRequest(body.value);
     if (!validated.ok) return jsonError(validated.message, validated.status);
 
-    const defaults = createEmptyAssessmentToolData();
-    defaults.resident_name = referral.name.trim() || null;
-    defaults.date_of_birth = isoDateOrNull(referral.dob);
-    defaults.community = referral.community;
-    defaults.assessment_date = new Date().toISOString().slice(0, 10);
-    defaults.assessor = assessmentAssignee.name;
-    const data = pickAssessmentToolData({ ...defaults, ...validated.value.data });
+    const seed = buildAssessmentSeedFromReferral(referral, assessmentAssignee.name);
+    const requested = pickAssessmentToolData({ ...seed.data, ...validated.value.data });
+    const data = pickAssessmentToolData({
+      ...requested,
+      resident_name: seed.data.resident_name,
+      date_of_birth: seed.data.date_of_birth,
+      community: seed.data.community,
+      assessment_date: seed.data.assessment_date,
+      assessor: seed.data.assessor,
+      referral_received_date: seed.data.referral_received_date,
+      referrer_name: seed.data.referrer_name,
+      county: seed.data.county,
+    });
 
     try {
       const identity = await resolveAssessmentClientIdentity(request, referralId);
@@ -86,7 +93,9 @@ export async function POST(
           canonical_client_id: identity.canonicalClientId,
           resident_key: identity.residentKey,
           data,
-          status: "draft",
+          status: seed.status,
+          field_provenance: seed.field_provenance,
+          unmapped_fields: seed.unmapped_fields,
         },
         { id: auth.user.id, name: auth.user.name },
         validated.value.client_mutation_id,
@@ -107,12 +116,6 @@ async function parseReferralId(context: { params: Promise<{ referralId: string }
   const { referralId } = await context.params;
   const parsed = Number.parseInt(referralId, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-function isoDateOrNull(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00.000Z`))
-    ? value
-    : null;
 }
 
 function privateHeaders() {

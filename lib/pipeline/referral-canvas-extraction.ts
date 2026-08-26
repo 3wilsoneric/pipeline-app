@@ -42,9 +42,8 @@ const canvasFieldMappings: Record<string, ReferralCanvasFieldKey[]> = {
   "referral.emergency_contact": ["responsiblePerson"],
   "assessment.guardian_contact": ["responsiblePerson"],
   "referral.packet_summary": ["summary"],
-  "assessment.presenting_needs": ["interview"],
-  "referral.notes": ["interview"],
-  "assessment.community_preference": ["county"],
+  "referral.county": ["county"],
+  "assessment.community_preference": ["community"],
 };
 
 export function extractedCanvasFieldKeys(fieldKey: string): ReferralCanvasFieldKey[] {
@@ -90,10 +89,10 @@ function buildCanvasFieldUpdates(extractedByKey: Map<string, ExtractedField>) {
       "assessment.guardian_contact",
     ]),
     summary: extractedValue(extractedByKey, ["referral.packet_summary"]),
-    interview: extractedValue(extractedByKey, ["assessment.presenting_needs", "referral.notes"]),
+    county: extractedValue(extractedByKey, ["referral.county"]),
   };
   const community = extractedValue(extractedByKey, ["assessment.community_preference"]);
-  if (community && pipelineCommunities.includes(community.value as PipelineCommunity)) updates.county = community;
+  if (community && pipelineCommunities.includes(community.value as PipelineCommunity)) updates.community = community;
   return updates;
 }
 

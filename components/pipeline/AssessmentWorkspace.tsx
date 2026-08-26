@@ -37,6 +37,7 @@ import {
   assessmentToolFieldDefinitions,
   createEmptyAssessmentToolData,
   pickAssessmentToolData,
+  type AssessmentFieldProvenance,
   type AssessmentToolData,
   type AssessmentToolFieldDefinition,
   type AssessmentToolFieldKey,
@@ -60,9 +61,11 @@ import {
 } from "@/lib/assessment/assessment-sections";
 import type { EditingPresence } from "@/lib/pipeline/editing-presence";
 import type { PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
+import { usesServerUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-client";
 
 type AssessmentWorkspaceProps = {
   referralId?: number;
+  packetEvidenceVersion?: string;
   onSummaryChange?: (summary: { captured: number; total: number; status: string; assessmentId?: string }) => void;
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord) => void | Promise<void>;
 };
@@ -100,7 +103,7 @@ type AssessmentRemoteChange = {
   conflicts: AssessmentFieldConflict[];
 };
 
-export default function AssessmentWorkspace({ referralId, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
+export default function AssessmentWorkspace({ referralId, packetEvidenceVersion, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
@@ -134,6 +137,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const initializedAssessmentIdRef = useRef("");
   const focusedAssessmentIdRef = useRef("");
+  const packetSyncKeysRef = useRef(new Set<string>());
   const dirty = dirtySections.size > 0;
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
@@ -155,6 +159,18 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
   const activeSectionIndex = assessmentInterviewSections.findIndex((section) => section.key === activeSection);
   const activeSectionCaptured = sectionQuestions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length;
   const nextUnansweredQuestion = sectionQuestions.find((question) => !hasAssessmentInterviewValue(draft[question.field]));
+
+  const upsertAssessment = useCallback((assessment: PipelineAssessmentRecord, select = false) => {
+    setAssessments((current) => [assessment, ...current.filter((item) => item.assessment_id !== assessment.assessment_id)]);
+    if (select) setSelectedId(assessment.assessment_id);
+    selectedRef.current = assessment;
+    const data = pickAssessmentToolData(assessment);
+    baseDataRef.current = data;
+    draftRef.current = data;
+    setDraft(data);
+    setDirtySections(new Set());
+    setRemoteChange(null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -233,6 +249,36 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     setShowAddendum(false);
     void loadRecoveryDraft(selected, data);
   }, [selected]);
+
+  useEffect(() => {
+    if (!referralId || !selected || selected.signed_at || !packetEvidenceVersion || dirty) return;
+    const syncKey = `${selected.assessment_id}:${packetEvidenceVersion}`;
+    if (packetSyncKeysRef.current.has(syncKey)) return;
+    packetSyncKeysRef.current.add(syncKey);
+    let cancelled = false;
+    fetchPipelineJson<{ assessment: PipelineAssessmentRecord; synced: boolean }>(
+      `/api/referrals/${referralId}/assessments/sync-packet`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          assessment_id: selected.assessment_id,
+          if_match: selected.version,
+        }),
+      },
+    )
+      .then((payload) => {
+        if (cancelled || !payload.synced) return;
+        upsertAssessment(payload.assessment, true);
+        setMessage("Packet evidence is ready for review");
+      })
+      .catch((syncError) => {
+        if (cancelled) return;
+        setError(messageFor(syncError, "Packet evidence could not be synchronized."));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dirty, packetEvidenceVersion, referralId, selected, upsertAssessment]);
 
   useEffect(() => {
     if (!selected?.assessment_id || focusedAssessmentIdRef.current === selected.assessment_id) return;
@@ -413,6 +459,46 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     for (const section of [...dirtySectionsRef.current]) await queueSectionSave(section);
     await saveQueueRef.current;
   }, [queueSectionSave]);
+
+  const reviewExtractedField = async (
+    field: AssessmentToolFieldKey,
+    action: "accept" | "reject",
+  ) => {
+    const definition = assessmentToolFieldDefinitions.find((candidate) => candidate.key === field);
+    if (!definition) return;
+    setIsBusy(true);
+    setError("");
+    setMessage(action === "accept" ? "Confirming suggested answer..." : "Removing unsupported answer...");
+    try {
+      if (dirtySectionsRef.current.has(definition.section)) await queueSectionSave(definition.section);
+      const current = selectedRef.current;
+      if (!current) return;
+      const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
+        `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            section: definition.section,
+            if_match_section: normalizeAssessmentSectionVersions(current.section_versions)[definition.section],
+            client_mutation_id: mutationId(`assessment-review-${field}-${action}`),
+            patch: { review_extraction: [{ field, action }] },
+          }),
+        },
+      );
+      upsertAssessment(payload.assessment, true);
+      await onAssessmentSaved?.(payload.assessment);
+      setMessage(action === "accept" ? "Suggested answer confirmed" : "Suggested answer removed");
+    } catch (reviewError) {
+      if (reviewError instanceof PipelineApiError && reviewError.status === 409) {
+        const latest = assessmentFromConflict(reviewError.payload);
+        if (latest) receiveRemoteAssessment(latest);
+      }
+      setError(messageFor(reviewError, "The suggested answer could not be reviewed."));
+      setMessage("");
+    } finally {
+      setIsBusy(false);
+    }
+  };
 
   const saveAssessment = async (nextStatus = selectedRef.current?.status ?? "draft", acceptPending = false) => {
     const initial = selectedRef.current;
@@ -600,18 +686,6 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     }
   };
 
-  const upsertAssessment = (assessment: PipelineAssessmentRecord, select = false) => {
-    setAssessments((current) => [assessment, ...current.filter((item) => item.assessment_id !== assessment.assessment_id)]);
-    if (select) setSelectedId(assessment.assessment_id);
-    selectedRef.current = assessment;
-    const data = pickAssessmentToolData(assessment);
-    baseDataRef.current = data;
-    draftRef.current = data;
-    setDraft(data);
-    setDirtySections(new Set());
-    setRemoteChange(null);
-  };
-
   const updateField = (key: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => {
     const next = setAssessmentValue(draftRef.current, key, value);
     draftRef.current = next;
@@ -633,17 +707,19 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     } catch {
       // Server recovery remains available when session storage is unavailable.
     }
-    try {
-      const payload = await fetchPipelineJson<{ draft: PipelineAssessmentDraft | null; version: number }>(
-        `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
-        { cache: "no-store" },
-      );
-      if (payload.draft && (!recovered || Date.parse(payload.draft.savedAt) >= Date.parse(recovered.savedAt))) {
-        recovered = payload.draft;
+    if (usesServerUserWorkspaceState()) {
+      try {
+        const payload = await fetchPipelineJson<{ draft: PipelineAssessmentDraft | null; version: number }>(
+          `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
+          { cache: "no-store" },
+        );
+        if (payload.draft && (!recovered || Date.parse(payload.draft.savedAt) >= Date.parse(recovered.savedAt))) {
+          recovered = payload.draft;
+        }
+        recoveredVersion = payload.version;
+      } catch {
+        // Browser recovery remains available during a transient server-state outage.
       }
-      recoveredVersion = payload.version;
-    } catch {
-      // Local recovery is sufficient in development and remains a safe fallback in a transient outage.
     }
     draftVersionRef.current = recoveredVersion;
     if (!recovered || recovered.assessmentId !== assessment.assessment_id || recovered.dirtySections.length === 0) return;
@@ -691,19 +767,21 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     } catch {
       // The server draft remains authoritative when browser storage is unavailable.
     }
-    try {
-      const payload = await fetchPipelineJson<{ version: number }>(
-        `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ if_match: draftVersionRef.current, draft: recovery }),
-        },
-      );
-      draftVersionRef.current = payload.version;
-    } catch (draftError) {
-      if (draftError instanceof PipelineApiError && draftError.status === 409) {
-        const payload = draftError.payload as { version?: unknown } | undefined;
-        if (Number.isSafeInteger(payload?.version)) draftVersionRef.current = Number(payload?.version);
+    if (usesServerUserWorkspaceState()) {
+      try {
+        const payload = await fetchPipelineJson<{ version: number }>(
+          `/api/me/assessment-drafts/${encodeURIComponent(assessment.assessment_id)}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ if_match: draftVersionRef.current, draft: recovery }),
+          },
+        );
+        draftVersionRef.current = payload.version;
+      } catch (draftError) {
+        if (draftError instanceof PipelineApiError && draftError.status === 409) {
+          const payload = draftError.payload as { version?: unknown } | undefined;
+          if (Number.isSafeInteger(payload?.version)) draftVersionRef.current = Number(payload?.version);
+        }
       }
     }
   }
@@ -851,7 +929,7 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
     return (
       <AssessmentEmpty
         title="No assessment yet"
-        detail="Open the questionnaire to review it, import answers, schedule the interview, or enter information directly."
+        detail="Open the questionnaire to review packet evidence beside matching questions, schedule the interview, or enter information directly."
         action={canCreateClinical ? <button type="button" onClick={createAssessmentDraft} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Open assessment</button> : null}
         error={error}
       />
@@ -1052,8 +1130,11 @@ export default function AssessmentWorkspace({ referralId, onSummaryChange, onAss
                       unableReason={getAssessmentUnableReason(draft, question.field)}
                       required={requiredInterviewFields.has(question.field)}
                       pending={pendingFields.includes(question.field)}
+                      pendingProvenance={latestPendingProvenance(selected, question.field)}
                       disabled={Boolean(selected.signed_at) || !selected.started_at || !canEditClinical}
+                      reviewDisabled={isBusy || Boolean(selected.signed_at) || !canEditClinical}
                       onChange={(value) => updateField(question.field, value)}
+                      onReview={(action) => void reviewExtractedField(question.field, action)}
                       onUnableReasonChange={(reason) => updateField(
                         "unable_to_assess_reasons",
                         setAssessmentUnableReason(draftRef.current.unable_to_assess_reasons, question.field, reason),
@@ -1185,8 +1266,11 @@ function AssessmentField({
   unableReason,
   required,
   pending,
+  pendingProvenance,
   disabled,
+  reviewDisabled,
   onChange,
+  onReview,
   onUnableReasonChange,
 }: {
   definition: AssessmentToolFieldDefinition;
@@ -1195,8 +1279,11 @@ function AssessmentField({
   unableReason: string;
   required: boolean;
   pending: boolean;
+  pendingProvenance?: AssessmentFieldProvenance;
   disabled: boolean;
+  reviewDisabled: boolean;
   onChange: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
+  onReview: (action: "accept" | "reject") => void;
   onUnableReasonChange: (reason: string) => void;
 }) {
   const id = `assessment-${definition.key}`;
@@ -1215,6 +1302,20 @@ function AssessmentField({
         <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{definition.label}{required ? " *" : ""}</label>
         {pending ? <span className="bg-[#fff3dc] px-2 py-0.5 text-[9px] font-black uppercase text-[#9a6115]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : required ? <span className="text-[9px] font-semibold uppercase text-[#9a6115]">Required</span> : <span className="text-[9px] font-semibold uppercase text-[#999999]">Optional</span>}
       </div>
+      {pending && pendingProvenance ? (
+        <div className="mb-2 border-l-2 border-[#c9892a] bg-[#fffaf0] px-3 py-2">
+          <div className="text-[10px] leading-4 text-[#70480d]">
+            Suggested from <strong>{pendingProvenance.source_file || "the uploaded packet"}</strong>
+            {pendingProvenance.source_page_no ? `, page ${pendingProvenance.source_page_no}` : ""}
+            {Number.isFinite(pendingProvenance.confidence) ? ` · ${Math.round(pendingProvenance.confidence * 100)}% confidence` : ""}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" disabled={reviewDisabled} onClick={() => onReview("accept")} className="h-8 bg-[#0f8b73] px-3 text-[10px] font-black text-white hover:bg-[#0b6d5b] disabled:opacity-50">Use</button>
+            <button type="button" disabled={reviewDisabled} onClick={() => onReview("reject")} className="h-8 border border-[#c9a978] bg-white px-3 text-[10px] font-black text-[#70480d] hover:border-[#9a6115] disabled:opacity-50">Reject</button>
+            {!disabled ? <span className="self-center text-[9px] text-[#8a6c43]">Or correct the answer below.</span> : null}
+          </div>
+        </div>
+      ) : null}
       {question.control === "yes_no" ? (
         <>
           <div id={id} className="grid min-h-10 grid-cols-[0.7fr_0.7fr_1.35fr]" role="group" aria-label={definition.label}>
@@ -1340,6 +1441,14 @@ function getPendingFields(assessment: PipelineAssessmentRecord | null) {
   return assessmentToolFieldDefinitions
     .filter((definition) => assessment.field_provenance[definition.key]?.at(-1)?.review_status === "pending")
     .map((definition) => definition.key);
+}
+
+function latestPendingProvenance(
+  assessment: PipelineAssessmentRecord,
+  field: AssessmentToolFieldKey,
+) {
+  const latest = assessment.field_provenance[field]?.at(-1);
+  return latest?.review_status === "pending" ? latest : undefined;
 }
 
 function editableSectionData(data: AssessmentToolData, section: AssessmentToolSection) {

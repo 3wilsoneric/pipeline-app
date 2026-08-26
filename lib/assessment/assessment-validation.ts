@@ -13,6 +13,7 @@ import type {
   AssessmentPatchInput,
   AssessmentWorkflowStatus,
 } from "./assessment-records";
+import { assessmentFieldOwner } from "./assessment-field-ownership";
 
 type ValidationFailure = { ok: false; message: string; status?: number };
 type ValidationSuccess<T> = { ok: true; value: T };
@@ -102,7 +103,7 @@ function validatePatchVersion(
 }
 
 function validatePatchFields(patch: Record<string, unknown>): AssessmentValidationResult<true> {
-  const allowed = new Set(["data", "resident_key", "status", "accept_pending"]);
+  const allowed = new Set(["data", "resident_key", "status", "accept_pending", "review_extraction"]);
   for (const key of Object.keys(patch)) {
     if (!allowed.has(key)) return invalid(`Unknown assessment patch field: ${key}.`);
   }
@@ -119,6 +120,25 @@ function validatePatchFields(patch: Record<string, unknown>): AssessmentValidati
   }
   if (patch.accept_pending !== undefined && typeof patch.accept_pending !== "boolean") {
     return invalid("accept_pending must be true or false.");
+  }
+  if (patch.review_extraction !== undefined) {
+    if (!Array.isArray(patch.review_extraction) || patch.review_extraction.length > 50) {
+      return invalid("review_extraction must contain at most 50 review actions.");
+    }
+    const seen = new Set<string>();
+    for (const review of patch.review_extraction) {
+      if (!isRecord(review) || !knownFieldKeys.has(review.field as AssessmentToolFieldKey)) {
+        return invalid("review_extraction contains an unknown assessment field.");
+      }
+      if (assessmentFieldOwner(review.field as AssessmentToolFieldKey) !== "assessment_answer") {
+        return invalid("Only extracted assessment answers can be reviewed here.");
+      }
+      if (review.action !== "accept" && review.action !== "reject") {
+        return invalid("review_extraction action must be accept or reject.");
+      }
+      if (seen.has(review.field as string)) return invalid("review_extraction contains a duplicate field.");
+      seen.add(review.field as string);
+    }
   }
   return { ok: true, value: true };
 }

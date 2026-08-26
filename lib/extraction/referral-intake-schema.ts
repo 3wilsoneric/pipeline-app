@@ -3,6 +3,7 @@ import {
   type AssessmentToolFieldDefinition,
   type AssessmentToolFieldKey,
 } from "../assessment/assessment-tool-schema";
+import { isPacketAssessmentEvidenceField } from "../assessment/assessment-field-ownership";
 
 export type ReferralFormData = {
   firstName: string;
@@ -774,12 +775,19 @@ export const assessmentToolExtractionFields: ReadonlyArray<
     preferred_page_classes: assessmentPageClasses(definition.section),
   }));
 
-/** Initial referral creation extracts only intake data. */
+/**
+ * One packet pass produces referral context plus clinical evidence. Referral
+ * context is reviewed on the referral; assessment answers remain pending until
+ * the assigned assessor accepts, corrects, or rejects them.
+ */
 export const referralPacketExtractionTargets = [
   ...referralIntakeExtractionFields,
+  ...assessmentToolExtractionFields.filter((definition) => (
+    isPacketAssessmentEvidenceField(definition.field)
+  )),
 ] as const;
 
-/** Assessment extraction runs later from the client/referral canvas. */
+/** Optional later workbook imports use the same canonical assessment schema. */
 export const assessmentWorkbookExtractionTargets = [
   ...assessmentToolExtractionFields,
 ] as const;

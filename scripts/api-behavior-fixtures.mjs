@@ -467,11 +467,11 @@ const results = [
       owner: "value-owner",
       date: "value-referralReceived",
       admissionDate: "value-admissionDate",
-      community: "value-county",
+      community: "value-community",
+      county: "value-county",
       source: "value-referent",
       responsiblePerson: "value-responsiblePerson",
       note: "value-summary",
-      interview: "value-interview",
     };
     for (const [key, value] of Object.entries(expected)) {
       assert(patch[key] === value, `Canvas field mapping did not persist ${key}`);
@@ -1132,8 +1132,10 @@ function assessmentSchemaResults() {
         "Expected every user-facing field except server-owned assignment and job-supplied provenance",
       );
       assert(
-        referralExtractionSchema.referralPacketExtractionTargets.every((field) => field.field_key.startsWith("referral.")),
-        "Initial referral extraction must not include the later assessment job",
+        referralExtractionSchema.referralPacketExtractionTargets.some((field) => field.field_key === "assessment_tool.mobility")
+          && referralExtractionSchema.referralPacketExtractionTargets.some((field) => field.field_key === "referral.first_name")
+          && !referralExtractionSchema.referralPacketExtractionTargets.some((field) => field.field_key === "assessment_tool.assessor"),
+        "Initial packet extraction should capture intake context and reviewable clinical evidence without process metadata",
       );
     }),
     run("assessment extraction maps known values and banks unknown values", () => {
@@ -1299,6 +1301,32 @@ function assessmentValidationResults() {
         if_match: 2,
         patch: { data: { resident_number: "EM-1001" }, status: "draft" },
       }));
+      assertValid(assessmentValidation.validateAssessmentPatchRequest({
+        section: "functional_adl",
+        if_match_section: 2,
+        patch: { review_extraction: [{ field: "mobility", action: "accept" }] },
+      }));
+      assertInvalid(
+        assessmentValidation.validateAssessmentPatchRequest({
+          section: "identity",
+          if_match_section: 2,
+          patch: { review_extraction: [{ field: "assessment_date", action: "reject" }] },
+        }),
+        "Only extracted assessment answers can be reviewed here.",
+      );
+      assertInvalid(
+        assessmentValidation.validateAssessmentPatchRequest({
+          section: "functional_adl",
+          if_match_section: 2,
+          patch: {
+            review_extraction: [
+              { field: "mobility", action: "accept" },
+              { field: "mobility", action: "reject" },
+            ],
+          },
+        }),
+        "review_extraction contains a duplicate field.",
+      );
       assertInvalid(
         assessmentValidation.validateAssessmentPatchRequest({
           section: "identity",
@@ -1420,7 +1448,7 @@ function workspaceStateValidationResults() {
     savedAt: "2026-08-12T12:00:00.000Z",
     baseVersion: 4,
     dirtyKeys: ["summary"],
-    fields: Object.fromEntries(fieldKeys.map((key) => [key, { value: key === "summary" ? "Synthetic recovery note" : "" }])),
+    fields: Object.fromEntries(fieldKeys.map((key) => [key, { value: key === "summary" ? "Synthetic recovery note" : key === "county" ? "San Pablo" : "" }])),
     conserved: "",
     tagsInput: "synthetic",
     documents: {},
@@ -1428,7 +1456,9 @@ function workspaceStateValidationResults() {
 
   return [
     run("desktop recovery drafts require the complete bounded schema", () => {
-      assert(workspaceStateTypes.parsePipelineReferralDraft(validDraft)?.fields.summary.value === "Synthetic recovery note", "Expected a valid recovery draft");
+      const parsed = workspaceStateTypes.parsePipelineReferralDraft(validDraft);
+      assert(parsed?.fields.summary.value === "Synthetic recovery note", "Expected a valid recovery draft");
+      assert(parsed?.fields.community.value === "San Pablo" && parsed?.fields.county.value === "", "Legacy drafts should migrate the old community slot without inventing a county");
       assert(workspaceStateTypes.parsePipelineReferralDraft({ ...validDraft, fields: { summary: { value: "Partial" } } }) === null, "Partial field maps must fail");
       assert(workspaceStateTypes.parsePipelineReferralDraft({ ...validDraft, dirtyKeys: ["invented"] }) === null, "Unknown dirty keys must fail");
       assert(workspaceStateTypes.parsePipelineReferralDraft({ ...validDraft, fields: { ...validDraft.fields, summary: { value: "x".repeat(40_001) } } }) === null, "Oversized draft fields must fail");
@@ -1529,11 +1559,11 @@ function emptyCanvasFields() {
     "owner",
     "referralReceived",
     "admissionDate",
+    "community",
     "county",
     "referent",
     "responsiblePerson",
     "summary",
-    "interview",
   ].map((key) => [key, { label: key, value: "" }]));
 }
 

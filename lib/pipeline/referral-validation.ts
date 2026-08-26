@@ -23,7 +23,6 @@ const packetStatuses = [
   "reviewed",
   "failed",
 ] as const;
-const postAssessmentDecisions = ["accepted", "not-accepted", "pending"] as const;
 const requirementTypes = [
   "profile_field",
   "medication_list",
@@ -65,7 +64,6 @@ const stringLimits = {
   ssn: 32,
   admissionDate: 40,
   responsiblePerson: 500,
-  interview: 20_000,
   phone: 80,
   email: 320,
   payer: 200,
@@ -91,6 +89,7 @@ export function validateReferralCreateInput(
     || "updatedBy" in value
     || "ownerId" in value
     || "manualIntakeAuthorization" in value
+    || "interview" in value
     || "assessment" in value
     || "admissionDecision" in value
     || "ehrHandoff" in value
@@ -117,7 +116,7 @@ export function validateReferralCreateInput(
     if (!result.ok) return result;
   }
 
-  for (const field of ["county", "gender", "reportedAge", "ssn", "admissionDate", "responsiblePerson", "interview"] as const) {
+  for (const field of ["county", "gender", "reportedAge", "ssn", "admissionDate", "responsiblePerson"] as const) {
     if (!(field in value) || value[field] === undefined) continue;
     const result = validateString(value[field], field, stringLimits[field], false);
     if (!result.ok) return result;
@@ -156,7 +155,7 @@ export function validateReferralPatch(
   for (const protectedField of [
     "id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId",
     "workflowStatus", "assignedAt", "assignmentDueAt", "assignmentVersion",
-    "assessmentRecommendation", "manualIntakeAuthorization", "ehrHandoff",
+    "assessmentRecommendation", "manualIntakeAuthorization", "ehrHandoff", "interview", "assessment",
   ] as const) {
     if (protectedField in value) {
       return invalid(`${protectedField} cannot be changed through a referral patch.`);
@@ -177,9 +176,7 @@ export function validateReferralPatch(
     ["gender", "gender"],
     ["reportedAge", "reportedAge"],
     ["ssn", "ssn"],
-    ["admissionDate", "admissionDate"],
     ["responsiblePerson", "responsiblePerson"],
-    ["interview", "interview"],
     ["phone", "phone"],
     ["email", "email"],
     ["payer", "payer"],
@@ -218,10 +215,6 @@ export function validateReferralPatch(
   const commonResult = validateCommonFields(value);
   if (!commonResult.ok) return commonResult;
 
-  if ("assessment" in value) {
-    const result = validateAssessment(value.assessment);
-    if (!result.ok) return result;
-  }
   if ("requirements" in value) {
     const result = validateRequirements(value.requirements);
     if (!result.ok) return result;
@@ -337,48 +330,6 @@ function validatePacketState(value: Record<string, unknown>): ValidationSuccess<
     if (!result.ok) return result;
   }
   return valid();
-}
-
-function validateAssessment(value: unknown): ValidationSuccess<true> | ValidationFailure {
-  if (!isPlainObject(value)) return invalid("assessment must be an object.");
-
-  for (const field of ["requestedAt", "scheduledDate"] as const) {
-    const result = validateString(value[field], `assessment.${field}`, 80, false);
-    if (!result.ok) return result;
-  }
-  for (const field of ["startedAt", "completedAt"] as const) {
-    if (!(field in value) || value[field] === undefined) continue;
-    const result = validateString(value[field], `assessment.${field}`, 80, false);
-    if (!result.ok) return result;
-  }
-
-  if (!isPlainObject(value.preAssessment) || !isPlainObject(value.assessment) || !isPlainObject(value.postAssessment)) {
-    return invalid("assessment sections are incomplete.");
-  }
-
-  const preAssessment = value.preAssessment as Record<string, unknown>;
-  const assessment = value.assessment as Record<string, unknown>;
-  const postAssessment = value.postAssessment as Record<string, unknown>;
-
-  for (const field of ["demographics", "referralSource"] as const) {
-    const result = validateString(preAssessment[field], `assessment.preAssessment.${field}`, 20_000, false);
-    if (!result.ok) return result;
-  }
-  const estimatedLosDays = preAssessment.estimatedLosDays;
-  if (!Number.isInteger(estimatedLosDays) || (estimatedLosDays as number) < 0 || (estimatedLosDays as number) > 3_650) {
-    return invalid("assessment.preAssessment.estimatedLosDays must be a whole number between 0 and 3650.");
-  }
-
-  for (const field of ["carry", "careNeeds", "riskLevel"] as const) {
-    const result = validateString(assessment[field], `assessment.assessment.${field}`, 20_000, false);
-    if (!result.ok) return result;
-  }
-  const decisionResult = validateEnum(postAssessment.decision, "assessment.postAssessment.decision", postAssessmentDecisions);
-  if (!decisionResult.ok) return decisionResult;
-  const reasonResult = validateString(postAssessment.reason, "assessment.postAssessment.reason", 20_000, false);
-  if (!reasonResult.ok) return reasonResult;
-
-  return { ok: true, value: true };
 }
 
 function validateRequirements(value: unknown): ValidationSuccess<true> | ValidationFailure {

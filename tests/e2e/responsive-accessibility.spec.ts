@@ -49,8 +49,8 @@ test.describe("Responsive and accessible application shell", () => {
     await page.goto("/?view=referrals&screen=packet");
     await page.waitForLoadState("networkidle");
     const compactSteps = (page.viewportSize()?.width ?? 0) < 1024;
-    const stepNavigation = page.getByRole("navigation", { name: "Referral workspace steps" });
-    const stepSelect = page.getByRole("combobox", { name: "Referral workspace step" });
+    const stepNavigation = page.getByRole("navigation", { name: "Workspace stages" });
+    const stepSelect = page.getByRole("combobox", { name: "Workspace stage" });
     if (compactSteps) {
       await expect(stepNavigation).toBeHidden();
       await expect(stepSelect).toBeVisible();
@@ -66,19 +66,15 @@ test.describe("Responsive and accessible application shell", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Summary", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Edit summary", exact: true })).toBeFocused();
-    if (compactSteps) {
-      await stepSelect.selectOption("2");
-    } else {
-      await page.getByRole("button", { name: "02 Documents" }).click();
-    }
+    await page.getByRole("button", { name: "Workspace files" }).click();
     await expect(page.getByText("Signed Medication List", { exact: true })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
 
     if (compactSteps) {
-      await stepSelect.selectOption("4");
+      await stepSelect.selectOption("3");
     } else {
-      await page.getByRole("button", { name: "04 Decision" }).click();
+      await page.getByRole("button", { name: "03 Decision" }).click();
     }
     await expect(page.getByRole("region", { name: "Decision", exact: true })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Referral data completion" })).toHaveAttribute("aria-valuenow");

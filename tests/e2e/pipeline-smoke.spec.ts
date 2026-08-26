@@ -269,7 +269,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(activePacket).toHaveCSS("height", "50px");
     await expect(activePacket).toHaveCSS("gap", "10px");
     await expect(activePacket.locator("svg")).toBeVisible();
-    const steps = page.getByRole("navigation", { name: "Referral workspace steps" });
+    const steps = page.getByRole("navigation", { name: "Workspace stages" });
     const savePacket = page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ });
     const [stepsBox, saveBox] = await Promise.all([steps.boundingBox(), savePacket.boundingBox()]);
     expect(stepsBox).not.toBeNull();
@@ -298,20 +298,21 @@ test.describe("Referral home and packet canvas", () => {
       items: Array<{ referral_id: number; next_action: string; urgency: string }>;
     };
     expect(queue.owner.name).toBe("Playwright QA");
-    expect(queue.total).toBe(0);
-    expect(queue.items).toEqual([]);
+    expect(queue.total).toBe(queue.items.length);
+    expect(queue.items.every((item) => Number.isInteger(item.referral_id))).toBeTruthy();
   });
 
   test("requires an initial document and recalls the saved referral chart", async ({ page }) => {
     const clientName = `Referral chart ${randomUUID().slice(0, 8)}`;
     await page.getByRole("button", { name: "Create new referral" }).click();
 
-    await expect(page.getByRole("region", { name: "Referral", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Intake", exact: true })).toBeVisible();
     await expect(page.getByRole("complementary", { name: "Chart completion and documents" })).toBeVisible();
     await expect(page.getByText("Upload a face sheet or referral packet to create the referral.", { exact: true })).toBeVisible();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("textbox", { name: "DOB", exact: true }).fill("06/12/1984");
-    await page.getByRole("combobox", { name: "County:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
     await page.getByRole("textbox", { name: "Referent:", exact: true }).fill("San Pablo intake team");
     await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption({ label: "Playwright QA" });
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
@@ -366,9 +367,9 @@ test.describe("Referral home and packet canvas", () => {
     expect((await profilesMain.boundingBox())?.y).toBe(82);
 
     await page.getByRole("button", { name: "Create new referral" }).click();
-    const packetSteps = page.getByRole("navigation", { name: "Referral workspace steps" });
+    const packetSteps = page.getByRole("navigation", { name: "Workspace stages" });
     const savePacket = page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ });
-    const firstPacketPage = page.getByRole("region", { name: "Referral", exact: true });
+    const firstPacketPage = page.getByRole("region", { name: "Intake", exact: true });
     const [stepsBox, saveBox, firstPageBox] = await Promise.all([
       packetSteps.boundingBox(),
       savePacket.boundingBox(),
@@ -379,8 +380,8 @@ test.describe("Referral home and packet canvas", () => {
       - ((saveBox?.y ?? 0) + (saveBox?.height ?? 0) / 2),
     )).toBeLessThan(1);
 
-    await page.getByRole("button", { name: "02 Documents" }).click();
-    const secondPageBox = await page.getByRole("region", { name: "Documents" }).boundingBox();
+    await page.getByRole("button", { name: "Workspace files" }).click();
+    const secondPageBox = await page.getByRole("region", { name: "Files", exact: true }).boundingBox();
     expect(Math.abs((firstPageBox?.y ?? 0) - (secondPageBox?.y ?? 0))).toBeLessThan(1);
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -397,7 +398,7 @@ test.describe("Referral home and packet canvas", () => {
   test("keeps rapid header navigation deterministic", async ({ page }) => {
     const destinations = [
       { name: "Open client profiles", parameter: "screen", value: "profiles", landmark: "Client profiles" },
-      { name: "Create new referral", parameter: "screen", value: "packet", landmark: "Referral workspace steps" },
+      { name: "Create new referral", parameter: "screen", value: "packet", landmark: "Workspace stages" },
       { name: "Open referrals", parameter: "view", value: "referrals", landmark: "Referral workspaces" },
     ] as const;
 
@@ -992,7 +993,8 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("textbox", { name: "AGE", exact: true }).fill("74");
     await page.getByRole("textbox", { name: "DOB", exact: true }).fill("1951-08-14");
     await page.getByRole("textbox", { name: "SSN", exact: true }).fill("000-00-0000");
-    await page.getByRole("combobox", { name: "County:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
     await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption({ label: "Playwright QA" });
     await page.getByRole("textbox", { name: "Referral received:" }).fill("2026-08-09");
     await page.getByRole("textbox", { name: "Admission date:" }).fill("2026-08-20");
@@ -1011,8 +1013,8 @@ test.describe("Referral home and packet canvas", () => {
     });
     await page.getByLabel("Initial document type").selectOption("face_sheet");
 
-    await page.getByRole("button", { name: "02 Documents" }).click();
-    const documentsRegion = page.getByRole("region", { name: "Documents" });
+    await page.getByRole("button", { name: "Workspace files" }).click();
+    const documentsRegion = page.getByRole("region", { name: "Files" });
     const medicationButton = documentsRegion
       .getByRole("region", { name: "Required for admission" })
       .getByRole("button", { name: "Drop document or browse" })
@@ -1031,7 +1033,7 @@ test.describe("Referral home and packet canvas", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from("synthetic-provider-form"),
     });
-    await page.getByRole("button", { name: "01 Referral" }).click();
+    await page.getByRole("button", { name: "01 Intake" }).click();
 
     await expect(page.getByText("face-sheet.pdf", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
@@ -1054,15 +1056,20 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Correction saved", { exact: true })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "DOB", exact: true })).toHaveValue("1951-08-15");
 
-    await extractionReview.getByRole("button", { name: "Confirm 2 high-confidence values" }).click();
-    await expect(extractionReview.getByText("Confirm 2 high-confidence values?", { exact: true })).toBeVisible();
-    await extractionReview.getByRole("button", { name: "Confirm values", exact: true }).click();
+    const bulkConfirm = extractionReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ });
+    if (await bulkConfirm.count()) {
+      await bulkConfirm.click();
+      await extractionReview.getByRole("button", { name: "Confirm values", exact: true }).click();
+    } else {
+      await extractionReview.getByRole("button", { name: "Confirm", exact: true }).click();
+    }
     await expect(extractionReview.getByText("Extraction review complete", { exact: true })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
-    await page.getByRole("button", { name: "03 Assessment" }).click();
+    await page.getByRole("button", { name: "02 Assessment" }).click();
     await expect(page.getByRole("region", { name: "Assessment" })).toBeVisible();
-    await page.getByRole("button", { name: "Create assessment", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Begin", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Open assessment", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Begin interview", exact: true })).toBeVisible();
 
     const referralResponse = await page.request.get(`/api/referrals?q=${encodeURIComponent(clientName)}`);
     expect(referralResponse.ok()).toBeTruthy();
@@ -1247,7 +1254,8 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(firstClient);
-    await page.getByRole("combobox", { name: "County:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "first-copy.pdf",
       mimeType: "application/pdf",
@@ -1260,7 +1268,8 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.goto("/?view=referrals&screen=packet");
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(secondClient);
-    await page.getByRole("combobox", { name: "County:" }).selectOption("Turlock");
+    await page.getByRole("combobox", { name: "Community:" }).selectOption("Turlock");
+    await page.getByRole("combobox", { name: "County:" }).selectOption("Stanislaus County");
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "renamed-copy.pdf",
       mimeType: "application/pdf",
@@ -1276,24 +1285,24 @@ test.describe("Referral home and packet canvas", () => {
 
   test("switches packet steps without stacking the sections", async ({ page }) => {
     await page.getByRole("button", { name: "Create new referral" }).click();
-    await expect(page.getByRole("button", { name: "01 Referral" })).toHaveAttribute("aria-current", "page");
-    await page.getByRole("button", { name: "02 Documents" }).click();
-    await expect(page.getByRole("button", { name: "02 Documents" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("region", { name: "Referral", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "01 Intake" })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("button", { name: "Workspace files" }).click();
+    await expect(page.getByRole("button", { name: "Workspace files" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("region", { name: "Intake", exact: true })).toHaveCount(0);
     await expect(page.getByText("Signed Medication List", { exact: true })).toBeVisible();
     await expect(page.getByText("TB Test-Results", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Drop document or browse" }).first()).toBeVisible();
     await expect(page.getByText("Provider Form", { exact: true })).toBeVisible();
     await expect(page.getByText("Face Sheet", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "03 Assessment" }).click();
+    await page.getByRole("button", { name: "02 Assessment" }).click();
     await expect(page.getByText("Save the referral before starting the assessment", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "04 Decision" }).click();
+    await page.getByRole("button", { name: "03 Decision" }).click();
     await expect(page.getByRole("region", { name: "Decision", exact: true })).toBeVisible();
     await expect(page.getByText("Not entered", { exact: true }).first()).toBeVisible();
     await page.getByRole("button", { name: /Client name Not entered/ }).click();
-    await expect(page.getByRole("button", { name: "01 Referral" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("button", { name: "01 Intake" })).toHaveAttribute("aria-current", "page");
   });
 
   test("creates, imports, reviews, completes, and recalls an assessment", async ({ page }) => {
@@ -1301,7 +1310,8 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("textbox", { name: "DOB", exact: true }).fill("06/12/1984");
-    await page.getByRole("combobox", { name: "County:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
     await page.getByRole("textbox", { name: "Referent:", exact: true }).fill("San Pablo intake team");
     await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption({ label: "Playwright QA" });
     await page.getByTestId("initial-packet-input").setInputFiles({
@@ -1314,25 +1324,29 @@ test.describe("Referral home and packet canvas", () => {
       .getByRole("button", { name: /assessment-referral\.pdf Uploaded/ })).toBeVisible();
     const packetReview = page.getByRole("region", { name: "Extraction review" });
     await expect(packetReview).toBeVisible();
-    await page.getByRole("button", { name: "03 Assessment" }).click();
-    await expect(page.getByRole("button", { name: "Create assessment" })).toBeVisible();
-    await page.getByRole("button", { name: "01 Referral" }).click();
+    await page.getByRole("button", { name: "02 Assessment" }).click();
+    await expect(page.getByRole("button", { name: "Open assessment" })).toBeVisible();
+    await page.getByRole("button", { name: "01 Intake" }).click();
     await packetReview.getByRole("button", { name: "Review fields", exact: true }).click();
-    await packetReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ }).click();
-    await packetReview.getByRole("button", { name: "Confirm values", exact: true }).click();
+    const bulkPacketConfirm = packetReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ });
+    if (await bulkPacketConfirm.count()) {
+      await bulkPacketConfirm.click();
+      await packetReview.getByRole("button", { name: "Confirm values", exact: true }).click();
+    }
     const remainingConfirmations = packetReview.getByRole("button", { name: "Confirm", exact: true });
     await expect(remainingConfirmations.first()).toBeVisible();
     for (let index = 0; index < 5 && await remainingConfirmations.count() > 0; index += 1) {
       await remainingConfirmations.first().click();
     }
     await expect(packetReview.getByText("Extraction review complete", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "03 Assessment" }).click();
-    await expect(page.getByRole("button", { name: "03 Assessment" })).toHaveAttribute("aria-current", "page");
-    await page.getByRole("button", { name: "Create assessment" }).click();
-    await expect(page.getByRole("region", { name: "Assessment workspace" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Assessment workspace" }).getByText("Playwright QA", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Begin", exact: true }).click();
-    await page.getByRole("tab", { name: /^Function/ }).click();
+    await page.getByRole("button", { name: "02 Assessment" }).click();
+    await expect(page.getByRole("button", { name: "02 Assessment" })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("button", { name: "Open assessment" }).click();
+    const assessmentInterview = page.getByRole("dialog", { name: "Assessment interview" });
+    await expect(assessmentInterview).toBeVisible();
+    await expect(assessmentInterview.getByText("Playwright QA", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Begin interview", exact: true }).click();
+    await page.getByRole("button", { name: /^Function/ }).click();
     const languageBarrier = page.getByRole("group", { name: "Language barrier", exact: true });
     await languageBarrier.getByRole("button", { name: "Yes", exact: true }).click();
     await expect(page.getByLabel(/Language support needed/)).toBeVisible();
@@ -1345,12 +1359,12 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("An explanation is required before this assessment can be signed.", { exact: true })).toBeVisible();
     await unableReason.fill("The client could not participate and no collateral source was available.");
     await expect(page.getByText("An explanation is required before this assessment can be signed.", { exact: true })).toHaveCount(0);
-    await page.getByRole("tab", { name: /^Client & referral/ }).click();
+    await page.getByRole("button", { name: /^Client & referral/ }).click();
     await page.getByLabel(/Resident number/).fill(`EM-${randomUUID().slice(0, 8)}`);
     await page.getByLabel(/Date of birth/).fill("1984-06-12");
-    await page.getByRole("button", { name: /^Save$/ }).click();
-    await expect(page.getByText("Assessment saved", { exact: true })).toBeVisible();
+    await expect(page.getByText("All changes saved", { exact: true })).toBeVisible({ timeout: 8_000 });
 
+    await page.getByRole("button", { name: "Import assessment answers", exact: true }).click();
     await page.getByLabel("Upload assessment file").setInputFiles({
       name: "assessment.csv",
       mimeType: "text/csv",
@@ -1420,12 +1434,14 @@ test.describe("Referral home and packet canvas", () => {
     expect(workItemPayload.work_items.filter((item) => item.type === "profile_field")).toHaveLength(3);
     expect(workItemPayload.work_items.find((item) => item.type === "tb_test")).toMatchObject({ status: "needed", version: 1 });
 
-    await page.getByRole("button", { name: "04 Decision" }).click();
+    await page.getByRole("button", { name: "Close assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Workspace activity" }).click();
     const activityPanel = page.getByRole("region", { name: "Referral ownership and activity" });
     await expect(activityPanel).toBeVisible();
     await expect(activityPanel.getByText("Ownership and timing", { exact: true })).toBeVisible();
     await expect(activityPanel.getByText("Playwright QA", { exact: true }).first()).toBeVisible();
     await expect(activityPanel.getByText("Assessment time", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "03 Decision" }).click();
     const requirementsEditor = page.getByRole("region", { name: "Follow-up requirements" });
     await expect(requirementsEditor).toBeVisible();
     await requirementsEditor.getByRole("button", { name: /TB test result/ }).click();

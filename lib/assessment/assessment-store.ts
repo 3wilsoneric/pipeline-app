@@ -949,10 +949,11 @@ function assertPatchMatchesSection(
   patch: AssessmentPatchInput,
   section: AssessmentToolSection | undefined,
 ) {
-  if (!section || !patch.data) return;
-  const mismatched = Object.keys(patch.data)
+  if (!section) return;
+  const patchedFields = Object.keys(patch.data ?? {})
     .filter((field): field is AssessmentToolFieldKey => assessmentToolFieldDefinitions.some((definition) => definition.key === field))
-    .filter((field) => assessmentSectionForField(field) !== section);
+    .concat((patch.review_extraction ?? []).map((review) => review.field));
+  const mismatched = patchedFields.filter((field) => assessmentSectionForField(field) !== section);
   if (mismatched.length > 0) {
     throw new Error(`Assessment section patch contains fields outside ${section}.`);
   }
@@ -965,6 +966,7 @@ function prepareAssessmentPatch(
 ) {
   if (current.signed_at && (
     patch.data !== undefined
+    || patch.review_extraction !== undefined
     || patch.status !== undefined
     || patch.assigned_assessor !== undefined
     || patch.schedule !== undefined
@@ -984,7 +986,14 @@ function prepareAssessmentPatch(
   }
 
   const currentData = pickAssessmentToolData(current);
-  const nextData = pickAssessmentToolData({ ...currentData, ...(patch.data ?? {}) });
+  const requestedData = { ...(patch.data ?? {}) };
+  const emptyData = createEmptyAssessmentToolData();
+  for (const review of patch.review_extraction ?? []) {
+    if (review.action === "reject" && !Object.hasOwn(requestedData, review.field)) {
+      (requestedData as Record<string, unknown>)[review.field] = emptyData[review.field];
+    }
+  }
+  const nextData = pickAssessmentToolData({ ...currentData, ...requestedData });
   if (patch.assigned_assessor !== undefined) {
     nextData.assessor = patch.assigned_assessor?.name ?? null;
   }
@@ -995,12 +1004,29 @@ function prepareAssessmentPatch(
     .filter((definition) => !sameValue(currentData[definition.key], nextData[definition.key]))
     .map((definition) => definition.key);
   const fieldProvenance = cloneProvenance(current.field_provenance);
-  for (const key of changedFields) appendManualProvenance(fieldProvenance, key);
+  const rejectedWithoutEdit = new Set(
+    (patch.review_extraction ?? [])
+      .filter((review) => review.action === "reject" && !Object.hasOwn(patch.data ?? {}, review.field))
+      .map((review) => review.field),
+  );
+  for (const key of changedFields) {
+    if (!rejectedWithoutEdit.has(key)) appendManualProvenance(fieldProvenance, key);
+  }
   const acceptedFields = patch.accept_pending
     ? acceptPendingProvenance(fieldProvenance)
     : [];
+  const individuallyReviewedFields = reviewPendingProvenance(
+    fieldProvenance,
+    patch.review_extraction ?? [],
+  );
+  const reviewedFields = Array.from(new Set([...acceptedFields, ...individuallyReviewedFields]));
+  const noPendingEvidence = pendingFields(fieldProvenance).length === 0;
   const nextStatus = patch.signer ? "complete" : patch.status ?? (
-    patch.accept_pending && current.status === "needs_review" ? "draft" : current.status
+    (patch.accept_pending || individuallyReviewedFields.length > 0)
+      && current.status === "needs_review"
+      && noPendingEvidence
+      ? "draft"
+      : current.status
   );
   const now = new Date().toISOString();
   const schedule = patch.schedule;
@@ -1034,7 +1060,7 @@ function prepareAssessmentPatch(
     version: current.version + 1,
     section_versions: incrementAssessmentSectionVersions(current.section_versions, [
       ...assessmentSectionsForFields(changedFields),
-      ...assessmentSectionsForFields(acceptedFields),
+      ...assessmentSectionsForFields(reviewedFields),
     ]),
     updated_at: now,
     updated_by: actor,
@@ -1044,8 +1070,8 @@ function prepareAssessmentPatch(
   return {
     candidate,
     completesAssessment: nextStatus === "complete" && current.status !== "complete",
-    changedFields: Array.from(new Set([...changedFields, ...acceptedFields])),
-    action: assessmentPatchAuditAction(current, patch, nextStatus, acceptedFields.length),
+    changedFields: Array.from(new Set([...changedFields, ...reviewedFields])),
+    action: assessmentPatchAuditAction(current, patch, nextStatus, reviewedFields.length),
   };
 }
 
@@ -1149,6 +1175,23 @@ function acceptPendingProvenance(
     accepted.push(definition.key);
   }
   return accepted;
+}
+
+function reviewPendingProvenance(
+  provenance: PipelineAssessmentRecord["field_provenance"],
+  reviews: NonNullable<AssessmentPatchInput["review_extraction"]>,
+) {
+  const reviewed: AssessmentToolFieldKey[] = [];
+  for (const review of reviews) {
+    const latest = provenance[review.field]?.at(-1);
+    if (latest?.review_status !== "pending") continue;
+    appendProvenance(provenance, review.field, {
+      ...latest,
+      review_status: review.action === "accept" ? "accepted" : "rejected",
+    });
+    reviewed.push(review.field);
+  }
+  return reviewed;
 }
 
 function assessmentSectionsForFields(fields: AssessmentToolFieldKey[]) {

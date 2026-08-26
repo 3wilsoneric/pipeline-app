@@ -124,6 +124,10 @@ export type AssessmentPatchInput = {
   resident_key?: string | null;
   status?: AssessmentWorkflowStatus;
   accept_pending?: boolean;
+  review_extraction?: Array<{
+    field: AssessmentToolFieldKey;
+    action: "accept" | "reject";
+  }>;
   /** Server-only lifecycle commands. Browser payload validation rejects these fields. */
   schedule?: AssessmentScheduleUpdate;
   mark_started?: boolean;

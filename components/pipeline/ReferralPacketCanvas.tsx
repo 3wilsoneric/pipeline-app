@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   Circle,
   FileText,
+  FolderOpen,
+  History,
   Save,
   Trash2,
   UploadCloud,
@@ -13,9 +15,11 @@ import {
 } from "lucide-react";
 
 import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/community-config";
+import { californiaCountyOptions } from "@/lib/pipeline/workspace-presentation";
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
 import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
 import { DeleteWorkspaceDialog } from "@/components/pipeline/ReferralDecisionEditors";
+import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
 import ReferralReviewPanel from "@/components/pipeline/ReferralReviewPanel";
 import StructuredNarrativeField from "@/components/pipeline/StructuredNarrativeField";
 import type {
@@ -127,13 +131,13 @@ type ExtractionReviewConflict = {
   latestValue: string;
 };
 
-type WorkspacePage = 1 | 2 | 3 | 4;
+type WorkspaceStage = 1 | 2 | 3;
+type WorkspaceView = WorkspaceStage | "files" | "activity";
 
-const packetSteps: ReadonlyArray<{ page: WorkspacePage; label: string }> = [
-  { page: 1, label: "Referral" },
-  { page: 2, label: "Documents" },
-  { page: 3, label: "Assessment" },
-  { page: 4, label: "Decision" },
+const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
+  { page: 1, label: "Intake" },
+  { page: 2, label: "Assessment" },
+  { page: 3, label: "Decision" },
 ] as const;
 
 const initialFields: Record<FieldKey, PacketField> = {
@@ -153,7 +157,8 @@ const initialFields: Record<FieldKey, PacketField> = {
     value: "",
     placeholder: "M/D/Y",
   },
-  county: { label: "County:", value: "", placeholder: "" },
+  community: { label: "Community:", value: "", placeholder: "Select destination" },
+  county: { label: "County:", value: "", placeholder: "Select county" },
   referent: { label: "Referent:", value: "", placeholder: "" },
   responsiblePerson: {
     label: "Responsible Person:",
@@ -164,11 +169,6 @@ const initialFields: Record<FieldKey, PacketField> = {
     label: "Summary",
     value: "",
     placeholder: "Referral summary",
-  },
-  interview: {
-    label: "Interview",
-    value: "",
-    placeholder: "Interview notes",
   },
 };
 
@@ -181,6 +181,7 @@ const visibleChartFieldKeys: readonly FieldKey[] = [
   "owner",
   "referralReceived",
   "admissionDate",
+  "community",
   "county",
   "referent",
   "responsiblePerson",
@@ -237,7 +238,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
   const [initialPacket, setInitialPacket] = useState<File | null>(null);
   const [initialPacketCategory, setInitialPacketCategory] = useState<InitialDocumentCategory>("face_sheet");
   const [tagsInput, setTagsInput] = useState("");
-  const [activePage, setActivePage] = useState<WorkspacePage>(1);
+  const [activePage, setActivePage] = useState<WorkspaceView>(1);
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;
     total: number;
@@ -764,7 +765,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
     setSavedAt("Unsaved changes");
   };
 
-  const openPage = (page: WorkspacePage) => {
+  const openPage = (page: WorkspaceView) => {
     setActivePage(page);
     requestAnimationFrame(() => {
       canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -785,8 +786,8 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
       ownerPrincipalIdRef.current || undefined,
       {
         date_of_birth: fieldsRef.current.dob.value,
-        community: pipelineCommunities.includes(fieldsRef.current.county.value.trim() as PipelineCommunity)
-          ? fieldsRef.current.county.value.trim()
+        community: pipelineCommunities.includes(fieldsRef.current.community.value.trim() as PipelineCommunity)
+          ? fieldsRef.current.community.value.trim()
           : current.community,
         referral_source: fieldsRef.current.referent.value,
       },
@@ -889,8 +890,8 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
       const referralId = referral?.id ?? loadedReferral?.id;
       const tags = normalizeTags(tagsInput);
       const fallbackCommunity = loadedReferral?.community ?? referral?.community;
-      const community: PipelineCommunity = pipelineCommunities.includes(fields.county.value.trim() as PipelineCommunity)
-        ? fields.county.value.trim() as PipelineCommunity
+      const community: PipelineCommunity = pipelineCommunities.includes(fields.community.value.trim() as PipelineCommunity)
+        ? fields.community.value.trim() as PipelineCommunity
         : pipelineCommunities.includes(fallbackCommunity as PipelineCommunity)
           ? fallbackCommunity as PipelineCommunity
           : "Unassigned";
@@ -1307,7 +1308,8 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
         reviewField("Owner", isAssignedValue(fields.owner.value) ? fields.owner.value : "", 1),
         reviewField("Referral received", fields.referralReceived.value, 1),
         reviewField("Admission date", fields.admissionDate.value, 1),
-        reviewField("Community", isAssignedValue(fields.county.value) ? fields.county.value : "", 1),
+        reviewField("Community", isAssignedValue(fields.community.value) ? fields.community.value : "", 1),
+        reviewField("Referring county", fields.county.value, 1),
         reviewField("Referent", fields.referent.value, 1),
         reviewField("Responsible person", fields.responsiblePerson.value, 1),
         reviewField("Tags", tagsInput, 1),
@@ -1329,8 +1331,8 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
             : "",
           1,
         ),
-        ...requirements.map((requirement) => reviewField(requirement.label, getRequirementReviewValue(requirement, documents[requirement.id], loadedReferral), 2)),
-        ...attachments.map((requirement) => reviewField(requirement.label, documents[requirement.id] ?? "", 2)),
+        ...requirements.map((requirement) => reviewField(requirement.label, getRequirementReviewValue(requirement, documents[requirement.id], loadedReferral), "files")),
+        ...attachments.map((requirement) => reviewField(requirement.label, documents[requirement.id] ?? "", "files")),
       ],
     },
     {
@@ -1341,7 +1343,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
           assessmentSummary.assessmentId
             ? `${assessmentSummary.captured} of ${assessmentSummary.total} fields · ${assessmentSummary.status.replace("_", " ")}`
             : "",
-          3,
+          2,
         ),
       ],
     },
@@ -1351,6 +1353,14 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
     || referral?.name?.trim()
     || fields.name.value.trim()
     || "New referral";
+  const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
+    (field) => extractedCanvasFieldKeys(field.field_key).length > 0,
+  );
+  const packetEvidenceVersion = loadedReferral?.packetId
+    ? `${loadedReferral.packetId}:${(loadedReferral.packetFields ?? [])
+        .map((field) => `${field.field_key}:${field.version}`)
+        .join("|")}`
+    : "";
 
   const moveWorkspaceToTrash = async () => {
     const current = loadedReferralRef.current;
@@ -1390,22 +1400,22 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
         className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6"
       >
         <div className="sticky top-0 z-20 mb-1 bg-white/95 backdrop-blur-sm">
-          <div className="flex items-center gap-3 border-b border-[#d9d9d9]">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 border-b border-[#d9d9d9] lg:flex lg:gap-3">
             <h1 className="max-w-[7rem] shrink-0 truncate text-[12px] font-black text-[#111111] sm:max-w-[11rem] lg:max-w-[15rem]" title={workspaceTitle}>
               {workspaceTitle}
             </h1>
-            <label className="min-w-0 flex-1 lg:hidden">
-              <span className="sr-only">Referral workspace step</span>
+            <label className="col-span-2 row-start-2 min-w-0 lg:hidden">
+              <span className="sr-only">Workspace stage</span>
               <select
-                aria-label="Referral workspace step"
-                value={activePage}
-                onChange={(event) => openPage(Number(event.target.value) as WorkspacePage)}
-                className="h-11 w-full border-0 border-b-2 border-[#0f8b73] bg-white px-2 text-[12px] font-black text-[#111111] outline-none"
+                aria-label="Workspace stage"
+                value={typeof activePage === "number" ? activePage : 1}
+                onChange={(event) => openPage(Number(event.target.value) as WorkspaceStage)}
+                className="h-10 w-full border-0 border-b-2 border-b-[#0f8b73] border-t border-t-[#eeeeee] bg-white px-2 text-[12px] font-black text-[#111111] outline-none"
               >
                 {packetSteps.map(({ page, label }) => <option key={page} value={page}>{`0${page} ${label}`}</option>)}
               </select>
             </label>
-            <nav aria-label="Referral workspace steps" className="hidden min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3 lg:flex">
+            <nav aria-label="Workspace stages" className="hidden min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3 lg:flex">
               {packetSteps.map(({ page, label }) => (
                 <button
                   key={page}
@@ -1424,7 +1434,37 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
               ))}
             </nav>
 
-            <div className="flex shrink-0 items-center gap-2 pl-2">
+            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:border-l lg:border-[#d9d9d9] lg:pl-2">
+              <button
+                type="button"
+                onClick={() => openPage("files")}
+                aria-current={activePage === "files" ? "page" : undefined}
+                aria-label="Workspace files"
+                title="Files"
+                className={`flex h-9 items-center gap-1.5 px-2 text-[10px] font-black transition-colors sm:px-3 ${
+                  activePage === "files"
+                    ? "bg-[#eaf6f2] text-[#0c705f]"
+                    : "text-[#737373] hover:bg-[#f3f6f4] hover:text-[#0c705f]"
+                }`}
+              >
+                <FolderOpen size={15} />
+                <span className="hidden xl:inline">Files</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openPage("activity")}
+                aria-current={activePage === "activity" ? "page" : undefined}
+                aria-label="Workspace activity"
+                title="Activity"
+                className={`flex h-9 items-center gap-1.5 px-2 text-[10px] font-black transition-colors sm:px-3 ${
+                  activePage === "activity"
+                    ? "bg-[#eef2ff] text-[#3d5799]"
+                    : "text-[#737373] hover:bg-[#f3f6f4] hover:text-[#3d5799]"
+                }`}
+              >
+                <History size={15} />
+                <span className="hidden xl:inline">Activity</span>
+              </button>
               <div className="hidden max-w-[28rem] text-right sm:block" aria-live="polite">
                 {savedAt !== "Workspace loaded" ? <div className="text-[11px] font-normal text-[#737373]">{savedAt}</div> : null}
                 {saveError ? <div className="mt-0.5 text-[11px] font-semibold text-[#a4473c]">{saveError}</div> : null}
@@ -1548,12 +1588,12 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
 
         <div key={activePage} className="pipeline-step-enter">
           {activePage === 1 ? (
-          <PacketPage id="packet-page-1" title="Referral">
-            {loadedReferral?.packetFields?.length ? (
+          <PacketPage id="packet-page-1" title="Intake">
+            {referralContextPacketFields.length ? (
               <PacketExtractionReview
-                fields={loadedReferral.packetFields}
-                fileName={loadedReferral.documentName || "the uploaded packet"}
-                developmentOnly={loadedReferral.packetMessage?.startsWith("Development")}
+                fields={referralContextPacketFields}
+                fileName={loadedReferral?.documentName || "the uploaded packet"}
+                developmentOnly={loadedReferral?.packetMessage?.startsWith("Development")}
                 busyFieldKey={reviewBusyFieldKey}
                 bulkBusy={isBulkReviewing}
                 onAccept={(field) => reviewExtractedField(field, "accept")}
@@ -1564,7 +1604,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
             <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
               <div className="min-w-0 space-y-5">
                 <ChartSection title="Identity" detail="Core identifiers for this referral episode" complete={countCompleteFields(fields, ["name", "gender", "age", "dob", "ssn"])} total={5}>
-                  <div className="grid gap-px overflow-hidden border border-[#d7ddd9] bg-[#d7ddd9] sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="grid gap-px overflow-hidden border border-[#d7ddd9] bg-[#d7ddd9] sm:grid-cols-2 sm:[&>*:last-child:nth-child(odd)]:col-span-2 lg:grid-cols-5 lg:[&>*:last-child]:col-span-1">
                     {(["name", "gender", "age", "dob", "ssn"] as FieldKey[]).map((key) => (
                       <EditablePacketField
                         key={key}
@@ -1575,9 +1615,9 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
                   </div>
                 </ChartSection>
 
-                <ChartSection title="Referral" detail="Routing, ownership, dates, and search classification" complete={countCompleteFields(fields, ["owner", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"])} total={7}>
-                  <div aria-label="Referral routing" className="grid gap-px overflow-hidden border border-[#d7ddd9] bg-[#d7ddd9] sm:grid-cols-2 lg:grid-cols-3">
-                    {(["owner", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"] as FieldKey[]).map((key) => (
+                <ChartSection title="Routing and assignment" detail="Who owns the referral, where it came from, and where it may be placed" complete={countCompleteFields(fields, ["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"])} total={7}>
+                  <div aria-label="Referral routing" className="grid gap-px overflow-hidden border border-[#d7ddd9] bg-[#d7ddd9] sm:grid-cols-2 sm:[&>*:last-child:nth-child(odd)]:col-span-2 lg:grid-cols-3 lg:[&>*:last-child]:col-span-1">
+                    {(["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"] as FieldKey[]).map((key) => (
                       key === "owner" ? (
                         <OwnerPacketField
                           key={key}
@@ -1603,7 +1643,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
                         <EditablePacketField
                           key={key}
                           field={fields[key]}
-                          options={key === "county" ? pipelineCommunities : undefined}
+                          options={key === "community" ? pipelineCommunities : key === "county" ? californiaCountyOptions : undefined}
                           onChange={(value) => updateField(key, value)}
                         />
                       )
@@ -1697,8 +1737,8 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
               </aside>
             </div>
           </PacketPage>
-          ) : activePage === 2 ? (
-            <PacketPage id="packet-page-2" title="Documents">
+          ) : activePage === "files" ? (
+            <PacketPage id="packet-files" title="Files">
               <DocumentGroup
                 title="Required for admission"
                 detail={`${admissionDocumentCount} of ${requirements.length} attached`}
@@ -1716,10 +1756,11 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
                 onAttach={attachDocument}
               />
             </PacketPage>
-          ) : activePage === 3 ? (
-            <PacketPage id="packet-page-3" title="Assessment">
+          ) : activePage === 2 ? (
+            <PacketPage id="packet-page-2" title="Assessment">
                 <AssessmentWorkspace
                   referralId={loadedReferral?.id ?? referral?.id}
+                  packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onAssessmentSaved={async (assessment) => {
                     if (assessment.status !== "complete") return;
@@ -1732,7 +1773,7 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
                   }}
                 />
             </PacketPage>
-          ) : (
+          ) : activePage === 3 ? (
             <ReferralReviewPanel
               referral={loadedReferral}
               assessmentComplete={assessmentSummary.status === "complete"}
@@ -1746,6 +1787,10 @@ export default function ReferralPacketCanvas({ referral, onReferralSaved, onRefe
                 setLoadedReferral(updatedReferral);
               }}
             />
+          ) : (
+            <PacketPage id="packet-activity" title="Activity">
+              <ReferralActivityPanel referralId={loadedReferral?.id ?? referral?.id} version={loadedReferral?.version} />
+            </PacketPage>
           )}
         </div>
       </div>
@@ -1804,11 +1849,11 @@ function ChartCompletionRail({
   documents: Record<string, string>;
   referral: Referral | null;
   assessmentSummary: { captured: number; total: number; status: string; assessmentId?: string };
-  onOpenStep: (page: WorkspacePage) => void;
+  onOpenStep: (page: WorkspaceView) => void;
 }) {
   const documentItems = [
-    ...requirements.map((requirement) => ({ ...requirement, page: 2 as const })),
-    ...attachments.map((requirement) => ({ ...requirement, page: 2 as const })),
+    ...requirements.map((requirement) => ({ ...requirement, page: "files" as const })),
+    ...attachments.map((requirement) => ({ ...requirement, page: "files" as const })),
   ];
   const capturedDocuments = documentItems.filter((item) => getRequirementReviewValue(item, documents[item.id], referral)).length;
   const percent = fieldTotal === 0 ? 0 : Math.round((fieldCount / fieldTotal) * 100);
@@ -1834,7 +1879,7 @@ function ChartCompletionRail({
 
       <div className="mt-5 flex items-center justify-between gap-3">
         <h3 className="text-[11px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Documents needed</h3>
-        <button type="button" onClick={() => onOpenStep(2)} className="text-[10px] font-black text-[#595959] hover:text-[#0f8b73]">Manage files</button>
+        <button type="button" onClick={() => onOpenStep("files")} className="text-[10px] font-black text-[#595959] hover:text-[#0f8b73]">Manage files</button>
       </div>
       <div className="mt-2 divide-y divide-[#e3e5e3] border-y border-[#e3e5e3]">
         {documentItems.map((item) => {
@@ -1854,6 +1899,15 @@ function ChartCompletionRail({
           );
         })}
       </div>
+      <button
+        type="button"
+        onClick={() => onOpenStep(2)}
+        disabled={!referral}
+        title={referral ? undefined : "Save the intake before starting the assessment"}
+        className="mt-4 flex h-10 w-full items-center justify-center bg-[#111111] px-4 text-[11px] font-black text-white transition-colors hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d2d2d2]"
+      >
+        {!referral ? "Save intake to continue" : assessmentSummary.assessmentId ? "Continue assessment" : "Start assessment"}
+      </button>
     </section>
   );
 }
@@ -2069,7 +2123,7 @@ function EditablePacketField({
           onChange={(event) => onChange(event.target.value)}
           className="mt-3 h-8 w-full border-0 bg-transparent p-0 text-[13px] font-semibold text-[#303638] outline-none"
         >
-          <option value="">Select community</option>
+          <option value="">{field.placeholder || `Select ${field.label.replace(/:$/, "").toLowerCase()}`}</option>
           {options.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       ) : (
@@ -2487,17 +2541,18 @@ function getConflictReferral(payload: unknown) {
     : null;
 }
 
-function presenceSection(page: WorkspacePage): ReferralSection {
-  if (page === 2) return "documents";
-  if (page === 3) return "assessment";
-  if (page === 4) return "decision";
+function presenceSection(page: WorkspaceView): ReferralSection {
+  if (page === "files") return "documents";
+  if (page === "activity") return "workflow";
+  if (page === 2) return "assessment";
+  if (page === 3) return "decision";
   return "intake";
 }
 
 function presenceSectionLabel(section: ReferralSection) {
   return {
     identity: "Identity",
-    intake: "Referral",
+    intake: "Intake",
     documents: "Documents",
     assessment: "Assessment",
     workflow: "Workflow",

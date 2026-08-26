@@ -18,7 +18,7 @@ const internalWorkspaceTags = new Set([
   "real-intake",
 ]);
 
-const californiaCountyNames = [
+export const californiaCountyNames = [
   "Alameda",
   "Alpine",
   "Amador",
@@ -78,6 +78,8 @@ const californiaCountyNames = [
   "Yolo",
   "Yuba",
 ] as const;
+
+export const californiaCountyOptions = californiaCountyNames.map((county) => `${county} County`);
 
 const countyAliases = [
   { aliases: ["COCO", "CCC"], county: "Contra Costa" },

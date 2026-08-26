@@ -124,13 +124,24 @@ export function parsePipelineReferralDraft(value: unknown): PipelineReferralDraf
   if (candidate.schema !== 1 || !validTimestamp(candidate.savedAt)) return null;
   if (candidate.baseVersion !== undefined && (!Number.isSafeInteger(candidate.baseVersion) || candidate.baseVersion < 1)) return null;
   if (!Array.isArray(candidate.dirtyKeys) || candidate.dirtyKeys.length > referralCanvasFieldKeys.length + referralDraftExtraKeys.length) return null;
-  const dirtyKeys = [...new Set(candidate.dirtyKeys.filter(isReferralDraftDirtyKey))];
+  const hasLegacyCommunity = candidate.fields?.community === undefined
+    && candidate.fields?.county !== undefined;
+  const dirtyKeys = [...new Set(candidate.dirtyKeys
+    .filter(isReferralDraftDirtyKey)
+    .map((key) => hasLegacyCommunity && key === "county" ? "community" : key))];
   if (dirtyKeys.length !== candidate.dirtyKeys.length) return null;
   if (!candidate.fields || typeof candidate.fields !== "object" || Array.isArray(candidate.fields)) return null;
 
   const fields = {} as PipelineReferralDraft["fields"];
+  const legacyCommunity = candidate.fields.community === undefined
+    ? candidate.fields.county
+    : undefined;
   for (const key of referralCanvasFieldKeys) {
-    const field = candidate.fields[key];
+    const field = key === "community" && legacyCommunity
+      ? legacyCommunity
+      : key === "county" && legacyCommunity
+        ? { value: "" }
+        : candidate.fields[key];
     if (!field || typeof field !== "object" || Array.isArray(field) || !isBoundedText(field.value, 40_000, true)) return null;
     if (field.sourceFile !== undefined && !isBoundedText(field.sourceFile, 255, true)) return null;
     fields[key] = {
@@ -139,7 +150,10 @@ export function parsePipelineReferralDraft(value: unknown): PipelineReferralDraf
     };
   }
 
-  const baseValues = parseBoundedStringRecord(candidate.baseValues, 24, 48_000);
+  const rawBaseValues = parseBoundedStringRecord(candidate.baseValues, 24, 48_000);
+  const baseValues = rawBaseValues && hasLegacyCommunity && rawBaseValues.county !== undefined
+    ? { ...rawBaseValues, community: rawBaseValues.county, county: "" }
+    : rawBaseValues;
   if (candidate.baseValues !== undefined && !baseValues) return null;
   const documents = parseBoundedStringRecord(candidate.documents, 64, 16_000);
   if (!documents) return null;

@@ -9,8 +9,12 @@ import type {
 } from "@/lib/pipeline/referral-activity";
 
 export default function ReferralActivityPanel({ referralId, version }: { referralId?: number; version?: number }) {
-  const [events, setEvents] = useState<ReferralActivityEvent[]>([]);
-  const [metadata, setMetadata] = useState<ReferralWorkflowMetadata | null>(null);
+  const [result, setResult] = useState<{
+    referralId: number;
+    events: ReferralActivityEvent[];
+    metadata: ReferralWorkflowMetadata | null;
+    error: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (!referralId) return;
@@ -18,14 +22,17 @@ export default function ReferralActivityPanel({ referralId, version }: { referra
     fetchPipelineJson<{ events: ReferralActivityEvent[]; metadata: ReferralWorkflowMetadata }>(`/api/referrals/${referralId}/activity`, { cache: "no-store" })
       .then((payload) => {
         if (!cancelled) {
-          setEvents(payload.events ?? []);
-          setMetadata(payload.metadata ?? null);
+          setResult({
+            referralId,
+            events: payload.events ?? [],
+            metadata: payload.metadata ?? null,
+            error: false,
+          });
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setEvents([]);
-          setMetadata(null);
+          setResult({ referralId, events: [], metadata: null, error: true });
         }
       });
     return () => {
@@ -33,10 +40,19 @@ export default function ReferralActivityPanel({ referralId, version }: { referra
     };
   }, [referralId, version]);
 
-  if (!referralId || !metadata) return null;
+  if (!referralId) {
+    return <ActivityState title="No activity yet" detail="Create this workspace to begin its ownership and change history." />;
+  }
+  if (!result || result.referralId !== referralId) {
+    return <ActivityState title="Loading activity" detail="Fetching the latest ownership and timing history." busy />;
+  }
+  if (result.error || !result.metadata) {
+    return <ActivityState title="Activity could not be loaded" detail="Return to Intake and try opening Activity again." />;
+  }
+  const { events, metadata } = result;
 
   return (
-    <section aria-label="Referral ownership and activity" className="mt-5 border-t border-[#d9d9d9] pt-5">
+    <section aria-label="Referral ownership and activity" className="py-2 sm:px-2">
       <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Ownership and timing</div>
       <div className="mt-3 grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-2 xl:grid-cols-4">
         <WorkflowFact
@@ -89,6 +105,15 @@ export default function ReferralActivityPanel({ referralId, version }: { referra
           </div>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function ActivityState({ title, detail, busy = false }: { title: string; detail: string; busy?: boolean }) {
+  return (
+    <section aria-label="Referral ownership and activity" className="px-3 py-12 text-center sm:px-6" aria-busy={busy}>
+      <div className="text-[13px] font-black text-[#111111]">{title}</div>
+      <p className="mx-auto mt-2 max-w-md text-[11px] leading-5 text-[#737373]">{detail}</p>
     </section>
   );
 }

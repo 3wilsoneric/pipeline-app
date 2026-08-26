@@ -18,11 +18,11 @@ export const persistedCanvasFieldKeys = [
   "owner",
   "referralReceived",
   "admissionDate",
+  "community",
   "county",
   "referent",
   "responsiblePerson",
   "summary",
-  "interview",
 ] as const satisfies readonly ReferralCanvasFieldKey[];
 
 export type PersistedCanvasFieldKey = (typeof persistedCanvasFieldKeys)[number];
@@ -37,11 +37,11 @@ const referralPatchKeyByCanvasField = {
   owner: "owner",
   referralReceived: "date",
   admissionDate: "admissionDate",
-  county: "community",
+  community: "community",
+  county: "county",
   referent: "source",
   responsiblePerson: "responsiblePerson",
   summary: "note",
-  interview: "interview",
 } as const satisfies Record<PersistedCanvasFieldKey, keyof ReferralPatch>;
 
 export function isPersistedCanvasFieldKey(
@@ -60,11 +60,11 @@ export function referralCanvasValue(referral: Referral, key: PersistedCanvasFiel
     owner: referral.owner,
     referralReceived: referral.date,
     admissionDate: referral.admissionDate ?? "",
-    county: referral.community,
+    community: referral.community,
+    county: referral.county ?? "",
     referent: referral.source,
     responsiblePerson: referral.responsiblePerson ?? "",
     summary: referral.note,
-    interview: referral.interview ?? "",
   } satisfies Record<PersistedCanvasFieldKey, string>;
   return values[key];
 }
@@ -135,8 +135,8 @@ export function buildReferralCanvasCreateInput(input: {
     reportedAge: fields.age.value.trim(),
     ssn: fields.ssn.value.trim(),
     admissionDate: fields.admissionDate.value.trim(),
+    county: fields.county.value.trim(),
     responsiblePerson: fields.responsiblePerson.value.trim(),
-    interview: fields.interview.value.trim(),
     conserved: input.conserved,
     fieldSources: fieldSourcesFromCanvas(fields),
     phone: "",
