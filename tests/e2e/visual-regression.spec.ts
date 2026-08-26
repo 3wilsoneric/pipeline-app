@@ -34,11 +34,11 @@ test.describe("Stable visual surfaces", () => {
     await expect(page).toHaveScreenshot("desktop-profiles.png", screenshotOptions());
   });
 
-  test("desktop new referral chart matches its baseline", async ({ page }) => {
+  test("desktop new referral intake matches its baseline", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openStable(page, "/");
     await page.getByRole("button", { name: "Create new referral" }).click();
-    await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Intake", exact: true })).toBeVisible();
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-new-packet.png", screenshotOptions());
   });
@@ -50,11 +50,11 @@ test.describe("Stable visual surfaces", () => {
     await expect(page).toHaveScreenshot("mobile-referrals.png", screenshotOptions());
   });
 
-  test("mobile new referral chart matches its baseline", async ({ page }) => {
+  test("mobile new referral intake matches its baseline", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openStable(page, "/?view=referrals");
     await page.getByRole("button", { name: "Create new referral" }).click();
-    await expect(page.getByRole("region", { name: "Chart", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Intake", exact: true })).toBeVisible();
     await settleStable(page);
     await expect(page).toHaveScreenshot("mobile-new-packet.png", screenshotOptions());
   });
