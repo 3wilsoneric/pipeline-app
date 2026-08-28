@@ -19,7 +19,7 @@ export type AssessmentAddendumCommand = AssessmentLifecycleCommand & {
 };
 
 const scheduleStatuses = ["unscheduled", "scheduled", "rescheduled", "cancelled", "no_show"] as const;
-const scheduleMethods = ["in_person", "phone", "video", "record_review"] as const;
+const scheduleMethods = ["in_person", "phone", "zoom", "record_review"] as const;
 
 export function validateAssessmentLifecycleCommand(value: unknown): Result<AssessmentLifecycleCommand> {
   if (!isRecord(value)) return failure("The request body must be an object.");
@@ -46,7 +46,7 @@ export function validateAssessmentScheduleCommand(value: unknown): Result<Assess
   if (duration !== null && (!Number.isInteger(duration) || Number(duration) < 15 || Number(duration) > 480)) {
     return failure("schedule.duration_minutes must be between 15 and 480.");
   }
-  const method = schedule.method;
+  const method = schedule.method === "video" ? "zoom" : schedule.method;
   if (method !== null && !scheduleMethods.includes(method as typeof scheduleMethods[number])) {
     return failure("schedule.method is invalid.");
   }

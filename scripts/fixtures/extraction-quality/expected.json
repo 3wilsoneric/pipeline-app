@@ -1,17 +1,23 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "documents": [
     {
       "fixture_id": "synthetic-referral-packet-001",
+      "metadata": {
+        "labeling_tier": "deep",
+        "document_type": "mixed_packet",
+        "scan_quality": "high",
+        "handwriting": false
+      },
       "fields": {
-        "resident_number": { "value": "SYN-1001", "page": 1, "required": true },
-        "resident_name": { "value": "Synthetic Resident", "page": 1, "required": true },
-        "date_of_birth": { "value": "1980-02-03", "page": 1, "required": true },
-        "community": { "value": "San Pablo", "page": 1, "required": true },
-        "primary_diagnosis": { "value": "Synthetic diagnosis", "page": 3, "required": false },
-        "secondary_diagnoses": { "value": ["Synthetic condition A", "Synthetic condition B"], "page": 3, "required": false },
-        "medications_at_intake": { "value": ["Synthetic medication 10 mg", "Synthetic medication 20 mg"], "page": 5, "required": false },
-        "assessment_notes": { "value": "Synthetic free-text detail retained.", "page": 7, "required": false }
+        "resident_number": { "value": "SYN-1001", "page": 1, "evidence_bbox": [0.05, 0.05, 0.25, 0.1], "source_text": "SYN-1001", "required": true },
+        "resident_name": { "value": "Synthetic Resident", "page": 1, "evidence_bbox": [0.3, 0.05, 0.6, 0.1], "source_text": "Synthetic Resident", "required": true },
+        "date_of_birth": { "value": "1980-02-03", "page": 1, "evidence_bbox": [0.65, 0.05, 0.85, 0.1], "source_text": "1980-02-03", "required": true },
+        "community": { "value": "San Pablo", "page": 1, "evidence_bbox": [0.05, 0.15, 0.3, 0.2], "source_text": "San Pablo", "required": true },
+        "primary_diagnosis": { "value": "Synthetic diagnosis", "page": 3, "evidence_bbox": [0.05, 0.2, 0.45, 0.28], "source_text": "Synthetic diagnosis", "required": false },
+        "secondary_diagnoses": { "value": ["Synthetic condition A", "Synthetic condition B"], "page": 3, "evidence_bbox": [0.05, 0.3, 0.6, 0.4], "source_text": "Synthetic condition A; Synthetic condition B", "required": false },
+        "medications_at_intake": { "value": ["Synthetic medication 10 mg", "Synthetic medication 20 mg"], "page": 5, "evidence_bbox": [0.05, 0.2, 0.7, 0.35], "source_text": "Synthetic medication 10 mg; Synthetic medication 20 mg", "required": false },
+        "assessment_notes": { "value": "Synthetic free-text detail retained.", "page": 7, "evidence_bbox": [0.05, 0.45, 0.9, 0.7], "source_text": "Synthetic free-text detail retained.", "required": false }
       }
     }
   ]

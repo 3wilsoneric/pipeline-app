@@ -107,7 +107,7 @@ for (const path of trackedFiles) {
   }
 
   if (!SOURCE_EXTENSIONS.has(extname(path).toLowerCase())) continue;
-  if (!["scripts/code-hygiene-audit.mjs", "scripts/complete-repository-audit.mjs"].includes(path) && /@ts-ignore\b|\bas any\b|:\s*any\b/u.test(value)) {
+  if (!["scripts/code-hygiene-audit.mjs", "scripts/code-quality-readiness.mjs", "scripts/complete-repository-audit.mjs"].includes(path) && /@ts-ignore\b|\bas any\b|:\s*any\b/u.test(value)) {
     failures.push({ type: "unsafe_type_suppression", path });
   }
   if (RUNTIME_SOURCE_PATH.test(path) && /dangerouslySetInnerHTML|\beval\s*\(|new\s+Function\b/u.test(value)) {

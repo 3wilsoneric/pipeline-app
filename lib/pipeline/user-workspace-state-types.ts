@@ -141,6 +141,8 @@ export function parsePipelineReferralDraft(value: unknown): PipelineReferralDraf
       ? legacyCommunity
       : key === "county" && legacyCommunity
         ? { value: "" }
+        : key === "currentMedications" && candidate.fields.currentMedications === undefined
+          ? { value: "" }
         : candidate.fields[key];
     if (!field || typeof field !== "object" || Array.isArray(field) || !isBoundedText(field.value, 40_000, true)) return null;
     if (field.sourceFile !== undefined && !isBoundedText(field.sourceFile, 255, true)) return null;

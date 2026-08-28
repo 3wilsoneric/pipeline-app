@@ -3,6 +3,7 @@
 import { ReactNode, Suspense, useState } from "react";
 
 import PipelineHeader from "@/components/pipeline/PipelineHeader";
+import PipelineGuidedCoach from "@/components/pipeline/training/PipelineGuidedCoach";
 import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-context";
 
 export default function PipelineAppShell({
@@ -21,6 +22,7 @@ export default function PipelineAppShell({
           <PipelineHeader />
         </Suspense>
         <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
+        <PipelineGuidedCoach />
       </div>
     </PipelineShellProvider>
   );

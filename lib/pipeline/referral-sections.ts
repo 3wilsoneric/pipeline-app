@@ -27,6 +27,7 @@ const sectionByField = {
   note: "intake",
   admissionDate: "intake",
   responsiblePerson: "intake",
+  currentMedications: "intake",
   interview: "intake",
   conserved: "intake",
   documentName: "documents",

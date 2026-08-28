@@ -147,7 +147,7 @@ async function getPostgresAssessmentCalendar(
       assessment_id: row.assessment_id,
       scheduled_start_at: toIso(row.scheduled_start_at),
       scheduled_duration_minutes: row.scheduled_duration_minutes === null ? null : Number(row.scheduled_duration_minutes),
-      scheduled_method: row.scheduled_method as "in_person" | "phone" | "video" | "record_review" | null,
+      scheduled_method: normalizeScheduleMethod(row.scheduled_method),
       scheduled_location: row.scheduled_location,
       schedule_status: row.schedule_status,
       assessor_id: row.assessor_id,
@@ -189,6 +189,12 @@ async function getPostgresAssessmentCalendar(
     })),
     unscheduledTotal: Number(unscheduledRows[0]?.total_count ?? 0),
   };
+}
+
+function normalizeScheduleMethod(method: string | null) {
+  if (method === "video") return "zoom";
+  if (method === "in_person" || method === "phone" || method === "zoom" || method === "record_review") return method;
+  return null;
 }
 
 async function getLocalAssessmentCalendar(

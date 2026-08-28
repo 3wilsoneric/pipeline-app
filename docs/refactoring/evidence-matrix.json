@@ -1,0 +1,303 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-27",
+  "statusDefinitions": {
+    "satisfied": "Existing evidence is executable or reviewable and may be cited now.",
+    "partial": "Useful evidence exists, but the slice-specific contract is incomplete.",
+    "missing": "The evidence must be created in the stated phase.",
+    "blocked": "External, human, governed-data, or live-environment input is required.",
+    "conditional": "Required only if the approved design chooses the applicable replacement or migration path.",
+    "not_applicable": "The evidence category does not apply to this slice."
+  },
+  "globalItems": [
+    {
+      "id": "current_file_and_dependency_inventory",
+      "phase": "before_start",
+      "status": "satisfied",
+      "gates": ["audit:repository", "check:code-quality"],
+      "files": [
+        "docs/reliability/complete-repository-audit-latest.md",
+        "docs/reliability/dependency-inventory.json",
+        "docs/reliability/repository-file-inventory.json"
+      ],
+      "note": "The generated audit hashes every current non-ignored file and inventories every locked dependency; rerun it immediately before starting a slice."
+    },
+    {
+      "id": "runtime_types_and_worktree_alignment",
+      "phase": "before_start",
+      "status": "partial",
+      "gates": ["check:code-quality"],
+      "files": ["docs/refactoring/CODE_QUALITY_POLICY.md", "docs/refactoring/code-quality-policy.json"],
+      "note": "Align @types/node with Node 22, disposition stale worktrees with unique commits, and start implementation in a recorded dedicated codex/refactor-* worktree."
+    },
+    {
+      "id": "enforced_code_ownership",
+      "phase": "before_complete",
+      "status": "blocked",
+      "files": ["docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"],
+      "note": "Blocked until real GitHub users or teams are supplied for CODEOWNERS and branch protection."
+    }
+  ],
+  "slices": [
+    {
+      "id": "referral-store-boundaries",
+      "budgetProfile": "store_control_plane",
+      "items": [
+        {
+          "id": "behavior_characterization",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["check:api", "check:assessor-workflow", "check:workflow-fuzz"],
+          "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code."
+        },
+        {
+          "id": "local_postgres_parity",
+          "phase": "before_start",
+          "status": "missing",
+          "files": ["docs/refactoring/ADAPTER_PARITY_CONTRACT.md"],
+          "note": "Run the same referral contract scenarios against both adapters without erasing PostgreSQL-only transaction semantics."
+        },
+      {
+        "id": "runtime_authorization",
+        "phase": "before_complete",
+        "status": "partial",
+        "gates": ["check:route-policy", "test:e2e:operational:high"],
+        "files": ["docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md"],
+        "note": "Static route coverage exists; add executed allow, wrong-role, and wrong-resource cases for each mutation in scope."
+        },
+        {
+          "id": "performance_and_query_budget",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["database:query-plans", "database:concurrency", "check:performance"],
+        "files": ["docs/PERFORMANCE_BASELINE_2026-08-20.md"],
+        "note": "The platform baseline exists; rerun the store profile against the approved slice and review query-plan deltas."
+        },
+        {
+          "id": "migration_compatibility",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["check:release", "database:rollback:drill"],
+        "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md"],
+        "note": "Static compatibility policy exists; N/N-1 behavior still needs a disposable PostgreSQL rehearsal."
+        },
+        {
+          "id": "expanded_mutation_sample",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["certify:seeded-defects"],
+          "note": "Add store-specific mutants for audit attribution, section versions, idempotency, and transaction coupling."
+        }
+      ]
+    },
+    {
+      "id": "assessment-store-boundaries",
+      "budgetProfile": "store_control_plane",
+      "items": [
+        {
+          "id": "behavior_characterization",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["check:api", "check:assessor-workflow", "check:assessment-workbook"],
+          "note": "Freeze draft, schedule, start, sign, addendum, provenance, audit, and failure behavior."
+        },
+      {
+        "id": "local_postgres_parity",
+        "phase": "before_start",
+        "status": "missing",
+        "files": ["docs/refactoring/ADAPTER_PARITY_CONTRACT.md"],
+        "note": "Implement the shared assessment scenario suite before moving adapter boundaries."
+        },
+        {
+          "id": "runtime_authorization",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["check:route-policy", "test:e2e:operational:high"],
+        "files": ["docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md"],
+        "note": "Static route coverage exists; add executed assessor, supervisor, wrong-resource, and worker denial cases."
+        },
+        {
+          "id": "performance_and_query_budget",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["database:query-plans", "database:concurrency", "check:performance"],
+        "files": ["docs/PERFORMANCE_BASELINE_2026-08-20.md"],
+        "note": "The platform baseline exists; rerun the store profile against the approved slice and review query-plan deltas."
+        },
+        {
+          "id": "signed_history_compatibility",
+          "phase": "before_complete",
+          "status": "missing",
+          "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md"],
+          "note": "Prove new code reads historical drafts, signatures, field evidence, and addenda without rewriting them."
+        },
+        {
+          "id": "expanded_mutation_sample",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["certify:seeded-defects"],
+          "note": "Add mutants for signer attribution, immutable signatures, provenance loss, and reassignment credit."
+        }
+      ]
+    },
+    {
+      "id": "workflow-and-handoff-owner",
+      "budgetProfile": "workflow_control_plane",
+      "items": [
+        {
+          "id": "state_machine_characterization",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["check:workflow-fuzz", "test:critical-safety", "certify:seeded-defects"],
+          "note": "Rules are characterized; add golden database effects and emitted audit events for representative transitions."
+        },
+      {
+        "id": "runtime_role_matrix",
+        "phase": "before_start",
+        "status": "partial",
+        "gates": ["check:route-policy", "test:e2e:operational:high"],
+        "files": ["docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md"],
+        "note": "Complete executable allow and deny coverage for recommendation, terminal decision, assignment, and EHR handoff mutations."
+        },
+        {
+          "id": "mutation_effectiveness",
+          "phase": "before_complete",
+          "status": "satisfied",
+          "gates": ["certify:seeded-defects"],
+        "files": ["docs/TEST_EFFECTIVENESS_AND_CORPUS.md"],
+        "note": "The current certified workflow mutants are killed; retain this gate and expand only when the approved slice exposes new failure modes."
+        },
+        {
+          "id": "shadow_projection_diff",
+          "phase": "before_cutover",
+          "status": "conditional",
+          "files": ["docs/refactoring/SHADOW_COMPARISON_CONTRACT.md"],
+          "note": "Required if a replacement implementation or projection path is introduced."
+        },
+        {
+          "id": "migration_compatibility",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["check:release", "database:rollback:drill"],
+        "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md"],
+        "note": "Run the previous/current artifact and schema combinations in a disposable environment before completion."
+        }
+      ]
+    },
+    {
+      "id": "extraction-capstone",
+      "budgetProfile": "extraction_control_plane",
+      "items": [
+      {
+        "id": "deterministic_characterization",
+        "phase": "before_start",
+        "status": "partial",
+        "gates": ["check:extraction", "check:extraction-worker", "check:storage-consistency"],
+        "note": "Existing deterministic fixtures cover the pipeline mechanics; add packet-level value and provenance goldens before changing extraction behavior."
+        },
+        {
+          "id": "governed_labeled_corpus",
+          "phase": "before_start",
+          "status": "blocked",
+          "gates": ["check:extraction-corpus"],
+          "files": ["docs/TEST_EFFECTIVENESS_AND_CORPUS.md"],
+          "note": "Blocked until admissions leadership approves and humans label the governed corpus."
+        },
+        {
+          "id": "provider_latency_and_cost_budget",
+          "phase": "before_complete",
+          "status": "blocked",
+          "files": ["docs/refactoring/performance-budgets.json"],
+          "note": "Requires deployed Document Intelligence/provider measurements on governed representative packets."
+        },
+        {
+          "id": "provenance_golden_master",
+          "phase": "before_complete",
+          "status": "missing",
+          "note": "Compare value, candidates, confidence, page, bounding box, source document, review, correction, and audit side effects."
+        },
+      {
+        "id": "shadow_provider_diff",
+        "phase": "before_cutover",
+        "status": "missing",
+        "files": ["docs/refactoring/SHADOW_COMPARISON_CONTRACT.md"],
+        "note": "Build a no-write governed comparator only if the provider or merge implementation is replaced."
+        },
+        {
+          "id": "mutation_effectiveness",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["certify:seeded-defects"],
+          "note": "Current extraction mutants cover leases and retries; expand to provenance merge and callback transaction defects."
+        }
+      ]
+    },
+    {
+      "id": "referral-canvas-components",
+      "budgetProfile": "interactive_ui",
+      "items": [
+        {
+          "id": "visual_and_journey_characterization",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["test:e2e", "test:e2e:visual"],
+          "files": ["docs/MCMASTER_CERTIFICATION_2026-08-20.md"]
+        },
+        {
+          "id": "accessibility_and_cross_browser",
+          "phase": "before_complete",
+          "status": "satisfied",
+          "gates": ["test:e2e:desktop", "test:e2e:cross-browser"],
+          "files": ["docs/MCMASTER_CERTIFICATION_2026-08-20.md"]
+        },
+        {
+          "id": "interaction_performance",
+          "phase": "before_complete",
+          "status": "satisfied",
+          "gates": ["certify:mcmaster:performance"],
+          "files": ["docs/PERFORMANCE_BASELINE_2026-08-20.md"]
+        },
+        {
+          "id": "autosave_conflict_recovery",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["test:e2e:operational:high"],
+          "note": "Add focused characterization around component remount and extraction-review state before splitting shells."
+        }
+      ]
+    },
+    {
+      "id": "test-suite-structure",
+      "budgetProfile": "test_infrastructure",
+      "items": [
+        {
+          "id": "seeded_defect_effectiveness",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["certify:test-effectiveness"],
+          "files": ["docs/TEST_EFFECTIVENESS_AND_CORPUS.md"]
+        },
+      {
+        "id": "independent_human_assertion_review",
+        "phase": "before_start",
+        "status": "blocked",
+        "files": ["docs/TEST_EFFECTIVENESS_AND_CORPUS.md"],
+          "note": "A senior engineer who did not author the workflow must review the assertion list."
+        },
+        {
+          "id": "behavior_assertion_preservation",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["test:e2e", "test:e2e:operational:high"],
+          "note": "Record assertion counts and journey ownership before splitting the large files."
+        },
+        {
+          "id": "source_string_reduction",
+          "phase": "before_complete",
+          "status": "missing",
+          "note": "Replace operational source-string checks with executable behavior while retaining true architecture fitness checks."
+        }
+      ]
+    }
+  ]
+}

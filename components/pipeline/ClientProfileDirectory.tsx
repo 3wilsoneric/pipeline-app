@@ -212,7 +212,7 @@ export default function ClientProfileDirectory({
   };
 
   return (
-    <main aria-label="Client profiles" className="h-full overflow-y-auto bg-white text-[#111111]">
+    <main data-guide-target="client-directory" aria-label="Client profiles" className="h-full overflow-y-auto bg-white text-[#111111]">
       <div data-testid="profiles-workspace" className="mx-auto w-full max-w-[1040px] px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center gap-3 pb-2">
           <label className="relative min-w-[260px] flex-1 md:max-w-[620px]">

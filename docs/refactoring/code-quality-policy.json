@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "nodeMajor": 22,
+    "packageManager": "npm",
+    "lockfileVersion": 3
+  },
+  "typescript": {
+    "requireStrict": true,
+    "requireNoEmit": true,
+    "maximumTsIgnore": 0,
+    "maximumTsNoCheck": 0,
+    "maximumExplicitAny": 0,
+    "allowedEslintDisables": [
+      {
+        "path": "components/pipeline/ClientProfileView.tsx",
+        "rule": "@next/next/no-img-element",
+        "reason": "Private no-store thumbnails require an authenticated browser request and cannot use the public image optimizer."
+      }
+    ]
+  },
+  "dependencies": {
+    "requireRegistryIntegrity": true,
+    "maximumDirectDependencies": 28,
+    "maximumLockedPackageLocations": 530,
+    "maximumDuplicateVersionPackages": 18,
+    "allowedInstallHooks": {
+      "tesseract.js@7.0.0": {
+        "hooks": ["postinstall"],
+        "reason": "Declared upstream funding notice hook; dependency installation remains isolated in npm ci."
+      },
+      "unrs-resolver@1.11.1": {
+        "hooks": ["postinstall"],
+        "reason": "Selects and validates the platform-specific native resolver package used by the lint toolchain."
+      }
+    },
+    "conventionOnly": {
+      "@types/node": "TypeScript ambient declarations for the selected Node runtime.",
+      "@types/react": "TypeScript ambient declarations for React JSX.",
+      "@types/react-dom": "TypeScript ambient declarations for React DOM.",
+      "@tailwindcss/postcss": "Discovered by postcss.config.mjs as the Tailwind PostCSS plugin.",
+      "babel-plugin-react-compiler": "Discovered by the Next.js React Compiler integration.",
+      "postcss": "Loaded by the Next.js CSS pipeline through postcss.config.mjs."
+    }
+  },
+  "worktrees": {
+    "requiredActiveBranchPrefix": "codex/refactor-",
+    "warnWhenBehindMainBy": 20,
+    "requireDedicatedWorktreeForActiveSlice": true
+  },
+  "auditArtifacts": [
+    "docs/reliability/complete-repository-audit-latest.md",
+    "docs/reliability/dependency-inventory.json",
+    "docs/reliability/repository-file-inventory.json"
+  ]
+}

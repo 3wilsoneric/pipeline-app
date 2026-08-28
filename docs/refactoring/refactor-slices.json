@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "mode": "setup_only",
+  "updatedAt": "2026-08-27",
+  "slices": [
+    {
+      "id": "referral-store-boundaries",
+      "priority": 1,
+      "status": "not_started",
+      "owner": "unassigned",
+      "paths": [
+        "lib/pipeline/referral-store.ts",
+        "lib/pipeline/referral-types.ts",
+        "lib/pipeline/referral-validation.ts",
+        "lib/pipeline/referral-sections.ts"
+      ],
+      "allowedChangePaths": [],
+      "invariants": [
+        "Optimistic referral and section versions reject stale same-section writes.",
+        "Create and mutation retries remain idempotent.",
+        "Audit writes remain transactionally coupled to material mutations.",
+        "Trash, restore, assignment, work-item, and assessment side effects remain unchanged."
+      ],
+      "requiredGates": [
+        "check:api",
+        "check:assessor-workflow",
+        "check:workflow-fuzz",
+        "test:critical-safety",
+        "database:assurance:integration",
+        "database:concurrency"
+      ]
+    },
+    {
+      "id": "assessment-store-boundaries",
+      "priority": 2,
+      "status": "not_started",
+      "owner": "unassigned",
+      "paths": [
+        "lib/assessment/assessment-store.ts",
+        "lib/assessment/assessment-records.ts",
+        "lib/assessment/assessment-lifecycle-validation.ts",
+        "lib/assessment/assessment-access.ts"
+      ],
+      "allowedChangePaths": [],
+      "invariants": [
+        "Signed assessments remain immutable except through append-only addenda.",
+        "Field provenance and review state survive every persistence boundary.",
+        "Assessor and supervisor permissions remain distinct and fail closed.",
+        "Local and PostgreSQL adapters preserve intended domain parity."
+      ],
+      "requiredGates": [
+        "check:api",
+        "check:assessor-workflow",
+        "check:assessment-workbook",
+        "database:assurance:integration",
+        "database:concurrency"
+      ]
+    },
+    {
+      "id": "workflow-and-handoff-owner",
+      "priority": 3,
+      "status": "not_started",
+      "owner": "unassigned",
+      "paths": [
+        "lib/pipeline/workflow-store.ts",
+        "lib/pipeline/referral-workflow.ts",
+        "lib/pipeline/workflow-records.ts",
+        "lib/pipeline/workflow-status.ts"
+      ],
+      "allowedChangePaths": [],
+      "invariants": [
+        "Workflow stages cannot be skipped and terminal decisions cannot be reopened silently.",
+        "Only authorized roles record recommendations, decisions, and EHR handoff outcomes.",
+        "Decision and handoff writes remain optimistic, idempotent, and audited.",
+        "Workflow projections never become a second source of canonical state."
+      ],
+      "requiredGates": [
+        "check:workflow-fuzz",
+        "test:critical-safety",
+        "certify:seeded-defects",
+        "database:assurance:integration",
+        "test:e2e:operational:high"
+      ]
+    },
+    {
+      "id": "extraction-capstone",
+      "priority": 4,
+      "status": "not_started",
+      "owner": "unassigned",
+      "paths": [
+        "lib/extraction",
+        "databricks/pipeline_extraction_worker.py",
+        "app/api/internal/extraction"
+      ],
+      "allowedChangePaths": [],
+      "invariants": [
+        "Original packet bytes remain immutable and digest verified.",
+        "Extracted values retain source document, page, bounding box, confidence, and review history.",
+        "Leases, retries, dead letters, and callbacks remain bounded and idempotent.",
+        "Workers cannot write canonical referral or assessment state directly."
+      ],
+      "requiredGates": [
+        "check:extraction",
+        "check:extraction-worker",
+        "check:sample-packet",
+        "check:storage-consistency",
+        "check:backlog-rehearsal",
+        "check:extraction-quality"
+      ]
+    },
+    {
+      "id": "referral-canvas-components",
+      "priority": 5,
+      "status": "not_started",
+      "owner": "unassigned",
+      "paths": [
+        "components/pipeline/ReferralPacketCanvas.tsx",
+        "components/pipeline/AssessmentWorkspace.tsx",
+        "components/pipeline/ClientProfileView.tsx"
+      ],
+      "allowedChangePaths": [],
+      "invariants": [
+        "No visual redesign, click-path change, or workflow reordering occurs in a structural split.",
+        "Keyboard, focus, autosave, conflict, upload, and review behavior remain unchanged.",
+        "Responsive layouts remain usable at certified desktop and mobile sizes.",
+        "No server-only adapter crosses into a client bundle."
+      ],
+      "requiredGates": [
+        "test:e2e",
+        "test:e2e:desktop",
+        "test:e2e:cross-browser",
+        "test:e2e:visual"
+      ]
+    },
+    {
+      "id": "test-suite-structure",
+      "priority": 6,
+      "status": "not_started",
+      "owner": "unassigned",
+      "paths": [
+        "tests/e2e/pipeline-smoke.spec.ts",
+        "scripts/api-behavior-fixtures.mjs",
+        "tests/e2e/support"
+      ],
+      "allowedChangePaths": [],
+      "invariants": [
+        "User-visible assertions remain in journey tests rather than disappearing into helpers.",
+        "Synthetic test isolation and deterministic cleanup remain explicit.",
+        "Source-string checks do not replace executable behavior checks.",
+        "The seeded-defect kill rate remains 100 percent for the certified critical set."
+      ],
+      "requiredGates": [
+        "check:platform:fast",
+        "certify:test-effectiveness",
+        "test:e2e",
+        "test:e2e:operational:high"
+      ]
+    }
+  ]
+}

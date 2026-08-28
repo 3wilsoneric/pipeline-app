@@ -17,6 +17,11 @@ const publicMethods = new Set([
 const personalStateWrites = new Set([
   "app/api/me/recents/route.ts#POST",
   "app/api/me/recents/route.ts#DELETE",
+  "app/api/training/progress/route.ts#PUT",
+]);
+const ownerScopedMethods = new Set([
+  "app/api/academy/progress/route.ts#GET",
+  "app/api/academy/progress/route.ts#PUT",
 ]);
 const roleRestrictedReads = new Map([
   ["app/api/operations/supervisor-queue/route.ts#GET", ["admin", "assessment_coordinator"]],
@@ -67,6 +72,8 @@ for (const absoluteFile of routeFiles) {
       check(`${key} is a data-free unauthenticated liveness endpoint`, !body.includes("requirePipelineUser(") && body.includes('service: "pipeline-app"'));
     } else if (key === "app/api/auth/session/route.ts#DELETE") {
       check(`${key} clears only the same-origin session`, body.includes("clearPipelineSessionCookie(") && !body.includes("requirePipelineUser("));
+    } else if (ownerScopedMethods.has(key)) {
+      check(`${key} requires the configured private Academy owner`, body.includes("getDeveloperAcademyOwner("));
     } else {
       check(`${key} requires Pipeline user authentication`, body.includes("requirePipelineUser("));
     }
@@ -89,11 +96,14 @@ for (const absoluteFile of routeFiles) {
     if (route.includes("/assessments/[assessmentId]")) {
       check(`${key} resolves assessment ownership before access`, body.includes("requireReferralAccess("));
     }
-    if (isMutation && !isInternal && !isPublic && !personalStateWrites.has(key)) {
+    if (isMutation && !isInternal && !isPublic && !personalStateWrites.has(key) && !ownerScopedMethods.has(key)) {
       check(`${key} excludes the viewer role from writes`, roleList.length > 0 && !roleList.includes("viewer"));
     }
     if (personalStateWrites.has(key)) {
       check(`${key} writes only principal-scoped personal state`, body.includes("auth.user.id") && body.includes("requirePipelineUser("));
+    }
+    if (isMutation && ownerScopedMethods.has(key)) {
+      check(`${key} writes only owner-scoped private Academy state`, body.includes("owner.id") && body.includes("getDeveloperAcademyOwner("));
     }
 
     const expectedRoles = roleRestrictedReads.get(key);

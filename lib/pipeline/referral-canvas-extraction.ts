@@ -42,6 +42,8 @@ const canvasFieldMappings: Record<string, ReferralCanvasFieldKey[]> = {
   "referral.emergency_contact": ["responsiblePerson"],
   "assessment.guardian_contact": ["responsiblePerson"],
   "referral.packet_summary": ["summary"],
+  "referral.current_medications": ["currentMedications"],
+  "assessment_tool.medications_at_intake": ["currentMedications"],
   "referral.county": ["county"],
   "assessment.community_preference": ["community"],
 };
@@ -89,6 +91,10 @@ function buildCanvasFieldUpdates(extractedByKey: Map<string, ExtractedField>) {
       "assessment.guardian_contact",
     ]),
     summary: extractedValue(extractedByKey, ["referral.packet_summary"]),
+    currentMedications: extractedMedicationValue(extractedByKey, [
+      "referral.current_medications",
+      "assessment_tool.medications_at_intake",
+    ]),
     county: extractedValue(extractedByKey, ["referral.county"]),
   };
   const community = extractedValue(extractedByKey, ["assessment.community_preference"]);
@@ -160,4 +166,35 @@ function extractedValue(
     if (field && value) return { value, field };
   }
   return undefined;
+}
+
+function extractedMedicationValue(
+  fields: Map<string, ExtractedField>,
+  fieldKeys: string[],
+): ExtractedCanvasValue | undefined {
+  const extracted = extractedValue(fields, fieldKeys);
+  if (!extracted) return undefined;
+  return {
+    ...extracted,
+    value: medicationText(extracted.value),
+  };
+}
+
+function medicationText(value: string) {
+  const raw = value.trim();
+  if (!raw) return "";
+  if (raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((entry) => typeof entry === "string" ? entry.trim() : "")
+          .filter(Boolean)
+          .join("\n");
+      }
+    } catch {
+      return raw;
+    }
+  }
+  return raw;
 }

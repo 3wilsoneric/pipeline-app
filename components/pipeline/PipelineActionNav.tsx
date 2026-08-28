@@ -8,11 +8,13 @@ export type PipelineNavTarget = "referrals" | "calendar" | "profiles" | "packet"
 export default function PipelineActionNav({
   active = null,
   searchOpen = false,
+  showSearch = true,
   onOpenSearch,
   onNavigate,
 }: {
   active?: PipelineNavTarget;
   searchOpen?: boolean;
+  showSearch?: boolean;
   onOpenSearch: () => void;
   onNavigate: (target: Exclude<PipelineNavTarget, null>) => void;
 }) {
@@ -32,31 +34,18 @@ export default function PipelineActionNav({
 
   return (
     <div className="flex flex-nowrap items-center gap-1.5 max-[359px]:gap-1 xl:gap-2.5">
-      <button
-        type="button"
-        aria-label={searchOpen ? "Close search" : "Open search"}
-        aria-pressed={searchOpen}
-        data-active={searchOpen ? "true" : undefined}
-        title={searchOpen ? "Close search" : "Search"}
-        onClick={() => {
-          if (searchOpen) {
-            onOpenSearch();
-          } else {
-            onOpenSearch();
-          }
-        }}
-        className={`${navItem} ${utilitySize} ${
-          searchOpen
-            ? "border-[#c4832c] bg-[#fff3dc] text-[#8a5a10] shadow-[0_4px_14px_rgba(196,131,44,0.14)]"
-            : inactiveSearch
-        }`}
-      >
-        <Search size={20} className="shrink-0" />
-      </button>
+      <SearchNavigationButton
+        visible={showSearch}
+        searchOpen={searchOpen}
+        onOpenSearch={onOpenSearch}
+        className={`${navItem} ${utilitySize}`}
+        inactiveClassName={inactiveSearch}
+      />
       <nav aria-label="Primary navigation" className="flex flex-nowrap items-center gap-1.5 max-[359px]:gap-1 xl:gap-2.5">
         <button
           type="button"
           aria-label="Open referrals"
+          data-guide-target="primary-workspaces"
           aria-current={active === "referrals" ? "page" : undefined}
           data-active={active === "referrals" ? "true" : undefined}
           title="Workspaces"
@@ -84,6 +73,7 @@ export default function PipelineActionNav({
         <button
           type="button"
           aria-label="Open calendar"
+          data-guide-target="primary-calendar"
           aria-current={active === "calendar" ? "page" : undefined}
           data-active={active === "calendar" ? "true" : undefined}
           title="Calendar"
@@ -112,6 +102,7 @@ export default function PipelineActionNav({
             onNavigate("profiles");
           }}
           aria-label="Open client profiles"
+          data-guide-target="primary-clients"
           title="Client profiles"
           className={`${navItem} ${destinationSize} text-[#4b68ad] ${
             active === "profiles"
@@ -128,6 +119,7 @@ export default function PipelineActionNav({
       <button
         type="button"
         aria-label="Create new referral"
+        data-guide-target="primary-new-referral"
         aria-current={active === "packet" ? "page" : undefined}
         data-active={active === "packet" ? "true" : undefined}
         title="New referral"
@@ -150,5 +142,34 @@ export default function PipelineActionNav({
         <Plus size={21} className="shrink-0" />
       </button>
     </div>
+  );
+}
+
+function SearchNavigationButton({
+  visible,
+  searchOpen,
+  onOpenSearch,
+  className,
+  inactiveClassName,
+}: {
+  visible: boolean;
+  searchOpen: boolean;
+  onOpenSearch: () => void;
+  className: string;
+  inactiveClassName: string;
+}) {
+  if (!visible) return null;
+  return (
+    <button
+      type="button"
+      aria-label={searchOpen ? "Close search" : "Open search"}
+      aria-pressed={searchOpen}
+      data-active={searchOpen ? "true" : undefined}
+      title={searchOpen ? "Close search" : "Search"}
+      onClick={onOpenSearch}
+      className={`${className} ${searchOpen ? "border-[#c4832c] bg-[#fff3dc] text-[#8a5a10] shadow-[0_4px_14px_rgba(196,131,44,0.14)]" : inactiveClassName}`}
+    >
+      <Search size={20} className="shrink-0" />
+    </button>
   );
 }

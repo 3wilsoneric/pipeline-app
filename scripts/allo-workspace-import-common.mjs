@@ -99,6 +99,20 @@ export function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+export function classifySourceRevision(previous, incoming) {
+  const sameItem = String(previous.source_item_id) === String(incoming.source_item_id);
+  const sameDigest = String(previous.source_sha256) === String(incoming.source_sha256);
+  if (sameItem && sameDigest) return "unchanged";
+  if (sameItem) return "source_revision_review";
+  if (sameDigest) return "duplicate_content_review";
+  return "distinct_source_item";
+}
+
+export function isPinnedManifestCurrent(expectedManifestSha256, currentManifest) {
+  return /^[a-f0-9]{64}$/.test(String(expectedManifestSha256))
+    && sha256(manifestBytes(currentManifest)) === expectedManifestSha256;
+}
+
 function validateManifestEnvelope(value) {
   if (value?.version !== 1 || value?.data_class !== "user_supplied_real" || value?.source_system !== "allo") {
     throw new Error("manifest_invalid");

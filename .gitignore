@@ -23,6 +23,7 @@
 # production
 /build
 /.data/
+/outputs/
 /tmp/
 
 # misc

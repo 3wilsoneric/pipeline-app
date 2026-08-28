@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
 
 const ROOT = process.cwd();
-const REPORT_DATE = "2026-08-22";
-const REPORT_PATH = "docs/COMPLETE_REPOSITORY_AUDIT_2026-08-22.md";
+const GENERATED_AT = new Date().toISOString();
+const REPORT_DATE = GENERATED_AT.slice(0, 10);
+const REPORT_PATH = "docs/reliability/complete-repository-audit-latest.md";
 const FILE_INVENTORY_PATH = "docs/reliability/repository-file-inventory.json";
 const DEPENDENCY_INVENTORY_PATH = "docs/reliability/dependency-inventory.json";
 const AUDIT_ARTIFACTS = new Set([REPORT_PATH, FILE_INVENTORY_PATH, DEPENDENCY_INVENTORY_PATH]);
-const SELF_ANALYSIS_PATHS = new Set(["scripts/code-hygiene-audit.mjs", "scripts/complete-repository-audit.mjs"]);
+const SELF_ANALYSIS_PATHS = new Set(["scripts/code-hygiene-audit.mjs", "scripts/code-quality-readiness.mjs", "scripts/complete-repository-audit.mjs"]);
 const TEXT_EXTENSIONS = new Set([
   "", ".acr", ".bicep", ".cjs", ".css", ".dockerignore", ".example", ".gitignore",
   ".html", ".js", ".json", ".jsx", ".md", ".mjs", ".mts", ".nvmrc", ".operations",
@@ -25,6 +27,7 @@ const DIRECT_DEPENDENCY_REVIEWS = {
   "@azure/storage-blob": ["Private document and backup storage", "Public containers, long-lived SAS URLs, path traversal, unbounded downloads, missing content headers, and retry amplification."],
   "@napi-rs/canvas": ["Server-side PDF thumbnail rasterization", "Native binary compatibility, memory exhaustion, malformed-image handling, and accidental inclusion in browser bundles."],
   "@tesseract.js-data/eng": ["Pinned English OCR language data", "Runtime bundle growth, version mismatch with Tesseract, and loading data from an untrusted remote location."],
+  "fflate": ["Browser-side ZIP generation for bounded exports", "Zip bombs, unbounded in-memory archives, unsafe filenames, and exporting data without authorization or formula escaping."],
   "jose": ["JWT signing and validation", "Missing issuer/audience/algorithm checks, clock-skew mistakes, key rotation, and accepting untrusted claims as authorization."],
   "lucide-react": ["Shared interface icons", "Unlabelled icon-only controls, inconsistent sizing, and importing the full icon set into client bundles."],
   "next": ["Application framework and server runtime", "Server/client boundary leaks, cache semantics, route-handler behavior, dynamic rendering drift, and framework-version API changes."],
@@ -190,13 +193,15 @@ function auditFiles() {
     const absolute = join(ROOT, path);
     if (!existsSync(absolute)) continue;
     const stats = statSync(absolute);
-    const text = isText(path) ? readFileSync(absolute, "utf8") : "";
+    const bytes = readFileSync(absolute);
+    const text = isText(path) ? bytes.toString("utf8") : "";
     const lines = text ? countLines(text) : null;
     const role = roleFor(path);
     const risk = riskFor(path, role, lines ?? 0);
     const detected = detectedConcerns(path, text, lines ?? 0, stats.size, role);
     files.push({
       path,
+      content_sha256: createHash("sha256").update(bytes).digest("hex"),
       role,
       risk,
       bytes: stats.size,
@@ -350,18 +355,12 @@ function renderReport(fileAudit, dependencies) {
   sections.push("- Large UI and fixture modules are called out individually so future work does not add more responsibilities to them.");
   sections.push("- Generated audit files are listed but must be regenerated rather than edited manually.");
   sections.push("");
-  sections.push("## Human Triage of Highest-Risk Flags");
+  sections.push("## Human Triage Required");
   sections.push("");
-  sections.push("- No confirmed P0/P1 release blocker was found by the repository, dependency, license, integrity, or secret-boundary checks.");
-  sections.push("- `app/api/auth/me/route.ts` deliberately keeps workspace-member heartbeat failure from breaking sign-in. The behavior is safe for availability but should gain an aggregate, identity-free failure metric.");
-  sections.push("- `lib/auth/browser-session.ts` deliberately treats failed silent SSO as optional because the HttpOnly application session remains authoritative. Unexpected non-interaction MSAL failures should gain an aggregate, PII-free counter.");
-  sections.push("- Entra issuer/JWKS URLs, Azure Blob endpoints, the Alamo API default, Azure schema URLs, and GitHub's OIDC issuer are expected allowlisted infrastructure endpoints rather than accidental environment coupling.");
-  sections.push("- Browser storage findings are limited to MSAL's encrypted cache, a reauthentication Boolean, and a normalized post-login application path. No clinical data is intentionally stored there.");
-  sections.push("- Invalid JSON and cleanup/rollback promise suppression is generally fail-closed or best-effort cleanup; preserve that distinction and never suppress primary write failures.");
-  sections.push("- Pilot reset and account-state purge scripts are destructive by design but are dry-run-first, narrowly scoped, and require both an environment enable flag and an exact command confirmation.");
-  sections.push("- Six tracked files are pending deletion. Type checking currently confirms their imports were replaced, but the deletions and replacements must be committed together.");
-  sections.push("- The four large UI surfaces and two large stores are tested but remain change-amplification risks. Split them only behind existing behavior contracts; do not perform cosmetic decomposition during release freeze.");
-  sections.push("- Multiple MSAL versions are expected: MSAL 4 serves the browser React application, while Azure Identity brings MSAL 5 in its server credential subtree.");
+  sections.push(`- Review all ${flagged.length} current static flags; this generator does not auto-dismiss findings from an older audit.`);
+  sections.push(`- Resolve or explicitly accept all ${fileAudit.pending_deletions.length} tracked pending deletions in the same change as their replacements.`);
+  sections.push(`- Review all ${dependencies.installed.problems.length} installed-tree problems and every direct dependency with zero repository references.`);
+  sections.push("- Record confirmed findings, owners, and disposition in the approved refactor slice rather than editing this generated report.");
   sections.push("");
   sections.push("## Direct Dependency Review");
   sections.push("");
@@ -435,8 +434,13 @@ function renderReport(fileAudit, dependencies) {
 mkdirSync(join(ROOT, "docs/reliability"), { recursive: true });
 const fileAudit = auditFiles();
 const dependencies = auditDependencies();
-writeFileSync(join(ROOT, FILE_INVENTORY_PATH), `${JSON.stringify({ audit_date: REPORT_DATE, ...fileAudit }, null, 2)}\n`);
-writeFileSync(join(ROOT, DEPENDENCY_INVENTORY_PATH), `${JSON.stringify({ audit_date: REPORT_DATE, ...dependencies }, null, 2)}\n`);
+const evidenceMetadata = {
+  generated_at: GENERATED_AT,
+  audit_date: REPORT_DATE,
+  git_head: git(["rev-parse", "HEAD"]).trim(),
+};
+writeFileSync(join(ROOT, FILE_INVENTORY_PATH), `${JSON.stringify({ ...evidenceMetadata, ...fileAudit }, null, 2)}\n`);
+writeFileSync(join(ROOT, DEPENDENCY_INVENTORY_PATH), `${JSON.stringify({ ...evidenceMetadata, ...dependencies }, null, 2)}\n`);
 writeFileSync(join(ROOT, REPORT_PATH), renderReport(fileAudit, dependencies));
 
 console.log(JSON.stringify({

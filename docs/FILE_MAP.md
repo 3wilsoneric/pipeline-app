@@ -47,6 +47,8 @@
 - `database/migrations/0010_provisional_workspace_members.sql` - explicit provisional member identities and merge state.
 - `database/migrations/0011_historical_material_workspaces.sql` - idempotent imported-material workspace ledger and status.
 - `database/migrations/0012_referral_trash.sql` - recoverable referral deletion and indexed 30-day retention window.
+- `database/migrations/0018_academy_progress.sql` - private developer Academy progress workspace-state kind.
+- `database/migrations/0019_operator_training_progress.sql` - authenticated end-user Learning Center progress workspace-state kind.
 - `database/migration-checksums.json` - append-only migration integrity baseline.
 - `lib/database/pipeline-database.ts` - server-only bounded PostgreSQL connection/readiness adapter.
 - `scripts/apply-database-migrations.mjs` - ordered advisory-lock migration runner with checksum drift protection.
@@ -99,7 +101,11 @@
 - `scripts/platform-readiness.mjs` - bundled platform readiness runner.
 - `scripts/code-hygiene-audit.mjs` - complete repository inventory plus objective generated-output, duplicate-file, merge-marker, and ignore-rule gates.
 - `scripts/complete-repository-audit.mjs` - deterministic every-file and every-dependency risk inventory generator.
-- `docs/COMPLETE_REPOSITORY_AUDIT_2026-08-22.md` - human-readable per-file and package review ledger.
+- `scripts/code-quality-readiness.mjs` - live dependency, type-suppression, inventory-freshness, and Git-worktree quality gate.
+- `scripts/cyclomatic-complexity-audit.mjs` and `scripts/cyclomatic-complexity-python.py` - dependency-free per-function TypeScript, JavaScript, and Python complexity measurement and no-regression ratchet.
+- `docs/refactoring/CYCLOMATIC_COMPLEXITY_POLICY.md` and `docs/reliability/cyclomatic-complexity-baseline.json` - reviewed complexity thresholds, refactor protocol, and existing-hotspot baseline.
+- `docs/reliability/complete-repository-audit-latest.md` - generated current per-file and package review ledger.
+- `docs/COMPLETE_REPOSITORY_AUDIT_2026-08-22.md` - retained historical audit snapshot.
 - `docs/reliability/repository-file-inventory.json` and `docs/reliability/dependency-inventory.json` - machine-readable audit evidence.
 - `scripts/clean-local-artifacts.mjs` - safe removal of disposable Next.js and browser-test build output without touching private data.
 - `scripts/clinical-data-contracts.mjs` - sanitized clinical contract and server-boundary verification.
@@ -141,6 +147,17 @@
 
 ## Docs
 
+- `docs/academy/README.md` - source-grounded developer learning system and maintenance rules.
+- `docs/academy/CURRICULUM.md` - 10-track, 36-module enterprise codebase ownership curriculum and competency gates.
+- `docs/academy/ARCHITECTURE_GUIDE.md` - developer mental model for current runtime, domain, persistence, extraction, security, and testing boundaries.
+- `docs/academy/lessons/01_CREATE_REFERRAL.md` - complete first vertical code trace from canvas through PostgreSQL and Blob processing.
+- `docs/academy/academy-registry.json`, `scripts/academy-readiness.mjs`, and `scripts/academy-atlas.mjs` - reviewed fingerprints, deterministic staleness gate, and generated every-file learning ownership map.
+- `app/(pipeline)/academy/page.tsx`, `components/pipeline/PipelineDeveloperAcademy.tsx`, and `lib/academy/academy-curriculum.ts` - private owner-only curriculum, journeys, repository atlas, labs, mastery console, and conflict-safe durable progress.
+- `lib/academy/academy-access.ts`, `lib/academy/academy-access-policy.ts`, and `scripts/academy-route-contracts.mjs` - fail-closed Academy identity boundary and executable route/course contracts.
+- `app/(pipeline)/training/page.tsx`, `components/pipeline/PipelineOperatorAcademy.tsx`, and `lib/training/operator-training-curriculum.ts` - authenticated role-aware Learning Center with 36 modules, guided tours, practice, job aids, product map, and certification preparation.
+- `components/pipeline/training/PipelineGuidedCoach.tsx` and `lib/training/operator-guided-tutorials.ts` - deterministic cross-route coaching, source-owned spotlight targets, and mutating-action safety boundaries.
+- `lib/training/operator-training-resources.ts` and `components/pipeline/training/*` - synthetic decision scenarios, pressure-ready job aids, workflow capability map, and end-user mastery surfaces.
+- `docs/training/*`, `scripts/operator-training-readiness.mjs`, and `scripts/operator-training-route-contracts.mjs` - curriculum governance, supervisor observation, source drift detection, and executable Learning Center contracts.
 - `docs/REFERRAL_PACKET_EXTRACTION_BUILD_SPEC.md` - extraction architecture and implementation spec.
 - `docs/REFERRAL_PACKET_INGESTION_RUNBOOK.md` - backlog and steady-state ingestion runbook.
 - `docs/REFERRAL_OPERATING_RELIABILITY_PLAN.md` - operating reliability plan.

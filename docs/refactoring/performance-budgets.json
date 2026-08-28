@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "source": "docs/PERFORMANCE_BASELINE_2026-08-20.md",
+  "structuralBudgets": {
+    "newLocalModuleCycles": 0,
+    "newControlPlaneDuplicateGroups": 0,
+    "newStaticSourceContracts": 0,
+    "seededDefectKillRate": 1
+  },
+  "profiles": {
+    "store_control_plane": {
+      "ordinaryApiP95Ms": 250,
+      "databaseCapacityP95Ms": 250,
+      "staleWriteBehavior": "one winner; stale same-section writers receive conflict",
+      "queryPlanRegression": "no required high-volume index may disappear",
+      "requiredCommands": [
+        "check:performance",
+        "database:query-plans",
+        "database:concurrency",
+        "database:capacity"
+      ]
+    },
+    "workflow_control_plane": {
+      "ordinaryApiP95Ms": 250,
+      "concurrentMutationBehavior": "idempotent duplicate mutations apply once",
+      "seededDefectKillRate": 1,
+      "requiredCommands": [
+        "check:performance",
+        "check:workflow-fuzz",
+        "certify:seeded-defects",
+        "database:concurrency"
+      ]
+    },
+    "extraction_control_plane": {
+      "queueBehavior": "bounded claims, leases, retries, dead letters, and stale callback rejection",
+      "backlogCapacityPages": 12000,
+      "providerLatencyBudget": "requires governed corpus and deployed-provider baseline before cutover",
+      "providerCostBudget": "requires approved per-page and per-packet budget before cutover",
+      "requiredCommands": [
+        "check:extraction",
+        "check:extraction-worker",
+        "check:backlog-rehearsal",
+        "check:extraction-quality"
+      ]
+    },
+    "interactive_ui": {
+      "ttfbMs": 250,
+      "fcpMs": 558,
+      "lcpMs": 833,
+      "inpMs": 200,
+      "usefulContentMs": 880,
+      "warmNavigationMs": 158,
+      "interactionMs": 200,
+      "initialTransferBytes": 1153434,
+      "cls": 0.02,
+      "apiErrors": 0,
+      "requiredCommands": [
+        "certify:mcmaster:performance",
+        "check:artifacts",
+        "test:e2e:visual"
+      ]
+    },
+    "test_infrastructure": {
+      "seededDefectKillRate": 1,
+      "sourceStringContractsDelta": 0,
+      "requiredCommands": [
+        "certify:test-effectiveness",
+        "check:platform:fast"
+      ]
+    }
+  }
+}

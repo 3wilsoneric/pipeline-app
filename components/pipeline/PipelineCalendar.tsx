@@ -128,7 +128,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   });
 
   return (
-    <main aria-busy={loading} className="h-full overflow-y-auto bg-white px-4 pb-8 pt-1 sm:px-6 lg:px-8">
+    <main data-guide-target="calendar-workspace" aria-busy={loading} className="h-full overflow-y-auto bg-white px-4 pb-8 pt-1 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-[1480px]">
         <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] py-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -140,7 +140,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           <div className="flex items-center gap-3">
             <span role="status" aria-live="polite" className="hidden text-[10px] text-[#737373] sm:inline">{loading ? "Loading assessment schedule..." : refreshing ? "Refreshing assessment schedule..." : `${visibleEvents.length} calendar item${visibleEvents.length === 1 ? "" : "s"}`}</span>
             <button type="button" aria-label="Refresh assessment schedule" onClick={() => setRefreshToken((value) => value + 1)} className="hidden h-9 w-9 items-center justify-center text-[#737373] hover:text-[#0f8b73] sm:flex"><RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /></button>
-            <div role="group" aria-label="Calendar view" className="flex border border-[#d9d9d9]">
+            <div data-guide-target="calendar-view" role="group" aria-label="Calendar view" className="flex border border-[#d9d9d9]">
               {(["month", "week", "agenda"] as const).map((option) => (
                 <button key={option} type="button" aria-pressed={displayView === option} onClick={() => setView(option)} className={`${option === "agenda" ? "" : "hidden md:block"} h-9 px-3 text-[10px] font-black uppercase tracking-[0.06em] ${displayView === option ? "bg-[#111111] text-white" : "bg-white text-[#595959] hover:text-[#111111]"}`}>{option}</button>
               ))}
@@ -148,7 +148,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#e5e5e5] py-2 md:flex-nowrap md:overflow-x-auto">
+        <div data-guide-target="calendar-filters" className="flex flex-wrap items-center gap-2 border-b border-[#e5e5e5] py-2 md:flex-nowrap md:overflow-x-auto">
           <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.12em] text-[#0c705f]">Show</span>
           <CalendarFilter label="community" value={community} onChange={setCommunity} options={communityOptions} />
           <OwnerFilter value={owner} onChange={setOwner} options={ownerOptions} />
@@ -197,7 +197,7 @@ function OwnerFilter({ value, onChange, options }: { value: string; onChange: (v
 
 function AssessmentPreparation({ items, total, filtered, onOpen }: { items: PipelineUnscheduledAssessment[]; total: number; filtered: boolean; onOpen: (item: PipelineUnscheduledAssessment) => void }) {
   return (
-    <section aria-label="Assessment preparation" className="border-b border-[#e5e5e5] py-3">
+    <section data-guide-target="assessment-preparation" aria-label="Assessment preparation" className="border-b border-[#e5e5e5] py-3">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-[11px] font-black text-[#111111]">Assessment preparation <span className="ml-1 text-[#737373]">{filtered ? items.length : total}</span></h2>
         {total > items.length && !filtered ? <span className="text-[9px] text-[#737373]">Showing {items.length} oldest</span> : null}

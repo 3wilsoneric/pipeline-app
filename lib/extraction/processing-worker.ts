@@ -2,7 +2,7 @@ import "server-only";
 
 import type { TransactionSql } from "postgres";
 
-import { getPipelineSql } from "@/lib/database/pipeline-database";
+import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
 import { DatabricksAdapterError, getDatabricksJobAdapter } from "@/lib/extraction/databricks";
 import { DocumentProcessingError } from "@/lib/extraction/document-processing";
@@ -35,6 +35,21 @@ type JobRow = {
   blob_key: string;
   byte_size: number | string;
   sha256: string;
+};
+
+export type ExtractionQueueHealth = {
+  available: true;
+  generated_at: string;
+  queues: {
+    status: string;
+    count: number;
+    oldest_seconds: number;
+  }[];
+} | {
+  available: false;
+  generated_at: string;
+  queues: [];
+  reason: "database_unavailable" | "queue_query_failed";
 };
 
 export async function dispatchExtractionJobs(limit = 10, workerId = "pipeline-dispatch") {
@@ -255,34 +270,44 @@ export async function replayDeadLetterJob(extractionJobId: string) {
   return { status: "queued" as const };
 }
 
-export async function getExtractionQueueHealth() {
-  const sql = getPipelineSql();
-  const rows = await sql<{ status: string; count: number | string; oldest_seconds: number | string | null }[]>`
-    select status, count(*) as count,
-      extract(epoch from (now() - min(coalesce(next_attempt_at, queued_at)))) as oldest_seconds
-    from pipeline.extraction_jobs group by status order by status
-  `;
-  const queues = rows.map((row) => ({
-    status: row.status,
-    count: Number(row.count),
-    oldest_seconds: Math.max(0, Math.round(Number(row.oldest_seconds ?? 0))),
-  }));
-  for (const queue of queues) {
-    recordPipelineMetric("pipeline.extraction.queue_depth", queue.count, "count", {
-      operation: "queue_health",
-      result: queue.status,
-    });
-    if (queue.status === "queued" || queue.status === "running") {
-      recordPipelineMetric("pipeline.extraction.oldest_age", queue.oldest_seconds * 1000, "milliseconds", {
+export async function getExtractionQueueHealth(): Promise<ExtractionQueueHealth> {
+  const generatedAt = new Date().toISOString();
+  if (!getPipelineDatabaseReadiness().ready) {
+    return { available: false, generated_at: generatedAt, queues: [], reason: "database_unavailable" };
+  }
+
+  try {
+    const sql = getPipelineSql();
+    const rows = await sql<{ status: string; count: number | string; oldest_seconds: number | string | null }[]>`
+      select status, count(*) as count,
+        extract(epoch from (now() - min(coalesce(next_attempt_at, queued_at)))) as oldest_seconds
+      from pipeline.extraction_jobs group by status order by status
+    `;
+    const queues = rows.map((row) => ({
+      status: row.status,
+      count: Number(row.count),
+      oldest_seconds: Math.max(0, Math.round(Number(row.oldest_seconds ?? 0))),
+    }));
+    for (const queue of queues) {
+      recordPipelineMetric("pipeline.extraction.queue_depth", queue.count, "count", {
         operation: "queue_health",
         result: queue.status,
       });
+      if (queue.status === "queued" || queue.status === "running") {
+        recordPipelineMetric("pipeline.extraction.oldest_age", queue.oldest_seconds * 1000, "milliseconds", {
+          operation: "queue_health",
+          result: queue.status,
+        });
+      }
     }
+    return {
+      available: true,
+      generated_at: generatedAt,
+      queues,
+    };
+  } catch {
+    return { available: false, generated_at: generatedAt, queues: [], reason: "queue_query_failed" };
   }
-  return {
-    generated_at: new Date().toISOString(),
-    queues,
-  };
 }
 
 export async function runDocumentRetention(limit = 100, dryRun = true) {

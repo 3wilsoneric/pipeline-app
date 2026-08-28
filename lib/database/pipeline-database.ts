@@ -30,6 +30,13 @@ const REQUIRED_PIPELINE_MIGRATIONS = [
   "0010_provisional_workspace_members",
   "0011_historical_material_workspaces",
   "0012_referral_trash",
+  "0013_search_performance",
+  "0014_workspace_county",
+  "0015_assessor_workflow",
+  "0016_zoom_assessment_method",
+  "0017_referral_received_month",
+  "0018_academy_progress",
+  "0019_operator_training_progress",
 ] as const;
 
 export function getPipelineDatabaseMode(): PipelineDatabaseMode {

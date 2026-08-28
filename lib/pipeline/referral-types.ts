@@ -51,6 +51,7 @@ export const referralCanvasFieldKeys = [
   "referent",
   "responsiblePerson",
   "summary",
+  "currentMedications",
 ] as const;
 
 export type ReferralCanvasFieldKey = (typeof referralCanvasFieldKeys)[number];
@@ -239,6 +240,8 @@ export type Referral = {
   ssn?: string;
   admissionDate?: string;
   responsiblePerson?: string;
+  /** Pre-assessment medication list or notes. This seeds assessment.medications_at_intake. */
+  currentMedications?: string;
   /** @deprecated Legacy Allo-era narrative. New interview answers belong to assessment records. */
   interview?: string;
   conserved?: "yes" | "no" | "";

@@ -17,7 +17,8 @@ import { assignedOwnerForCreate, isAssessorUser, scopeReferralListOptions } from
 import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
 import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
 import { getActiveWorkspaceMember, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
-import { createDefaultAdmissionRequirements } from "@/lib/pipeline/workflow-records";
+import { createDefaultAdmissionRequirements, isRequirementComplete } from "@/lib/pipeline/workflow-records";
+import type { Referral } from "@/lib/pipeline/referral-types";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,8 @@ type CreateReferralBody = {
   assignee_id?: string;
 };
 
+type ReferralListProjection = "full" | "summary";
+
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/referrals", async () => {
     const auth = await requirePipelineUser(request);
@@ -35,6 +38,8 @@ export async function GET(request: Request) {
     if (!store.ok) return store.response;
 
     const url = new URL(request.url);
+    const projection = parseReferralListProjection(url.searchParams);
+    if (!projection.ok) return jsonError(projection.message);
     const query = parseReferralListQuery(url.searchParams);
     if (!query.ok) return jsonError(query.message);
     const requestedOptions = query.value.queue === "my_work"
@@ -42,6 +47,18 @@ export async function GET(request: Request) {
       : query.value;
     const options = scopeReferralListOptions(auth.user, requestedOptions);
     const result = await listReferrals(options);
+    if (projection.value === "summary") {
+      return Response.json({
+        ...result,
+        referrals: result.referrals.map(toReferralListSummary),
+        projection: "summary",
+      }, {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      });
+    }
+
     const contexts = await getReferralWorkflowContexts(result.referrals);
     const progress = Object.fromEntries(result.referrals.map((referral) => [
       referral.id,
@@ -161,4 +178,56 @@ export async function POST(request: Request) {
 
 function isSafeMutationId(value: string) {
   return value.length > 0 && value.length <= 128 && /^[a-zA-Z0-9_.:-]+$/.test(value);
+}
+
+function parseReferralListProjection(searchParams: URLSearchParams):
+  | { ok: true; value: ReferralListProjection }
+  | { ok: false; message: string } {
+  const raw = searchParams.get("projection")?.trim() || "full";
+  if (raw === "full" || raw === "summary") return { ok: true, value: raw };
+  return { ok: false, message: "projection is invalid." };
+}
+
+function toReferralListSummary(referral: Referral) {
+  const requirements = referral.requirements ?? [];
+  return {
+    id: referral.id,
+    version: referral.version,
+    clientId: referral.clientId,
+    workspaceStatus: referral.workspaceStatus,
+    name: referral.name,
+    date: referral.date,
+    stage: referral.stage,
+    workflowStatus: referral.workflowStatus,
+    community: referral.community,
+    county: referral.county,
+    source: referral.source,
+    priority: referral.priority,
+    tags: referral.tags ?? [],
+    documentName: referral.documentName,
+    documentStatus: referral.documentStatus,
+    ownerId: referral.ownerId,
+    owner: referral.owner,
+    createdAt: referral.createdAt,
+    updatedAt: referral.updatedAt,
+    dob: referral.dob,
+    gender: referral.gender,
+    payer: referral.payer,
+    packetId: referral.packetId,
+    packetStatus: referral.packetStatus,
+    packetReadiness: referral.packetReadiness
+      ? {
+          ready: referral.packetReadiness.ready,
+          blocker_count: referral.packetReadiness.blockers.length,
+        }
+      : undefined,
+    sourceMaterialCount: referral.sourceMaterialCount,
+    admissionDate: referral.admissionDate,
+    responsiblePerson: referral.responsiblePerson,
+    requirementCount: requirements.length,
+    openRequirementCount: requirements.filter((requirement) => !isRequirementComplete(requirement.status)).length,
+    hasAssessment: Boolean(referral.assessment),
+    hasDecision: Boolean(referral.admissionDecision),
+    ehrHandoffStatus: referral.ehrHandoff?.status,
+  };
 }

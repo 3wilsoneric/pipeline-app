@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "replace-with-registry-id",
+  "capturedAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "capturedFromCommit": "git-sha",
+  "humanOwner": "name",
+  "fixtures": [
+    {
+      "id": "opaque-synthetic-fixture-id",
+      "classification": "synthetic",
+      "inputDigest": "sha256-without-input-content",
+      "clock": "fixed-ISO-timestamp",
+      "actorRole": "assessor",
+      "expected": {
+        "returnShapeSnapshot": "path-to-sanitized-snapshot",
+        "databaseEffectSnapshot": "path-to-aggregate-or-synthetic-snapshot",
+        "auditEventSnapshot": "path-to-sanitized-snapshot",
+        "emittedEventSnapshot": "path-to-sanitized-snapshot",
+        "errorOutcomeSnapshot": "path-to-sanitized-snapshot"
+      }
+    }
+  ],
+  "prohibitions": [
+    "No real PHI or source document content in Git.",
+    "No timestamps, UUIDs, or ordering normalized unless declared here.",
+    "No known-wrong behavior silently updated during a structural change."
+  ],
+  "approvedBy": "human-reviewer",
+  "approvedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+}

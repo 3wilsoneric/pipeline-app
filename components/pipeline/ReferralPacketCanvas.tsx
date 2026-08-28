@@ -165,6 +165,11 @@ const initialFields: Record<FieldKey, PacketField> = {
     value: "",
     placeholder: "Referral summary",
   },
+  currentMedications: {
+    label: "Current medications",
+    value: "",
+    placeholder: "One medication per line, or paste the med list note",
+  },
 };
 
 const visibleChartFieldKeys: readonly FieldKey[] = [
@@ -181,6 +186,7 @@ const visibleChartFieldKeys: readonly FieldKey[] = [
   "referent",
   "responsiblePerson",
   "summary",
+  "currentMedications",
 ];
 
 const requirements: Requirement[] = [
@@ -275,6 +281,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
   const conservedRef = useRef(conserved);
   const dirtyKeysRef = useRef(dirtyKeys);
   const isSavingRef = useRef(isSaving);
+  const draftRevisionRef = useRef(0);
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
   const defaultOwnerRef = useRef<{ principalId: string; displayName: string } | null>(null);
   const handoffReasonRef = useRef("");
@@ -399,6 +406,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
     if (isSaving || (dirtyKeys.size === 0 && Object.keys(pendingDocuments).length === 0)) return;
     const timer = window.setTimeout(() => {
       if (isSavingRef.current) return;
+      const revision = draftRevisionRef.current;
       const draft: CanvasSessionDraft = {
         schema: 1,
         savedAt: new Date().toISOString(),
@@ -420,13 +428,20 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
         initialPacketCategory,
       };
       if (usesServerReferralDrafts()) {
-        void saveServerReferralDraft(referral?.id ?? loadedReferral?.id ?? newDraftKey, draft).catch(() => {
-          setSaveError("Could not save the recovery draft. Save the referral before leaving this page.");
-        });
+        void saveServerReferralDraft(referral?.id ?? loadedReferral?.id ?? newDraftKey, draft)
+          .then(() => {
+            if (draftRevisionRef.current === revision) setSavedAt("Recovery draft saved");
+          })
+          .catch(() => {
+            if (draftRevisionRef.current === revision) {
+              setSaveError("Could not save the recovery draft. Save the referral before leaving this page.");
+            }
+          });
         return;
       }
       try {
         window.sessionStorage.setItem(canvasDraftStorageKey(referral?.id ?? loadedReferral?.id ?? newDraftKey), JSON.stringify(draft));
+        if (draftRevisionRef.current === revision) setSavedAt("Recovery draft saved");
       } catch {
         setSaveError("This browser could not keep a refresh-recovery draft. Save before leaving this page.");
       }
@@ -445,6 +460,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
   }, [dirtyKeys, pendingDocuments]);
 
   const markDirty = (key: DirtyDraftKey) => {
+    draftRevisionRef.current += 1;
     setDirtyKeys((current) => {
       if (current.has(key)) return current;
       const next = new Set(current);
@@ -1378,7 +1394,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
   };
 
   return (
-    <div ref={canvasRef} className="relative h-full overflow-y-auto bg-white text-[#111111]">
+    <div ref={canvasRef} data-guide-target="packet-workspace" className="relative h-full overflow-y-auto bg-white text-[#111111]">
       {draftRecoveryLoading ? (
         <div className="absolute inset-0 z-50 flex items-start justify-center bg-white/85 pt-24" role="status" aria-live="polite">
           <div className="border-l-2 border-[#0f8b73] bg-white px-4 py-3 text-[12px] font-black text-[#174f43] shadow-sm">
@@ -1397,9 +1413,10 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
             <h1 className="max-w-[7rem] shrink-0 truncate text-[12px] font-black text-[#111111] sm:max-w-[11rem] lg:max-w-[15rem]" title={workspaceTitle}>
               {workspaceTitle}
             </h1>
-            <label className="col-span-2 row-start-2 min-w-0 lg:hidden">
+            <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">
               <span className="sr-only">Workspace stage</span>
               <select
+                data-guide-target="assessment-stage"
                 aria-label="Workspace stage"
                 value={typeof activePage === "number" ? activePage : 1}
                 onChange={(event) => openPage(Number(event.target.value) as WorkspaceStage)}
@@ -1408,11 +1425,12 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
                 {packetSteps.map(({ page, label }) => <option key={page} value={page}>{`0${page} ${label}`}</option>)}
               </select>
             </label>
-            <nav aria-label="Workspace stages" className="hidden min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3 lg:flex">
+            <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className="hidden min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3 lg:flex">
               {packetSteps.map(({ page, label }) => (
                 <button
                   key={page}
                   type="button"
+                  data-guide-target={page === 2 ? "assessment-stage" : undefined}
                   onClick={() => openPage(page)}
                   aria-current={activePage === page ? "page" : undefined}
                   className={`flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-[11px] font-black transition-colors ${
@@ -1464,6 +1482,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
               </div>
               <button
                 type="button"
+                data-guide-target="create-workspace"
                 onClick={saveDraft}
                 disabled={isSaving || uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length)}
                 className="flex h-9 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8] sm:px-4"
@@ -1697,6 +1716,13 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
                     />
                   </div>
                 </ChartSection>
+
+                <ChartSection title="Medication profile" detail="Current meds captured before assessment; this seeds the assessment medication section" complete={countCompleteFields(fields, ["currentMedications"])} total={1}>
+                  <MedicationProfileField
+                    field={fields.currentMedications}
+                    onChange={(value) => updateField("currentMedications", value)}
+                  />
+                </ChartSection>
               </div>
 
               <aside aria-label="Chart completion and documents" className="space-y-4 xl:sticky xl:top-[54px]">
@@ -1803,7 +1829,7 @@ function ChartSection({
   children: React.ReactNode;
 }) {
   return (
-    <section aria-label={`${title} chart section`}>
+    <section data-guide-target={chartGuideTarget(title)} aria-label={`${title} chart section`}>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-t-2 border-[#111111] pt-3">
         <div>
           <h2 className="text-[14px] font-black text-[#111111]">{title}</h2>
@@ -1816,6 +1842,13 @@ function ChartSection({
       {children}
     </section>
   );
+}
+
+function chartGuideTarget(title: string) {
+  if (title === "Identity") return "intake-identity";
+  if (title === "Routing and assignment") return "intake-routing";
+  if (title === "Medication profile") return "intake-medications";
+  return undefined;
 }
 
 function ChartCompletionRail({
@@ -1954,7 +1987,7 @@ function InitialPacketDropzone({
   const hasRecordedPacket = Boolean(recordedName && recordedStatus !== "Missing");
 
   return (
-    <section aria-label="Initial referral packet" className={compact ? "border-t-2 border-[#111111] pt-4" : "mb-5 border-b border-[#d9d9d9] pb-5"}>
+    <section data-guide-target="initial-packet" aria-label="Initial referral packet" className={compact ? "border-t-2 border-[#111111] pt-4" : "mb-5 border-b border-[#d9d9d9] pb-5"}>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="text-[12px] font-black uppercase tracking-[0.12em] text-[#0f8b73]">Initial document</h3>
@@ -1975,6 +2008,7 @@ function InitialPacketDropzone({
       </div>
 
       <div
+        data-guide-target="initial-packet-upload"
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
@@ -2134,6 +2168,45 @@ function EditablePacketField({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function MedicationProfileField({
+  field,
+  onChange,
+}: {
+  field: PacketField;
+  onChange: (value: string) => void;
+}) {
+  const medicationCount = field.value
+    .split(/\r?\n|;/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .length;
+
+  return (
+    <section aria-label={`${field.label} chart field`} className="border border-[#d7ddd9] bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#3f4745]">{field.label}</h3>
+          <p className="mt-1 text-[11px] font-semibold text-[#737373]">
+            {medicationCount ? `${medicationCount} medication${medicationCount === 1 ? "" : "s"} captured` : "No medications captured yet"}
+          </p>
+        </div>
+        {field.sourceFile ? <span className="text-[9px] font-black uppercase text-[#317f8f]">Imported</span> : null}
+      </div>
+      <textarea
+        aria-label={field.label}
+        value={field.value}
+        placeholder={field.placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-4 min-h-[150px] w-full resize-y border border-[#d7ddd9] bg-[#fbfdfc] p-3 text-[13px] font-medium leading-6 text-[#303638] outline-none placeholder:text-[#9a9a9a] focus:border-[#0f8b73] focus:bg-white"
+      />
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#e3e6e4] pt-3 text-[10px] text-[#737373]">
+        <span>Use one medication per line when possible.</span>
+        {field.sourceFile ? <span className="font-black text-[#317f8f]">Source: {field.sourceFile}</span> : <span>Manual chart entry</span>}
+      </div>
+    </section>
   );
 }
 

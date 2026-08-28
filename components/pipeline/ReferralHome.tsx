@@ -353,7 +353,7 @@ export default function ReferralHome({
       count: facets.communities.find((entry) => entry.value === community)?.count ?? 0,
     }));
   const workspaceSearch = (
-    <div className="flex h-11 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73] xl:h-10">
+    <div data-guide-target="workspace-search" className="flex h-11 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73] xl:h-10">
       <Search size={16} className="shrink-0 text-[#0f8b73]" />
       <label htmlFor="workspace-directory-search" className="sr-only">{filter.kind === "files" ? "Search all uploaded files" : "Search all workspaces"}</label>
       <input
@@ -529,7 +529,7 @@ export default function ReferralHome({
   );
 
   return (
-    <main aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
+    <main data-guide-target="workspace-directory" aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
       <div className="w-full px-4 pb-8 pt-0 sm:px-5 md:px-6 lg:px-8 xl:px-10">
         <h1 className="sr-only">Referral workspaces</h1>
         <div className="min-w-0">
@@ -547,6 +547,7 @@ export default function ReferralHome({
         <div className="grid gap-3 xl:grid-cols-[208px_minmax(0,1fr)] xl:gap-5">
           <aside aria-label="Workspace navigation" className="min-w-0 bg-white pt-0 xl:sticky xl:top-0 xl:self-start">
             <nav
+              data-guide-target="workspace-views"
               aria-label="Workspace views"
               className="grid grid-cols-3 gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0"
             >

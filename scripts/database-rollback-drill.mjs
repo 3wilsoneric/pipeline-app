@@ -22,6 +22,10 @@ const referralTrashRollback = await readFile("database/rollbacks/0012_referral_t
 const searchPerformanceRollback = await readFile("database/rollbacks/0013_search_performance.sql", "utf8");
 const workspaceCountyRollback = await readFile("database/rollbacks/0014_workspace_county.sql", "utf8");
 const assessorWorkflowRollback = await readFile("database/rollbacks/0015_assessor_workflow.sql", "utf8");
+const zoomAssessmentMethodRollback = await readFile("database/rollbacks/0016_zoom_assessment_method.sql", "utf8");
+const referralReceivedMonthRollback = await readFile("database/rollbacks/0017_referral_received_month.sql", "utf8");
+const academyProgressRollback = await readFile("database/rollbacks/0018_academy_progress.sql", "utf8");
+const operatorTrainingProgressRollback = await readFile("database/rollbacks/0019_operator_training_progress.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -67,7 +71,30 @@ try {
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='signed_at') as assessment_signature,
       to_regclass('pipeline.assessment_addenda') is not null as assessment_addenda,
       to_regclass('pipeline.assessment_recommendations') is not null as assessment_recommendations,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0015_assessor_workflow') as assessor_workflow_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0015_assessor_workflow') as assessor_workflow_history,
+      exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'assessments_scheduled_method_check'
+          and check_clause like '%zoom%'
+      ) as zoom_method,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0016_zoom_assessment_method') as zoom_method_history,
+      to_regclass('pipeline.referrals_workspace_received_idx') is not null as received_month_index,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0017_referral_received_month') as received_month_history,
+      exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'user_workspace_state_state_kind_check'
+          and check_clause like '%academy_progress%'
+      ) as academy_progress_kind,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0018_academy_progress') as academy_progress_history,
+      exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'user_workspace_state_state_kind_check'
+          and check_clause like '%operator_training_progress%'
+      ) as operator_training_progress_kind,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0019_operator_training_progress') as operator_training_progress_history
   `;
   checks.push({
     name: "latest migrations exist before drill",
@@ -103,7 +130,72 @@ try {
       && before[0].assessment_addenda
       && before[0].assessment_recommendations
       && before[0].assessor_workflow_history
+      && before[0].zoom_method
+      && before[0].zoom_method_history
+      && before[0].received_month_index
+      && before[0].received_month_history
+      && before[0].academy_progress_kind
+      && before[0].academy_progress_history
+      && before[0].operator_training_progress_kind
+      && before[0].operator_training_progress_history
     ),
+  });
+  await connection.unsafe(operatorTrainingProgressRollback);
+  const operatorTrainingProgressDuring = await connection`
+    select not exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'user_workspace_state_state_kind_check'
+          and check_clause like '%operator_training_progress%'
+      ) as kind_removed,
+      exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'user_workspace_state_state_kind_check'
+          and check_clause like '%academy_progress%'
+      ) as academy_kind_preserved,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0019_operator_training_progress') as history_removed
+  `;
+  checks.push({
+    name: "rollback removes operator training state support and preserves Developer Academy state",
+    ok: Boolean(operatorTrainingProgressDuring[0].kind_removed && operatorTrainingProgressDuring[0].academy_kind_preserved && operatorTrainingProgressDuring[0].history_removed),
+  });
+  await connection.unsafe(academyProgressRollback);
+  const academyProgressDuring = await connection`
+    select not exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'user_workspace_state_state_kind_check'
+          and check_clause like '%academy_progress%'
+      ) as kind_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0018_academy_progress') as history_removed
+  `;
+  checks.push({
+    name: "rollback removes Academy progress state support",
+    ok: Boolean(academyProgressDuring[0].kind_removed && academyProgressDuring[0].history_removed),
+  });
+  await connection.unsafe(referralReceivedMonthRollback);
+  const referralReceivedMonthDuring = await connection`
+    select to_regclass('pipeline.referrals_workspace_received_idx') is null as index_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0017_referral_received_month') as history_removed
+  `;
+  checks.push({
+    name: "rollback removes referral received-month index",
+    ok: Boolean(referralReceivedMonthDuring[0].index_removed && referralReceivedMonthDuring[0].history_removed),
+  });
+  await connection.unsafe(zoomAssessmentMethodRollback);
+  const zoomAssessmentMethodDuring = await connection`
+    select exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'assessments_scheduled_method_check'
+          and check_clause not like '%zoom%'
+      ) as zoom_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0016_zoom_assessment_method') as history_removed
+  `;
+  checks.push({
+    name: "rollback maps Zoom schedules to the legacy video method",
+    ok: Boolean(zoomAssessmentMethodDuring[0].zoom_removed && zoomAssessmentMethodDuring[0].history_removed),
   });
   await connection.unsafe(assessorWorkflowRollback);
   const assessorWorkflowDuring = await connection`
@@ -274,7 +366,30 @@ try {
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='signed_at') as assessment_signature,
       to_regclass('pipeline.assessment_addenda') is not null as assessment_addenda,
       to_regclass('pipeline.assessment_recommendations') is not null as assessment_recommendations,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0015_assessor_workflow') as assessor_workflow_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0015_assessor_workflow') as assessor_workflow_history,
+      exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'assessments_scheduled_method_check'
+          and check_clause like '%zoom%'
+      ) as zoom_method,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0016_zoom_assessment_method') as zoom_method_history,
+      to_regclass('pipeline.referrals_workspace_received_idx') is not null as received_month_index,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0017_referral_received_month') as received_month_history,
+      exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'user_workspace_state_state_kind_check'
+          and check_clause like '%academy_progress%'
+      ) as academy_progress_kind,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0018_academy_progress') as academy_progress_history,
+      exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'user_workspace_state_state_kind_check'
+          and check_clause like '%operator_training_progress%'
+      ) as operator_training_progress_kind,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0019_operator_training_progress') as operator_training_progress_history
   `;
   checks.push({
     name: "drill transaction restores original schema",
@@ -312,6 +427,14 @@ try {
       && after[0].assessment_addenda
       && after[0].assessment_recommendations
       && after[0].assessor_workflow_history
+      && after[0].zoom_method
+      && after[0].zoom_method_history
+      && after[0].received_month_index
+      && after[0].received_month_history
+      && after[0].academy_progress_kind
+      && after[0].academy_progress_history
+      && after[0].operator_training_progress_kind
+      && after[0].operator_training_progress_history
     ),
   });
   const failed = checks.filter((check) => !check.ok);

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "replace-with-registry-id",
+  "startingCommit": "git-sha",
+  "generatedInventory": "docs/reliability/repository-file-inventory.json",
+  "humanOwner": "name",
+  "reviewedAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "files": [
+    {
+      "path": "exact/path/from-slice-scope.ts",
+      "purpose": "Owner-authored reason this file exists.",
+      "callers": ["known direct entry point"],
+      "publicExports": ["exportName"],
+      "sideEffects": ["database, audit, Blob, queue, network, browser storage, timer, or none"],
+      "failureBehavior": "How errors, retries, conflicts, and cleanup work today.",
+      "tests": ["exact executable test or gate"],
+      "staticPrompts": [
+        {
+          "prompt": "Exact detected_concerns text from repository-file-inventory.json",
+          "disposition": "confirmed | expected | false_positive | deferred",
+          "reason": "Specific evidence, not a generic dismissal.",
+          "owner": "name",
+          "followUp": "issue or approved slice item when confirmed/deferred"
+        }
+      ],
+      "decision": "keep | split | move | replace | delete",
+      "decisionReason": "Why this is the smallest safe structural action."
+    }
+  ],
+  "reviewedBy": "independent-human-reviewer",
+  "approvedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+}

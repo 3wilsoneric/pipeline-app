@@ -25,6 +25,7 @@ process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH = desktopStateStorePath;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  testIgnore: "**/operational/**",
   globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: false,
   workers: 1,
@@ -52,6 +53,7 @@ export default defineConfig({
       PIPELINE_ALLOW_PRODUCTION_MOCK_EXTRACTION: "true",
       PIPELINE_MOCK_USER_EMAIL: "playwright@pipeline.local",
       PIPELINE_MOCK_USER_NAME: "Playwright QA",
+      PIPELINE_ACADEMY_OWNER_EMAILS: "playwright@pipeline.local",
       PIPELINE_ADMIN_EMAILS: "playwright@pipeline.local",
       PIPELINE_ALLOWED_EMAILS: "playwright@pipeline.local",
       PIPELINE_ALLOWED_MUTATION_ORIGINS: `${baseURL},http://localhost:${port}`,

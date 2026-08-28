@@ -67,6 +67,7 @@ export default function ReferralWorklist({
             <button
               key={referral.id}
               type="button"
+              data-guide-target="workspace-results"
               onClick={() => onOpenPacket(referral)}
               aria-label={`Open ${referral.name} referral workspace`}
               className="grid w-full grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.9fr)_170px_135px_90px_110px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
@@ -141,6 +142,7 @@ function CompactReferralRow({
   return (
     <button
       type="button"
+      data-guide-target="workspace-results"
       onClick={onOpen}
       aria-label={`Open ${referral.name} referral workspace`}
       className="block w-full px-3 py-4 text-left transition-colors hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:px-4"

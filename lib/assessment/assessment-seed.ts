@@ -18,7 +18,7 @@ type AssessmentSeed = Pick<
 const canonicalReferralFields: ReadonlyArray<{
   target: AssessmentToolFieldKey;
   source: string;
-  value: (referral: Referral, assessorName: string, today: string) => string | null;
+  value: (referral: Referral, assessorName: string, today: string) => string | string[] | null;
   canvasSource?: keyof NonNullable<Referral["fieldSources"]>;
 }> = [
   { target: "resident_name", source: "referral.name", value: (referral) => referral.name.trim() || null, canvasSource: "name" },
@@ -29,6 +29,7 @@ const canonicalReferralFields: ReadonlyArray<{
   { target: "referral_received_date", source: "referral.received_date", value: (referral) => isoDateOrNull(referral.date), canvasSource: "referralReceived" },
   { target: "referrer_name", source: "referral.source", value: (referral) => meaningfulSource(referral.source), canvasSource: "referent" },
   { target: "county", source: "referral.county", value: (referral) => referral.county?.trim() || null, canvasSource: "county" },
+  { target: "medications_at_intake", source: "referral.current_medications", value: (referral) => medicationList(referral.currentMedications), canvasSource: "currentMedications" },
 ];
 
 export function buildAssessmentSeedFromReferral(
@@ -88,6 +89,31 @@ function isoDateOrNull(value: string) {
     : null;
 }
 
+function medicationList(value: string | undefined) {
+  const raw = value?.trim();
+  if (!raw) return null;
+  if (raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        const entries = parsed
+          .map((entry) => typeof entry === "string" ? entry.trim() : "")
+          .filter(Boolean)
+          .slice(0, 100);
+        return entries.length > 0 ? entries : null;
+      }
+    } catch {
+      // Fall through to text parsing so a malformed machine value can still be reviewed.
+    }
+  }
+  const entries = raw
+    .split(/\r?\n|;/)
+    .map((entry) => entry.replace(/^[\s*-]+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 100);
+  return entries.length > 0 ? entries : null;
+}
+
 function cloneProvenance(
   value: Partial<Record<AssessmentToolFieldKey, AssessmentFieldProvenance[]>>,
 ) {
@@ -109,4 +135,3 @@ function hasPendingEvidence(
 ) {
   return Object.values(provenance).some((entries) => entries?.at(-1)?.review_status === "pending");
 }
-

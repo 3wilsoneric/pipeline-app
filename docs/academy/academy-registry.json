@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 2,
+  "curriculumVersion": "2026.08.enterprise.1",
+  "reviewedAt": "2026-08-28",
+  "reviewedCommit": "f7281b2f7c370683faeabb8444195aa0d7a01e05",
+  "sourceFingerprint": "8521102fa965e4dd726c9473893ebbeb101c84c0462eec17ee31cd92bad113ff",
+  "atlasFingerprint": "f0da1fb16617b0fa331e42aef32a69ef144c1b315f3452d5e2b8cedfc65a6adc",
+  "minimums": {
+    "tracks": 10,
+    "modules": 36,
+    "activities": 144,
+    "guidedHours": 100,
+    "goldenJourneys": 10,
+    "repositoryCoveragePercent": 100
+  },
+  "requiredCommands": [
+    "academy:atlas",
+    "academy:atlas:check",
+    "academy:check",
+    "academy:refresh",
+    "academy:route:check",
+    "academy:certify",
+    "check:code-quality",
+    "check:platform:fast",
+    "certify:test-effectiveness",
+    "certify:refactor"
+  ],
+  "requiredDocuments": [
+    "docs/academy/README.md",
+    "docs/academy/CURRICULUM.md",
+    "docs/academy/ARCHITECTURE_GUIDE.md",
+    "docs/academy/WORKBOOK.md",
+    "docs/academy/CHANGE_DOSSIER_TEMPLATE.md",
+    "docs/academy/ENTERPRISE_ACADEMY_STANDARD.md"
+  ]
+}

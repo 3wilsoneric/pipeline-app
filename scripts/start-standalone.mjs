@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { cpSync, existsSync, mkdirSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { dirname, isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const projectRoot = process.cwd();
@@ -40,7 +40,8 @@ await import(pathToFileURL(serverEntry).href);
 
 function stageDirectory(source, destination) {
   if (!existsSync(source)) return;
-  mkdirSync(destination, { recursive: true });
+  rmSync(destination, { recursive: true, force: true });
+  mkdirSync(dirname(destination), { recursive: true });
   cpSync(source, destination, { recursive: true, force: true });
 }
 

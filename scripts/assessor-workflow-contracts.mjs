@@ -56,6 +56,7 @@ const seededAssessment = assessmentSeed.buildAssessmentSeedFromReferral({
   ...referral,
   date: "2026-08-23",
   county: "Contra Costa County",
+  currentMedications: "Olanzapine 10 mg\nMetformin 500 mg",
   createdAt: "2026-08-23T08:00:00.000Z",
   packetFields: [
     {
@@ -82,6 +83,7 @@ const seededAssessment = assessmentSeed.buildAssessmentSeedFromReferral({
 }, "Assigned Assessor", new Date("2026-08-25T12:00:00.000Z"));
 check("packet clinical evidence seeds the assessment as reviewable", seededAssessment.data.mobility === "Independent" && seededAssessment.status === "needs_review");
 check("referral context remains authoritative during assessment seeding", seededAssessment.data.community === "San Pablo" && seededAssessment.data.county === "Contra Costa County");
+check("pre-assessment medications seed the assessment medication profile", seededAssessment.data.medications_at_intake.join("|") === "Olanzapine 10 mg|Metformin 500 mg");
 check("seeded assessment evidence retains page provenance", seededAssessment.field_provenance.mobility?.at(-1)?.source_page_no === 14);
 check("referral-owned packet duplicates do not enter assessment review", !seededAssessment.field_provenance.community?.some((entry) => entry.review_status === "pending"));
 
@@ -127,6 +129,7 @@ check(
 );
 check("new assessment creation uses the packet-to-assessment handoff", assessmentCreateRoute.includes("buildAssessmentSeedFromReferral") && assessmentCreateRoute.includes("field_provenance: seed.field_provenance"));
 check("packet context and interview answers have explicit ownership", assessmentSeedSource.includes('assessmentFieldOwner(target) === "assessment_answer"'));
+check("schedule exposes Zoom instead of a generic video meeting method", lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: "2026-08-25T09:00:00-07:00", duration_minutes: 60, method: "zoom", location: "https://zoom.us/j/123" } }).ok && assessmentWorkspace.includes('<option value="zoom">Zoom</option>') && !assessmentWorkspace.includes('<option value="video">Video</option>'));
 check("new referral saves do not write the legacy interview duplicate", !referralCanvasPersistence.includes('interview: fields.interview'));
 check("assessment suggestions support field-level accept and reject", assessmentWorkspace.includes("reviewExtractedField") && assessmentWorkspace.includes('review_extraction: [{ field, action }]'));
 check("assigned assessors and supervisors can sign", signRoute.includes("canWorkAssessment") && signRoute.includes("assigned assessor or a supervisor"));

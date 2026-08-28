@@ -1033,7 +1033,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
           or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${assignedOwnerNames}::text[])))
         and (${priority}::text is null or r.priority = ${priority})
         and (${tag}::text is null or ${tag} = any(r.tags))
-        and (${month}::text is null or to_char(r.created_at at time zone 'UTC', 'YYYY-MM') = ${month})
+        and (${month}::text is null or to_char(r.received_date, 'YYYY-MM') = ${month})
         and (${activeOnly} = false or r.closed_at is null)
         and (${workspaceStatus} = 'all' or r.workspace_status = ${workspaceStatus})
         and (
@@ -1140,7 +1140,7 @@ async function listPostgresReferralFacets(
       group by tag order by tag
     `,
     sql<FacetRow[]>`
-      select to_char(r.created_at at time zone 'UTC', 'YYYY-MM') as value, count(*) as count
+      select to_char(r.received_date, 'YYYY-MM') as value, count(*) as count
       from pipeline.referrals r where ${searchClause}
       group by value order by value desc
     `,
@@ -2195,6 +2195,7 @@ function referralSearchText(referral: Partial<Referral>) {
     referral.priority,
     referral.admissionDate,
     referral.responsiblePerson,
+    referral.currentMedications,
     referral.phone,
     referral.email,
     referral.payer,
@@ -2262,6 +2263,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "ssn",
     "admissionDate",
     "responsiblePerson",
+    "currentMedications",
     "conserved",
     "fieldSources",
     "phone",
@@ -2345,6 +2347,7 @@ function normalizeReferral(input: Referral): Referral {
     ssn: input.ssn ?? "",
     admissionDate: input.admissionDate ?? "",
     responsiblePerson: input.responsiblePerson ?? "",
+    currentMedications: input.currentMedications ?? "",
     interview: input.interview ?? "",
     conserved: input.conserved ?? "",
     fieldSources: input.fieldSources ?? {},
@@ -2421,7 +2424,7 @@ function matchesReferralFilters(referral: Referral, options: ReferralListOptions
   if (options.owner && normalizeOwnerName(referral.owner) !== normalizeOwnerName(options.owner)) return false;
   if (options.priority && referral.priority !== options.priority) return false;
   if (options.tag && !(referral.tags ?? []).includes(options.tag)) return false;
-  if (options.month && monthKey(referral.createdAt) !== options.month) return false;
+  if (options.month && monthKey(referral.date) !== options.month) return false;
   if (options.activeOnly && isClosedStage(referral.stage)) return false;
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
   if (!matchesAssignmentScope(referral, options)) return false;
@@ -2465,7 +2468,7 @@ function buildReferralFacets(referrals: Referral[]): ReferralFacets {
     owners: countFacet(referrals.map((referral) => normalizeOwnerName(referral.owner))),
     priorities: countFacet(referrals.map((referral) => referral.priority)),
     tags: countFacet(referrals.flatMap((referral) => referral.tags ?? [])),
-    months: countFacet(referrals.map((referral) => monthKey(referral.createdAt))).sort((left, right) => right.value.localeCompare(left.value)),
+    months: countFacet(referrals.map((referral) => monthKey(referral.date))).sort((left, right) => right.value.localeCompare(left.value)),
   };
 }
 

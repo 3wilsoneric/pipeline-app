@@ -7,6 +7,11 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const applicationPathname = fromPipelinePath(pathname);
 
+  if (applicationPathname.startsWith("/api/internal/")) {
+    const denied = requireInternalWorkerAtProxy(request);
+    return withSecurityHeaders(denied ?? NextResponse.next(), request);
+  }
+
   if (!isProtectedPath(applicationPathname)) {
     return withSecurityHeaders(NextResponse.next(), request);
   }
@@ -26,6 +31,29 @@ export async function proxy(request: NextRequest) {
   }
 
   return withSecurityHeaders(NextResponse.next(), request);
+}
+
+function requireInternalWorkerAtProxy(request: NextRequest) {
+  const primarySecret = process.env.PIPELINE_WORKER_SHARED_SECRET?.trim();
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  const expected = primarySecret || cronSecret;
+  if (!expected) {
+    return NextResponse.json({ error: "Worker authentication is not configured." }, { status: 503 });
+  }
+
+  const supplied = request.headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1] ?? "";
+  if (constantTimeStringEqual(supplied, expected)) return null;
+
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
+function constantTimeStringEqual(left: string, right: string) {
+  let mismatch = left.length ^ right.length;
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    mismatch |= (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
+  }
+  return mismatch === 0;
 }
 
 function withSecurityHeaders(response: Response, request: NextRequest) {

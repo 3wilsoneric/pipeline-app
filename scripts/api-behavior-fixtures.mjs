@@ -472,6 +472,7 @@ const results = [
       source: "value-referent",
       responsiblePerson: "value-responsiblePerson",
       note: "value-summary",
+      currentMedications: "value-currentMedications",
     };
     for (const [key, value] of Object.entries(expected)) {
       assert(patch[key] === value, `Canvas field mapping did not persist ${key}`);
@@ -488,6 +489,7 @@ const results = [
     Object.assign(fields.referralReceived, { value: "2026-08-22" });
     Object.assign(fields.referent, { value: " County intake " });
     Object.assign(fields.summary, { value: " Summary " });
+    Object.assign(fields.currentMedications, { value: " Olanzapine 10 mg\nMetformin 500 mg " });
     Object.assign(fields.dob, { value: "1982-05-14" });
     Object.assign(fields.age, { value: "44" });
     const created = referralCanvasPersistence.buildReferralCanvasCreateInput({
@@ -503,6 +505,7 @@ const results = [
     assert(created.owner === "Eric Wilson", "Create should persist the assigned owner");
     assert(created.source === "County intake", "Create should persist the referral source");
     assert(created.note === "Summary", "Create should persist the summary");
+    assert(created.currentMedications === "Olanzapine 10 mg\nMetformin 500 mg", "Create should persist pre-assessment medications");
     assert(created.reportedAge === "44", "Create should persist reported age separately from DOB");
     assert(created.documentHash === "abc123", "Create should preserve packet identity");
     assert(created.conserved === "yes", "Create should persist conservatorship selection");
@@ -1564,6 +1567,7 @@ function emptyCanvasFields() {
     "referent",
     "responsiblePerson",
     "summary",
+    "currentMedications",
   ].map((key) => [key, { label: key, value: "" }]));
 }
 

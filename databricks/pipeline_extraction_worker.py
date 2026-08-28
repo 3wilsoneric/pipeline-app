@@ -467,21 +467,26 @@ def field_payload(key: str, extracted: ExtractedValue | None, evidence: dict[int
 
 
 def extract_name(pages: Iterable[PageText]) -> ExtractedValue | None:
+    candidates: dict[str, ExtractedValue] = {}
     for page in pages:
         for line in text_lines(page.text):
             match = re.search(r"(?:resident|patient|client)\s*name\s*[:|-]\s*([A-Za-z][A-Za-z'., -]{2,80})", line, re.I)
             if match:
                 name = normalize_name(match.group(1))
                 if name:
-                    return ExtractedValue(name, 0.94, page.page_number)
+                    candidates.setdefault(name.casefold(), ExtractedValue(name, 0.94, page.page_number))
             titled = re.search(r"\b(?:Mr|Ms|Mrs|Miss)\.?\s+([A-Za-z][A-Za-z'. -]{1,50}),\s*([A-Za-z][A-Za-z'.-]{1,30})", line, re.I)
             if titled:
-                return ExtractedValue(f"{title_case(titled.group(2))} {title_case(titled.group(1))}", 0.97, page.page_number)
-    return None
+                name = f"{title_case(titled.group(2))} {title_case(titled.group(1))}"
+                candidates.setdefault(name.casefold(), ExtractedValue(name, 0.97, page.page_number))
+    # A packet containing more than one identity must be resolved by a human,
+    # never by whichever patient's page happened to appear first.
+    return next(iter(candidates.values())) if len(candidates) == 1 else None
 
 
 def extract_birth(pages: Iterable[PageText]) -> tuple[ExtractedValue | None, ExtractedValue | None]:
     current_year = date.today().year
+    candidates: dict[str, tuple[ExtractedValue, ExtractedValue]] = {}
     for page in pages:
         for line in text_lines(page.text):
             if not re.search(r"date\s*of\s*birth|birth\s*date|\bdob\b", line, re.I):
@@ -494,8 +499,13 @@ def extract_birth(pages: Iterable[PageText]) -> tuple[ExtractedValue | None, Ext
             age = int(age_match.group(1)) if age_match else current_year - int(match.group(3))
             if age < 0 or age > 120:
                 continue
-            return ExtractedValue(iso, 0.96, page.page_number), ExtractedValue(str(age), 0.94, page.page_number)
-    return None, None
+            candidates.setdefault(
+                iso,
+                (ExtractedValue(iso, 0.96, page.page_number), ExtractedValue(str(age), 0.94, page.page_number)),
+            )
+    if len(candidates) != 1:
+        return None, None
+    return next(iter(candidates.values()))
 
 
 def extract_admission_date(pages: Iterable[PageText], excluded: str | None) -> ExtractedValue | None:

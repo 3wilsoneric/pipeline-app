@@ -12,6 +12,26 @@ const checks = [
     args: ["scripts/code-hygiene-audit.mjs"],
   },
   {
+    name: "Repository engineering quality",
+    command: "node",
+    args: ["scripts/code-quality-readiness.mjs"],
+  },
+  {
+    name: "Cyclomatic complexity ratchet",
+    command: "node",
+    args: ["scripts/cyclomatic-complexity-audit.mjs"],
+  },
+  {
+    name: "Developer Academy freshness",
+    command: "node",
+    args: ["scripts/academy-readiness.mjs"],
+  },
+  {
+    name: "Private Developer Academy route",
+    command: "node",
+    args: ["scripts/academy-route-contracts.mjs"],
+  },
+  {
     name: "Alamo Admissions zone contracts",
     command: "node",
     args: ["scripts/admissions-zone-contracts.mjs"],
@@ -30,6 +50,11 @@ const checks = [
     name: "Generated property contracts",
     command: "node",
     args: ["scripts/property-contracts.mjs"],
+  },
+  {
+    name: "Stateful workflow fuzzing",
+    command: "node",
+    args: ["scripts/workflow-stateful-fuzz.mjs"],
   },
   {
     name: "Extraction quality score",
@@ -130,6 +155,11 @@ const checks = [
     name: "Database and identity-link readiness",
     command: "node",
     args: ["scripts/database-readiness.mjs"],
+  },
+  {
+    name: "Database assurance harness contracts",
+    command: "node",
+    args: ["scripts/database-assurance-contracts.mjs"],
   },
   {
     name: "Document processing state machine",

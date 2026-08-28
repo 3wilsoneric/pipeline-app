@@ -38,7 +38,7 @@ export type AssessmentScheduleStatus =
   | "no_show"
   | "completed";
 
-export type AssessmentScheduleMethod = "in_person" | "phone" | "video" | "record_review";
+export type AssessmentScheduleMethod = "in_person" | "phone" | "zoom" | "record_review";
 
 export type AssessmentScheduleUpdate = {
   start_at: string | null;

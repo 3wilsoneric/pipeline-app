@@ -638,7 +638,7 @@ type AssessmentRow = {
   completed_at: Date | string | null;
   scheduled_start_at: Date | string | null;
   scheduled_duration_minutes: number | string | null;
-  scheduled_method: PipelineAssessmentRecord["scheduled_method"];
+  scheduled_method: string | null;
   scheduled_location: string | null;
   schedule_status: PipelineAssessmentRecord["schedule_status"];
   started_at: Date | string | null;
@@ -1513,7 +1513,7 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
       scheduled_duration_minutes: row.scheduled_duration_minutes === null
         ? null
         : Number(row.scheduled_duration_minutes),
-      scheduled_method: row.scheduled_method ?? null,
+      scheduled_method: normalizeScheduleMethod(row.scheduled_method),
       scheduled_location: row.scheduled_location,
       schedule_status: row.schedule_status ?? "unscheduled",
       started_at: row.started_at ? isoTimestamp(row.started_at) : null,
@@ -1910,7 +1910,7 @@ function normalizeAssessmentRecord(value: PipelineAssessmentRecord): PipelineAss
     completed_at: value.completed_at ?? null,
     scheduled_start_at: value.scheduled_start_at ?? null,
     scheduled_duration_minutes: value.scheduled_duration_minutes ?? null,
-    scheduled_method: value.scheduled_method ?? null,
+    scheduled_method: normalizeScheduleMethod(value.scheduled_method),
     scheduled_location: value.scheduled_location?.trim() || null,
     schedule_status: value.schedule_status ?? "unscheduled",
     started_at: value.started_at ?? null,
@@ -1924,6 +1924,12 @@ function normalizeAssessmentRecord(value: PipelineAssessmentRecord): PipelineAss
     unmapped_fields: Array.isArray(value.unmapped_fields) ? value.unmapped_fields.slice(-1_000) : [],
     audit_events: Array.isArray(value.audit_events) ? value.audit_events.slice(-maxAuditEventsPerAssessment) : [],
   };
+}
+
+function normalizeScheduleMethod(method: unknown): PipelineAssessmentRecord["scheduled_method"] {
+  if (method === "video" || method === "zoom") return "zoom";
+  if (method === "in_person" || method === "phone" || method === "record_review") return method;
+  return null;
 }
 
 function assessmentMonthRange(month: string) {

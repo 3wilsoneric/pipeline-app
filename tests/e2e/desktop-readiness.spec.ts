@@ -183,11 +183,11 @@ test.describe("desktop feature enabled", () => {
     expect(draftId).toMatch(/^[0-9a-f-]{36}$/i);
     const draftEndpoint = `/api/me/referral-drafts/new-${draftId}`;
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Desktop draft cleanup check");
-    await expect.poll(async () => {
-      const response = await page.request.get(draftEndpoint);
-      const payload = await response.json() as { draft?: unknown };
-      return Boolean(payload.draft);
-    }).toBeTruthy();
+    await expect(page.getByText("Recovery draft saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+    const autosaved = await page.request.get(draftEndpoint);
+    expect(await autosaved.json()).toMatchObject({
+      draft: { fields: { name: { value: "Desktop draft cleanup check" } } },
+    });
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "desktop-recovery-face-sheet.pdf",
       mimeType: "application/pdf",

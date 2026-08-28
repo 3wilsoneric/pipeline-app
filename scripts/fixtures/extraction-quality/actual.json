@@ -1,17 +1,23 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "documents": [
     {
       "fixture_id": "synthetic-referral-packet-001",
+      "metadata": {
+        "labeling_tier": "deep",
+        "document_type": "mixed_packet",
+        "scan_quality": "high",
+        "handwriting": false
+      },
       "fields": {
-        "resident_number": { "value": "SYN-1001", "page": 1, "confidence": 0.99, "review_status": "accepted" },
-        "resident_name": { "value": "Synthetic Resident", "page": 1, "confidence": 0.98, "review_status": "accepted" },
-        "date_of_birth": { "value": "1980-02-03", "page": 1, "confidence": 0.97, "review_status": "accepted" },
-        "community": { "value": "San Pablo", "page": 1, "confidence": 0.96, "review_status": "accepted" },
-        "primary_diagnosis": { "value": "Synthetic diagnosis", "page": 3, "confidence": 0.91, "review_status": "accepted" },
-        "secondary_diagnoses": { "value": ["Synthetic condition B", "Synthetic condition A"], "page": 3, "confidence": 0.89, "review_status": "accepted" },
-        "medications_at_intake": { "value": ["Synthetic medication 10 mg", "Synthetic medication 20 mg"], "page": 5, "confidence": 0.87, "review_status": "edited" },
-        "assessment_notes": { "value": "Synthetic free-text detail retained.", "page": 7, "confidence": 0.93, "review_status": "accepted" }
+        "resident_number": { "value": "SYN-1001", "page": 1, "evidence_bbox": [0.05, 0.05, 0.25, 0.1], "confidence": 0.99, "review_status": "accepted" },
+        "resident_name": { "value": "Synthetic Resident", "page": 1, "evidence_bbox": [0.3, 0.05, 0.6, 0.1], "confidence": 0.98, "review_status": "accepted" },
+        "date_of_birth": { "value": "1980-02-03", "page": 1, "evidence_bbox": [0.65, 0.05, 0.85, 0.1], "confidence": 0.97, "review_status": "accepted" },
+        "community": { "value": "San Pablo", "page": 1, "evidence_bbox": [0.05, 0.15, 0.3, 0.2], "confidence": 0.96, "review_status": "accepted" },
+        "primary_diagnosis": { "value": "Synthetic diagnosis", "page": 3, "evidence_bbox": [0.05, 0.2, 0.45, 0.28], "confidence": 0.91, "review_status": "accepted" },
+        "secondary_diagnoses": { "value": ["Synthetic condition B", "Synthetic condition A"], "page": 3, "evidence_bbox": [0.05, 0.3, 0.6, 0.4], "confidence": 0.89, "review_status": "accepted" },
+        "medications_at_intake": { "value": ["Synthetic medication 10 mg", "Synthetic medication 20 mg"], "page": 5, "evidence_bbox": [0.05, 0.2, 0.7, 0.35], "confidence": 0.87, "review_status": "edited" },
+        "assessment_notes": { "value": "Synthetic free-text detail retained.", "page": 7, "evidence_bbox": [0.05, 0.45, 0.9, 0.7], "confidence": 0.93, "review_status": "accepted" }
       },
       "correction_history": [
         { "field_key": "medications_at_intake", "action": "edit", "evidence_page": 5 }

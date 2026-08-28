@@ -7,7 +7,12 @@ import { getPipelineAuthMode } from "@/lib/auth/pipeline-auth";
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import { isPipelineDesktopStateEnabled } from "@/lib/desktop/desktop-server-config";
 
-export type UserWorkspaceStateKind = "recent_destination" | "referral_draft" | "assessment_draft";
+export type UserWorkspaceStateKind =
+  | "recent_destination"
+  | "referral_draft"
+  | "assessment_draft"
+  | "academy_progress"
+  | "operator_training_progress";
 
 export type UserWorkspaceState<T = unknown> = {
   principal_id: string;
@@ -413,13 +418,25 @@ function isLocalRecord(value: unknown): value is UserWorkspaceState {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Partial<UserWorkspaceState>;
   return typeof record.principal_id === "string"
-    && (record.state_kind === "recent_destination" || record.state_kind === "referral_draft" || record.state_kind === "assessment_draft")
+    && isWorkspaceStateKind(record.state_kind)
     && typeof record.state_key === "string"
     && Number.isSafeInteger(record.version)
     && Number(record.version) > 0
     && typeof record.expires_at === "string"
     && typeof record.created_at === "string"
     && typeof record.updated_at === "string";
+}
+
+const workspaceStateKinds = new Set<UserWorkspaceStateKind>([
+  "recent_destination",
+  "referral_draft",
+  "assessment_draft",
+  "academy_progress",
+  "operator_training_progress",
+]);
+
+function isWorkspaceStateKind(value: unknown): value is UserWorkspaceStateKind {
+  return typeof value === "string" && workspaceStateKinds.has(value as UserWorkspaceStateKind);
 }
 
 function recordKey(principalId: string, kind: UserWorkspaceStateKind, key: string) {

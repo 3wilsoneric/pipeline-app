@@ -7,9 +7,10 @@ import { fileURLToPath } from "node:url";
 const browserPatterns = [
   /^(app|components|lib|public|tests\/e2e)\//,
   /^\.github\/workflows\/ci\.yml$/,
-  /^(Dockerfile(?:\..+)?|next\.config\.ts|playwright\.config\.ts|postcss\.config\.mjs|proxy\.ts|tsconfig\.json)$/,
+  /^(Dockerfile(?:\..+)?|next\.config\.ts|playwright(?:\.operational)?\.config\.ts|postcss\.config\.mjs|proxy\.ts|tsconfig\.json)$/,
   /^package(-lock)?\.json$/,
   /^scripts\/(ci-change-impact|start-standalone|mcmaster-|pipeline-performance|build-artifact)/,
+  /^scripts\/platform-assurance/,
 ];
 
 const postgresPatterns = [

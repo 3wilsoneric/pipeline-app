@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, ArrowRight, LogOut, Trash2, UserRound } from "lucide-react";
+import { Activity, ArrowRight, CircleHelp, GraduationCap, LogOut, Trash2, UserRound } from "lucide-react";
 
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
@@ -12,7 +12,9 @@ import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { getAccountDisplayName } from "@/lib/auth/entra-client";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/client-navigation";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
+import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
 
 export default function PipelineHeader() {
   const [user, setUser] = useState<PipelineCurrentUser | null>(null);
@@ -86,7 +88,7 @@ export default function PipelineHeader() {
             : target === "trash"
               ? "/?screen=trash"
             : "/";
-    pushPipelineHistory(destination);
+    navigatePipelineDestination(pathname, destination);
   };
 
   return (
@@ -118,6 +120,7 @@ export default function PipelineHeader() {
           aria-label="Pipeline home"
           title="Pipeline home"
           data-pipeline-home="true"
+          data-guide-target="pipeline-home"
           data-platform-page-active="pipeline"
           className="flex h-12 w-[72px] items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] max-[359px]:w-14"
         >
@@ -130,6 +133,7 @@ export default function PipelineHeader() {
           <PipelineActionNav
             active={activeNav}
             searchOpen={searchOpen}
+            showSearch={pathname === "/"}
             onOpenSearch={() => setSearchOpen((current) => !current)}
             onNavigate={navigateTo}
           />
@@ -137,6 +141,16 @@ export default function PipelineHeader() {
       </div>
 
       <div className="relative z-10 ml-auto flex items-center">
+        <button
+          type="button"
+          aria-label="Open guided tutorials"
+          title="Guided tutorials"
+          data-guide-target="guided-help"
+          onClick={() => dispatchOperatorGuide({ type: "open-library" })}
+          className="mr-1 flex h-12 w-10 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 max-[359px]:h-9 max-[359px]:w-9"
+        >
+          <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
+        </button>
         <div ref={profileMenuRef} className="relative">
           <button
             type="button"
@@ -145,6 +159,7 @@ export default function PipelineHeader() {
             aria-haspopup="dialog"
             title={user ? `${user.name} · ${user.email}` : signedInName}
             data-profile-scope="signed-in-user"
+            data-guide-target="profile-menu"
             onClick={() => setIsProfileMenuOpen((open) => !open)}
             className="flex h-12 max-w-[190px] shrink-0 items-center gap-2 rounded-md border border-transparent px-3 text-[#595959] outline-none transition-colors hover:bg-[#f7faf9] hover:text-[#111111] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 aria-expanded:border-[#b8dacf] aria-expanded:bg-[#effaf5] max-[359px]:h-9 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0"
           >
@@ -168,6 +183,7 @@ export default function PipelineHeader() {
                   <div className="mt-1 truncate text-[11px] text-[#737373]">{user?.email ?? "Signed in to Pipeline"}</div>
                 </div>
               </div>
+              <ProfileLearningLink active={pathname === "/training"} onSelect={() => setIsProfileMenuOpen(false)} />
               <Link
                 href="/?screen=operations"
                 aria-label="Pipeline operations Queue, ownership, and record gaps"
@@ -184,7 +200,7 @@ export default function PipelineHeader() {
                   });
                   navigateTo("operations");
                 }}
-                className={`group grid min-h-[64px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-y border-[#e5e5e5] border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${
+                className={`group grid min-h-[64px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-b border-[#e5e5e5] border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${
                   operationsActive
                     ? "border-l-[#0f8b73] bg-[#edf7f3]"
                     : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"
@@ -231,6 +247,15 @@ export default function PipelineHeader() {
       </div>
     </header>
   );
+}
+
+function ProfileLearningLink({ active, onSelect }: { active: boolean; onSelect: () => void }) {
+  return <Link href="/training" aria-label="Learning Center Role-based workflow training and certification" aria-current={active ? "page" : undefined} onClick={onSelect} className={`group grid min-h-[64px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-y border-[#e5e5e5] border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${active ? "border-l-[#0f8b73] bg-[#edf7f3]" : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"}`}><GraduationCap size={18} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black text-[#111111]">Learning Center</span><span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Practice, job aids, and certification</span></span><ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></Link>;
+}
+
+function navigatePipelineDestination(pathname: string, destination: string) {
+  if (pathname === "/") pushPipelineHistory(destination);
+  else window.location.assign(toPipelinePath(destination));
 }
 
 function getActiveNavTarget(searchParams: URLSearchParams, pathname: string): PipelineNavTarget {

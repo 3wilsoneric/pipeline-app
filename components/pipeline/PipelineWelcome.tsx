@@ -88,7 +88,7 @@ export default function PipelineWelcome({
   }, []);
 
   return (
-    <main className="h-full overflow-y-auto bg-white text-[#111111]">
+    <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#111111]">
       <div className={`mx-auto flex min-h-full w-full max-w-[1240px] flex-col px-5 md:px-8 ${showWelcome ? "py-8 md:py-10" : "py-4 md:py-5"}`}>
         {!welcomeResolved ? <WelcomeSkeleton /> : null}
 
@@ -242,7 +242,7 @@ function MyQueue({
   const summary = summarizeQueue(queue?.items ?? []);
 
   return (
-    <section aria-label="Your assigned work" className="flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#c9d3cf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_8px_24px_rgba(28,58,49,0.06)] sm:min-h-[330px] xl:min-h-[360px]">
+    <section data-guide-target="my-queue" aria-label="Your assigned work" className="flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#c9d3cf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_8px_24px_rgba(28,58,49,0.06)] sm:min-h-[330px] xl:min-h-[360px]">
       <div className="flex min-h-[88px] items-center justify-between gap-5 border-b border-[#dce3e0] px-6 py-5 md:px-7">
         <div className="min-w-0">
           <h2 className="text-[22px] font-black leading-tight text-[#111111]">Your work</h2>
@@ -359,7 +359,7 @@ function RecentWork({
   className?: string;
 }) {
   return (
-    <section aria-label="Recent" className={`flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#c9d3cf] border-t-[3px] border-t-[#4568b1] bg-white shadow-[0_8px_24px_rgba(37,54,94,0.05)] sm:min-h-[330px] xl:min-h-[360px] ${className}`}>
+    <section data-guide-target="recent-work" aria-label="Recent" className={`flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#c9d3cf] border-t-[3px] border-t-[#4568b1] bg-white shadow-[0_8px_24px_rgba(37,54,94,0.05)] sm:min-h-[330px] xl:min-h-[360px] ${className}`}>
       <div className="flex min-h-[88px] items-center justify-between gap-5 border-b border-[#dce3e0] px-6 py-5">
         <div className="min-w-0">
           <h2 className="text-[22px] font-black leading-tight text-[#111111]">Recent</h2>

@@ -20,6 +20,10 @@ const referralTrashMigration = read("database/migrations/0012_referral_trash.sql
 const searchPerformanceMigration = read("database/migrations/0013_search_performance.sql");
 const workspaceCountyMigration = read("database/migrations/0014_workspace_county.sql");
 const assessorWorkflowMigration = read("database/migrations/0015_assessor_workflow.sql");
+const zoomAssessmentMethodMigration = read("database/migrations/0016_zoom_assessment_method.sql");
+const referralReceivedMonthMigration = read("database/migrations/0017_referral_received_month.sql");
+const academyProgressMigration = read("database/migrations/0018_academy_progress.sql");
+const operatorTrainingProgressMigration = read("database/migrations/0019_operator_training_progress.sql");
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
 const canonicalClientVerifier = read("scripts/verify-database-migration-0007.mjs");
 const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
@@ -45,6 +49,10 @@ const referralTrashRollback = read("database/rollbacks/0012_referral_trash.sql")
 const searchPerformanceRollback = read("database/rollbacks/0013_search_performance.sql");
 const workspaceCountyRollback = read("database/rollbacks/0014_workspace_county.sql");
 const assessorWorkflowRollback = read("database/rollbacks/0015_assessor_workflow.sql");
+const zoomAssessmentMethodRollback = read("database/rollbacks/0016_zoom_assessment_method.sql");
+const referralReceivedMonthRollback = read("database/rollbacks/0017_referral_received_month.sql");
+const academyProgressRollback = read("database/rollbacks/0018_academy_progress.sql");
+const operatorTrainingProgressRollback = read("database/rollbacks/0019_operator_training_progress.sql");
 const rollbackDrill = read("scripts/database-rollback-drill.mjs");
 const productionSeed = read("scripts/seed-production-reference-data.mjs");
 const pilotReset = read("scripts/pilot-reset.mjs");
@@ -284,6 +292,14 @@ check(
     && !assessorWorkflowMigration.includes("assessment_signed'\n  when exists"),
 );
 check("assessor-workflow rollback removes only migration 0015 objects", assessorWorkflowRollback.includes("assessment_recommendations") && assessorWorkflowRollback.includes("0015_assessor_workflow") && !assessorWorkflowRollback.includes("drop schema"));
+check("Zoom is an explicit assessment scheduling method", zoomAssessmentMethodMigration.includes("'zoom'") && zoomAssessmentMethodMigration.includes("0016_zoom_assessment_method"));
+check("Zoom rollback preserves existing schedules as legacy video", zoomAssessmentMethodRollback.includes("scheduled_method = 'video'") && zoomAssessmentMethodRollback.includes("scheduled_method = 'zoom'") && zoomAssessmentMethodRollback.includes("0016_zoom_assessment_method") && !zoomAssessmentMethodRollback.includes("drop schema"));
+check("received-month navigation has a dedicated workspace index", referralReceivedMonthMigration.includes("referrals_workspace_received_idx") && referralReceivedMonthMigration.includes("received_date desc") && referralReceivedMonthMigration.includes("0017_referral_received_month"));
+check("received-month rollback removes only migration 0017 objects", referralReceivedMonthRollback.includes("referrals_workspace_received_idx") && referralReceivedMonthRollback.includes("0017_referral_received_month") && !referralReceivedMonthRollback.includes("drop schema"));
+check("Academy progress is an explicit per-user workspace state", academyProgressMigration.includes("academy_progress") && academyProgressMigration.includes("user_workspace_state_state_kind_check") && academyProgressMigration.includes("0018_academy_progress"));
+check("Academy progress rollback is scoped to migration 0018", academyProgressRollback.includes("state_kind = 'academy_progress'") && academyProgressRollback.includes("0018_academy_progress") && !academyProgressRollback.includes("drop schema"));
+check("operator training progress is an explicit per-user workspace state", operatorTrainingProgressMigration.includes("operator_training_progress") && operatorTrainingProgressMigration.includes("user_workspace_state_state_kind_check") && operatorTrainingProgressMigration.includes("0019_operator_training_progress"));
+check("operator training rollback is scoped to migration 0019", operatorTrainingProgressRollback.includes("state_kind = 'operator_training_progress'") && operatorTrainingProgressRollback.includes("0019_operator_training_progress") && !operatorTrainingProgressRollback.includes("drop schema"));
 check(
   "rollback scripts delegate transaction ownership to the drill or operator",
   ![
@@ -298,15 +314,27 @@ check(
     searchPerformanceRollback,
     workspaceCountyRollback,
     assessorWorkflowRollback,
+    zoomAssessmentMethodRollback,
+    referralReceivedMonthRollback,
+    academyProgressRollback,
   ].some((rollback) => /^\s*(begin|commit)\s*;/im.test(rollback)),
 );
-check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("workspaceCountyRollback") && rollbackDrill.includes("assessorWorkflowRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
+check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("workspaceCountyRollback") && rollbackDrill.includes("assessorWorkflowRollback") && rollbackDrill.includes("zoomAssessmentMethodRollback") && rollbackDrill.includes("referralReceivedMonthRollback") && rollbackDrill.includes("academyProgressRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
 check("production seed creates reference rows only", productionSeed.includes("synthetic_client_rows: 0") && !productionSeed.includes("insert into pipeline.people") && !productionSeed.includes("insert into pipeline.referrals"));
-check("production seed requires the latest workflow migration", productionSeed.includes("0015_assessor_workflow") && productionSeed.includes("migrations.length !== 15"));
-check("live database smoke requires the latest workflow migration", liveSmoke.includes("0015_assessor_workflow") && liveSmoke.includes("migrations.length === 15") && liveSmoke.includes("pipeline.client_update_outbox"));
+check("production seed requires the latest migration", productionSeed.includes("0019_operator_training_progress") && productionSeed.includes("migrations.length !== 19"));
+check("live database smoke requires the latest migration", liveSmoke.includes("0019_operator_training_progress") && liveSmoke.includes("migrations.length === 19") && liveSmoke.includes("pipeline.client_update_outbox"));
 check("restore verification includes workspace state", restoreVerify.includes("pipeline.user_workspace_state"));
 check("account-state purge is dry-run-first and identity-redacted", workspacePurge.includes('mode: execute ? "execute" : "dry_run"') && workspacePurge.includes("principal_configured: true"));
-check("CI exercises PostgreSQL migrations, rollback, fixtures, and contention", ["postgres:16", "database:migrate", "database:fixtures", "database:rollback:drill", "check:collaboration-load"].every((term) => ci.includes(term)));
+check(
+  "CI exercises PostgreSQL migrations, rollback, fixtures, and contention",
+  ci.includes("postgres:16")
+    && ci.includes("database:migrate")
+    && ci.includes("check:collaboration-load")
+    && (
+      ci.includes("database:assurance:integration")
+      || ["database:fixtures", "database:rollback:drill"].every((term) => ci.includes(term))
+    ),
+);
 check(
   "authenticated HTTP load smoke uses a complete synthetic EasyAuth principal",
   httpLoadSmoke.includes('"x-ms-client-principal": loadUserPrincipal')
@@ -332,7 +360,7 @@ const configuration = Object.fromEntries(
 
 console.log(JSON.stringify({
   ok: failed.length === 0,
-  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance", "0014_workspace_county", "0015_assessor_workflow"],
+  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance", "0014_workspace_county", "0015_assessor_workflow", "0016_zoom_assessment_method", "0017_referral_received_month", "0018_academy_progress", "0019_operator_training_progress"],
   checks,
   configuration_present: configuration,
   note: "Configuration reports presence only; values are never printed.",

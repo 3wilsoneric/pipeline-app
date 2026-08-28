@@ -16,6 +16,10 @@
     "0012_referral_trash.sql": "cf9b3e78673d1b92f60404a403b025daafbabb02bbc1d4682faa28559fec9e20",
     "0013_search_performance.sql": "e68eb43f277b2f1d2206dae07728507cd19a8ece1805d36ecbf4e72d5e651c42",
     "0014_workspace_county.sql": "b8e8d6afff73b9631f91a63ec5db79c1cc0784a0bcfe210a1a0930fc2d513fc0",
-    "0015_assessor_workflow.sql": "3cd7444c013f79d8d702761e988de46b9726db108f8e133186f074fff66ef85e"
+    "0015_assessor_workflow.sql": "3cd7444c013f79d8d702761e988de46b9726db108f8e133186f074fff66ef85e",
+    "0016_zoom_assessment_method.sql": "e64060cdb2640c2d8a404eb0c0703bf988b3e410a03462fc207a1935e83c578b",
+    "0017_referral_received_month.sql": "d557b2f494beae274719454b1bb9528ccae6b9886207c9e2249c974491f84ba9",
+    "0018_academy_progress.sql": "a9e832fa5ba5de63475eb861d337df6a72df38df24a73ca189ea0eaf599f85c1",
+    "0019_operator_training_progress.sql": "0dd7723a04e75eb4fdc31579a94dc210df0328af11486d4dd03c8897d2611d64"
   }
 }

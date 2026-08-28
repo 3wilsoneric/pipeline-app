@@ -38,6 +38,16 @@ const cases = [
     files: ["proxy.ts"],
     expected: { browser: true, postgres: false },
   },
+  {
+    name: "operational Playwright configuration runs browser assurance",
+    files: ["playwright.operational.config.ts"],
+    expected: { browser: true, postgres: false },
+  },
+  {
+    name: "assurance registry changes run browser assurance",
+    files: ["scripts/platform-assurance-registry.mjs"],
+    expected: { browser: true, postgres: false },
+  },
 ];
 
 const checks = cases.map((fixture) => {

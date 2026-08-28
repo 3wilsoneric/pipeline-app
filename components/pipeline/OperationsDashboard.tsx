@@ -62,7 +62,7 @@ export default function OperationsDashboard({
 
   return (
     <main aria-label="Operations overview" className="h-full overflow-y-auto bg-white text-[#111111]">
-      <div data-testid="operations-workspace" className="mx-auto w-full max-w-[1480px] px-4 py-3 sm:px-6 lg:px-8">
+      <div data-testid="operations-workspace" data-guide-target="operations-workspace" className="mx-auto w-full max-w-[1480px] px-4 py-3 sm:px-6 lg:px-8">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d9d9d9] pb-3">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <h1 className="flex items-center gap-2 text-[20px] font-black">
@@ -161,20 +161,21 @@ function SnapshotContent({
 
   return (
     <>
-      <section className="mt-3 grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-3" aria-label="Operations summary">
+      <section data-guide-target="operations-summary" className="mt-3 grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-3" aria-label="Operations summary">
         <SummaryMetric label="Active referrals" value={snapshot.metrics.active} />
         <SummaryMetric label="Open tasks" value={snapshot.metrics.open_tasks} attention={snapshot.metrics.open_tasks > 0} />
         <SummaryMetric label="Overdue items" value={snapshot.metrics.overdue_requirements} attention={snapshot.metrics.overdue_requirements > 0} />
       </section>
 
       {supervisorQueue ? (
-        <section className="mt-4 border-y border-[#d9d9d9] bg-white" aria-label="Supervisor exception queue">
+        <section data-guide-target="operations-exceptions" className="mt-4 border-y border-[#d9d9d9] bg-white" aria-label="Supervisor exception queue">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] px-4 py-3 sm:px-5">
             <div className="flex items-baseline gap-3">
               <h2 className="text-[14px] font-black">Exceptions</h2>
               <span className="text-[10px] text-[#737373]">{decisionFreeExceptions.length} unresolved</span>
             </div>
             <select
+              data-guide-target="operations-exception-filter"
               aria-label="Filter supervisor exceptions"
               value={exceptionKind}
               onChange={(event) => setExceptionKind(event.target.value as SupervisorExceptionKind | "all")}
@@ -252,7 +253,7 @@ function AssessmentCompletionReport({
   onMonthChange: (month: string) => void;
 }) {
   return (
-    <section className="mt-4 border-y border-[#d9d9d9] bg-white" aria-label="Monthly assessment completions">
+    <section data-guide-target="operations-report" className="mt-4 border-y border-[#d9d9d9] bg-white" aria-label="Monthly assessment completions">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] px-4 py-3 sm:px-5">
         <div className="flex items-baseline gap-3">
           <h2 className="text-[14px] font-black">Assessments signed</h2>
@@ -261,6 +262,7 @@ function AssessmentCompletionReport({
         <div className="flex items-center gap-2">
           <label htmlFor="assessment-report-month" className="sr-only">Assessment report month</label>
           <select
+            data-guide-target="operations-report-month"
             id="assessment-report-month"
             aria-label="Assessment report month"
             value={month}
@@ -273,6 +275,7 @@ function AssessmentCompletionReport({
           </select>
           <button
             type="button"
+            data-guide-target="operations-report-export"
             onClick={() => downloadAssessmentReport(report)}
             className="flex h-8 items-center gap-2 border border-[#c9ceca] px-2.5 text-[10px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"
           >
@@ -365,6 +368,7 @@ function SupervisorExceptionRow({
   return canOpen ? (
     <button
       type="button"
+      data-guide-target="operations-exception-list"
       className={className}
       onClick={() => onOpenPacket({
         id: item.referral_id!,
