@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f0da1fb16617b0fa",
-  "fingerprint": "f0da1fb16617b0fa331e42aef32a69ef144c1b315f3452d5e2b8cedfc65a6adc",
+  "generatedAt": "source-fingerprint:7a7db01400800b96",
+  "fingerprint": "7a7db01400800b9669e7469718052b589821e3f94e9cccd67a1810f3a45bcfbd",
   "totals": {
     "files": 628,
-    "lines": 203877,
+    "lines": 204512,
     "coveredFiles": 628
   },
   "entries": [
@@ -2440,7 +2440,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 174,
+      "lines": 173,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -2452,7 +2452,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 85,
+      "lines": 84,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -2488,7 +2488,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 270,
+      "lines": 269,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -2512,7 +2512,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 138,
+      "lines": 137,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -3124,7 +3124,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 68,
+      "lines": 67,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3316,7 +3316,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1378,
+      "lines": 1433,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3340,7 +3340,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7246,
+      "lines": 7312,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3400,7 +3400,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 6804,
+      "lines": 7323,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
