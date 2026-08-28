@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-28T01:43:26.286Z",
+  "generated_at": "2026-08-28T01:55:32.312Z",
   "audit_date": "2026-08-28",
-  "git_head": "47d083da7f233072dee4b8a802547d5d4ea5974d",
+  "git_head": "8da312e9ce053772f26f0cc899f45c0dd9b4d843",
   "files": [
     {
       "path": ".dockerignore",
@@ -2965,7 +2965,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "2f1371c3cc1585f85417c8508c9a178687d24739b9d50081e17bbf3c43392002",
+      "content_sha256": "31f1863847fb09d422d63feb6ae7ee2c0483b197c2d668db72bf242c3930571b",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -3225,7 +3225,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "0a16ebc7c86f0b13af2873dc5599cb145c1b75367fc5207bcb97e2874260a181",
+      "content_sha256": "b287e7d08d3fdb3cdea7cc72eee50797a122bb958b7721efe85930e9416f4330",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 205524,
@@ -3284,7 +3284,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "4b79689c63116aacc442cdb7e2bf19302766211b9b3ada9dd7755a1b420dfd34",
+      "content_sha256": "6f9643fd53e1992e8e88018f7579f1feed4f85b500f136139b7e42a3957201dd",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 362571,
@@ -3339,7 +3339,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "e640a53b9e66cf89c2d3a4926fae65f667c053325505c0576cc4f7f1d13a76f3",
+      "content_sha256": "60fa102b3ea6f7ce69d039204eb4a95cd14e3686e2bd8fba5efe8b9188ade419",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -7253,10 +7253,10 @@
     },
     {
       "path": "tests/e2e/visual-regression.spec.ts-snapshots/mobile-new-packet-darwin.png",
-      "content_sha256": "f2aba3915870bbc8caa19f66aaa188e9a6fccb6942c297882d87e65cbc02de54",
+      "content_sha256": "655d076a435f9ae3cd7f18666e2117ff7d01609fd3251762d9dc8113d9c1c01b",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 30692,
+      "bytes": 34200,
       "lines": null,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
@@ -7264,10 +7264,10 @@
     },
     {
       "path": "tests/e2e/visual-regression.spec.ts-snapshots/mobile-new-packet-linux.png",
-      "content_sha256": "30689ea9237bfa61a6d70663bdfd43eaf3fdf6a3438217089e0f9a1c2527eaf4",
+      "content_sha256": "5f1d907ddaa45ba4cb914d7bcd39615050d2bbba460b91c34977f7b04c5c6571",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 28417,
+      "bytes": 31951,
       "lines": null,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
