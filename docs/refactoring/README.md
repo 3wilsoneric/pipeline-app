@@ -44,6 +44,7 @@ The checker derives the authoritative state from the JSON files. Update this sum
 - `OWNERSHIP_AND_BRANCH_PROTECTION.md`: real owner and repository protection requirements.
 - `CODE_QUALITY_POLICY.md`: file, module, type, dependency, error, and worktree standards.
 - `WORKTREE_RUNBOOK.md`: current worktree disposition and safe start/retirement commands.
+- `CLOUD_REFACTOR_RUNBOOK.md`: guarded GitHub/Codex continuation while a developer computer is offline.
 
 ## Templates
 
@@ -73,6 +74,9 @@ npm run codebase:baseline
 
 # Full local certification for an approved implementation slice.
 npm run certify:refactor
+
+# Validate the cloud controller without invoking Codex.
+npm run check:refactor-agent
 ```
 
 ## Starting one slice later

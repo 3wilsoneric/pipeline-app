@@ -26,6 +26,7 @@
     "check:refactor-evidence": "node scripts/refactor-evidence-readiness.mjs",
     "check:code-quality": "node scripts/code-quality-readiness.mjs",
     "check:refactor-setup": "node scripts/refactor-setup-readiness.mjs && node scripts/code-quality-readiness.mjs && node scripts/refactor-evidence-readiness.mjs",
+    "check:refactor-agent": "node scripts/refactor-agent-control-fixtures.mjs && node scripts/refactor-agent-control.mjs select --requested auto",
     "certify:refactor": "npm run check:refactor-setup && npm run codebase:baseline && npm run check:platform:fast && npm run certify:test-effectiveness && npm run build",
     "check:hygiene": "node scripts/code-hygiene-audit.mjs",
     "audit:repository": "node scripts/complete-repository-audit.mjs",

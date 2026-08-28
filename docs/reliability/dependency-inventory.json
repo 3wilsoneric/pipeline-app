@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-28T05:34:01.757Z",
+  "generated_at": "2026-08-28T14:59:49.603Z",
   "audit_date": "2026-08-28",
-  "git_head": "1c4a4ae654e1605bea71c56da14d866c07772ad6",
+  "git_head": "25fd7049692cddf9477b3d51866d603642ab2475",
   "direct": [
     {
       "name": "@azure/identity",
@@ -388,6 +388,8 @@
       "review_focus": "Server/client boundary leaks, cache semantics, route-handler behavior, dynamic rendering drift, and framework-version API changes.",
       "referenced_by": [
         ".dockerignore",
+        ".github/codex/prompts/refactor-slice.md",
+        ".github/codex/schemas/refactor-result.schema.json",
         ".github/workflows/deploy-azure.yml",
         ".gitignore",
         "AGENTS.md",
@@ -453,6 +455,7 @@
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/WORKFLOW_BUILD_QUEUE.md",
         "docs/academy/lessons/01_CREATE_REFERRAL.md",
+        "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
         "docs/refactoring/COMPATIBILITY_MATRIX.md",
         "docs/refactoring/code-quality-policy.json",
         "eslint.config.mjs",
@@ -530,6 +533,8 @@
         "scripts/operational-capacity-model.mjs",
         "scripts/postgres-capacity-certification.mjs",
         "scripts/postgres-live-smoke.mjs",
+        "scripts/refactor-agent-control-fixtures.mjs",
+        "scripts/refactor-agent-control.mjs",
         "scripts/refactor-setup-readiness.mjs",
         "scripts/referral-journey-replay.mjs",
         "scripts/referral-reliability-replay.mjs",
@@ -596,6 +601,7 @@
       "referenced_by": [
         ".env.example",
         ".github/workflows/ci.yml",
+        ".github/workflows/refactor-agent.yml",
         "Dockerfile",
         "Dockerfile.acr",
         "components/pipeline/PipelineDeveloperAcademy.tsx",
@@ -681,6 +687,7 @@
         "scripts/postgres-query-plan-fixtures.mjs",
         "scripts/purge-user-workspace-state.mjs",
         "scripts/reconcile-client-file-import.mjs",
+        "scripts/refactor-agent-control.mjs",
         "scripts/rollback-client-file-import.mjs",
         "scripts/security-boundary-check.mjs",
         "scripts/seed-production-reference-data.mjs",

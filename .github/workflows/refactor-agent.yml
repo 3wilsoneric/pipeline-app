@@ -1,0 +1,370 @@
+name: Pipeline Guarded Codex Refactor
+
+on:
+  schedule:
+    - cron: "37 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      slice_id:
+        description: Approved slice id, or auto for the single active slice
+        required: true
+        default: auto
+        type: string
+      execution:
+        description: Preflight validates orchestration without invoking Codex
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - run
+      reasoning_effort:
+        description: Codex reasoning effort for a live run
+        required: true
+        default: high
+        type: choice
+        options:
+          - high
+          - xhigh
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pipeline-guarded-refactor
+  cancel-in-progress: false
+
+env:
+  PIPELINE_REFACTOR_MAX_ATTEMPTS: "3"
+
+jobs:
+  select:
+    name: Select approved bounded slice
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      enabled: ${{ steps.continuation.outputs.enabled }}
+      reason: ${{ steps.continuation.outputs.reason }}
+      slice_id: ${{ steps.selection.outputs.slice_id }}
+      branch: ${{ steps.selection.outputs.branch }}
+      starting_commit: ${{ steps.selection.outputs.starting_commit }}
+      requires_browser: ${{ steps.selection.outputs.requires_browser }}
+      attempt: ${{ steps.continuation.outputs.attempt }}
+      pr_number: ${{ steps.continuation.outputs.pr_number }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+      - name: Verify cloud-controller fixtures
+        run: node scripts/refactor-agent-control-fixtures.mjs
+      - name: Select registry-authorized slice
+        id: selection
+        env:
+          REQUESTED_SLICE: ${{ inputs.slice_id || 'auto' }}
+        run: node scripts/refactor-agent-control.mjs select --requested "$REQUESTED_SLICE" --out /tmp/refactor-selection.json
+      - name: Inspect continuation state
+        id: continuation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SELECTED: ${{ steps.selection.outputs.enabled }}
+          BRANCH: ${{ steps.selection.outputs.branch }}
+          SELECTION_REASON: ${{ steps.selection.outputs.reason }}
+          EVENT_NAME: ${{ github.event_name }}
+          EXECUTION: ${{ inputs.execution || 'run' }}
+          AUTORUN_ENABLED: ${{ vars.PIPELINE_REFACTOR_AUTORUN_ENABLED || 'false' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$SELECTED" != "true" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "attempt=0" >> "$GITHUB_OUTPUT"
+            echo "pr_number=" >> "$GITHUB_OUTPUT"
+            echo "reason=$SELECTION_REASON" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$EVENT_NAME" == "schedule" && "$AUTORUN_ENABLED" != "true" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "attempt=0" >> "$GITHUB_OUTPUT"
+            echo "pr_number=" >> "$GITHUB_OUTPUT"
+            echo "reason=Scheduled continuation is disabled by repository policy." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$EXECUTION" != "run" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "attempt=0" >> "$GITHUB_OUTPUT"
+            echo "pr_number=" >> "$GITHUB_OUTPUT"
+            echo "reason=Preflight completed; Codex was not invoked." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          pr_json="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --limit 1 --json number,labels)"
+          pr_number="$(jq -r '.[0].number // empty' <<< "$pr_json")"
+          labels="$(jq -r '.[0].labels[]?.name // empty' <<< "$pr_json")"
+          if grep -Eq '^refactor-agent:(ready-for-review|blocked)$' <<< "$labels"; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "attempt=0" >> "$GITHUB_OUTPUT"
+            echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+            echo "reason=The existing refactor PR is waiting for human review." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          previous_attempt="$(grep -E '^refactor-agent:attempt-[0-9]+$' <<< "$labels" | sed -E 's/.*-([0-9]+)$/\1/' | sort -n | tail -1)"
+          previous_attempt="${previous_attempt:-0}"
+          attempt="$((previous_attempt + 1))"
+          if (( attempt > PIPELINE_REFACTOR_MAX_ATTEMPTS )); then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "attempt=$attempt" >> "$GITHUB_OUTPUT"
+            echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+            echo "reason=The cloud-attempt cap has been reached; human review is required." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+          echo "attempt=$attempt" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          echo "reason=Approved cloud attempt $attempt may run." >> "$GITHUB_OUTPUT"
+      - name: Publish preflight summary
+        env:
+          SLICE: ${{ steps.selection.outputs.slice_id }}
+          ENABLED: ${{ steps.continuation.outputs.enabled }}
+          REASON: ${{ steps.continuation.outputs.reason }}
+          ATTEMPT: ${{ steps.continuation.outputs.attempt }}
+        run: |
+          {
+            echo "## Guarded refactor preflight"
+            echo "- Slice: ${SLICE:-none}"
+            echo "- Live Codex run authorized: $ENABLED"
+            echo "- Attempt: $ATTEMPT"
+            echo "- Decision: $REASON"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  refactor:
+    name: Run isolated Codex refactor attempt
+    needs: select
+    if: needs.select.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    environment: Refactor
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pipeline_refactor
+          POSTGRES_PASSWORD: pipeline_refactor
+          POSTGRES_DB: pipeline_refactor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pipeline_refactor -d pipeline_refactor"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PIPELINE_REFACTOR_CLOUD_RUN: "true"
+      PIPELINE_DATABASE_URL: postgresql://pipeline_refactor:pipeline_refactor@127.0.0.1:5432/pipeline_refactor
+      PIPELINE_TEST_DATABASE_URL: postgresql://pipeline_refactor:pipeline_refactor@127.0.0.1:5432/pipeline_refactor
+      PIPELINE_DATABASE_SSL_MODE: disable
+      PIPELINE_DATABASE_MODE: postgres
+      PIPELINE_REFERRAL_STORE_MODE: postgres
+      PIPELINE_ASSESSMENT_STORE_MODE: postgres
+      PIPELINE_RESIDENT_LINK_STORE_MODE: postgres
+      PIPELINE_ALLOW_TEST_DATABASE_REUSE: "true"
+      PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL: "true"
+      PIPELINE_AUTH_MODE: mock
+      PIPELINE_EXTRACTION_BACKEND: mock
+      PIPELINE_ALLOW_PRODUCTION_MOCK_EXTRACTION: "true"
+      PIPELINE_ALLOW_PRODUCTION_MOCK_AUTH: "true"
+      PIPELINE_ALLOWED_MUTATION_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Check out isolated continuation branch
+        id: branch
+        env:
+          BRANCH: ${{ needs.select.outputs.branch }}
+          STARTING_COMMIT: ${{ needs.select.outputs.starting_commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$STARTING_COMMIT" origin/main
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$BRANCH:refs/remotes/origin/$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+          else
+            git checkout -b "$BRANCH" origin/main
+          fi
+          echo "agent_base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      - name: Install browser engines required by this slice
+        if: needs.select.outputs.requires_browser == 'true'
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Validate active-slice governance before editing
+        run: npm run check:refactor-setup
+      - name: Render immutable prompt with approved slice context
+        env:
+          ATTEMPT: ${{ needs.select.outputs.attempt }}
+        run: |
+          node scripts/refactor-agent-control.mjs select --requested "${{ needs.select.outputs.slice_id }}" --out /tmp/refactor-selection.json
+          node scripts/refactor-agent-control.mjs render-prompt \
+            --selection /tmp/refactor-selection.json \
+            --template .github/codex/prompts/refactor-slice.md \
+            --attempt "$ATTEMPT" \
+            --out /tmp/refactor-prompt.md
+      - name: Run Codex inside the repository workspace
+        id: codex
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: /tmp/refactor-prompt.md
+          output-file: /tmp/refactor-result.json
+          output-schema-file: .github/codex/schemas/refactor-result.schema.json
+          permission-profile: :workspace
+          effort: ${{ inputs.reasoning_effort || 'high' }}
+          safety-strategy: drop-sudo
+      - name: Enforce the agent path boundary
+        run: node scripts/refactor-agent-control.mjs guard --slice "${{ needs.select.outputs.slice_id }}" --base "${{ steps.branch.outputs.agent_base_sha }}"
+      - name: Validate structured agent result
+        id: result
+        run: node scripts/refactor-agent-control.mjs validate-result --path /tmp/refactor-result.json
+      - name: Refresh hash-backed repository evidence
+        run: npm run audit:repository
+      - name: Recheck complete branch scope including generated evidence
+        run: node scripts/refactor-agent-control.mjs guard --slice "${{ needs.select.outputs.slice_id }}" --base origin/main --include-generated true
+      - name: Apply test database schema
+        run: npm run database:migrate
+      - name: Run slice-focused required gates
+        id: focused
+        continue-on-error: true
+        run: node scripts/refactor-agent-control.mjs run-gates --slice "${{ needs.select.outputs.slice_id }}" --out /tmp/refactor-focused-gates.json
+      - name: Run full refactor certification
+        id: certification
+        continue-on-error: true
+        run: npm run certify:refactor
+      - name: Determine checkpoint state
+        id: checkpoint
+        env:
+          AGENT_STATUS: ${{ steps.result.outputs.agent_status }}
+          FOCUSED_OUTCOME: ${{ steps.focused.outcome }}
+          CERTIFICATION_OUTCOME: ${{ steps.certification.outcome }}
+          ATTEMPT: ${{ needs.select.outputs.attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$AGENT_STATUS" == "blocked" ]]; then
+            state="blocked"
+          elif [[ "$FOCUSED_OUTCOME" == "success" && "$CERTIFICATION_OUTCOME" == "success" ]]; then
+            state="ready-for-review"
+          elif (( ATTEMPT >= PIPELINE_REFACTOR_MAX_ATTEMPTS )); then
+            state="blocked"
+          else
+            state="needs-work"
+          fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+      - name: Commit and push safe checkpoint
+        id: checkpoint_commit
+        env:
+          BRANCH: ${{ needs.select.outputs.branch }}
+          SLICE: ${{ needs.select.outputs.slice_id }}
+          ATTEMPT: ${{ needs.select.outputs.attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "pipeline-refactor-agent"
+          git config user.email "pipeline-refactor-agent@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "refactor(${SLICE}): cloud checkpoint ${ATTEMPT}"
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          fi
+          git push --set-upstream origin "HEAD:$BRANCH"
+          merge_base="$(git merge-base origin/main HEAD)"
+          if git diff --quiet "$merge_base" HEAD; then
+            echo "has_branch_diff=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_branch_diff=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Create or update draft pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.select.outputs.branch }}
+          SLICE: ${{ needs.select.outputs.slice_id }}
+          ATTEMPT: ${{ needs.select.outputs.attempt }}
+          EXISTING_PR: ${{ needs.select.outputs.pr_number }}
+          STATE: ${{ steps.checkpoint.outputs.state }}
+          FOCUSED_OUTCOME: ${{ steps.focused.outcome }}
+          CERTIFICATION_OUTCOME: ${{ steps.certification.outcome }}
+          HAS_BRANCH_DIFF: ${{ steps.checkpoint_commit.outputs.has_branch_diff }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for label in refactor-agent refactor-agent:needs-work refactor-agent:ready-for-review refactor-agent:blocked "refactor:$SLICE"; do
+            gh label create "$label" --repo "$GITHUB_REPOSITORY" --force --color "2f7f88" >/dev/null
+          done
+          {
+            echo "## Guarded cloud refactor"
+            echo
+            echo "- Slice: \`$SLICE\`"
+            echo "- Cloud attempt: $ATTEMPT of $PIPELINE_REFACTOR_MAX_ATTEMPTS"
+            echo "- Agent state: \`$STATE\`"
+            echo "- Focused gates: \`$FOCUSED_OUTCOME\`"
+            echo "- Full certification: \`$CERTIFICATION_OUTCOME\`"
+            echo "- Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "This PR is never merged or deployed automatically. Review the approved slice evidence and all required checks before changing it from draft."
+          } > /tmp/refactor-pr-body.md
+          pr_number="$EXISTING_PR"
+          if [[ "$HAS_BRANCH_DIFF" != "true" && -z "$pr_number" ]]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "Refactor agent blocked without changes: $SLICE" \
+              --body-file /tmp/refactor-pr-body.md \
+              --label refactor-agent \
+              --label "refactor-agent:$STATE" \
+              --label "refactor:$SLICE"
+            exit 0
+          fi
+          if [[ -z "$pr_number" ]]; then
+            pr_url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --draft --title "refactor: $SLICE" --body-file /tmp/refactor-pr-body.md)"
+            pr_number="${pr_url##*/}"
+          else
+            gh pr edit "$pr_number" --repo "$GITHUB_REPOSITORY" --body-file /tmp/refactor-pr-body.md
+          fi
+          existing_labels="$(gh pr view "$pr_number" --repo "$GITHUB_REPOSITORY" --json labels --jq '.labels[].name')"
+          while IFS= read -r label; do
+            if [[ "$label" =~ ^refactor-agent:(attempt-[0-9]+|needs-work|ready-for-review|blocked)$ ]]; then
+              gh pr edit "$pr_number" --repo "$GITHUB_REPOSITORY" --remove-label "$label"
+            fi
+          done <<< "$existing_labels"
+          attempt_label="refactor-agent:attempt-$ATTEMPT"
+          gh label create "$attempt_label" --repo "$GITHUB_REPOSITORY" --force --color "6e7781" >/dev/null
+          gh pr edit "$pr_number" --repo "$GITHUB_REPOSITORY" \
+            --add-label refactor-agent \
+            --add-label "refactor:$SLICE" \
+            --add-label "refactor-agent:$STATE" \
+            --add-label "$attempt_label"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: refactor-agent-${{ needs.select.outputs.slice_id }}-attempt-${{ needs.select.outputs.attempt }}
+          path: |
+            /tmp/refactor-result.json
+            /tmp/refactor-focused-gates.json
+            outputs/refactor-baseline
+          if-no-files-found: ignore
+          retention-days: 30

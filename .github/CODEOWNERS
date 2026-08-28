@@ -1,0 +1,11 @@
+# Default ownership remains explicit until additional maintainers are assigned.
+* @3wilsoneric
+
+# High-risk control planes require repository-owner review.
+/.github/ @3wilsoneric
+/app/api/ @3wilsoneric
+/database/ @3wilsoneric
+/infra/ @3wilsoneric
+/lib/assessment/ @3wilsoneric
+/lib/extraction/ @3wilsoneric
+/lib/pipeline/ @3wilsoneric

@@ -16,6 +16,8 @@ const inventory = readJson("docs/reliability/repository-file-inventory.json");
 const dependencyInventory = readJson("docs/reliability/dependency-inventory.json");
 const errors = [];
 const warnings = [];
+const cloudRefactorRun = process.env.GITHUB_ACTIONS === "true"
+  && process.env.PIPELINE_REFACTOR_CLOUD_RUN === "true";
 
 function git(args, cwd = process.cwd()) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -233,7 +235,8 @@ if (registry.mode === "active" && activeSlice) {
   if (policy.worktrees.requireDedicatedWorktreeForActiveSlice) {
     if (!currentWorktree?.branch.startsWith(policy.worktrees.requiredActiveBranchPrefix)) errors.push(`Active refactoring must use a ${policy.worktrees.requiredActiveBranchPrefix}* branch.`);
     if (!activeSlice.worktreePath || !activeSlice.branch || !activeSlice.startingCommit) errors.push(`${activeSlice.id} must record worktreePath, branch, and startingCommit.`);
-    if (activeSlice.worktreePath && (!existsSync(activeSlice.worktreePath) || realpathSync(activeSlice.worktreePath) !== currentPath)) errors.push(`${activeSlice.id} is running from the wrong worktree.`);
+    if (!cloudRefactorRun && activeSlice.worktreePath && (!existsSync(activeSlice.worktreePath) || realpathSync(activeSlice.worktreePath) !== currentPath)) errors.push(`${activeSlice.id} is running from the wrong worktree.`);
+    if (cloudRefactorRun && (!process.env.GITHUB_WORKSPACE || realpathSync(process.env.GITHUB_WORKSPACE) !== currentPath)) errors.push(`${activeSlice.id} cloud execution must run from the isolated GitHub workspace.`);
     if (activeSlice.branch && activeSlice.branch !== currentWorktree?.branch) errors.push(`${activeSlice.id} registry branch does not match the current branch.`);
     if (activeSlice.startingCommit) {
       try { git(["merge-base", "--is-ancestor", activeSlice.startingCommit, "HEAD"]); } catch { errors.push(`${activeSlice.id} startingCommit is not an ancestor of HEAD.`); }
@@ -273,6 +276,7 @@ if (registry.mode === "active" && activeSlice) {
   const governancePaths = new Set([
     "docs/refactoring/evidence-matrix.json",
     "docs/refactoring/refactor-slices.json",
+    ...auditArtifacts,
   ]);
   const allowedChangePaths = activeSlice.allowedChangePaths ?? [];
   if (allowedChangePaths.length === 0) errors.push(`${activeSlice.id} must define exact allowedChangePaths before implementation.`);
@@ -291,6 +295,7 @@ const result = {
   types: { tsIgnore, tsNoCheck, explicitAny, eslintDisables: eslintDisables.length, skipLibCheck: Boolean(tsconfig.compilerOptions?.skipLibCheck), allowJs: Boolean(tsconfig.compilerOptions?.allowJs) },
   dependencies: { direct: directDependencyCount, lockedLocations: dependencyInventory.locked?.length ?? 0, duplicateVersionPackages, installHooks: installedHooks.length, importedOrInvoked: importedPackages.size, nodeTypesVersion },
   worktrees,
+  execution: { cloudRefactorRun },
   errors,
   warnings,
   interpretation: registry.mode === "setup_only"

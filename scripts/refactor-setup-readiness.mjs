@@ -9,6 +9,7 @@ const requiredFiles = [
   "docs/refactoring/ADAPTER_PARITY_CONTRACT.md",
   "docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md",
   "docs/refactoring/CODE_QUALITY_POLICY.md",
+  "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
   "docs/refactoring/COMPATIBILITY_MATRIX.md",
   "docs/refactoring/CONTROL_PLANE_MAP.md",
   "docs/refactoring/DECISION_RECORD_TEMPLATE.md",
@@ -31,6 +32,8 @@ const requiredFiles = [
   "scripts/codebase-refactor-baseline.mjs",
   "scripts/compare-refactor-baselines.mjs",
   "scripts/refactor-evidence-readiness.mjs",
+  "scripts/refactor-agent-control.mjs",
+  "scripts/refactor-agent-control-fixtures.mjs",
 ];
 
 const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
@@ -42,7 +45,7 @@ for (const path of requiredFiles) {
   if (!existsSync(path)) errors.push(`Missing refactor setup file: ${path}.`);
 }
 
-for (const name of ["audit:repository", "codebase:baseline", "codebase:baseline:compare", "check:code-quality", "check:refactor-evidence", "check:refactor-setup", "certify:refactor"]) {
+for (const name of ["audit:repository", "codebase:baseline", "codebase:baseline:compare", "check:code-quality", "check:refactor-agent", "check:refactor-evidence", "check:refactor-setup", "certify:refactor"]) {
   if (!packageJson.scripts?.[name]) errors.push(`Missing package script: ${name}.`);
 }
 

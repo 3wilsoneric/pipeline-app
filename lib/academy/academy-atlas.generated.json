@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:d0f8a59bb25fb3e8",
-  "fingerprint": "d0f8a59bb25fb3e84295a0092a792120f516b46193f4ff66060ab29ab4e42a8f",
+  "generatedAt": "source-fingerprint:d2bf6d826483c494",
+  "fingerprint": "d2bf6d826483c494815c39e5c37fcfe2d5979fc9f23bbf0e5c156da69d375282",
   "totals": {
-    "files": 630,
-    "lines": 204816,
-    "coveredFiles": 630
+    "files": 633,
+    "lines": 205390,
+    "coveredFiles": 633
   },
   "entries": [
     {
@@ -3083,6 +3083,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 95,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/CODE_QUALITY_POLICY.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -3208,7 +3220,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 101,
+      "lines": 105,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3328,7 +3340,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1439,
+      "lines": 1445,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3352,7 +3364,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7313,
+      "lines": 7319,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3412,7 +3424,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7371,
+      "lines": 7428,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5356,7 +5368,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 197,
+      "lines": 198,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -5896,7 +5908,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 303,
+      "lines": 308,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -6923,6 +6935,30 @@
       ]
     },
     {
+      "path": "scripts/refactor-agent-control-fixtures.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 63,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/refactor-agent-control.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 334,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/refactor-evidence-readiness.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -6940,7 +6976,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 115,
+      "lines": 118,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
