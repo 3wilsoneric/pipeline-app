@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-28T01:31:41.661Z",
+  "generated_at": "2026-08-28T01:38:21.335Z",
   "audit_date": "2026-08-28",
-  "git_head": "0653157cb7acd88a2845e861156ed53d2e504324",
+  "git_head": "4aefa0fb5069c9f513f6d2bedcf3bcbe27d1b75d",
   "files": [
     {
       "path": ".dockerignore",
@@ -73,11 +73,11 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "content_sha256": "17a4883626f6327b01fe2fd58438cc6b2577df768846a97c879528a5e9c8d106",
+      "content_sha256": "d5edbebe93e826c907a1abe311b1cd06ba00f769096f94a7ebd249451cb55d97",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
-      "bytes": 10308,
-      "lines": 255,
+      "bytes": 10375,
+      "lines": 256,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -2965,7 +2965,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "685c3b240022f6ca4b8829f09dcf73018bab7f527ca8b8d5a0362f03f8786203",
+      "content_sha256": "cf20e709e076e2c5e0262b9f5e7423ed4a9f75f33150126f00aa96032cb85051",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -3198,11 +3198,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "6755309b8e38231c11a625041171e9bd5cbcd4ccada7e52936300f1ccd6540a0",
+      "content_sha256": "b5e193aa69beaa2c10d04bbed2d654c078debbd263d28d35a3e10f049f2ac5d0",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 266345,
-      "lines": 1378,
+      "bytes": 281057,
+      "lines": 1433,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -3225,11 +3225,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "7a35dd554a78a47e2a39c0657c8fe072372e8802b5548d31b3c7b3c8957a9ab7",
+      "content_sha256": "7ebb3545ca062c70f1c33424f43ed3ee4320fb750a0644c83dcb925011f9bfb0",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 201861,
-      "lines": 7246,
+      "bytes": 205524,
+      "lines": 7312,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -3284,11 +3284,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "cd0db7a45ca80826c8f7f5718ffea1a00feeee119e12ea696a8a25c80cd9d8e9",
+      "content_sha256": "ba0a4ae5a08622fb8c813717a18f871f6189caad671441e4855753370c417e73",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 337230,
-      "lines": 6804,
+      "bytes": 362571,
+      "lines": 7323,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -3339,7 +3339,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "ece764c77a6bba9789c088cbbc26a73495741728e694c3bfb8edff0cee98efe6",
+      "content_sha256": "7d6b5b3ea4a766a6e16e2d99f28a0866ce657e1349830d5fec40b465d2f5fda5",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -3468,7 +3468,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "5866d79d744e818ee603429476ff80fa170aa44d20f2a9dff364a747acd573a7",
+      "content_sha256": "0b7b039d9b199ea6634bd0d34341506944eb6afcbda6d49bb7d85f29416b25be",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 193802,

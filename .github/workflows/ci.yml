@@ -93,6 +93,7 @@ jobs:
           PIPELINE_MOCK_USER_NAME: Playwright QA
           PIPELINE_ADMIN_EMAILS: playwright@pipeline.local
           PIPELINE_ALLOWED_EMAILS: playwright@pipeline.local
+          PIPELINE_ACADEMY_OWNER_EMAILS: playwright@pipeline.local
           PIPELINE_ALLOWED_MUTATION_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
           PIPELINE_ALLOW_LOCAL_REFERRAL_STORE: "true"
           PIPELINE_REFERRAL_STORE_PATH: .data/playwright/referrals-3000.json
