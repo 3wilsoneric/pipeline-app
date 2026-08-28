@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-28T01:55:32.312Z",
+  "generated_at": "2026-08-28T05:34:01.757Z",
   "audit_date": "2026-08-28",
-  "git_head": "8da312e9ce053772f26f0cc899f45c0dd9b4d843",
+  "git_head": "1c4a4ae654e1605bea71c56da14d866c07772ad6",
   "files": [
     {
       "path": ".dockerignore",
@@ -202,11 +202,11 @@
     },
     {
       "path": "README.md",
-      "content_sha256": "d7e4e2a91e31b7fa4949c368cc6cf4a3cd0da1cb3545ca7173a1866d305961b7",
+      "content_sha256": "61e7b25edfe11b5d494bfdc5c5e7385182a1481148df87f16469f3476e5aff74",
       "role": "Repository support file",
       "risk": "low",
-      "bytes": 2605,
-      "lines": 57,
+      "bytes": 2662,
+      "lines": 58,
       "detected_concerns": [],
       "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
       "verification": "check:platform:fast and owning feature test"
@@ -1391,17 +1391,17 @@
     },
     {
       "path": "components/pipeline/AssessmentWorkspace.tsx",
-      "content_sha256": "c2641a451c9465660b5d06076fae7c91113e42ab8f369cb431ac2b8c80154d52",
+      "content_sha256": "1340c03fc77b0fdd524649ebcd399ee7e291835cc360c7fe2476f9c012e1806e",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 86246,
-      "lines": 1600,
+      "bytes": 88234,
+      "lines": 1642,
       "detected_concerns": [
-        "Large module (1600 lines): split by behavior before adding more responsibilities.",
+        "Large module (1642 lines): split by behavior before adding more responsibilities.",
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (1600 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (1642 lines): split by behavior before adding more responsibilities.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -2328,6 +2328,17 @@
       "verification": "link/config drift review against executable source"
     },
     {
+      "path": "docs/ASSESSMENT_NOTE_GUIDE.md",
+      "content_sha256": "6658003cadc918358baeb328ec377557af4349194115651330a0432f90b7803a",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 1545,
+      "lines": 31,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
       "path": "docs/ASSESSMENT_TOOL_DATA_MODEL.md",
       "content_sha256": "ad31e6299625dca3f7f9ee5f1b74b25b73c3bfe192d76848931a5d5f875af7b6",
       "role": "Documentation or runbook",
@@ -2965,7 +2976,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "31f1863847fb09d422d63feb6ae7ee2c0483b197c2d668db72bf242c3930571b",
+      "content_sha256": "490736a182ae8a2b648f9ade59864e92894aba6ee2365fb6a0aa9927124167f5",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -3198,11 +3209,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "c047d9903e7804fdfb06c65b9f88370b1f8148bbcf1a3d0b904cb43bef05333b",
+      "content_sha256": "90574ee547bc84214d24264197dfc71d08d2cf524941017e74e3d567f0b34a3f",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 281057,
-      "lines": 1433,
+      "bytes": 282407,
+      "lines": 1439,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -3225,11 +3236,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "b287e7d08d3fdb3cdea7cc72eee50797a122bb958b7721efe85930e9416f4330",
+      "content_sha256": "4b59527a09a95fcb164b299a9f43097c2822d11d949664e1bb53e5ead7c9c5fd",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 205524,
-      "lines": 7312,
+      "bytes": 205582,
+      "lines": 7313,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -3284,11 +3295,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "6f9643fd53e1992e8e88018f7579f1feed4f85b500f136139b7e42a3957201dd",
+      "content_sha256": "1fc68368463844579b3d97caf39084086dcfe1a4567e86dfc2ab8681d0fe9de3",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 362571,
-      "lines": 7323,
+      "bytes": 364836,
+      "lines": 7371,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -3339,7 +3350,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "60fa102b3ea6f7ce69d039204eb4a95cd14e3686e2bd8fba5efe8b9188ade419",
+      "content_sha256": "c9fc9e05d1289889ceb9d4adc523c445475e2adc11ff9d054e8ce27c84cf219f",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -3468,15 +3479,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "21cd49ecd663c67e3cbd22757dacdfb6c7923fd4a59e16c45fda0687d4a6ba23",
+      "content_sha256": "7dc6a6b27f3b90935554d2ef23c7e856aa437f33d5f04a9a2b0bb5721c6a86c3",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 193802,
-      "lines": 7611,
+      "bytes": 194420,
+      "lines": 7635,
       "detected_concerns": [
-        "Large module (7611 lines): split by behavior before adding more responsibilities."
+        "Large module (7635 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (7611 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (7635 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -3622,6 +3633,17 @@
       "risk": "medium",
       "bytes": 5084,
       "lines": 121,
+      "detected_concerns": [],
+      "review_focus": "Check schema evolution, list-vs-string fields, resident/date identity, required-field gates, edit versions, and repeated-assessment history.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "lib/assessment/assessment-note-guide.ts",
+      "content_sha256": "8c98bdf06a56937b9dd11c45368606ec1d2b26bf5c26655e250edf868bb89c17",
+      "role": "Assessment domain",
+      "risk": "medium",
+      "bytes": 8721,
+      "lines": 161,
       "detected_concerns": [],
       "review_focus": "Check schema evolution, list-vs-string fields, resident/date identity, required-field gates, edit versions, and repeated-assessment history.",
       "verification": "check:platform:fast and owning feature test"
@@ -5370,11 +5392,11 @@
     },
     {
       "path": "scripts/assessor-workflow-contracts.mjs",
-      "content_sha256": "681030c59e026547930cf68b0aa7d26b14e6940b10662f1dc55fbf1389ff0665",
+      "content_sha256": "e9167ea9fdcfd0734cd0410ed0dbc2075459af78cebaca812230f09ae5a2bf38",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 14621,
-      "lines": 173,
+      "bytes": 15838,
+      "lines": 180,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -7083,16 +7105,16 @@
     },
     {
       "path": "tests/e2e/pipeline-smoke.spec.ts",
-      "content_sha256": "d654b1b467a498cb0299500d49530ccd7ca7974431e241adf7008f3c16a624a6",
+      "content_sha256": "d80b5e1c0761c27366ccbc915640ef2749a80f1464bea70acdf75e3b03217f74",
       "role": "Browser journey test or snapshot",
       "risk": "medium",
-      "bytes": 137123,
-      "lines": 2731,
+      "bytes": 137786,
+      "lines": 2737,
       "detected_concerns": [
-        "Large module (2731 lines): split by behavior before adding more responsibilities.",
+        "Large module (2737 lines): split by behavior before adding more responsibilities.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup."
       ],
-      "review_focus": "Large module (2731 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (2737 lines): split by behavior before adding more responsibilities.",
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {

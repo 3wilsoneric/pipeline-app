@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:5327735280f42b70",
-  "fingerprint": "5327735280f42b7024637ab7e5b1ec019d5c7f02d7f36ec84215e37e2875a227",
+  "generatedAt": "source-fingerprint:d0f8a59bb25fb3e8",
+  "fingerprint": "d0f8a59bb25fb3e84295a0092a792120f516b46193f4ff66060ab29ab4e42a8f",
   "totals": {
-    "files": 628,
-    "lines": 204513,
-    "coveredFiles": 628
+    "files": 630,
+    "lines": 204816,
+    "coveredFiles": 630
   },
   "entries": [
     {
@@ -1503,7 +1503,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1600,
+      "lines": 1642,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2543,6 +2543,18 @@
       ]
     },
     {
+      "path": "docs/ASSESSMENT_NOTE_GUIDE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 31,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/ASSESSMENT_TOOL_DATA_MODEL.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -3316,7 +3328,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1433,
+      "lines": 1439,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3340,7 +3352,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7312,
+      "lines": 7313,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3400,7 +3412,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7323,
+      "lines": 7371,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3809,6 +3821,18 @@
       "runtime": "shared",
       "risk": "standard",
       "lines": 121,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "lib/assessment/assessment-note-guide.ts",
+      "subsystem": "Assessment domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 161,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -5524,7 +5548,7 @@
       "kind": "documentation",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 57,
+      "lines": 58,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -5668,7 +5692,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 173,
+      "lines": 180,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7372,7 +7396,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2731,
+      "lines": 2737,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

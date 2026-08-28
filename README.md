@@ -53,4 +53,5 @@ npm run test:e2e:visual
 - [Supply chain and release evidence](docs/SUPPLY_CHAIN_AND_RELEASE_EVIDENCE.md)
 - [Abuse controls and alerting](docs/ABUSE_AND_ALERTING.md)
 - [Clinical integration](docs/CLINICAL_DATA_INTEGRATION.md)
+- [Assessment note guide](docs/ASSESSMENT_NOTE_GUIDE.md)
 - [Desktop/PWA and MSIX distribution](docs/DESKTOP_DISTRIBUTION.md)

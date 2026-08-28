@@ -10,6 +10,7 @@ const workflow = loadTypeScriptModule(root, "lib/pipeline/workflow-status.ts");
 const lifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
 const records = loadTypeScriptModule(root, "lib/pipeline/workflow-records.ts");
 const assessmentSeed = loadTypeScriptModule(root, "lib/assessment/assessment-seed.ts");
+const noteGuide = loadTypeScriptModule(root, "lib/assessment/assessment-note-guide.ts");
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -86,6 +87,10 @@ check("referral context remains authoritative during assessment seeding", seeded
 check("pre-assessment medications seed the assessment medication profile", seededAssessment.data.medications_at_intake.join("|") === "Olanzapine 10 mg|Metformin 500 mg");
 check("seeded assessment evidence retains page provenance", seededAssessment.field_provenance.mobility?.at(-1)?.source_page_no === 14);
 check("referral-owned packet duplicates do not enter assessment review", !seededAssessment.field_provenance.community?.some((entry) => entry.review_status === "pending"));
+const riskNoteGuide = noteGuide.getAssessmentNoteGuide("behavioral_history");
+check("narrative fields have domain-specific documentation guidance", riskNoteGuide?.domain === "behavioral_risk" && riskNoteGuide.thingsToCover.length >= 4 && riskNoteGuide.strongPattern.includes("[Source]"));
+check("structured fields do not receive narrative guidance", !noteGuide.isCoachableAssessmentField("current_self_harm_ideation") && noteGuide.getAssessmentNoteGuide("current_self_harm_ideation") === null);
+check("note guidance is deterministic for the same field", JSON.stringify(noteGuide.getAssessmentNoteGuide("behavioral_history")) === JSON.stringify(riskNoteGuide));
 
 check("schedule requires time, duration, and method", !lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: null, duration_minutes: null, method: null, location: null } }).ok);
 check("schedule accepts a timezone-aware appointment", lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: "2026-08-25T09:00:00-07:00", duration_minutes: 60, method: "in_person", location: "San Pablo" } }).ok);
@@ -132,6 +137,8 @@ check("packet context and interview answers have explicit ownership", assessment
 check("schedule exposes Zoom instead of a generic video meeting method", lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: "2026-08-25T09:00:00-07:00", duration_minutes: 60, method: "zoom", location: "https://zoom.us/j/123" } }).ok && assessmentWorkspace.includes('<option value="zoom">Zoom</option>') && !assessmentWorkspace.includes('<option value="video">Video</option>'));
 check("new referral saves do not write the legacy interview duplicate", !referralCanvasPersistence.includes('interview: fields.interview'));
 check("assessment suggestions support field-level accept and reject", assessmentWorkspace.includes("reviewExtractedField") && assessmentWorkspace.includes('review_extraction: [{ field, action }]'));
+check("narrative guidance stays embedded beside the canonical assessment field", assessmentWorkspace.includes("AssessmentNarrativeGuidePanel") && assessmentWorkspace.includes("Things to note") && assessmentWorkspace.includes("Strong note pattern"));
+check("embedded guidance has no provider or review request path", !/Claude|Anthropic|AI review|note-coach/.test(assessmentWorkspace) && !/fetch|provider|model/i.test(read("lib/assessment/assessment-note-guide.ts")));
 check("assigned assessors and supervisors can sign", signRoute.includes("canWorkAssessment") && signRoute.includes("assigned assessor or a supervisor"));
 check("assigned assessors and supervisors can edit clinical assessment fields", assessmentRoute.includes("canWorkAssessment") && assessmentRoute.includes("assigned assessor or a supervisor"));
 check("assessment start is explicit, supervisor-capable, and cannot rewrite completed history", startRoute.includes("canWorkAssessment") && startRoute.includes("assigned assessor or a supervisor") && startRoute.includes("A completed assessment cannot be started again"));
