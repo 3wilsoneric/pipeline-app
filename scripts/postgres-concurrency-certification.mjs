@@ -60,7 +60,7 @@ async function requireCurrentSchema() {
     from pipeline.schema_migrations
     where migration_id between '0001_pipeline_core' and '0019_operator_training_progress'
   `;
-  check("latest migration set is available", Number(rows[0].count) === 18, { migrations: Number(rows[0].count) });
+  check("latest migration set is available", Number(rows[0].count) === 19, { migrations: Number(rows[0].count) });
 }
 
 async function verifyAtomicRollback() {

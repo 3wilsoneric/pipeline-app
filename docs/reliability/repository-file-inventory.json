@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-28T01:38:21.335Z",
+  "generated_at": "2026-08-28T01:43:26.286Z",
   "audit_date": "2026-08-28",
-  "git_head": "4aefa0fb5069c9f513f6d2bedcf3bcbe27d1b75d",
+  "git_head": "47d083da7f233072dee4b8a802547d5d4ea5974d",
   "files": [
     {
       "path": ".dockerignore",
@@ -2965,7 +2965,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "cf20e709e076e2c5e0262b9f5e7423ed4a9f75f33150126f00aa96032cb85051",
+      "content_sha256": "2f1371c3cc1585f85417c8508c9a178687d24739b9d50081e17bbf3c43392002",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -3198,7 +3198,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "b5e193aa69beaa2c10d04bbed2d654c078debbd263d28d35a3e10f049f2ac5d0",
+      "content_sha256": "c047d9903e7804fdfb06c65b9f88370b1f8148bbcf1a3d0b904cb43bef05333b",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 281057,
@@ -3225,7 +3225,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "7ebb3545ca062c70f1c33424f43ed3ee4320fb750a0644c83dcb925011f9bfb0",
+      "content_sha256": "0a16ebc7c86f0b13af2873dc5599cb145c1b75367fc5207bcb97e2874260a181",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 205524,
@@ -3284,7 +3284,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "ba0a4ae5a08622fb8c813717a18f871f6189caad671441e4855753370c417e73",
+      "content_sha256": "4b79689c63116aacc442cdb7e2bf19302766211b9b3ada9dd7755a1b420dfd34",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 362571,
@@ -3339,7 +3339,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "7d6b5b3ea4a766a6e16e2d99f28a0866ce657e1349830d5fec40b465d2f5fda5",
+      "content_sha256": "e640a53b9e66cf89c2d3a4926fae65f667c053325505c0576cc4f7f1d13a76f3",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -3468,7 +3468,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "0b7b039d9b199ea6634bd0d34341506944eb6afcbda6d49bb7d85f29416b25be",
+      "content_sha256": "21cd49ecd663c67e3cbd22757dacdfb6c7923fd4a59e16c45fda0687d4a6ba23",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 193802,
@@ -6473,7 +6473,7 @@
     },
     {
       "path": "scripts/postgres-concurrency-certification.mjs",
-      "content_sha256": "09c0711896eea1e0c3da68f5cf348d74ca2089e7c41c9e6d7240863ffdaa2803",
+      "content_sha256": "a10cf8365e36a79dfea9ea238ab3b9b731ac661efb2188114df93360258c452c",
       "role": "Operator, verification, or data script",
       "risk": "low",
       "bytes": 17352,
