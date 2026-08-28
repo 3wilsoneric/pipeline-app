@@ -150,6 +150,7 @@ jobs:
     timeout-minutes: 330
     environment: Refactor
     permissions:
+      actions: write
       contents: write
       issues: write
       pull-requests: write
@@ -183,6 +184,7 @@ jobs:
       PIPELINE_ALLOW_PRODUCTION_MOCK_EXTRACTION: "true"
       PIPELINE_ALLOW_PRODUCTION_MOCK_AUTH: "true"
       PIPELINE_ALLOWED_MUTATION_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
+      PIPELINE_REPOSITORY_ROOT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -209,6 +211,14 @@ jobs:
             git checkout -b "$BRANCH" origin/main
           fi
           echo "agent_base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Install immutable cloud controller
+        run: |
+          git show origin/main:scripts/refactor-agent-control.mjs > /tmp/refactor-agent-control.mjs
+          sudo install -o root -g root -m 0555 /tmp/refactor-agent-control.mjs /usr/local/bin/pipeline-refactor-control.mjs
+          pipeline-refactor-control.mjs guard \
+            --slice "${{ needs.select.outputs.slice_id }}" \
+            --base origin/main \
+            --include-generated true
       - run: npm ci
       - name: Install browser engines required by this slice
         if: needs.select.outputs.requires_browser == 'true'
@@ -219,8 +229,8 @@ jobs:
         env:
           ATTEMPT: ${{ needs.select.outputs.attempt }}
         run: |
-          node scripts/refactor-agent-control.mjs select --requested "${{ needs.select.outputs.slice_id }}" --out /tmp/refactor-selection.json
-          node scripts/refactor-agent-control.mjs render-prompt \
+          pipeline-refactor-control.mjs select --requested "${{ needs.select.outputs.slice_id }}" --out /tmp/refactor-selection.json
+          pipeline-refactor-control.mjs render-prompt \
             --selection /tmp/refactor-selection.json \
             --template .github/codex/prompts/refactor-slice.md \
             --attempt "$ATTEMPT" \
@@ -237,20 +247,20 @@ jobs:
           effort: ${{ inputs.reasoning_effort || 'high' }}
           safety-strategy: drop-sudo
       - name: Enforce the agent path boundary
-        run: node scripts/refactor-agent-control.mjs guard --slice "${{ needs.select.outputs.slice_id }}" --base "${{ steps.branch.outputs.agent_base_sha }}"
+        run: pipeline-refactor-control.mjs guard --slice "${{ needs.select.outputs.slice_id }}" --base "${{ steps.branch.outputs.agent_base_sha }}"
       - name: Validate structured agent result
         id: result
-        run: node scripts/refactor-agent-control.mjs validate-result --path /tmp/refactor-result.json
+        run: pipeline-refactor-control.mjs validate-result --path /tmp/refactor-result.json
       - name: Refresh hash-backed repository evidence
         run: npm run audit:repository
       - name: Recheck complete branch scope including generated evidence
-        run: node scripts/refactor-agent-control.mjs guard --slice "${{ needs.select.outputs.slice_id }}" --base origin/main --include-generated true
+        run: pipeline-refactor-control.mjs guard --slice "${{ needs.select.outputs.slice_id }}" --base origin/main --include-generated true
       - name: Apply test database schema
         run: npm run database:migrate
       - name: Run slice-focused required gates
         id: focused
         continue-on-error: true
-        run: node scripts/refactor-agent-control.mjs run-gates --slice "${{ needs.select.outputs.slice_id }}" --out /tmp/refactor-focused-gates.json
+        run: pipeline-refactor-control.mjs run-gates --slice "${{ needs.select.outputs.slice_id }}" --out /tmp/refactor-focused-gates.json
       - name: Run full refactor certification
         id: certification
         continue-on-error: true
@@ -300,6 +310,13 @@ jobs:
           else
             echo "has_branch_diff=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Dispatch independent checkpoint verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.select.outputs.branch }}
+        run: |
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          gh workflow run security.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
       - name: Create or update draft pull request
         env:
           GH_TOKEN: ${{ github.token }}

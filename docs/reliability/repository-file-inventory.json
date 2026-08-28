@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-28T14:59:49.603Z",
+  "generated_at": "2026-08-28T15:10:04.927Z",
   "audit_date": "2026-08-28",
-  "git_head": "25fd7049692cddf9477b3d51866d603642ab2475",
+  "git_head": "f4a1f4e0b82e3fe63982e998390bc544638d222e",
   "files": [
     {
       "path": ".dockerignore",
@@ -132,11 +132,11 @@
     },
     {
       "path": ".github/workflows/refactor-agent.yml",
-      "content_sha256": "eccbd748793d0b4cf071ede6ed43959e860b9cb0e9b6468edc63170e593a585a",
+      "content_sha256": "34df6415076d59f453740d78a5126912a14661d35ec30a5f4cecf9fcbac295c9",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
-      "bytes": 16556,
-      "lines": 371,
+      "bytes": 17380,
+      "lines": 388,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -145,11 +145,11 @@
     },
     {
       "path": ".github/workflows/security.yml",
-      "content_sha256": "67917bcf4844fe86356c2613dc57ef7328ac911a78a360c0ffb9f2a81e546665",
+      "content_sha256": "e011634c083c3bde54e965ad97f6e84a9fd07de848013bda2deca3f45d0f5eab",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
-      "bytes": 1880,
-      "lines": 61,
+      "bytes": 1901,
+      "lines": 62,
       "detected_concerns": [],
       "review_focus": "Check least-privilege tokens, pinned actions, path filters, cache poisoning, secret exposure, cancellation/concurrency, and required-gate coverage.",
       "verification": "check:ci-impact + check:supply-chain + CI dry run"
@@ -3079,11 +3079,11 @@
     },
     {
       "path": "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
-      "content_sha256": "d13116e6f8bbb4db75a37c9c99dc6444bf20a21a924df78fae9a2855fbad5276",
+      "content_sha256": "e4662dd1a4793c086671826523b4eab6b01f5ca992829fb17445b99f7a62f107",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 5140,
-      "lines": 95,
+      "bytes": 5724,
+      "lines": 98,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3268,7 +3268,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "6ad2e38ecf53669d5926dc0dc42393eac897eb645b45bdb874e81d69e10fecd2",
+      "content_sha256": "e85c635f6419e0a8ee86e6384c649fd1a3a4fe4da14b84ad87c0a4b7b84d7aef",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 284178,
@@ -3295,7 +3295,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "6df804207ccc88581d1a93baebd17faf28edef059c6f987189127996ca776dc6",
+      "content_sha256": "3374dabdfada79b7f476a249d0fe2808d5999726aac005fb6d1acef3becc990c",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 205885,
@@ -3354,7 +3354,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "3833024716a2e1e26f59f649e3f3a74b53b02bcc25dbec43ab42a5e37e8f68dd",
+      "content_sha256": "eb1060ecac6c5092ee59a5e7fa59bb8064bd8a435d56b4df8ae44bb5306e27d1",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 367784,
@@ -6711,11 +6711,11 @@
     },
     {
       "path": "scripts/refactor-agent-control.mjs",
-      "content_sha256": "a8441def679a97c8053b5ce0ccad0ca458003c3c0e5ad10231a5674f73dd3b47",
+      "content_sha256": "38d2862e2c151dfd137a6cdbe71d12ae622b3066070d5367c877c8fa444c794d",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 14275,
-      "lines": 334,
+      "bytes": 14366,
+      "lines": 336,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures."
       ],

@@ -11,6 +11,8 @@ The cloud controller lets an approved refactor slice continue on GitHub-hosted i
 - Workflow, governance, dependency, migration, infrastructure, environment, and deployment files are unconditionally agent-immutable.
 - Every attempt runs in one `codex/refactor-*` branch and can only open or update a draft pull request.
 - Focused slice gates and `npm run certify:refactor` run independently after Codex exits.
+- The post-agent boundary validator is installed root-owned before Codex starts, so workspace edits cannot weaken the validator used to publish a checkpoint.
+- Every remote checkpoint explicitly dispatches the independent CI and security workflows because GitHub suppresses ordinary workflow events created by `GITHUB_TOKEN`.
 - Successful certification pauses the loop for human review. A blocker or three unsuccessful attempts also pauses it.
 - GitHub concurrency permits only one refactor attempt across the repository.
 
@@ -22,9 +24,9 @@ The cloud controller lets an approved refactor slice continue on GitHub-hosted i
 4. Existing setup checks run before editing.
 5. The static prompt is combined with only the approved slice context.
 6. Codex edits inside the isolated checkout and returns schema-validated JSON.
-7. The controller rejects any changed path outside the allowlist before tests or Git publication.
+7. A root-owned controller copied from trusted `main` rejects any changed path outside the allowlist before tests or Git publication.
 8. Hash-backed repository evidence is refreshed, focused gates run, and full certification runs.
-9. A safe checkpoint is committed to the slice branch and a draft PR is created or updated.
+9. A safe checkpoint is committed to the slice branch, independent CI and security runs are dispatched for that commit, and a draft PR is created or updated.
 10. Scheduled continuation resumes only a `needs-work` PR below the attempt cap.
 
 ## One-time GitHub configuration
@@ -35,6 +37,7 @@ The repository requires:
 - An environment secret named `OPENAI_API_KEY`.
 - A repository variable named `PIPELINE_REFACTOR_AUTORUN_ENABLED`, initially `false`.
 - Main-branch protection that blocks force pushes and deletion and requires the standard CI checks before merge.
+- Repository Actions permission for the pinned `openai/codex-action` and for `GITHUB_TOKEN` to create the draft PR. The workflow never submits an approval.
 
 The environment and disabled repository variable are provisioned during controller setup. Add the API key directly in GitHub; never place it in `.env.local`, repository files, workflow inputs, logs, or a Codex prompt.
 

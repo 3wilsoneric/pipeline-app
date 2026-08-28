@@ -5,7 +5,9 @@ import { existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const repositoryRoot = process.env.PIPELINE_REPOSITORY_ROOT
+  ? resolve(process.env.PIPELINE_REPOSITORY_ROOT)
+  : resolve(fileURLToPath(new URL("..", import.meta.url)));
 const registryPath = "docs/refactoring/refactor-slices.json";
 const policyPath = "docs/refactoring/code-quality-policy.json";
 const manifestPath = "package.json";
