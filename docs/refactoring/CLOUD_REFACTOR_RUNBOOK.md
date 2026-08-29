@@ -8,6 +8,7 @@ The cloud controller lets an approved refactor slice continue on GitHub-hosted i
 - The registry must be `active`, and exactly one slice must be `in_progress`.
 - The active slice must satisfy the existing owner, approval, architecture, file-audit, branch, starting-commit, allowlist, and evidence controls.
 - Codex receives a workspace-only permission profile and no Azure, production, patient-data, or deployment credentials.
+- The agent checkout does not retain GitHub credentials; the workflow authenticates only after validation when it publishes a safe checkpoint.
 - Workflow, governance, dependency, migration, infrastructure, environment, and deployment files are unconditionally agent-immutable.
 - Every attempt runs in one `codex/refactor-*` branch and can only open or update a draft pull request.
 - Focused slice gates and `npm run certify:refactor` run independently after Codex exits.

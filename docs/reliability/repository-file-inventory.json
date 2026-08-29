@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-28T15:10:04.927Z",
-  "audit_date": "2026-08-28",
-  "git_head": "f4a1f4e0b82e3fe63982e998390bc544638d222e",
+  "generated_at": "2026-08-29T02:01:33.757Z",
+  "audit_date": "2026-08-29",
+  "git_head": "9e14c469774540571d1fe6922580443dfeb106e8",
   "files": [
     {
       "path": ".dockerignore",
@@ -132,11 +132,11 @@
     },
     {
       "path": ".github/workflows/refactor-agent.yml",
-      "content_sha256": "34df6415076d59f453740d78a5126912a14661d35ec30a5f4cecf9fcbac295c9",
+      "content_sha256": "818d521f17a8d690f932ff7e90ef51558190a396ef8af0a252880a4d273335a8",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
-      "bytes": 17380,
-      "lines": 388,
+      "bytes": 17611,
+      "lines": 393,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -3024,7 +3024,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "4cd1f3c8a4f677600320e5330734f7f21a3aaa224dbba1d0a7876ee399dcc7b1",
+      "content_sha256": "90b5e4e372d118ae5088a390ea1c27e20aa5be091b1fdc8895aef6a8a398d8c8",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -3079,11 +3079,11 @@
     },
     {
       "path": "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
-      "content_sha256": "e4662dd1a4793c086671826523b4eab6b01f5ca992829fb17445b99f7a62f107",
+      "content_sha256": "7f73e37547ca3a2f97b7e710e2237a682c82a4c8950cc6b6d0ba0cef5f1c0c8c",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 5724,
-      "lines": 98,
+      "bytes": 5867,
+      "lines": 99,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3268,7 +3268,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "e85c635f6419e0a8ee86e6384c649fd1a3a4fe4da14b84ad87c0a4b7b84d7aef",
+      "content_sha256": "6271f2d50a75fa9b26c176feac73efb34c5bcd0af57426c6d6d30239e8eebf37",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 284178,
@@ -3295,7 +3295,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "3374dabdfada79b7f476a249d0fe2808d5999726aac005fb6d1acef3becc990c",
+      "content_sha256": "85c2228f6ccf21d77ddaa37bf6c0395b0a89b51e46256a9e8172ddcf6cb9a9a6",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 205885,
@@ -3354,7 +3354,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "eb1060ecac6c5092ee59a5e7fa59bb8064bd8a435d56b4df8ae44bb5306e27d1",
+      "content_sha256": "9ab5df6b40cf732beecc39d2443b8583f3c5223dbd7dc0c3d0256bc946796318",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 367784,
@@ -3538,7 +3538,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "6f3e04332af3576d573c1f27a2eb45d6c85cdce7bbebc2d5c287b87f1dfbb35b",
+      "content_sha256": "d6c3901cb9572426aa3e67fe25854e2e6912054fb0b7a5ba04b411ff21602264",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 195332,
