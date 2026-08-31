@@ -405,15 +405,18 @@ test.describe("Referral home and packet canvas", () => {
   test("keeps work surfaces anchored while navigating and compacts referral facets on mobile", async ({ page }) => {
     const header = page.locator("header");
     await expect(header).toHaveCSS("height", "82px");
+    const headerBox = await header.boundingBox();
+    expect(headerBox).not.toBeNull();
+    const expectedSurfaceTop = headerBox!.y + headerBox!.height;
 
     const referralMain = page.getByRole("main", { name: "Referral workspaces" });
     const referralMainBox = await referralMain.boundingBox();
-    expect(referralMainBox?.y).toBe(82);
+    expect(referralMainBox?.y).toBe(expectedSurfaceTop);
 
     await page.getByRole("button", { name: "Open client profiles" }).click();
     const profilesMain = page.getByRole("main", { name: "Client profiles" });
     await expect(profilesMain).toBeVisible();
-    expect((await profilesMain.boundingBox())?.y).toBe(82);
+    expect((await profilesMain.boundingBox())?.y).toBe(expectedSurfaceTop);
 
     await page.getByRole("button", { name: "Create new referral" }).click();
     const packetSteps = page.getByRole("navigation", { name: "Workspace stages" });
