@@ -78,6 +78,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Validate ALLO browser-capture migration tooling
+        run: node scripts/allo-canvas-content-browser-contracts.mjs
       - name: Build the browser-test artifact
         run: npm run build
       - name: Run primary browser journeys

@@ -162,11 +162,6 @@ const checks = [
     args: ["scripts/allo-canvas-content-contracts.mjs"],
   },
   {
-    name: "ALLO canvas-content browser capture contracts",
-    command: "node",
-    args: ["scripts/allo-canvas-content-browser-contracts.mjs"],
-  },
-  {
     name: "Database assurance harness contracts",
     command: "node",
     args: ["scripts/database-assurance-contracts.mjs"],
