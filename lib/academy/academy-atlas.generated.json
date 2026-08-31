@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:22914e2b49379e39",
-  "fingerprint": "22914e2b49379e39fab8e402c9308b06f8b77eb81f0ff22467924af042f41dbb",
+  "generatedAt": "source-fingerprint:5f59ac29ecc08f25",
+  "fingerprint": "5f59ac29ecc08f25d1641e368ecde7aace0d0b3c6ee8c3c3e881c31a5ac80f62",
   "totals": {
     "files": 706,
-    "lines": 218002,
+    "lines": 218000,
     "coveredFiles": 706
   },
   "entries": [
@@ -74,7 +74,7 @@
       "kind": "repository-file",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 261,
+      "lines": 260,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -6019,7 +6019,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 101,
+      "lines": 100,
       "moduleIds": [
         "developer-toolchain",
         "system-map"

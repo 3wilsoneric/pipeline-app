@@ -71,7 +71,6 @@ jobs:
       HOME: /root
       PIPELINE_DEMO_MODE: "true"
       PIPELINE_DEMO_DATA_ISOLATED: "true"
-      NEXT_PUBLIC_PIPELINE_DEMO_MODE: "true"
     container:
       image: mcr.microsoft.com/playwright@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48 # v1.61.1-noble
     steps:
