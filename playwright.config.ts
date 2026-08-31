@@ -65,6 +65,7 @@ export default defineConfig({
       PIPELINE_ENABLE_SYNTHETIC_PROFILES: "true",
       PIPELINE_DEMO_MODE: "true",
       PIPELINE_DEMO_DATA_ISOLATED: "true",
+      NEXT_PUBLIC_PIPELINE_DEMO_MODE: "true",
       PIPELINE_WORKER_SHARED_SECRET: "playwright-worker-secret",
       NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED: desktopE2E ? "true" : "false",
       PIPELINE_DESKTOP_STATE_ENABLED: desktopE2E ? "true" : "false",
