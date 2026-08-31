@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-27",
+  "updatedAt": "2026-08-31",
   "statusDefinitions": {
     "satisfied": "Existing evidence is executable or reviewable and may be cited now.",
     "partial": "Useful evidence exists, but the slice-specific contract is incomplete.",
@@ -13,14 +13,14 @@
     {
       "id": "current_file_and_dependency_inventory",
       "phase": "before_start",
-      "status": "satisfied",
+      "status": "partial",
       "gates": ["audit:repository", "check:code-quality"],
       "files": [
         "docs/reliability/complete-repository-audit-latest.md",
         "docs/reliability/dependency-inventory.json",
         "docs/reliability/repository-file-inventory.json"
       ],
-      "note": "The generated audit hashes every current non-ignored file and inventories every locked dependency; rerun it immediately before starting a slice."
+      "note": "A generated hash-backed audit and locked-dependency inventory exist, but the live mixed main worktree has drifted from them. Regenerate and review both in the clean exact-start-commit worktree immediately before starting a slice; do not refresh them now merely to absorb unrelated in-flight product changes."
     },
     {
       "id": "runtime_types_and_worktree_alignment",
@@ -31,11 +31,52 @@
       "note": "Align @types/node with Node 22, disposition stale worktrees with unique commits, and start implementation in a recorded dedicated codex/refactor-* worktree."
     },
     {
+      "id": "green_complexity_ratchet",
+      "phase": "before_start",
+      "status": "partial",
+      "gates": ["complexity:check"],
+      "files": ["docs/reliability/cyclomatic-complexity-baseline.json"],
+      "note": "A reviewed per-function baseline exists, but the current mixed main worktree exceeds it. Begin a slice only from a clean reviewed commit where the ratchet passes, or where every pre-existing failure has a named owner and an approved non-regression disposition."
+    },
+    {
       "id": "enforced_code_ownership",
-      "phase": "before_complete",
+      "phase": "before_start",
       "status": "blocked",
-      "files": ["docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"],
-      "note": "Blocked until real GitHub users or teams are supplied for CODEOWNERS and branch protection."
+      "files": [".github/CODEOWNERS", "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"],
+      "note": "A repository-owner CODEOWNERS route exists, but there is no independent backup/reviewer and main currently requires zero approvals, does not require code-owner review, and permits administrator bypass. Name the independent reviewer path and enforce the reviewed branch-protection checks before a slice starts."
+    },
+    {
+      "id": "commit_attached_refactor_gates",
+      "phase": "before_start",
+      "status": "partial",
+      "files": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/refactor-agent.yml",
+        "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"
+      ],
+      "note": "The guarded cloud controller dispatches focused and independent checks, but main protection currently requires only the verify job and ordinary pull requests do not run the browser, operational, or PostgreSQL jobs. Define and enforce the commit-attached required-check set for refactor pull requests before implementation."
+    },
+    {
+      "id": "risk_ranked_exact_start_baseline",
+      "phase": "before_start",
+      "status": "partial",
+      "gates": ["codebase:baseline", "check:refactor-assurance"],
+      "files": [
+        "scripts/codebase-refactor-baseline.mjs",
+        "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md"
+      ],
+      "note": "The baseline generator now records separate complexity, churn, fan-in, dependency, branch-depth, duplication, control-plane, and planned-slice signals without collapsing them into a correctness score. Generate and review the risk inventory from the clean exact starting commit; the current mixed worktree is not start evidence."
+    },
+    {
+      "id": "honest_high_assurance_claim_boundary",
+      "phase": "before_start",
+      "status": "satisfied",
+      "gates": ["check:refactor-assurance"],
+      "files": [
+        "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
+        "docs/refactoring/high-assurance-policy.json"
+      ],
+      "note": "The process explicitly permits only bounded candidate-commit claims and prohibits whole-application bug-free, perfect, or unqualified formal-verification claims."
     }
   ],
   "slices": [
@@ -55,7 +96,14 @@
           "phase": "before_start",
           "status": "missing",
           "files": ["docs/refactoring/ADAPTER_PARITY_CONTRACT.md"],
-          "note": "Run the same referral contract scenarios against both adapters without erasing PostgreSQL-only transaction semantics."
+          "note": "Run the same referral contract scenarios against both adapters without erasing PostgreSQL-only transaction semantics. The local referral adapter currently has no persisted audit stream equivalent to PostgreSQL audit_events, so the owner must define the intended observable audit contract or approve the difference before moving the boundary."
+        },
+        {
+          "id": "create_and_patch_retry_contract",
+          "phase": "before_start",
+          "status": "missing",
+          "gates": ["check:api", "database:concurrency"],
+          "note": "Freeze exact replay outcomes per command. Referral creation accepts a mutation identifier, while patch, trash, and restore currently rely on optimistic versions; a safe duplicate conflict is not automatically the same contract as idempotent replay returning the original result."
         },
       {
         "id": "runtime_authorization",
@@ -87,6 +135,26 @@
           "status": "partial",
           "gates": ["certify:seeded-defects"],
           "note": "Add store-specific mutants for audit attribution, section versions, idempotency, and transaction coupling."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json"
+          ],
+          "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. The human owner must validate their completeness and intended semantics and complete the pre-change comprehension review before implementation."
+        },
+        {
+          "id": "convergence_and_residual_risk",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
+          "note": "Bind verified obligations, required gates, post-change comprehension, two clean adversarial passes, rollback evidence, and human-accepted medium/low residual risks to one referral candidate commit."
         }
       ]
     },
@@ -99,7 +167,7 @@
           "phase": "before_start",
           "status": "partial",
           "gates": ["check:api", "check:assessor-workflow", "check:assessment-workbook"],
-          "note": "Freeze draft, schedule, start, sign, addendum, provenance, audit, and failure behavior."
+          "note": "Freeze draft, schedule, start, sign, addendum, provenance, audit, and failure behavior, including assessment-owned synchronization back into referral workflow state and its local/PostgreSQL transaction differences."
         },
       {
         "id": "local_postgres_parity",
@@ -137,6 +205,26 @@
           "status": "partial",
           "gates": ["certify:seeded-defects"],
           "note": "Add mutants for signer attribution, immutable signatures, provenance loss, and reassignment credit."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json"
+          ],
+          "note": "The assessment lifecycle, signed immutability, provenance, authorization, and workflow-synchronization obligations are setup candidates. The human owner must validate them and complete the pre-change comprehension review."
+        },
+        {
+          "id": "convergence_and_residual_risk",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
+          "note": "Bind verified obligations, historical compatibility, required gates, post-change comprehension, adversarial review, recovery, and accepted residual risks to one assessment candidate commit."
         }
       ]
     },
@@ -160,6 +248,13 @@
         "note": "Complete executable allow and deny coverage for recommendation, terminal decision, assignment, and EHR handoff mutations."
         },
         {
+          "id": "retry_and_idempotency_contract",
+          "phase": "before_start",
+          "status": "missing",
+          "gates": ["test:critical-safety", "database:concurrency", "test:e2e:operational:high"],
+          "note": "Define and execute the replay contract for recommendation, terminal decision, work-item, and EHR handoff commands. These routes currently use optimistic versions without client mutation identifiers, so the owner must distinguish at-most-once conflict safety from same-result idempotency before preserving or changing retry behavior."
+        },
+        {
           "id": "mutation_effectiveness",
           "phase": "before_complete",
           "status": "satisfied",
@@ -181,6 +276,26 @@
           "gates": ["check:release", "database:rollback:drill"],
         "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md"],
         "note": "Run the previous/current artifact and schema combinations in a disposable environment before completion."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json"
+          ],
+          "note": "The finite workflow, authorization, retry, terminal-state, and truthful EHR-handoff obligations are setup candidates. The owner must validate the model and its executable conformance boundary before implementation."
+        },
+        {
+          "id": "convergence_and_residual_risk",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
+          "note": "Bind model/conformance evidence, required gates, comprehension, two clean adversarial passes, rollback, and residual risks to one workflow candidate commit."
         }
       ]
     },
@@ -229,6 +344,26 @@
           "status": "partial",
           "gates": ["certify:seeded-defects"],
           "note": "Current extraction mutants cover leases and retries; expand to provenance merge and callback transaction defects."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json"
+          ],
+          "note": "The source immutability, provenance, lease/retry, stale-callback, worker-boundary, and statistical/human-control obligations are setup candidates. Human owners must validate them with the governed corpus boundary."
+        },
+        {
+          "id": "convergence_and_residual_risk",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
+          "note": "Bind deterministic mechanics, governed corpus results, provenance evidence, required gates, adversarial review, recovery, and accepted statistical uncertainty to one extraction candidate commit."
         }
       ]
     },
@@ -262,7 +397,35 @@
           "phase": "before_start",
           "status": "partial",
           "gates": ["test:e2e:operational:high"],
-          "note": "Add focused characterization around component remount and extraction-review state before splitting shells."
+          "note": "Add focused characterization around component remount, pending save queues, recovery drafts, presence/focus cleanup, and extraction-review state before splitting shells."
+        },
+        {
+          "id": "identity_link_and_evidence_characterization",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["test:e2e", "test:e2e:operational:high"],
+          "files": ["docs/refactoring/CONTROL_PLANE_MAP.md"],
+          "note": "The current browser suite covers explicit human review before a resident link is confirmed. Add focused remount, keyboard/focus, stale-version, rejection-reason, and no-side-effect denial evidence before moving ClientProfileView identity-link controls or evidence dialogs."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json"
+          ],
+          "note": "The UI draft/conflict, explicit identity review, authorization, and extraction-provenance obligations are setup candidates. Human owners must validate the browser state model and pre-change comprehension evidence."
+        },
+        {
+          "id": "convergence_and_residual_risk",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
+          "note": "Bind supported-browser behavior, performance, visual/accessibility evidence, comprehension, adversarial review, recovery, and accepted platform uncertainty to one UI candidate commit."
         }
       ]
     },
@@ -286,16 +449,36 @@
         },
         {
           "id": "behavior_assertion_preservation",
-          "phase": "before_complete",
+          "phase": "before_start",
           "status": "partial",
           "gates": ["test:e2e", "test:e2e:operational:high"],
-          "note": "Record assertion counts and journey ownership before splitting the large files."
+          "note": "Record assertion identities, control ownership, helper boundaries, and journey-level expectations before splitting the large files; raw assertion counts alone are not sufficient."
         },
         {
           "id": "source_string_reduction",
           "phase": "before_complete",
           "status": "missing",
           "note": "Replace operational source-string checks with executable behavior while retaining true architecture fitness checks."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "partial",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json"
+          ],
+          "note": "The assertion-ownership, helper-failure, isolation, behavior-preservation, and mutation-effectiveness obligations are setup candidates. The independent human reviewer must validate the inventory before tests move."
+        },
+        {
+          "id": "convergence_and_residual_risk",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
+          "note": "Bind the assertion inventory, mutant kill evidence, required gates, fresh-context comprehension, adversarial review, and any accepted medium/low test-infrastructure uncertainty to one candidate commit."
         }
       ]
     }

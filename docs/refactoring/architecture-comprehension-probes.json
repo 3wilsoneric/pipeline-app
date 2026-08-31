@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "status": "setup_draft",
+  "updatedAt": "2026-08-31",
+  "humanValidated": false,
+  "blindReviewPolicy": {
+    "freshContextRequired": true,
+    "implementationConversationForbidden": true,
+    "codeCitationRequired": true,
+    "executedEvidenceRequired": true,
+    "humanScoringRequired": true,
+    "allowedScores": ["correct", "incomplete", "incorrect", "architecture_ambiguous"]
+  },
+  "requiredAnswerFields": [
+    "canonical owner",
+    "entry point and caller",
+    "input validation",
+    "authorization and resource check",
+    "persistence or external side effect",
+    "audit or provenance effect",
+    "failure, retry, and recovery behavior",
+    "executable evidence"
+  ],
+  "probes": [
+    {
+      "id": "referral_stale_write_and_retry",
+      "sliceIds": ["referral-store-boundaries"],
+      "responsibilityId": "referral_state_persistence",
+      "question": "Trace a referral create retry and a stale patch from API input through validation, local/PostgreSQL persistence, audit, returned result, and caller recovery. Which behaviors are replay-idempotent and which are conflict-safe?",
+      "codePaths": [
+        "lib/pipeline/referral-validation.ts",
+        "lib/pipeline/referral-store.ts"
+      ],
+      "verificationGates": ["check:api", "database:concurrency"],
+      "humanValidated": false
+    },
+    {
+      "id": "referral_audit_atomicity",
+      "sliceIds": ["referral-store-boundaries"],
+      "responsibilityId": "transaction_local_audit_and_retry",
+      "question": "For a material referral mutation, identify the exact PostgreSQL transaction boundary, actor and version attribution, rollback behavior, and the intentional local-adapter difference.",
+      "codePaths": ["lib/pipeline/referral-store.ts"],
+      "verificationGates": ["database:assurance:integration", "database:integrity"],
+      "humanValidated": false
+    },
+    {
+      "id": "assessment_sign_and_addendum",
+      "sliceIds": ["assessment-store-boundaries"],
+      "responsibilityId": "assessment_lifecycle_persistence",
+      "question": "Trace schedule, start, sign, and addendum operations. Explain what becomes immutable, how signer and field provenance are retained, and how a failed or stale command affects referral workflow state.",
+      "codePaths": [
+        "lib/assessment/assessment-lifecycle-validation.ts",
+        "lib/assessment/assessment-records.ts",
+        "lib/assessment/assessment-store.ts"
+      ],
+      "verificationGates": ["check:assessor-workflow", "check:assessment-workbook", "database:concurrency"],
+      "humanValidated": false
+    },
+    {
+      "id": "assessment_wrong_resource_denial",
+      "sliceIds": ["assessment-store-boundaries"],
+      "responsibilityId": "authentication_and_resource_authorization",
+      "question": "Show how an authenticated assessor is denied access to an assessment outside the permitted resource scope and prove the denial creates no assessment, referral-workflow, audit, Blob, or metric-with-identity side effect.",
+      "codePaths": [
+        "lib/auth/pipeline-auth.ts",
+        "lib/assessment/assessment-access.ts",
+        "lib/assessment/assessment-store.ts"
+      ],
+      "verificationGates": ["check:route-policy", "test:e2e:operational:high"],
+      "humanValidated": false
+    },
+    {
+      "id": "workflow_terminal_decision",
+      "sliceIds": ["workflow-and-handoff-owner"],
+      "responsibilityId": "workflow_transition_and_handoff",
+      "question": "Trace recommendation and terminal decision ownership. Identify the finite transition rule, authorization, version check, audit event, projection effects, and what prevents a terminal decision from silently reopening.",
+      "codePaths": [
+        "lib/pipeline/referral-workflow.ts",
+        "lib/pipeline/workflow-store.ts",
+        "app/api/referrals/[referralId]/recommendation/route.ts",
+        "app/api/referrals/[referralId]/decision/route.ts"
+      ],
+      "verificationGates": ["check:workflow-fuzz", "test:critical-safety", "certify:seeded-defects"],
+      "humanValidated": false
+    },
+    {
+      "id": "ehr_handoff_failure_and_replay",
+      "sliceIds": ["workflow-and-handoff-owner"],
+      "responsibilityId": "workflow_transition_and_handoff",
+      "question": "Trace an EHR handoff attempt from route to persistence. Explain readiness gates, optimistic concurrency, replay/conflict behavior, failure reasons, audit, metrics, and why Pipeline state does not falsely claim an external write.",
+      "codePaths": [
+        "app/api/referrals/[referralId]/ehr-handoff/route.ts",
+        "lib/pipeline/workflow-store.ts"
+      ],
+      "verificationGates": ["database:concurrency", "test:e2e:operational:high"],
+      "humanValidated": false
+    },
+    {
+      "id": "extraction_lease_and_stale_callback",
+      "sliceIds": ["extraction-capstone"],
+      "responsibilityId": "extraction_provenance_and_worker_state",
+      "question": "Trace job creation, claim, lease, retry, dead-letter, and callback. Explain how stale attempts are rejected and prove a worker cannot write canonical referral or assessment state.",
+      "codePaths": [
+        "lib/extraction/extraction-state.ts",
+        "lib/extraction/processing-worker.ts",
+        "databricks/pipeline_extraction_worker.py",
+        "app/api/internal/extraction/report/route.ts"
+      ],
+      "verificationGates": ["check:extraction", "check:extraction-worker", "check:backlog-rehearsal"],
+      "humanValidated": false
+    },
+    {
+      "id": "extraction_value_provenance",
+      "sliceIds": ["extraction-capstone", "referral-canvas-components"],
+      "responsibilityId": "extraction_provenance_and_worker_state",
+      "question": "For one accepted extracted value, identify immutable source bytes, digest, document, page, bounding box, confidence, candidate history, reviewer correction, audit effect, and the governed quality evidence.",
+      "codePaths": [
+        "lib/extraction/extraction-service.ts",
+        "components/pipeline/ReferralPacketCanvas.tsx"
+      ],
+      "verificationGates": ["check:storage-consistency", "check:extraction-quality", "check:extraction-corpus"],
+      "humanValidated": false
+    },
+    {
+      "id": "resident_link_explicit_review",
+      "sliceIds": ["referral-canvas-components"],
+      "responsibilityId": "resident_identity_review",
+      "question": "Trace candidate generation, conflict blocking, human confirmation or rejection, stale-version handling, persistence, and audit. Prove that matching names alone cannot create a canonical resident link.",
+      "codePaths": [
+        "lib/pipeline/master-record-matching.ts",
+        "lib/pipeline/resident-link-store.ts",
+        "components/pipeline/ClientProfileView.tsx",
+        "app/api/resident-links/route.ts"
+      ],
+      "verificationGates": ["certify:master-merge", "test:e2e:operational:high"],
+      "humanValidated": false
+    },
+    {
+      "id": "canvas_autosave_remount_conflict",
+      "sliceIds": ["referral-canvas-components"],
+      "responsibilityId": "referral_canvas_draft_and_conflict_state",
+      "question": "Trace a local edit through save queuing, navigation or remount, server conflict, recovery draft, and explicit resolution. Identify cleanup for timers, focus, and presence and prove accepted work is not silently discarded.",
+      "codePaths": [
+        "components/pipeline/ReferralPacketCanvas.tsx",
+        "components/pipeline/AssessmentWorkspace.tsx"
+      ],
+      "verificationGates": ["test:e2e", "test:e2e:cross-browser", "test:e2e:visual"],
+      "humanValidated": false
+    },
+    {
+      "id": "test_split_assertion_power",
+      "sliceIds": ["test-suite-structure"],
+      "responsibilityId": "behavior_assertion_ownership",
+      "question": "Choose one critical journey and trace each user-visible assertion, setup/cleanup ownership, failure signal, and seeded defect before and after the proposed test split. Explain why helpers cannot make the test pass after behavior breaks.",
+      "codePaths": [
+        "tests/e2e/pipeline-smoke.spec.ts",
+        "scripts/api-behavior-fixtures.mjs",
+        "tests/e2e/support"
+      ],
+      "verificationGates": ["certify:test-effectiveness", "test:e2e:operational:high"],
+      "humanValidated": false
+    }
+  ]
+}

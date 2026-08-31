@@ -268,7 +268,6 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
 
   q("additional_information", "Additional comments", "textarea", { span: "full" }),
   q("placement_process_questions", "Additional comments", "textarea", { span: "full" }),
-  q("assessment_notes", "Assessment notes", "textarea", { span: "full" }),
 ] as const;
 
 export const assessmentYesNoQuestionFields = assessmentInterviewQuestions

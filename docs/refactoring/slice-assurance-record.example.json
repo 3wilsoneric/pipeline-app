@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "replace-with-registry-id",
+  "status": "draft",
+  "startingCommit": "full-reviewed-git-sha",
+  "candidateCommit": null,
+  "humanOwner": "name",
+  "independentHumanReviewer": "different-name",
+  "approvedObligationIds": [],
+  "preChangeComprehension": {
+    "commit": "full-reviewed-git-sha",
+    "reviewer": "fresh-context-reviewer",
+    "contextId": "independent-context-identifier",
+    "implementationConversationUsed": false,
+    "answers": [
+      {
+        "probeId": "probe-id",
+        "score": "correct | incomplete | incorrect | architecture_ambiguous",
+        "codeCitations": ["exact/path.ts:line"],
+        "executedEvidence": ["npm run exact-gate"],
+        "finding": "What the answer proved or exposed."
+      }
+    ],
+    "scoredBy": "human-evaluator",
+    "scoredAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+  },
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "canonical-responsibility-id",
+      "obligationIds": ["proof-obligation-id"],
+      "baseCommit": "full-git-sha",
+      "headCommit": "full-git-sha",
+      "purpose": "One bounded responsibility change.",
+      "changedFiles": ["exact/path.ts"],
+      "preChangeCharacterization": ["exact test and observed result"],
+      "focusedEvidence": ["command and result bound to headCommit"],
+      "baselineDelta": {
+        "before": "path to baseline JSON",
+        "after": "path to baseline JSON",
+        "comparison": "path or command output",
+        "regressions": []
+      },
+      "tradeoffs": [
+        {
+          "dimension": "complexity | performance | dependency | testability | operations",
+          "change": "Measured delta.",
+          "reason": "Why the tradeoff is necessary.",
+          "approvedBy": "human-owner"
+        }
+      ],
+      "diffInspectedBy": "independent-reviewer",
+      "decision": "accepted | rejected | reverted",
+      "decidedBy": "human-owner",
+      "decidedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "proof-obligation-id",
+      "candidateCommit": "full-git-sha",
+      "status": "verified | failed",
+      "methods": ["assurance-class"],
+      "evidence": ["artifact or exact command result"],
+      "implementationTrace": ["exact/path.ts:symbol"],
+      "verifiedBy": "independent-human-reviewer",
+      "verifiedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+    }
+  ],
+  "gateResults": [
+    {
+      "command": "npm run exact-gate",
+      "candidateCommit": "full-git-sha",
+      "outcome": "passed | failed",
+      "evidence": "CI check URL or immutable local evidence reference"
+    }
+  ],
+  "adversarialPasses": [
+    {
+      "id": "adversarial-001",
+      "candidateCommit": "full-git-sha",
+      "reviewer": "context-separated-reviewer",
+      "contextId": "unique-context-identifier",
+      "implementationConversationUsed": false,
+      "findings": [
+        {
+          "severity": "critical | high | medium | low",
+          "claim": "Specific attempted disproof.",
+          "evidence": ["code, test, database, browser, or operational evidence"],
+          "disposition": "fixed | rejected_with_evidence | accepted_residual",
+          "humanDispositionBy": "human-reviewer",
+          "humanDispositionAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+        }
+      ],
+      "materialSimplificationFound": false,
+      "completedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+    }
+  ],
+  "postChangeComprehension": {
+    "commit": "full-candidate-git-sha",
+    "reviewer": "fresh-context-reviewer",
+    "contextId": "different-independent-context-identifier",
+    "implementationConversationUsed": false,
+    "answers": [],
+    "comparisonToPreChange": "better | equal | worse",
+    "scoredBy": "human-evaluator",
+    "scoredAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+  },
+  "rollbackAndRecovery": {
+    "candidateCommit": "full-candidate-git-sha",
+    "method": "Exact revert, rollback, reconciliation, or restore boundary.",
+    "exercisedEvidence": ["command/result or not-applicable approval"],
+    "approvedBy": "operator-owner",
+    "approvedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+  },
+  "residualRisks": [
+    {
+      "id": "residual-risk-id",
+      "severity": "medium | low",
+      "uncertainty": "What remains unproven.",
+      "detection": "How it becomes visible.",
+      "containment": "How impact is bounded.",
+      "recovery": "How the system or operator recovers.",
+      "owner": "human-owner",
+      "acceptedBy": "human-approver",
+      "acceptedAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+      "reviewBy": "YYYY-MM-DD"
+    }
+  ],
+  "convergence": {
+    "candidateCommit": "full-candidate-git-sha",
+    "allObligationsVerified": false,
+    "requiredGatesPassed": false,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": false,
+    "noUnresolvedCriticalOrHigh": false,
+    "acceptedBy": null,
+    "acceptedAt": null,
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}

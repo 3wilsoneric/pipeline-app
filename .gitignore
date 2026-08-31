@@ -26,6 +26,10 @@
 /outputs/
 /tmp/
 
+# local ALLO browser-extension variants retained outside the deployable source tree
+/tools/allo-canvas-sitewide-harvester/
+/tools/allo-canvas-text-exporter-resumable/
+
 # misc
 .DS_Store
 *.pem

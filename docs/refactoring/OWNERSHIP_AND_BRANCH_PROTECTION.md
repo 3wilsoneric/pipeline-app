@@ -2,7 +2,14 @@
 
 ## Current blocker
 
-The repository does not yet contain enforceable `CODEOWNERS` entries because the correct GitHub usernames or teams have not been provided. Do not add fake handles: GitHub silently fails to request the intended review.
+The repository now routes all paths and high-risk control planes to `@3wilsoneric`, but that single-owner route does not provide the independent review required for a refactor. A real backup or reviewer with repository access is still required; do not add placeholder handles.
+
+Observed on 2026-08-31 through the GitHub API: `main` requires the `verify` status check with strict branch freshness, linear history, and conversation resolution, and blocks force pushes and deletion. It currently requires zero approvals, does not require code-owner review, does not enforce protection for administrators, and does not require the path-selected browser, operational, PostgreSQL, or security results. Recheck rather than trusting this dated observation:
+
+```bash
+gh api repos/3wilsoneric/pipeline-app/branches/main/protection
+gh api repos/3wilsoneric/pipeline-app/rulesets
+```
 
 ## Required owner groups
 
@@ -47,6 +54,8 @@ Require:
 - Linear history or squash policy.
 - Required checks: fast platform, assurance registry, production build, path-selected browser/PostgreSQL jobs, dependency review, and refactor evidence for refactor-labeled changes.
 - No administrator bypass for ordinary changes.
+
+The required checks must be attached to the exact candidate commit. For a refactor pull request, the selected slice gates, complexity ratchet, full refactor certification, and any required browser/PostgreSQL/security jobs cannot be satisfied only by an older commit or an unlinked local run.
 
 ## Human review rule
 

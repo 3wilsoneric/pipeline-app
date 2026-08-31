@@ -13,16 +13,23 @@ const requiredFiles = [
   "docs/refactoring/COMPATIBILITY_MATRIX.md",
   "docs/refactoring/CONTROL_PLANE_MAP.md",
   "docs/refactoring/DECISION_RECORD_TEMPLATE.md",
+  "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
+  "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
   "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md",
   "docs/refactoring/REFACTOR_SLICE_TEMPLATE.md",
   "docs/refactoring/SHADOW_COMPARISON_CONTRACT.md",
   "docs/refactoring/WORKTREE_RUNBOOK.md",
   "docs/refactoring/characterization-manifest.example.json",
+  "docs/refactoring/architecture-comprehension-probes.json",
+  "docs/refactoring/canonical-responsibilities.json",
   "docs/refactoring/code-quality-policy.json",
   "docs/refactoring/file-audit-disposition.example.json",
+  "docs/refactoring/high-assurance-policy.json",
   "docs/refactoring/evidence-matrix.json",
   "docs/refactoring/performance-budgets.json",
+  "docs/refactoring/proof-obligations.json",
   "docs/refactoring/refactor-slices.json",
+  "docs/refactoring/slice-assurance-record.example.json",
   "docs/reliability/refactor-baseline-2026-08-27.json",
   "docs/reliability/refactor-baseline-2026-08-27-setup.json",
   "docs/reliability/complete-repository-audit-latest.md",
@@ -32,6 +39,7 @@ const requiredFiles = [
   "scripts/codebase-refactor-baseline.mjs",
   "scripts/compare-refactor-baselines.mjs",
   "scripts/refactor-evidence-readiness.mjs",
+  "scripts/refactor-high-assurance-readiness.mjs",
   "scripts/refactor-agent-control.mjs",
   "scripts/refactor-agent-control-fixtures.mjs",
 ];
@@ -45,8 +53,18 @@ for (const path of requiredFiles) {
   if (!existsSync(path)) errors.push(`Missing refactor setup file: ${path}.`);
 }
 
-for (const name of ["audit:repository", "codebase:baseline", "codebase:baseline:compare", "check:code-quality", "check:refactor-agent", "check:refactor-evidence", "check:refactor-setup", "certify:refactor"]) {
+for (const name of ["audit:repository", "codebase:baseline", "codebase:baseline:compare", "check:code-quality", "check:refactor-agent", "check:refactor-assurance", "check:refactor-evidence", "check:refactor-setup", "certify:refactor"]) {
   if (!packageJson.scripts?.[name]) errors.push(`Missing package script: ${name}.`);
+}
+
+if (!packageJson.scripts?.["check:refactor-setup"]?.includes("npm run check:refactor-assurance")) {
+  errors.push("check:refactor-setup must run the high-assurance readiness validator.");
+}
+
+for (const command of ["check:refactor-setup", "complexity:check", "codebase:baseline", "check:platform:fast", "certify:test-effectiveness", "build"]) {
+  if (!packageJson.scripts?.["certify:refactor"]?.includes(`npm run ${command}`)) {
+    errors.push(`certify:refactor must run ${command}.`);
+  }
 }
 
 if (registry.schemaVersion !== 1) errors.push("Refactor slice registry must use schemaVersion 1.");
@@ -91,12 +109,27 @@ for (const slice of registry.slices ?? []) {
     if (!slice.fileAuditDisposition || !existsSync(slice.fileAuditDisposition)) {
       errors.push(`${slice.id} requires an existing fileAuditDisposition before work starts.`);
     }
+    if (!slice.assuranceRecord || !existsSync(slice.assuranceRecord)) {
+      errors.push(`${slice.id} requires an existing assuranceRecord before work starts.`);
+    }
   }
 }
 
 const activeSlices = registry.slices?.filter((slice) => slice.status === "in_progress") ?? [];
 if (activeSlices.length > 1) errors.push("Only one bounded refactor slice may be in_progress at a time.");
 if (registry.mode === "active" && activeSlices.length === 0) warnings.push("Registry is active but no slice is currently in_progress.");
+
+const orderedSlices = [...(registry.slices ?? [])].sort((left, right) => left.priority - right.priority);
+for (const [index, slice] of orderedSlices.entries()) {
+  if (slice.priority !== index + 1) errors.push(`Refactor priorities must be contiguous from 1; found ${slice.id} at ${slice.priority}.`);
+  if (!["in_progress", "soaking", "complete"].includes(slice.status)) continue;
+  const unfinishedPredecessors = orderedSlices
+    .filter((candidate) => candidate.priority < slice.priority && candidate.status !== "complete")
+    .map((candidate) => candidate.id);
+  if (unfinishedPredecessors.length > 0) {
+    errors.push(`${slice.id} cannot ${slice.status} before earlier slices complete: ${unfinishedPredecessors.join(", ")}.`);
+  }
+}
 
 const baseline = JSON.parse(readFileSync("docs/reliability/refactor-baseline-2026-08-27-setup.json", "utf8"));
 if (baseline.schemaVersion !== 1) errors.push("Committed refactor baseline must use schemaVersion 1.");

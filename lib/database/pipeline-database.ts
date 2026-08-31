@@ -37,6 +37,10 @@ const REQUIRED_PIPELINE_MIGRATIONS = [
   "0017_referral_received_month",
   "0018_academy_progress",
   "0019_operator_training_progress",
+  "0020_allo_canvas_content",
+  "0021_note_practice_lab",
+  "0022_note_lab_pattern_selections",
+  "0023_note_lab_field_reviews",
 ] as const;
 
 export function getPipelineDatabaseMode(): PipelineDatabaseMode {

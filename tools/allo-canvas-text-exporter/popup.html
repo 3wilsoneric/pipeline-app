@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ALLO Canvas Notes Extractor</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>Canvas notes extractor</h1>
+      <p class="safety">Read-only. Opens canvases, captures their rendered notes locally, and never edits ALLO.</p>
+
+      <section>
+        <h2>1. Load the canvas inventory</h2>
+        <p>Select the existing ALLO file manifest. Canvas IDs are deduplicated locally; the manifest is never uploaded.</p>
+        <label for="manifest" class="file-button">Choose ALLO file manifest</label>
+        <input id="manifest" type="file" accept=".csv,text/csv">
+        <div id="manifest-status" class="status muted">No manifest imported yet.</div>
+
+        <h2 class="step-heading">2. Extract canvas notes</h2>
+        <div id="inventory-template" class="status">Checking the ALLO tab…</div>
+        <button id="scan" type="button" class="primary" disabled>Extract all canvas notes</button>
+        <button id="cancel" type="button" class="quiet" disabled>Stop safely</button>
+        <div id="worker-progress" class="progress" role="status" aria-live="polite">
+          <span class="progress-dot" aria-hidden="true"></span>
+          <span id="worker-progress-text">Ready to start.</span>
+        </div>
+        <div id="catalog-status" class="status muted">No canvas scan yet.</div>
+        <div id="content-status" class="status muted">No canvas text export yet.</div>
+      </section>
+
+      <section>
+        <h2>3. Download completed results</h2>
+        <button id="summary" type="button" disabled>Canvas summary CSV</button>
+        <button id="normalized" type="button" disabled>Native text JSONL</button>
+        <button id="evidence" type="button" disabled>Raw evidence JSONL</button>
+      </section>
+
+      <p id="message" class="message" aria-live="polite"></p>
+    </main>
+    <script src="manifest-core.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -24,6 +24,10 @@ const zoomAssessmentMethodMigration = read("database/migrations/0016_zoom_assess
 const referralReceivedMonthMigration = read("database/migrations/0017_referral_received_month.sql");
 const academyProgressMigration = read("database/migrations/0018_academy_progress.sql");
 const operatorTrainingProgressMigration = read("database/migrations/0019_operator_training_progress.sql");
+const alloCanvasContentMigration = read("database/migrations/0020_allo_canvas_content.sql");
+const notePracticeLabMigration = read("database/migrations/0021_note_practice_lab.sql");
+const noteLabPatternSelectionsMigration = read("database/migrations/0022_note_lab_pattern_selections.sql");
+const noteLabFieldReviewsMigration = read("database/migrations/0023_note_lab_field_reviews.sql");
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
 const canonicalClientVerifier = read("scripts/verify-database-migration-0007.mjs");
 const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
@@ -53,6 +57,10 @@ const zoomAssessmentMethodRollback = read("database/rollbacks/0016_zoom_assessme
 const referralReceivedMonthRollback = read("database/rollbacks/0017_referral_received_month.sql");
 const academyProgressRollback = read("database/rollbacks/0018_academy_progress.sql");
 const operatorTrainingProgressRollback = read("database/rollbacks/0019_operator_training_progress.sql");
+const alloCanvasContentRollback = read("database/rollbacks/0020_allo_canvas_content.sql");
+const notePracticeLabRollback = read("database/rollbacks/0021_note_practice_lab.sql");
+const noteLabPatternSelectionsRollback = read("database/rollbacks/0022_note_lab_pattern_selections.sql");
+const noteLabFieldReviewsRollback = read("database/rollbacks/0023_note_lab_field_reviews.sql");
 const rollbackDrill = read("scripts/database-rollback-drill.mjs");
 const productionSeed = read("scripts/seed-production-reference-data.mjs");
 const pilotReset = read("scripts/pilot-reset.mjs");
@@ -301,6 +309,22 @@ check("Academy progress rollback is scoped to migration 0018", academyProgressRo
 check("operator training progress is an explicit per-user workspace state", operatorTrainingProgressMigration.includes("operator_training_progress") && operatorTrainingProgressMigration.includes("user_workspace_state_state_kind_check") && operatorTrainingProgressMigration.includes("0019_operator_training_progress"));
 check("operator training rollback is scoped to migration 0019", operatorTrainingProgressRollback.includes("state_kind = 'operator_training_progress'") && operatorTrainingProgressRollback.includes("0019_operator_training_progress") && !operatorTrainingProgressRollback.includes("drop schema"));
 check(
+  "ALLO canvas content is immutable, exact-linked, and review-gated",
+  alloCanvasContentMigration.includes("canvas_content_snapshots")
+    && alloCanvasContentMigration.includes("source_canvas_id")
+    && alloCanvasContentMigration.includes("canvas_content_field_candidates")
+    && alloCanvasContentMigration.includes("review_status text not null default 'pending'")
+    && alloCanvasContentMigration.includes("canvas_content_review_events")
+    && alloCanvasContentMigration.includes("0020_allo_canvas_content"),
+);
+check("ALLO canvas-content rollback is scoped to migration 0020", alloCanvasContentRollback.includes("canvas_content_import_batches") && alloCanvasContentRollback.includes("0020_allo_canvas_content") && !alloCanvasContentRollback.includes("drop schema"));
+check("note practice votes are immutable, reviewer-scoped observations", notePracticeLabMigration.includes("note_lab_votes") && notePracticeLabMigration.includes("reviewer_principal_id") && notePracticeLabMigration.includes("unique (reviewer_principal_id, sample_set_version, pair_id)") && notePracticeLabMigration.includes("0021_note_practice_lab"));
+check("note practice rollback is scoped to migration 0021", notePracticeLabRollback.includes("note_lab_votes") && notePracticeLabRollback.includes("0021_note_practice_lab") && !notePracticeLabRollback.includes("drop schema"));
+check("note lab pattern selections are immutable, multi-select, and reviewer scoped", noteLabPatternSelectionsMigration.includes("note_lab_pattern_selections") && noteLabPatternSelectionsMigration.includes("selected_pattern_ids") && noteLabPatternSelectionsMigration.includes("no_pattern_fits") && noteLabPatternSelectionsMigration.includes("unique (reviewer_principal_id, calibration_version, scenario_id)") && noteLabPatternSelectionsMigration.includes("0022_note_lab_pattern_selections"));
+check("note lab pattern rollback is scoped to migration 0022", noteLabPatternSelectionsRollback.includes("note_lab_pattern_selections") && noteLabPatternSelectionsRollback.includes("0022_note_lab_pattern_selections") && !noteLabPatternSelectionsRollback.includes("drop schema"));
+check("note lab field reviews are coded, text-free, and reviewer scoped", noteLabFieldReviewsMigration.includes("note_lab_field_reviews") && noteLabFieldReviewsMigration.includes("selected_criterion_ids") && noteLabFieldReviewsMigration.includes("sample_disposition") && noteLabFieldReviewsMigration.includes("revision_reason_ids") && noteLabFieldReviewsMigration.includes("unique (reviewer_principal_id, calibration_version, scenario_id)") && !noteLabFieldReviewsMigration.includes("note_text") && noteLabFieldReviewsMigration.includes("0023_note_lab_field_reviews"));
+check("note lab field review rollback is scoped to migration 0023", noteLabFieldReviewsRollback.includes("note_lab_field_reviews") && noteLabFieldReviewsRollback.includes("0023_note_lab_field_reviews") && !noteLabFieldReviewsRollback.includes("drop schema"));
+check(
   "rollback scripts delegate transaction ownership to the drill or operator",
   ![
     collaborationRollback,
@@ -317,12 +341,17 @@ check(
     zoomAssessmentMethodRollback,
     referralReceivedMonthRollback,
     academyProgressRollback,
+    operatorTrainingProgressRollback,
+    alloCanvasContentRollback,
+    notePracticeLabRollback,
+    noteLabPatternSelectionsRollback,
+    noteLabFieldReviewsRollback,
   ].some((rollback) => /^\s*(begin|commit)\s*;/im.test(rollback)),
 );
-check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("workspaceCountyRollback") && rollbackDrill.includes("assessorWorkflowRollback") && rollbackDrill.includes("zoomAssessmentMethodRollback") && rollbackDrill.includes("referralReceivedMonthRollback") && rollbackDrill.includes("academyProgressRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
+check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("workspaceCountyRollback") && rollbackDrill.includes("assessorWorkflowRollback") && rollbackDrill.includes("zoomAssessmentMethodRollback") && rollbackDrill.includes("referralReceivedMonthRollback") && rollbackDrill.includes("academyProgressRollback") && rollbackDrill.includes("operatorTrainingProgressRollback") && rollbackDrill.includes("alloCanvasContentRollback") && rollbackDrill.includes("notePracticeLabRollback") && rollbackDrill.includes("noteLabPatternSelectionsRollback") && rollbackDrill.includes("noteLabFieldReviewsRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
 check("production seed creates reference rows only", productionSeed.includes("synthetic_client_rows: 0") && !productionSeed.includes("insert into pipeline.people") && !productionSeed.includes("insert into pipeline.referrals"));
-check("production seed requires the latest migration", productionSeed.includes("0019_operator_training_progress") && productionSeed.includes("migrations.length !== 19"));
-check("live database smoke requires the latest migration", liveSmoke.includes("0019_operator_training_progress") && liveSmoke.includes("migrations.length === 19") && liveSmoke.includes("pipeline.client_update_outbox"));
+check("production seed requires the latest migration", productionSeed.includes("0023_note_lab_field_reviews") && productionSeed.includes("migrations.length !== 23"));
+check("live database smoke requires the latest migration", liveSmoke.includes("0023_note_lab_field_reviews") && liveSmoke.includes("migrations.length === 23") && liveSmoke.includes("pipeline.client_update_outbox"));
 check("restore verification includes workspace state", restoreVerify.includes("pipeline.user_workspace_state"));
 check("account-state purge is dry-run-first and identity-redacted", workspacePurge.includes('mode: execute ? "execute" : "dry_run"') && workspacePurge.includes("principal_configured: true"));
 check(
@@ -360,7 +389,7 @@ const configuration = Object.fromEntries(
 
 console.log(JSON.stringify({
   ok: failed.length === 0,
-  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance", "0014_workspace_county", "0015_assessor_workflow", "0016_zoom_assessment_method", "0017_referral_received_month", "0018_academy_progress", "0019_operator_training_progress"],
+  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance", "0014_workspace_county", "0015_assessor_workflow", "0016_zoom_assessment_method", "0017_referral_received_month", "0018_academy_progress", "0019_operator_training_progress", "0020_allo_canvas_content", "0021_note_practice_lab", "0022_note_lab_pattern_selections", "0023_note_lab_field_reviews"],
   checks,
   configuration_present: configuration,
   note: "Configuration reports presence only; values are never printed.",

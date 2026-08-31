@@ -6,15 +6,15 @@ Never run an implementation refactor directly on `main`. One approved slice gets
 
 ## Current inventory
 
-Observed on 2026-08-27. Recheck with `npm run check:code-quality` before acting.
+Observed on 2026-08-31. Recheck with `npm run check:code-quality` before acting.
 
 | Worktree branch | Main commits ahead | Unique branch commits | Required disposition |
 | --- | ---: | ---: | --- |
-| `main` | 0 | 0 | Preserve the current mixed worktree; do not use it for the refactor slice. |
-| `codex/client-intelligence-release` | 39 | 1 | Review the unique commit, then merge/cherry-pick or explicitly abandon it. |
-| `codex/mcmaster-audit-release` | 86 | 0 | Eligible for removal after confirming no untracked operator artifact is needed. |
-| `codex/production-readiness-end-to-end` | 111 | 1 | Review the unique commit, then merge/cherry-pick or explicitly abandon it. |
-| `codex/client-profile-readability-documents` | 112 | 0 | Eligible for removal after confirming no untracked operator artifact is needed. |
+| `main` | 0 | 0 | Preserve the current mixed, dirty worktree; use the live checker for its changing path count and do not use it for the refactor slice. |
+| `codex/client-intelligence-release` | 48 | 1 | Review the unique commit, then merge/cherry-pick or explicitly abandon it. |
+| `codex/mcmaster-audit-release` | 95 | 0 | Eligible for removal after confirming no untracked operator artifact is needed. |
+| `codex/production-readiness-end-to-end` | 120 | 1 | Review the unique commit, then merge/cherry-pick or explicitly abandon it. |
+| `codex/client-profile-readability-documents` | 121 | 0 | Eligible for removal after confirming no untracked operator artifact is needed. |
 
 No worktree is removed automatically. Unique commits are reviewed before any branch or worktree deletion.
 
@@ -30,7 +30,7 @@ git log --oneline main..codex/production-readiness-end-to-end
 git worktree add ../pipeline-refactor-referral-store -b codex/refactor-referral-store <reviewed-starting-sha>
 ```
 
-Then record the new path, branch, and SHA in `refactor-slices.json`, regenerate the repository audit inside that worktree, and run `npm run check:refactor-setup` before changing implementation files.
+Then verify `git merge-base main HEAD` equals the reviewed SHA, record the new path, branch, and SHA in `refactor-slices.json`, regenerate the repository audit inside that worktree, and run `npm run check:refactor-setup` before changing implementation files.
 
 ## Safe retirement sequence
 

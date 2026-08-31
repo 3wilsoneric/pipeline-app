@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 const ROOT = process.cwd();
+const REFACTOR_REGISTRY = JSON.parse(readFileSync(join(ROOT, "docs/refactoring/refactor-slices.json"), "utf8"));
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx", ".py", ".sql"]);
 const TYPESCRIPT_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
 const MODULE_EXTENSIONS = [".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs"];
@@ -294,6 +295,33 @@ function rank(files, key, count = 10) {
     .map((item) => ({ path: item.path, value: item[key] }));
 }
 
+function sliceForPath(path) {
+  return (REFACTOR_REGISTRY.slices ?? []).find((slice) => (slice.paths ?? []).some((scope) => path === scope || path.startsWith(`${scope.replace(/\/$/u, "")}/`)))?.id ?? null;
+}
+
+function riskSignals(file) {
+  const signals = [];
+  if (file.controlPlane) signals.push("control_plane");
+  if (file.refactorSliceId) signals.push(`planned_slice:${file.refactorSliceId}`);
+  if (file.complexity >= 100) signals.push("complexity>=100");
+  if (file.churnLines90d >= 1000) signals.push("churn_lines_90d>=1000");
+  if (file.fanIn >= 10) signals.push("fan_in>=10");
+  if (file.dependencies.length >= 10) signals.push("dependencies>=10");
+  if (file.maxBranchDepth >= 8) signals.push("branch_depth>=8");
+  if (file.duplicateBlocks >= 5) signals.push("duplicate_blocks>=5");
+  if (file.staticSourceContracts > 0) signals.push("static_source_contracts>0");
+  return signals;
+}
+
+function riskBand(file) {
+  const structuralSignals = file.riskSignals.filter((signal) => !signal.startsWith("planned_slice:") && signal !== "control_plane").length;
+  const safetyCritical = file.controlPlane || Boolean(file.refactorSliceId);
+  if (safetyCritical && structuralSignals >= 2) return "critical_review";
+  if ((safetyCritical && structuralSignals >= 1) || structuralSignals >= 3) return "high_review";
+  if (safetyCritical || structuralSignals >= 2) return "medium_review";
+  return structuralSignals === 1 ? "watch" : "baseline";
+}
+
 function markdownTable(items, valueLabel) {
   const rows = items.map((item, index) => `| ${index + 1} | \`${item.path}\` | ${item.value} |`);
   return [`| Rank | File | ${valueLabel} |`, "| ---: | --- | ---: |", ...rows].join("\n");
@@ -304,6 +332,132 @@ function parseArgument(name, fallback) {
   return argument ? argument.slice(name.length + 3) : fallback;
 }
 
+function analyzeRepository(paths, sourceSet, churn) {
+  const files = [];
+  const usageByTarget = new Map();
+  const graph = new Map();
+  const fingerprintOccurrences = new Map();
+  for (const path of paths) analyzeRepositoryFile(path, sourceSet, churn, files, usageByTarget, graph, fingerprintOccurrences);
+  return { files, usageByTarget, graph, fingerprintOccurrences };
+}
+
+function analyzeRepositoryFile(path, sourceSet, churn, files, usageByTarget, graph, fingerprintOccurrences) {
+  const value = readFileSync(join(ROOT, path), "utf8");
+  const analysis = TYPESCRIPT_EXTENSIONS.has(extname(path))
+    ? analyzeTypeScript(path, value)
+    : path.endsWith(".py")
+      ? analyzePython(value)
+      : analyzeSql(value);
+  const dependencies = collectDependencies(path, analysis.importRecords, sourceSet, usageByTarget);
+  graph.set(path, dependencies);
+  collectFingerprints(path, value, fingerprintOccurrences);
+  const pathChurn = churn.get(path);
+  files.push({
+    path,
+    lines: lineCount(value),
+    branches: analysis.branches,
+    functions: analysis.functions,
+    maxBranchDepth: analysis.maxBranchDepth,
+    complexity: analysis.branches + analysis.functions,
+    exports: [...analysis.exports].sort(),
+    dependencies: [...dependencies].sort(),
+    fanIn: 0,
+    duplicateBlocks: 0,
+    churnLines90d: pathChurn?.changedLines ?? 0,
+    churnCommits90d: pathChurn?.commits.size ?? 0,
+    staticSourceContracts: (value.match(STATIC_SOURCE_CONTRACT) ?? []).length,
+    controlPlane: CONTROL_PLANE_PATH.test(path),
+    refactorSliceId: sliceForPath(path),
+  });
+}
+
+function collectDependencies(path, importRecords, sourceSet, usageByTarget) {
+  const dependencies = new Set();
+  for (const record of importRecords) {
+    const target = resolveLocalModule(path, record.specifier, sourceSet);
+    if (!target) continue;
+    dependencies.add(target);
+    const usage = usageByTarget.get(target) ?? { names: new Set(), namespace: false };
+    for (const name of record.names) usage.names.add(name);
+    usage.namespace ||= record.namespace;
+    usageByTarget.set(target, usage);
+  }
+  return dependencies;
+}
+
+function collectFingerprints(path, value, fingerprintOccurrences) {
+  for (const occurrence of tokenFingerprints(path, value)) {
+    const occurrences = fingerprintOccurrences.get(occurrence.hash) ?? [];
+    occurrences.push({ path, line: occurrence.line });
+    fingerprintOccurrences.set(occurrence.hash, occurrences);
+  }
+}
+
+function applyFanIn(files, graph) {
+  const fileByPath = new Map(files.map((file) => [file.path, file]));
+  for (const dependencies of graph.values()) {
+    for (const dependency of dependencies) {
+      const target = fileByPath.get(dependency);
+      if (target) target.fanIn += 1;
+    }
+  }
+}
+
+function applyDuplicateCounts(files, fingerprintOccurrences) {
+  const duplicates = [];
+  const duplicateCountByPath = new Map();
+  for (const [hash, occurrences] of fingerprintOccurrences) {
+    const distinctFiles = new Set(occurrences.map((item) => item.path));
+    if (distinctFiles.size < 2) continue;
+    const representative = [...distinctFiles].map((path) => occurrences.find((item) => item.path === path));
+    duplicates.push({ hash, occurrences: representative });
+    for (const path of distinctFiles) duplicateCountByPath.set(path, (duplicateCountByPath.get(path) ?? 0) + 1);
+  }
+  for (const file of files) file.duplicateBlocks = duplicateCountByPath.get(file.path) ?? 0;
+  return duplicates;
+}
+
+function findDeadExportCandidates(files, usageByTarget) {
+  const candidates = [];
+  for (const file of files) {
+    if (!TYPESCRIPT_EXTENSIONS.has(extname(file.path)) || file.path.startsWith("app/")) continue;
+    const usage = usageByTarget.get(file.path);
+    if (usage?.namespace) continue;
+    for (const name of file.exports) {
+      if (NEXT_CONVENTION_EXPORTS.has(name) || usage?.names.has(name)) continue;
+      candidates.push({ path: file.path, export: name });
+    }
+  }
+  return candidates;
+}
+
+function buildRiskInventory(files) {
+  const riskOrder = new Map(["critical_review", "high_review", "medium_review", "watch", "baseline"].map((band, index) => [band, index]));
+  return files
+    .filter((file) => file.riskBand !== "baseline")
+    .sort((left, right) => riskOrder.get(left.riskBand) - riskOrder.get(right.riskBand)
+      || right.riskSignals.length - left.riskSignals.length
+      || right.churnLines90d - left.churnLines90d
+      || left.path.localeCompare(right.path))
+    .map((file) => ({
+      path: file.path,
+      band: file.riskBand,
+      sliceId: file.refactorSliceId,
+      signals: file.riskSignals,
+      metrics: {
+        lines: file.lines,
+        complexity: file.complexity,
+        churnLines90d: file.churnLines90d,
+        churnCommits90d: file.churnCommits90d,
+        fanIn: file.fanIn,
+        dependencies: file.dependencies.length,
+        maxBranchDepth: file.maxBranchDepth,
+        duplicateBlocks: file.duplicateBlocks,
+        staticSourceContracts: file.staticSourceContracts,
+      },
+    }));
+}
+
 function main() {
   const generatedAt = new Date();
   const label = parseArgument("label", generatedAt.toISOString().slice(0, 10));
@@ -311,81 +465,20 @@ function main() {
   const paths = repositorySourceFiles();
   const sourceSet = new Set(paths);
   const churn = churnByPath();
-  const files = [];
-  const usageByTarget = new Map();
-  const graph = new Map();
-  const fingerprintOccurrences = new Map();
-
-  for (const path of paths) {
-    const value = readFileSync(join(ROOT, path), "utf8");
-    const analysis = TYPESCRIPT_EXTENSIONS.has(extname(path))
-      ? analyzeTypeScript(path, value)
-      : path.endsWith(".py")
-        ? analyzePython(value)
-        : analyzeSql(value);
-    const dependencies = new Set();
-    for (const record of analysis.importRecords) {
-      const target = resolveLocalModule(path, record.specifier, sourceSet);
-      if (!target) continue;
-      dependencies.add(target);
-      const usage = usageByTarget.get(target) ?? { names: new Set(), namespace: false };
-      for (const name of record.names) usage.names.add(name);
-      usage.namespace ||= record.namespace;
-      usageByTarget.set(target, usage);
-    }
-    graph.set(path, dependencies);
-
-    for (const occurrence of tokenFingerprints(path, value)) {
-      const occurrences = fingerprintOccurrences.get(occurrence.hash) ?? [];
-      occurrences.push({ path, line: occurrence.line });
-      fingerprintOccurrences.set(occurrence.hash, occurrences);
-    }
-
-    const pathChurn = churn.get(path);
-    files.push({
-      path,
-      lines: lineCount(value),
-      branches: analysis.branches,
-      functions: analysis.functions,
-      maxBranchDepth: analysis.maxBranchDepth,
-      complexity: analysis.branches + analysis.functions,
-      exports: [...analysis.exports].sort(),
-      dependencies: [...dependencies].sort(),
-      duplicateBlocks: 0,
-      churnLines90d: pathChurn?.changedLines ?? 0,
-      churnCommits90d: pathChurn?.commits.size ?? 0,
-      staticSourceContracts: (value.match(STATIC_SOURCE_CONTRACT) ?? []).length,
-      controlPlane: CONTROL_PLANE_PATH.test(path),
-    });
-  }
-
-  const duplicates = [];
-  const duplicateCountByPath = new Map();
-  for (const [hash, occurrences] of fingerprintOccurrences) {
-    const distinctFiles = new Set(occurrences.map((item) => item.path));
-    if (distinctFiles.size < 2) continue;
-    const representative = [];
-    for (const path of distinctFiles) representative.push(occurrences.find((item) => item.path === path));
-    duplicates.push({ hash, occurrences: representative });
-    for (const path of distinctFiles) duplicateCountByPath.set(path, (duplicateCountByPath.get(path) ?? 0) + 1);
-  }
-  for (const file of files) file.duplicateBlocks = duplicateCountByPath.get(file.path) ?? 0;
-
-  const deadExportCandidates = [];
+  const { files, usageByTarget, graph, fingerprintOccurrences } = analyzeRepository(paths, sourceSet, churn);
+  applyFanIn(files, graph);
+  const duplicates = applyDuplicateCounts(files, fingerprintOccurrences);
   for (const file of files) {
-    if (!TYPESCRIPT_EXTENSIONS.has(extname(file.path)) || file.path.startsWith("app/")) continue;
-    const usage = usageByTarget.get(file.path);
-    if (usage?.namespace) continue;
-    for (const name of file.exports) {
-      if (NEXT_CONVENTION_EXPORTS.has(name) || usage?.names.has(name)) continue;
-      deadExportCandidates.push({ path: file.path, export: name });
-    }
+    file.riskSignals = riskSignals(file);
+    file.riskBand = riskBand(file);
   }
+  const deadExportCandidates = findDeadExportCandidates(files, usageByTarget);
 
   const rankings = {
     lines: rank(files, "lines"),
     complexity: rank(files, "complexity"),
     churn: rank(files, "churnLines90d"),
+    fanIn: rank(files, "fanIn"),
     duplication: rank(files, "duplicateBlocks"),
   };
   const appearances = new Map();
@@ -396,6 +489,7 @@ function main() {
     .filter(([, count]) => count >= 2)
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
     .map(([path, measures]) => ({ path, measures }));
+  const riskInventory = buildRiskInventory(files);
 
   const report = {
     schemaVersion: 1,
@@ -407,6 +501,7 @@ function main() {
       duplication: "Shared normalized 60-token TypeScript/JavaScript windows or 8-line Python windows across distinct files.",
       deadExports: "Conservative static candidates. Dynamic imports, framework conventions, and external consumers require human confirmation before deletion.",
       staticSourceContracts: "Assertions about source text are inventory only; behavioral tests must protect runtime invariants.",
+      riskInventory: "Risk bands expose independent review signals and planned slice membership. They rank investigation pressure; they are not defect counts or an aggregate quality score.",
     },
     totals: {
       files: files.length,
@@ -417,8 +512,11 @@ function main() {
       deadExportCandidates: deadExportCandidates.length,
       staticSourceContracts: files.reduce((sum, file) => sum + file.staticSourceContracts, 0),
       controlPlaneFiles: files.filter((file) => file.controlPlane).length,
+      criticalReviewFiles: files.filter((file) => file.riskBand === "critical_review").length,
+      highReviewFiles: files.filter((file) => file.riskBand === "high_review").length,
     },
     rankings,
+    riskInventory,
     overlappingHotspots,
     cycles: findCycles(graph),
     largestDuplicateGroups: duplicates
@@ -449,6 +547,8 @@ function main() {
     `- Dead-export candidates requiring review: ${report.totals.deadExportCandidates}`,
     `- Static source-string contracts: ${report.totals.staticSourceContracts}`,
     `- Control-plane files: ${report.totals.controlPlaneFiles}`,
+    `- Critical-review risk files: ${report.totals.criticalReviewFiles}`,
+    `- High-review risk files: ${report.totals.highReviewFiles}`,
     "",
     "## Overlapping Hotspots",
     "",
@@ -457,6 +557,14 @@ function main() {
     ...(overlappingHotspots.length > 0
       ? overlappingHotspots.map((item) => `- \`${item.path}\` (${item.measures} measures)`)
       : ["- None"]),
+    "",
+    "## Risk-Signal Inventory",
+    "",
+    "Bands combine independent review signals without collapsing them into a correctness score:",
+    "",
+    ...(riskInventory.length > 0
+      ? riskInventory.slice(0, 30).map((item) => `- **${item.band}** \`${item.path}\`: ${item.signals.join(", ")}`)
+      : ["- No review signals exceeded the configured thresholds."]),
     "",
     "## Size",
     "",
@@ -474,6 +582,10 @@ function main() {
     "",
     markdownTable(rankings.duplication, "Shared token windows"),
     "",
+    "## Fan-In",
+    "",
+    markdownTable(rankings.fanIn, "Direct local importers"),
+    "",
     "## Cycles",
     "",
     ...(report.cycles.length > 0 ? report.cycles.map((cycle) => `- ${cycle}`) : ["- None detected"]),
@@ -485,6 +597,7 @@ function main() {
     "## Interpretation",
     "",
     "- Complexity and duplication are ranking proxies, not quality scores.",
+    "- Risk bands are triage aids. They do not prove a defect and cannot authorize a refactor.",
     "- Dead exports are candidates only. Confirm framework, dynamic-import, and external use before deletion.",
     "- Control-plane duplication has a zero-tolerance target; ordinary UI duplication can wait until a third occurrence.",
     "- Re-run after each bounded refactor slice and compare the JSON, behavior gates, performance, and visual output.",
@@ -502,6 +615,7 @@ function main() {
     markdown: relative(ROOT, markdownPath),
     totals: report.totals,
     overlappingHotspots,
+    highestRisk: riskInventory.slice(0, 10),
   }, null, 2));
 }
 

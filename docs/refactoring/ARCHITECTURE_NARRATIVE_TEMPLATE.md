@@ -22,6 +22,11 @@ This document must be written in the owner’s own words after reading the scope
 - Current file/dependency audit generated at:
 - Code-quality gate result:
 - File audit disposition:
+- Planned new files and dependency direction:
+- Canonical responsibility entries:
+- Architecture comprehension probes:
+- Approved proof obligations:
+- Slice assurance record:
 
 ## What it does
 
@@ -75,5 +80,13 @@ This document must be written in the owner’s own words after reading the scope
 ## Owner explain-back
 
 [Explain how the slice works and what would break if its main invariant were removed.]
+
+## Assurance boundary
+
+- Properties expected to be mechanically enforced:
+- Finite behaviors expected to be exhaustive or model checked:
+- Properties covered by fuzz, mutation, integration, or concurrency evidence:
+- Statistical or environment-dependent uncertainty requiring human/operational control:
+- What this narrative explicitly does not prove:
 
 Approved by: [name/date]

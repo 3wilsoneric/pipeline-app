@@ -18,10 +18,7 @@ const immutableAgentPaths = [
   ".github/codex/",
   ".github/workflows/",
   "database/migrations/",
-  "docs/refactoring/code-quality-policy.json",
-  "docs/refactoring/evidence-matrix.json",
-  "docs/refactoring/performance-budgets.json",
-  "docs/refactoring/refactor-slices.json",
+  "docs/refactoring/",
   "infra/",
   "next.config.ts",
   "package-lock.json",
@@ -128,6 +125,7 @@ function validateEvidenceFiles(slice, fileExists) {
   const errors = [];
   if (!slice.architectureNarrative || !fileExists(resolve(repositoryRoot, slice.architectureNarrative))) errors.push("The approved architecture narrative is missing.");
   if (!slice.fileAuditDisposition || !fileExists(resolve(repositoryRoot, slice.fileAuditDisposition))) errors.push("The approved file audit disposition is missing.");
+  if (!slice.assuranceRecord || !fileExists(resolve(repositoryRoot, slice.assuranceRecord))) errors.push("The approved high-assurance record is missing.");
   return errors;
 }
 
@@ -162,6 +160,7 @@ function toSelection(slice) {
     startingCommit: slice.startingCommit,
     architectureNarrative: slice.architectureNarrative,
     fileAuditDisposition: slice.fileAuditDisposition,
+    assuranceRecord: slice.assuranceRecord,
     allowedChangePaths: slice.allowedChangePaths,
     invariants: slice.invariants,
     requiredGates: slice.requiredGates,
@@ -255,6 +254,7 @@ function renderPromptCommand(options) {
     `- Cloud attempt: ${options.attempt ?? "1"}`,
     `- Architecture narrative: ${selection.architectureNarrative}`,
     `- File audit: ${selection.fileAuditDisposition}`,
+    `- High-assurance record: ${selection.assuranceRecord}`,
     "",
     "Allowed change paths:",
     ...selection.allowedChangePaths.map((path) => `- ${path}`),

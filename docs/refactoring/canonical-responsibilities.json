@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "status": "setup_draft",
+  "updatedAt": "2026-08-31",
+  "humanValidated": false,
+  "purpose": "Machine-readable candidate ownership map. Human owners must validate the entries relevant to an active slice against code and operations before implementation.",
+  "responsibilities": [
+    {
+      "id": "referral_state_persistence",
+      "title": "Referral state persistence and optimistic mutation",
+      "sliceIds": ["referral-store-boundaries"],
+      "ownershipKind": "module_boundary",
+      "canonicalOwnerPaths": [
+        "lib/pipeline/referral-store.ts",
+        "lib/pipeline/referral-validation.ts"
+      ],
+      "allowedRepresentations": [
+        "validated referral command",
+        "domain referral record",
+        "local persistence record",
+        "PostgreSQL row",
+        "API response projection"
+      ],
+      "invariants": [
+        "Same-section stale writes are rejected.",
+        "Retry outcomes preserve the characterized per-command replay or conflict contract.",
+        "Material PostgreSQL mutation and its audit event commit or roll back together."
+      ],
+      "forbiddenParallelOwners": [
+        "API routes implementing referral persistence policy",
+        "React components writing referral storage directly"
+      ],
+      "verificationGates": ["check:api", "database:concurrency", "database:assurance:integration"],
+      "humanValidated": false
+    },
+    {
+      "id": "assessment_lifecycle_persistence",
+      "title": "Assessment lifecycle, provenance, and persistence",
+      "sliceIds": ["assessment-store-boundaries"],
+      "ownershipKind": "module_boundary",
+      "canonicalOwnerPaths": [
+        "lib/assessment/assessment-lifecycle-validation.ts",
+        "lib/assessment/assessment-records.ts",
+        "lib/assessment/assessment-store.ts"
+      ],
+      "allowedRepresentations": [
+        "validated assessment command",
+        "assessment draft",
+        "signed assessment",
+        "append-only addendum",
+        "field provenance record",
+        "PostgreSQL row"
+      ],
+      "invariants": [
+        "A signed assessment is immutable except through append-only addenda.",
+        "Field evidence and reviewer attribution survive persistence.",
+        "Assessment-owned workflow synchronization preserves its characterized transaction behavior."
+      ],
+      "forbiddenParallelOwners": [
+        "UI components deciding lifecycle transitions",
+        "API routes bypassing lifecycle validation"
+      ],
+      "verificationGates": ["check:assessor-workflow", "check:assessment-workbook", "database:assurance:integration"],
+      "humanValidated": false
+    },
+    {
+      "id": "workflow_transition_and_handoff",
+      "title": "Referral workflow transitions, terminal decisions, and EHR handoff",
+      "sliceIds": ["workflow-and-handoff-owner"],
+      "ownershipKind": "policy_and_transaction_boundary",
+      "canonicalOwnerPaths": [
+        "lib/pipeline/referral-workflow.ts",
+        "lib/pipeline/workflow-store.ts",
+        "app/api/referrals/[referralId]/ehr-handoff/route.ts"
+      ],
+      "allowedRepresentations": [
+        "workflow state",
+        "validated transition command",
+        "work item",
+        "recommendation",
+        "terminal decision",
+        "EHR handoff attempt"
+      ],
+      "invariants": [
+        "Stages cannot be skipped and terminal decisions cannot silently reopen.",
+        "Only authorized actors can recommend, decide, assign, or record a handoff.",
+        "Projections never become a second canonical writer."
+      ],
+      "forbiddenParallelOwners": [
+        "Routes implementing independent transition tables",
+        "Assessment or UI modules becoming canonical workflow writers"
+      ],
+      "verificationGates": ["check:workflow-fuzz", "test:critical-safety", "database:concurrency"],
+      "humanValidated": false
+    },
+    {
+      "id": "authentication_and_resource_authorization",
+      "title": "Identity, request integrity, and resource-level authorization",
+      "sliceIds": [
+        "referral-store-boundaries",
+        "assessment-store-boundaries",
+        "workflow-and-handoff-owner",
+        "referral-canvas-components"
+      ],
+      "ownershipKind": "boundary_set",
+      "canonicalOwnerPaths": [
+        "lib/auth/pipeline-auth.ts",
+        "lib/auth/request-security.ts",
+        "lib/pipeline/referral-access.ts",
+        "lib/assessment/assessment-access.ts"
+      ],
+      "allowedRepresentations": [
+        "authenticated actor",
+        "workspace membership",
+        "role capability",
+        "resource ownership decision",
+        "same-origin mutation decision"
+      ],
+      "invariants": [
+        "Authentication never substitutes for resource authorization.",
+        "Every mutation validates identity, request integrity, role, and resource scope.",
+        "A denied command creates no protected side effect."
+      ],
+      "forbiddenParallelOwners": [
+        "UI visibility treated as authorization",
+        "Route-local role strings without canonical policy",
+        "Worker credentials accepted at browser boundaries"
+      ],
+      "verificationGates": ["check:route-policy", "test:e2e:operational:high", "check:security"],
+      "humanValidated": false
+    },
+    {
+      "id": "transaction_local_audit_and_retry",
+      "title": "Transaction-local audit attribution and mutation retry semantics",
+      "sliceIds": [
+        "referral-store-boundaries",
+        "assessment-store-boundaries",
+        "workflow-and-handoff-owner"
+      ],
+      "ownershipKind": "distributed_transaction_local",
+      "canonicalOwnerPaths": [
+        "lib/pipeline/referral-store.ts",
+        "lib/assessment/assessment-store.ts",
+        "lib/pipeline/workflow-store.ts"
+      ],
+      "allowedRepresentations": [
+        "mutation identity",
+        "optimistic version",
+        "actor attribution",
+        "before and after version",
+        "transaction-local audit event"
+      ],
+      "invariants": [
+        "Audit policy may be shared but protected writes remain transaction-local.",
+        "Replay-idempotent, conflict-safe, and deliberately non-retryable commands are not conflated.",
+        "A duplicate execution never applies a material mutation twice."
+      ],
+      "forbiddenParallelOwners": [
+        "Asynchronous audit as the sole record of a protected mutation",
+        "A global audit repository that breaks transaction coupling"
+      ],
+      "verificationGates": ["certify:seeded-defects", "database:concurrency", "database:integrity"],
+      "humanValidated": false
+    },
+    {
+      "id": "resident_identity_review",
+      "title": "Resident identity candidate generation and explicit reviewed linking",
+      "sliceIds": ["referral-canvas-components"],
+      "ownershipKind": "policy_and_review_boundary",
+      "canonicalOwnerPaths": [
+        "lib/pipeline/master-record-matching.ts",
+        "lib/pipeline/resident-link-store.ts",
+        "components/pipeline/ClientProfileView.tsx",
+        "app/api/resident-links/route.ts"
+      ],
+      "allowedRepresentations": [
+        "candidate match",
+        "conflict reason",
+        "review decision",
+        "immutable canonical resident key",
+        "audited link record"
+      ],
+      "invariants": [
+        "Names are display data and never sufficient identity keys.",
+        "Ambiguous candidates require explicit human review.",
+        "Rejected, stale, or unauthorized link commands create no canonical link."
+      ],
+      "forbiddenParallelOwners": [
+        "Automatic name-only joining",
+        "Client-only canonical link state"
+      ],
+      "verificationGates": ["certify:master-merge", "test:e2e", "test:e2e:operational:high"],
+      "humanValidated": false
+    },
+    {
+      "id": "extraction_provenance_and_worker_state",
+      "title": "Immutable packet ingestion, extraction provenance, and worker state",
+      "sliceIds": ["extraction-capstone", "referral-canvas-components"],
+      "ownershipKind": "pipeline_boundary",
+      "canonicalOwnerPaths": [
+        "lib/extraction/extraction-state.ts",
+        "lib/extraction/extraction-service.ts",
+        "lib/extraction/processing-worker.ts",
+        "databricks/pipeline_extraction_worker.py"
+      ],
+      "allowedRepresentations": [
+        "immutable packet bytes and digest",
+        "bounded extraction job",
+        "lease and attempt",
+        "field candidate with source evidence",
+        "human review and correction"
+      ],
+      "invariants": [
+        "Original source bytes remain immutable and digest verified.",
+        "Every accepted value retains document, page, location, confidence, and review history.",
+        "Workers cannot write canonical referral or assessment state directly."
+      ],
+      "forbiddenParallelOwners": [
+        "Provider output treated as canonical without validation and review",
+        "Worker callbacks bypassing stale-attempt checks"
+      ],
+      "verificationGates": ["check:extraction", "check:extraction-worker", "check:storage-consistency", "check:extraction-quality"],
+      "humanValidated": false
+    },
+    {
+      "id": "referral_canvas_draft_and_conflict_state",
+      "title": "Referral and assessment UI draft, autosave, remount, and conflict state",
+      "sliceIds": ["referral-canvas-components"],
+      "ownershipKind": "ui_shell_boundary",
+      "canonicalOwnerPaths": [
+        "components/pipeline/ReferralPacketCanvas.tsx",
+        "components/pipeline/AssessmentWorkspace.tsx"
+      ],
+      "allowedRepresentations": [
+        "server-confirmed version",
+        "local pending edit",
+        "save queue",
+        "recoverable draft",
+        "conflict and review state"
+      ],
+      "invariants": [
+        "Remount, navigation, and concurrent saves do not silently discard accepted user work.",
+        "Conflict resolution never overwrites a newer server version without explicit intent.",
+        "Focus, keyboard, presence, upload, and extraction-review behavior remain stable."
+      ],
+      "forbiddenParallelOwners": [
+        "Multiple unsynchronized client sources of truth",
+        "Presentation components performing server persistence directly"
+      ],
+      "verificationGates": ["test:e2e", "test:e2e:cross-browser", "test:e2e:visual"],
+      "humanValidated": false
+    },
+    {
+      "id": "behavior_assertion_ownership",
+      "title": "Behavior assertion ownership and test-effectiveness preservation",
+      "sliceIds": ["test-suite-structure"],
+      "ownershipKind": "test_boundary",
+      "canonicalOwnerPaths": [
+        "tests/e2e/pipeline-smoke.spec.ts",
+        "scripts/api-behavior-fixtures.mjs",
+        "tests/e2e/support"
+      ],
+      "allowedRepresentations": [
+        "journey assertion",
+        "API behavior fixture",
+        "deterministic setup helper",
+        "seeded defect",
+        "focused control-plane contract"
+      ],
+      "invariants": [
+        "User-visible assertions remain visible and traceable to journeys.",
+        "Helpers do not hide weakened expectations or cleanup semantics.",
+        "Source-string checks never substitute for runtime behavior evidence."
+      ],
+      "forbiddenParallelOwners": [
+        "Duplicate helper frameworks with different cleanup semantics",
+        "Implementation-coupled assertions replacing acceptance behavior"
+      ],
+      "verificationGates": ["check:platform:fast", "certify:test-effectiveness", "test:e2e:operational:high"],
+      "humanValidated": false
+    }
+  ]
+}

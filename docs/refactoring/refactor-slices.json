@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "mode": "setup_only",
-  "updatedAt": "2026-08-27",
+  "updatedAt": "2026-08-31",
   "slices": [
     {
       "id": "referral-store-boundaries",
@@ -17,7 +17,7 @@
       "allowedChangePaths": [],
       "invariants": [
         "Optimistic referral and section versions reject stale same-section writes.",
-        "Create and mutation retries remain idempotent.",
+        "Create retries with the same mutation identifier remain replay-idempotent; versioned patch, trash, and restore commands preserve their characterized conflict behavior.",
         "Audit writes remain transactionally coupled to material mutations.",
         "Trash, restore, assignment, work-item, and assessment side effects remain unchanged."
       ],
@@ -27,7 +27,11 @@
         "check:workflow-fuzz",
         "test:critical-safety",
         "database:assurance:integration",
-        "database:concurrency"
+        "database:concurrency",
+        "check:performance",
+        "database:query-plans",
+        "database:capacity",
+        "check:refactor-assurance"
       ]
     },
     {
@@ -53,7 +57,11 @@
         "check:assessor-workflow",
         "check:assessment-workbook",
         "database:assurance:integration",
-        "database:concurrency"
+        "database:concurrency",
+        "check:performance",
+        "database:query-plans",
+        "database:capacity",
+        "check:refactor-assurance"
       ]
     },
     {
@@ -71,7 +79,7 @@
       "invariants": [
         "Workflow stages cannot be skipped and terminal decisions cannot be reopened silently.",
         "Only authorized roles record recommendations, decisions, and EHR handoff outcomes.",
-        "Decision and handoff writes remain optimistic, idempotent, and audited.",
+        "Decision and handoff writes remain optimistic and audited, and preserve the owner-approved replay or conflict contract.",
         "Workflow projections never become a second source of canonical state."
       ],
       "requiredGates": [
@@ -79,7 +87,10 @@
         "test:critical-safety",
         "certify:seeded-defects",
         "database:assurance:integration",
-        "test:e2e:operational:high"
+        "database:concurrency",
+        "test:e2e:operational:high",
+        "check:performance",
+        "check:refactor-assurance"
       ]
     },
     {
@@ -105,7 +116,8 @@
         "check:sample-packet",
         "check:storage-consistency",
         "check:backlog-rehearsal",
-        "check:extraction-quality"
+        "check:extraction-quality",
+        "check:refactor-assurance"
       ]
     },
     {
@@ -122,6 +134,7 @@
       "invariants": [
         "No visual redesign, click-path change, or workflow reordering occurs in a structural split.",
         "Keyboard, focus, autosave, conflict, upload, and review behavior remain unchanged.",
+        "Resident-link candidate selection and review remain explicit, optimistic, audited, and free of automatic name-based joins.",
         "Responsive layouts remain usable at certified desktop and mobile sizes.",
         "No server-only adapter crosses into a client bundle."
       ],
@@ -129,7 +142,10 @@
         "test:e2e",
         "test:e2e:desktop",
         "test:e2e:cross-browser",
-        "test:e2e:visual"
+        "test:e2e:visual",
+        "certify:mcmaster:performance",
+        "check:artifacts",
+        "check:refactor-assurance"
       ]
     },
     {
@@ -153,7 +169,8 @@
         "check:platform:fast",
         "certify:test-effectiveness",
         "test:e2e",
-        "test:e2e:operational:high"
+        "test:e2e:operational:high",
+        "check:refactor-assurance"
       ]
     }
   ]

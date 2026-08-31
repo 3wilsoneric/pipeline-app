@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:1eca5dcd4569e030",
-  "fingerprint": "1eca5dcd4569e030fadc6a6377af01eb2ae47b8277976e72cfbd4a3f498f9ecd",
+  "generatedAt": "source-fingerprint:3b6432bd4f6ca3b0",
+  "fingerprint": "3b6432bd4f6ca3b01ec9f5a18623336e979840b09d41efdaceab02bd4e0d2855",
   "totals": {
-    "files": 633,
-    "lines": 205396,
-    "coveredFiles": 633
+    "files": 706,
+    "lines": 217998,
+    "coveredFiles": 706
   },
   "entries": [
     {
@@ -14,7 +14,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 17,
+      "lines": 18,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -86,7 +86,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 48,
+      "lines": 52,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -110,7 +110,7 @@
       "kind": "documentation",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 18,
+      "lines": 21,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -189,6 +189,18 @@
       ]
     },
     {
+      "path": "app/(pipeline)/note-lab/page.tsx",
+      "subsystem": "App Router",
+      "kind": "react-component",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 72,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "app/(pipeline)/page.tsx",
       "subsystem": "App Router",
       "kind": "react-component",
@@ -225,12 +237,24 @@
       ]
     },
     {
+      "path": "app/(pipeline)/training/demo/page.tsx",
+      "subsystem": "App Router",
+      "kind": "react-component",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 29,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "app/(pipeline)/training/page.tsx",
       "subsystem": "App Router",
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 40,
+      "lines": 42,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -692,6 +716,18 @@
       ]
     },
     {
+      "path": "app/api/note-lab/session/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 63,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
       "path": "app/api/operations/dashboard/route.ts",
       "subsystem": "API routes",
       "kind": "route-handler",
@@ -878,6 +914,19 @@
       ]
     },
     {
+      "path": "app/api/referrals/[referralId]/admission-summary/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 84,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
       "path": "app/api/referrals/[referralId]/assessments/import/route.ts",
       "subsystem": "API routes",
       "kind": "route-handler",
@@ -896,7 +945,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 124,
+      "lines": 142,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -980,12 +1029,38 @@
       ]
     },
     {
+      "path": "app/api/referrals/[referralId]/historical-profile/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 37,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
       "path": "app/api/referrals/[referralId]/manual-intake/route.ts",
       "subsystem": "API routes",
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
       "lines": 71,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
+      "path": "app/api/referrals/[referralId]/meet-client-email/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 200,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1498,12 +1573,24 @@
       ]
     },
     {
+      "path": "components/pipeline/AssessmentChartWorkspace.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 296,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/AssessmentWorkspace.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1642,
+      "lines": 1646,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -1552,6 +1639,30 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 43,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/HistoricalReferralProfile.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 171,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/note-lab/NoteLabWorkspace.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 488,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1611,7 +1722,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 30,
+      "lines": 32,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -1671,7 +1782,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 238,
+      "lines": 243,
       "moduleIds": [
         "system-map",
         "vertical-change-capstone"
@@ -1683,7 +1794,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 280,
+      "lines": 285,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1767,7 +1878,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2657,
+      "lines": 2835,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -1822,6 +1933,18 @@
       ]
     },
     {
+      "path": "components/pipeline/training/DemoEnvironmentBanner.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 43,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/training/OperatorCertification.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -1840,6 +1963,18 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 135,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/training/OperatorDemoEntry.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 39,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1894,12 +2029,24 @@
       ]
     },
     {
+      "path": "components/pipeline/training/PipelineDemoCenter.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 312,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/training/PipelineGuidedCoach.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 496,
+      "lines": 497,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1923,7 +2070,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 26,
+      "lines": 30,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -2158,6 +2305,54 @@
       ]
     },
     {
+      "path": "database/migrations/0020_allo_canvas_content.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 165,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/migrations/0021_note_practice_lab.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 45,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/migrations/0022_note_lab_pattern_selections.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 48,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/migrations/0023_note_lab_field_reviews.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 79,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -2332,6 +2527,54 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 12,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0020_allo_canvas_content.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 9,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0021_note_practice_lab.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 5,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0022_note_lab_pattern_selections.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 5,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0023_note_lab_field_reviews.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 4,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -2531,12 +2774,24 @@
       ]
     },
     {
+      "path": "docs/ALLO_CANVAS_CONTENT_IMPORT.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 190,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/ARCHITECTURE.md",
       "subsystem": "Documentation",
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 73,
+      "lines": 74,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -2548,7 +2803,19 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 31,
+      "lines": 34,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/ASSESSMENT_SUMMARY_AND_MEET_CLIENT.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 53,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -2735,12 +3002,24 @@
       ]
     },
     {
+      "path": "docs/DEMO_ENVIRONMENT.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 125,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/DESKTOP_DISTRIBUTION.md",
       "subsystem": "Documentation",
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 135,
+      "lines": 223,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -2824,7 +3103,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 177,
+      "lines": 182,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -2849,6 +3128,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 87,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/NOTE_PRACTICE_LAB.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 174,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3028,7 +3319,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 241,
+      "lines": 269,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3040,7 +3331,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 44,
+      "lines": 50,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3052,7 +3343,19 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 80,
+      "lines": 93,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/architecture-comprehension-probes.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 165,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3065,6 +3368,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 45,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/canonical-responsibilities.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 284,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3088,7 +3403,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 99,
+      "lines": 107,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3100,7 +3415,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 65,
+      "lines": 67,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3136,7 +3451,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 92,
+      "lines": 94,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3167,12 +3482,24 @@
       ]
     },
     {
+      "path": "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 54,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/evidence-matrix.json",
       "subsystem": "Documentation",
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 304,
+      "lines": 487,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3184,7 +3511,31 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 33,
+      "lines": 35,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 106,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/high-assurance-policy.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 49,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3196,7 +3547,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 54,
+      "lines": 63,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3215,12 +3566,24 @@
       ]
     },
     {
+      "path": "docs/refactoring/proof-obligations.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 189,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/README.md",
       "subsystem": "Documentation",
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 105,
+      "lines": 126,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3232,7 +3595,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 75,
+      "lines": 98,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3244,7 +3607,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 161,
+      "lines": 178,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3257,6 +3620,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 43,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/slice-assurance-record.example.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 143,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3508,7 +3883,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 55,
+      "lines": 59,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3803,6 +4178,18 @@
       ]
     },
     {
+      "path": "lib/assessment/assessment-field-writing-spec.ts",
+      "subsystem": "Assessment domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 519,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "lib/assessment/assessment-file-parser.ts",
       "subsystem": "Assessment domain",
       "kind": "typescript-module",
@@ -3820,7 +4207,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 412,
+      "lines": 411,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -3839,12 +4226,24 @@
       ]
     },
     {
+      "path": "lib/assessment/assessment-narrative-guide.ts",
+      "subsystem": "Assessment domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 379,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "lib/assessment/assessment-note-guide.ts",
       "subsystem": "Assessment domain",
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 161,
+      "lines": 10,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -3893,6 +4292,18 @@
       "runtime": "shared",
       "risk": "critical",
       "lines": 2074,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "lib/assessment/assessment-summary.ts",
+      "subsystem": "Assessment domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 204,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -4084,10 +4495,46 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 111,
+      "lines": 115,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
+      ]
+    },
+    {
+      "path": "lib/demo/demo-environment.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 42,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/demo/demo-scenarios.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 115,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/demo/demo-session.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 20,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
       ]
     },
     {
@@ -4399,6 +4846,150 @@
       ]
     },
     {
+      "path": "lib/note-lab/assessment-language-core.d.mts",
+      "subsystem": "Repository configuration",
+      "kind": "repository-file",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 12,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "lib/note-lab/assessment-language-core.mjs",
+      "subsystem": "Repository configuration",
+      "kind": "tooling",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 136,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "lib/note-lab/assessment-language-standards.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 100,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "lib/note-lab/note-lab-access.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 33,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/note-lab/note-lab-contracts.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 344,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/note-lab/note-lab-engine.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 372,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/note-lab/note-lab-samples.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 178,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/note-lab/note-lab-store.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 339,
+      "moduleIds": [
+        "database-foundations",
+        "stores-transactions"
+      ]
+    },
+    {
+      "path": "lib/note-lab/note-lab-taxonomy-core.d.mts",
+      "subsystem": "Repository configuration",
+      "kind": "repository-file",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 90,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/note-lab/note-lab-taxonomy-core.mjs",
+      "subsystem": "Repository configuration",
+      "kind": "tooling",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 266,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/notifications/meet-client-email-template.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 37,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/notifications/microsoft-graph-mail.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 124,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/observability/api-logging.ts",
       "subsystem": "Reliability",
       "kind": "typescript-module",
@@ -4687,6 +5278,42 @@
       ]
     },
     {
+      "path": "lib/pipeline/historical-profile-contracts.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 71,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/pipeline/historical-profile-store.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 137,
+      "moduleIds": [
+        "database-foundations",
+        "stores-transactions"
+      ]
+    },
+    {
+      "path": "lib/pipeline/historical-profile.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 199,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/home-state.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
@@ -4744,6 +5371,18 @@
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
+      ]
+    },
+    {
+      "path": "lib/pipeline/meet-client-delivery-audit.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 107,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
       ]
     },
     {
@@ -5368,7 +6007,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 198,
+      "lines": 215,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -5380,7 +6019,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 98,
+      "lines": 100,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -5627,6 +6266,66 @@
       ]
     },
     {
+      "path": "scripts/allo-canvas-content-browser-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 45,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/allo-canvas-content-common.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 420,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/allo-canvas-content-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 152,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/allo-canvas-record-linking.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 213,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/allo-client-notes-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 100,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/allo-import-identity-replay.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -5645,6 +6344,30 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 184,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/analyze-admitted-note-structure.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 376,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/analyze-note-lab-corpus.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 194,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5704,7 +6427,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 180,
+      "lines": 245,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -5789,6 +6512,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 37,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/capture-allo-canvas-content.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 388,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5908,7 +6643,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 308,
+      "lines": 354,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -5920,7 +6655,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 509,
+      "lines": 623,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5936,6 +6671,18 @@
       "moduleIds": [
         "concurrency-idempotency",
         "stores-transactions"
+      ]
+    },
+    {
+      "path": "scripts/combine-allo-client-notes.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 289,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
       ]
     },
     {
@@ -6184,7 +6931,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 370,
+      "lines": 399,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -6208,7 +6955,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 456,
+      "lines": 554,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6221,6 +6968,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 165,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/demo-environment-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 93,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -6323,6 +7082,18 @@
       ]
     },
     {
+      "path": "scripts/fixtures/allo-canvas-content/canvas.html",
+      "subsystem": "Engineering tooling",
+      "kind": "repository-file",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 27,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/fixtures/demo-clinical-reconciliation.sanitized.csv",
       "subsystem": "Engineering tooling",
       "kind": "repository-file",
@@ -6407,6 +7178,18 @@
       ]
     },
     {
+      "path": "scripts/historical-profile-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 74,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/http-capacity-smoke.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -6425,6 +7208,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 116,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/import-allo-canvas-content.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 273,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6623,6 +7418,18 @@
       ]
     },
     {
+      "path": "scripts/note-lab-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 179,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/operational-capacity-model.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -6772,7 +7579,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 290,
+      "lines": 300,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -6851,6 +7658,18 @@
       ]
     },
     {
+      "path": "scripts/prepare-allo-canvas-content.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 358,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/prepare-allo-workspace-import.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -6911,6 +7730,18 @@
       ]
     },
     {
+      "path": "scripts/reconcile-allo-canvas-content.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 94,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/reconcile-client-file-import.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -6940,7 +7771,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 63,
+      "lines": 64,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -6964,7 +7795,19 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 153,
+      "lines": 160,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/refactor-high-assurance-readiness.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 471,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -6976,7 +7819,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 118,
+      "lines": 151,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7031,6 +7874,18 @@
       ]
     },
     {
+      "path": "scripts/review-allo-canvas-content.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 149,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/rollback-client-file-import.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -7072,7 +7927,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "high",
-      "lines": 129,
+      "lines": 131,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -7199,6 +8054,18 @@
       ]
     },
     {
+      "path": "scripts/upload-allo-canvas-content.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 190,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/upload-allo-workspace-materials.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -7301,6 +8168,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 17,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/demo-environment.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 49,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

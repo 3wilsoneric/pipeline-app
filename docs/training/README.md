@@ -25,10 +25,14 @@ It also provides deterministic guided mode over the real product interface.
 | --- | --- |
 | My Path | Four-step mastery sequence for every required role module |
 | Guided Workflows | Chat-style, action-verified job rehearsals inside the real application |
+| Demo | Entry to the isolated presenter walkthrough and full synthetic workflow environment |
 | Practice Lab | Adverse and routine decision simulations with rationale |
 | Job Aids | Current, pressure-ready workflow checklists and stop conditions |
 | Product Map | Connected ownership map from inbound referral through EHR handoff |
 | Certification | Readiness gaps, confidence, scenario results, and sign-off status |
+
+The interactive environment contract and two-week UAT plan are maintained in
+[`docs/DEMO_ENVIRONMENT.md`](../DEMO_ENVIRONMENT.md).
 
 ## Maintenance
 

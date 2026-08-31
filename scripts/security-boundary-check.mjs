@@ -23,6 +23,8 @@ const allowedPublicVariables = new Set([
   "NEXT_PUBLIC_PIPELINE_BASE_PATH",
   "NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED",
   "NEXT_PUBLIC_ALAMO_PLATFORM_URL",
+  "NEXT_PUBLIC_PIPELINE_DEMO_MODE",
+  "NEXT_PUBLIC_PIPELINE_DEMO_URL",
 ]);
 const publicVariablePattern = /NEXT_PUBLIC_[A-Z0-9_]+/g;
 const publicVariables = new Set(sourceFiles.flatMap((file) => read(file).match(publicVariablePattern) ?? []));

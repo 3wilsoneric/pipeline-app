@@ -28,7 +28,7 @@ import type {
   AssessmentListResponse,
   PipelineAssessmentRecord,
 } from "@/lib/assessment/assessment-records";
-import { getAssessmentNoteGuide } from "@/lib/assessment/assessment-note-guide";
+import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
 import {
   assessmentToolFieldDefinitions,
   createEmptyAssessmentToolData,
@@ -1399,7 +1399,7 @@ function AssessmentField({
             placeholder={question.placeholder ?? (definition.value_type === "string_list" ? "One item per line" : "Enter assessment detail")}
             className="w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none placeholder:text-[#a3a3a3] focus:border-[#0f8b73] read-only:bg-[#f4f6f5]"
           />
-          <AssessmentNarrativeGuidePanel field={definition.key} />
+          <AssessmentFieldWritingGuidePanel field={definition.key} />
         </>
       ) : (
         <input
@@ -1424,39 +1424,43 @@ function AssessmentField({
   );
 }
 
-function AssessmentNarrativeGuidePanel({ field }: { field: AssessmentToolFieldKey }) {
-  const guide = getAssessmentNoteGuide(field);
-  if (!guide) return null;
+function AssessmentFieldWritingGuidePanel({ field }: { field: AssessmentToolFieldKey }) {
+  const specification = getAssessmentFieldWritingSpec(field);
+  if (!specification) return null;
 
   return (
     <details className="mt-2 border border-[#d9dfdb] bg-[#f8faf9]">
       <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 marker:hidden">
-        <span className="flex items-center gap-2 text-[10px] font-black text-[#315e50]"><Sparkles size={12} /> Note guide</span>
-        <span className="text-[9px] font-semibold text-[#7b837e]">What to cover</span>
+        <span className="flex items-center gap-2 text-[10px] font-black text-[#315e50]"><Sparkles size={12} /> Answer format</span>
+        <span className="text-[9px] font-semibold text-[#7b837e]">{specification.formatLabel} · {specification.lengthGuidance}</span>
       </summary>
       <div className="border-t border-[#d9dfdb] px-3 py-3">
-        <AssessmentNarrativeGuide guide={guide} />
+        <AssessmentFieldWritingGuide specification={specification} />
       </div>
     </details>
   );
 }
 
-function AssessmentNarrativeGuide({ guide }: { guide: NonNullable<ReturnType<typeof getAssessmentNoteGuide>> }) {
+function AssessmentFieldWritingGuide({ specification }: { specification: NonNullable<ReturnType<typeof getAssessmentFieldWritingSpec>> }) {
   return (
     <>
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.8fr)]">
+      <div className="border-l-2 border-[#0f8b73] bg-white px-3 py-2.5">
+        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#315e50]">Use this order</div>
+        <p className="mt-1.5 text-[10px] font-semibold leading-4 text-[#3f4a45]">{specification.formatTemplate}</p>
+      </div>
+      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(260px,1.1fr)]">
         <div>
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Things to note</div>
-          <ul className="mt-2 grid gap-1.5 text-[10px] leading-4 text-[#595959] sm:grid-cols-2">
-            {guide.thingsToCover.map((item) => <li key={item} className="border-l-2 border-[#9bcbbb] pl-2">{item}</li>)}
+          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Include</div>
+          <ul className="mt-2 grid gap-1.5 text-[10px] leading-4 text-[#595959] sm:grid-cols-2 lg:grid-cols-1">
+            {specification.requiredElements.map((item) => <li key={item} className="flex items-start gap-2"><Check size={11} className="mt-0.5 shrink-0 text-[#0f8b73]" />{item}</li>)}
           </ul>
         </div>
         <div className="border-l border-[#d9dfdb] pl-3">
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Strong note pattern</div>
-          <p className="mt-2 text-[10px] leading-4 text-[#4f5652]">{guide.strongPattern}</p>
+          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Example format</div>
+          <p className="mt-2 text-[10px] leading-4 text-[#4f5652]">{specification.strongExample}</p>
         </div>
       </div>
-      <p className="mt-3 border-l-2 border-[#d2a759] bg-[#fffaf0] px-2 py-1.5 text-[9px] leading-4 text-[#70480d]">{guide.guardrail}</p>
+      <p className="mt-3 border-l-2 border-[#d2a759] bg-[#fffaf0] px-2 py-1.5 text-[9px] leading-4 text-[#70480d]">{specification.guardrail}</p>
     </>
   );
 }

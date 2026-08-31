@@ -7,10 +7,11 @@ Refactoring is not permission to churn files. Every approved slice must improve 
 ## Repository and worktrees
 
 - Run implementation slices in one dedicated `codex/refactor-*` worktree, never directly on `main`.
-- Record the worktree path, branch, and starting commit in the active registry slice before editing implementation code.
+- Record the worktree path, branch, and starting commit in the active registry slice before editing implementation code. The branch point must equal that exact starting commit; merely containing it somewhere in history is insufficient.
 - Only one slice may be `in_progress`. Other worktrees may exist, but their unique commits need an explicit merge, archive, or delete decision.
 - Do not mix product behavior, dependency upgrades, generated snapshots, schema changes, and structural moves in one refactor commit.
 - The active registry slice lists every allowed changed file. Directory entries end in `/`; all other entries are exact paths. Any out-of-scope change fails readiness.
+- Every non-governance file changed from the starting commit must appear in the approved file audit disposition, including tests and support files added to the change allowlist. Planned new files are listed before implementation with `plannedNew: true`, an explicit purpose, and their dependency direction.
 - Generated output, local databases, PHI, credentials, build artifacts, and test reports remain untracked.
 
 ## Files and modules
@@ -29,6 +30,7 @@ Refactoring is not permission to churn files. Every approved slice must improve 
 - A refactor slice that changes a hotspot records the starting and ending complexity, focused behavior evidence, and any remaining coupling or readability risk.
 - The baseline is regenerated only after an intentional reduction or approved policy change, never to absorb a regression.
 - A lower score is not sufficient evidence of improvement. Public behavior, authorization, transactions, audit events, error semantics, and PHI boundaries must remain intact.
+- The structural baseline also reports separate churn, fan-in, dependency, branch-depth, duplication, control-plane, and planned-slice risk signals. Risk bands rank investigation pressure; they are not defect counts, an aggregate quality score, or authorization to edit a file.
 
 See `docs/refactoring/CYCLOMATIC_COMPLEXITY_POLICY.md` for thresholds, control-plane treatment, and counting semantics.
 

@@ -20,6 +20,10 @@
     "0016_zoom_assessment_method.sql": "e64060cdb2640c2d8a404eb0c0703bf988b3e410a03462fc207a1935e83c578b",
     "0017_referral_received_month.sql": "d557b2f494beae274719454b1bb9528ccae6b9886207c9e2249c974491f84ba9",
     "0018_academy_progress.sql": "a9e832fa5ba5de63475eb861d337df6a72df38df24a73ca189ea0eaf599f85c1",
-    "0019_operator_training_progress.sql": "0dd7723a04e75eb4fdc31579a94dc210df0328af11486d4dd03c8897d2611d64"
+    "0019_operator_training_progress.sql": "0dd7723a04e75eb4fdc31579a94dc210df0328af11486d4dd03c8897d2611d64",
+    "0020_allo_canvas_content.sql": "34b24dcf4dc5e89109344e37bf532a2a9f08885de29d20205c62bc372f6d3bfb",
+    "0021_note_practice_lab.sql": "1f9a8d1c2a27dfd61bcb93c99a5d9d3c8d05faa5fb2bbdcc08df504ab8edcf99",
+    "0022_note_lab_pattern_selections.sql": "4b9617c6575ef3e73ec6f0abfef1d0c0d6dfa5a903efdbfcc3c74c668854238c",
+    "0023_note_lab_field_reviews.sql": "550f7394f5ba04931d0cc0d9e2cb4843b70ea14369a36f85e102ae0d24e2083f"
   }
 }

@@ -10,7 +10,10 @@ const workflow = loadTypeScriptModule(root, "lib/pipeline/workflow-status.ts");
 const lifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
 const records = loadTypeScriptModule(root, "lib/pipeline/workflow-records.ts");
 const assessmentSeed = loadTypeScriptModule(root, "lib/assessment/assessment-seed.ts");
-const noteGuide = loadTypeScriptModule(root, "lib/assessment/assessment-note-guide.ts");
+const narrativeGuide = loadTypeScriptModule(root, "lib/assessment/assessment-narrative-guide.ts");
+const fieldWritingSpec = loadTypeScriptModule(root, "lib/assessment/assessment-field-writing-spec.ts");
+const assessmentSummary = loadTypeScriptModule(root, "lib/assessment/assessment-summary.ts");
+const meetClientTemplate = loadTypeScriptModule(root, "lib/notifications/meet-client-email-template.ts");
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -87,10 +90,49 @@ check("referral context remains authoritative during assessment seeding", seeded
 check("pre-assessment medications seed the assessment medication profile", seededAssessment.data.medications_at_intake.join("|") === "Olanzapine 10 mg|Metformin 500 mg");
 check("seeded assessment evidence retains page provenance", seededAssessment.field_provenance.mobility?.at(-1)?.source_page_no === 14);
 check("referral-owned packet duplicates do not enter assessment review", !seededAssessment.field_provenance.community?.some((entry) => entry.review_status === "pending"));
-const riskNoteGuide = noteGuide.getAssessmentNoteGuide("behavioral_history");
-check("narrative fields have domain-specific documentation guidance", riskNoteGuide?.domain === "behavioral_risk" && riskNoteGuide.thingsToCover.length >= 4 && riskNoteGuide.strongPattern.includes("[Source]"));
-check("structured fields do not receive narrative guidance", !noteGuide.isCoachableAssessmentField("current_self_harm_ideation") && noteGuide.getAssessmentNoteGuide("current_self_harm_ideation") === null);
-check("note guidance is deterministic for the same field", JSON.stringify(noteGuide.getAssessmentNoteGuide("behavioral_history")) === JSON.stringify(riskNoteGuide));
+const riskAnswerGuide = narrativeGuide.getAssessmentNarrativeGuide("behavioral_history");
+const guideCoverage = narrativeGuide.getAssessmentNarrativeGuideCoverage();
+check("narrative fields have purpose-specific answer guidance", riskAnswerGuide?.domain === "behavioral_risk" && riskAnswerGuide.purposeTrack === "behavior_pattern" && riskAnswerGuide.thingsToCover.length >= 4 && riskAnswerGuide.strongPattern.includes("[source]"));
+check("every assessment textarea has an explicit answer-purpose track", guideCoverage.coachableFields.length >= 60 && guideCoverage.coveredFields.length === guideCoverage.coachableFields.length && guideCoverage.missingFields.length === 0);
+check("structured fields do not receive narrative guidance", !narrativeGuide.isCoachableAssessmentField("current_self_harm_ideation") && narrativeGuide.getAssessmentNarrativeGuide("current_self_harm_ideation") === null);
+check("answer guidance is deterministic for the same field", JSON.stringify(narrativeGuide.getAssessmentNarrativeGuide("behavioral_history")) === JSON.stringify(riskAnswerGuide));
+const writingSpecCoverage = fieldWritingSpec.getAssessmentFieldWritingSpecCoverage();
+const medicationWritingSpec = fieldWritingSpec.getAssessmentFieldWritingSpec("medications_at_intake");
+const safetyWritingSpec = fieldWritingSpec.getAssessmentFieldWritingSpec("current_self_harm_details");
+check("every narrative field has an explicit writing specification", writingSpecCoverage.coachableFields.length >= 60
+  && writingSpecCoverage.coveredFields.length === writingSpecCoverage.coachableFields.length
+  && writingSpecCoverage.missingFields.length === 0);
+check("medication fields use a structured line format", medicationWritingSpec?.preferredFormat === "structured_lines"
+  && medicationWritingSpec.formatTemplate.includes("Dose") && medicationWritingSpec.requiredElements.includes("Route"));
+check("safety fields use a current risk sequence", safetyWritingSpec?.preferredFormat === "risk_sequence"
+  && safetyWritingSpec.requiredElements.includes("Intent") && safetyWritingSpec.requiredElements.includes("Protective factors"));
+check("field writing examples are deterministic and synthetic", JSON.stringify(fieldWritingSpec.getAssessmentFieldWritingSpec("medications_at_intake")) === JSON.stringify(medicationWritingSpec)
+  && medicationWritingSpec.strongExample.includes("[date]"));
+
+const signedAssessmentReport = assessmentSummary.buildAssessmentSummaryReport({
+  ...seededAssessment.data,
+  assessment_id: "assessment-summary-fixture",
+  referral_id: referral.id,
+  version: 7,
+  status: "complete",
+  assessment_date: "2026-08-25",
+  assessor: "Assigned Assessor",
+  signed_at: "2026-08-25T18:00:00.000Z",
+  signed_by: { id: "assessor-1", name: "Assigned Assessor" },
+  updated_by: { id: "assessor-1", name: "Assigned Assessor" },
+  medications_at_intake: ["Olanzapine 10 mg nightly", "Metformin 500 mg twice daily"],
+  current_location: "County treatment center",
+  programming_notes: "Prefers a predictable morning routine.",
+  family_involvement: "Sister participates in care planning.",
+}, referral);
+check("assessment report carries its exact signed source version", signedAssessmentReport.signed && signedAssessmentReport.assessmentId === "assessment-summary-fixture" && signedAssessmentReport.assessmentVersion === 7);
+check("Meet the Client is generated from structured identity, medication, and bio fields", signedAssessmentReport.meetClient.name === referral.name && signedAssessmentReport.meetClient.medications.length === 2 && signedAssessmentReport.meetClient.bio.length >= 2);
+const renderedMeetClient = meetClientTemplate.renderMeetClientEmail({
+  ...signedAssessmentReport.meetClient,
+  name: "<Test Client>",
+}, "Supervisor & Reviewer", "delivery-fixture");
+check("Meet the Client subject excludes the client name", !renderedMeetClient.subject.includes("Test Client"));
+check("Meet the Client HTML escapes clinical and identity content", renderedMeetClient.html.includes("&lt;Test Client&gt;") && renderedMeetClient.html.includes("Supervisor &amp; Reviewer") && !renderedMeetClient.html.includes("<Test Client>"));
 
 check("schedule requires time, duration, and method", !lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: null, duration_minutes: null, method: null, location: null } }).ok);
 check("schedule accepts a timezone-aware appointment", lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: "2026-08-25T09:00:00-07:00", duration_minutes: 60, method: "in_person", location: "San Pablo" } }).ok);
@@ -113,10 +155,18 @@ const manualIntakeRoute = read("app/api/referrals/[referralId]/manual-intake/rou
 const workflowStore = read("lib/pipeline/workflow-store.ts");
 const workItemRoute = read("app/api/referrals/[referralId]/work-items/[workItemId]/route.ts");
 const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
+const assessmentInterviewSchema = read("lib/assessment/assessment-interview-schema.ts");
 const assessmentSeedSource = read("lib/assessment/assessment-seed.ts");
 const referralCanvasPersistence = read("lib/pipeline/referral-canvas-persistence.ts");
 const migration = read("database/migrations/0015_assessor_workflow.sql");
 const rollback = read("database/rollbacks/0015_assessor_workflow.sql");
+const admissionSummaryRoute = read("app/api/referrals/[referralId]/admission-summary/route.ts");
+const meetClientEmailRoute = read("app/api/referrals/[referralId]/meet-client-email/route.ts");
+const graphMail = read("lib/notifications/microsoft-graph-mail.ts");
+const meetClientTemplateSource = read("lib/notifications/meet-client-email-template.ts");
+const deliveryAudit = read("lib/pipeline/meet-client-delivery-audit.ts");
+const assessmentChartWorkspace = read("components/pipeline/AssessmentChartWorkspace.tsx");
+const referralPacketCanvas = read("components/pipeline/ReferralPacketCanvas.tsx");
 
 check("referral assignment propagates to open assessments", referralStore.includes("syncLocalOpenAssessmentAssignment") && referralStore.includes("syncPostgresOpenAssessmentAssignment"));
 check("recommendations survive the referral store boundary", referralStore.includes('"assessmentRecommendation"'));
@@ -137,8 +187,12 @@ check("packet context and interview answers have explicit ownership", assessment
 check("schedule exposes Zoom instead of a generic video meeting method", lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: "2026-08-25T09:00:00-07:00", duration_minutes: 60, method: "zoom", location: "https://zoom.us/j/123" } }).ok && assessmentWorkspace.includes('<option value="zoom">Zoom</option>') && !assessmentWorkspace.includes('<option value="video">Video</option>'));
 check("new referral saves do not write the legacy interview duplicate", !referralCanvasPersistence.includes('interview: fields.interview'));
 check("assessment suggestions support field-level accept and reject", assessmentWorkspace.includes("reviewExtractedField") && assessmentWorkspace.includes('review_extraction: [{ field, action }]'));
-check("narrative guidance stays embedded beside the canonical assessment field", assessmentWorkspace.includes("AssessmentNarrativeGuidePanel") && assessmentWorkspace.includes("Things to note") && assessmentWorkspace.includes("Strong note pattern"));
-check("embedded guidance has no provider or review request path", !/Claude|Anthropic|AI review|note-coach/.test(assessmentWorkspace) && !/fetch|provider|model/i.test(read("lib/assessment/assessment-note-guide.ts")));
+check("field writing format stays embedded beside the canonical assessment field", assessmentWorkspace.includes("AssessmentFieldWritingGuidePanel")
+  && assessmentWorkspace.includes("Use this order") && assessmentWorkspace.includes("Example format"));
+check("the interview has no redundant generic assessment-notes question", !assessmentInterviewSchema.includes('q("assessment_notes"'));
+check("embedded guidance has no provider or review request path", !/Claude|Anthropic|AI review|note-coach/.test(assessmentWorkspace)
+  && !/fetch|provider|model/i.test(read("lib/assessment/assessment-narrative-guide.ts"))
+  && !/fetch|provider|model/i.test(read("lib/assessment/assessment-field-writing-spec.ts")));
 check("assigned assessors and supervisors can sign", signRoute.includes("canWorkAssessment") && signRoute.includes("assigned assessor or a supervisor"));
 check("assigned assessors and supervisors can edit clinical assessment fields", assessmentRoute.includes("canWorkAssessment") && assessmentRoute.includes("assigned assessor or a supervisor"));
 check("assessment start is explicit, supervisor-capable, and cannot rewrite completed history", startRoute.includes("canWorkAssessment") && startRoute.includes("assigned assessor or a supervisor") && startRoute.includes("A completed assessment cannot be started again"));
@@ -147,6 +201,17 @@ check("new assessments must be begun before signing", signRoute.includes("Begin 
 check("signed addenda are limited to the signer or a supervisor", addendumRoute.includes("assessment.signed_by?.id !== auth.user.id") && addendumRoute.includes("Only the signing assessor or a supervisor"));
 check("assigned assessors and supervisors can submit a recommendation", recommendationRoute.includes("allowSupervisorOverride") && workflowStore.includes("allowSupervisorOverride") && workflowStore.includes("assigned assessor or a supervisor"));
 check("only supervisors can record final decisions", decisionRoute.includes('["admin", "assessment_coordinator"]'));
+check("authorized referral users can open signed assessment charts", admissionSummaryRoute.includes("requirePipelineUser(request)") && admissionSummaryRoute.includes("requireReferralAccess") && !admissionSummaryRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
+check("only supervisors can send Meet the Client", meetClientEmailRoute.includes('["admin", "assessment_coordinator"]'));
+check("Meet the Client requires explicit recipient confirmation and same-origin protection", meetClientEmailRoute.includes("body.value.confirmed !== true") && meetClientEmailRoute.includes("requireSameOriginMutation"));
+check("Meet the Client requires an accepted decision and signed assessment", meetClientEmailRoute.includes('snapshot.decision?.outcome !== "accepted"') && meetClientEmailRoute.includes("selectSignedAssessment") && meetClientEmailRoute.includes("recommended?.signed_at"));
+check("summary and email prefer the recommendation's exact assessment", admissionSummaryRoute.includes("snapshot.recommendation?.assessmentId") && meetClientEmailRoute.includes("snapshot.recommendation?.assessmentId"));
+check("email recipients are constrained to approved organization domains", graphMail.includes("PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS") && graphMail.includes("allowedRecipientDomains.includes(emailDomain(value))"));
+check("email subject excludes the client name", meetClientTemplateSource.includes('Meet the Client | ${summary.community') && !meetClientTemplateSource.match(/subject\s*=.*summary\.name/));
+check("email delivery is idempotent and audited without recipient addresses", deliveryAudit.includes("pipeline.idempotency_keys") && deliveryAudit.includes("recipient_domains") && !deliveryAudit.includes("recipient_addresses"));
+check("the referral workspace exposes assessment Charts without adding them to historical records", referralPacketCanvas.includes('{ page: 3, label: "Charts" }') && referralPacketCanvas.includes("normalizeWorkspaceView") && referralPacketCanvas.includes('workspaceStatus !== "historical"'));
+check("the Charts workspace contains only the complete chart and Meet the Client outputs", assessmentChartWorkspace.includes('label="Complete chart"') && assessmentChartWorkspace.includes('label="Meet the Client"') && assessmentChartWorkspace.includes("<CompleteAssessmentChart") && assessmentChartWorkspace.includes("<MeetClientChart") && !assessmentChartWorkspace.includes("DecisionPanel") && !assessmentChartWorkspace.includes("overrideReason"));
+check("the complete chart is generated only from a signed assessment", admissionSummaryRoute.includes("selectSignedAssessment") && admissionSummaryRoute.includes("recommended?.signed_at") && admissionSummaryRoute.includes("find((item) => item.signed_at)"));
 check("only supervisors can move a referral to trash", referralRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
 check("only supervisors can authorize intake without an initial packet", manualIntakeRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
 check("final decisions require a recommendation or audited override", workflowStore.includes("recommendation_required") && workflowStore.includes("overrideReason"));

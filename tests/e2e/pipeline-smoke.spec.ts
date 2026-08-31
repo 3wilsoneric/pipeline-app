@@ -1405,10 +1405,10 @@ test.describe("Referral home and packet canvas", () => {
     await beginDialog.getByRole("button", { name: "Begin assessment", exact: true }).click();
     await assessmentInterview.getByRole("button", { name: /^History/ }).click();
     await assessmentInterview.getByLabel("Prior placements", { exact: true }).fill("Client reports one prior placement; dates and discharge reason are not yet verified.");
-    await assessmentInterview.getByText("Note guide", { exact: true }).first().click();
-    await expect(assessmentInterview.getByText("Things to note", { exact: true }).first()).toBeVisible();
-    await expect(assessmentInterview.getByText("Strong note pattern", { exact: true }).first()).toBeVisible();
-    await expect(assessmentInterview.getByText("What to cover", { exact: true }).first()).toBeVisible();
+    await assessmentInterview.getByText("Answer guide", { exact: true }).first().click();
+    await expect(assessmentInterview.getByText("Evidence to capture", { exact: true }).first()).toBeVisible();
+    await expect(assessmentInterview.getByText("Strong answer structure", { exact: true }).first()).toBeVisible();
+    await expect(assessmentInterview.getByText("What this field needs", { exact: true }).first()).toBeVisible();
     await page.getByRole("button", { name: /^Function/ }).click();
     const languageBarrier = page.getByRole("group", { name: "Language barrier", exact: true });
     await languageBarrier.getByRole("button", { name: "Yes", exact: true }).click();

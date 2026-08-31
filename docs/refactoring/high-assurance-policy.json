@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "target": "practical_high_assurance",
+  "claimPolicy": {
+    "allowed": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice.",
+    "prohibitedClaims": [
+      "bug-free",
+      "perfect",
+      "formally verified application",
+      "safe in every environment"
+    ]
+  },
+  "assuranceClasses": [
+    "mechanical",
+    "exhaustive_finite",
+    "model_checked",
+    "property_based",
+    "mutation",
+    "integration",
+    "concurrency",
+    "statistical_human",
+    "operational_recovery"
+  ],
+  "criticalities": ["critical", "high", "medium", "low"],
+  "obligationStatuses": ["planned", "partial", "verified"],
+  "convergence": {
+    "requiredConsecutiveAdversarialPasses": 2,
+    "requireContextSeparatedPasses": true,
+    "requireIndependentHumanDisposition": true,
+    "maximumUnresolvedCritical": 0,
+    "maximumUnresolvedHigh": 0,
+    "requireCandidateCommitBinding": true,
+    "requirePostComprehensionNoWorse": true,
+    "requireRollbackOrRecoveryEvidence": true,
+    "requireResidualRiskAcceptance": true,
+    "prohibitMetricOnlyAcceptance": true
+  },
+  "iteration": {
+    "oneResponsibilityPerIteration": true,
+    "requirePreChangeCharacterization": true,
+    "requireDiffInspection": true,
+    "requireFocusedEvidence": true,
+    "requireBaselineDelta": true,
+    "requireTradeoffDisposition": true,
+    "requireHumanAcceptance": true
+  },
+  "criticalResidualRiskPolicy": "Critical and high findings must be resolved; they cannot be accepted as residual to complete a refactor slice."
+}

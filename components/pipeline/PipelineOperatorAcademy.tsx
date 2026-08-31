@@ -1,12 +1,13 @@
 "use client";
 
-import { BookOpen, CheckCircle2, Compass, GraduationCap, Map, RotateCcw, ShieldCheck, Sparkles, Wrench } from "lucide-react";
+import { BookOpen, CheckCircle2, Compass, FlaskConical, GraduationCap, Map, RotateCcw, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 import { startTransition, useEffect, useRef, useState } from "react";
 
 import OperatorCertification from "@/components/pipeline/training/OperatorCertification";
 import OperatorCurriculumView from "@/components/pipeline/training/OperatorCurriculumView";
 import OperatorJobAids from "@/components/pipeline/training/OperatorJobAids";
 import OperatorGuidedTours from "@/components/pipeline/training/OperatorGuidedTours";
+import OperatorDemoEntry from "@/components/pipeline/training/OperatorDemoEntry";
 import OperatorPracticeLab from "@/components/pipeline/training/OperatorPracticeLab";
 import OperatorProductMap from "@/components/pipeline/training/OperatorProductMap";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
@@ -28,12 +29,13 @@ import {
 } from "@/lib/training/operator-training-progress-contract";
 import type { OperatorActivity, OperatorModule } from "@/lib/training/operator-training-types";
 
-type TrainingView = "path" | "guided" | "practice" | "job-aids" | "product-map" | "certification";
+type TrainingView = "path" | "guided" | "demo" | "practice" | "job-aids" | "product-map" | "certification";
 type SyncStatus = "saved" | "saving" | "browser" | "error";
 
 const views: readonly { id: TrainingView; label: string; icon: typeof BookOpen }[] = [
   { id: "path", label: "My path", icon: BookOpen },
   { id: "guided", label: "Guided tours", icon: Compass },
+  { id: "demo", label: "Demo", icon: FlaskConical },
   { id: "practice", label: "Practice lab", icon: Sparkles },
   { id: "job-aids", label: "Job aids", icon: Wrench },
   { id: "product-map", label: "Product map", icon: Map },
@@ -45,11 +47,13 @@ export default function PipelineOperatorAcademy({
   assignedRoles,
   progressStorageKey,
   initialProgress,
+  demoUrl,
 }: {
   learnerName: string;
   assignedRoles: readonly string[];
   progressStorageKey: string;
   initialProgress: OperatorProgressRecord;
+  demoUrl: string | null;
 }) {
   const [view, setView] = useState<TrainingView>("path");
   const [progress, setProgress] = useState(() => normalizeOperatorProgress(initialProgress.progress, assignedRoles));
@@ -202,7 +206,7 @@ export default function PipelineOperatorAcademy({
           <div className="flex items-end overflow-x-auto border-t border-[#d8dfdc] bg-[#f1f4f3] px-2 pt-2 sm:px-4" role="tablist" aria-label="Learning Center sections">{views.map((item) => { const Icon = item.icon; const active = view === item.id; return <button key={item.id} type="button" role="tab" aria-selected={active} disabled={!hydrated} onClick={() => { setView(item.id); setConfirmReset(false); }} className={`relative -mb-px flex h-12 min-w-[142px] shrink-0 items-center justify-center gap-2 border border-b-0 px-4 text-[11px] font-black ${active ? "z-10 border-[#cbd5d1] bg-white text-[#1f2623]" : "border-transparent bg-transparent text-[#6a7470] hover:bg-[#e8ecea]"}`}><Icon size={14} aria-hidden="true" />{item.label}</button>; })}<div className="ml-auto hidden pb-2 pl-4 xl:block"><span className="text-[9px] font-black uppercase tracking-[0.1em] text-[#828b87]">Reviewed {OPERATOR_TRAINING_REVIEWED_AT} · versioned curriculum</span></div></div>
         </header>
 
-        <TrainingViewPanel view={view} progress={progress} record={record} onSelect={selectActivity} onEvidenceChange={changeEvidence} onEvidenceCommit={() => queueSave()} onComplete={completeActivity} onConfidence={recordConfidence} onScenarioAttempt={recordScenarioAttempt} onOpenModule={openModule} onOpenPractice={() => setView("practice")} onOpenGuided={() => setView("guided")} />
+        <TrainingViewPanel view={view} progress={progress} record={record} demoUrl={demoUrl} onSelect={selectActivity} onEvidenceChange={changeEvidence} onEvidenceCommit={() => queueSave()} onComplete={completeActivity} onConfidence={recordConfidence} onScenarioAttempt={recordScenarioAttempt} onOpenModule={openModule} onOpenPractice={() => setView("practice")} onOpenGuided={() => setView("guided")} />
 
         <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 border border-[#d3dcd8] bg-white px-4 py-3"><div className="flex items-center gap-2 text-[9px] font-bold leading-4 text-[#737d79]"><CheckCircle2 size={14} className="text-[#0f8b73]" aria-hidden="true" />Learning evidence must be synthetic. Never enter PHI, credentials, packet content, meeting links, or production identifiers.</div><button type="button" onClick={resetProgress} className={`inline-flex h-9 items-center gap-2 border px-3 text-[9px] font-black ${confirmReset ? "border-[#c85b4d] bg-[#fff0ed] text-[#9c3f34]" : "border-[#d2dad7] text-[#727b78] hover:border-[#9eb5ad]"}`}><RotateCcw size={12} aria-hidden="true" />{confirmReset ? "Press again to reset your record" : "Reset learning record"}</button></footer>
       </div>
@@ -210,9 +214,10 @@ export default function PipelineOperatorAcademy({
   );
 }
 
-function TrainingViewPanel({ view, progress, record, onSelect, onEvidenceChange, onEvidenceCommit, onComplete, onConfidence, onScenarioAttempt, onOpenModule, onOpenPractice, onOpenGuided }: { view: TrainingView; progress: OperatorTrainingProgress; record: OperatorProgressRecord; onSelect: (module: OperatorModule, activity: OperatorActivity) => void; onEvidenceChange: (module: OperatorModule, activity: OperatorActivity, text: string) => void; onEvidenceCommit: () => void; onComplete: (module: OperatorModule, activity: OperatorActivity) => void; onConfidence: (moduleId: string, value: number) => void; onScenarioAttempt: (scenarioId: string, passed: boolean) => void; onOpenModule: (moduleId: string) => void; onOpenPractice: () => void; onOpenGuided: () => void }) {
+function TrainingViewPanel({ view, progress, record, demoUrl, onSelect, onEvidenceChange, onEvidenceCommit, onComplete, onConfidence, onScenarioAttempt, onOpenModule, onOpenPractice, onOpenGuided }: { view: TrainingView; progress: OperatorTrainingProgress; record: OperatorProgressRecord; demoUrl: string | null; onSelect: (module: OperatorModule, activity: OperatorActivity) => void; onEvidenceChange: (module: OperatorModule, activity: OperatorActivity, text: string) => void; onEvidenceCommit: () => void; onComplete: (module: OperatorModule, activity: OperatorActivity) => void; onConfidence: (moduleId: string, value: number) => void; onScenarioAttempt: (scenarioId: string, passed: boolean) => void; onOpenModule: (moduleId: string) => void; onOpenPractice: () => void; onOpenGuided: () => void }) {
   if (view === "path") return <div className="mt-5"><OperatorCurriculumView progress={progress} onSelect={onSelect} onEvidenceChange={onEvidenceChange} onEvidenceCommit={onEvidenceCommit} onComplete={onComplete} onConfidence={onConfidence} /></div>;
   if (view === "guided") return <div className="mt-5"><OperatorGuidedTours progress={progress} /></div>;
+  if (view === "demo") return <div className="mt-5"><OperatorDemoEntry demoUrl={demoUrl} /></div>;
   if (view === "practice") return <div className="mt-5"><OperatorPracticeLab progress={progress} onAttempt={onScenarioAttempt} /></div>;
   if (view === "job-aids") return <div className="mt-5"><OperatorJobAids role={progress.role} /></div>;
   if (view === "product-map") return <div className="mt-5"><OperatorProductMap onOpenModule={onOpenModule} /></div>;

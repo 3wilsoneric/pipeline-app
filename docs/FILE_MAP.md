@@ -49,9 +49,14 @@
 - `database/migrations/0012_referral_trash.sql` - recoverable referral deletion and indexed 30-day retention window.
 - `database/migrations/0018_academy_progress.sql` - private developer Academy progress workspace-state kind.
 - `database/migrations/0019_operator_training_progress.sql` - authenticated end-user Learning Center progress workspace-state kind.
+- `database/migrations/0020_allo_canvas_content.sql` - immutable native ALLO canvas snapshots, ordered text blocks, exact workspace links, and review-gated assessment-note candidates.
 - `database/migration-checksums.json` - append-only migration integrity baseline.
 - `lib/database/pipeline-database.ts` - server-only bounded PostgreSQL connection/readiness adapter.
 - `scripts/apply-database-migrations.mjs` - ordered advisory-lock migration runner with checksum drift protection.
+- `scripts/capture-allo-canvas-content.mjs` and `scripts/prepare-allo-canvas-content.mjs` - authorized native canvas capture and deterministic text normalization.
+- `tools/allo-canvas-text-exporter` - read-only signed-in Chrome extension for bulk native canvas-text export.
+- `scripts/upload-allo-canvas-content.mjs`, `scripts/import-allo-canvas-content.mjs`, and `scripts/reconcile-allo-canvas-content.mjs` - immutable Blob publication, exact-ID staging, and count-only reconciliation.
+- `scripts/review-allo-canvas-content.mjs` - optimistic, audited review of staged historical assessment-note candidates.
 - `lib/pipeline/referral-query.ts` - bounded referral list query parsing.
 - `app/api/referrals/facets/route.ts` - canonical server-side referral facet counts.
 - `lib/pipeline/resident-link-store.ts` - local-development and transactional PostgreSQL identity-link adapters.

@@ -7,7 +7,9 @@
   "reviewedAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
   "files": [
     {
-      "path": "exact/path/from-slice-scope.ts",
+      "path": "exact/path/from-slice-scope-or-change-allowlist.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Which stable layer this file may depend on and which callers may depend on it.",
       "purpose": "Owner-authored reason this file exists.",
       "callers": ["known direct entry point"],
       "publicExports": ["exportName"],

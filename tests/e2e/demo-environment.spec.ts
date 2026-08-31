@@ -1,0 +1,48 @@
+import { expect, test } from "@playwright/test";
+
+test.describe("Pipeline Demo Environment", () => {
+  test("creates and opens a real synthetic assessment rehearsal", async ({ page }) => {
+    const errors = watchBrowserErrors(page);
+    const response = await page.goto("/training/demo");
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { name: "Assessor walkthrough" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open guide launcher" })).toHaveCount(0);
+    await page.getByRole("tab", { name: "Practice cases" }).click();
+
+    const scenario = page.getByRole("article").filter({
+      has: page.getByRole("heading", { name: "Assessment interview" }),
+    });
+    await scenario.getByRole("button", { name: "Start" }).click();
+
+    await expect(page).toHaveURL(/screen=packet.*workspaceStage=assessment/);
+    await expect(page.locator('[data-pipeline-demo-banner="true"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: /02 Assessment/ })).toHaveAttribute("aria-current", "page");
+    const interview = page.getByRole("dialog", { name: "Assessment interview" });
+    await expect(interview).toBeVisible();
+    await expect(interview.getByRole("textbox", { name: "Resident number" })).toBeEditable();
+    await interview.getByRole("button", { name: /Clinical 0\/6/ }).click();
+    await expect(interview.getByRole("heading", { name: "Current presentation" })).toBeVisible();
+    await expect(interview.getByRole("textbox", { name: "Current symptoms" })).toBeEditable();
+    await interview.getByText("Answer format", { exact: true }).first().click();
+    await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
+    await expect.poll(() => errors).toEqual([]);
+  });
+
+  test("keeps the presenter run usable on a narrow screen", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/training/demo");
+    await expect(page.getByRole("heading", { name: "Assessor walkthrough" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Review the referral" })).toBeVisible();
+    await expect(page.getByText("Open Intake and verify name, date of birth, community, source, and owner")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+});
+
+function watchBrowserErrors(page: import("@playwright/test").Page) {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && !message.text().includes("/_next/webpack-hmr")) errors.push(message.text());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  return errors;
+}

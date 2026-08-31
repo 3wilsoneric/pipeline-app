@@ -58,13 +58,11 @@ export async function POST(
     const access = await requireReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
     const referral = access.referral;
-    const assessmentAssignee = assessmentAssigneeForReferral(auth.user, referral);
-    if (!assessmentAssignee) {
-      return jsonError("Assign this referral to an assessor before starting an assessment.", 422);
-    }
-    if (!canWorkAssessment(auth.user, referral.ownerId)) {
-      return jsonError("Only the assigned assessor or a supervisor can create an assessment.", 403);
-    }
+    const workspaceFailure = assessmentWorkspaceFailure(referral.workspaceStatus);
+    if (workspaceFailure) return workspaceFailure;
+    const assignment = resolveAssessmentAssignment(auth.user, referral);
+    if (!assignment.ok) return assignment.response;
+    const assessmentAssignee = assignment.assignee;
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const validated = validateAssessmentCreateRequest(body.value);
@@ -110,6 +108,26 @@ export async function POST(
       return jsonError(error instanceof Error ? error.message : "Could not create assessment.", 400);
     }
   });
+}
+
+function assessmentWorkspaceFailure(workspaceStatus: string | undefined) {
+  return workspaceStatus === "historical"
+    ? jsonError("Historical workspaces are read-only profiles and cannot create assessments.", 409)
+    : null;
+}
+
+function resolveAssessmentAssignment(
+  user: Parameters<typeof assessmentAssigneeForReferral>[0],
+  referral: Parameters<typeof assessmentAssigneeForReferral>[1],
+) {
+  const assignee = assessmentAssigneeForReferral(user, referral);
+  if (!assignee) {
+    return { ok: false as const, response: jsonError("Assign this referral to an assessor before starting an assessment.", 422) };
+  }
+  if (!canWorkAssessment(user, referral.ownerId)) {
+    return { ok: false as const, response: jsonError("Only the assigned assessor or a supervisor can create an assessment.", 403) };
+  }
+  return { ok: true as const, assignee };
 }
 
 async function parseReferralId(context: { params: Promise<{ referralId: string }> }) {

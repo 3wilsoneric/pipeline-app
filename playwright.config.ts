@@ -63,6 +63,8 @@ export default defineConfig({
       PIPELINE_RESIDENT_LINK_STORE_PATH: residentLinkStorePath,
       PIPELINE_LOCAL_DOCUMENT_ROOT: documentStorePath,
       PIPELINE_ENABLE_SYNTHETIC_PROFILES: "true",
+      PIPELINE_DEMO_MODE: "true",
+      PIPELINE_DEMO_DATA_ISOLATED: "true",
       PIPELINE_WORKER_SHARED_SECRET: "playwright-worker-secret",
       NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED: desktopE2E ? "true" : "false",
       PIPELINE_DESKTOP_STATE_ENABLED: desktopE2E ? "true" : "false",

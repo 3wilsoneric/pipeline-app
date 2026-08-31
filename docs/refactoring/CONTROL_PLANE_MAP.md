@@ -2,6 +2,8 @@
 
 Status: setup draft requiring owner validation before refactoring begins.
 
+`canonical-responsibilities.json`, `architecture-comprehension-probes.json`, and `proof-obligations.json` are the machine-readable companions to this narrative. They remain agent-drafted candidates until the relevant human owner validates them; this document alone is not start evidence.
+
 The control plane is code that decides who may act, what state may change, how the change is persisted and audited, and whether evidence can be trusted. A file may be large without being control-plane code; a small authorization or matching helper may be critical.
 
 ## Referral workflow

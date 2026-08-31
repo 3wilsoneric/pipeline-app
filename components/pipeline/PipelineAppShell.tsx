@@ -3,6 +3,7 @@
 import { ReactNode, Suspense, useState } from "react";
 
 import PipelineHeader from "@/components/pipeline/PipelineHeader";
+import DemoEnvironmentBanner from "@/components/pipeline/training/DemoEnvironmentBanner";
 import PipelineGuidedCoach from "@/components/pipeline/training/PipelineGuidedCoach";
 import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-context";
 
@@ -18,6 +19,7 @@ export default function PipelineAppShell({
   return (
     <PipelineShellProvider value={{ searchTerm, setSearchTerm, searchOpen, setSearchOpen, homeMode, setHomeMode }}>
       <div className="flex h-screen flex-col overflow-hidden bg-white text-[#111111]">
+        <DemoEnvironmentBanner />
         <Suspense fallback={<div aria-hidden="true" className="h-[82px] shrink-0 bg-white" />}>
           <PipelineHeader />
         </Suspense>

@@ -21,6 +21,7 @@ const approvedSlice = {
   worktreePath: "/tmp/pipeline-refactor",
   architectureNarrative: "docs/refactoring/narrative.md",
   fileAuditDisposition: "docs/refactoring/files.json",
+  assuranceRecord: "docs/refactoring/assurance.json",
   allowedChangePaths: ["lib/pipeline/referral-store.ts", "tests/referral-store/"],
   invariants: ["Stale writes remain rejected."],
   requiredGates: ["check:api"],

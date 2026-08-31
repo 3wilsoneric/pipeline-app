@@ -23,8 +23,24 @@ function git(args, cwd = process.cwd()) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
+function gitObjectExists(revision, path) {
+  try {
+    git(["cat-file", "-e", `${revision}:${path}`]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function repositoryPaths() {
   return git(["ls-files", "--cached", "--others", "--exclude-standard", "-z"])
+    .split("\0")
+    .filter(Boolean)
+    .sort();
+}
+
+function repositoryPathsAtRevision(revision) {
+  return git(["ls-tree", "-r", "--name-only", "-z", revision])
     .split("\0")
     .filter(Boolean)
     .sort();
@@ -230,6 +246,15 @@ if ((currentWorktree?.changes ?? 0) > 0) warnings.push(`Current worktree has ${c
 
 const activeSlice = registry.slices.find((slice) => slice.status === "in_progress");
 if (registry.mode === "active" && activeSlice) {
+  const governancePaths = new Set([
+    "docs/refactoring/evidence-matrix.json",
+    "docs/refactoring/refactor-slices.json",
+    ...(activeSlice.assuranceRecord ? [activeSlice.assuranceRecord] : []),
+    ...auditArtifacts,
+  ]);
+  const allowedChangePaths = activeSlice.allowedChangePaths ?? [];
+  const isAllowedChange = (path) => governancePaths.has(path)
+    || allowedChangePaths.some((allowed) => allowed.endsWith("/") ? path.startsWith(allowed) : path === allowed);
   if (Number(nodeTypesVersion?.split(".")[0]) !== policy.runtime.nodeMajor) errors.push("Active refactoring requires Node runtime and @types/node major alignment.");
   if (inventoryDrift.length > 0) errors.push("Active refactoring requires a current every-file repository audit.");
   if (policy.worktrees.requireDedicatedWorktreeForActiveSlice) {
@@ -240,9 +265,25 @@ if (registry.mode === "active" && activeSlice) {
     if (activeSlice.branch && activeSlice.branch !== currentWorktree?.branch) errors.push(`${activeSlice.id} registry branch does not match the current branch.`);
     if (activeSlice.startingCommit) {
       try { git(["merge-base", "--is-ancestor", activeSlice.startingCommit, "HEAD"]); } catch { errors.push(`${activeSlice.id} startingCommit is not an ancestor of HEAD.`); }
+      try {
+        const branchPoint = git(["merge-base", "main", "HEAD"]);
+        if (branchPoint !== activeSlice.startingCommit) errors.push(`${activeSlice.id} must fork from its exact recorded startingCommit; merge-base with main is ${branchPoint}.`);
+      } catch {
+        errors.push(`${activeSlice.id} starting branch point could not be verified.`);
+      }
     }
   }
 
+  let startingPaths = [];
+  if (activeSlice.startingCommit) {
+    try {
+      startingPaths = repositoryPathsAtRevision(activeSlice.startingCommit);
+    } catch {
+      errors.push(`${activeSlice.id} startingCommit file inventory could not be read.`);
+    }
+  }
+
+  let fileAuditDispositionPaths = new Set();
   if (!activeSlice.fileAuditDisposition || !existsSync(activeSlice.fileAuditDisposition)) {
     errors.push(`${activeSlice.id} must reference an approved file audit disposition.`);
   } else {
@@ -252,15 +293,21 @@ if (registry.mode === "active" && activeSlice) {
     if (disposition.startingCommit !== activeSlice.startingCommit) errors.push(`${activeSlice.id} file audit disposition must use the registry startingCommit.`);
     if (!disposition.humanOwner || !disposition.reviewedAt || !disposition.reviewedBy || !disposition.approvedAt) errors.push(`${activeSlice.id} file audit disposition lacks human review metadata.`);
     if (disposition.humanOwner === disposition.reviewedBy) errors.push(`${activeSlice.id} file audit disposition requires an independent reviewer.`);
-    const scopedPaths = paths.filter((path) => activeSlice.paths.some((scope) => path === scope || path.startsWith(`${scope.replace(/\/$/u, "")}/`)));
+    const isCoreScopePath = (path) => activeSlice.paths.some((scope) => path === scope || path.startsWith(`${scope.replace(/\/$/u, "")}/`));
+    const scopedPaths = [...new Set([...startingPaths, ...paths].filter(isCoreScopePath))].sort();
     const dispositionByPath = new Map();
     for (const file of disposition.files ?? []) {
       if (dispositionByPath.has(file.path)) errors.push(`${activeSlice.id} file audit disposition repeats ${file.path}.`);
       dispositionByPath.set(file.path, file);
-      if (!scopedPaths.includes(file.path)) errors.push(`${activeSlice.id} file audit disposition includes out-of-scope path ${file.path}.`);
+      if (!isCoreScopePath(file.path) && !isAllowedChange(file.path)) errors.push(`${activeSlice.id} file audit disposition includes out-of-scope path ${file.path}.`);
       if (!file.purpose || !Array.isArray(file.callers) || !Array.isArray(file.publicExports) || !Array.isArray(file.sideEffects) || !file.failureBehavior || !Array.isArray(file.tests) || file.tests.length === 0 || !file.decision || !file.decisionReason) {
         errors.push(`${activeSlice.id} file audit disposition is incomplete for ${file.path}.`);
       }
+      const existedAtStart = activeSlice.startingCommit && gitObjectExists(activeSlice.startingCommit, file.path);
+      if (!existedAtStart && (file.plannedNew !== true || !file.dependencyDirection)) {
+        errors.push(`${activeSlice.id} planned new file ${file.path} requires plannedNew true and an explicit dependencyDirection.`);
+      }
+      if (existedAtStart && file.plannedNew === true) errors.push(`${activeSlice.id} marks existing file ${file.path} as plannedNew.`);
       if (!["keep", "split", "move", "replace", "delete"].includes(file.decision)) errors.push(`${activeSlice.id} file audit disposition has invalid decision for ${file.path}.`);
       const prompts = new Map((file.staticPrompts ?? []).map((prompt) => [prompt.prompt, prompt]));
       for (const prompt of auditedByPath.get(file.path)?.detected_concerns ?? []) {
@@ -271,21 +318,20 @@ if (registry.mode === "active" && activeSlice) {
       }
     }
     for (const path of scopedPaths) if (!dispositionByPath.has(path)) errors.push(`${activeSlice.id} file audit disposition is missing ${path}.`);
+    fileAuditDispositionPaths = new Set(dispositionByPath.keys());
   }
 
-  const governancePaths = new Set([
-    "docs/refactoring/evidence-matrix.json",
-    "docs/refactoring/refactor-slices.json",
-    ...auditArtifacts,
-  ]);
-  const allowedChangePaths = activeSlice.allowedChangePaths ?? [];
   if (allowedChangePaths.length === 0) errors.push(`${activeSlice.id} must define exact allowedChangePaths before implementation.`);
   const changedPaths = new Set([
     ...(activeSlice.startingCommit ? git(["diff", "--name-only", activeSlice.startingCommit]).split("\n").filter(Boolean) : []),
     ...git(["ls-files", "--others", "--exclude-standard"]).split("\n").filter(Boolean),
   ]);
-  const isAllowedChange = (path) => governancePaths.has(path) || allowedChangePaths.some((allowed) => allowed.endsWith("/") ? path.startsWith(allowed) : path === allowed);
-  for (const path of changedPaths) if (!isAllowedChange(path)) errors.push(`${activeSlice.id} changed out-of-scope path ${path}.`);
+  for (const path of changedPaths) {
+    if (!isAllowedChange(path)) errors.push(`${activeSlice.id} changed out-of-scope path ${path}.`);
+    if (!governancePaths.has(path) && !fileAuditDispositionPaths.has(path)) {
+      errors.push(`${activeSlice.id} changed file ${path} without an approved file audit disposition.`);
+    }
+  }
 }
 
 const result = {

@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "status": "setup_draft",
+  "updatedAt": "2026-08-31",
+  "humanValidated": false,
+  "interpretation": "These are bounded application-specific obligations, not a proof that Pipeline is bug-free. Human owners must validate completeness and intended semantics before implementation.",
+  "obligations": [
+    {
+      "id": "referral_same_section_one_winner",
+      "sliceId": "referral-store-boundaries",
+      "criticality": "critical",
+      "property": "For concurrent writes from the same referral section version, at most one material mutation commits and every loser receives the characterized stale-write result without audit or side effects for an unapplied change.",
+      "assuranceMethods": ["exhaustive_finite", "property_based", "concurrency", "mutation"],
+      "tracePaths": ["lib/pipeline/referral-store.ts", "lib/pipeline/referral-sections.ts"],
+      "verificationGates": ["check:workflow-fuzz", "database:concurrency", "certify:seeded-defects"],
+      "claimBoundary": "Declared referral section/version commands under the tested local and PostgreSQL configurations.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "referral_retry_and_audit_atomicity",
+      "sliceId": "referral-store-boundaries",
+      "criticality": "critical",
+      "property": "Each referral command follows its approved replay, conflict, or non-retryable contract; no duplicate applies twice; and every committed material PostgreSQL mutation includes exactly the attributed audit effect in the same transaction.",
+      "assuranceMethods": ["mechanical", "integration", "concurrency", "mutation"],
+      "tracePaths": ["lib/pipeline/referral-store.ts"],
+      "verificationGates": ["check:api", "database:assurance:integration", "database:integrity", "certify:seeded-defects"],
+      "claimBoundary": "Commands explicitly listed in the owner-approved retry table; local audit differences remain explicit.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "assessment_signed_immutability",
+      "sliceId": "assessment-store-boundaries",
+      "criticality": "critical",
+      "property": "After signing, assessment content, signer attribution, and recorded provenance cannot be overwritten; later clinical clarification is append-only and preserves the signed version.",
+      "assuranceMethods": ["exhaustive_finite", "mechanical", "integration", "mutation"],
+      "tracePaths": [
+        "lib/assessment/assessment-lifecycle-validation.ts",
+        "lib/assessment/assessment-records.ts",
+        "lib/assessment/assessment-store.ts"
+      ],
+      "verificationGates": ["check:assessor-workflow", "check:assessment-workbook", "database:integrity", "certify:seeded-defects"],
+      "claimBoundary": "All lifecycle commands and historical signed/addendum shapes included in the compatibility fixture set.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "assessment_authorized_atomic_workflow_sync",
+      "sliceId": "assessment-store-boundaries",
+      "criticality": "critical",
+      "property": "Assessment mutations require the approved actor and resource relationship, retain field evidence, and preserve the characterized atomicity or recovery behavior of related referral workflow updates in both adapters.",
+      "assuranceMethods": ["exhaustive_finite", "integration", "concurrency", "mutation"],
+      "tracePaths": [
+        "lib/assessment/assessment-access.ts",
+        "lib/assessment/assessment-store.ts",
+        "lib/pipeline/referral-store.ts"
+      ],
+      "verificationGates": ["check:route-policy", "database:concurrency", "test:e2e:operational:high", "certify:seeded-defects"],
+      "claimBoundary": "Approved assessment roles, resource relationships, and workflow synchronization commands.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "workflow_authorized_finite_state_safety",
+      "sliceId": "workflow-and-handoff-owner",
+      "criticality": "critical",
+      "property": "No sequence of approved commands skips a required workflow stage, silently reopens a terminal decision, bypasses role/resource authorization, or creates a second canonical writer.",
+      "assuranceMethods": ["model_checked", "exhaustive_finite", "property_based", "mutation"],
+      "tracePaths": [
+        "lib/pipeline/referral-workflow.ts",
+        "lib/pipeline/workflow-store.ts",
+        "lib/pipeline/workflow-status.ts"
+      ],
+      "verificationGates": ["check:workflow-fuzz", "test:critical-safety", "certify:seeded-defects"],
+      "claimBoundary": "The owner-approved finite workflow model and its executable conformance mapping to production transition functions.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "ehr_handoff_truthful_at_most_once_effect",
+      "sliceId": "workflow-and-handoff-owner",
+      "criticality": "critical",
+      "property": "Only a ready, accepted, authorized referral records an EHR handoff outcome; duplicate or stale attempts do not apply twice; failures remain attributable and Pipeline never represents an external send that did not occur.",
+      "assuranceMethods": ["exhaustive_finite", "integration", "concurrency", "operational_recovery"],
+      "tracePaths": [
+        "lib/pipeline/workflow-store.ts",
+        "app/api/referrals/[referralId]/ehr-handoff/route.ts"
+      ],
+      "verificationGates": ["database:concurrency", "test:e2e:operational:high", "check:recovery"],
+      "claimBoundary": "Pipeline-owned handoff state and explicitly modeled external outcomes; no unverified claim about an external EHR.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "extraction_immutable_source_and_provenance",
+      "sliceId": "extraction-capstone",
+      "criticality": "critical",
+      "property": "Original packet bytes and digest remain immutable, and every accepted extracted value retains document, page, bounding box or declared location, confidence, candidates, review, correction, and audit lineage.",
+      "assuranceMethods": ["mechanical", "integration", "mutation", "statistical_human"],
+      "tracePaths": [
+        "lib/extraction/extraction-service.ts",
+        "lib/extraction/contracts.ts",
+        "lib/extraction/azure-blob.ts"
+      ],
+      "verificationGates": ["check:sample-packet", "check:storage-consistency", "check:extraction-quality", "certify:seeded-defects"],
+      "claimBoundary": "Governed packet formats and values represented in the approved corpus; individual ambiguous values still require review.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "extraction_worker_lease_and_write_boundary",
+      "sliceId": "extraction-capstone",
+      "criticality": "critical",
+      "property": "Claims, leases, retries, dead letters, and callbacks remain bounded and stale-attempt safe, while workers are structurally and behaviorally unable to write canonical referral or assessment state directly.",
+      "assuranceMethods": ["exhaustive_finite", "property_based", "integration", "operational_recovery"],
+      "tracePaths": [
+        "lib/extraction/extraction-state.ts",
+        "lib/extraction/processing-worker.ts",
+        "databricks/pipeline_extraction_worker.py",
+        "app/api/internal/extraction/report/route.ts"
+      ],
+      "verificationGates": ["check:extraction", "check:extraction-worker", "check:backlog-rehearsal", "check:recovery"],
+      "claimBoundary": "Declared worker state machine, internal routes, and tested queue/storage configurations.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "canvas_no_silent_accepted_work_loss",
+      "sliceId": "referral-canvas-components",
+      "criticality": "critical",
+      "property": "Autosave, queued saves, remount, navigation, recovery drafts, and stale-version conflicts cannot silently discard server-accepted or visibly acknowledged user work.",
+      "assuranceMethods": ["exhaustive_finite", "property_based", "integration", "operational_recovery"],
+      "tracePaths": [
+        "components/pipeline/ReferralPacketCanvas.tsx",
+        "components/pipeline/AssessmentWorkspace.tsx"
+      ],
+      "verificationGates": ["test:e2e", "test:e2e:cross-browser", "test:e2e:operational:high"],
+      "claimBoundary": "Characterized browser states, navigation paths, timing schedules, and supported browsers in the approved matrix.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "identity_link_requires_explicit_safe_review",
+      "sliceId": "referral-canvas-components",
+      "criticality": "critical",
+      "property": "No name-only or ambiguous candidate can become a canonical resident link without an authorized explicit review; identifier and DOB conflicts block linking; stale or denied attempts create no link.",
+      "assuranceMethods": ["exhaustive_finite", "property_based", "integration", "mutation"],
+      "tracePaths": [
+        "lib/pipeline/master-record-matching.ts",
+        "lib/pipeline/resident-link-store.ts",
+        "components/pipeline/ClientProfileView.tsx"
+      ],
+      "verificationGates": ["certify:master-merge", "test:e2e:operational:high", "certify:seeded-defects"],
+      "claimBoundary": "Owner-approved identity inputs, conflict rules, roles, and reviewed-link commands.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "test_restructure_preserves_behavior_detection",
+      "sliceId": "test-suite-structure",
+      "criticality": "critical",
+      "property": "Reorganizing tests preserves every approved behavior assertion and cleanup contract, introduces no source-string substitute, and retains a 100 percent kill rate for the reviewed critical mutant set.",
+      "assuranceMethods": ["mechanical", "mutation", "integration"],
+      "tracePaths": [
+        "tests/e2e/pipeline-smoke.spec.ts",
+        "scripts/api-behavior-fixtures.mjs",
+        "tests/e2e/support"
+      ],
+      "verificationGates": ["check:platform:fast", "certify:test-effectiveness", "test:e2e:operational:high"],
+      "claimBoundary": "The owner-approved assertion inventory, journeys, fixtures, cleanup semantics, and certified mutant set.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "test_helpers_do_not_hide_failure",
+      "sliceId": "test-suite-structure",
+      "criticality": "high",
+      "property": "Shared test helpers cannot swallow failures, weaken user-visible expectations, change isolation, or make a broken critical journey pass through retries or unconditional cleanup.",
+      "assuranceMethods": ["mechanical", "mutation", "integration"],
+      "tracePaths": ["tests/e2e/support", "tests/e2e/pipeline-smoke.spec.ts"],
+      "verificationGates": ["certify:test-effectiveness", "test:e2e"],
+      "claimBoundary": "Helpers and journeys included in the approved test-structure slice audit.",
+      "status": "planned",
+      "humanValidated": false
+    }
+  ]
+}

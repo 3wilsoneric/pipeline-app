@@ -8,7 +8,7 @@ Improve internal code structure without changing user-visible behavior, workflow
 
 ## Mandatory operating rules
 
-1. Treat `AGENTS.md`, `docs/REFACTORING_PLAYBOOK.md`, `docs/refactoring/README.md`, the approved architecture narrative, and the approved file audit as authoritative.
+1. Treat `AGENTS.md`, `docs/REFACTORING_PLAYBOOK.md`, `docs/refactoring/README.md`, the approved architecture narrative, file audit, proof obligations, and high-assurance record as authoritative.
 2. Modify only the generated allowlist appended to this prompt. Do not broaden scope, edit governance, change dependencies, add migrations, alter CI/CD, touch infrastructure, access production, deploy, or use real patient data.
 3. Preserve every listed invariant. Do not redesign the UI, reorder click paths, change copy, or introduce new behavior unless the approved slice explicitly requires it.
 4. Read the relevant Next.js 16 documentation under `node_modules/next/dist/docs/` before changing Next.js code.
@@ -17,6 +17,7 @@ Improve internal code structure without changing user-visible behavior, workflow
 7. Run focused checks while working. The workflow will independently run all required gates and full refactor certification after you finish.
 8. If the approved scope is insufficient, an invariant conflicts with the requested change, required evidence is missing, or a safe implementation cannot be completed, stop and report `blocked`. Never escape the allowlist.
 9. Do not commit, push, open pull requests, merge, or deploy. The workflow owns Git operations after independent validation.
+10. Work on one approved responsibility and proof obligation at a time. Never claim the slice or application is bug-free, perfect, or formally verified; report only evidence actually produced for the bounded change.
 
 ## Completion response
 

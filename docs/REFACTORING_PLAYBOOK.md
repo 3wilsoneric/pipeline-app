@@ -109,7 +109,7 @@ Before and after a bounded refactor, run the combined local certification:
 npm run certify:refactor
 ```
 
-This regenerates the baseline, runs the fast platform gate and seeded-defect effectiveness suite, and builds the production artifact. Storage and UI changes still require their focused PostgreSQL or Playwright gates described below.
+This verifies the setup controls and complexity ratchet, regenerates the baseline, runs the fast platform gate and seeded-defect effectiveness suite, and builds the production artifact. Storage and UI changes still require their focused PostgreSQL or Playwright gates described below.
 
 ## Preparation and implementation sequence
 
@@ -131,6 +131,8 @@ The owner reads the highest-overlap files and writes, without copying an agent s
 - Any difference between expected and observed behavior.
 
 This cannot be delegated. It is the comprehension-debt checkpoint.
+
+The owner also validates the slice's entries in `canonical-responsibilities.json`, `architecture-comprehension-probes.json`, and `proof-obligations.json`. A fresh-context reviewer completes the pre-change comprehension probes and cites code plus executed evidence. Agent-drafted entries remain blockers until that validation is recorded.
 
 ### 3. Replace weak safety nets before moving code
 
@@ -179,6 +181,22 @@ Setup mode permits gaps as warnings because no refactor is underway. Once a slic
 
 Global evidence applies to every slice. In particular, implementation begins only from a current hash-backed file/dependency inventory, an aligned Node runtime/type surface, and a dedicated recorded refactor worktree. See `docs/refactoring/CODE_QUALITY_POLICY.md`.
 
+## High-assurance convergence
+
+`docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md` defines the application-specific assurance target. Recursive passes operate on one approved responsibility and proof obligation at a time; they do not optimize every line and do not authorize repository-wide cleanup.
+
+Each slice uses a record shaped like `docs/refactoring/slice-assurance-record.example.json` to bind:
+
+- pre- and post-change fresh-context comprehension;
+- the owner-approved obligation set;
+- every bounded iteration and its accepted or rejected tradeoffs;
+- proof results and required gates attached to one candidate commit;
+- two consecutive context-separated adversarial passes;
+- rollback or recovery evidence;
+- human acceptance of only medium/low residual uncertainty.
+
+Critical and high findings must be resolved. They cannot be accepted as residual to finish a slice. Convergence means another evidence-driven pass finds no material safety, ownership, comprehension, test-power, recovery, or simplicity improvement without an offsetting regression. It never means that the application is bug-free.
+
 ## Control-plane fitness functions
 
 Introduce these incrementally after the architecture narrative confirms the intended boundaries:
@@ -209,6 +227,9 @@ Every structural change should state:
 - Rollback method.
 - Human explain-back for authorization, workflow, audit, PHI, retention, extraction provenance, matching, or handoff code.
 - Evidence matrix item updates and the selected performance budget profile.
+- Proof obligations addressed, assurance record updated, and exact candidate commit cited.
+- Pre/post comprehension result and adversarial finding dispositions.
+- Remaining medium/low uncertainty, detection, containment, recovery, owner, and review date.
 
 Prefer a small sequence of complete vertical changes over one large mechanical rewrite. If a change cannot be explained and reviewed in one sitting, split it.
 
@@ -227,6 +248,11 @@ A slice is complete only when:
 - Logs, metrics, errors, fixtures, and artifacts remain PHI-safe.
 - The old implementation is removed or has a dated, owned strangler exit criterion.
 - The baseline is rerun and the before/after result is reviewed rather than assumed to improve.
+- Every applicable proof obligation is verified against the candidate commit with implementation traceability.
+- Two consecutive context-separated adversarial passes leave no unresolved critical/high finding or material unaddressed simplification.
+- Post-change comprehension is no worse than the approved pre-change result.
+- Rollback or recovery evidence is exercised and remaining medium/low uncertainty is human accepted with detection and containment.
+- `npm run check:refactor-assurance` passes without lifecycle warnings for the completed slice.
 
 ## What remains human work
 
@@ -236,5 +262,7 @@ A slice is complete only when:
 - Review control-plane diffs line by line.
 - Approve match/merge rules, terminal workflow semantics, retention, and clinical handoff behavior.
 - Certify the production restore and live infrastructure paths with real credentials and operator evidence.
+- Validate the canonical responsibility map, comprehension answer quality, and completeness of proof obligations.
+- Disposition adversarial findings and accept, reject, or time-bound residual medium/low risks.
 
 Automation can make these decisions visible and repeatable. It cannot legitimately make them on behalf of the clinical and operational owners.

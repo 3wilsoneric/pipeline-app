@@ -54,6 +54,12 @@ for (const slice of registry.slices) {
   const evidence = evidenceById.get(slice.id);
   if (!evidence) continue;
   if (!profileIds.has(evidence.budgetProfile)) errors.push(`${slice.id} references unknown budget profile ${evidence.budgetProfile}.`);
+  const budgetProfile = budgets.profiles?.[evidence.budgetProfile];
+  for (const command of budgetProfile?.requiredCommands ?? []) {
+    if (!slice.requiredGates?.includes(command)) {
+      errors.push(`${slice.id} requiredGates must include performance-profile command ${command}.`);
+    }
+  }
   const itemIds = new Set();
   for (const item of evidence.items ?? []) {
     if (itemIds.has(item.id)) errors.push(`${slice.id} has duplicate evidence id ${item.id}.`);
@@ -95,6 +101,7 @@ for (const slice of registry.slices) {
   if (!slice.architectureNarrative || !existsSync(slice.architectureNarrative)) governanceGaps.push("architecture_narrative");
   if (!slice.approvedBy || !slice.approvedAt) governanceGaps.push("start_approval");
   if (!slice.fileAuditDisposition || !existsSync(slice.fileAuditDisposition)) governanceGaps.push("file_audit_disposition");
+  if (!slice.assuranceRecord || !existsSync(slice.assuranceRecord)) governanceGaps.push("assurance_record");
   if (started && beforeStart.length > 0) {
     errors.push(`${slice.id} started with unresolved before-start evidence: ${beforeStart.map((item) => item.id).join(", ")}.`);
   }

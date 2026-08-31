@@ -13,4 +13,5 @@ playwright-report
 test-results
 tests
 tmp
+tools
 *.log

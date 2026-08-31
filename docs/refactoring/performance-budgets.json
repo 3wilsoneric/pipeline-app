@@ -22,7 +22,7 @@
     },
     "workflow_control_plane": {
       "ordinaryApiP95Ms": 250,
-      "concurrentMutationBehavior": "idempotent duplicate mutations apply once",
+      "concurrentMutationBehavior": "duplicate execution follows the approved per-command replay or conflict contract and never applies a material mutation twice",
       "seededDefectKillRate": 1,
       "requiredCommands": [
         "check:performance",

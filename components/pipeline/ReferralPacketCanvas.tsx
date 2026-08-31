@@ -18,6 +18,8 @@ import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/comm
 import { californiaCountyOptions } from "@/lib/pipeline/workspace-presentation";
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
 import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
+import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
+import HistoricalReferralProfile from "@/components/pipeline/HistoricalReferralProfile";
 import type { AssessmentListResponse } from "@/lib/assessment/assessment-records";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
@@ -100,6 +102,7 @@ type ReferralPacketCanvasProps = {
     community?: string;
   };
   newDraftKey?: `new-${string}`;
+  initialWorkspaceStage?: "intake" | "assessment";
   onReferralSaved?: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onReferralDeleted?: () => void;
 };
@@ -127,12 +130,17 @@ type ExtractionReviewConflict = {
   latestValue: string;
 };
 
-type WorkspaceStage = 1 | 2;
+type WorkspaceStage = 1 | 2 | 3;
 type WorkspaceView = WorkspaceStage | "files" | "activity";
 
 const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
   { page: 1, label: "Intake" },
   { page: 2, label: "Assessment" },
+  { page: 3, label: "Charts" },
+] as const;
+
+const historicalSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
+  { page: 1, label: "Profile" },
 ] as const;
 
 const initialFields: Record<FieldKey, PacketField> = {
@@ -227,7 +235,7 @@ const attachments: Requirement[] = [
   { id: "face-sheet", label: "Face Sheet", type: "face_sheet" },
 ];
 
-export default function ReferralPacketCanvas({ referral, newDraftKey, onReferralSaved, onReferralDeleted }: ReferralPacketCanvasProps = {}) {
+export default function ReferralPacketCanvas({ referral, newDraftKey, initialWorkspaceStage = "intake", onReferralSaved, onReferralDeleted }: ReferralPacketCanvasProps = {}) {
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
     name: { ...initialFields.name, value: referral?.name ?? "" },
@@ -239,7 +247,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
   const [initialPacket, setInitialPacket] = useState<File | null>(null);
   const [initialPacketCategory, setInitialPacketCategory] = useState<InitialDocumentCategory>("face_sheet");
   const [tagsInput, setTagsInput] = useState("");
-  const [activePage, setActivePage] = useState<WorkspaceView>(1);
+  const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForStage(initialWorkspaceStage));
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;
     total: number;
@@ -283,6 +291,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
   const isSavingRef = useRef(isSaving);
   const draftRevisionRef = useRef(0);
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
+  useWorkspaceStageRouting(referral?.id, newDraftKey, initialWorkspaceStage, setActivePage);
   const defaultOwnerRef = useRef<{ principalId: string; displayName: string } | null>(null);
   const handoffReasonRef = useRef("");
   const assessmentRoutingReferralRef = useRef<number | null>(null);
@@ -334,7 +343,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
       setActivePage(1);
       return;
     }
-    if (assessmentRoutingReferralRef.current === referralId) return;
+    if (!shouldRouteAssessment(loadedReferral, referralId, assessmentRoutingReferralRef.current)) return;
     assessmentRoutingReferralRef.current = referralId;
     setActivePage(1);
     setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
@@ -361,7 +370,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
     return () => {
       cancelled = true;
     };
-  }, [referral?.id]);
+  }, [loadedReferral, referral?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -833,7 +842,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
   };
 
   const openPage = (page: WorkspaceView) => {
-    setActivePage(page);
+    setActivePage(normalizeWorkspaceView(page, loadedReferralRef.current?.workspaceStatus));
     requestAnimationFrame(() => {
       canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -1362,6 +1371,12 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
     || referral?.name?.trim()
     || fields.name.value.trim()
     || "New referral";
+  const workspacePresentation = getWorkspacePresentation(
+    loadedReferral?.workspaceStatus,
+    admissionDocumentCount,
+    attachmentCount,
+  );
+  const { isHistorical: isHistoricalWorkspace, steps: workspaceSteps } = workspacePresentation;
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
     (field) => extractedCanvasFieldKeys(field.field_key).length > 0,
   );
@@ -1422,11 +1437,11 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
                 onChange={(event) => openPage(Number(event.target.value) as WorkspaceStage)}
                 className="h-10 w-full border-0 border-b-2 border-b-[#0f8b73] border-t border-t-[#eeeeee] bg-white px-2 text-[12px] font-black text-[#111111] outline-none"
               >
-                {packetSteps.map(({ page, label }) => <option key={page} value={page}>{`0${page} ${label}`}</option>)}
+                {workspaceSteps.map(({ page, label }) => <option key={page} value={page}>{`0${page} ${label}`}</option>)}
               </select>
             </label>
             <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className="hidden min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3 lg:flex">
-              {packetSteps.map(({ page, label }) => (
+              {workspaceSteps.map(({ page, label }) => (
                 <button
                   key={page}
                   type="button"
@@ -1459,7 +1474,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
                 }`}
               >
                 <FolderOpen size={15} />
-                <span className="hidden xl:inline">Files</span>
+                <span className="hidden xl:inline">{workspacePresentation.filesLabel}</span>
               </button>
               <button
                 type="button"
@@ -1480,17 +1495,13 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
                 {savedAt !== "Workspace loaded" ? <div className="text-[11px] font-normal text-[#737373]">{savedAt}</div> : null}
                 {saveError ? <div className="mt-0.5 text-[11px] font-semibold text-[#a4473c]">{saveError}</div> : null}
               </div>
-              <button
-                type="button"
-                data-guide-target="create-workspace"
-                onClick={saveDraft}
-                disabled={isSaving || uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length)}
-                className="flex h-9 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8] sm:px-4"
-              >
-                <Save size={15} />
-                <span className="hidden sm:inline">{isSaving ? "Saving..." : loadedReferral || referral?.id ? "Save workspace" : "Create workspace"}</span>
-                <span className="sm:hidden">{isSaving ? "Saving" : loadedReferral || referral?.id ? "Save" : "Create"}</span>
-              </button>
+              <WorkspaceSaveControl
+                readOnly={isHistoricalWorkspace}
+                saving={isSaving}
+                hasReferral={hasReferralRecord(loadedReferral, referral?.id)}
+                blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
+                onSave={saveDraft}
+              />
               {loadedReferral && canSupervise ? (
                 <button
                   type="button"
@@ -1599,7 +1610,11 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
         ) : null}
 
         <div key={activePage} className="pipeline-step-enter">
-          {activePage === 1 ? (
+          {activePage === 1 && isHistoricalWorkspace && loadedReferral ? (
+            <PacketPage id="historical-profile" title="Profile">
+              <HistoricalReferralProfile key={loadedReferral.id} referral={loadedReferral} />
+            </PacketPage>
+          ) : activePage === 1 ? (
           <PacketPage id="packet-page-1" title="Intake">
             {referralContextPacketFields.length ? (
               <PacketExtractionReview
@@ -1759,25 +1774,13 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
             </div>
           </PacketPage>
           ) : activePage === "files" ? (
-            <PacketPage id="packet-files" title="Files">
-              <DocumentGroup
-                title="Required for admission"
-                detail={`${admissionDocumentCount} of ${requirements.length} attached`}
-                requirements={requirements}
-                documents={documents}
-                uploadingDocumentIds={uploadingDocumentIds}
-                onAttach={attachDocument}
-              />
-              <DocumentGroup
-                title="Assessment and supporting files"
-                detail={`${attachmentCount} of ${attachments.length} attached`}
-                requirements={attachments}
-                documents={documents}
-                uploadingDocumentIds={uploadingDocumentIds}
-                onAttach={attachDocument}
-              />
-            </PacketPage>
-          ) : activePage === 2 ? (
+            <WorkspaceFilesPage
+              presentation={workspacePresentation}
+              documents={documents}
+              uploadingDocumentIds={uploadingDocumentIds}
+              onAttach={attachDocument}
+            />
+          ) : activePage === 2 && !isHistoricalWorkspace ? (
             <PacketPage id="packet-page-2" title="Assessment">
                 <AssessmentWorkspace
                   referralId={loadedReferral?.id ?? referral?.id}
@@ -1795,6 +1798,10 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
                   }}
                 />
             </PacketPage>
+          ) : activePage === 3 && !isHistoricalWorkspace ? (
+            <PacketPage id="packet-charts" title="Charts">
+              <AssessmentChartWorkspace referralId={loadedReferral?.id ?? referral?.id} />
+            </PacketPage>
           ) : (
             <PacketPage id="packet-activity" title="Activity">
               <ReferralActivityPanel referralId={loadedReferral?.id ?? referral?.id} version={loadedReferral?.version} />
@@ -1811,6 +1818,152 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, onReferral
         />
       ) : null}
     </div>
+  );
+}
+
+function workspacePageForStage(stage: "intake" | "assessment"): WorkspaceStage {
+  return stage === "assessment" ? 2 : 1;
+}
+
+function useWorkspaceStageRouting(
+  referralId: number | undefined,
+  draftKey: ReferralPacketCanvasProps["newDraftKey"],
+  stage: "intake" | "assessment",
+  setActivePage: (page: WorkspaceView) => void,
+) {
+  const routedWorkspaceRef = useRef("");
+  useEffect(() => {
+    const routeKey = workspaceRouteKey(referralId, draftKey, stage);
+    if (routedWorkspaceRef.current === routeKey) return;
+    routedWorkspaceRef.current = routeKey;
+    setActivePage(workspacePageForStage(stage));
+  }, [draftKey, referralId, setActivePage, stage]);
+}
+
+function shouldRouteAssessment(
+  referral: Referral | null,
+  referralId: number,
+  routedReferralId: number | null,
+) {
+  return Boolean(
+    referral
+    && referral.id === referralId
+    && referral.workspaceStatus !== "historical"
+    && routedReferralId !== referralId,
+  );
+}
+
+function workspaceRouteKey(
+  referralId: number | undefined,
+  draftKey: ReferralPacketCanvasProps["newDraftKey"],
+  stage: "intake" | "assessment",
+) {
+  return `${referralId ?? draftKey ?? "new"}:${stage}`;
+}
+
+function normalizeWorkspaceView(page: WorkspaceView, workspaceStatus: Referral["workspaceStatus"] | undefined) {
+  if (workspaceStatus !== "historical") return page;
+  return typeof page === "number" ? 1 : page;
+}
+
+function getWorkspacePresentation(
+  workspaceStatus: Referral["workspaceStatus"] | undefined,
+  admissionDocumentCount: number,
+  attachmentCount: number,
+) {
+  const isHistorical = workspaceStatus === "historical";
+  return {
+    isHistorical,
+    steps: isHistorical ? historicalSteps : packetSteps,
+    filesLabel: isHistorical ? "Source files" : "Files",
+    admissionTitle: isHistorical ? "Admission documents" : "Required for admission",
+    admissionDetail: isHistorical
+      ? `${admissionDocumentCount} linked`
+      : `${admissionDocumentCount} of ${requirements.length} attached`,
+    supportingTitle: isHistorical ? "Supporting files" : "Assessment and supporting files",
+    supportingDetail: isHistorical
+      ? `${attachmentCount} linked`
+      : `${attachmentCount} of ${attachments.length} attached`,
+  };
+}
+
+function WorkspaceSaveControl({
+  readOnly,
+  saving,
+  hasReferral,
+  blocked,
+  onSave,
+}: {
+  readOnly: boolean;
+  saving: boolean;
+  hasReferral: boolean;
+  blocked: boolean;
+  onSave: () => void;
+}) {
+  if (readOnly) {
+    return <span className="hidden h-9 items-center bg-[#f1f4f2] px-3 text-[9px] font-black uppercase tracking-[0.08em] text-[#66706b] sm:flex">Read only</span>;
+  }
+  return (
+    <button
+      type="button"
+      data-guide-target="create-workspace"
+      onClick={onSave}
+      disabled={saving || blocked}
+      className="flex h-9 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8] sm:px-4"
+    >
+      <Save size={15} />
+      <span className="hidden sm:inline">{workspaceSaveLabel(saving, hasReferral, true)}</span>
+      <span className="sm:hidden">{workspaceSaveLabel(saving, hasReferral, false)}</span>
+    </button>
+  );
+}
+
+function workspaceSaveLabel(saving: boolean, hasReferral: boolean, expanded: boolean) {
+  if (saving) return expanded ? "Saving..." : "Saving";
+  if (hasReferral) return expanded ? "Save workspace" : "Save";
+  return expanded ? "Create workspace" : "Create";
+}
+
+function hasReferralRecord(referral: Referral | null, referralId: number | undefined) {
+  return Boolean(referral || referralId);
+}
+
+function workspaceSaveIsBlocked(uploadingDocumentIds: Set<string>, remoteChange: RemoteChange | null) {
+  return uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length);
+}
+
+function WorkspaceFilesPage({
+  presentation,
+  documents,
+  uploadingDocumentIds,
+  onAttach,
+}: {
+  presentation: ReturnType<typeof getWorkspacePresentation>;
+  documents: Record<string, string>;
+  uploadingDocumentIds: Set<string>;
+  onAttach: (requirementId: string, file: File) => void;
+}) {
+  return (
+    <PacketPage id="packet-files" title={presentation.filesLabel}>
+      <DocumentGroup
+        title={presentation.admissionTitle}
+        detail={presentation.admissionDetail}
+        requirements={requirements}
+        documents={documents}
+        uploadingDocumentIds={uploadingDocumentIds}
+        onAttach={onAttach}
+        readOnly={presentation.isHistorical}
+      />
+      <DocumentGroup
+        title={presentation.supportingTitle}
+        detail={presentation.supportingDetail}
+        requirements={attachments}
+        documents={documents}
+        uploadingDocumentIds={uploadingDocumentIds}
+        onAttach={onAttach}
+        readOnly={presentation.isHistorical}
+      />
+    </PacketPage>
   );
 }
 
@@ -2217,6 +2370,7 @@ function DocumentGroup({
   documents,
   uploadingDocumentIds,
   onAttach,
+  readOnly = false,
 }: {
   title: string;
   detail: string;
@@ -2224,6 +2378,7 @@ function DocumentGroup({
   documents: Record<string, string>;
   uploadingDocumentIds: Set<string>;
   onAttach: (requirementId: string, file: File) => void;
+  readOnly?: boolean;
 }) {
   return (
     <section aria-label={title} className="mb-6 last:mb-0">
@@ -2239,6 +2394,7 @@ function DocumentGroup({
             fileName={documents[requirement.id]}
             onAttach={(file) => onAttach(requirement.id, file)}
             uploading={uploadingDocumentIds.has(requirement.id)}
+            readOnly={readOnly}
           />
         ))}
       </div>
@@ -2251,13 +2407,16 @@ function DocumentDropRow({
   fileName,
   onAttach,
   uploading = false,
+  readOnly = false,
 }: {
   requirement: Requirement;
   fileName?: string;
   onAttach: (file: File) => void;
   uploading?: boolean;
+  readOnly?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  if (readOnly) return <ReadOnlyDocumentRow requirement={requirement} fileName={fileName} />;
 
   return (
     <div
@@ -2297,6 +2456,24 @@ function DocumentDropRow({
           if (file) onAttach(file);
         }}
       />
+    </div>
+  );
+}
+
+function ReadOnlyDocumentRow({ requirement, fileName }: { requirement: Requirement; fileName?: string }) {
+  return (
+    <div className="grid gap-2 border-b border-[#e1e4e2] bg-white px-3 py-2.5 md:grid-cols-[minmax(0,1fr)_minmax(210px,280px)] md:items-center">
+      <div className="flex items-center gap-2">
+        <FileText size={15} className="text-[#6f641b]" />
+        <div className="text-[13px] font-black text-[#303638]">{requirement.label}</div>
+        <span className={`ml-auto text-[9px] font-black uppercase tracking-[0.08em] ${fileName ? "text-[#0f8b73]" : "text-[#747b77]"}`}>
+          {fileName ? "Received" : "Not linked"}
+        </span>
+      </div>
+      <div className={`flex h-10 w-full items-center justify-center gap-2 border px-3 text-[10px] font-black ${fileName ? "border-[#8fc6b7] bg-[#f2faf7] text-[#0c705f]" : "border-[#d9ddda] bg-[#f7f8f7] text-[#7c827f]"}`}>
+        {fileName ? <Check size={15} /> : <FileText size={15} />}
+        <span className="max-w-full truncate">{fileName ?? "No linked source file"}</span>
+      </div>
     </div>
   );
 }
@@ -2609,6 +2786,7 @@ function getConflictReferral(payload: unknown) {
 function presenceSection(page: WorkspaceView): ReferralSection {
   if (page === "files") return "documents";
   if (page === "activity") return "workflow";
+  if (page === 3) return "assessment";
   if (page === 2) return "assessment";
   return "intake";
 }

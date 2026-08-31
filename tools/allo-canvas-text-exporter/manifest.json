@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "ALLO Canvas Notes Extractor",
+  "version": "0.6.0",
+  "description": "Imports a stable ALLO canvas inventory and exports each canvas through verified read-only content requests.",
+  "permissions": [
+    "activeTab",
+    "downloads",
+    "storage",
+    "tabs",
+    "unlimitedStorage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "https://allo.io/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://allo.io/*"],
+      "js": ["core.js", "page-hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://allo.io/*"],
+      "js": ["collector.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_title": "ALLO Canvas Notes Extractor",
+    "default_popup": "popup.html"
+  }
+}

@@ -136,6 +136,7 @@ export default function PipelineOverviewRoute() {
       <ReferralPacketCanvas
         referral={selectedReferral}
         newDraftKey={newReferralDraftKey}
+        initialWorkspaceStage={getInitialWorkspaceStage(activeSearchParams)}
         onReferralSaved={(savedReferral) => {
           setReferralDetails(savedReferral);
           const params = new URLSearchParams(activeSearchParams.toString());
@@ -193,6 +194,10 @@ export default function PipelineOverviewRoute() {
       )}
     </div>
   );
+}
+
+function getInitialWorkspaceStage(params: URLSearchParams) {
+  return params.get("workspaceStage") === "assessment" ? "assessment" : "intake";
 }
 
 function getScreenFromParams(params: URLSearchParams): PipelineScreen {

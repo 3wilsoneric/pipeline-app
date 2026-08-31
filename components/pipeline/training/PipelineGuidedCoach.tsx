@@ -207,6 +207,7 @@ export default function PipelineGuidedCoach() {
   };
 
   if (!hydrated) return null;
+  if (fromPipelinePath(window.location.pathname) === "/training/demo") return null;
   return <GuideCoachSurface state={state} role={role} tutorial={tutorial} step={step} target={target} exchange={exchange} command={command} onStart={startTutorial} onCommit={commit} onAdvance={advance} onCommandChange={setCommand} onSubmit={submitCommand} onExchange={setExchange} />;
 }
 

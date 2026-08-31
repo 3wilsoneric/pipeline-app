@@ -6,7 +6,7 @@ The cloud controller lets an approved refactor slice continue on GitHub-hosted i
 
 - `docs/refactoring/refactor-slices.json` remains the authorization source.
 - The registry must be `active`, and exactly one slice must be `in_progress`.
-- The active slice must satisfy the existing owner, approval, architecture, file-audit, branch, starting-commit, allowlist, and evidence controls.
+- The active slice must satisfy the existing owner, approval, architecture, file-audit, high-assurance, branch, starting-commit, allowlist, and evidence controls.
 - Codex receives a workspace-only permission profile and no Azure, production, patient-data, or deployment credentials.
 - The agent checkout does not retain GitHub credentials; the workflow authenticates only after validation when it publishes a safe checkpoint.
 - Workflow, governance, dependency, migration, infrastructure, environment, and deployment files are unconditionally agent-immutable.
@@ -21,7 +21,7 @@ The cloud controller lets an approved refactor slice continue on GitHub-hosted i
 
 1. The selector reads the committed registry from `main`.
 2. A preflight exits without invoking Codex when the registry is `setup_only`, no slice is active, approval metadata is incomplete, scheduled continuation is disabled, or a PR is already waiting for review.
-3. A live run checks out the recorded branch or creates it from current `main` after verifying the recorded starting commit is an ancestor.
+3. A live run checks out the recorded branch or creates it from the exact recorded starting commit after verifying that commit is on `main`.
 4. Existing setup checks run before editing.
 5. The static prompt is combined with only the approved slice context.
 6. Codex edits inside the isolated checkout and returns schema-validated JSON.
@@ -41,6 +41,13 @@ The repository requires:
 - Repository Actions permission for the pinned `openai/codex-action` and for `GITHUB_TOKEN` to create the draft PR. The workflow never submits an approval.
 
 The environment and disabled repository variable are provisioned during controller setup. Add the API key directly in GitHub; never place it in `.env.local`, repository files, workflow inputs, logs, or a Codex prompt.
+
+Observed on 2026-08-31, the `Refactor` environment exists and `PIPELINE_REFACTOR_AUTORUN_ENABLED` is `false`, but no `OPENAI_API_KEY` environment secret is listed. That keeps live cloud execution unavailable while setup is incomplete; preflight remains usable. Recheck without exposing secret values:
+
+```bash
+gh variable get PIPELINE_REFACTOR_AUTORUN_ENABLED --repo 3wilsoneric/pipeline-app
+gh secret list --env Refactor --repo 3wilsoneric/pipeline-app
+```
 
 ## Proving the controller without API usage
 
@@ -69,6 +76,7 @@ Follow `docs/refactoring/README.md` and `docs/REFACTORING_PLAYBOOK.md`. Do not a
 - exactly one `status: in_progress`
 - human `owner`, `approvedBy`, and `approvedAt`
 - existing `architectureNarrative` and `fileAuditDisposition`
+- existing `assuranceRecord` with human-validated responsibilities, probes, obligations, and pre-change comprehension
 - exact `allowedChangePaths`
 - `branch` beginning with `codex/refactor-`
 - full `startingCommit`

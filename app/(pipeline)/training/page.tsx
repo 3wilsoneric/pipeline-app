@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import PipelineOperatorAcademy from "@/components/pipeline/PipelineOperatorAcademy";
+import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import { primaryOperatorRole } from "@/lib/training/operator-training-curriculum";
 import { getOperatorTrainingUser } from "@/lib/training/operator-training-access";
 import { emptyOperatorProgress, type OperatorProgressRecord } from "@/lib/training/operator-training-progress-contract";
@@ -22,7 +23,8 @@ export default async function TrainingPage() {
   const role = primaryOperatorRole(user.roles);
   const identity = createHash("sha256").update(user.id).digest("hex").slice(0, 16);
   const initialProgress = await safeInitialProgress(user.id, user.roles, role);
-  return <PipelineOperatorAcademy learnerName={firstName(user.name)} assignedRoles={user.roles} progressStorageKey={`pipeline-operator-training:${identity}`} initialProgress={initialProgress} />;
+  const demoEnvironment = getPipelineDemoEnvironment();
+  return <PipelineOperatorAcademy learnerName={firstName(user.name)} assignedRoles={user.roles} progressStorageKey={`pipeline-operator-training:${identity}`} initialProgress={initialProgress} demoUrl={demoEnvironment.entryUrl} />;
 }
 
 async function safeInitialProgress(principalId: string, roles: readonly string[], role: ReturnType<typeof primaryOperatorRole>): Promise<OperatorProgressRecord> {

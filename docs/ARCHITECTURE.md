@@ -23,6 +23,7 @@ transactional runtime while the browser remains on the Alamo origin. See
 - `pipeline.people` owns stable Pipeline client identity.
 - `pipeline.referrals` owns referral episode state, assignment, tags, section versions, extraction projection, and EHR handoff state.
 - `pipeline.assessments` and provenance tables own append-only assessment history and field evidence. Existing-client assessments carry Alamo's immutable `canonical_client_id` after a reviewed resident link.
+- `pipeline.canvas_content_snapshots` and related block/candidate tables preserve native ALLO canvas text. Snapshot linkage uses exact ALLO canvas identity, and candidates remain separate from assessments until reviewed.
 - `pipeline.work_items` owns independent follow-up requirements, evidence references, owners, due dates, and waivers.
 - `pipeline.admission_decisions` owns the authenticated Yes/No decision and decline reason.
 - `pipeline.resident_links` owns reviewed joins between Pipeline identity and governed Alamo resident keys.

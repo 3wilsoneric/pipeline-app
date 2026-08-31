@@ -1111,7 +1111,7 @@ function assessmentSchemaResults() {
         new Set(assessmentSchema.assessmentToolFieldDefinitions.map((definition) => definition.key)).size === assessmentSchema.assessmentToolFieldDefinitions.length,
         "Every governed assessment field must be defined exactly once",
       );
-      assert(assessmentInterview.assessmentInterviewQuestions.length === 150, "Expected 150 user-facing interview questions");
+      assert(assessmentInterview.assessmentInterviewQuestions.length === 149, "Expected 149 focused user-facing interview questions");
       assert(
         new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field)).size === assessmentInterview.assessmentInterviewQuestions.length,
         "Every interview field must appear exactly once",
@@ -1121,8 +1121,8 @@ function assessmentSchemaResults() {
         .map((definition) => definition.key)
         .filter((field) => !interviewFields.has(field));
       assert(
-        JSON.stringify(nonInterviewFields) === JSON.stringify(["assessor", "unable_to_assess_reasons", "source_file", "match_confidence", "extraction_date"]),
-        "Only assignment, unable-response support, and extraction-owned fields may stay outside the interview",
+        JSON.stringify(nonInterviewFields) === JSON.stringify(["assessor", "unable_to_assess_reasons", "source_file", "match_confidence", "assessment_notes", "extraction_date"]),
+        "Only assignment, legacy notes, unable-response support, and extraction-owned fields may stay outside the interview",
       );
       assert(
         assessmentInterview.assessmentInterviewSections.every((section) => (

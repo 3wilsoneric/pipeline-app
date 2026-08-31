@@ -26,6 +26,10 @@ const zoomAssessmentMethodRollback = await readFile("database/rollbacks/0016_zoo
 const referralReceivedMonthRollback = await readFile("database/rollbacks/0017_referral_received_month.sql", "utf8");
 const academyProgressRollback = await readFile("database/rollbacks/0018_academy_progress.sql", "utf8");
 const operatorTrainingProgressRollback = await readFile("database/rollbacks/0019_operator_training_progress.sql", "utf8");
+const alloCanvasContentRollback = await readFile("database/rollbacks/0020_allo_canvas_content.sql", "utf8");
+const notePracticeLabRollback = await readFile("database/rollbacks/0021_note_practice_lab.sql", "utf8");
+const noteLabPatternSelectionsRollback = await readFile("database/rollbacks/0022_note_lab_pattern_selections.sql", "utf8");
+const noteLabFieldReviewsRollback = await readFile("database/rollbacks/0023_note_lab_field_reviews.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -94,7 +98,16 @@ try {
           and constraint_name = 'user_workspace_state_state_kind_check'
           and check_clause like '%operator_training_progress%'
       ) as operator_training_progress_kind,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0019_operator_training_progress') as operator_training_progress_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0019_operator_training_progress') as operator_training_progress_history,
+      to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
+      to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
+      to_regclass('pipeline.note_lab_votes') is not null as note_lab_votes,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0021_note_practice_lab') as note_practice_lab_history,
+      to_regclass('pipeline.note_lab_pattern_selections') is not null as note_lab_pattern_selections,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0022_note_lab_pattern_selections') as note_lab_pattern_selections_history,
+      to_regclass('pipeline.note_lab_field_reviews') is not null as note_lab_field_reviews,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0023_note_lab_field_reviews') as note_lab_field_reviews_history
   `;
   checks.push({
     name: "latest migrations exist before drill",
@@ -138,6 +151,73 @@ try {
       && before[0].academy_progress_history
       && before[0].operator_training_progress_kind
       && before[0].operator_training_progress_history
+      && before[0].canvas_content_snapshots
+      && before[0].canvas_content_candidates
+      && before[0].allo_canvas_content_history
+      && before[0].note_lab_votes
+      && before[0].note_practice_lab_history
+      && before[0].note_lab_pattern_selections
+      && before[0].note_lab_pattern_selections_history
+      && before[0].note_lab_field_reviews
+      && before[0].note_lab_field_reviews_history
+    ),
+  });
+  await connection.unsafe(noteLabFieldReviewsRollback);
+  const noteLabFieldReviewsDuring = await connection`
+    select to_regclass('pipeline.note_lab_field_reviews') is null as reviews_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0023_note_lab_field_reviews') as history_removed,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0022_note_lab_pattern_selections') as prior_history_preserved
+  `;
+  checks.push({
+    name: "rollback removes note lab field reviews and preserves prior migration history",
+    ok: Boolean(
+      noteLabFieldReviewsDuring[0].reviews_removed
+      && noteLabFieldReviewsDuring[0].history_removed
+      && noteLabFieldReviewsDuring[0].prior_history_preserved
+    ),
+  });
+  await connection.unsafe(noteLabPatternSelectionsRollback);
+  const noteLabPatternSelectionsDuring = await connection`
+    select to_regclass('pipeline.note_lab_pattern_selections') is null as selections_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0022_note_lab_pattern_selections') as history_removed,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0021_note_practice_lab') as prior_history_preserved
+  `;
+  checks.push({
+    name: "rollback removes note lab pattern selections and preserves prior migration history",
+    ok: Boolean(
+      noteLabPatternSelectionsDuring[0].selections_removed
+      && noteLabPatternSelectionsDuring[0].history_removed
+      && noteLabPatternSelectionsDuring[0].prior_history_preserved
+    ),
+  });
+  await connection.unsafe(notePracticeLabRollback);
+  const notePracticeLabDuring = await connection`
+    select to_regclass('pipeline.note_lab_votes') is null as votes_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0021_note_practice_lab') as history_removed,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as prior_history_preserved
+  `;
+  checks.push({
+    name: "rollback removes note practice votes and preserves prior migration history",
+    ok: Boolean(
+      notePracticeLabDuring[0].votes_removed
+      && notePracticeLabDuring[0].history_removed
+      && notePracticeLabDuring[0].prior_history_preserved
+    ),
+  });
+  await connection.unsafe(alloCanvasContentRollback);
+  const alloCanvasContentDuring = await connection`
+    select to_regclass('pipeline.canvas_content_snapshots') is null as snapshots_removed,
+      to_regclass('pipeline.canvas_content_field_candidates') is null as candidates_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as history_removed,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0019_operator_training_progress') as prior_history_preserved
+  `;
+  checks.push({
+    name: "rollback removes ALLO canvas-content tables and preserves prior migration history",
+    ok: Boolean(
+      alloCanvasContentDuring[0].snapshots_removed
+      && alloCanvasContentDuring[0].candidates_removed
+      && alloCanvasContentDuring[0].history_removed
+      && alloCanvasContentDuring[0].prior_history_preserved
     ),
   });
   await connection.unsafe(operatorTrainingProgressRollback);
@@ -389,7 +469,16 @@ try {
           and constraint_name = 'user_workspace_state_state_kind_check'
           and check_clause like '%operator_training_progress%'
       ) as operator_training_progress_kind,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0019_operator_training_progress') as operator_training_progress_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0019_operator_training_progress') as operator_training_progress_history,
+      to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
+      to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
+      to_regclass('pipeline.note_lab_votes') is not null as note_lab_votes,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0021_note_practice_lab') as note_practice_lab_history,
+      to_regclass('pipeline.note_lab_pattern_selections') is not null as note_lab_pattern_selections,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0022_note_lab_pattern_selections') as note_lab_pattern_selections_history,
+      to_regclass('pipeline.note_lab_field_reviews') is not null as note_lab_field_reviews,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0023_note_lab_field_reviews') as note_lab_field_reviews_history
   `;
   checks.push({
     name: "drill transaction restores original schema",
@@ -435,6 +524,15 @@ try {
       && after[0].academy_progress_history
       && after[0].operator_training_progress_kind
       && after[0].operator_training_progress_history
+      && after[0].canvas_content_snapshots
+      && after[0].canvas_content_candidates
+      && after[0].allo_canvas_content_history
+      && after[0].note_lab_votes
+      && after[0].note_practice_lab_history
+      && after[0].note_lab_pattern_selections
+      && after[0].note_lab_pattern_selections_history
+      && after[0].note_lab_field_reviews
+      && after[0].note_lab_field_reviews_history
     ),
   });
   const failed = checks.filter((check) => !check.ok);

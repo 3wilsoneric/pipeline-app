@@ -12,6 +12,8 @@ Evidence matrix entry: [docs/refactoring/evidence-matrix.json#item]
 
 Performance profile: [docs/refactoring/performance-budgets.json#profile]
 
+Assurance record: [slice-specific JSON path]
+
 ## Purpose
 
 [One bounded structural outcome. No unrelated cleanup.]
@@ -42,6 +44,15 @@ Performance profile: [docs/refactoring/performance-budgets.json#profile]
 
 Before-start evidence status: [all satisfied or approved not_applicable]
 
+## High-assurance model
+
+- Canonical responsibilities validated by/date:
+- Comprehension probes completed by/context/date:
+- Approved proof obligations:
+- Formal/finite model and implementation conformance boundary, when applicable:
+- Statistical/human-control boundary, when applicable:
+- Prohibited whole-application claim acknowledged: yes/no
+
 ## Risk review
 
 - Authorization:
@@ -70,5 +81,17 @@ Before-start evidence status: [all satisfied or approved not_applicable]
 ## Human explain-back
 
 [Owner-authored explanation without using the implementation agent’s summary.]
+
+## Convergence review
+
+- Candidate commit:
+- Verified obligation results:
+- Required commit-attached gates:
+- Post-change comprehension comparison:
+- Consecutive clean adversarial passes:
+- Rollback/recovery evidence:
+- Unresolved critical/high findings: must be zero
+- Accepted medium/low residual risks and review dates:
+- Assurance record result:
 
 Approved to start by: [name/date]
