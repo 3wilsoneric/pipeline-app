@@ -57,11 +57,17 @@ check("the progress rail lists the actual assessment fields", workspace.includes
   && workspace.includes("session.calibration.fieldSteps.map")
   && workspace.includes("field.label") && engine.includes("fieldSteps")
   && !workspace.includes('aria-label="Current field sections"') && !workspace.includes("scrollIntoView"));
-check("UI keeps only the field guidance and review decisions", workspace.includes("What to document")
+check("UI keeps only the field guidance and review decisions", workspace.includes("What this field is about")
   && workspace.includes("Note structure") && workspace.includes("Good note example")
   && workspace.includes("Past note to review") && workspace.includes("Use as example")
   && workspace.includes("Revise") && workspace.includes("Do not use")
   && workspace.includes("Revision reasons") && workspace.includes("Save and continue"));
+check("note structure is an instructive sequence rather than a choice grid",
+  workspace.includes("scenario.formatStandard.instructionSteps")
+  && workspace.includes("instructionSteps.map")
+  && workspace.includes("Write the note in this order.")
+  && workspace.includes("Quick pattern")
+  && !workspace.includes("Answer variations for"));
 check("UI removes presentation copy and duplicated progress", !workspace.includes("WorkflowGuide")
   && !workspace.includes("CompletedTrail") && !workspace.includes("Assessment note standards")
   && !workspace.includes("Choose how assessment answers should be written")
@@ -100,8 +106,13 @@ check("admitted-note analysis forbids causal or decision interpretation",
 const scenarioCatalog = engineModule.buildNoteLabScenarioCatalog();
 check("every coachable field has a concrete standard", scenarioCatalog.length === 64
   && scenarioCatalog.every((scenario) => scenario.recommendedCriterionIds.length >= 4
+    && scenario.formatStandard.instructionSteps.length >= 3
+    && scenario.formatStandard.instructionSteps.every((step) => step.title.length > 3 && step.instruction.length > 20)
     && scenario.formatStandard.requiredElements.length > 0
     && scenario.formatStandard.referenceAnswer.length > 20));
+check("the first calibration fields have field-specific writing instructions",
+  scenarioCatalog.slice(0, 15).every((scenario) => scenario.formatStandard.instructionSteps.length >= 4)
+  && scenarioCatalog[0].formatStandard.instructionSteps.some((step) => step.instruction.includes("failed placement")));
 check("base scenarios contain no historical provenance", scenarioCatalog.every((scenario) => scenario.reviewSample === null)
   && !JSON.stringify(scenarioCatalog).includes("sourceCanvasId"));
 const emptyProgress = contractsModule.emptyNoteLabProgress(contractsModule.NOTE_LAB_CALIBRATION_VERSION);

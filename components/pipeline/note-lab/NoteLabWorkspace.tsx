@@ -43,16 +43,6 @@ export default function NoteLabWorkspace({
     && sampleDecisionComplete
     && !saving);
 
-  const toggleAnswerComponent = (criterionIds: readonly NoteLabCriterionId[]) => {
-    setSelectedCriterionIds((current) => {
-      const selected = criterionIds.every((criterionId) => current.includes(criterionId));
-      return selected
-        ? current.filter((criterionId) => !criterionIds.includes(criterionId))
-        : [...new Set([...current, ...criterionIds])];
-    });
-    setError(null);
-  };
-
   const chooseDisposition = (disposition: NoteLabSampleDisposition) => {
     setSampleDisposition(disposition);
     if (disposition === "teach") setRevisionReasonIds([]);
@@ -118,26 +108,21 @@ export default function NoteLabWorkspace({
   return (
     <LabFrame reviewerName={reviewerName}>
       <main className="border border-[#cfd7d4] bg-white">
-        <div className="grid grid-cols-[48px_minmax(0,1fr)] sm:grid-cols-[210px_minmax(0,1fr)] lg:grid-cols-[230px_minmax(0,1fr)]">
+        <div className="grid grid-cols-[48px_minmax(0,1fr)] sm:grid-cols-[230px_minmax(0,1fr)] lg:grid-cols-[250px_minmax(0,1fr)]">
           <FieldProgressRail session={session} />
 
-          <div className="min-w-0 border-l border-[#d8dfdc] px-4 py-5 sm:px-7 sm:py-7">
-            <header className="border-b border-[#d8dfdc] pb-5">
-              <h1 className="text-[24px] font-black tracking-[-0.035em] text-[#202522] sm:text-[28px]">
+          <div className="min-w-0 border-l border-[#d8dfdc] px-4 py-6 sm:px-8 sm:py-8 lg:px-10">
+            <header className="border-b border-[#d8dfdc] pb-6">
+              <h1 className="text-[28px] font-black tracking-[-0.035em] text-[#202522] sm:text-[34px]">
                 {scenario.targetFieldLabel}
               </h1>
             </header>
 
-            <section className="py-7">
-              <WhatToDocument
-                scenario={scenario}
-                fieldLabel={scenario.targetFieldLabel}
-                selectedCriterionIds={selectedCriterionIds}
-                onToggle={toggleAnswerComponent}
-              />
+            <section className="py-8">
+              <WhatToDocument scenario={scenario} />
             </section>
 
-            <section className="border-t border-[#d8dfdc] py-7">
+            <section className="border-t border-[#d8dfdc] py-8">
               <GoodNoteExample scenario={scenario} />
             </section>
 
@@ -176,50 +161,44 @@ export default function NoteLabWorkspace({
 
 function WhatToDocument({
   scenario,
-  fieldLabel,
-  selectedCriterionIds,
-  onToggle,
 }: {
   scenario: NonNullable<NoteLabSession["scenario"]>;
-  fieldLabel: string;
-  selectedCriterionIds: NoteLabCriterionId[];
-  onToggle: (criterionIds: readonly NoteLabCriterionId[]) => void;
 }) {
+  const instructionSteps = scenario.formatStandard.instructionSteps
+    ?? scenario.formatStandard.requiredElements.map((element, index) => ({
+      title: element,
+      instruction: `${index === 0 ? "Start with" : "Then document"} ${element.toLowerCase()} using specific, attributable information.`,
+    }));
+
   return (
-    <>
-      <h2 className="text-[14px] font-black text-[#252c28]">What to document</h2>
-      <p className="mt-2 max-w-[760px] text-[12px] leading-5 text-[#4f5b56]">{scenario.fieldPurpose}</p>
-      <ul className="mt-4 grid gap-x-6 gap-y-2 border-y border-[#e0e5e3] py-4 sm:grid-cols-2">
-        {scenario.formatStandard.requiredElements.map((element) => (
-          <li key={element} className="flex items-start gap-2.5 text-[10px] font-semibold leading-4 text-[#46514c]">
-            <Check size={12} strokeWidth={2.5} className="mt-0.5 shrink-0 text-[#0f8b73]" aria-hidden="true" />
-            {element}
+    <div className="max-w-[920px]">
+      <h2 className="text-[18px] font-black text-[#252c28]">What this field is about</h2>
+      <p className="mt-3 max-w-[860px] text-[15px] leading-7 text-[#44504a]">{scenario.fieldPurpose}</p>
+
+      <div className="mt-8 flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h3 className="text-[18px] font-black text-[#252c28]">Note structure</h3>
+          <p className="mt-1 text-[13px] leading-6 text-[#5f6a65]">Write the note in this order.</p>
+        </div>
+        <span className="text-[11px] font-bold text-[#69746f]">{scenario.formatStandard.lengthGuidance}</span>
+      </div>
+      <ol className="mt-4 divide-y divide-[#dfe5e2] border-y border-[#d5ddda] bg-white">
+        {instructionSteps.map((step, index) => (
+          <li key={`${step.title}-${index}`} className="grid gap-3 py-5 sm:grid-cols-[38px_190px_minmax(0,1fr)] sm:items-start sm:gap-5">
+            <span className="flex h-8 w-8 items-center justify-center bg-[#e9f5f1] text-[12px] font-black text-[#08715f]">
+              {index + 1}
+            </span>
+            <strong className="text-[14px] leading-6 text-[#26302b]">{step.title}</strong>
+            <p className="text-[14px] leading-6 text-[#4e5954]">{step.instruction}</p>
           </li>
         ))}
-      </ul>
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <h3 className="text-[11px] font-black text-[#39423e]">Note structure</h3>
-        <span className="text-[9px] font-bold text-[#6f7a75]">{selectedAnswerComponentCount(selectedCriterionIds)} selected</span>
+      </ol>
+
+      <div className="mt-5 border border-[#d8dfdc] bg-white px-5 py-4">
+        <div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0d7c68]">Quick pattern</div>
+        <p className="mt-2 text-[14px] font-semibold leading-7 text-[#34403a]">{scenario.formatStandard.template}</p>
       </div>
-      <div role="group" aria-label={`Answer variations for ${fieldLabel}`} className="mt-3 grid gap-px border border-[#c9ceca] bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-5">
-        {noteLabAnswerComponents.map((component) => {
-          const selected = component.criterionIds.every((criterionId) => selectedCriterionIds.includes(criterionId));
-          return (
-            <button
-              key={component.id}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => onToggle(component.criterionIds)}
-              className={`grid min-h-[52px] grid-cols-[auto_minmax(0,1fr)] items-center gap-2.5 p-3 text-left outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-inset ${selected ? "bg-[#edf7f3]" : "bg-white hover:bg-[#f7f9f8]"}`}
-            >
-              <SelectionBox selected={selected} />
-              <span className={`block text-[9px] font-black leading-4 ${selected ? "text-[#0b6f5d]" : "text-[#39423e]"}`}>{component.label}</span>
-              <span className="sr-only">{component.examplePattern}</span>
-            </button>
-          );
-        })}
-      </div>
-    </>
+    </div>
   );
 }
 
@@ -273,8 +252,8 @@ function FieldProgressRail({
   return (
     <aside className="sticky top-3 max-h-[calc(100vh-5rem)] self-start overflow-y-auto px-1.5 py-4 sm:px-3 sm:py-5" aria-label="Assessment field progress">
       <div className="hidden items-baseline justify-between gap-3 px-2 sm:flex">
-        <span className="text-[10px] font-black text-[#2d3531]">Assessment fields</span>
-        <span className="text-[9px] font-bold text-[#74807b]">{session.calibration.currentStep} / {session.calibration.targetDecisions}</span>
+        <span className="text-[11px] font-black text-[#2d3531]">Assessment fields</span>
+        <span className="text-[10px] font-bold text-[#74807b]">{session.calibration.currentStep} / {session.calibration.targetDecisions}</span>
       </div>
       <nav aria-label="Assessment fields" className="mt-1 sm:mt-3">
         <ol className="space-y-0.5">
@@ -312,7 +291,7 @@ function FieldProgressRailStep({
       <span className={`flex h-5 w-5 items-center justify-center border text-[8px] font-black ${progressStepBadgeClass(active, completed)}`}>
         {completed ? <Check size={11} strokeWidth={2.6} aria-hidden="true" /> : String(index + 1).padStart(2, "0")}
       </span>
-      <span className={`hidden min-w-0 text-[9px] font-bold leading-4 sm:block ${active ? "text-[#0b6f5d]" : completed ? "text-[#4f5a55]" : "text-[#78827d]"}`}>
+      <span className={`hidden min-w-0 text-[10px] font-bold leading-4 sm:block ${active ? "text-[#0b6f5d]" : completed ? "text-[#4f5a55]" : "text-[#78827d]"}`}>
         {field.label}
       </span>
       <span className="sr-only sm:hidden">{field.label}</span>
@@ -360,12 +339,12 @@ function normalizeAnswerComponentCriteria(criterionIds: readonly NoteLabCriterio
 
 function GoodNoteExample({ scenario }: { scenario: NonNullable<NoteLabSession["scenario"]> }) {
   return (
-    <section aria-label={`${scenario.targetFieldLabel} good note example`}>
+    <section aria-label={`${scenario.targetFieldLabel} good note example`} className="max-w-[920px]">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-[14px] font-black text-[#252c28]">Good note example</h2>
-        <span className="text-[9px] font-bold text-[#74807b]">{scenario.formatStandard.lengthGuidance}</span>
+        <h2 className="text-[18px] font-black text-[#252c28]">Good note example</h2>
+        <span className="text-[11px] font-bold text-[#74807b]">{scenario.formatStandard.label}</span>
       </div>
-      <blockquote className="mt-3 border-l-3 border-[#0f8b73] bg-[#f3f8f6] px-4 py-4 text-[12px] font-semibold leading-6 text-[#2f3a35]">
+      <blockquote className="mt-4 border border-[#d6deda] border-l-4 border-l-[#0f8b73] bg-white px-6 py-6 text-[17px] font-medium leading-8 text-[#28332e] sm:px-7 sm:py-7">
         {scenario.formatStandard.referenceAnswer}
       </blockquote>
     </section>
@@ -404,7 +383,7 @@ function HistoricalAnswerReview({
         <span className="text-[9px] font-semibold text-[#7b8580]">Redacted · {humanize(sample.sourceSection)} · {sample.wordCount} words</span>
       </div>
       <div className="mt-3 border border-[#d2dad7] bg-white p-4 sm:p-5">
-        <p className="whitespace-pre-wrap border-l-2 border-[#b8c4bf] pl-4 text-[12px] leading-[1.75] text-[#303a35]">{sample.text}</p>
+        <p className="whitespace-pre-wrap border-l-2 border-[#b8c4bf] pl-4 text-[14px] leading-7 text-[#303a35]">{sample.text}</p>
         <div role="group" aria-label="Historical answer decision" className="mt-5 grid gap-2 sm:grid-cols-3">
           <DispositionButton label="Use as example" selected={disposition === "teach"} onClick={() => onDisposition("teach")} />
           <DispositionButton label="Revise" selected={disposition === "revise"} onClick={() => onDisposition("revise")} />
@@ -454,7 +433,7 @@ function DispositionButton({
 function LabFrame({ reviewerName, children }: { reviewerName: string; children: React.ReactNode }) {
   return (
     <div data-note-lab-scroll-container aria-label={`${reviewerName} assessment language review`} className="pipeline-route-enter h-full overflow-y-auto bg-[#f4f6f5]">
-      <div className="mx-auto max-w-[1240px] px-3 py-4 sm:px-6 lg:py-6">
+      <div className="mx-auto max-w-[1380px] px-3 py-4 sm:px-6 lg:py-6">
         {children}
       </div>
     </div>

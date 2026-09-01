@@ -85,6 +85,10 @@ export type NoteLabScenario = {
     label: string;
     lengthGuidance: string;
     template: string;
+    instructionSteps: Array<{
+      title: string;
+      instruction: string;
+    }>;
     requiredElements: string[];
     referenceAnswer: string;
   };

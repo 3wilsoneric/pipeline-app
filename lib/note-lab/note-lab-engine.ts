@@ -117,6 +117,7 @@ export function buildNoteLabScenarioCatalog(): NoteLabScenario[] {
         label: specification.formatLabel,
         lengthGuidance: specification.lengthGuidance,
         template: specification.formatTemplate,
+        instructionSteps: specification.instructionSteps.map((step) => ({ ...step })),
         requiredElements: [...specification.requiredElements],
         referenceAnswer: specification.strongExample,
       },
