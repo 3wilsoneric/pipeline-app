@@ -256,7 +256,7 @@ async function readSourceRange(attachment: MeetClientMailAttachment, start: numb
   if (response.status !== 206 && !(response.status === 200 && start === 0 && end === attachment.byteSize - 1)) {
     throw new GraphMailDeliveryError("attachment_source_range_failed", "An admission packet file could not be streamed.");
   }
-  const bytes = Buffer.from(await response.arrayBuffer());
+  const bytes = new Uint8Array(await response.arrayBuffer());
   if (bytes.byteLength !== end - start + 1) {
     throw new GraphMailDeliveryError("attachment_source_range_mismatch", "An admission packet file returned an incomplete range.");
   }

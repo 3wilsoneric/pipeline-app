@@ -32,7 +32,7 @@ type ReferralSelection = { id: number; name?: string; community?: Referral["comm
 export default function PipelineOverviewRoute() {
   const { searchTerm, setSearchTerm, searchOpen, setSearchOpen, homeMode } = usePipelineShell();
   const searchParams = useSearchParams();
-  const locationSearch = usePipelineLocationSearch(searchParams.toString());
+  const locationSearch = usePipelineLocationSearch(searchParams?.toString() ?? "");
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const screen = getScreenFromParams(activeSearchParams);
   const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
