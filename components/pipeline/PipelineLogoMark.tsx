@@ -18,8 +18,8 @@ export default function PipelineLogoMark({
       <Image
         src={toPipelinePath("/brand/pipeline-mark.svg")}
         alt=""
-        width={320}
-        height={360}
+        width={491}
+        height={672}
         priority
         unoptimized
         draggable={false}
