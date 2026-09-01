@@ -8,6 +8,8 @@ const read = (file) => readFileSync(file, "utf8");
 const access = read("lib/note-lab/note-lab-access.ts");
 const page = read("app/(pipeline)/note-lab/practice/page.tsx");
 const workspace = read("components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx");
+const shell = read("components/pipeline/PipelineAppShell.tsx");
+const coach = read("components/pipeline/training/PipelineGuidedCoach.tsx");
 const scenarioSource = read("lib/note-lab/assessment-practice-scenario.ts");
 const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
 const schema = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
@@ -38,8 +40,9 @@ check("practice renders canonical sections and conditional questions",
   && interview.assessmentInterviewSections.length === schema.assessmentToolSections.length
   && interview.assessmentInterviewSections.every((section) => interview.getAssessmentInterviewQuestions(section.key, data).length > 0));
 check("language guidance comes from the canonical writing specification",
-  workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes("Writing help")
-  && workspace.includes("spec.instructionSteps") && workspace.includes("spec.strongExample") && workspace.includes("spec.guardrail"));
+  workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes(">Example<")
+  && workspace.includes("specification.formatTemplate") && workspace.includes("specification.strongExample")
+  && !workspace.includes("instructionSteps") && !workspace.includes("guardrail"));
 check("practice has no clinical persistence or production assessment dependency",
   !workspace.includes("fetch(") && !workspace.includes("/api/") && !workspace.includes("indexedDB")
   && !workspace.includes("localStorage") && !workspace.includes("sessionStorage")
@@ -49,9 +52,9 @@ check("practice cannot sign, schedule, extract, or create a clinical record",
   && !workspace.includes("extraction") && !workspace.includes("Create assessment")
   && !workspace.includes("Save assessment"));
 check("the authored guide is synthetic, actionable, and uses only the practice route",
-  tutorial?.steps.length === 7
+  tutorial?.steps.length === 5
   && tutorial.steps.every((step) => step.route === "/note-lab/practice" && step.safety.length > 30)
-  && tutorial.steps.filter((step) => step.advance !== "confirm").length >= 5);
+  && tutorial.steps.every((step) => step.advance !== "confirm"));
 check("every practice guide target is declared by the isolated renderer",
   tutorial?.steps.every((step) => tutorials.operatorGuideTargetSources[step.target] === "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx"
     && workspace.includes(`\"${step.target}\"`)));
@@ -60,8 +63,17 @@ check("production assessment remains a separately persisted clinical surface",
   && !assessmentWorkspace.includes("assessment-practice-scenario") && !assessmentWorkspace.includes("practice-assessment"));
 check("practice copy stays restrained",
   !workspace.includes("Welcome to") && !workspace.includes("How to use")
-  && !workspace.includes("tutorial warning") && !workspace.includes("card rounded")
-  && workspace.includes("Practice answers stay in this tab"));
+  && !workspace.includes("Guided practice") && !workspace.includes("Practice complete")
+  && !workspace.includes("Finish practice") && !workspace.includes("dispatchOperatorGuide"));
+check("practice mirrors the production assessment interaction model",
+  workspace.includes("assessmentPracticeNavigationGroups")
+  && workspace.includes('question.control === "yes_no"')
+  && workspace.includes('question.control === "rating"')
+  && workspace.includes('type="checkbox"')
+  && workspace.includes("setAssessmentUnableReason"));
+check("the resting guide launcher is hidden on the assessment practice route",
+  shell.includes('hideLauncher={pathname === "/note-lab/practice"}')
+  && coach.includes("hideLauncher ? null : <GuideLauncher"));
 
 const failed = checks.filter((item) => !item.ok);
 process.stdout.write(`${JSON.stringify({ ok: failed.length === 0, checks }, null, 2)}\n`);

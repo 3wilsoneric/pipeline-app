@@ -9,7 +9,7 @@ import { canReviewAssessmentLanguage, getAssessmentPracticeUser } from "@/lib/no
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Practice Assessment | Pipeline",
-  description: "Synthetic guided practice for the Pipeline assessment interview.",
+  description: "Synthetic Pipeline assessment practice.",
   robots: { index: false, follow: false, nocache: true },
 };
 

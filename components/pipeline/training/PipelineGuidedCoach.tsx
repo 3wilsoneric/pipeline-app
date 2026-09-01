@@ -59,7 +59,7 @@ type TargetInteraction = {
 
 const emptyTarget: TargetView = { element: null, rect: null, available: false };
 
-export default function PipelineGuidedCoach() {
+export default function PipelineGuidedCoach({ hideLauncher = false }: { hideLauncher?: boolean }) {
   const [state, setState] = useState<OperatorGuideState>(() => emptyOperatorGuideState());
   const [hydrated, setHydrated] = useState(false);
   const [role, setRole] = useState<OperatorRole>("viewer");
@@ -208,11 +208,11 @@ export default function PipelineGuidedCoach() {
 
   if (!hydrated) return null;
   if (fromPipelinePath(window.location.pathname) === "/training/demo") return null;
-  return <GuideCoachSurface state={state} role={role} tutorial={tutorial} step={step} target={target} exchange={exchange} command={command} onStart={startTutorial} onCommit={commit} onAdvance={advance} onCommandChange={setCommand} onSubmit={submitCommand} onExchange={setExchange} />;
+  return <GuideCoachSurface hideLauncher={hideLauncher} state={state} role={role} tutorial={tutorial} step={step} target={target} exchange={exchange} command={command} onStart={startTutorial} onCommit={commit} onAdvance={advance} onCommandChange={setCommand} onSubmit={submitCommand} onExchange={setExchange} />;
 }
 
-function GuideCoachSurface({ state, role, tutorial, step, target, exchange, command, onStart, onCommit, onAdvance, onCommandChange, onSubmit, onExchange }: { state: OperatorGuideState; role: OperatorRole; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; exchange: GuideExchange | null; command: string; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onCommandChange: (value: string) => void; onSubmit: (event: FormEvent) => void; onExchange: (exchange: GuideExchange) => void }) {
-  if (state.mode === "closed") return <GuideLauncher resumable={Boolean(state.activeTutorialId)} onOpen={() => onCommit(state.activeTutorialId ? { type: "resume" } : { type: "open-library" })} />;
+function GuideCoachSurface({ hideLauncher, state, role, tutorial, step, target, exchange, command, onStart, onCommit, onAdvance, onCommandChange, onSubmit, onExchange }: { hideLauncher: boolean; state: OperatorGuideState; role: OperatorRole; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; exchange: GuideExchange | null; command: string; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onCommandChange: (value: string) => void; onSubmit: (event: FormEvent) => void; onExchange: (exchange: GuideExchange) => void }) {
+  if (state.mode === "closed") return hideLauncher ? null : <GuideLauncher resumable={Boolean(state.activeTutorialId)} onOpen={() => onCommit(state.activeTutorialId ? { type: "resume" } : { type: "open-library" })} />;
   if (state.mode === "library") return <GuideLibrary role={role} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={() => onCommit({ type: "resume" })} onClose={() => onCommit({ type: "close" })} />;
   if (!tutorial || !step) return null;
   return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} step={step} /> : null}<GuideConversation tutorialTitle={tutorial.title} workflow={tutorial.workflow} step={step} stepIndex={state.stepIndex} stepCount={tutorial.steps.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} exchange={exchange} command={command} onCommandChange={onCommandChange} onSubmit={onSubmit} onWhy={() => onExchange({ user: "Why does this matter?", helper: step.why })} onSafety={() => onExchange({ user: "What should I avoid?", helper: step.safety })} onBack={() => onCommit({ type: "previous" })} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} /></>;
