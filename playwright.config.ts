@@ -12,6 +12,8 @@ const documentStorePath = process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH
   ?? `.data/playwright/documents-${port}`;
 const desktopStateStorePath = process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH
   ?? `.data/playwright/desktop-state-${port}.json`;
+const noteLabStorePath = process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH
+  ?? `.data/playwright/note-lab-${port}.json`;
 const crossBrowser = process.env.PIPELINE_CROSS_BROWSER === "true";
 const desktopE2E = process.env.PIPELINE_DESKTOP_E2E === "true";
 const prebuiltE2E = process.env.PIPELINE_E2E_PREBUILT === "true";
@@ -22,6 +24,7 @@ process.env.PIPELINE_E2E_ASSESSMENT_STORE_PATH = assessmentStorePath;
 process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH = residentLinkStorePath;
 process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH = documentStorePath;
 process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH = desktopStateStorePath;
+process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH = noteLabStorePath;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -66,6 +69,8 @@ export default defineConfig({
       PIPELINE_DEMO_MODE: "true",
       PIPELINE_DEMO_DATA_ISOLATED: "true",
       PIPELINE_NOTE_LAB_ENABLED: "true",
+      PIPELINE_ALLOW_LOCAL_NOTE_LAB_STORE: "true",
+      PIPELINE_NOTE_LAB_STORE_PATH: noteLabStorePath,
       PIPELINE_WORKER_SHARED_SECRET: "playwright-worker-secret",
       NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED: desktopE2E ? "true" : "false",
       PIPELINE_DESKTOP_STATE_ENABLED: desktopE2E ? "true" : "false",

@@ -17,14 +17,12 @@ import {
   type NoteLabSession,
 } from "@/lib/note-lab/note-lab-contracts";
 import {
-  attachReviewSample,
   buildNoteLabCalibration,
   buildNoteLabScenarioCatalog,
-  selectCalibrationScenario,
   selectNextCalibrationScenario,
+  selectSessionScenario,
   validateReviewAgainstScenario,
 } from "@/lib/note-lab/note-lab-engine";
-import { getNoteLabSampleSet } from "@/lib/note-lab/note-lab-samples";
 import {
   getPipelineDatabaseReadiness,
   getPipelineSql,
@@ -63,10 +61,7 @@ export async function getNoteLabSession(
   if (catalog.length < NOTE_LAB_CALIBRATION_TARGET) {
     return unavailableSession("Assessment writing standards are not configured for enough fields yet.");
   }
-  const [record, sampleSet] = await Promise.all([
-    getProgressRecord(reviewerId, NOTE_LAB_CALIBRATION_VERSION),
-    getNoteLabSampleSet(),
-  ]);
+  const record = await getProgressRecord(reviewerId, NOTE_LAB_CALIBRATION_VERSION);
   const validScenarioIds = new Set(catalog.map((scenario) => scenario.id));
   const progress = {
     ...record.progress,
@@ -78,12 +73,9 @@ export async function getNoteLabSession(
     reviews: progress.reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET),
   };
   const calibration = buildNoteLabCalibration(catalog, calibrationProgress);
-  const baseScenario = selectCalibrationScenario(catalog, requestedField);
-  const scenario = baseScenario
-    ? attachReviewSample(baseScenario, sampleSet.samples, sampleSet.sampleSetVersion, reviewerId)
-    : null;
-  const review = baseScenario
-    ? calibrationProgress.reviews.find((item) => item.scenarioId === baseScenario.id) ?? null
+  const scenario = selectSessionScenario(catalog, calibrationProgress, requestedField);
+  const review = scenario
+    ? calibrationProgress.reviews.find((item) => item.scenarioId === scenario.id) ?? null
     : null;
   return {
     enabled: true,
@@ -101,7 +93,7 @@ export async function getNoteLabSession(
       decisionsCompleted: progress.reviews.length,
       fieldsAvailable: catalog.length,
       criteriaAvailable: noteLabDocumentationCriteria.length,
-      corpusSamplesAvailable: sampleSet.samples.length,
+      corpusSamplesAvailable: 0,
     },
   };
 }
@@ -119,12 +111,8 @@ export async function submitNoteLabReview(reviewerId: string, input: NoteLabRevi
     || current.progress.reviews.some((review) => review.scenarioId === input.scenarioId)) {
     return { ok: false as const, conflict: true as const, current: await getNoteLabSession(reviewerId) };
   }
-  const sampleSet = await getNoteLabSampleSet();
-  const baseScenario = catalog.slice(0, NOTE_LAB_CALIBRATION_TARGET)
+  const activeScenario = catalog.slice(0, NOTE_LAB_CALIBRATION_TARGET)
     .find((scenario) => scenario.id === input.scenarioId) ?? null;
-  const activeScenario = baseScenario
-    ? attachReviewSample(baseScenario, sampleSet.samples, sampleSet.sampleSetVersion, reviewerId)
-    : null;
   const scenarioValidation = validateReviewAgainstScenario(input, activeScenario);
   if (!scenarioValidation.ok) {
     return { ok: false as const, invalid: true as const, message: scenarioValidation.error };
@@ -178,7 +166,7 @@ async function getProgressRecord(reviewerId: string, calibrationVersion: string)
     }, calibrationVersion);
     return { revision: progress.reviews.length, progress, persistence: "postgres" };
   }
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && !localNoteLabStoreAllowed()) {
     return { revision: 0, progress: emptyNoteLabProgress(calibrationVersion), persistence: "unavailable" };
   }
   await ensureLocalLoaded();
@@ -224,7 +212,7 @@ async function appendReviewRecord(
       return { ok: false as const, unavailable: true as const, message: "Shared review storage is unavailable." };
     }
   }
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && !localNoteLabStoreAllowed()) {
     return { ok: false as const, unavailable: true as const, message: "Shared review storage is not configured." };
   }
   await ensureLocalLoaded();
@@ -305,7 +293,18 @@ async function persistLocal() {
 }
 
 function localPath() {
+  if ((process.env.NODE_ENV !== "production" || localNoteLabStoreAllowed())
+    && process.env.PIPELINE_NOTE_LAB_STORE_PATH) {
+    return path.resolve(
+      /* turbopackIgnore: true */ process.cwd(),
+      process.env.PIPELINE_NOTE_LAB_STORE_PATH.trim(),
+    );
+  }
   return path.join(process.cwd(), ".data", "note-lab-field-reviews.json");
+}
+
+function localNoteLabStoreAllowed() {
+  return process.env.PIPELINE_ALLOW_LOCAL_NOTE_LAB_STORE === "true";
 }
 
 function scenarioCatalog() {

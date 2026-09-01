@@ -7,13 +7,10 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import {
   noteLabAnswerComponents,
   noteLabBaselineCriterionIds,
-  noteLabRevisionReasons,
   type NoteLabCriterionId,
-  type NoteLabRevisionReasonId,
 } from "@/lib/note-lab/assessment-language-standards";
 import {
   type NoteLabPreferenceProfile,
-  type NoteLabSampleDisposition,
   type NoteLabSession,
 } from "@/lib/note-lab/note-lab-contracts";
 
@@ -28,49 +25,28 @@ export default function NoteLabWorkspace({
   const [selectedCriterionIds, setSelectedCriterionIds] = useState<NoteLabCriterionId[]>(
     criteriaForSession(initialSession),
   );
-  const [sampleDisposition, setSampleDisposition] = useState<NoteLabSampleDisposition | null>(
-    initialSession.review?.sampleDisposition ?? null,
-  );
-  const [revisionReasonIds, setRevisionReasonIds] = useState<NoteLabRevisionReasonId[]>(
-    initialSession.review?.revisionReasonIds ?? [],
-  );
   const [saving, setSaving] = useState(false);
   const [loadingField, setLoadingField] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const navigationController = useRef<AbortController | null>(null);
   const scenario = session.scenario;
   const reviewed = session.review !== null;
-  const sampleDecisionComplete = sampleDecisionIsComplete(
-    Boolean(scenario?.reviewSample),
-    sampleDisposition,
-    revisionReasonIds.length,
-  );
   const canSubmit = Boolean(scenario
     && selectedAnswerComponentCount(selectedCriterionIds) > 0
-    && sampleDecisionComplete
     && !reviewed
     && !saving);
+  const activeFieldIndex = session.calibration.fieldSteps.findIndex(
+    (field) => field.field === scenario?.targetField,
+  );
+  const nextField = activeFieldIndex >= 0
+    ? session.calibration.fieldSteps[activeFieldIndex + 1] ?? null
+    : null;
 
   useEffect(() => () => navigationController.current?.abort(), []);
-
-  const chooseDisposition = (disposition: NoteLabSampleDisposition) => {
-    setSampleDisposition(disposition);
-    if (disposition === "teach") setRevisionReasonIds([]);
-    setError(null);
-  };
-
-  const toggleRevisionReason = (reasonId: NoteLabRevisionReasonId) => {
-    setRevisionReasonIds((current) => current.includes(reasonId)
-      ? current.filter((item) => item !== reasonId)
-      : [...current, reasonId]);
-    setError(null);
-  };
 
   const applySession = (next: NoteLabSession) => {
     setSession(next);
     setSelectedCriterionIds(criteriaForSession(next));
-    setSampleDisposition(next.review?.sampleDisposition ?? null);
-    setRevisionReasonIds(next.review?.revisionReasonIds ?? []);
   };
 
   const navigateToField = async (field: string) => {
@@ -120,9 +96,9 @@ export default function NoteLabWorkspace({
           scenarioId: scenario.id,
           targetField: scenario.targetField,
           selectedCriterionIds,
-          sampleId: scenario.reviewSample?.id ?? null,
-          sampleDisposition: scenario.reviewSample ? sampleDisposition : null,
-          revisionReasonIds: scenario.reviewSample ? revisionReasonIds : [],
+          sampleId: null,
+          sampleDisposition: null,
+          revisionReasonIds: [],
         }),
       });
       startTransition(() => {
@@ -173,15 +149,7 @@ export default function NoteLabWorkspace({
             </section>
 
             <section className="border-t border-[#d8dfdc] py-7">
-              <HistoricalAnswerReview
-                scenario={scenario}
-                disposition={sampleDisposition}
-                revisionReasonIds={revisionReasonIds}
-                readOnly={reviewed}
-                onDisposition={chooseDisposition}
-                onReason={toggleRevisionReason}
-              />
-              <div className="mt-4 border-l-2 border-[#c9a968] bg-[#fbf8f0] px-4 py-3 text-[10px] leading-5 text-[#625b4b]">
+              <div className="border-l-2 border-[#c9a968] bg-[#fbf8f0] px-4 py-3 text-[10px] leading-5 text-[#625b4b]">
                 {scenario.guardrail}
               </div>
             </section>
@@ -190,10 +158,7 @@ export default function NoteLabWorkspace({
               <SaveFieldAction
                 canSubmit={canSubmit}
                 error={error}
-                hasSample={scenario.reviewSample !== null}
                 selectedAnswerCount={selectedAnswerComponentCount(selectedCriterionIds)}
-                disposition={sampleDisposition}
-                revisionReasonCount={revisionReasonIds.length}
                 saving={saving}
                 remaining={session.calibration.remaining}
                 reviewed={reviewed}
@@ -202,6 +167,22 @@ export default function NoteLabWorkspace({
                 onSubmit={() => void submit()}
               />
             </section>
+
+            {nextField ? (
+              <section className="border-t border-[#d8dfdc] py-5">
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={saving || loadingField !== null}
+                    onClick={() => void navigateToField(nextField.field)}
+                    className="inline-flex h-10 items-center gap-3 border border-[#bdc8c3] bg-white px-5 text-[11px] font-black text-[#35413b] outline-none hover:border-[#81938b] hover:bg-[#f6f8f7] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    Next field
+                    <ArrowRight size={15} aria-hidden="true" />
+                  </button>
+                </div>
+              </section>
+            ) : null}
           </div>
         </div>
       </main>
@@ -255,10 +236,7 @@ function WhatToDocument({
 function SaveFieldAction({
   canSubmit,
   error,
-  hasSample,
   selectedAnswerCount,
-  disposition,
-  revisionReasonCount,
   saving,
   remaining,
   reviewed,
@@ -268,10 +246,7 @@ function SaveFieldAction({
 }: {
   canSubmit: boolean;
   error: string | null;
-  hasSample: boolean;
   selectedAnswerCount: number;
-  disposition: NoteLabSampleDisposition | null;
-  revisionReasonCount: number;
   saving: boolean;
   remaining: number;
   reviewed: boolean;
@@ -301,7 +276,7 @@ function SaveFieldAction({
       </footer>
     );
   }
-  const hint = error ?? submissionHint(hasSample, selectedAnswerCount, disposition, revisionReasonCount);
+  const hint = error ?? submissionHint(selectedAnswerCount);
   return (
     <footer className="flex flex-wrap items-center justify-end gap-4">
       {!canSubmit || error ? (
@@ -404,18 +379,6 @@ function progressStepBadgeClass(active: boolean, completed: boolean) {
   return "border-[#cbd4d0] bg-white text-[#76817c]";
 }
 
-function sampleDecisionIsComplete(
-  hasSample: boolean,
-  disposition: NoteLabSampleDisposition | null,
-  revisionReasonCount: number,
-) {
-  if (!hasSample) return true;
-  if (disposition === "teach") return revisionReasonCount === 0;
-  return disposition === "revise" || disposition === "do_not_teach"
-    ? revisionReasonCount > 0
-    : false;
-}
-
 function submissionButtonLabel(saving: boolean, remaining: number) {
   if (saving) return "Saving";
   return remaining === 1 ? "Finish standard" : "Save and continue";
@@ -456,90 +419,6 @@ function GoodNoteExample({ scenario }: { scenario: NonNullable<NoteLabSession["s
   );
 }
 
-function HistoricalAnswerReview({
-  scenario,
-  disposition,
-  revisionReasonIds,
-  readOnly,
-  onDisposition,
-  onReason,
-}: {
-  scenario: NonNullable<NoteLabSession["scenario"]>;
-  disposition: NoteLabSampleDisposition | null;
-  revisionReasonIds: NoteLabRevisionReasonId[];
-  readOnly: boolean;
-  onDisposition: (disposition: NoteLabSampleDisposition) => void;
-  onReason: (reason: NoteLabRevisionReasonId) => void;
-}) {
-  const sample = scenario.reviewSample;
-  if (!sample) {
-    return (
-      <section>
-        <h2 className="text-[13px] font-black text-[#252c28]">Past note to review</h2>
-        <div className="mt-3 border border-dashed border-[#cfd7d4] bg-[#fafbfa] p-4 text-[10px] font-semibold text-[#737d79]">
-          No historical example for this field.
-        </div>
-      </section>
-    );
-  }
-  const needsReasons = disposition === "revise" || disposition === "do_not_teach";
-  return (
-    <section>
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-[13px] font-black text-[#252c28]">Past note to review</h2>
-        <span className="text-[9px] font-semibold text-[#7b8580]">Redacted · {humanize(sample.sourceSection)} · {sample.wordCount} words</span>
-      </div>
-      <div className="mt-3 border border-[#d2dad7] bg-white p-4 sm:p-5">
-        <p className="whitespace-pre-wrap border-l-2 border-[#b8c4bf] pl-4 text-[14px] leading-7 text-[#303a35]">{sample.text}</p>
-        <div role="group" aria-label="Historical answer decision" className="mt-5 grid gap-2 sm:grid-cols-3">
-          <DispositionButton label="Use as example" selected={disposition === "teach"} disabled={readOnly} onClick={() => onDisposition("teach")} />
-          <DispositionButton label="Revise" selected={disposition === "revise"} disabled={readOnly} onClick={() => onDisposition("revise")} />
-          <DispositionButton label="Do not use" selected={disposition === "do_not_teach"} disabled={readOnly} onClick={() => onDisposition("do_not_teach")} />
-        </div>
-        {needsReasons ? (
-          <div className="mt-4 border-t border-[#dce2df] pt-4">
-            <div role="group" aria-label="Revision reasons" className="flex flex-wrap gap-2">
-              {noteLabRevisionReasons.map((reason) => {
-                const selected = revisionReasonIds.includes(reason.id);
-                return (
-                  <button
-                    key={reason.id}
-                    type="button"
-                    aria-pressed={selected}
-                    disabled={readOnly}
-                    onClick={() => onReason(reason.id)}
-                    className={`min-h-9 border px-3 py-2 text-[9px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-default ${selected ? "border-[#9a5c53] bg-[#fbf1ef] text-[#81443b]" : "border-[#d4dbd8] bg-white text-[#626d68] hover:border-[#aab5b0]"}`}
-                  >
-                    {reason.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function DispositionButton({
-  label,
-  selected,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  selected: boolean;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button type="button" aria-pressed={selected} disabled={disabled} onClick={onClick} className={`border p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-default ${selected ? "border-[#0f8b73] bg-[#edf7f3]" : "border-[#d3dad7] hover:border-[#98aaa3]"}`}>
-      <span className="flex items-center gap-2.5"><SelectionBox selected={selected} /><span className="block text-[10px] font-black text-[#303a35]">{label}</span></span>
-    </button>
-  );
-}
-
 function LabFrame({ reviewerName, children }: { reviewerName: string; children: React.ReactNode }) {
   return (
     <div data-note-lab-scroll-container aria-label={`${reviewerName} assessment language review`} className="pipeline-route-enter h-full overflow-y-auto bg-[#f4f6f5]">
@@ -550,36 +429,13 @@ function LabFrame({ reviewerName, children }: { reviewerName: string; children: 
   );
 }
 
-function SelectionBox({ selected }: { selected: boolean }) {
-  return (
-    <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center border ${selected ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#aeb9b5] bg-white"}`}>
-      {selected ? <Check size={12} strokeWidth={2.6} aria-hidden="true" /> : null}
-    </span>
-  );
-}
-
 function EmptyLab({ message }: { message: string | null }) {
   return <section className="flex min-h-[430px] items-center justify-center border border-[#cfd7d4] bg-white p-8 text-center"><div className="max-w-[480px]"><FileCheck2 size={28} strokeWidth={1.6} className="mx-auto text-[#0f8b73]" aria-hidden="true" /><h2 className="mt-4 text-[18px] font-black text-[#252c28]">No review available</h2><p className="mt-2 text-[11px] leading-5 text-[#6d7773]">{message ?? "Assessment writing standards are unavailable."}</p></div></section>;
 }
 
-function submissionHint(
-  hasSample: boolean,
-  answerVariationCount: number,
-  disposition: NoteLabSampleDisposition | null,
-  reasonCount: number,
-) {
+function submissionHint(answerVariationCount: number) {
   if (answerVariationCount === 0) return "Select at least one answer variation.";
-  if (!hasSample) return "No historical answer is available; the field standard can be saved now.";
-  if (!disposition) return "Choose how to use the historical example.";
-  if ((disposition === "revise" || disposition === "do_not_teach") && reasonCount === 0) {
-    return "Select what needs work.";
-  }
   return "Ready to save.";
-}
-
-function humanize(value: string | undefined) {
-  if (!value) return "Assessment writing";
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function downloadProfile(profile: NoteLabPreferenceProfile) {

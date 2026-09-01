@@ -173,6 +173,18 @@ export function selectCalibrationScenario(
     ?? null;
 }
 
+export function selectSessionScenario(
+  catalog: readonly NoteLabScenario[],
+  progress: NoteLabProgress,
+  requestedField?: string | null,
+) {
+  if (requestedField) return selectCalibrationScenario(catalog, requestedField);
+  const calibrationCatalog = catalog.slice(0, NOTE_LAB_CALIBRATION_TARGET);
+  return selectNextScenario(calibrationCatalog, progress)
+    ?? calibrationCatalog[0]
+    ?? null;
+}
+
 export function selectNextCalibrationScenario(
   catalog: readonly NoteLabScenario[],
   progress: NoteLabProgress,

@@ -7,6 +7,7 @@ export default async function prepareIsolatedReferralStore() {
     process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH,
     process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH,
     process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH,
+    process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH,
   ];
   if (paths.some((path) => !path)) throw new Error("Isolated end-to-end store paths are required.");
 

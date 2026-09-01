@@ -49,7 +49,7 @@ check("controlled revision reasons cover evidence and language defects", standar
 check("input requires field evidence and a coherent sample judgment", contracts.includes("selectedCriterionIds")
   && contracts.includes("sampleDisposition") && contracts.includes("revisionReasonIds")
   && contracts.includes("Select at least one reason the historical answer needs work."));
-check("only one requested bounded field scenario is returned", store.includes("selectCalibrationScenario(catalog, requestedField)")
+check("only one requested bounded field scenario is returned", store.includes("selectSessionScenario(catalog, calibrationProgress, requestedField)")
   && route.includes('searchParams.get("field")') && !store.includes("scenarioCatalog: catalog"));
 check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LAB_CALIBRATION_TARGET")
   && store.includes("reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET)")
@@ -58,16 +58,17 @@ check("the progress rail lists the actual assessment fields", workspace.includes
   && workspace.includes("session.calibration.fieldSteps.map")
   && workspace.includes("field.label") && engine.includes("fieldSteps")
   && !workspace.includes('aria-label="Current field sections"') && !workspace.includes("scrollIntoView"));
-check("every assessment field is directly navigable and fresh loads start at field one",
+check("every assessment field is directly navigable and next-field navigation does not submit",
   workspace.includes("onClick={() => onNavigate(field.field)}")
   && workspace.includes('aria-current={active ? "step" : undefined}')
   && workspace.includes("/api/note-lab/session?field=")
-  && engine.includes("if (!requestedField) return calibrationCatalog[0] ?? null"));
-check("UI keeps only the field guidance and review decisions", workspace.includes("What this field is about")
+  && workspace.includes("Next field")
+  && workspace.includes("onClick={() => void navigateToField(nextField.field)}"));
+check("UI keeps only field guidance, a good example, and explicit progress actions", workspace.includes("What this field is about")
   && workspace.includes("Note structure") && workspace.includes("Good note example")
-  && workspace.includes("Past note to review") && workspace.includes("Use as example")
-  && workspace.includes("Revise") && workspace.includes("Do not use")
-  && workspace.includes("Revision reasons") && workspace.includes("Save and continue"));
+  && workspace.includes("Save and continue") && workspace.includes("Next field")
+  && !workspace.includes("Past note to review") && !workspace.includes("HistoricalAnswerReview")
+  && !workspace.includes("No historical example for this field."));
 check("note structure is an instructive sequence rather than a choice grid",
   workspace.includes("scenario.formatStandard.instructionSteps")
   && workspace.includes("instructionSteps.map")
@@ -80,8 +81,10 @@ check("UI removes presentation copy and duplicated progress", !workspace.include
   && !workspace.includes("How the selected parts read together") && !workspace.includes("Quality check:")
   && !workspace.includes("Always applied:") && !workspace.includes("Supervisor review required")
   && !workspace.includes("min remaining"));
-check("sample-free UI is one direct state", workspace.includes("No historical example for this field.")
-  && !workspace.includes("Unavailable") && !workspace.includes("Nothing else is required here"));
+check("historical samples are not attached to the assessment guidance UI",
+  store.includes("corpusSamplesAvailable: 0")
+  && !store.includes("attachReviewSample(baseScenario")
+  && !workspace.includes("reviewSample"));
 check("field scenarios come from canonical writing specifications", engine.includes("getAssessmentNarrativeGuideCoverage().coveredFields")
   && engine.includes("getAssessmentFieldWritingSpec(field)") && engine.includes("formatStandard"));
 check("historical text must map to a canonical assessment field", engine.includes("classifyAssessmentNarrativeField")
@@ -92,6 +95,9 @@ check("sample selection is reviewer-stable and field scoped", engine.includes("s
   && engine.includes("sample.targetField === scenario.targetField"));
 check("stale or mismatched samples cannot be submitted", engine.includes("The historical answer changed. Reload before saving this review."));
 check("review writes are concurrency serialized", store.includes("pg_advisory_xact_lock") && store.includes("expectedRevision"));
+check("review progress is isolated by signed-in reviewer", store.includes("where reviewer_principal_id = ${reviewerId}")
+  && store.includes("localState.records.get(reviewerId)")
+  && store.includes("localState.records.set(reviewerId"));
 check("review rows are unique, reviewer scoped, and contain no note text", migration.includes("unique (reviewer_principal_id, calibration_version, scenario_id)")
   && migration.includes("revoke all on table pipeline.note_lab_field_reviews from public")
   && !migration.includes("note_text") && !migration.includes("source_canvas_id"));
@@ -125,7 +131,8 @@ const emptyProgress = contractsModule.emptyNoteLabProgress(contractsModule.NOTE_
 const emptyCalibration = engineModule.buildNoteLabCalibration(scenarioCatalog, emptyProgress);
 check("the sidebar field sequence is bounded and canonical", emptyCalibration.fieldSteps.length === 15
   && emptyCalibration.fieldSteps[0].field === "prior_placements"
-  && emptyCalibration.fieldSteps[14].field === "staff_interaction_notes");
+  && emptyCalibration.fieldSteps[14].field === "staff_interaction_notes"
+  && emptyCalibration.fieldSteps.every((step) => !step.reviewed));
 const firstScenario = engineModule.selectNextScenario(scenarioCatalog, emptyProgress);
 const secondScenario = engineModule.selectNextScenario(scenarioCatalog, {
   ...emptyProgress,
@@ -135,6 +142,12 @@ check("field review starts at the first canonical assessment narrative field", f
   && firstScenario?.id === scenarioCatalog[0].id);
 check("field review advances in canonical assessment order", secondScenario?.id === scenarioCatalog[1].id
   && secondScenario?.targetField === "prior_awol_failed_placements");
+check("new reviewers start at field one and returning reviewers resume at the first unfinished field",
+  engineModule.selectSessionScenario(scenarioCatalog, emptyProgress)?.id === scenarioCatalog[0].id
+  && engineModule.selectSessionScenario(scenarioCatalog, {
+    ...emptyProgress,
+    reviews: [{ scenarioId: scenarioCatalog[0].id }],
+  })?.id === scenarioCatalog[1].id);
 check("direct field selection is bounded and defaults to field one",
   engineModule.selectCalibrationScenario(scenarioCatalog)?.id === scenarioCatalog[0].id
   && engineModule.selectCalibrationScenario(scenarioCatalog, scenarioCatalog[8].targetField)?.id === scenarioCatalog[8].id
