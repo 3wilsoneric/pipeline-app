@@ -19,6 +19,10 @@ export const metadata: Metadata = {
   title: "Pipeline",
   description: "Pipeline referral and assessment management",
   applicationName: "Pipeline",
+  icons: {
+    icon: [{ url: toPipelinePath("/brand/pipeline-mark.svg"), type: "image/svg+xml" }],
+    shortcut: [{ url: toPipelinePath("/brand/pipeline-mark.svg"), type: "image/svg+xml" }],
+  },
   manifest: isPipelineDesktopEnabled() ? toPipelinePath("/desktop-manifest.webmanifest") : undefined,
 };
 

@@ -38,7 +38,11 @@ check(
 check("worker registration is feature gated", runtime.includes("if (!isPipelineDesktopEnabled())") && runtime.includes("serviceWorker.register"));
 check("worker scope follows the Pipeline application base path", runtime.includes("PIPELINE_SERVICE_WORKER_SCOPE") && config.includes('toPipelinePath("/")'));
 check("disabled runtime unregisters Pipeline worker", runtime.includes("registration.unregister()") && runtime.includes("PIPELINE_DESKTOP_CACHE_PREFIX"));
-check("worker has a versioned Pipeline-only cache", worker.includes('CACHE_NAME = `${CACHE_PREFIX}v3`') && worker.includes('CACHE_PREFIX = "pipeline-static-"'));
+check(
+  "worker has a versioned Pipeline-only cache",
+  /CACHE_NAME = `\$\{CACHE_PREFIX\}v\d+`/.test(worker)
+    && worker.includes('CACHE_PREFIX = "pipeline-static-"'),
+);
 check("worker static paths are confined to its registration scope", worker.includes("self.registration.scope") && worker.includes("scopedPath"));
 check("worker caches only explicit assets and scoped hashed Next assets", worker.includes("isExplicitStaticAsset") && worker.includes('url.pathname.startsWith(scopedPath("/_next/static/"))'));
 check("worker never caches navigations", worker.includes('request.mode === "navigate"') && worker.includes("fetch(request).catch"));

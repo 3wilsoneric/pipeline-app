@@ -16,10 +16,10 @@ export default function PipelineLogoMark({
       style={{ width: size, height: size }}
     >
       <Image
-        src={toPipelinePath("/brand/pipeline-mark.png")}
+        src={toPipelinePath("/brand/pipeline-mark.svg")}
         alt=""
-        width={143}
-        height={143}
+        width={320}
+        height={360}
         priority
         unoptimized
         draggable={false}

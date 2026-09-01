@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "pipeline-static-";
-const CACHE_NAME = `${CACHE_PREFIX}v3`;
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 const scopedPath = (path) => `${SCOPE_PATH}${path}`;
 const OFFLINE_URL = scopedPath("/offline.html");
@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   OFFLINE_URL,
   OFFLINE_ASSESSMENT_URL,
   scopedPath("/offline-assessment.js"),
+  scopedPath("/brand/pipeline-mark.svg"),
   scopedPath("/pwa/icon-192.png"),
   scopedPath("/pwa/icon-512.png"),
   scopedPath("/pwa/icon-maskable-512.png"),
