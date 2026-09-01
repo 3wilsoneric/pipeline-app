@@ -31,6 +31,61 @@ const source = {
 };
 const profile = profileModule.buildHistoricalProfile(41, [source]);
 const fields = profile.sections.flatMap((section) => section.fields.map((field) => field.targetField));
+const capturedSource = {
+  sourceCanvasId: "structured-canvas",
+  sourceCanvasName: "Structured historical canvas",
+  sourceProjectName: "June admissions",
+  sourceLocator: "allo://canvas/structured-canvas",
+  capturedAt: "2026-06-04T00:00:00.000Z",
+  snapshotId: "structured-snapshot",
+  blocks: [],
+};
+const blockValues = [
+  ["NAME", "Activity", "paragraph"],
+  ["GENDER", "Activity", "paragraph"],
+  ["AGE", "Activity", "paragraph"],
+  ["DOB", "Activity", "paragraph"],
+  ["Example Person", "Activity", "paragraph"],
+  ["Female", "Activity", "paragraph"],
+  ["40", "Activity", "paragraph"],
+  ["11/20/1985", "Activity", "paragraph"],
+  ["Date Referral Received (M/D/Y):", "Activity", "paragraph"],
+  ["05/28/2026", "Activity", "paragraph"],
+  ["Assesment Date (M/D/Y):", "Activity", "paragraph"],
+  ["06/02/2026", "Activity", "paragraph"],
+  ["County:", "Activity", "paragraph"],
+  ["Stanislaus", "Activity", "paragraph"],
+  ["Referrent:", "Activity", "paragraph"],
+  ["Example Referrer", "Activity", "paragraph"],
+  ["Responsible Person:", "Activity", "paragraph"],
+  ["Example Responsible Person", "Activity", "paragraph"],
+  ["Residential program, unit C1", "Activity", "paragraph"],
+  ["Subtasks", "Subtasks", "heading"],
+  ["Original follow-up task", "Subtasks", "paragraph"],
+];
+capturedSource.blocks = blockValues.map(([text, heading, blockType], index) => ({
+  blockId: `structured-block-${index + 1}`,
+  ordinal: index + 1,
+  pageNumber: null,
+  pageTitle: null,
+  blockType,
+  semanticRole: "rendered-dom",
+  headingPath: [heading],
+  text,
+}));
+const sourceCompleteProfile = profileModule.buildHistoricalProfile(42, [], [capturedSource], [{
+  documentId: "document-1",
+  name: "Example face sheet.pdf",
+  category: "face_sheet",
+  contentType: "application/pdf",
+  sizeBytes: 4096,
+  pageCount: 2,
+  uploadedAt: "2026-06-04T00:00:00.000Z",
+  status: "uploaded",
+  previewStatus: "ready",
+  sourceSystem: "allo",
+}]);
+const sourceFacts = new Map(sourceCompleteProfile.facts.map((fact) => [fact.key, fact.value]));
 
 check("historical projection is explicitly read-only and never an assessment",
   profile.mode === "historical_profile" && profile.readOnly && !profile.assessmentCreated);
@@ -44,6 +99,19 @@ check("each mapped statement retains source provenance",
 check("historical profile contracts distinguish mapped and unmapped evidence",
   contracts.includes("HistoricalProfileEvidence") && contracts.includes("HistoricalProfileUnmappedEvidence")
     && contracts.includes("assessmentCreated: false"));
+check("raw source blocks produce profile facts even when no assessment-note candidate exists",
+  sourceCompleteProfile.coverage.candidateCount === 0
+    && sourceFacts.get("dob") === "11/20/1985"
+    && sourceFacts.get("county") === "Stanislaus"
+    && sourceFacts.get("assessment_date") === "06/02/2026"
+    && sourceFacts.get("referrer") === "Example Referrer"
+    && sourceFacts.get("responsible_person")?.includes("Residential program, unit C1"));
+check("source-complete profile preserves documents and remaining workspace details",
+  sourceCompleteProfile.documents.length === 1
+    && sourceCompleteProfile.documents[0].name === "Example face sheet.pdf"
+    && sourceCompleteProfile.sourceSections.some((section) =>
+      section.blocks.some((block) => block.text === "Original follow-up task"))
+    && sourceCompleteProfile.message === null);
 check("database lookup prefers the exact referral link with canvas identity fallback",
   store.includes("s.referral_id = ${referral.id}") && store.includes("s.source_canvas_id = ${referral.sourceWorkspaceId ?? null}")
     && !store.includes("and s.source_canvas_name = ${") && !store.includes("referral.name"));
@@ -51,6 +119,11 @@ check("historical profiles recover bounded legacy Summary content from stored so
   store.includes("recoverLegacyCanvasAssessmentCandidate")
     && store.includes("pipeline.canvas_content_blocks")
     && store.includes("not exists ("));
+check("historical profiles load latest raw canvas blocks and every linked document",
+  store.includes("postgresCapturedSources")
+    && store.includes("distinct on (source_canvas_id)")
+    && store.includes("from pipeline.documents")
+    && store.includes("where referral_id = ${referralId}"));
 check("private manifests remain disabled in production",
   store.includes("process.env.NODE_ENV === \"production\"") && store.includes("PIPELINE_NOTE_LAB_MANIFEST_PATH"));
 check("historical profile API is authenticated, access-scoped, and no-store",
@@ -66,9 +139,11 @@ check("historical workspace removes mutation affordances",
     && canvas.includes("readOnly={isHistoricalWorkspace}"));
 check("historical UI clearly distinguishes retrieval from current assessment",
   historicalWorkspace.includes("This is not a completed assessment")
-    && historicalWorkspace.includes("historical notes must be verified before reuse")
+    && historicalWorkspace.includes("Historical facts and notes must be verified before reuse")
     && !historicalWorkspace.includes("CoverageFact")
-    && historicalWorkspace.includes("Source notes needing structure"));
+    && historicalWorkspace.includes("Source notes needing structure")
+    && historicalWorkspace.includes("Source documents")
+    && historicalWorkspace.includes("Other source details"));
 check("historical projection code contains no clinical writes",
   !store.includes("insert into pipeline.assessments") && !store.includes("update pipeline.assessments")
     && !store.includes("update pipeline.referrals"));

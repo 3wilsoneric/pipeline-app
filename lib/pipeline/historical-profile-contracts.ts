@@ -31,6 +31,67 @@ export type HistoricalProfileUnmappedEvidence = {
   source: HistoricalProfileSource;
 };
 
+export type HistoricalProfileSourceBlock = {
+  blockId: string;
+  ordinal: number;
+  pageNumber: number | null;
+  pageTitle: string | null;
+  blockType: string;
+  semanticRole: string | null;
+  headingPath: string[];
+  text: string;
+};
+
+export type HistoricalProfileCapturedSource = HistoricalProfileSource & {
+  snapshotId: string;
+  blocks: HistoricalProfileSourceBlock[];
+};
+
+export type HistoricalProfileFact = {
+  factId: string;
+  key:
+    | "name"
+    | "gender"
+    | "age"
+    | "dob"
+    | "referral_received"
+    | "assessment_date"
+    | "admission_date"
+    | "county"
+    | "referrer"
+    | "responsible_person"
+    | "created_by"
+    | "modified_by"
+    | "section"
+    | "assignee"
+    | "due_date"
+    | "tags"
+    | "collaborators";
+  label: string;
+  value: string;
+  source: HistoricalProfileSource;
+};
+
+export type HistoricalProfileSourceSection = {
+  sectionId: string;
+  label: string;
+  source: HistoricalProfileSource;
+  blocks: HistoricalProfileSourceBlock[];
+};
+
+export type HistoricalProfileDocument = {
+  documentId: string;
+  name: string;
+  category: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+  pageCount: number | null;
+  uploadedAt: string;
+  status: string;
+  previewStatus: string;
+  sourceSystem: string | null;
+};
+
 export type HistoricalProfileSection = {
   section: AssessmentToolSection;
   label: string;
@@ -50,10 +111,17 @@ export type HistoricalProfileResponse = {
   readOnly: true;
   assessmentCreated: false;
   sources: HistoricalProfileSource[];
+  facts: HistoricalProfileFact[];
+  documents: HistoricalProfileDocument[];
   sections: HistoricalProfileSection[];
   unmappedEvidence: HistoricalProfileUnmappedEvidence[];
+  sourceSections: HistoricalProfileSourceSection[];
   coverage: {
     sourceCount: number;
+    sourceBlockCount: number;
+    displayedSourceBlockCount: number;
+    factCount: number;
+    documentCount: number;
     candidateCount: number;
     passageCount: number;
     mappedPassageCount: number;
