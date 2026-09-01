@@ -40,9 +40,9 @@ test.describe("Assessment practice lab", () => {
     await page.goto("/note-lab/practice");
 
     const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
-    await sectionRail.getByRole("button", { name: /^Function\b/ }).click();
+    await sectionRail.getByRole("button", { name: "Start walkthrough for Function" }).click();
+    await expect(sectionRail.getByRole("button", { name: /^Function\b/ })).toHaveAttribute("aria-current", "step");
     await expect(page.getByRole("heading", { name: "Function" })).toBeVisible();
-    await page.getByRole("button", { name: "Start walkthrough for Function" }).click();
     const adlGuidance = page.getByRole("dialog", { name: "ADL needs" });
     await expect(adlGuidance).toBeVisible();
     await adlGuidance.getByRole("button", { name: "OK, go to question" }).click();

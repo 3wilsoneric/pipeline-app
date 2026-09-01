@@ -57,7 +57,9 @@ check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LA
 check("the combined rail preserves the assessment section navigation",
   workspace.includes('aria-label="Assessment section navigation"')
   && workspace.includes("assessmentPracticeNavigationGroups.map")
-  && workspace.includes('aria-current={active ? "step" : undefined}'));
+  && workspace.includes('aria-current={active ? "step" : undefined}')
+  && workspace.includes("startSectionWalkthrough(item.key)")
+  && workspace.includes("Start walkthrough for ${item.label}"));
 check("only authored narrative questions can open guidance and the selected section bounds the walkthrough",
   workspace.includes("onOpenGuidance={openGuidance}")
   && workspace.includes("hasUsefulWritingGuidance")

@@ -53,6 +53,8 @@ check("the walkthrough is scoped to the selected section and advances only throu
   && workspace.includes("firstGuidedStepInSection")
   && workspace.includes("step.section === section.key")
   && workspace.includes("step.section === currentStep.section")
+  && workspace.includes("startSectionWalkthrough(item.key)")
+  && workspace.includes("Start walkthrough for ${item.label}")
   && workspace.includes("hasUsefulWritingGuidance")
   && workspace.includes("QuestionGuidanceDialog")
   && workspace.includes("PracticeQuestionTooltip")
