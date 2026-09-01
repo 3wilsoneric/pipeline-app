@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ae141fe3bf2b8a56",
-  "fingerprint": "ae141fe3bf2b8a563db7fb9a6357cf8d9ede697bac8672916b4a81a018967b09",
+  "generatedAt": "source-fingerprint:d40d77878100f414",
+  "fingerprint": "d40d77878100f414e6d3ae3f105f747e69fa744baa7cf10dbd924f976c39e8ba",
   "totals": {
     "files": 731,
-    "lines": 222600,
+    "lines": 222614,
     "coveredFiles": 731
   },
   "entries": [
@@ -1686,7 +1686,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 332,
+      "lines": 329,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1758,7 +1758,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 32,
+      "lines": 38,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -6115,7 +6115,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 194,
+      "lines": 190,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6655,7 +6655,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 69,
+      "lines": 81,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -8503,7 +8503,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 40,
+      "lines": 43,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
