@@ -7,6 +7,11 @@ import { buildMeetClientSummary } from "@/lib/assessment/assessment-summary";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import {
+  getMeetClientAttachmentInventory,
+  prepareMeetClientMailAttachments,
+} from "@/lib/notifications/meet-client-attachments";
+import {
+  GraphMailDeliveryError,
   getGraphMailReadiness,
   sendMeetClientMail,
   validateMeetClientRecipients,
@@ -19,9 +24,11 @@ import {
 } from "@/lib/pipeline/meet-client-delivery-audit";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
+import type { Referral } from "@/lib/pipeline/referral-types";
 import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 export async function POST(
   request: Request,
@@ -44,6 +51,8 @@ export async function POST(
     const contextResult = await loadMeetClientContext(referralId);
     if (!contextResult.ok) return contextResult.response;
     const { assessment, snapshot } = contextResult;
+    const attachmentContext = await loadAdmissionPacket(snapshot.referral);
+    if (!attachmentContext.ok) return attachmentContext.response;
 
     const deliveryId = randomUUID();
     const audit = buildDeliveryAudit({
@@ -54,31 +63,48 @@ export async function POST(
       decisionId: contextResult.decisionId,
       actor: auth.user,
       recipients: prepared.recipients,
+      attachmentCount: attachmentContext.attachments.length,
+      attachmentBytes: attachmentContext.inventory.totalBytes,
     });
     const reserved = await reserveMeetClientDelivery(audit);
     if (!reserved) return jsonError("This email request was already processed. Refresh the summary before trying again.", 409);
 
-    try {
-      const result = await sendMeetClientMail({
-        recipients: prepared.recipients,
-        summary: buildMeetClientSummary(assessment, snapshot.referral),
-        preparedBy: auth.user.name,
-        deliveryId,
-      });
-      await completeMeetClientDelivery(audit, "sent");
-      recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "sent" });
-      return Response.json({
-        ok: true,
-        delivery_id: deliveryId,
-        accepted_at: result.acceptedAt,
-        recipient_count: prepared.recipients.length,
-      }, { headers: privateHeaders() });
-    } catch (error) {
-      await completeMeetClientDelivery(audit, "failed", deliveryErrorCode(error));
-      recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failed" });
-      return jsonError("The summary was not accepted by Microsoft 365. No automatic retry was attempted.", 502);
-    }
+    return deliverMeetClientEmail({
+      audit,
+      recipients: prepared.recipients,
+      summary: buildMeetClientSummary(assessment, snapshot.referral),
+      preparedBy: auth.user.name,
+      deliveryId,
+      attachments: attachmentContext.attachments,
+    });
   });
+}
+
+async function deliverMeetClientEmail(input: {
+  audit: Parameters<typeof reserveMeetClientDelivery>[0];
+  recipients: string[];
+  summary: ReturnType<typeof buildMeetClientSummary>;
+  preparedBy: string;
+  deliveryId: string;
+  attachments: Awaited<ReturnType<typeof prepareMeetClientMailAttachments>>;
+}) {
+  try {
+    const result = await sendMeetClientMail(input);
+    await completeMeetClientDelivery(input.audit, "sent");
+    recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "sent" });
+    return Response.json({
+      ok: true,
+      delivery_id: input.deliveryId,
+      accepted_at: result.acceptedAt,
+      recipient_count: input.recipients.length,
+      attachment_count: result.attachmentCount,
+      attachment_bytes: result.attachmentBytes,
+    }, { headers: privateHeaders() });
+  } catch (error) {
+    await completeMeetClientDelivery(input.audit, "failed", deliveryErrorCode(error));
+    recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failed" });
+    return jsonError(deliveryFailureMessage(error), 502);
+  }
 }
 
 function meetClientStoreFailure() {
@@ -138,6 +164,22 @@ function selectSignedAssessment(
   return recommended?.signed_at ? recommended : assessments.find((item) => item.signed_at);
 }
 
+async function loadAdmissionPacket(referral: Referral) {
+  try {
+    const readiness = getGraphMailReadiness();
+    const inventory = await getMeetClientAttachmentInventory(referral, {
+      largeAttachmentDeliveryConfigured: readiness.largeAttachmentDeliveryConfigured,
+    });
+    if (!inventory.ready) {
+      return { ok: false as const, response: jsonError(inventory.blockers.join(" "), 422) };
+    }
+    const attachments = await prepareMeetClientMailAttachments(inventory);
+    return { ok: true as const, inventory, attachments };
+  } catch {
+    return { ok: false as const, response: jsonError("The admission packet could not be prepared. Refresh the chart and try again.", 503) };
+  }
+}
+
 function buildDeliveryAudit({
   mutationId,
   deliveryId,
@@ -146,12 +188,16 @@ function buildDeliveryAudit({
   decisionId,
   actor,
   recipients,
+  attachmentCount,
+  attachmentBytes,
 }: PreparedEmailRequest & {
   deliveryId: string;
   referralId: number;
   assessment: PipelineAssessmentRecord;
   decisionId: string;
   actor: { id: string; name: string };
+  attachmentCount: number;
+  attachmentBytes: number;
 }) {
   const now = new Date().toISOString();
   return {
@@ -165,6 +211,8 @@ function buildDeliveryAudit({
     actorName: actor.name,
     recipientCount: recipients.length,
     recipientDomains: [...new Set(recipients.map(emailDomain))],
+    attachmentCount,
+    attachmentBytes,
     provider: "microsoft_graph",
     createdAt: now,
     updatedAt: now,
@@ -190,8 +238,19 @@ function emailDomain(value: string) {
 }
 
 function deliveryErrorCode(error: unknown) {
+  if (error instanceof GraphMailDeliveryError) return error.code;
   if (error instanceof DOMException && error.name === "TimeoutError") return "provider_timeout";
   return "provider_rejected";
+}
+
+function deliveryFailureMessage(error: unknown) {
+  if (error instanceof GraphMailDeliveryError && error.code === "large_attachment_permission_missing") {
+    return "Microsoft 365 is not configured to send this admission packet size. No email was sent.";
+  }
+  if (error instanceof GraphMailDeliveryError && error.code.startsWith("attachment_source_")) {
+    return "An admission packet file became unavailable before delivery. No email was sent.";
+  }
+  return "The summary and admission packet were not accepted by Microsoft 365. No automatic retry was attempted.";
 }
 
 function privateHeaders() {

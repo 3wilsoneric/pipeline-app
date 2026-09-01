@@ -14,6 +14,7 @@ const narrativeGuide = loadTypeScriptModule(root, "lib/assessment/assessment-nar
 const fieldWritingSpec = loadTypeScriptModule(root, "lib/assessment/assessment-field-writing-spec.ts");
 const assessmentSummary = loadTypeScriptModule(root, "lib/assessment/assessment-summary.ts");
 const meetClientTemplate = loadTypeScriptModule(root, "lib/notifications/meet-client-email-template.ts");
+const attachmentPolicy = loadTypeScriptModule(root, "lib/notifications/meet-client-attachment-policy.ts");
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -130,9 +131,19 @@ check("Meet the Client is generated from structured identity, medication, and bi
 const renderedMeetClient = meetClientTemplate.renderMeetClientEmail({
   ...signedAssessmentReport.meetClient,
   name: "<Test Client>",
-}, "Supervisor & Reviewer", "delivery-fixture");
+}, "Supervisor & Reviewer", "delivery-fixture", ["LIC 602 <signed>.pdf", "Medication list.pdf"]);
 check("Meet the Client subject excludes the client name", !renderedMeetClient.subject.includes("Test Client"));
 check("Meet the Client HTML escapes clinical and identity content", renderedMeetClient.html.includes("&lt;Test Client&gt;") && renderedMeetClient.html.includes("Supervisor &amp; Reviewer") && !renderedMeetClient.html.includes("<Test Client>"));
+check("Meet the Client identifies and escapes every attached admission file", renderedMeetClient.html.includes("LIC 602 &lt;signed&gt;.pdf") && renderedMeetClient.html.includes("Medication list.pdf") && !renderedMeetClient.html.includes("LIC 602 <signed>.pdf"));
+check("small packets use direct Graph delivery", attachmentPolicy.meetClientAttachmentDeliveryMode([{ byteSize: 500_000 }, { byteSize: 500_000 }]) === "direct");
+check("larger packet payloads use a draft upload", attachmentPolicy.meetClientAttachmentDeliveryMode([{ byteSize: 1_500_000 }, { byteSize: 1_500_000 }]) === "draft_upload");
+const uploadRanges = attachmentPolicy.graphUploadRanges(10_000_001);
+check("Graph attachment ranges are contiguous, bounded, and cover every byte", uploadRanges.length > 1
+  && uploadRanges[0].start === 0
+  && uploadRanges.at(-1).end === 10_000_000
+  && uploadRanges.every((range, index) => range.end >= range.start
+    && range.end - range.start + 1 <= attachmentPolicy.graphUploadChunkBytes
+    && (index === 0 || range.start === uploadRanges[index - 1].end + 1)));
 
 check("schedule requires time, duration, and method", !lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: null, duration_minutes: null, method: null, location: null } }).ok);
 check("schedule accepts a timezone-aware appointment", lifecycle.validateAssessmentScheduleCommand({ if_match: 1, schedule: { status: "scheduled", start_at: "2026-08-25T09:00:00-07:00", duration_minutes: 60, method: "in_person", location: "San Pablo" } }).ok);
@@ -163,6 +174,7 @@ const rollback = read("database/rollbacks/0015_assessor_workflow.sql");
 const admissionSummaryRoute = read("app/api/referrals/[referralId]/admission-summary/route.ts");
 const meetClientEmailRoute = read("app/api/referrals/[referralId]/meet-client-email/route.ts");
 const graphMail = read("lib/notifications/microsoft-graph-mail.ts");
+const meetClientAttachments = read("lib/notifications/meet-client-attachments.ts");
 const meetClientTemplateSource = read("lib/notifications/meet-client-email-template.ts");
 const deliveryAudit = read("lib/pipeline/meet-client-delivery-audit.ts");
 const assessmentChartWorkspace = read("components/pipeline/AssessmentChartWorkspace.tsx");
@@ -208,9 +220,31 @@ check("Meet the Client requires an accepted decision and signed assessment", mee
 check("summary and email prefer the recommendation's exact assessment", admissionSummaryRoute.includes("snapshot.recommendation?.assessmentId") && meetClientEmailRoute.includes("snapshot.recommendation?.assessmentId"));
 check("email recipients are constrained to approved organization domains", graphMail.includes("PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS") && graphMail.includes("allowedRecipientDomains.includes(emailDomain(value))"));
 check("email subject excludes the client name", meetClientTemplateSource.includes('Meet the Client | ${summary.community') && !meetClientTemplateSource.match(/subject\s*=.*summary\.name/));
-check("email delivery is idempotent and audited without recipient addresses", deliveryAudit.includes("pipeline.idempotency_keys") && deliveryAudit.includes("recipient_domains") && !deliveryAudit.includes("recipient_addresses"));
+check("admission packet selection is server-owned and referral-scoped", meetClientEmailRoute.includes("getMeetClientAttachmentInventory")
+  && meetClientAttachments.includes("referralId: referral.id")
+  && meetClientAttachments.includes('excludedCategories = new Set<ReferralFile["category"]>(["Assessment"])')
+  && !meetClientEmailRoute.includes("document_ids"));
+check("admission packet delivery is blocked unless every file is safety-scanned", meetClientAttachments.includes('status !== "clean"')
+  && meetClientAttachments.includes("files.some((file) => !file.ready)")
+  && meetClientAttachments.includes("sourceSystem === \"pipeline\""));
+check("packet delivery supports direct and resumable Graph attachment paths", graphMail.includes("sendDirectMessage")
+  && graphMail.includes("createUploadSession")
+  && graphMail.includes('Range: `bytes=${start}-${end}`')
+  && graphMail.includes("deleteDraft"));
+check("packet email has an explicit serverless delivery window", meetClientEmailRoute.includes("export const maxDuration = 300")
+  && assessmentChartWorkspace.includes("timeoutMs: 300_000"));
+check("email delivery is idempotent and audited without recipient addresses or filenames", deliveryAudit.includes("pipeline.idempotency_keys")
+  && deliveryAudit.includes("recipient_domains")
+  && deliveryAudit.includes("attachment_count")
+  && !deliveryAudit.includes("recipient_addresses")
+  && !deliveryAudit.includes("attachment_names"));
+check("attachment inventory failures do not take down the signed chart", admissionSummaryRoute.includes("loadAdmissionPacketInventory")
+  && admissionSummaryRoute.includes("Admission packet files are temporarily unavailable"));
 check("the referral workspace exposes assessment Charts without adding them to historical records", referralPacketCanvas.includes('{ page: 3, label: "Charts" }') && referralPacketCanvas.includes("normalizeWorkspaceView") && referralPacketCanvas.includes('workspaceStatus !== "historical"'));
 check("the Charts workspace contains only the complete chart and Meet the Client outputs", assessmentChartWorkspace.includes('label="Complete chart"') && assessmentChartWorkspace.includes('label="Meet the Client"') && assessmentChartWorkspace.includes("<CompleteAssessmentChart") && assessmentChartWorkspace.includes("<MeetClientChart") && !assessmentChartWorkspace.includes("DecisionPanel") && !assessmentChartWorkspace.includes("overrideReason"));
+check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes("<AdmissionPacketSummary")
+  && assessmentChartWorkspace.includes("listed admission files")
+  && assessmentChartWorkspace.includes("Email summary + packet"));
 check("the complete chart is generated only from a signed assessment", admissionSummaryRoute.includes("selectSignedAssessment") && admissionSummaryRoute.includes("recommended?.signed_at") && admissionSummaryRoute.includes("find((item) => item.signed_at)"));
 check("only supervisors can move a referral to trash", referralRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
 check("only supervisors can authorize intake without an initial packet", manualIntakeRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));

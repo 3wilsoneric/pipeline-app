@@ -114,6 +114,7 @@ export type ReferralFileListOptions = {
   query?: string;
   limit?: number;
   cursor?: string;
+  referralId?: number;
   clientId?: string;
   canonicalClientId?: string;
   community?: string;
@@ -622,6 +623,7 @@ async function listLocalReferralFiles(
   const owner = options.owner ? normalizeOwnerName(options.owner) : "";
   const matching = state.referrals
     .filter((referral) => !isDeletedReferral(referral))
+    .filter((referral) => !options.referralId || referral.id === options.referralId)
     .filter((referral) => !options.clientId || referral.clientId === options.clientId)
     .filter((referral) => matchesAssignmentScope(referral, options))
     .flatMap(getReferralFiles)
@@ -1240,6 +1242,7 @@ async function listPostgresReferralsByClient(clientId: string) {
 async function listPostgresReferralFiles(options: ReferralFileListOptions = {}): Promise<ReferralFileListResult> {
   const sql = getPipelineSql();
   const queryTokens = normalizedSearchTokens(options.query ?? "");
+  const referralId = normalizeReferralFileReferralId(options.referralId);
   const clientId = options.clientId?.trim() || null;
   const canonicalClientId = options.canonicalClientId?.trim() || null;
   const community = options.community?.trim() || null;
@@ -1380,6 +1383,7 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
             or lower(coalesce(status, '')) ilike ('%' || search_term.value || '%')
           )
         ))
+        and (${referralId}::bigint is null or file_rows.referral_id = ${referralId})
         and (${clientId}::text is null or external_client_id = ${clientId})
         and (${canonicalClientId}::text is null or canonical_client_id = ${canonicalClientId})
         and (${community}::text is null or file_rows.community = ${community})
@@ -1412,6 +1416,10 @@ async function listPostgresReferralFiles(options: ReferralFileListOptions = {}):
       : undefined,
     generated_at: new Date().toISOString(),
   };
+}
+
+function normalizeReferralFileReferralId(value: number | undefined) {
+  return Number.isInteger(value) && Number(value) > 0 ? Number(value) : null;
 }
 
 async function listPostgresReferralFilesByClient(clientId: string) {

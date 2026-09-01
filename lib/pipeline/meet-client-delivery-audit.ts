@@ -16,6 +16,8 @@ type DeliveryAudit = {
   actorName: string;
   recipientCount: number;
   recipientDomains: string[];
+  attachmentCount: number;
+  attachmentBytes: number;
   provider: string;
   errorCode?: string;
   createdAt: string;
@@ -66,6 +68,8 @@ export async function completeMeetClientDelivery(
           decision_id: input.decisionId,
           recipient_count: input.recipientCount,
           recipient_domains: input.recipientDomains,
+          attachment_count: input.attachmentCount,
+          attachment_bytes: input.attachmentBytes,
           provider: input.provider,
           ...(errorCode ? { error_code: errorCode } : {}),
         })}

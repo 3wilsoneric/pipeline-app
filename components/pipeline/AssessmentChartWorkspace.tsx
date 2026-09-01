@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileText, LoaderCircle, Mail, RefreshCw, Send, UserRound } from "lucide-react";
+import { FileText, LoaderCircle, Mail, Paperclip, RefreshCw, Send, UserRound } from "lucide-react";
 
 import type {
   AssessmentSummaryItem,
@@ -22,6 +22,18 @@ type ChartPayload = {
     eligible: boolean;
     ready: boolean;
     blockers: string[];
+    admission_packet: {
+      files: Array<{
+        document_id: string;
+        name: string;
+        category: string;
+        byte_size: number;
+        ready: boolean;
+      }>;
+      total_bytes: number;
+      ready: boolean;
+      delivery_mode: "direct" | "draft_upload" | null;
+    };
   };
 };
 
@@ -63,7 +75,7 @@ export default function AssessmentChartWorkspace({ referralId }: { referralId?: 
     setError("");
     setMessage("");
     try {
-      const result = await fetchPipelineJson<{ recipient_count: number }>(
+      const result = await fetchPipelineJson<{ recipient_count: number; attachment_count: number }>(
         `/api/referrals/${payload.referral.id}/meet-client-email`,
         {
           method: "POST",
@@ -73,10 +85,10 @@ export default function AssessmentChartWorkspace({ referralId }: { referralId?: 
             client_mutation_id: crypto.randomUUID(),
           }),
         },
-        { timeoutMs: 20_000 },
+        { timeoutMs: 300_000 },
       );
       setConfirmed(false);
-      setMessage(`Sent to ${result.recipient_count} recipient${result.recipient_count === 1 ? "" : "s"}.`);
+      setMessage(`Sent the summary and ${result.attachment_count} admission file${result.attachment_count === 1 ? "" : "s"} to ${result.recipient_count} recipient${result.recipient_count === 1 ? "" : "s"}.`);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Meet the Client could not be emailed.");
     } finally {
@@ -260,13 +272,35 @@ function MeetClientChart({
             <label htmlFor="meet-client-recipients" className="mt-4 block text-[9px] font-black uppercase text-[#5e6863]">Authorized recipients</label>
             <textarea id="meet-client-recipients" value={recipients} onChange={(event) => onRecipients(event.target.value)} rows={3} placeholder="name@organization.org" className="mt-2 w-full resize-y border border-[#cfd7d2] bg-white px-3 py-2 text-[11px] outline-none focus:border-[#0f8b73]" />
             <p className="mt-1 text-[9px] leading-4 text-[#727b76]">Approved domains: {email.allowed_recipient_domains.join(", ") || "not configured"}</p>
-            <label className="mt-3 flex items-start gap-2 text-[10px] leading-4 text-[#47514c]"><input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} className="mt-0.5" /><span>I verified that each recipient is authorized to receive this protected information.</span></label>
+            <AdmissionPacketSummary packet={email.admission_packet} />
+            <label className="mt-3 flex items-start gap-2 text-[10px] leading-4 text-[#47514c]"><input type="checkbox" checked={confirmed} onChange={(event) => onConfirmed(event.target.checked)} className="mt-0.5" /><span>I verified that each recipient is authorized to receive the summary and listed admission files.</span></label>
             {email.blockers.length > 0 ? <p className="mt-3 text-[10px] leading-4 text-[#8a5a10]">{email.blockers.join(" ")}</p> : null}
-            <button type="button" onClick={onSend} disabled={sending || !email.ready || !confirmed || !recipients.trim()} className="mt-4 flex h-9 w-full items-center justify-center gap-2 bg-[#0f8b73] px-4 text-[10px] font-black text-white hover:bg-[#0b725f] disabled:cursor-not-allowed disabled:bg-[#adb5b1]"><Send size={13} /> {sending ? "Sending..." : "Email Meet the Client"}</button>
+            <button type="button" onClick={onSend} disabled={sending || !email.ready || !confirmed || !recipients.trim()} className="mt-4 flex h-9 w-full items-center justify-center gap-2 bg-[#0f8b73] px-4 text-[10px] font-black text-white hover:bg-[#0b725f] disabled:cursor-not-allowed disabled:bg-[#adb5b1]"><Send size={13} /> {sending ? "Sending summary + packet..." : "Email summary + packet"}</button>
           </>
         )}
       </aside>
     </div>
+  );
+}
+
+function AdmissionPacketSummary({ packet }: { packet: ChartPayload["email"]["admission_packet"] }) {
+  return (
+    <section className="mt-4 border border-[#d6ddd9] bg-white" aria-label="Admission packet attachments">
+      <div className="flex items-center justify-between gap-3 border-b border-[#e2e7e4] px-3 py-2.5">
+        <div className="flex items-center gap-2 text-[10px] font-black text-[#27312c]"><Paperclip size={13} className="text-[#0f8b73]" />Admission packet</div>
+        <span className="text-[9px] font-bold text-[#69736e]">{packet.files.length} file{packet.files.length === 1 ? "" : "s"} · {formatBytes(packet.total_bytes)}</span>
+      </div>
+      {packet.files.length > 0 ? (
+        <ul className="max-h-44 overflow-y-auto">
+          {packet.files.map((file) => (
+            <li key={file.document_id} className="flex items-start justify-between gap-3 border-b border-[#edf0ee] px-3 py-2 last:border-0">
+              <div className="min-w-0"><div className="truncate text-[9px] font-bold text-[#303935]" title={file.name}>{file.name}</div><div className="mt-0.5 text-[8px] text-[#78817c]">{file.category}</div></div>
+              <span className={`shrink-0 text-[8px] font-black uppercase ${file.ready ? "text-[#287060]" : "text-[#a15a32]"}`}>{file.ready ? formatBytes(file.byte_size) : "Not ready"}</span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="px-3 py-3 text-[9px] text-[#737c77]">No admission files are attached.</p>}
+    </section>
   );
 }
 
@@ -292,4 +326,10 @@ function formatDate(value: string) {
 function formatTimestamp(value: string) {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0 KB";
+  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+  return `${(value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 }

@@ -1,6 +1,11 @@
 import type { MeetClientSummary } from "@/lib/assessment/assessment-summary";
 
-export function renderMeetClientEmail(summary: MeetClientSummary, preparedBy: string, deliveryId: string) {
+export function renderMeetClientEmail(
+  summary: MeetClientSummary,
+  preparedBy: string,
+  deliveryId: string,
+  attachmentNames: string[] = [],
+) {
   const subject = `Meet the Client | ${summary.community || "New admission"}`;
   const identityRows = [
     ["Name", summary.name],
@@ -8,7 +13,7 @@ export function renderMeetClientEmail(summary: MeetClientSummary, preparedBy: st
     ["Community", summary.community],
     ["Assessment date", summary.assessmentDate],
   ];
-  const html = `<!doctype html><html><body style="margin:0;background:#f4f7f5;color:#1d2421;font-family:Arial,sans-serif"><div style="max-width:720px;margin:0 auto;padding:24px"><div style="border-top:5px solid #0f8b73;background:#fff;padding:28px"><div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#0f8b73;text-transform:uppercase">Pipeline</div><h1 style="margin:8px 0 22px;font-size:26px">Meet the Client</h1>${table(identityRows)}${emailSection("A little about the client", summary.bio)}${emailSection("Current medications", summary.medications)}${emailItemSection("Medication notes", summary.medicationNotes)}${emailItemSection("Support snapshot", summary.supportSnapshot)}<div style="margin-top:26px;border-top:1px solid #d9dfdb;padding-top:14px;font-size:11px;line-height:1.5;color:#66706b">Prepared from signed Pipeline assessment ${escapeHtml(summary.preparedFromAssessmentId)} version ${summary.preparedFromAssessmentVersion} by ${escapeHtml(preparedBy)}.<br>Confidential: contains protected health information. Use only for authorized care coordination. Delivery ${escapeHtml(deliveryId)}.</div></div></div></body></html>`;
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f7f5;color:#1d2421;font-family:Arial,sans-serif"><div style="max-width:720px;margin:0 auto;padding:24px"><div style="border-top:5px solid #0f8b73;background:#fff;padding:28px"><div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#0f8b73;text-transform:uppercase">Pipeline</div><h1 style="margin:8px 0 22px;font-size:26px">Meet the Client</h1>${table(identityRows)}${emailSection("A little about the client", summary.bio)}${emailSection("Current medications", summary.medications)}${emailItemSection("Medication notes", summary.medicationNotes)}${emailItemSection("Support snapshot", summary.supportSnapshot)}${emailSection("Admission packet", attachmentNames)}<div style="margin-top:26px;border-top:1px solid #d9dfdb;padding-top:14px;font-size:11px;line-height:1.5;color:#66706b">Prepared from signed Pipeline assessment ${escapeHtml(summary.preparedFromAssessmentId)} version ${summary.preparedFromAssessmentVersion} by ${escapeHtml(preparedBy)}.<br>Confidential: contains protected health information. Use only for authorized care coordination. Delivery ${escapeHtml(deliveryId)}.</div></div></div></body></html>`;
   return { subject, html };
 }
 function table(rows: string[][]) {
