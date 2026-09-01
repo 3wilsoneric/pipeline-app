@@ -23,7 +23,11 @@ async function renderIcon(size, insetRatio, outputPath) {
 
   const inset = Math.round(size * insetRatio);
   const dimension = size - inset * 2;
-  context.drawImage(brandMark, inset, inset, dimension, dimension);
+  const markWidth = Math.round(dimension * 0.8);
+  const markHeight = Math.round(dimension * 0.86);
+  const x = Math.round((size - markWidth) / 2);
+  const y = Math.round((size - markHeight) / 2 - size * 0.025);
+  context.drawImage(brandMark, x, y, markWidth, markHeight);
 
   await writeFile(outputPath, canvas.toBuffer("image/png"));
 }
