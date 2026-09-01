@@ -20,7 +20,7 @@ export default function PipelineHeader() {
   const [user, setUser] = useState<PipelineCurrentUser | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/";
   const searchParams = useSearchParams();
   const activeSearchParams = new URLSearchParams(usePipelineLocationSearch(searchParams?.toString() ?? ""));
   const auth = usePipelineAuth();
