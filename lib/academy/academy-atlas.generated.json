@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:67a3d3852c0f3d94",
-  "fingerprint": "67a3d3852c0f3d9494bcf57106919464e39e23f72d606ad674338b303f44fd72",
+  "generatedAt": "source-fingerprint:930b23f2cfd5f3e8",
+  "fingerprint": "930b23f2cfd5f3e8eeb0eeec491eeccfce50772962d512463037d9ea64582e06",
   "totals": {
     "files": 732,
-    "lines": 222874,
+    "lines": 222776,
     "coveredFiles": 732
   },
   "entries": [
@@ -1698,7 +1698,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 594,
+      "lines": 450,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5091,7 +5091,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 368,
+      "lines": 380,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -5115,7 +5115,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 358,
+      "lines": 357,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -6259,7 +6259,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 101,
+      "lines": 106,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -7675,7 +7675,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 249,
+      "lines": 262,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8491,7 +8491,7 @@
       "kind": "typescript-module",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 19,
+      "lines": 20,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8503,7 +8503,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 34,
+      "lines": 50,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
