@@ -114,20 +114,15 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
 ];
 
 export const operatorGuideVerifiedActionTargets: Readonly<Record<Exclude<OperatorGuideAdvance, "confirm">, readonly string[]>> = {
-  "target-click": ["practice-function-section", "practice-clinical-section", "pipeline-home", "primary-workspaces", "primary-calendar", "primary-new-referral", "workspace-views", "calendar-view", "workspace-results", "assessment-stage", "assessment-schedule-open", "operations-exception-list"],
-  "target-input": ["practice-assistance-details", "practice-current-symptoms", "workspace-search", "intake-identity", "intake-medications"],
-  "target-change": ["practice-assistance-level", "calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "operations-exception-filter", "operations-report-month"],
+  "target-click": ["pipeline-home", "primary-workspaces", "primary-calendar", "primary-new-referral", "workspace-views", "calendar-view", "workspace-results", "assessment-stage", "assessment-schedule-open", "operations-exception-list"],
+  "target-input": ["workspace-search", "intake-identity", "intake-medications"],
+  "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "operations-exception-filter", "operations-report-month"],
 };
 
 export const operatorGuidedTutorialIds = operatorGuidedTutorials.map((tutorial) => tutorial.id);
 export const operatorGuideTargetIds = [...new Set(operatorGuidedTutorials.flatMap((tutorial) => tutorial.steps.map((step) => step.target)))];
 
 export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
-  "practice-function-section": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
-  "practice-clinical-section": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
-  "practice-assistance-level": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
-  "practice-assistance-details": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
-  "practice-current-symptoms": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
   "pipeline-home": "components/pipeline/PipelineHeader.tsx",
   "primary-workspaces": "components/pipeline/PipelineActionNav.tsx",
   "primary-calendar": "components/pipeline/PipelineActionNav.tsx",
