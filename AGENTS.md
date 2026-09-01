@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Refactor safety
 
-Pipeline refactoring is currently setup-only. Read `docs/REFACTORING_PLAYBOOK.md` and `docs/refactoring/CONTROL_PLANE_MAP.md` before structural work.
+Pipeline refactoring is currently setup-only. Read `docs/REFACTORING_PLAYBOOK.md`, `docs/refactoring/CONTROL_PLANE_MAP.md`, and `docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md` before structural work.
 
 - Do not begin a broad refactor from a general cleanup request.
 - A slice may start only after its human owner completes an architecture narrative, resolves all `before_start` evidence in `docs/refactoring/evidence-matrix.json`, and records explicit approval.
@@ -15,6 +15,7 @@ Pipeline refactoring is currently setup-only. Read `docs/REFACTORING_PLAYBOOK.md
 - Preserve product layout, click paths, workflow behavior, database semantics, audit events, extraction provenance, and PHI boundaries unless a separate behavior change is approved.
 - Never rewrite applied migrations. Keep local and PostgreSQL adapters explicit and verify intended parity.
 - Before a slice starts, humans must validate its canonical responsibilities, comprehension probes, and proof obligations and create the exact-commit assurance record required by `docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md`.
+- Treat changes to the refactor instructions and controls as hypotheses. Before a slice starts, humans must adopt an exact-commit guidance bundle through fixed first-attempt scenarios, blind matched comparison, private holdouts, and the `evaluated_refactor_guidance_baseline` evidence item; agents may not approve that evaluation.
 - Recursive work proceeds one approved responsibility and proof obligation at a time. Agents may challenge evidence but may not approve their own assurance model, adversarial findings, residual risks, or convergence.
 - Never describe Pipeline or a refactor slice as bug-free, perfect, or formally verified. State only the bounded properties and exact candidate commit supported by recorded evidence.
-- Run `npm run audit:repository` and `npm run check:refactor-setup` before implementation, `npm run codebase:baseline` before and after an approved slice, and `npm run certify:refactor` before completion.
+- Run `npm run audit:repository`, `npm run check:refactor-guidance`, and `npm run check:refactor-setup` before implementation, `npm run codebase:baseline` before and after an approved slice, and `npm run certify:refactor` before completion.

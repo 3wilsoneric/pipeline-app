@@ -7,6 +7,13 @@
   "humanOwner": "name",
   "independentHumanReviewer": "different-name",
   "approvedObligationIds": [],
+  "guidanceEvaluation": {
+    "adoptionRecord": "docs/refactoring/guidance-evaluations/exact-adopted-comparison.json",
+    "guidanceCommit": "full-40-character-adopted-guidance-commit",
+    "scenarioSuiteVersion": "2026-09-01.1",
+    "acknowledgedBy": "human-owner",
+    "acknowledgedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+  },
   "preChangeComprehension": {
     "commit": "full-reviewed-git-sha",
     "reviewer": "fresh-context-reviewer",

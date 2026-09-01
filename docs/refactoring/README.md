@@ -23,6 +23,14 @@ The machine-checked assurance model is split by purpose:
 - `proof-obligations.json` defines bounded critical properties and their required assurance methods.
 - `high-assurance-policy.json` defines the permitted claim, recursive stop rule, adversarial review, and residual-risk limits.
 
+The refactor-guidance evaluation layer tests whether that model changes fresh-agent behavior rather than merely reading well:
+
+- `REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md` defines frozen first-attempt trials, private holdouts, blind comparison, correction routing, and adoption.
+- `refactor-guidance-evaluation-policy.json` defines the machine-checked run and comparison requirements.
+- `refactor-eval-scenarios.json` contains the public calibration suite, including stop, bounded-positive, boundary-preservation, and non-refactor control cases.
+- `refactor-anti-patterns.json` names recurring unsafe agent moves so they can be recognized and measured.
+- `refactor-correction-ledger.json` tracks recurrent corrections without automatically turning them into rules.
+
 These files contain setup candidates, not human-approved truth. Their relevant entries must be validated before a slice starts, and the result is recorded in a slice-specific assurance record.
 
 ## Current readiness
@@ -38,7 +46,7 @@ All six slices are intentionally `not_started`. No slice is start-ready yet:
 | Referral canvas | Owner, narrative, approval, autosave/conflict recovery and identity-link characterization |
 | Test structure | Owner, narrative, approval, assertion inventory and independent human review |
 
-Every slice also inherits the global before-start gaps: Node 22 type alignment, a green or explicitly dispositioned complexity ratchet, a risk-ranked exact-start baseline, independent protected review, commit-attached required checks, owner-validated assurance definitions, and a recorded dedicated `codex/refactor-*` worktree. The current file/dependency inventory is generated evidence, not a hand-maintained list.
+Every slice also inherits the global before-start gaps: Node 22 type alignment, a green or explicitly dispositioned complexity ratchet, a risk-ranked exact-start baseline, independent protected review, commit-attached required checks, owner-validated assurance definitions, a human-adopted exact-commit guidance evaluation baseline, and a recorded dedicated `codex/refactor-*` worktree. The current file/dependency inventory is generated evidence, not a hand-maintained list.
 
 The checker derives the authoritative state from the JSON files. Update this summary only when the registry or matrix changes.
 
@@ -56,6 +64,7 @@ The checker derives the authoritative state from the JSON files. Update this sum
 - `CLOUD_REFACTOR_RUNBOOK.md`: guarded GitHub/Codex continuation while a developer computer is offline.
 - `ENGINEERING_RESEARCH_BASIS.md`: authoritative external rationale behind the local controls; it is not a second backlog.
 - `HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md`: bounded proof classes, recursive iteration, adversarial review, convergence, and residual-risk rules.
+- `REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md`: first-attempt outcome evaluation for changes to the refactor instructions and controls.
 
 ## Templates
 
@@ -65,6 +74,10 @@ The checker derives the authoritative state from the JSON files. Update this sum
 - `characterization-manifest.example.json`: reproducible, PHI-safe fixture manifest.
 - `file-audit-disposition.example.json`: owner-reviewed disposition for every file in an approved slice.
 - `slice-assurance-record.example.json`: exact-commit comprehension, proof, iteration, adversarial, recovery, and residual-risk evidence.
+- `refactor-eval-response.example.json`: structured response for mechanically scorable public scenarios.
+- `refactor-guidance-run.example.json`: exact model, context, guidance hashes, response, and human review for one first attempt.
+- `refactor-guidance-comparison.example.json`: blind matched comparison and human keep/revise/revert decision.
+- `refactor-holdout-manifest.example.json`: hashes and metadata for human-custodied holdouts without repository prompt content.
 
 ## Commands
 
@@ -77,6 +90,9 @@ npm run check:refactor-evidence
 
 # Canonical ownership, comprehension, proof-obligation, and convergence readiness.
 npm run check:refactor-assurance
+
+# Public scenario, anti-pattern, correction, run-record, comparison, and adoption readiness.
+npm run check:refactor-guidance
 
 # Live file, dependency, TypeScript, and worktree quality state.
 npm run check:code-quality
@@ -104,10 +120,11 @@ npm run check:refactor-agent
 3. Assign a real human owner and backup.
 4. Complete and approve the architecture narrative and any decision record.
 5. Resolve every global and slice `before_start` evidence item to `satisfied` or approved `not_applicable`.
-6. Human-validate the relevant canonical responsibilities, comprehension probes, and proof obligations; complete the pre-change comprehension review and create the slice assurance record.
-7. Complete the file audit disposition and record `owner`, `architectureNarrative`, `fileAuditDisposition`, `assuranceRecord`, `allowedChangePaths`, `approvedBy`, `approvedAt`, `worktreePath`, `branch`, and `startingCommit` in the registry.
-8. Change registry mode to `active` and only that slice to `in_progress`.
-9. Run `npm run audit:repository` and `npm run check:refactor-setup`; both must pass before implementation files move.
+6. Human-validate the public guidance scenarios and anti-patterns, run the matched baseline/candidate trials and private holdouts, and record a `keep` adoption for one exact guidance commit in the global evidence matrix.
+7. Human-validate the relevant canonical responsibilities, comprehension probes, and proof obligations; complete the pre-change comprehension review and create the slice assurance record with its exact guidance-evaluation binding.
+8. Complete the file audit disposition and record `owner`, `architectureNarrative`, `fileAuditDisposition`, `assuranceRecord`, `allowedChangePaths`, `approvedBy`, `approvedAt`, `worktreePath`, `branch`, and `startingCommit` in the registry.
+9. Change registry mode to `active` and only that slice to `in_progress`.
+10. Run `npm run audit:repository`, `npm run check:refactor-guidance`, and `npm run check:refactor-setup`; all must pass before implementation files move.
 
 `not_applicable` is not an escape hatch. It requires `approvedBy`, `approvedAt`, and an explanation in the evidence item.
 

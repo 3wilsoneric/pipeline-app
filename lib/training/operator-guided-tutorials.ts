@@ -38,6 +38,25 @@ const leadRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "
 
 export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   tutorial(
+    "practice-assessment",
+    "Practice the assessment interview",
+    "Use a synthetic client to rehearse sections, conditional questions, and field-specific writing support.",
+    "Assessment practice",
+    "Complete a representative interview path without touching a client record.",
+    7,
+    writeRoles,
+    ["assessment-questionnaire"],
+    [
+      step("practice-orient", "/note-lab/practice", "practice-overview", "Orient", "Start in the synthetic workspace", "This practice copy uses the current assessment schema but has no clinical record behind it.", "Confirm that the header says Jordan Practice and Synthetic.", "You are working only in the practice assessment.", "A realistic layout makes the production interview familiar before client work begins.", "Never enter real client information in the practice assessment.", "confirm", "bottom"),
+      step("practice-sections", "/note-lab/practice", "practice-function-section", "Navigate", "Open the Function section", "The section rail follows the same interview sequence as the live assessment.", "Select Function in the highlighted section rail.", "The Function questions are visible.", "Stable sections let an assessor pause and resume without losing the interview structure.", "Changing practice sections cannot update a referral.", "target-click", "right"),
+      step("practice-condition", "/note-lab/practice", "practice-assistance-level", "Respond", "Choose an assistance level", "Conditional detail appears only when the answer requires it.", "Choose Some assistance or Total assistance for ability to dress.", "A dressing-detail field appears below.", "Conditional questions keep the interview focused while preserving necessary detail.", "Use the synthetic scenario; do not substitute facts about a real client.", "target-change", "bottom"),
+      step("practice-detail", "/note-lab/practice", "practice-assistance-details", "Document", "Describe the support", "A useful answer names the task, assistance level, frequency, and source.", "Enter a short synthetic dressing-support note.", "The conditional detail is captured in this tab.", "Specific functional support is more actionable than a vague needs-assistance label.", "The guide detects the input event but never reads or stores the answer.", "target-input", "bottom"),
+      step("practice-clinical", "/note-lab/practice", "practice-clinical-section", "Navigate", "Move to Clinical", "Narrative fields connect directly to the Language Lab writing standard.", "Select Clinical in the section rail.", "The Clinical questions are visible.", "The same canonical field drives practice, writing guidance, and the production assessment.", "This is writing practice, not diagnosis or clinical decision support.", "target-click", "right"),
+      step("practice-narrative", "/note-lab/practice", "practice-current-symptoms", "Write", "Practice a current-symptoms note", "Separate direct observation, client report, functional effect, and collateral or unknowns.", "Enter a brief synthetic note, then open Writing help if you want the field pattern and example.", "A synthetic narrative is present.", "Field-specific structure improves consistency without turning prose into a template dump.", "Do not copy the example as a client fact and do not include real PHI.", "target-input", "bottom"),
+      step("practice-review", "/note-lab/practice", "practice-progress", "Review", "Read coverage as a prompt, not a score", "Coverage shows which visible questions have an answer; it does not judge correctness or readiness to sign.", "Review the captured percentage and identify what you would verify next.", "You can explain one remaining verification step.", "Completion and quality are separate checks.", "Never treat a percentage as evidence that an assessment is clinically complete.", "confirm", "left"),
+    ],
+  ),
+  tutorial(
     "first-shift",
     "Run your start-of-shift workflow",
     "Start with assigned work, narrow the active referral queue, check the assessment calendar, and return with a clear next action.",
@@ -114,15 +133,22 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
 ];
 
 export const operatorGuideVerifiedActionTargets: Readonly<Record<Exclude<OperatorGuideAdvance, "confirm">, readonly string[]>> = {
-  "target-click": ["pipeline-home", "primary-workspaces", "primary-calendar", "primary-new-referral", "workspace-views", "calendar-view", "workspace-results", "assessment-stage", "assessment-schedule-open", "operations-exception-list"],
-  "target-input": ["workspace-search", "intake-identity", "intake-medications"],
-  "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "operations-exception-filter", "operations-report-month"],
+  "target-click": ["practice-function-section", "practice-clinical-section", "pipeline-home", "primary-workspaces", "primary-calendar", "primary-new-referral", "workspace-views", "calendar-view", "workspace-results", "assessment-stage", "assessment-schedule-open", "operations-exception-list"],
+  "target-input": ["practice-assistance-details", "practice-current-symptoms", "workspace-search", "intake-identity", "intake-medications"],
+  "target-change": ["practice-assistance-level", "calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "operations-exception-filter", "operations-report-month"],
 };
 
 export const operatorGuidedTutorialIds = operatorGuidedTutorials.map((tutorial) => tutorial.id);
 export const operatorGuideTargetIds = [...new Set(operatorGuidedTutorials.flatMap((tutorial) => tutorial.steps.map((step) => step.target)))];
 
 export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
+  "practice-overview": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
+  "practice-function-section": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
+  "practice-clinical-section": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
+  "practice-assistance-level": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
+  "practice-assistance-details": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
+  "practice-current-symptoms": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
+  "practice-progress": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
   "pipeline-home": "components/pipeline/PipelineHeader.tsx",
   "primary-workspaces": "components/pipeline/PipelineActionNav.tsx",
   "primary-calendar": "components/pipeline/PipelineActionNav.tsx",

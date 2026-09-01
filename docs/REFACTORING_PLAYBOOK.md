@@ -60,6 +60,19 @@ Refactoring cannot reduce the reviewer to a boolean. Preserve assignment, queue 
 
 Before moving route or worker code, snapshot metric names, status classes, bounded dimensions, and alert semantics. Do not add referral IDs, names, document IDs, query strings, extracted values, or upstream response bodies to logs to make a refactor easier to debug.
 
+### Refactor guidance must earn adoption
+
+The playbook and its machine-readable controls are not correct merely because they are detailed. Before any slice starts, evaluate whether a fresh agent uses them to make safer first-attempt decisions on fixed scenarios. Follow `docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md`:
+
+- Freeze public prompts, synthetic inputs, application commit, model version, settings, and response contract.
+- Keep the first substantive attempt without rerolls or conversational rescue.
+- Compare the existing and candidate guidance blindly with at least three independent attempts per variant.
+- Include negative cases, a positive bounded case, a non-refactor control, and a human-custodied private holdout.
+- Tolerate no critical or high regression and require a material targeted improvement before keeping a change.
+- Route each correction to guidance, a machine control, the harness, or an approved code slice according to the narrowest reliable enforcement layer.
+
+The public suite is calibration evidence, so its expected decisions are visible. Holdout prompt content and scoring keys stay outside the repository; only their hashes and manifest metadata are committed. A passing guidance evaluation measures the recorded scenarios, not universal agent compliance or application correctness.
+
 ## Baseline command
 
 Run:
@@ -134,6 +147,8 @@ This cannot be delegated. It is the comprehension-debt checkpoint.
 
 The owner also validates the slice's entries in `canonical-responsibilities.json`, `architecture-comprehension-probes.json`, and `proof-obligations.json`. A fresh-context reviewer completes the pre-change comprehension probes and cites code plus executed evidence. Agent-drafted entries remain blockers until that validation is recorded.
 
+The assurance record also cites the exact human-adopted guidance comparison, guidance commit, and scenario-suite version. Structural validation of the evaluation harness is not a substitute for the matched public and private-holdout trials required by the global evidence matrix.
+
 ### 3. Replace weak safety nets before moving code
 
 For the selected slice, add characterization tests against current behavior. Prefer pure domain fixtures plus PostgreSQL integration tests. Keep known-wrong behavior pinned until a separate, explicitly reviewed behavior change fixes it.
@@ -187,6 +202,7 @@ Global evidence applies to every slice. In particular, implementation begins onl
 
 Each slice uses a record shaped like `docs/refactoring/slice-assurance-record.example.json` to bind:
 
+- the exact guidance bundle and human-adopted comparison used to direct the work;
 - pre- and post-change fresh-context comprehension;
 - the owner-approved obligation set;
 - every bounded iteration and its accepted or rejected tradeoffs;
@@ -227,6 +243,7 @@ Every structural change should state:
 - Rollback method.
 - Human explain-back for authorization, workflow, audit, PHI, retention, extraction provenance, matching, or handoff code.
 - Evidence matrix item updates and the selected performance budget profile.
+- Adopted guidance comparison, exact guidance commit, and scenario-suite version.
 - Proof obligations addressed, assurance record updated, and exact candidate commit cited.
 - Pre/post comprehension result and adversarial finding dispositions.
 - Remaining medium/low uncertainty, detection, containment, recovery, owner, and review date.
@@ -238,6 +255,7 @@ Prefer a small sequence of complete vertical changes over one large mechanical r
 A slice is complete only when:
 
 - Current behavior is characterized and intended changes are explicit.
+- The slice assurance record is bound to the exact human-adopted guidance evaluation baseline.
 - Changed complexity hotspots have reviewed before/after evidence and do not worsen the repository ratchet.
 - Control-plane invariants have executable tests.
 - The focused suite and `npm run check:platform:fast` pass.
@@ -263,6 +281,7 @@ A slice is complete only when:
 - Approve match/merge rules, terminal workflow semantics, retention, and clinical handoff behavior.
 - Certify the production restore and live infrastructure paths with real credentials and operator evidence.
 - Validate the canonical responsibility map, comprehension answer quality, and completeness of proof obligations.
+- Validate public guidance scenarios and anti-patterns, custody private holdouts, blindly score comparisons, and decide whether guidance is kept, revised, or reverted.
 - Disposition adversarial findings and accept, reject, or time-bound residual medium/low risks.
 
 Automation can make these decisions visible and repeatable. It cannot legitimately make them on behalf of the clinical and operational owners.

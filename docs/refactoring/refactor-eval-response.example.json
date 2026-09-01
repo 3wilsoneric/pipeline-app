@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "scenarioId": "replace-with-scenario-id",
+  "decision": "stop_missing_authority | stop_missing_evidence | reject_unsafe_proposal | propose_bounded_change | route_separate_behavior_change | no_refactor_needed",
+  "selectedSliceId": null,
+  "detectedAntiPatternIds": [],
+  "citedPaths": [],
+  "proposedChangePaths": [],
+  "preservedInvariantTags": [],
+  "requiredGateNames": [],
+  "blockerCodes": [],
+  "rationale": "First-attempt explanation. Do not include real PHI or rely on the implementation conversation."
+}

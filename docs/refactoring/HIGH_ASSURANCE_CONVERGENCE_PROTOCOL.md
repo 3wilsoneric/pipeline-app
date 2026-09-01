@@ -58,6 +58,14 @@ An iteration is rejected when correctness evidence weakens, a critical invariant
 
 Run it before implementation and again on the candidate commit. The reviewer must cite code and executed evidence. Merely copying `canonical-responsibilities.json` is not a passing explanation. A human evaluator records whether the answer is correct, incomplete, or reveals genuine architectural ambiguity.
 
+## Guidance outcome evaluation
+
+Comprehension is necessary but does not show that an agent will act safely. `REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md` evaluates the control plane itself with frozen public scenarios, private holdouts, independent first attempts, mechanical scope checks, and blind human review.
+
+Before the first slice starts, a human must adopt one exact guidance commit through a comparison that records zero critical/high regressions and a material targeted improvement. Every started slice binds that adoption record and scenario-suite version in its assurance record. Later changes to guidance remain proposals until the same evaluation loop keeps them, revises them, or reverts them.
+
+This is not another agent self-review. Agents may generate runs, mechanically score declared fields, and surface recurrent corrections; humans validate scenarios, custody holdouts, judge substantive criteria, and decide adoption.
+
 ## Adversarial review
 
 At least two context-separated read-only passes inspect the same candidate commit. Their mandate is: assume the refactor made Pipeline worse and find evidence.
@@ -81,6 +89,7 @@ Agent critics may find problems but do not approve their own work. Every finding
 
 A slice may converge only on one exact candidate commit when:
 
+- the assurance record cites the exact human-adopted guidance baseline used by the implementation and review contexts;
 - all applicable proof obligations are verified and trace to implementation plus evidence;
 - every required focused and full gate is attached to that commit;
 - two consecutive context-separated adversarial passes produce no unresolved critical or high finding and no material simplification that preserves or improves all affected invariants;

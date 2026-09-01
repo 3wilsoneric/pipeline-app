@@ -14,6 +14,7 @@ const requiredFiles = [
   "docs/refactoring/CONTROL_PLANE_MAP.md",
   "docs/refactoring/DECISION_RECORD_TEMPLATE.md",
   "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
+  "docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md",
   "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
   "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md",
   "docs/refactoring/REFACTOR_SLICE_TEMPLATE.md",
@@ -25,11 +26,19 @@ const requiredFiles = [
   "docs/refactoring/code-quality-policy.json",
   "docs/refactoring/file-audit-disposition.example.json",
   "docs/refactoring/high-assurance-policy.json",
+  "docs/refactoring/refactor-guidance-evaluation-policy.json",
+  "docs/refactoring/refactor-eval-scenarios.json",
+  "docs/refactoring/refactor-anti-patterns.json",
+  "docs/refactoring/refactor-correction-ledger.json",
   "docs/refactoring/evidence-matrix.json",
   "docs/refactoring/performance-budgets.json",
   "docs/refactoring/proof-obligations.json",
   "docs/refactoring/refactor-slices.json",
   "docs/refactoring/slice-assurance-record.example.json",
+  "docs/refactoring/refactor-eval-response.example.json",
+  "docs/refactoring/refactor-guidance-run.example.json",
+  "docs/refactoring/refactor-guidance-comparison.example.json",
+  "docs/refactoring/refactor-holdout-manifest.example.json",
   "docs/reliability/refactor-baseline-2026-08-27.json",
   "docs/reliability/refactor-baseline-2026-08-27-setup.json",
   "docs/reliability/complete-repository-audit-latest.md",
@@ -40,6 +49,7 @@ const requiredFiles = [
   "scripts/compare-refactor-baselines.mjs",
   "scripts/refactor-evidence-readiness.mjs",
   "scripts/refactor-high-assurance-readiness.mjs",
+  "scripts/refactor-guidance-eval.mjs",
   "scripts/refactor-agent-control.mjs",
   "scripts/refactor-agent-control-fixtures.mjs",
 ];
@@ -53,12 +63,16 @@ for (const path of requiredFiles) {
   if (!existsSync(path)) errors.push(`Missing refactor setup file: ${path}.`);
 }
 
-for (const name of ["audit:repository", "codebase:baseline", "codebase:baseline:compare", "check:code-quality", "check:refactor-agent", "check:refactor-assurance", "check:refactor-evidence", "check:refactor-setup", "certify:refactor"]) {
+for (const name of ["audit:repository", "codebase:baseline", "codebase:baseline:compare", "check:code-quality", "check:refactor-agent", "check:refactor-assurance", "check:refactor-evidence", "check:refactor-guidance", "check:refactor-setup", "certify:refactor"]) {
   if (!packageJson.scripts?.[name]) errors.push(`Missing package script: ${name}.`);
 }
 
 if (!packageJson.scripts?.["check:refactor-setup"]?.includes("npm run check:refactor-assurance")) {
   errors.push("check:refactor-setup must run the high-assurance readiness validator.");
+}
+
+if (!packageJson.scripts?.["check:refactor-setup"]?.includes("npm run check:refactor-guidance")) {
+  errors.push("check:refactor-setup must run the refactor-guidance evaluation validator.");
 }
 
 for (const command of ["check:refactor-setup", "complexity:check", "codebase:baseline", "check:platform:fast", "certify:test-effectiveness", "build"]) {

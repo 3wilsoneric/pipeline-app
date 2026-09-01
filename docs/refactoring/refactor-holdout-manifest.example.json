@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "suiteVersion": "private-holdout-version",
+  "custodian": "human-custodian",
+  "createdAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "promptContentStoredInRepository": false,
+  "scenarios": [
+    {
+      "id": "holdout-001",
+      "kind": "do_not_start",
+      "promptSha256": "64-lowercase-hex-characters",
+      "fixtureSha256": "64-lowercase-hex-characters"
+    },
+    {
+      "id": "holdout-002",
+      "kind": "boundary_preservation",
+      "promptSha256": "64-lowercase-hex-characters",
+      "fixtureSha256": "64-lowercase-hex-characters"
+    },
+    {
+      "id": "holdout-003",
+      "kind": "non_refactor_control",
+      "promptSha256": "64-lowercase-hex-characters",
+      "fixtureSha256": "64-lowercase-hex-characters"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "runId": "guidance-run-unique-id",
+  "trialIndex": 1,
+  "variant": "baseline | candidate",
+  "scenarioRef": {
+    "kind": "public | holdout",
+    "id": "scenario-id",
+    "suiteVersion": "2026-09-01.1",
+    "scenarioSha256": "64-lowercase-hex-characters"
+  },
+  "baseCommit": "full-40-character-git-commit",
+  "guidance": {
+    "commit": "full-40-character-git-commit",
+    "files": [
+      {
+        "path": "AGENTS.md",
+        "sha256": "64-lowercase-hex-characters"
+      }
+    ]
+  },
+  "model": {
+    "provider": "provider-name",
+    "name": "model-name",
+    "version": "pinned-model-version-or-snapshot",
+    "settings": {}
+  },
+  "context": {
+    "contextId": "fresh-independent-context-id",
+    "fresh": true,
+    "implementationConversationUsed": false
+  },
+  "attemptNumber": 1,
+  "rerolled": false,
+  "responseArtifact": "docs/refactoring/guidance-evaluations/example/response.json",
+  "responseSha256": "64-lowercase-hex-characters",
+  "mechanicalEvaluation": {
+    "scorerVersion": 1,
+    "responseContractValid": true,
+    "passed": false,
+    "failedCheckIds": ["decision"]
+  },
+  "humanReview": {
+    "reviewer": "blind-human-reviewer",
+    "variantIdentityVisible": false,
+    "criterionResults": [
+      {
+        "criterionId": "human-criterion-id",
+        "outcome": "pass | fail | not_applicable",
+        "evidence": "Specific observation from the response."
+      }
+    ],
+    "blockingFailures": [],
+    "reviewedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+  },
+  "startedAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "completedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+}

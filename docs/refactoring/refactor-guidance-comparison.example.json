@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "comparisonId": "guidance-comparison-unique-id",
+  "status": "human_decided",
+  "evaluationType": "targeted | milestone",
+  "scenarioSuiteVersion": "2026-09-01.1",
+  "baselineGuidance": {
+    "label": "A-or-B-randomized-label",
+    "commit": "full-40-character-git-commit"
+  },
+  "candidateGuidance": {
+    "label": "other-randomized-label",
+    "commit": "full-40-character-git-commit"
+  },
+  "publicScenarioIds": ["target-scenario-id", "non-refactor-control-id"],
+  "holdoutManifest": "docs/refactoring/guidance-evaluations/example/holdout-manifest.json",
+  "runRecords": ["path-to-each-baseline-and-candidate-run-record.json"],
+  "blindReviews": [
+    {
+      "reviewer": "human-reviewer",
+      "contextId": "unique-review-context",
+      "variantIdentityVisible": false,
+      "scenarioResults": [
+        {
+          "scenarioId": "scenario-id",
+          "preferredLabel": "A | B | tie | neither",
+          "criticalRegressions": 0,
+          "highRegressions": 0,
+          "rationale": "Evidence-based comparison against the frozen rubric."
+        }
+      ],
+      "completedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+    }
+  ],
+  "aggregate": {
+    "criticalRegressions": 0,
+    "highRegressions": 0,
+    "materialTargetedImprovementObserved": false,
+    "knownLimitations": ["What this comparison cannot establish."]
+  },
+  "decision": "keep | revise | revert",
+  "decidedBy": "human-owner",
+  "decidedAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+  "rationale": "Why the evidence supports this bounded decision."
+}

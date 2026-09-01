@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "status": "setup_draft",
+  "updatedAt": "2026-09-01",
+  "humanValidated": false,
+  "antiPatterns": [
+    {
+      "id": "file_size_refactor",
+      "name": "File-size refactor",
+      "description": "Treating line count as sufficient evidence that a module should be split.",
+      "observableIndicators": ["The proposal begins from file length rather than a responsibility boundary.", "The split has no owner-approved contract or focused behavior evidence."],
+      "requiredResponse": "Stop or reframe around one validated responsibility and proof obligation.",
+      "landingLayer": "guidance",
+      "sliceIds": ["referral-canvas-components", "test-suite-structure"],
+      "humanValidated": false
+    },
+    {
+      "id": "universal_domain_type_collapse",
+      "name": "Universal domain-type collapse",
+      "description": "Forcing distinct workflow, persistence, transport, or provenance representations into one supposedly canonical type.",
+      "observableIndicators": ["Boundary-specific states disappear from types.", "Mapping or validation responsibilities move into callers or unchecked casts."],
+      "requiredResponse": "Preserve explicit representations and mappings until the owner proves semantic identity.",
+      "landingLayer": "mixed",
+      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner", "extraction-capstone"],
+      "humanValidated": false
+    },
+    {
+      "id": "adapter_parity_flattening",
+      "name": "Adapter-parity flattening",
+      "description": "Making local and PostgreSQL adapters look identical by hiding transactions, locks, constraints, audit coupling, or compare-and-swap semantics.",
+      "observableIndicators": ["A least-common-denominator interface replaces PostgreSQL-only guarantees.", "Parity is claimed from return shapes without failure and database-effect comparisons."],
+      "requiredResponse": "Share intended domain scenarios while keeping production database guarantees explicit.",
+      "landingLayer": "mixed",
+      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries"],
+      "humanValidated": false
+    },
+    {
+      "id": "audit_transaction_extraction",
+      "name": "Audit extraction out of transaction",
+      "description": "Moving an audit write or actor/version attribution outside the transaction that protects the mutation.",
+      "observableIndicators": ["The domain write can commit before its audit event.", "A generic post-commit helper owns audit persistence."],
+      "requiredResponse": "Reject the seam and retain transaction-local audit atomicity; extract only pure event construction when safe.",
+      "landingLayer": "machine_control",
+      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner"],
+      "humanValidated": false
+    },
+    {
+      "id": "conflict_idempotency_conflation",
+      "name": "Conflict/idempotency conflation",
+      "description": "Calling an optimistic conflict idempotent even though a retry does not return the original successful result.",
+      "observableIndicators": ["At-most-once conflict safety is described as replay idempotency.", "Mutation identity and retry-result behavior are omitted."],
+      "requiredResponse": "Classify the command as replay-idempotent, conflict-safe, or deliberately non-retryable and test the exact result.",
+      "landingLayer": "mixed",
+      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner"],
+      "humanValidated": false
+    },
+    {
+      "id": "source_string_safety_theater",
+      "name": "Source-string safety theater",
+      "description": "Using source-text presence checks as proof of authorization, state, retry, audit, or failure behavior.",
+      "observableIndicators": ["A source.includes assertion substitutes for an executed allow or deny case.", "The check still passes after a plausible behavioral defect is seeded."],
+      "requiredResponse": "Retain text checks only for static architecture shape and add executable behavior evidence for runtime properties.",
+      "landingLayer": "machine_control",
+      "sliceIds": ["test-suite-structure", "referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner", "extraction-capstone"],
+      "humanValidated": false
+    },
+    {
+      "id": "assertion_laundering",
+      "name": "Assertion laundering into helpers",
+      "description": "Moving meaningful journey assertions into helpers until failures become hidden, optional, or coupled to implementation structure.",
+      "observableIndicators": ["Journey tests retain setup calls but lose user-visible assertions.", "A helper can return successfully after the protected behavior breaks."],
+      "requiredResponse": "Preserve assertion identity, failure signal, and journey ownership; prove seeded defects still fail.",
+      "landingLayer": "machine_control",
+      "sliceIds": ["test-suite-structure"],
+      "humanValidated": false
+    },
+    {
+      "id": "migration_history_rewrite",
+      "name": "Migration archaeology rewrite",
+      "description": "Editing an applied migration to make the current schema or refactor look cleaner.",
+      "observableIndicators": ["A checksum-pinned migration changes.", "A refactor uses historical SQL edits instead of a forward migration and compatibility plan."],
+      "requiredResponse": "Reject the change; use an approved forward migration, rollback strategy, and compatibility rehearsal if schema change is truly required.",
+      "landingLayer": "machine_control",
+      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner", "extraction-capstone"],
+      "humanValidated": false
+    },
+    {
+      "id": "abstraction_multiplication",
+      "name": "Abstraction multiplication",
+      "description": "Adding factories, registries, wrappers, or compatibility layers that increase concepts without improving a proof obligation or boundary.",
+      "observableIndicators": ["More live paths or representations exist after a structural cleanup.", "The new layer has no independent contract, caller need, or removal condition."],
+      "requiredResponse": "Prefer the smallest seam and reject layers that do not improve enforceability, comprehension, or recovery.",
+      "landingLayer": "guidance",
+      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner", "extraction-capstone", "referral-canvas-components", "test-suite-structure"],
+      "humanValidated": false
+    },
+    {
+      "id": "baseline_absorption",
+      "name": "Green by baseline absorption",
+      "description": "Regenerating or weakening a baseline so a regression is reclassified as accepted debt.",
+      "observableIndicators": ["The baseline changes without an independently reviewed improvement or policy decision.", "A failing metric becomes green without the underlying behavior or structure improving."],
+      "requiredResponse": "Keep the failure visible or record an explicit owner-approved pre-existing disposition; never absorb it silently.",
+      "landingLayer": "machine_control",
+      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner", "extraction-capstone", "referral-canvas-components", "test-suite-structure"],
+      "humanValidated": false
+    },
+    {
+      "id": "opportunistic_scope_creep",
+      "name": "Opportunistic cleanup scope creep",
+      "description": "Changing nearby files or responsibilities because they appear untidy rather than because they are in the approved audit.",
+      "observableIndicators": ["Changed files are absent from allowedChangePaths.", "The stated purpose expands after implementation begins."],
+      "requiredResponse": "Stop, revert out-of-scope changes, and seek a separately reviewed slice if the work is genuinely needed.",
+      "landingLayer": "machine_control",
+      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner", "extraction-capstone", "referral-canvas-components", "test-suite-structure"],
+      "humanValidated": false
+    },
+    {
+      "id": "agent_self_approval",
+      "name": "Agent self-approval",
+      "description": "Allowing the implementation agent to validate its own assurance model, dismiss adversarial findings, accept residual risk, or declare convergence.",
+      "observableIndicators": ["The same context authors and approves evidence.", "Human disposition fields are absent or populated by an agent identity."],
+      "requiredResponse": "Require context-separated challenge and named human approval at every judgment boundary.",
+      "landingLayer": "guidance",
+      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner", "extraction-capstone", "referral-canvas-components", "test-suite-structure"],
+      "humanValidated": false
+    },
+    {
+      "id": "provenance_erasure",
+      "name": "Provenance erasure",
+      "description": "Treating extracted field values as the complete output and dropping source, candidate, confidence, model, review, or correction history.",
+      "observableIndicators": ["A mapper returns only canonical values.", "Golden comparisons omit evidence locations or reviewer history."],
+      "requiredResponse": "Preserve the full provenance contract and compare it in characterization and replacement evidence.",
+      "landingLayer": "mixed",
+      "sliceIds": ["assessment-store-boundaries", "extraction-capstone", "referral-canvas-components"],
+      "humanValidated": false
+    },
+    {
+      "id": "identity_by_display_name",
+      "name": "Identity by display name",
+      "description": "Turning matching names or other display attributes into an automatic canonical resident link.",
+      "observableIndicators": ["Name equality bypasses conflict blocking.", "Ambiguous candidates are persisted without explicit human confirmation."],
+      "requiredResponse": "Reject automatic linking and preserve governed identifiers, conflict rules, optimistic review, and audit.",
+      "landingLayer": "mixed",
+      "sliceIds": ["referral-canvas-components"],
+      "humanValidated": false
+    }
+  ]
+}

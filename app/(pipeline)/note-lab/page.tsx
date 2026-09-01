@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import NoteLabWorkspace from "@/components/pipeline/note-lab/NoteLabWorkspace";
+import AssessmentLabShell from "@/components/pipeline/note-lab/AssessmentLabShell";
 import {
   NOTE_LAB_CALIBRATION_TARGET,
   NOTE_LAB_CALIBRATION_VERSION,
@@ -61,7 +62,11 @@ export default async function NoteLabPage() {
       corpusSamplesAvailable: 0,
     },
   }));
-  return <NoteLabWorkspace initialSession={initialSession} reviewerName={firstName(user.name)} />;
+  return (
+    <AssessmentLabShell active="language" showLanguageLab>
+      <NoteLabWorkspace initialSession={initialSession} reviewerName={firstName(user.name)} />
+    </AssessmentLabShell>
+  );
 }
 
 function firstName(displayName: string) {

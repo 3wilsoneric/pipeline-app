@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-09-01",
   "statusDefinitions": {
     "satisfied": "Existing evidence is executable or reviewable and may be cited now.",
     "partial": "Useful evidence exists, but the slice-specific contract is incomplete.",
@@ -77,6 +77,21 @@
         "docs/refactoring/high-assurance-policy.json"
       ],
       "note": "The process explicitly permits only bounded candidate-commit claims and prohibits whole-application bug-free, perfect, or unqualified formal-verification claims."
+    },
+    {
+      "id": "evaluated_refactor_guidance_baseline",
+      "phase": "before_start",
+      "status": "missing",
+      "gates": ["check:refactor-guidance"],
+      "files": [
+        "docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md",
+        "docs/refactoring/refactor-guidance-evaluation-policy.json",
+        "docs/refactoring/refactor-eval-scenarios.json",
+        "docs/refactoring/refactor-anti-patterns.json",
+        "docs/refactoring/refactor-correction-ledger.json"
+      ],
+      "adoptionRecord": null,
+      "note": "The evaluation harness and public calibration suite are agent-drafted bootstrap candidates. Before any slice starts, humans must validate the scenarios and anti-patterns, run matched first-attempt baseline/candidate trials with blind review and private holdouts, keep an exact-commit guidance bundle, and record the adopted comparison. Passing the structural checker alone is not adoption evidence."
     }
   ],
   "slices": [

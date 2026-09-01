@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "status": "collecting",
+  "updatedAt": "2026-09-01",
+  "policy": {
+    "minimumIndependentOccurrencesForPromotion": 2,
+    "singleCriticalMissTriggersBlockingReview": true,
+    "automaticPromotionForbidden": true,
+    "humanDispositionRequired": true
+  },
+  "entries": []
+}

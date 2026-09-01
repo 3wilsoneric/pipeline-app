@@ -70,6 +70,19 @@ Production stores immutable reviews in `pipeline.note_lab_field_reviews` after m
 
 Set `PIPELINE_NOTE_LAB_ENABLED=true` to expose the route. Production defaults to disabled. Set the flag to `false` to close access without deleting review history.
 
+## Practice assessment
+
+`/note-lab/practice` is a separate synthetic copy of the current assessment interview. Assessors and supervisors can use it to rehearse section navigation, conditional questions, and narrative documentation without opening a referral.
+
+- The renderer imports the canonical assessment schema, interview conditions, required-field rules, and field-writing specifications.
+- It does not import the production assessment workspace or call assessment, referral, extraction, scheduling, presence, signing, or document APIs.
+- The fixed `Jordan Practice` scenario contains no client data. Answers live only in React memory and disappear when the tab closes or Reset is selected.
+- `Writing help` opens the same field-specific format, sequence, example, and guardrail used by the Language Lab.
+- `Guided practice` uses Pipeline's existing guided coach and records only non-PHI tutorial progress.
+- Supervisors can switch between Practice assessment and Language lab. Assessors can use Practice assessment but cannot review historical language samples.
+
+The production assessment remains the only persisted and signable clinical surface. Run `npm run check:assessment-practice` after changing the assessment schema, interview conditions, writing specifications, lab access, or guided practice.
+
 For offline corpus analysis, set `PIPELINE_NOTE_LAB_MANIFEST_PATH` to the private prepared manifest and run `npm run note-lab:analyze`. The aggregate-only output is `.data/private-note-lab-corpus-profile.json`.
 
 To analyze the structure of notes linked to clients with an explicit historical admission date,

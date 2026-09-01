@@ -38,6 +38,14 @@ Microsoft's [safe deployment guidance](https://learn.microsoft.com/en-us/azure/w
 
 For Pipeline, that means an exact reviewed starting commit, an isolated worktree, independent human review, required checks attached to the candidate commit, explicit rollback ownership, and canary/shadow rollout only when the approved design introduces a replacement path.
 
+## Why the instructions themselves are evaluated
+
+Vercel's account of building [`design.md`](https://vercel.com/blog/how-our-agents-build-on-brand-pages-with-design-md) provides a useful agent-evaluation pattern: freeze real scenarios and inputs, retain first attempts, change only the guidance, compare outputs blindly, and route accepted corrections to prose, constrained primitives, deterministic checks, or the harness. They also report the limits honestly: their small comparison measured fewer previously named failures, every generated artifact still had a shipping blocker, and the result did not establish overall quality or reliability.
+
+Pipeline transfers the evaluation method, not the single-file design architecture or its quality claim. Refactor guidance remains layered because transaction semantics, audit, provenance, authorization, PHI boundaries, and exact-commit evidence need machine-readable precision. Public scenarios calibrate known decisions; private holdouts check overfitting; first-attempt matched runs test whether fresh agents scope and stop correctly; and repeated production or review corrections reveal rules that are unclear or aimed at the wrong enforcement layer.
+
+The conclusion is bounded: a candidate guidance bundle may be kept when it materially improves the targeted decision behavior without a critical or high regression in the recorded public and holdout evaluation. That says nothing by itself about whether an application change is correct.
+
 ## Why recursive review cannot certify a bug-free application
 
 [NIST SP 800-218](https://csrc.nist.gov/pubs/sp/800/218/final) frames secure development as practices that reduce vulnerabilities, mitigate undetected defects, and prevent recurrence rather than as a claim that testing eliminates all defects. The [OWASP Application Security Verification Standard](https://owasp.org/www-project-application-security-verification-standard/) similarly supplies testable security requirements and levels of confidence, not proof of every possible application behavior.
