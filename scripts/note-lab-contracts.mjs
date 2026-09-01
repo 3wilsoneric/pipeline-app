@@ -39,6 +39,10 @@ check("mutation requires authentication and same-origin validation", route.inclu
 check("source manifest is disabled in production", samples.includes("Private file sources are disabled in production") && samples.includes("PIPELINE_NOTE_LAB_MANIFEST_PATH"));
 check("nine evidence-based documentation criteria are defined", standardsModule.noteLabDocumentationCriteria.length === 9
   && new Set(standardsModule.noteLabDocumentationCriteria.map((criterion) => criterion.id)).size === 9);
+check("five concrete answer variations plus the baseline cover every documentation criterion", standardsModule.noteLabAnswerComponents.length === 5
+  && new Set([...standardsModule.noteLabBaselineCriterionIds,
+    ...standardsModule.noteLabAnswerComponents.flatMap((component) => component.criterionIds)]).size === 9
+  && standardsModule.noteLabAnswerComponents.every((component) => component.examplePattern.length > 20));
 check("controlled revision reasons cover evidence and language defects", standardsModule.noteLabRevisionReasons.length === 10
   && standards.includes("unsupported_inference") && standards.includes("stigmatizing_or_identity_first")
   && standards.includes("duplicated_stale_or_irrelevant"));
@@ -49,10 +53,12 @@ check("only one bounded field scenario is returned", store.includes("const baseS
 check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LAB_CALIBRATION_TARGET")
   && store.includes("reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET)")
   && store.includes("This calibration is already complete."));
-check("UI explains the supervisor workflow before requesting decisions", workspace.includes("Set the writing standard for assessment answers")
-  && workspace.includes("Confirm required content") && workspace.includes("Judge the example")
-  && workspace.includes("Save and continue") && workspace.includes("do not change a client record"));
-check("UI defines a standard and judges a historical answer", workspace.includes("What must every answer include?")
+check("UI explains the supervisor workflow before requesting decisions", workspace.includes("Choose how assessment answers should be written")
+  && workspace.includes("Choose answer variations") && workspace.includes("Judge the example")
+  && workspace.includes("Save and continue") && workspace.includes("does not change client data"));
+check("UI mirrors the assessment and judges a historical answer", workspace.includes("Reference answer")
+  && workspace.includes("Choose the answer variations") && workspace.includes("Always applied: person-centered language")
+  && workspace.includes("Reference answer for")
   && workspace.includes("Would you use this as an example for assessors?") && workspace.includes("Teach as written")
   && workspace.includes("Useful, but revise") && workspace.includes("Do not teach"));
 check("sample-free UI gives an explicit next action", workspace.includes("No historical answers are mapped in this environment")

@@ -50,6 +50,55 @@ export const noteLabDocumentationCriteria = [
 
 export type NoteLabCriterionId = typeof noteLabDocumentationCriteria[number]["id"];
 
+export const noteLabBaselineCriterionIds = [
+  "person_centered_language",
+  "concise_nonduplicative",
+] as const satisfies readonly NoteLabCriterionId[];
+
+export const noteLabAnswerComponents: ReadonlyArray<{
+  id: string;
+  label: string;
+  description: string;
+  examplePattern: string;
+  criterionIds: readonly NoteLabCriterionId[];
+}> = [
+  {
+    id: "finding_first",
+    label: "Finding first",
+    description: "Lead with the answer instead of background or a broad summary.",
+    examplePattern: "[Current finding or event] ...",
+    criterionIds: ["direct_answer"],
+  },
+  {
+    id: "source_and_time",
+    label: "Source and timeframe",
+    description: "Make it clear who reported the fact and when or how often it occurred.",
+    examplePattern: "Per [source], most recently [timeframe] and occurring [frequency].",
+    criterionIds: ["source_provenance", "timeframe_recency"],
+  },
+  {
+    id: "specific_pattern",
+    label: "Specific pattern or context",
+    description: "Use observable facts, frequency, setting, or a concrete example instead of a label.",
+    examplePattern: "This occurs [frequency/context]; for example, [observable detail].",
+    criterionIds: ["observable_specificity"],
+  },
+  {
+    id: "impact_and_response",
+    label: "Impact and response",
+    description: "Connect the finding to function or safety and record what helped or happened next.",
+    examplePattern: "This affects [function/safety]; [support or action] resulted in [outcome].",
+    criterionIds: ["functional_safety_impact", "response_support_action"],
+  },
+  {
+    id: "unknowns_visible",
+    label: "Unknowns stay visible",
+    description: "Preserve disagreement, missing records, and facts that still need verification.",
+    examplePattern: "[Gap or conflict] remains unverified; confirm with [source or owner].",
+    criterionIds: ["uncertainty_conflict"],
+  },
+];
+
 export const noteLabRevisionReasons = [
   { id: "does_not_answer_field", label: "Does not answer this field" },
   { id: "missing_or_unclear_source", label: "Source is missing or unclear" },

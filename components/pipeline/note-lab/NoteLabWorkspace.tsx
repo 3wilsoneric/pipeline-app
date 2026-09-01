@@ -5,7 +5,8 @@ import { ArrowRight, Check, Download, FileCheck2, ShieldCheck } from "lucide-rea
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import {
-  noteLabDocumentationCriteria,
+  noteLabAnswerComponents,
+  noteLabBaselineCriterionIds,
   noteLabRevisionReasons,
   type NoteLabCriterionId,
   type NoteLabRevisionReasonId,
@@ -25,7 +26,7 @@ export default function NoteLabWorkspace({
 }) {
   const [session, setSession] = useState(initialSession);
   const [selectedCriterionIds, setSelectedCriterionIds] = useState<NoteLabCriterionId[]>(
-    initialSession.scenario?.recommendedCriterionIds ?? [],
+    normalizeAnswerComponentCriteria(initialSession.scenario?.recommendedCriterionIds ?? []),
   );
   const [sampleDisposition, setSampleDisposition] = useState<NoteLabSampleDisposition | null>(null);
   const [revisionReasonIds, setRevisionReasonIds] = useState<NoteLabRevisionReasonId[]>([]);
@@ -37,12 +38,18 @@ export default function NoteLabWorkspace({
     sampleDisposition,
     revisionReasonIds.length,
   );
-  const canSubmit = Boolean(scenario && selectedCriterionIds.length > 0 && sampleDecisionComplete && !saving);
+  const canSubmit = Boolean(scenario
+    && selectedAnswerComponentCount(selectedCriterionIds) > 0
+    && sampleDecisionComplete
+    && !saving);
 
-  const toggleCriterion = (criterionId: NoteLabCriterionId) => {
-    setSelectedCriterionIds((current) => current.includes(criterionId)
-      ? current.filter((item) => item !== criterionId)
-      : [...current, criterionId]);
+  const toggleAnswerComponent = (criterionIds: readonly NoteLabCriterionId[]) => {
+    setSelectedCriterionIds((current) => {
+      const selected = criterionIds.every((criterionId) => current.includes(criterionId));
+      return selected
+        ? current.filter((criterionId) => !criterionIds.includes(criterionId))
+        : [...new Set([...current, ...criterionIds])];
+    });
     setError(null);
   };
 
@@ -61,7 +68,7 @@ export default function NoteLabWorkspace({
 
   const applySession = (next: NoteLabSession) => {
     setSession(next);
-    setSelectedCriterionIds(next.scenario?.recommendedCriterionIds ?? []);
+    setSelectedCriterionIds(normalizeAnswerComponentCriteria(next.scenario?.recommendedCriterionIds ?? []));
     setSampleDisposition(null);
     setRevisionReasonIds([]);
   };
@@ -115,7 +122,7 @@ export default function NoteLabWorkspace({
         <div className="border-t border-[#d8dfdc] px-4 py-5 sm:px-7 sm:py-7">
           <CompletedTrail session={session} />
 
-          <header className="grid gap-3 border-b border-[#d8dfdc] pb-5 md:grid-cols-[minmax(0,1fr)_260px] md:gap-8">
+          <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[#d8dfdc] pb-4">
             <div>
               <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f7a67]">
                 Current field · {session.calibration.currentStep} of {session.calibration.targetDecisions}
@@ -123,42 +130,41 @@ export default function NoteLabWorkspace({
               <h1 className="mt-1.5 text-[24px] font-black tracking-[-0.035em] text-[#202522] sm:text-[28px]">
                 {scenario.targetFieldLabel}
               </h1>
-              <p className="mt-2 max-w-[720px] text-[11px] font-semibold leading-5 text-[#626d68]">
+              <p className="mt-1.5 max-w-[760px] text-[10px] font-semibold leading-5 text-[#626d68]">
                 {scenario.fieldPurpose}
               </p>
             </div>
-            <div className="border-l-2 border-[#8db9aa] bg-[#f4f8f6] px-4 py-3 text-[10px] leading-5 text-[#4e5c56]">
-              <span className="block text-[9px] font-black uppercase tracking-[0.08em] text-[#0f7a67]">A strong answer should</span>
-              <span className="mt-1 block">{scenario.reviewQuestion}</span>
-            </div>
+            <span className="text-[9px] font-bold text-[#6d7873]">{scenario.formatStandard.label} · {scenario.formatStandard.lengthGuidance}</span>
           </header>
 
           <section className="py-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">Step 1</div>
-                <h2 className="mt-1 text-[14px] font-black text-[#252c28]">What must every answer include?</h2>
-                <p className="mt-1 text-[10px] font-semibold text-[#75807b]">The suggested requirements are already selected. Deselect an item only if it should not be required every time this field is completed.</p>
+                <h2 className="mt-1 text-[14px] font-black text-[#252c28]">Choose the answer variations</h2>
+                <p className="mt-1 text-[10px] font-semibold text-[#75807b]">Select every type of detail assessors should be prepared to document for this question.</p>
               </div>
-              <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f7a67]">{selectedCriterionIds.length} required</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f7a67]">{selectedAnswerComponentCount(selectedCriterionIds)} selected</span>
             </div>
-            <div role="group" aria-label={`Required documentation for ${scenario.targetFieldLabel}`} className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {noteLabDocumentationCriteria.map((criterion) => {
-                const selected = selectedCriterionIds.includes(criterion.id);
+            <div className="mt-3 border-l-2 border-[#8db9aa] bg-[#f4f8f6] px-3 py-2 text-[9px] font-semibold text-[#4e5c56]">
+              Always applied: person-centered language · concise and current documentation
+            </div>
+            <div role="group" aria-label={`Answer variations for ${scenario.targetFieldLabel}`} className="mt-3 grid gap-px border border-[#c9ceca] bg-[#d9dfdb] md:grid-cols-2">
+              {noteLabAnswerComponents.map((component) => {
+                const selected = component.criterionIds.every((criterionId) => selectedCriterionIds.includes(criterionId));
                 return (
                   <button
-                    key={criterion.id}
+                    key={component.id}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => toggleCriterion(criterion.id)}
-                    className={`min-h-[82px] border p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 ${selected ? "border-[#0f8b73] bg-[#edf7f3]" : "border-[#d6ddda] bg-[#fafbfa] hover:border-[#9eafa8]"}`}
+                    onClick={() => toggleAnswerComponent(component.criterionIds)}
+                    className={`grid min-h-[78px] grid-cols-[auto_minmax(0,1fr)] gap-3 p-3 text-left outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-inset ${selected ? "bg-[#edf7f3]" : "bg-white hover:bg-[#f7f9f8]"}`}
                   >
-                    <span className="flex items-start gap-2.5">
-                      <SelectionBox selected={selected} />
-                      <span>
-                        <span className={`block text-[10px] font-black ${selected ? "text-[#0b6f5d]" : "text-[#39423e]"}`}>{criterion.label}</span>
-                        <span className="mt-1 block text-[9px] font-semibold leading-4 text-[#727d78]">{criterion.description}</span>
-                      </span>
+                    <SelectionBox selected={selected} />
+                    <span>
+                      <span className={`block text-[10px] font-black ${selected ? "text-[#0b6f5d]" : "text-[#39423e]"}`}>{component.label}</span>
+                      <span className="mt-1 block text-[9px] font-semibold leading-4 text-[#727d78]">{component.description}</span>
+                      <span className="mt-1.5 block text-[9px] leading-4 text-[#59655f]"><span className="font-black text-[#486158]">Pattern:</span> {component.examplePattern}</span>
                     </span>
                   </button>
                 );
@@ -166,7 +172,8 @@ export default function NoteLabWorkspace({
             </div>
           </section>
 
-          <DraftStandard scenario={scenario} />
+          <AssessmentAnswerPreview scenario={scenario} />
+
           <HistoricalAnswerReview
             scenario={scenario}
             disposition={sampleDisposition}
@@ -183,7 +190,7 @@ export default function NoteLabWorkspace({
             <div>
               <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">Step 3</div>
               <div role="status" className={`mt-1 max-w-[620px] text-[10px] ${error ? "font-bold text-[#a44337]" : "text-[#6f7a75]"}`}>
-                {error ?? submissionHint(scenario.reviewSample !== null, selectedCriterionIds.length, sampleDisposition, revisionReasonIds.length)}
+                {error ?? submissionHint(scenario.reviewSample !== null, selectedAnswerComponentCount(selectedCriterionIds), sampleDisposition, revisionReasonIds.length)}
               </div>
             </div>
             <button
@@ -208,13 +215,13 @@ function WorkflowGuide({ session, hasCurrentSample }: { session: NoteLabSession;
     <section aria-labelledby="note-lab-purpose" className="border-b border-[#d8dfdc] bg-[#f7faf8] px-4 py-4 sm:px-7">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div>
-          <h1 id="note-lab-purpose" className="text-[15px] font-black tracking-[-0.02em] text-[#202522]">Set the writing standard for assessment answers</h1>
+          <h1 id="note-lab-purpose" className="text-[15px] font-black tracking-[-0.02em] text-[#202522]">Choose how assessment answers should be written</h1>
           <p className="mt-1 max-w-[760px] text-[10px] font-semibold leading-5 text-[#626d68]">
-            Review one free-text field at a time. Your saved choices become the field-specific guidance assessors see while documenting; they do not change a client record or make an admission decision.
+            Choose the answer structure for one assessment field, then judge a historical example. Saving records a supervisor draft only; it does not change client data or publish guidance.
           </p>
         </div>
         <ol aria-label="Review steps" className="grid min-w-0 gap-1.5 text-[9px] font-bold text-[#4e5a54] sm:grid-cols-3 lg:w-[440px]">
-          <WorkflowStep number="1" label="Confirm required content" />
+          <WorkflowStep number="1" label="Choose answer variations" />
           <WorkflowStep number="2" label={hasCurrentSample ? "Judge the example" : "Example skipped"} muted={!hasCurrentSample} />
           <WorkflowStep number="3" label="Save and continue" />
         </ol>
@@ -254,37 +261,40 @@ function submissionButtonLabel(saving: boolean, remaining: number) {
   return remaining === 1 ? "Finish standard" : "Save and continue";
 }
 
-function DraftStandard({ scenario }: { scenario: NonNullable<NoteLabSession["scenario"]> }) {
+function selectedAnswerComponentCount(selectedCriterionIds: readonly NoteLabCriterionId[]) {
+  return noteLabAnswerComponents.filter((component) => component.criterionIds
+    .every((criterionId) => selectedCriterionIds.includes(criterionId))).length;
+}
+
+function normalizeAnswerComponentCriteria(criterionIds: readonly NoteLabCriterionId[]) {
+  const normalized = new Set<NoteLabCriterionId>(noteLabBaselineCriterionIds);
+  for (const component of noteLabAnswerComponents) {
+    if (component.criterionIds.some((criterionId) => criterionIds.includes(criterionId))) {
+      component.criterionIds.forEach((criterionId) => normalized.add(criterionId));
+    }
+  }
+  return [...normalized];
+}
+
+function AssessmentAnswerPreview({ scenario }: { scenario: NonNullable<NoteLabSession["scenario"]> }) {
   return (
-    <section className="grid border border-[#d2dad7] bg-[#f8faf9] lg:grid-cols-[250px_minmax(0,1fr)]">
-      <div className="border-b border-[#d2dad7] p-4 lg:border-b-0 lg:border-r">
-        <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#6d7873]">Guidance assessors will see</div>
-        <div className="mt-2 text-[14px] font-black text-[#27302c]">{scenario.formatStandard.label}</div>
-        <div className="mt-1 text-[10px] font-semibold text-[#707a75]">{scenario.formatStandard.lengthGuidance}</div>
-        <div className="mt-4 border-t border-[#dde3e0] pt-3 text-[10px] font-bold leading-5 text-[#43504a]">
-          {scenario.formatStandard.template}
-        </div>
+    <section aria-label={`${scenario.targetFieldLabel} reference answer`} className="border border-[#d2dad7] bg-[#f8faf9] p-4 sm:p-5">
+      <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#6d7873]">Reference answer</div>
+      <div className="mt-1.5 text-[11px] font-black text-[#303638]">How the selected parts read together</div>
+      <textarea
+        readOnly
+        aria-label={`Reference answer for ${scenario.targetFieldLabel}`}
+        rows={4}
+        value={scenario.formatStandard.referenceAnswer}
+        className="mt-3 w-full resize-none border border-[#c9ceca] bg-white px-3 py-2.5 text-[12px] leading-5 text-[#303638] outline-none"
+      />
+      <p className="mt-2 text-[9px] font-semibold leading-4 text-[#65706b]"><span className="font-black text-[#3b4741]">Quality check:</span> {scenario.reviewQuestion}</p>
+      <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Field-specific answer elements">
+        {scenario.formatStandard.requiredElements.map((element) => (
+          <span key={element} className="border border-[#d5dcd8] bg-white px-2 py-1 text-[9px] font-semibold text-[#56615c]">{element}</span>
+        ))}
       </div>
-      <div className="p-4 sm:p-5">
-        <div className="grid gap-5 md:grid-cols-[220px_minmax(0,1fr)]">
-          <div>
-            <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#6d7873]">Must cover</div>
-            <ul className="mt-2 space-y-1.5">
-              {scenario.formatStandard.requiredElements.map((element) => (
-                <li key={element} className="flex gap-2 text-[10px] font-semibold leading-4 text-[#4e5954]">
-                  <Check size={12} className="mt-0.5 shrink-0 text-[#0f8b73]" strokeWidth={2.4} aria-hidden="true" />{element}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#6d7873]">Reference answer</div>
-            <p className="mt-2 border-l-2 border-[#9ab9ae] pl-3 text-[11px] leading-[1.7] text-[#35413b]">
-              {scenario.formatStandard.referenceAnswer}
-            </p>
-          </div>
-        </div>
-      </div>
+      <div className="mt-3 border-l-2 border-[#8db9aa] bg-white px-3 py-2 text-[9px] font-semibold leading-4 text-[#4e5c56]"><span className="font-black text-[#315e50]">Answer order:</span> {scenario.formatStandard.template}</div>
     </section>
   );
 }
@@ -493,11 +503,11 @@ function EmptyLab({ message }: { message: string | null }) {
 
 function submissionHint(
   hasSample: boolean,
-  criterionCount: number,
+  answerVariationCount: number,
   disposition: NoteLabSampleDisposition | null,
   reasonCount: number,
 ) {
-  if (criterionCount === 0) return "Keep at least one required evidence item.";
+  if (answerVariationCount === 0) return "Select at least one answer variation.";
   if (!hasSample) return "No historical answer is available; the field standard can be saved now.";
   if (!disposition) return "Judge whether the historical answer should be taught, revised, or excluded.";
   if ((disposition === "revise" || disposition === "do_not_teach") && reasonCount === 0) {
