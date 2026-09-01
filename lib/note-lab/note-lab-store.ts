@@ -41,14 +41,14 @@ type LocalEnvelope = {
 };
 
 const globalLocal = globalThis as typeof globalThis & {
-  __pipelineNoteLabScenarioCatalogV3?: ReturnType<typeof buildNoteLabScenarioCatalog>;
-  __pipelineNoteLabLocalV3?: {
+  __pipelineNoteLabScenarioCatalogV4?: ReturnType<typeof buildNoteLabScenarioCatalog>;
+  __pipelineNoteLabLocalV4?: {
     initialized: boolean;
     records: Map<string, { revision: number; progress: NoteLabProgress }>;
     persistQueue: Promise<void>;
   };
 };
-const localState = globalLocal.__pipelineNoteLabLocalV3 ??= {
+const localState = globalLocal.__pipelineNoteLabLocalV4 ??= {
   initialized: false,
   records: new Map(),
   persistQueue: Promise.resolve(),
@@ -74,7 +74,7 @@ export async function getNoteLabSession(reviewerId: string): Promise<NoteLabSess
     reviews: progress.reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET),
   };
   const calibration = buildNoteLabCalibration(catalog, calibrationProgress);
-  const baseScenario = calibration.complete ? null : selectNextScenario(catalog, calibrationProgress, reviewerId);
+  const baseScenario = calibration.complete ? null : selectNextScenario(catalog, calibrationProgress);
   const scenario = baseScenario
     ? attachReviewSample(baseScenario, sampleSet.samples, sampleSet.sampleSetVersion, reviewerId)
     : null;
@@ -112,7 +112,7 @@ export async function submitNoteLabReview(reviewerId: string, input: NoteLabRevi
     return { ok: false as const, conflict: true as const, current: await getNoteLabSession(reviewerId) };
   }
   const sampleSet = await getNoteLabSampleSet();
-  const baseScenario = selectNextScenario(catalog, current.progress, reviewerId);
+  const baseScenario = selectNextScenario(catalog, current.progress);
   const activeScenario = baseScenario
     ? attachReviewSample(baseScenario, sampleSet.samples, sampleSet.sampleSetVersion, reviewerId)
     : null;
@@ -292,7 +292,7 @@ function localPath() {
 }
 
 function scenarioCatalog() {
-  return globalLocal.__pipelineNoteLabScenarioCatalogV3 ??= buildNoteLabScenarioCatalog();
+  return globalLocal.__pipelineNoteLabScenarioCatalogV4 ??= buildNoteLabScenarioCatalog();
 }
 
 function unavailableSession(message: string): NoteLabSession {

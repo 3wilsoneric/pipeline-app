@@ -156,25 +156,9 @@ export function attachReviewSample(
 export function selectNextScenario(
   catalog: readonly NoteLabScenario[],
   progress: NoteLabProgress,
-  reviewerId: string,
 ) {
   const completed = new Set(progress.reviews.map((review) => review.scenarioId));
-  const remaining = catalog.filter((scenario) => !completed.has(scenario.id));
-  if (remaining.length === 0) return null;
-  const scenarioById = new Map(catalog.map((scenario) => [scenario.id, scenario]));
-  const reviewCounts = new Map<string, number>();
-  for (const review of progress.reviews) {
-    const scenario = scenarioById.get(review.scenarioId);
-    if (scenario) reviewCounts.set(scenario.purposeTrack, (reviewCounts.get(scenario.purposeTrack) ?? 0) + 1);
-  }
-  return [...remaining].sort((left, right) => {
-    const countDifference = (reviewCounts.get(left.purposeTrack) ?? 0) - (reviewCounts.get(right.purposeTrack) ?? 0);
-    if (countDifference !== 0) return countDifference;
-    const priorityDifference = purposePriority(left.purposeTrack) - purposePriority(right.purposeTrack);
-    if (priorityDifference !== 0) return priorityDifference;
-    return digest(`${reviewerId}\u0000${progress.reviews.length}\u0000${left.id}`)
-      .localeCompare(digest(`${reviewerId}\u0000${progress.reviews.length}\u0000${right.id}`), "en");
-  })[0];
+  return catalog.find((scenario) => !completed.has(scenario.id)) ?? null;
 }
 
 export function buildNoteLabCalibration(
@@ -317,29 +301,6 @@ function identityAliases(sourceCanvasName: string | null) {
     && !stopWords.has(token.toLocaleLowerCase("en-US")));
   return [...new Set([full, nameStem, ...tokens].filter((alias) => alias.length >= 3))]
     .sort((left, right) => right.length - left.length);
-}
-
-const preferredPurposeOrder = [
-  "safety_history",
-  "behavior_pattern",
-  "clinical_presentation",
-  "perceptual_experience",
-  "medication_reconciliation",
-  "health_support",
-  "substance_pattern",
-  "placement_trajectory",
-  "daily_support",
-  "treatment_participation",
-  "legal_status",
-  "social_support",
-  "placement_preferences",
-  "crisis_history",
-  "supplemental_context",
-] as const;
-
-function purposePriority(purposeTrack: NoteLabScenario["purposeTrack"]) {
-  const priority = preferredPurposeOrder.indexOf(purposeTrack as typeof preferredPurposeOrder[number]);
-  return priority === -1 ? preferredPurposeOrder.length : priority;
 }
 
 function inferDocumentationRules(

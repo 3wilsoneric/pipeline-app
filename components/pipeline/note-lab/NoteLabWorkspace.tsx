@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useEffect, useState } from "react";
-import { ArrowRight, Check, Download, FileCheck2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, Download, FileCheck2 } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import {
@@ -170,8 +170,7 @@ export default function NoteLabWorkspace({
   return (
     <LabFrame reviewerName={reviewerName}>
       <main className="border border-[#cfd7d4] bg-white">
-        <WorkflowGuide session={session} hasCurrentSample={Boolean(scenario.reviewSample)} />
-        <div className="grid grid-cols-[42px_minmax(0,1fr)] border-t border-[#d8dfdc] sm:grid-cols-[154px_minmax(0,1fr)] lg:grid-cols-[176px_minmax(0,1fr)]">
+        <div className="grid grid-cols-[42px_minmax(0,1fr)] sm:grid-cols-[144px_minmax(0,1fr)] lg:grid-cols-[164px_minmax(0,1fr)]">
           <FieldProgressRail
             session={session}
             activeSectionId={activeSectionId}
@@ -181,56 +180,21 @@ export default function NoteLabWorkspace({
           />
 
           <div className="min-w-0 border-l border-[#d8dfdc] px-4 py-5 sm:px-7 sm:py-7">
-            <CompletedTrail session={session} />
-
-            <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[#d8dfdc] pb-5">
-              <div>
-                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f7a67]">
-                  Current field · {session.calibration.currentStep} of {session.calibration.targetDecisions}
-                </div>
-                <h1 className="mt-1.5 text-[24px] font-black tracking-[-0.035em] text-[#202522] sm:text-[28px]">
-                  {scenario.targetFieldLabel}
-                </h1>
-                <p className="mt-1.5 max-w-[760px] text-[10px] font-semibold leading-5 text-[#626d68]">
-                  {scenario.fieldPurpose}
-                </p>
+            <header className="border-b border-[#d8dfdc] pb-5">
+              <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f7a67]">
+                {String(session.calibration.currentStep).padStart(2, "0")} / {session.calibration.targetDecisions}
               </div>
-              <span className="text-[9px] font-bold text-[#6d7873]">{scenario.formatStandard.label} · {scenario.formatStandard.lengthGuidance}</span>
+              <h1 className="mt-1.5 text-[24px] font-black tracking-[-0.035em] text-[#202522] sm:text-[28px]">
+                {scenario.targetFieldLabel}
+              </h1>
             </header>
 
             <ReviewSection id="answer-parts" activeSectionId={activeSectionId} className="py-7">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">01 · Answer parts</div>
-                  <h2 className="mt-1 text-[14px] font-black text-[#252c28]">Choose the answer variations</h2>
-                  <p className="mt-1 text-[10px] font-semibold text-[#75807b]">Select every type of detail assessors should be prepared to document for this question.</p>
-                </div>
-                <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f7a67]">{selectedAnswerComponentCount(selectedCriterionIds)} selected</span>
-              </div>
-              <div className="mt-3 border-l-2 border-[#8db9aa] bg-[#f4f8f6] px-3 py-2 text-[9px] font-semibold text-[#4e5c56]">
-                Always applied: person-centered language · concise and current documentation
-              </div>
-              <div role="group" aria-label={`Answer variations for ${scenario.targetFieldLabel}`} className="mt-3 grid gap-px border border-[#c9ceca] bg-[#d9dfdb] md:grid-cols-2">
-                {noteLabAnswerComponents.map((component) => {
-                  const selected = component.criterionIds.every((criterionId) => selectedCriterionIds.includes(criterionId));
-                  return (
-                    <button
-                      key={component.id}
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => toggleAnswerComponent(component.criterionIds)}
-                      className={`grid min-h-[78px] grid-cols-[auto_minmax(0,1fr)] gap-3 p-3 text-left outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-inset ${selected ? "bg-[#edf7f3]" : "bg-white hover:bg-[#f7f9f8]"}`}
-                    >
-                      <SelectionBox selected={selected} />
-                      <span>
-                        <span className={`block text-[10px] font-black ${selected ? "text-[#0b6f5d]" : "text-[#39423e]"}`}>{component.label}</span>
-                        <span className="mt-1 block text-[9px] font-semibold leading-4 text-[#727d78]">{component.description}</span>
-                        <span className="mt-1.5 block text-[9px] leading-4 text-[#59655f]"><span className="font-black text-[#486158]">Pattern:</span> {component.examplePattern}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <AnswerParts
+                fieldLabel={scenario.targetFieldLabel}
+                selectedCriterionIds={selectedCriterionIds}
+                onToggle={toggleAnswerComponent}
+              />
             </ReviewSection>
 
             <ReviewSection id="reference-answer" activeSectionId={activeSectionId} className="border-t border-[#d8dfdc] py-7">
@@ -245,29 +209,23 @@ export default function NoteLabWorkspace({
                 onDisposition={chooseDisposition}
                 onReason={toggleRevisionReason}
               />
-              <div className="mt-5 border-l-2 border-[#c9a968] bg-[#fbf8f0] px-4 py-3 text-[10px] leading-5 text-[#625b4b]">
-                <span className="font-black text-[#3e392f]">Do not cross this line:</span> {scenario.guardrail}
+              <div className="mt-4 border-l-2 border-[#c9a968] bg-[#fbf8f0] px-4 py-3 text-[10px] leading-5 text-[#625b4b]">
+                {scenario.guardrail}
               </div>
             </ReviewSection>
 
             <ReviewSection id="save-field" activeSectionId={activeSectionId} className="border-t border-[#d8dfdc] py-7">
-              <footer className="flex flex-wrap items-center justify-between gap-4 border border-[#cfd8d4] bg-[#f7faf8] p-4 sm:p-5">
-                <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">04 · Save field</div>
-                  <div role="status" className={`mt-1.5 max-w-[620px] text-[10px] leading-5 ${error ? "font-bold text-[#a44337]" : "text-[#59655f]"}`}>
-                    {error ?? submissionHint(scenario.reviewSample !== null, selectedAnswerComponentCount(selectedCriterionIds), sampleDisposition, revisionReasonIds.length)}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={!canSubmit}
-                  onClick={() => void submit()}
-                  className="inline-flex h-10 items-center gap-3 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#aeb9b5]"
-                >
-                  {submissionButtonLabel(saving, session.calibration.remaining)}
-                  <ArrowRight size={15} aria-hidden="true" />
-                </button>
-              </footer>
+              <SaveFieldAction
+                canSubmit={canSubmit}
+                error={error}
+                hasSample={scenario.reviewSample !== null}
+                selectedAnswerCount={selectedAnswerComponentCount(selectedCriterionIds)}
+                disposition={sampleDisposition}
+                revisionReasonCount={revisionReasonIds.length}
+                saving={saving}
+                remaining={session.calibration.remaining}
+                onSubmit={() => void submit()}
+              />
             </ReviewSection>
           </div>
         </div>
@@ -276,20 +234,85 @@ export default function NoteLabWorkspace({
   );
 }
 
-function WorkflowGuide({ session, hasCurrentSample }: { session: NoteLabSession; hasCurrentSample: boolean }) {
-  const hasSamples = session.stats.corpusSamplesAvailable > 0;
+function AnswerParts({
+  fieldLabel,
+  selectedCriterionIds,
+  onToggle,
+}: {
+  fieldLabel: string;
+  selectedCriterionIds: NoteLabCriterionId[];
+  onToggle: (criterionIds: readonly NoteLabCriterionId[]) => void;
+}) {
   return (
-    <section aria-labelledby="note-lab-purpose" className="border-b border-[#d8dfdc] bg-[#f7faf8] px-4 py-4 sm:px-7">
-      <h1 id="note-lab-purpose" className="text-[15px] font-black tracking-[-0.02em] text-[#202522]">Choose how assessment answers should be written</h1>
-      <p className="mt-1 max-w-[820px] text-[10px] font-semibold leading-5 text-[#626d68]">
-        Follow the field from top to bottom. Choose answer variations, review the reference, {hasCurrentSample ? "judge the example" : "skip the unavailable example"}, then save and continue. Saving creates a supervisor draft only and does not change client data.
-      </p>
-      {!hasSamples ? (
-        <div className="mt-3 border-l-2 border-[#b9924f] bg-[#fffaf0] px-3 py-2 text-[9px] font-semibold leading-4 text-[#665b46]">
-          No historical answers are mapped in this environment. You can still define every field standard; example review will appear after the note corpus is connected.
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[13px] font-black text-[#252c28]">Answer parts</h2>
+        <span className="text-[9px] font-bold text-[#6f7a75]">{selectedAnswerComponentCount(selectedCriterionIds)} selected</span>
+      </div>
+      <div role="group" aria-label={`Answer variations for ${fieldLabel}`} className="mt-3 grid gap-px border border-[#c9ceca] bg-[#d9dfdb] md:grid-cols-2">
+        {noteLabAnswerComponents.map((component, index) => {
+          const selected = component.criterionIds.every((criterionId) => selectedCriterionIds.includes(criterionId));
+          const spansLastRow = index === noteLabAnswerComponents.length - 1 && noteLabAnswerComponents.length % 2 === 1;
+          return (
+            <button
+              key={component.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onToggle(component.criterionIds)}
+              className={`grid min-h-[78px] grid-cols-[auto_minmax(0,1fr)] gap-3 p-3 text-left outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-inset ${spansLastRow ? "md:col-span-2" : ""} ${selected ? "bg-[#edf7f3]" : "bg-white hover:bg-[#f7f9f8]"}`}
+            >
+              <SelectionBox selected={selected} />
+              <span>
+                <span className={`block text-[10px] font-black ${selected ? "text-[#0b6f5d]" : "text-[#39423e]"}`}>{component.label}</span>
+                <span className="mt-1.5 block text-[9px] leading-4 text-[#59655f]">{component.examplePattern}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function SaveFieldAction({
+  canSubmit,
+  error,
+  hasSample,
+  selectedAnswerCount,
+  disposition,
+  revisionReasonCount,
+  saving,
+  remaining,
+  onSubmit,
+}: {
+  canSubmit: boolean;
+  error: string | null;
+  hasSample: boolean;
+  selectedAnswerCount: number;
+  disposition: NoteLabSampleDisposition | null;
+  revisionReasonCount: number;
+  saving: boolean;
+  remaining: number;
+  onSubmit: () => void;
+}) {
+  const hint = error ?? submissionHint(hasSample, selectedAnswerCount, disposition, revisionReasonCount);
+  return (
+    <footer className="flex flex-wrap items-center justify-end gap-4">
+      {!canSubmit || error ? (
+        <div role="status" className={`mr-auto max-w-[620px] text-[10px] leading-5 ${error ? "font-bold text-[#a44337]" : "text-[#59655f]"}`}>
+          {hint}
         </div>
       ) : null}
-    </section>
+      <button
+        type="button"
+        disabled={!canSubmit}
+        onClick={onSubmit}
+        className="inline-flex h-10 items-center gap-3 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#aeb9b5]"
+      >
+        {submissionButtonLabel(saving, remaining)}
+        <ArrowRight size={15} aria-hidden="true" />
+      </button>
+    </footer>
   );
 }
 
@@ -311,9 +334,7 @@ function FieldProgressRail({
   return (
     <aside className="sticky top-3 h-fit self-start px-2 py-5 sm:px-4 sm:py-6" aria-label="Field review progress">
       <div className="hidden sm:block">
-        <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">Field progress</div>
-        <div className="mt-1 text-[12px] font-black text-[#2d3531]">{session.calibration.currentStep} of {session.calibration.targetDecisions}</div>
-        <div className="mt-1 text-[9px] font-semibold leading-4 text-[#7a847f]">{session.calibration.estimatedMinutesRemaining} min remaining</div>
+        <div className="text-[10px] font-black text-[#2d3531]">Field {session.calibration.currentStep} / {session.calibration.targetDecisions}</div>
       </div>
 
       <nav aria-label="Current field sections" className="mt-1 grid grid-cols-[3px_minmax(0,1fr)] gap-2.5 sm:mt-5 sm:gap-3">
@@ -334,10 +355,6 @@ function FieldProgressRail({
           ))}
         </ol>
       </nav>
-
-      <div className="mt-5 hidden h-1 overflow-hidden bg-[#e3e8e6] sm:block" aria-label={`${session.calibration.progressPercent}% of field reviews complete`}>
-        <div className="h-full bg-[#0f8b73]" style={{ width: `${session.calibration.progressPercent}%` }} />
-      </div>
     </aside>
   );
 }
@@ -370,7 +387,7 @@ function FieldProgressRailStep({
         </span>
         <span className="hidden min-w-0 sm:block">
           <span className={`block text-[9px] font-black ${active ? "text-[#0b6f5d]" : "text-[#4f5a55]"}`}>{section.label}</span>
-          {unavailable ? <span className="mt-0.5 block text-[8px] font-bold text-[#8a938f]">Example skipped</span> : null}
+          {unavailable ? <span className="mt-0.5 block text-[8px] font-bold text-[#8a938f]">Unavailable</span> : null}
         </span>
         <span className="sr-only sm:hidden">{section.shortLabel}</span>
       </button>
@@ -453,23 +470,16 @@ function normalizeAnswerComponentCriteria(criterionIds: readonly NoteLabCriterio
 
 function AssessmentAnswerPreview({ scenario }: { scenario: NonNullable<NoteLabSession["scenario"]> }) {
   return (
-    <section aria-label={`${scenario.targetFieldLabel} reference answer`} className="border border-[#d2dad7] bg-[#f8faf9] p-4 sm:p-5">
-      <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#6d7873]">Reference answer</div>
-      <div className="mt-1.5 text-[11px] font-black text-[#303638]">How the selected parts read together</div>
+    <section aria-label={`${scenario.targetFieldLabel} reference answer`}>
+      <h2 className="text-[13px] font-black text-[#252c28]">Reference answer</h2>
       <textarea
         readOnly
         aria-label={`Reference answer for ${scenario.targetFieldLabel}`}
         rows={4}
         value={scenario.formatStandard.referenceAnswer}
-        className="mt-3 w-full resize-none border border-[#c9ceca] bg-white px-3 py-2.5 text-[12px] leading-5 text-[#303638] outline-none"
+        className="mt-3 w-full resize-none border border-[#c9ceca] bg-[#f8faf9] px-3 py-2.5 text-[12px] leading-5 text-[#303638] outline-none"
       />
-      <p className="mt-2 text-[9px] font-semibold leading-4 text-[#65706b]"><span className="font-black text-[#3b4741]">Quality check:</span> {scenario.reviewQuestion}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Field-specific answer elements">
-        {scenario.formatStandard.requiredElements.map((element) => (
-          <span key={element} className="border border-[#d5dcd8] bg-white px-2 py-1 text-[9px] font-semibold text-[#56615c]">{element}</span>
-        ))}
-      </div>
-      <div className="mt-3 border-l-2 border-[#8db9aa] bg-white px-3 py-2 text-[9px] font-semibold leading-4 text-[#4e5c56]"><span className="font-black text-[#315e50]">Answer order:</span> {scenario.formatStandard.template}</div>
+      <p className="mt-2 text-[9px] font-semibold leading-4 text-[#65706b]">{scenario.formatStandard.template}</p>
     </section>
   );
 }
@@ -490,35 +500,31 @@ function HistoricalAnswerReview({
   const sample = scenario.reviewSample;
   if (!sample) {
     return (
-      <section className="mt-4 border border-dashed border-[#cfd7d4] bg-[#fafbfa] p-5">
-        <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#87908c]">Example review unavailable</div>
-        <div className="mt-1 text-[11px] font-black text-[#3b4540]">There is no mapped historical answer for this field yet.</div>
-        <p className="mt-1 text-[10px] leading-5 text-[#737d79]">Nothing else is required here. Confirm the content requirements above, then save this field and continue.</p>
+      <section>
+        <h2 className="text-[13px] font-black text-[#252c28]">Historical example</h2>
+        <div className="mt-3 border border-dashed border-[#cfd7d4] bg-[#fafbfa] p-4 text-[10px] font-semibold text-[#737d79]">
+          No historical example for this field.
+        </div>
       </section>
     );
   }
   const needsReasons = disposition === "revise" || disposition === "do_not_teach";
   return (
-    <section className="mt-4 border border-[#d2dad7] bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dce2df] bg-[#f7f8f7] px-4 py-3">
-        <div>
-          <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">Step 2</div>
-          <h2 className="mt-1 text-[12px] font-black text-[#27302c]">Would you use this as an example for assessors?</h2>
-          <p className="mt-0.5 text-[9px] font-semibold text-[#7b8580]">Redacted · {humanize(sample.sourceSection)} · {sample.wordCount} words · not pre-approved</p>
-        </div>
-        <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#5e6964]"><ShieldCheck size={13} aria-hidden="true" /> Supervisor review required</span>
+    <section>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="text-[13px] font-black text-[#252c28]">Historical example</h2>
+        <span className="text-[9px] font-semibold text-[#7b8580]">Redacted · {humanize(sample.sourceSection)} · {sample.wordCount} words</span>
       </div>
-      <div className="p-4 sm:p-5">
+      <div className="mt-3 border border-[#d2dad7] bg-white p-4 sm:p-5">
         <p className="whitespace-pre-wrap border-l-2 border-[#b8c4bf] pl-4 text-[12px] leading-[1.75] text-[#303a35]">{sample.text}</p>
         <div role="group" aria-label="Historical answer decision" className="mt-5 grid gap-2 sm:grid-cols-3">
-          <DispositionButton label="Teach as written" detail="Safe as a future example" selected={disposition === "teach"} onClick={() => onDisposition("teach")} />
-          <DispositionButton label="Useful, but revise" detail="Keep the substance, fix the writing" selected={disposition === "revise"} onClick={() => onDisposition("revise")} />
-          <DispositionButton label="Do not teach" detail="Not a safe pattern to repeat" selected={disposition === "do_not_teach"} onClick={() => onDisposition("do_not_teach")} />
+          <DispositionButton label="Use as example" selected={disposition === "teach"} onClick={() => onDisposition("teach")} />
+          <DispositionButton label="Revise" selected={disposition === "revise"} onClick={() => onDisposition("revise")} />
+          <DispositionButton label="Do not use" selected={disposition === "do_not_teach"} onClick={() => onDisposition("do_not_teach")} />
         </div>
         {needsReasons ? (
           <div className="mt-4 border-t border-[#dce2df] pt-4">
-            <div className="text-[10px] font-black text-[#39433e]">What needs to change?</div>
-            <div role="group" aria-label="Revision reasons" className="mt-3 flex flex-wrap gap-2">
+            <div role="group" aria-label="Revision reasons" className="flex flex-wrap gap-2">
               {noteLabRevisionReasons.map((reason) => {
                 const selected = revisionReasonIds.includes(reason.id);
                 return (
@@ -543,53 +549,27 @@ function HistoricalAnswerReview({
 
 function DispositionButton({
   label,
-  detail,
   selected,
   onClick,
 }: {
   label: string;
-  detail: string;
   selected: boolean;
   onClick: () => void;
 }) {
   return (
     <button type="button" aria-pressed={selected} onClick={onClick} className={`border p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 ${selected ? "border-[#0f8b73] bg-[#edf7f3]" : "border-[#d3dad7] hover:border-[#98aaa3]"}`}>
-      <span className="flex items-start gap-2.5"><SelectionBox selected={selected} /><span><span className="block text-[10px] font-black text-[#303a35]">{label}</span><span className="mt-1 block text-[9px] font-semibold leading-4 text-[#78827d]">{detail}</span></span></span>
+      <span className="flex items-center gap-2.5"><SelectionBox selected={selected} /><span className="block text-[10px] font-black text-[#303a35]">{label}</span></span>
     </button>
   );
 }
 
 function LabFrame({ reviewerName, children }: { reviewerName: string; children: React.ReactNode }) {
   return (
-    <div data-note-lab-scroll-container className="pipeline-route-enter h-full overflow-y-auto bg-[#f4f6f5]">
+    <div data-note-lab-scroll-container aria-label={`${reviewerName} assessment language review`} className="pipeline-route-enter h-full overflow-y-auto bg-[#f4f6f5]">
       <div className="mx-auto max-w-[1240px] px-3 py-4 sm:px-6 lg:py-6">
-        <header className="flex min-h-12 items-center justify-between gap-4 border border-b-0 border-[#cfd7d4] bg-white px-4 sm:px-6">
-          <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Assessment note standards</span>
-          <span className="text-[10px] font-bold text-[#737d79]">{reviewerName}</span>
-        </header>
         {children}
       </div>
     </div>
-  );
-}
-
-function CompletedTrail({ session }: { session: NoteLabSession }) {
-  const recent = session.calibration.trail.slice(-3);
-  if (recent.length === 0) return null;
-  return (
-    <details className="group mb-4 border border-[#e0e5e3] bg-[#fafbfa]">
-      <summary className="cursor-pointer list-none px-3 py-2 text-[9px] font-black text-[#5d6863] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]">
-        {session.calibration.decisionsCompleted} completed field{session.calibration.decisionsCompleted === 1 ? "" : "s"} · show recent
-      </summary>
-      <ol aria-label="Completed calibration fields" className="border-t border-[#e0e5e3] px-3 py-2">
-        {recent.map((item) => (
-          <li key={item.step} className="flex items-center justify-between gap-3 py-1 text-[9px]">
-            <span className="flex min-w-0 items-center gap-2 font-bold text-[#46514c]"><Check size={11} className="shrink-0 text-[#0f7a67]" aria-hidden="true" /><span className="truncate">{item.targetFieldLabel}</span></span>
-            <span className="shrink-0 text-[8px] font-bold uppercase tracking-[0.06em] text-[#87918c]">{item.selectedCriterionIds.length} requirements · {item.sampleDisposition ? dispositionLabel(item.sampleDisposition) : "No example"}</span>
-          </li>
-        ))}
-      </ol>
-    </details>
   );
 }
 
@@ -666,17 +646,11 @@ function submissionHint(
 ) {
   if (answerVariationCount === 0) return "Select at least one answer variation.";
   if (!hasSample) return "No historical answer is available; the field standard can be saved now.";
-  if (!disposition) return "Judge whether the historical answer should be taught, revised, or excluded.";
+  if (!disposition) return "Choose how to use the historical example.";
   if ((disposition === "revise" || disposition === "do_not_teach") && reasonCount === 0) {
-    return "Select at least one specific reason the historical answer needs work.";
+    return "Select what needs work.";
   }
-  return "The field standard and historical-answer judgment are ready to save.";
-}
-
-function dispositionLabel(value: NoteLabSampleDisposition) {
-  if (value === "teach") return "Teach";
-  if (value === "revise") return "Revise";
-  return "Do not teach";
+  return "Ready to save.";
 }
 
 function humanize(value: string | undefined) {

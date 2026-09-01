@@ -8,7 +8,7 @@ import {
 } from "./assessment-language-standards";
 
 export const NOTE_LAB_CALIBRATION_TARGET = 15;
-export const NOTE_LAB_CALIBRATION_VERSION = "note_lab_field_standard_v2";
+export const NOTE_LAB_CALIBRATION_VERSION = "note_lab_field_standard_v3";
 
 export type NoteLabSection =
   | "referral"
