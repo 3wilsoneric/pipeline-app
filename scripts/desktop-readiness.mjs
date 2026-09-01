@@ -85,7 +85,11 @@ check(
 );
 check("manifest is standalone and scoped through the Pipeline base path", manifest.includes('display: "standalone"') && manifest.includes("pipelineScope") && manifest.includes("toPipelinePath"));
 
-for (const file of ["public/pwa/icon-192.png", "public/pwa/icon-512.png", "public/pwa/icon-maskable-512.png"]) {
+for (const file of [
+  "public/pwa/pipeline-icon-192-v2.png",
+  "public/pwa/pipeline-icon-512-v2.png",
+  "public/pwa/pipeline-icon-maskable-512-v2.png",
+]) {
   check(`${file} is a non-empty PNG`, statSync(file).size > 1_000 && createHash("sha256").update(readFileSync(file)).digest("hex").length === 64);
 }
 

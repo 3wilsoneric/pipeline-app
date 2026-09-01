@@ -45,13 +45,14 @@ test.describe("desktop feature enabled", () => {
       }))).flat();
       return { names, urls };
     });
-    expect(cacheAudit.names).toEqual(["pipeline-static-v4"]);
+    expect(cacheAudit.names).toEqual(["pipeline-static-v5"]);
     expect(cacheAudit.urls.some((url) => new URL(url).pathname.startsWith("/api/"))).toBeFalsy();
     expect(cacheAudit.urls.every((url) => {
       const path = new URL(url).pathname;
       return path === "/offline.html"
         || path === "/offline-assessment.html"
         || path === "/offline-assessment.js"
+        || path === "/brand/pipeline-mark.svg"
         || path.startsWith("/pwa/")
         || path.startsWith("/_next/static/");
     })).toBeTruthy();
@@ -88,7 +89,7 @@ test.describe("desktop feature enabled", () => {
     });
 
     await expect.poll(async () => page.evaluate(async () => (await caches.keys()).sort())).toEqual([
-      "pipeline-static-v4",
+      "pipeline-static-v5",
       "unrelated-application-cache",
     ]);
 

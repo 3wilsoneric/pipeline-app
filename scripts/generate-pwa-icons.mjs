@@ -12,14 +12,19 @@ await mkdir(outputDirectory, { recursive: true });
 await Promise.all([
   renderIcon(192, 0.18, `${outputDirectory}/icon-192.png`),
   renderIcon(512, 0.18, `${outputDirectory}/icon-512.png`),
-  renderIcon(512, 0.2, `${outputDirectory}/icon-maskable-512.png`),
+  renderIcon(512, 0.2, `${outputDirectory}/icon-maskable-512.png`, "#ffffff"),
+  renderIcon(192, 0.18, `${outputDirectory}/pipeline-icon-192-v2.png`),
+  renderIcon(512, 0.18, `${outputDirectory}/pipeline-icon-512-v2.png`),
+  renderIcon(512, 0.2, `${outputDirectory}/pipeline-icon-maskable-512-v2.png`, "#ffffff"),
 ]);
 
-async function renderIcon(size, insetRatio, outputPath) {
+async function renderIcon(size, insetRatio, outputPath, backgroundColor = null) {
   const canvas = createCanvas(size, size);
   const context = canvas.getContext("2d");
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, size, size);
+  if (backgroundColor) {
+    context.fillStyle = backgroundColor;
+    context.fillRect(0, 0, size, size);
+  }
 
   const inset = Math.round(size * insetRatio);
   const dimension = size - inset * 2;
