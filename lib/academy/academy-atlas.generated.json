@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:bc44706a524d363b",
-  "fingerprint": "bc44706a524d363b52f79c1995fd9a9cd5d23f1721436d8a81d3faf87a4d9206",
+  "generatedAt": "source-fingerprint:67a3d3852c0f3d94",
+  "fingerprint": "67a3d3852c0f3d9494bcf57106919464e39e23f72d606ad674338b303f44fd72",
   "totals": {
-    "files": 731,
-    "lines": 222699,
-    "coveredFiles": 731
+    "files": 732,
+    "lines": 222874,
+    "coveredFiles": 732
   },
   "entries": [
     {
@@ -194,7 +194,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 78,
+      "lines": 79,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -733,7 +733,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 63,
+      "lines": 64,
       "moduleIds": [
         "route-handler-contract",
         "validation-authorization"
@@ -1698,7 +1698,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 534,
+      "lines": 594,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5079,7 +5079,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 354,
+      "lines": 356,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -5091,7 +5091,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 339,
+      "lines": 368,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -5115,7 +5115,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 340,
+      "lines": 358,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -6247,7 +6247,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 218,
+      "lines": 219,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -7675,7 +7675,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 222,
+      "lines": 249,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8498,6 +8498,18 @@
       ]
     },
     {
+      "path": "tests/e2e/note-lab-navigation.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 34,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/note-lab-practice.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -8839,7 +8851,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 63,
+      "lines": 65,
       "moduleIds": [
         "developer-toolchain",
         "system-map"

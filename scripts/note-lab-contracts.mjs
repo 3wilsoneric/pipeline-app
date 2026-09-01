@@ -49,7 +49,8 @@ check("controlled revision reasons cover evidence and language defects", standar
 check("input requires field evidence and a coherent sample judgment", contracts.includes("selectedCriterionIds")
   && contracts.includes("sampleDisposition") && contracts.includes("revisionReasonIds")
   && contracts.includes("Select at least one reason the historical answer needs work."));
-check("only one bounded field scenario is returned", store.includes("const baseScenario = calibration.complete ? null : selectNextScenario"));
+check("only one requested bounded field scenario is returned", store.includes("selectCalibrationScenario(catalog, requestedField)")
+  && route.includes('searchParams.get("field")') && !store.includes("scenarioCatalog: catalog"));
 check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LAB_CALIBRATION_TARGET")
   && store.includes("reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET)")
   && store.includes("This calibration is already complete."));
@@ -57,6 +58,11 @@ check("the progress rail lists the actual assessment fields", workspace.includes
   && workspace.includes("session.calibration.fieldSteps.map")
   && workspace.includes("field.label") && engine.includes("fieldSteps")
   && !workspace.includes('aria-label="Current field sections"') && !workspace.includes("scrollIntoView"));
+check("every assessment field is directly navigable and fresh loads start at field one",
+  workspace.includes("onClick={() => onNavigate(field.field)}")
+  && workspace.includes('aria-current={active ? "step" : undefined}')
+  && workspace.includes("/api/note-lab/session?field=")
+  && engine.includes("if (!requestedField) return calibrationCatalog[0] ?? null"));
 check("UI keeps only the field guidance and review decisions", workspace.includes("What this field is about")
   && workspace.includes("Note structure") && workspace.includes("Good note example")
   && workspace.includes("Past note to review") && workspace.includes("Use as example")
@@ -129,6 +135,27 @@ check("field review starts at the first canonical assessment narrative field", f
   && firstScenario?.id === scenarioCatalog[0].id);
 check("field review advances in canonical assessment order", secondScenario?.id === scenarioCatalog[1].id
   && secondScenario?.targetField === "prior_awol_failed_placements");
+check("direct field selection is bounded and defaults to field one",
+  engineModule.selectCalibrationScenario(scenarioCatalog)?.id === scenarioCatalog[0].id
+  && engineModule.selectCalibrationScenario(scenarioCatalog, scenarioCatalog[8].targetField)?.id === scenarioCatalog[8].id
+  && engineModule.selectCalibrationScenario(scenarioCatalog, "not_a_field")?.id === scenarioCatalog[0].id);
+const nonSequentialProgress = {
+  ...emptyProgress,
+  reviews: [scenarioCatalog[0], scenarioCatalog[2]].map((scenario, index) => ({
+    scenarioId: scenario.id,
+    targetField: scenario.targetField,
+    selectedCriterionIds: ["direct_answer"],
+    sampleId: null,
+    sampleDisposition: null,
+    revisionReasonIds: [],
+    submittedAt: new Date(index).toISOString(),
+  })),
+};
+const nonSequentialCalibration = engineModule.buildNoteLabCalibration(scenarioCatalog, nonSequentialProgress);
+check("completed field state does not assume sequential review order",
+  nonSequentialCalibration.fieldSteps[0].reviewed
+  && !nonSequentialCalibration.fieldSteps[1].reviewed
+  && nonSequentialCalibration.fieldSteps[2].reviewed);
 
 const sample = {
   id: "answer_contract_sample",

@@ -162,6 +162,33 @@ export function selectNextScenario(
   return catalog.find((scenario) => !completed.has(scenario.id)) ?? null;
 }
 
+export function selectCalibrationScenario(
+  catalog: readonly NoteLabScenario[],
+  requestedField?: string | null,
+) {
+  const calibrationCatalog = catalog.slice(0, NOTE_LAB_CALIBRATION_TARGET);
+  if (!requestedField) return calibrationCatalog[0] ?? null;
+  return calibrationCatalog.find((scenario) => scenario.targetField === requestedField)
+    ?? calibrationCatalog[0]
+    ?? null;
+}
+
+export function selectNextCalibrationScenario(
+  catalog: readonly NoteLabScenario[],
+  progress: NoteLabProgress,
+  currentScenarioId: string,
+) {
+  const calibrationCatalog = catalog.slice(0, NOTE_LAB_CALIBRATION_TARGET);
+  const completed = new Set(progress.reviews.map((review) => review.scenarioId));
+  const currentIndex = calibrationCatalog.findIndex((scenario) => scenario.id === currentScenarioId);
+  const startingIndex = currentIndex >= 0 ? currentIndex : -1;
+  for (let offset = 1; offset <= calibrationCatalog.length; offset += 1) {
+    const scenario = calibrationCatalog[(startingIndex + offset) % calibrationCatalog.length];
+    if (scenario && !completed.has(scenario.id)) return scenario;
+  }
+  return null;
+}
+
 export function buildNoteLabCalibration(
   catalog: readonly NoteLabScenario[],
   progress: NoteLabProgress,
@@ -203,9 +230,11 @@ export function buildNoteLabCalibration(
 
   const decisionsCompleted = reviews.length;
   const complete = decisionsCompleted >= NOTE_LAB_CALIBRATION_TARGET;
+  const reviewedScenarioIds = new Set(reviews.map((review) => review.scenarioId));
   const fieldSteps = catalog.slice(0, NOTE_LAB_CALIBRATION_TARGET).map((scenario) => ({
     field: scenario.targetField,
     label: scenario.targetFieldLabel,
+    reviewed: reviewedScenarioIds.has(scenario.id),
   }));
   const criteria = noteLabDocumentationCriteria.map((criterion) => {
     const selectedCount = criterionCounts.get(criterion.id) ?? 0;

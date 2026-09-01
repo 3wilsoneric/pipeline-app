@@ -167,6 +167,7 @@
     "test:e2e": "playwright test",
     "test:e2e:training": "playwright test tests/e2e/operator-training.spec.ts --project=chromium",
     "test:e2e:assessment-practice": "PIPELINE_NEXT_DIST_DIR=.next-assessment-practice-e2e PIPELINE_NOTE_LAB_ENABLED=true PORT=3194 playwright test tests/e2e/note-lab-practice.spec.ts --project=chromium",
+    "test:e2e:note-lab": "PIPELINE_NEXT_DIST_DIR=.next-note-lab-e2e PIPELINE_NOTE_LAB_ENABLED=true PORT=3195 playwright test tests/e2e/note-lab-navigation.spec.ts --project=chromium",
     "test:e2e:demo": "playwright test tests/e2e/demo-environment.spec.ts --project=chromium",
     "test:e2e:operational": "PIPELINE_OPERATIONAL_E2E=true PORT=3197 playwright test -c playwright.operational.config.ts",
     "test:e2e:operational:high": "PIPELINE_OPERATIONAL_E2E=true PIPELINE_HIGH_ASSURANCE_E2E=true PORT=3198 playwright test -c playwright.operational.config.ts",

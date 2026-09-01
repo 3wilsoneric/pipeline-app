@@ -125,6 +125,7 @@ export type NoteLabCalibrationTrailItem = {
 export type NoteLabFieldStep = {
   field: AssessmentToolFieldKey;
   label: string;
+  reviewed: boolean;
 };
 
 export type NoteLabPreferenceProfile = {
@@ -178,6 +179,7 @@ export type NoteLabSession = {
   revision: number;
   persistence: "postgres" | "local_file" | "unavailable";
   scenario: NoteLabScenario | null;
+  review: NoteLabFieldReview | null;
   calibration: NoteLabCalibration;
   stats: {
     decisionsCompleted: number;

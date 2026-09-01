@@ -20,7 +20,8 @@ import {
   attachReviewSample,
   buildNoteLabCalibration,
   buildNoteLabScenarioCatalog,
-  selectNextScenario,
+  selectCalibrationScenario,
+  selectNextCalibrationScenario,
   validateReviewAgainstScenario,
 } from "@/lib/note-lab/note-lab-engine";
 import { getNoteLabSampleSet } from "@/lib/note-lab/note-lab-samples";
@@ -54,7 +55,10 @@ const localState = globalLocal.__pipelineNoteLabLocalV4 ??= {
   persistQueue: Promise.resolve(),
 };
 
-export async function getNoteLabSession(reviewerId: string): Promise<NoteLabSession> {
+export async function getNoteLabSession(
+  reviewerId: string,
+  requestedField?: string | null,
+): Promise<NoteLabSession> {
   const catalog = scenarioCatalog();
   if (catalog.length < NOTE_LAB_CALIBRATION_TARGET) {
     return unavailableSession("Assessment writing standards are not configured for enough fields yet.");
@@ -74,9 +78,12 @@ export async function getNoteLabSession(reviewerId: string): Promise<NoteLabSess
     reviews: progress.reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET),
   };
   const calibration = buildNoteLabCalibration(catalog, calibrationProgress);
-  const baseScenario = calibration.complete ? null : selectNextScenario(catalog, calibrationProgress);
+  const baseScenario = selectCalibrationScenario(catalog, requestedField);
   const scenario = baseScenario
     ? attachReviewSample(baseScenario, sampleSet.samples, sampleSet.sampleSetVersion, reviewerId)
+    : null;
+  const review = baseScenario
+    ? calibrationProgress.reviews.find((item) => item.scenarioId === baseScenario.id) ?? null
     : null;
   return {
     enabled: true,
@@ -88,6 +95,7 @@ export async function getNoteLabSession(reviewerId: string): Promise<NoteLabSess
     revision: record.revision,
     persistence: record.persistence,
     scenario,
+    review,
     calibration,
     stats: {
       decisionsCompleted: progress.reviews.length,
@@ -112,7 +120,8 @@ export async function submitNoteLabReview(reviewerId: string, input: NoteLabRevi
     return { ok: false as const, conflict: true as const, current: await getNoteLabSession(reviewerId) };
   }
   const sampleSet = await getNoteLabSampleSet();
-  const baseScenario = selectNextScenario(catalog, current.progress);
+  const baseScenario = catalog.slice(0, NOTE_LAB_CALIBRATION_TARGET)
+    .find((scenario) => scenario.id === input.scenarioId) ?? null;
   const activeScenario = baseScenario
     ? attachReviewSample(baseScenario, sampleSet.samples, sampleSet.sampleSetVersion, reviewerId)
     : null;
@@ -139,7 +148,15 @@ export async function submitNoteLabReview(reviewerId: string, input: NoteLabRevi
     if (saved.unavailable) return saved;
     return { ok: false as const, conflict: true as const, current: await getNoteLabSession(reviewerId) };
   }
-  return { ok: true as const, session: await getNoteLabSession(reviewerId) };
+  const updatedProgress: NoteLabProgress = {
+    ...current.progress,
+    reviews: [...current.progress.reviews, review],
+  };
+  const nextScenario = selectNextCalibrationScenario(catalog, updatedProgress, input.scenarioId);
+  return {
+    ok: true as const,
+    session: await getNoteLabSession(reviewerId, nextScenario?.targetField),
+  };
 }
 
 async function getProgressRecord(reviewerId: string, calibrationVersion: string): Promise<ProgressRecord> {
@@ -304,6 +321,7 @@ function unavailableSession(message: string): NoteLabSession {
     revision: 0,
     persistence: "unavailable",
     scenario: null,
+    review: null,
     calibration: {
       targetDecisions: NOTE_LAB_CALIBRATION_TARGET,
       decisionsCompleted: 0,

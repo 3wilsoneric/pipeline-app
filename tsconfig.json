@@ -47,7 +47,9 @@
     ".next-desktop-e2e-repeat/types/**/*.ts",
     ".next-desktop-e2e-repeat/dev/types/**/*.ts",
     ".next-assessment-practice-e2e/types/**/*.ts",
-    ".next-assessment-practice-e2e/dev/types/**/*.ts"
+    ".next-assessment-practice-e2e/dev/types/**/*.ts",
+    ".next-note-lab-e2e/types/**/*.ts",
+    ".next-note-lab-e2e/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

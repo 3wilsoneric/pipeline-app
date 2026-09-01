@@ -15,7 +15,8 @@ export async function GET(request: Request) {
     const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
     if (!auth.ok) return auth.response;
     try {
-      return Response.json(await getNoteLabSession(auth.user.id), { headers: noStoreHeaders() });
+      const requestedField = new URL(request.url).searchParams.get("field");
+      return Response.json(await getNoteLabSession(auth.user.id, requestedField), { headers: noStoreHeaders() });
     } catch {
       return Response.json({ error: "Assessment Language Lab is temporarily unavailable." }, { status: 503, headers: noStoreHeaders() });
     }

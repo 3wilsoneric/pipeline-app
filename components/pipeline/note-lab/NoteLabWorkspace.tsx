@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, Download, FileCheck2 } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
@@ -26,13 +26,20 @@ export default function NoteLabWorkspace({
 }) {
   const [session, setSession] = useState(initialSession);
   const [selectedCriterionIds, setSelectedCriterionIds] = useState<NoteLabCriterionId[]>(
-    normalizeAnswerComponentCriteria(initialSession.scenario?.recommendedCriterionIds ?? []),
+    criteriaForSession(initialSession),
   );
-  const [sampleDisposition, setSampleDisposition] = useState<NoteLabSampleDisposition | null>(null);
-  const [revisionReasonIds, setRevisionReasonIds] = useState<NoteLabRevisionReasonId[]>([]);
+  const [sampleDisposition, setSampleDisposition] = useState<NoteLabSampleDisposition | null>(
+    initialSession.review?.sampleDisposition ?? null,
+  );
+  const [revisionReasonIds, setRevisionReasonIds] = useState<NoteLabRevisionReasonId[]>(
+    initialSession.review?.revisionReasonIds ?? [],
+  );
   const [saving, setSaving] = useState(false);
+  const [loadingField, setLoadingField] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const navigationController = useRef<AbortController | null>(null);
   const scenario = session.scenario;
+  const reviewed = session.review !== null;
   const sampleDecisionComplete = sampleDecisionIsComplete(
     Boolean(scenario?.reviewSample),
     sampleDisposition,
@@ -41,7 +48,10 @@ export default function NoteLabWorkspace({
   const canSubmit = Boolean(scenario
     && selectedAnswerComponentCount(selectedCriterionIds) > 0
     && sampleDecisionComplete
+    && !reviewed
     && !saving);
+
+  useEffect(() => () => navigationController.current?.abort(), []);
 
   const chooseDisposition = (disposition: NoteLabSampleDisposition) => {
     setSampleDisposition(disposition);
@@ -58,9 +68,43 @@ export default function NoteLabWorkspace({
 
   const applySession = (next: NoteLabSession) => {
     setSession(next);
-    setSelectedCriterionIds(normalizeAnswerComponentCriteria(next.scenario?.recommendedCriterionIds ?? []));
-    setSampleDisposition(null);
-    setRevisionReasonIds([]);
+    setSelectedCriterionIds(criteriaForSession(next));
+    setSampleDisposition(next.review?.sampleDisposition ?? null);
+    setRevisionReasonIds(next.review?.revisionReasonIds ?? []);
+  };
+
+  const navigateToField = async (field: string) => {
+    if (field === scenario?.targetField) {
+      document.querySelector<HTMLElement>("[data-note-lab-scroll-container]")
+        ?.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    navigationController.current?.abort();
+    const controller = new AbortController();
+    navigationController.current = controller;
+    setLoadingField(field);
+    setError(null);
+    try {
+      const next = await fetchPipelineJson<NoteLabSession>(
+        `/api/note-lab/session?field=${encodeURIComponent(field)}`,
+        { cache: "no-store", signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
+      startTransition(() => {
+        applySession(next);
+        document.querySelector<HTMLElement>("[data-note-lab-scroll-container]")
+          ?.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    } catch (navigationError) {
+      if (!controller.signal.aborted) {
+        setError(navigationError instanceof Error ? navigationError.message : "That field could not be opened.");
+      }
+    } finally {
+      if (navigationController.current === controller) {
+        navigationController.current = null;
+        setLoadingField(null);
+      }
+    }
   };
 
   const submit = async () => {
@@ -100,16 +144,18 @@ export default function NoteLabWorkspace({
   };
 
   if (!session.available) return <LabFrame reviewerName={reviewerName}><EmptyLab message={session.message} /></LabFrame>;
-  if (session.calibration.complete) {
-    return <LabFrame reviewerName={reviewerName}><CalibrationComplete profile={session.calibration.profile} /></LabFrame>;
-  }
   if (!scenario) return <LabFrame reviewerName={reviewerName}><EmptyLab message={session.message} /></LabFrame>;
 
   return (
     <LabFrame reviewerName={reviewerName}>
-      <main className="border border-[#cfd7d4] bg-white">
+      <main aria-busy={loadingField !== null} className="border border-[#cfd7d4] bg-white">
         <div className="grid grid-cols-[48px_minmax(0,1fr)] sm:grid-cols-[230px_minmax(0,1fr)] lg:grid-cols-[250px_minmax(0,1fr)]">
-          <FieldProgressRail session={session} />
+          <FieldProgressRail
+            session={session}
+            loadingField={loadingField}
+            disabled={saving}
+            onNavigate={(field) => void navigateToField(field)}
+          />
 
           <div className="min-w-0 border-l border-[#d8dfdc] px-4 py-6 sm:px-8 sm:py-8 lg:px-10">
             <header className="border-b border-[#d8dfdc] pb-6">
@@ -131,6 +177,7 @@ export default function NoteLabWorkspace({
                 scenario={scenario}
                 disposition={sampleDisposition}
                 revisionReasonIds={revisionReasonIds}
+                readOnly={reviewed}
                 onDisposition={chooseDisposition}
                 onReason={toggleRevisionReason}
               />
@@ -149,6 +196,9 @@ export default function NoteLabWorkspace({
                 revisionReasonCount={revisionReasonIds.length}
                 saving={saving}
                 remaining={session.calibration.remaining}
+                reviewed={reviewed}
+                calibrationComplete={session.calibration.complete}
+                profile={session.calibration.profile}
                 onSubmit={() => void submit()}
               />
             </section>
@@ -211,6 +261,9 @@ function SaveFieldAction({
   revisionReasonCount,
   saving,
   remaining,
+  reviewed,
+  calibrationComplete,
+  profile,
   onSubmit,
 }: {
   canSubmit: boolean;
@@ -221,8 +274,33 @@ function SaveFieldAction({
   revisionReasonCount: number;
   saving: boolean;
   remaining: number;
+  reviewed: boolean;
+  calibrationComplete: boolean;
+  profile: NoteLabPreferenceProfile;
   onSubmit: () => void;
 }) {
+  if (reviewed) {
+    return (
+      <footer className="flex items-center justify-between gap-4">
+        <div role="status" className="text-[10px] font-bold leading-5 text-[#0b705f]">
+          This field is complete. Use the field list to continue or review another field.
+        </div>
+        {calibrationComplete ? (
+          <button
+            type="button"
+            onClick={() => downloadProfile(profile)}
+            className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"
+          >
+            <Download size={14} aria-hidden="true" />Download standard
+          </button>
+        ) : (
+          <span className="inline-flex h-10 items-center gap-2 bg-[#edf7f3] px-5 text-[11px] font-black text-[#0b705f]">
+            <Check size={14} aria-hidden="true" />Reviewed
+          </span>
+        )}
+      </footer>
+    );
+  }
   const hint = error ?? submissionHint(hasSample, selectedAnswerCount, disposition, revisionReasonCount);
   return (
     <footer className="flex flex-wrap items-center justify-end gap-4">
@@ -246,14 +324,23 @@ function SaveFieldAction({
 
 function FieldProgressRail({
   session,
+  loadingField,
+  disabled,
+  onNavigate,
 }: {
   session: NoteLabSession;
+  loadingField: string | null;
+  disabled: boolean;
+  onNavigate: (field: string) => void;
 }) {
+  const activeIndex = session.calibration.fieldSteps.findIndex(
+    (field) => field.field === session.scenario?.targetField,
+  );
   return (
     <aside className="sticky top-3 max-h-[calc(100vh-5rem)] self-start overflow-y-auto px-1.5 py-4 sm:px-3 sm:py-5" aria-label="Assessment field progress">
       <div className="hidden items-baseline justify-between gap-3 px-2 sm:flex">
         <span className="text-[11px] font-black text-[#2d3531]">Assessment fields</span>
-        <span className="text-[10px] font-bold text-[#74807b]">{session.calibration.currentStep} / {session.calibration.targetDecisions}</span>
+        <span className="text-[10px] font-bold text-[#74807b]">{Math.max(activeIndex + 1, 1)} / {session.calibration.targetDecisions}</span>
       </div>
       <nav aria-label="Assessment fields" className="mt-1 sm:mt-3">
         <ol className="space-y-0.5">
@@ -262,8 +349,10 @@ function FieldProgressRail({
               key={field.field}
               field={field}
               index={index}
-              active={index === session.calibration.decisionsCompleted}
-              completed={index < session.calibration.decisionsCompleted}
+              active={index === activeIndex}
+              loading={field.field === loadingField}
+              disabled={disabled || loadingField !== null}
+              onNavigate={onNavigate}
             />
           ))}
         </ol>
@@ -276,25 +365,35 @@ function FieldProgressRailStep({
   field,
   index,
   active,
-  completed,
+  loading,
+  disabled,
+  onNavigate,
 }: {
   field: NoteLabSession["calibration"]["fieldSteps"][number];
   index: number;
   active: boolean;
-  completed: boolean;
+  loading: boolean;
+  disabled: boolean;
+  onNavigate: (field: string) => void;
 }) {
   return (
-    <li
-      aria-current={active ? "step" : undefined}
-      className={`grid min-h-8 grid-cols-[26px_minmax(0,1fr)] items-center gap-2 border-l-2 px-1.5 py-1.5 sm:px-2 ${active ? "border-[#0f8b73] bg-[#edf7f3]" : "border-transparent"}`}
-    >
-      <span className={`flex h-5 w-5 items-center justify-center border text-[8px] font-black ${progressStepBadgeClass(active, completed)}`}>
-        {completed ? <Check size={11} strokeWidth={2.6} aria-hidden="true" /> : String(index + 1).padStart(2, "0")}
-      </span>
-      <span className={`hidden min-w-0 text-[10px] font-bold leading-4 sm:block ${active ? "text-[#0b6f5d]" : completed ? "text-[#4f5a55]" : "text-[#78827d]"}`}>
-        {field.label}
-      </span>
-      <span className="sr-only sm:hidden">{field.label}</span>
+    <li>
+      <button
+        type="button"
+        aria-current={active ? "step" : undefined}
+        aria-label={`Field ${index + 1}: ${field.label}${field.reviewed ? ", reviewed" : ""}`}
+        disabled={disabled}
+        onClick={() => onNavigate(field.field)}
+        className={`grid min-h-8 w-full grid-cols-[26px_minmax(0,1fr)] items-center gap-2 border-l-2 px-1.5 py-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:px-2 ${active ? "border-[#0f8b73] bg-[#edf7f3]" : "border-transparent hover:bg-[#f3f6f4]"} disabled:cursor-wait disabled:opacity-65`}
+      >
+        <span className={`flex h-5 w-5 items-center justify-center border text-[8px] font-black ${progressStepBadgeClass(active, field.reviewed)}`}>
+          {field.reviewed ? <Check size={11} strokeWidth={2.6} aria-hidden="true" /> : loading ? "…" : String(index + 1).padStart(2, "0")}
+        </span>
+        <span className={`hidden min-w-0 text-[10px] font-bold leading-4 sm:block ${active ? "text-[#0b6f5d]" : field.reviewed ? "text-[#4f5a55]" : "text-[#78827d]"}`}>
+          {field.label}
+        </span>
+        <span className="sr-only sm:hidden">{field.label}</span>
+      </button>
     </li>
   );
 }
@@ -337,6 +436,12 @@ function normalizeAnswerComponentCriteria(criterionIds: readonly NoteLabCriterio
   return [...normalized];
 }
 
+function criteriaForSession(session: NoteLabSession) {
+  return normalizeAnswerComponentCriteria(
+    session.review?.selectedCriterionIds ?? session.scenario?.recommendedCriterionIds ?? [],
+  );
+}
+
 function GoodNoteExample({ scenario }: { scenario: NonNullable<NoteLabSession["scenario"]> }) {
   return (
     <section aria-label={`${scenario.targetFieldLabel} good note example`} className="max-w-[920px]">
@@ -355,12 +460,14 @@ function HistoricalAnswerReview({
   scenario,
   disposition,
   revisionReasonIds,
+  readOnly,
   onDisposition,
   onReason,
 }: {
   scenario: NonNullable<NoteLabSession["scenario"]>;
   disposition: NoteLabSampleDisposition | null;
   revisionReasonIds: NoteLabRevisionReasonId[];
+  readOnly: boolean;
   onDisposition: (disposition: NoteLabSampleDisposition) => void;
   onReason: (reason: NoteLabRevisionReasonId) => void;
 }) {
@@ -385,9 +492,9 @@ function HistoricalAnswerReview({
       <div className="mt-3 border border-[#d2dad7] bg-white p-4 sm:p-5">
         <p className="whitespace-pre-wrap border-l-2 border-[#b8c4bf] pl-4 text-[14px] leading-7 text-[#303a35]">{sample.text}</p>
         <div role="group" aria-label="Historical answer decision" className="mt-5 grid gap-2 sm:grid-cols-3">
-          <DispositionButton label="Use as example" selected={disposition === "teach"} onClick={() => onDisposition("teach")} />
-          <DispositionButton label="Revise" selected={disposition === "revise"} onClick={() => onDisposition("revise")} />
-          <DispositionButton label="Do not use" selected={disposition === "do_not_teach"} onClick={() => onDisposition("do_not_teach")} />
+          <DispositionButton label="Use as example" selected={disposition === "teach"} disabled={readOnly} onClick={() => onDisposition("teach")} />
+          <DispositionButton label="Revise" selected={disposition === "revise"} disabled={readOnly} onClick={() => onDisposition("revise")} />
+          <DispositionButton label="Do not use" selected={disposition === "do_not_teach"} disabled={readOnly} onClick={() => onDisposition("do_not_teach")} />
         </div>
         {needsReasons ? (
           <div className="mt-4 border-t border-[#dce2df] pt-4">
@@ -399,8 +506,9 @@ function HistoricalAnswerReview({
                     key={reason.id}
                     type="button"
                     aria-pressed={selected}
+                    disabled={readOnly}
                     onClick={() => onReason(reason.id)}
-                    className={`min-h-9 border px-3 py-2 text-[9px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 ${selected ? "border-[#9a5c53] bg-[#fbf1ef] text-[#81443b]" : "border-[#d4dbd8] bg-white text-[#626d68] hover:border-[#aab5b0]"}`}
+                    className={`min-h-9 border px-3 py-2 text-[9px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-default ${selected ? "border-[#9a5c53] bg-[#fbf1ef] text-[#81443b]" : "border-[#d4dbd8] bg-white text-[#626d68] hover:border-[#aab5b0]"}`}
                   >
                     {reason.label}
                   </button>
@@ -417,14 +525,16 @@ function HistoricalAnswerReview({
 function DispositionButton({
   label,
   selected,
+  disabled,
   onClick,
 }: {
   label: string;
   selected: boolean;
+  disabled: boolean;
   onClick: () => void;
 }) {
   return (
-    <button type="button" aria-pressed={selected} onClick={onClick} className={`border p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 ${selected ? "border-[#0f8b73] bg-[#edf7f3]" : "border-[#d3dad7] hover:border-[#98aaa3]"}`}>
+    <button type="button" aria-pressed={selected} disabled={disabled} onClick={onClick} className={`border p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-default ${selected ? "border-[#0f8b73] bg-[#edf7f3]" : "border-[#d3dad7] hover:border-[#98aaa3]"}`}>
       <span className="flex items-center gap-2.5"><SelectionBox selected={selected} /><span className="block text-[10px] font-black text-[#303a35]">{label}</span></span>
     </button>
   );
@@ -446,56 +556,6 @@ function SelectionBox({ selected }: { selected: boolean }) {
       {selected ? <Check size={12} strokeWidth={2.6} aria-hidden="true" /> : null}
     </span>
   );
-}
-
-function CalibrationComplete({ profile }: { profile: NoteLabPreferenceProfile }) {
-  const reviewedSamples = profile.sampleOutcomes.teach + profile.sampleOutcomes.revise + profile.sampleOutcomes.do_not_teach;
-  return (
-    <main className="border border-[#cfd7d4] bg-white px-5 py-8 sm:px-8 sm:py-10">
-      <div className="mx-auto max-w-[820px]">
-        <span className="flex h-10 w-10 items-center justify-center bg-[#0f8b73] text-white"><Check size={20} strokeWidth={2.5} aria-hidden="true" /></span>
-        <h1 className="mt-5 text-[26px] font-black tracking-[-0.035em] text-[#202522]">Review complete</h1>
-
-        <div className="mt-6 grid gap-px border border-[#d8dfdc] bg-[#d8dfdc] sm:grid-cols-3">
-          <SummaryMetric label="Fields reviewed" value={profile.fieldsReviewed} />
-          <SummaryMetric label="Samples reviewed" value={reviewedSamples} />
-          <SummaryMetric label="Teach as written" value={profile.sampleOutcomes.teach} />
-        </div>
-
-        <section className="mt-6 border border-[#d8dfdc] p-4 sm:p-5">
-          <h2 className="text-[12px] font-black text-[#27302c]">Criteria</h2>
-          <div className="mt-4 space-y-3">
-            {profile.criteria.map((criterion) => (
-              <div key={criterion.id}>
-                <div className="flex items-center justify-between gap-4 text-[10px]">
-                  <span className="font-black text-[#46514c]">{criterion.label}</span>
-                  <span className="font-bold text-[#74807b]">{criterion.selectedCount} fields · {criterion.selectionRate}%</span>
-                </div>
-                <div className="mt-1.5 h-1.5 bg-[#e5e9e7]"><div className="h-full bg-[#0f8b73]" style={{ width: `${criterion.selectionRate}%` }} /></div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-3 border border-[#d8dfdc] p-4 sm:p-5">
-          <h2 className="text-[12px] font-black text-[#27302c]">Summary</h2>
-          {profile.inferredRules.length > 0 ? (
-            <ul className="mt-3 space-y-2.5">
-              {profile.inferredRules.map((rule) => <li key={rule} className="flex gap-3 text-[11px] leading-5 text-[#4c5752]"><span className="mt-2 h-1.5 w-1.5 shrink-0 bg-[#0f8b73]" />{rule}</li>)}
-            </ul>
-          ) : <p className="mt-3 text-[11px] text-[#737d79]">Complete more field reviews before drawing a documentation rule.</p>}
-        </section>
-
-        <button type="button" onClick={() => downloadProfile(profile)} className="mt-5 inline-flex h-10 items-center gap-2.5 bg-[#0f8b73] px-4 text-[10px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
-          <Download size={14} aria-hidden="true" />Download field standard
-        </button>
-      </div>
-    </main>
-  );
-}
-
-function SummaryMetric({ label, value }: { label: string; value: number }) {
-  return <div className="bg-white px-4 py-4"><div className="text-[20px] font-black text-[#202522]">{value}</div><div className="mt-1 text-[8px] font-black uppercase tracking-[0.09em] text-[#7a847f]">{label}</div></div>;
 }
 
 function EmptyLab({ message }: { message: string | null }) {

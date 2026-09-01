@@ -30,6 +30,7 @@ export default async function NoteLabPage() {
     revision: 0,
     persistence: "unavailable" as const,
     scenario: null,
+    review: null,
     calibration: {
       targetDecisions: NOTE_LAB_CALIBRATION_TARGET,
       decisionsCompleted: 0,
