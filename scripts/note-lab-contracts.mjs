@@ -54,15 +54,16 @@ check("only one requested bounded field scenario is returned", store.includes("s
 check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LAB_CALIBRATION_TARGET")
   && store.includes("reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET)")
   && store.includes("This calibration is already complete."));
-check("the combined rail lists the active section's actual assessment questions",
-  workspace.includes('aria-label="Assessment question navigation"')
-  && workspace.includes("questions.map")
-  && workspace.includes("assessmentInterviewFieldLabel(question.field)")
+check("the combined rail preserves the assessment section navigation",
+  workspace.includes('aria-label="Assessment section navigation"')
+  && workspace.includes("assessmentPracticeNavigationGroups.map")
   && workspace.includes('aria-current={active ? "step" : undefined}'));
-check("every visible assessment question can open guidance and advance without submitting",
-  workspace.includes("onOpenGuidance={openQuestion}")
+check("only authored narrative questions can open guidance and advance without submitting",
+  workspace.includes("onOpenGuidance={openGuidance}")
+  && workspace.includes("hasUsefulWritingGuidance")
   && workspace.includes("setGuidanceField(field)")
-  && workspace.includes("Next question")
+  && workspace.includes("Next guided field")
+  && !workspace.includes("structuredQuestionGuidance")
   && !workspace.includes("/api/note-lab/session")
   && !workspace.includes("Save and continue"));
 check("language guidance is shown in a modal before an anchored question tooltip",
@@ -72,10 +73,10 @@ check("language guidance is shown in a modal before an anchored question tooltip
   && workspace.includes("PracticeQuestionTooltip")
   && workspace.includes("data-practice-field"));
 check("narrative guidance includes instructions, note structure, and a good example",
-  workspace.includes("specification?.instructionSteps")
+  workspace.includes("specification.instructionSteps")
   && workspace.includes("Note structure")
   && workspace.includes("specification.formatTemplate")
-  && workspace.includes("specification?.strongExample"));
+  && workspace.includes("specification.strongExample"));
 check("the former language page redirects to the one combined workflow",
   page.includes("getAssessmentPracticeUser")
   && page.includes('redirect(toPipelinePath("/note-lab/practice"))'));

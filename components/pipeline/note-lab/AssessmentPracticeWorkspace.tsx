@@ -1,16 +1,18 @@
 "use client";
 
-import { ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Sparkles, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
+import { getAssessmentNarrativeGuide } from "@/lib/assessment/assessment-narrative-guide";
 import {
   assessmentInterviewFieldLabel,
-  assessmentInterviewQuestions,
   assessmentInterviewSections,
+  getAssessmentInterviewCoverage,
   getAssessmentInterviewQuestions,
   getAssessmentUnableReason,
   getRequiredAssessmentInterviewQuestions,
+  hasAssessmentInterviewValue,
   setAssessmentUnableReason,
   type AssessmentInterviewQuestion,
 } from "@/lib/assessment/assessment-interview-schema";
@@ -36,32 +38,29 @@ type PracticeQuestionStep = {
   question: AssessmentInterviewQuestion;
 };
 
-const firstPracticeField = assessmentInterviewQuestions[0].field;
-
 export default function AssessmentPracticeWorkspace({ traineeName }: { traineeName: string }) {
   const [data, setData] = useState(createAssessmentPracticeData);
   const [activeSection, setActiveSection] = useState<AssessmentToolSection>(assessmentInterviewSections[0].key);
-  const [selectedField, setSelectedField] = useState<AssessmentToolFieldKey>(firstPracticeField);
   const [guidanceField, setGuidanceField] = useState<AssessmentToolFieldKey | null>(null);
   const [guidedField, setGuidedField] = useState<AssessmentToolFieldKey | null>(null);
+  const coverage = getAssessmentInterviewCoverage(data);
   const currentIndex = assessmentInterviewSections.findIndex((section) => section.key === activeSection);
   const section = assessmentInterviewSections[currentIndex] ?? assessmentInterviewSections[0];
   const questions = getAssessmentInterviewQuestions(section.key, data);
+  const capturedHere = questions.filter((question) => hasAssessmentInterviewValue(data[question.field])).length;
   const requiredFields = useMemo(
     () => new Set(getRequiredAssessmentInterviewQuestions(data).map((question) => question.field)),
     [data],
   );
-  const visibleQuestionSteps: readonly PracticeQuestionStep[] = useMemo(
+  const guidedQuestionSteps: readonly PracticeQuestionStep[] = useMemo(
     () => assessmentInterviewSections.flatMap((item) =>
-      getAssessmentInterviewQuestions(item.key, data).map((question) => ({ section: item.key, question }))),
+      getAssessmentInterviewQuestions(item.key, data)
+        .filter(hasUsefulWritingGuidance)
+        .map((question) => ({ section: item.key, question }))),
     [data],
   );
-  const selectedQuestionIndex = Math.max(
-    0,
-    visibleQuestionSteps.findIndex((step) => step.question.field === selectedField),
-  );
   const guidanceQuestion = guidanceField
-    ? visibleQuestionSteps.find((step) => step.question.field === guidanceField)?.question ?? null
+    ? guidedQuestionSteps.find((step) => step.question.field === guidanceField)?.question ?? null
     : null;
 
   useEffect(() => {
@@ -80,45 +79,40 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
   const reset = () => {
     setData(createAssessmentPracticeData());
     setActiveSection(assessmentInterviewSections[0].key);
-    setSelectedField(firstPracticeField);
     setGuidanceField(null);
     setGuidedField(null);
     document.querySelector<HTMLElement>("[data-assessment-practice-scroll]")?.scrollTo({ top: 0 });
   };
 
   const chooseSection = (sectionKey: AssessmentToolSection) => {
-    const nextQuestions = getAssessmentInterviewQuestions(sectionKey, data);
     setActiveSection(sectionKey);
-    setSelectedField(nextQuestions[0]?.field ?? firstPracticeField);
     setGuidanceField(null);
     setGuidedField(null);
     document.querySelector<HTMLElement>("[data-assessment-practice-scroll]")?.scrollTo({ top: 0 });
   };
 
-  const openQuestion = (field: AssessmentToolFieldKey) => {
-    const step = visibleQuestionSteps.find((candidate) => candidate.question.field === field);
-    if (!step) return;
+  const openGuidance = (field: AssessmentToolFieldKey) => {
+    const step = guidedQuestionSteps.find((candidate) => candidate.question.field === field);
+    if (!step || !hasUsefulWritingGuidance(step.question)) return;
     setActiveSection(step.section);
-    setSelectedField(field);
     setGuidedField(null);
     setGuidanceField(field);
   };
 
   const startQuestion = () => {
     if (!guidanceField) return;
-    setSelectedField(guidanceField);
     setGuidedField(guidanceField);
     setGuidanceField(null);
   };
 
-  const moveQuestion = (field: AssessmentToolFieldKey) => {
-    const index = visibleQuestionSteps.findIndex((step) => step.question.field === field);
-    const next = visibleQuestionSteps[index + 1];
+  const moveGuidedQuestion = (field: AssessmentToolFieldKey) => {
+    const index = guidedQuestionSteps.findIndex((step) => step.question.field === field);
+    const next = guidedQuestionSteps[index + 1];
     if (!next) {
       setGuidedField(null);
       return;
     }
-    openQuestion(next.question.field);
+    openGuidance(next.question.field);
   };
 
   const moveSection = (offset: number) => {
@@ -140,59 +134,42 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
           <button type="button" onClick={reset} className="inline-flex h-9 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
             <RotateCcw size={13} aria-hidden="true" />Reset
           </button>
-          <button type="button" onClick={() => openQuestion(firstPracticeField)} className="inline-flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[10px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
+          <button type="button" onClick={() => { const first = guidedQuestionSteps[0]; if (first) openGuidance(first.question.field); }} className="inline-flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[10px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
             <Sparkles size={13} aria-hidden="true" />Start walkthrough
           </button>
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 bg-white lg:grid lg:grid-cols-[270px_minmax(0,1fr)]">
-        <aside aria-label="Assessment question navigation" className="hidden min-h-0 overflow-y-auto border-r border-[#d9dfdb] bg-[#f8faf9] px-3 py-4 lg:block">
-          <div className="mb-4 px-2">
-            <div className="flex items-end justify-between gap-3">
-              <span className="text-[10px] font-black uppercase text-[#666666]">Question</span>
-              <strong className="text-[13px]">{selectedQuestionIndex + 1} / {visibleQuestionSteps.length}</strong>
+      <div className="min-h-0 flex-1 bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
+        <aside aria-label="Assessment section navigation" className="hidden min-h-0 overflow-y-auto border-r border-[#d9dfdb] bg-[#f8faf9] px-3 py-4 lg:block">
+          <div className="mb-5 px-2">
+            <div className="flex items-end justify-between">
+              <span className="text-[10px] font-black uppercase text-[#666666]">Captured</span>
+              <strong className="text-[15px]">{coverage.captured}/{coverage.total}</strong>
             </div>
-            <div className="mt-2 h-1.5 bg-[#dfe5e1]">
-              <div className="h-full bg-[#0f8b73]" style={{ width: `${((selectedQuestionIndex + 1) / visibleQuestionSteps.length) * 100}%` }} />
-            </div>
+            <div className="mt-2 h-1.5 bg-[#dfe5e1]"><div className="h-full bg-[#0f8b73]" style={{ width: `${coverage.percent}%` }} /></div>
           </div>
-
-          <div className="border-t border-[#d9dfdb] px-2 pt-4">
-            <label htmlFor="practice-section-desktop" className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.08em] text-[#8a8a8a]">Section</label>
-            <div className="relative">
-              <select id="practice-section-desktop" value={section.key} onChange={(event) => chooseSection(event.target.value as AssessmentToolSection)} className="h-10 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[11px] font-black text-[#3e4743] outline-none focus:border-[#0f8b73]">
-                {assessmentPracticeNavigationGroups.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.sections.map((sectionKey) => {
-                      const item = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey);
-                      return item ? <option key={item.key} value={item.key}>{item.label}</option> : null;
-                    })}
-                  </optgroup>
-                ))}
-              </select>
-              <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
-            </div>
-          </div>
-
-          <nav aria-label="Practice assessment questions" className="mt-4 border-t border-[#d9dfdb] pt-4">
-            <div className="px-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#8a8a8a]">{section.label} questions</div>
-            <div className="mt-2 space-y-1">
-              {questions.map((question) => {
-                const active = question.field === selectedField;
-                return (
-                  <button
-                    key={question.field}
-                    type="button"
-                    onClick={() => openQuestion(question.field)}
-                    aria-current={active ? "step" : undefined}
-                    className={`w-full border px-3 py-2.5 text-left text-[10px] font-bold leading-4 ${active ? "border-[#92c5b7] bg-white text-[#0f6f5d]" : "border-transparent text-[#5f6864] hover:border-[#d9dfdb] hover:bg-white"}`}
-                  >
-                    {assessmentInterviewFieldLabel(question.field)}
-                  </button>
-                );
-              })}
-            </div>
+          <nav aria-label="Practice assessment sections" className="space-y-5">
+            {assessmentPracticeNavigationGroups.map((group) => (
+              <div key={group.label}>
+                <div className="px-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#8a8a8a]">{group.label}</div>
+                <div className="mt-1 space-y-0.5">
+                  {group.sections.map((sectionKey) => {
+                    const item = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey);
+                    if (!item) return null;
+                    const sectionQuestions = getAssessmentInterviewQuestions(item.key, data);
+                    const captured = sectionQuestions.filter((question) => hasAssessmentInterviewValue(data[question.field])).length;
+                    const active = item.key === section.key;
+                    return (
+                      <button key={item.key} type="button" onClick={() => chooseSection(item.key)} aria-current={active ? "step" : undefined} className={`flex w-full items-center justify-between gap-3 border-l-2 px-3 py-2.5 text-left text-[11px] font-black transition-colors ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#595959] hover:bg-white hover:text-[#0f8b73]"}`}>
+                        <span>{item.label}</span>
+                        <span className="text-[9px] font-semibold opacity-65">{captured}/{sectionQuestions.length}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
         </aside>
 
@@ -221,8 +198,8 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
                 <h2 className="mt-1 text-[22px] font-black text-[#202522]">{section.label}</h2>
               </div>
               <div className="text-right">
-                <div className="text-[16px] font-black">{selectedQuestionIndex + 1} / {visibleQuestionSteps.length}</div>
-                <div className="text-[9px] font-black uppercase text-[#8a8a8a]">question</div>
+                <div className="text-[18px] font-black">{capturedHere}/{questions.length}</div>
+                <div className="text-[9px] font-black uppercase text-[#8a8a8a]">captured here</div>
               </div>
             </div>
 
@@ -230,10 +207,9 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
               questions={questions}
               data={data}
               requiredFields={requiredFields}
-              selectedField={selectedField}
               guidedField={guidedField}
-              onOpenGuidance={openQuestion}
-              onNextQuestion={moveQuestion}
+              onOpenGuidance={openGuidance}
+              onNextQuestion={moveGuidedQuestion}
               onUpdate={update}
             />
 
@@ -260,7 +236,6 @@ function PracticeQuestions({
   questions,
   data,
   requiredFields,
-  selectedField,
   guidedField,
   onOpenGuidance,
   onNextQuestion,
@@ -269,7 +244,6 @@ function PracticeQuestions({
   questions: readonly AssessmentInterviewQuestion[];
   data: AssessmentToolData;
   requiredFields: ReadonlySet<AssessmentToolFieldKey>;
-  selectedField: AssessmentToolFieldKey;
   guidedField: AssessmentToolFieldKey | null;
   onOpenGuidance: (field: AssessmentToolFieldKey) => void;
   onNextQuestion: (field: AssessmentToolFieldKey) => void;
@@ -281,7 +255,7 @@ function PracticeQuestions({
       {groups.map((group) => (
         <section key={group} className="grid gap-4 py-5 lg:grid-cols-[190px_minmax(0,1fr)]">
           <h3 className="text-[11px] font-black text-[#333333]">{group}</h3>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
             {questions.filter((question) => question.group === group).map((question) => (
               <PracticeField
                 key={question.field}
@@ -289,7 +263,6 @@ function PracticeQuestions({
                 value={data[question.field]}
                 unableReason={getAssessmentUnableReason(data, question.field)}
                 required={requiredFields.has(question.field)}
-                selected={question.field === selectedField}
                 guided={question.field === guidedField}
                 onOpenGuidance={() => onOpenGuidance(question.field)}
                 onNextQuestion={() => onNextQuestion(question.field)}
@@ -309,7 +282,6 @@ function PracticeField({
   value,
   unableReason,
   required,
-  selected,
   guided,
   onOpenGuidance,
   onNextQuestion,
@@ -320,7 +292,6 @@ function PracticeField({
   value: AssessmentToolData[AssessmentToolFieldKey];
   unableReason: string;
   required: boolean;
-  selected: boolean;
   guided: boolean;
   onOpenGuidance: () => void;
   onNextQuestion: () => void;
@@ -330,17 +301,19 @@ function PracticeField({
   const id = `practice-${question.field}`;
   const label = assessmentInterviewFieldLabel(question.field);
   const fullWidth = question.span === "full" || question.control === "multi_select";
+  const guidanceAvailable = hasUsefulWritingGuidance(question);
   return (
-    <div
-      data-practice-field={question.field}
-      className={`relative scroll-mt-8 border p-4 ${fullWidth ? "md:col-span-2" : ""} ${selected ? "border-[#92c5b7] bg-[#fbfdfc]" : "border-[#e1e4e2] bg-white"}`}
-    >
-      <label htmlFor={id} className="sr-only">{label}{required ? " *" : ""}</label>
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <button type="button" onClick={onOpenGuidance} aria-label={`Open guidance for ${label}`} className="text-left text-[11px] font-black text-[#333333] underline decoration-[#9bc7bb] decoration-1 underline-offset-4 hover:text-[#0f6f5d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-          {label}{required ? " *" : ""}
-        </button>
-        <span className={`shrink-0 text-[9px] font-semibold uppercase ${required ? "text-[#9a6115]" : "text-[#999999]"}`}>{required ? "Required" : "Optional"}</span>
+    <div data-practice-field={question.field} className={`relative scroll-mt-8 ${fullWidth ? "md:col-span-2" : ""}`}>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{label}{required ? " *" : ""}</label>
+        <div className="flex shrink-0 items-center gap-2">
+          {guidanceAvailable ? (
+            <button type="button" onClick={onOpenGuidance} aria-label={`Open writing guide for ${label}`} className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.04em] text-[#0f7865] hover:text-[#0b5f50] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+              <Sparkles size={11} aria-hidden="true" /> Writing guide
+            </button>
+          ) : null}
+          {hasAssessmentInterviewValue(value) ? <Check size={12} className="text-[#0f8b73]" aria-label="Captured" /> : required ? <span className="text-[9px] font-semibold uppercase text-[#9a6115]">Required</span> : <span className="text-[9px] font-semibold uppercase text-[#999999]">Optional</span>}
+        </div>
       </div>
       <PracticeControl question={question} value={value} unableReason={unableReason} onUnableReasonChange={onUnableReasonChange} onUpdate={onUpdate} />
       {question.help ? <p className="mt-1.5 text-[10px] leading-4 text-[#737373]">{question.help}</p> : null}
@@ -350,14 +323,16 @@ function PracticeField({
 }
 
 function PracticeQuestionTooltip({ question, onNext }: { question: AssessmentInterviewQuestion; onNext: () => void }) {
+  const specification = getAssessmentFieldWritingSpec(question.field);
+  if (!specification) return null;
   return (
     <aside role="dialog" aria-label={`Guided step for ${assessmentInterviewFieldLabel(question.field)}`} className="relative z-10 mt-4 border border-[#84b9aa] bg-white p-4 shadow-[0_12px_28px_rgba(28,52,45,0.16)]">
       <span className="absolute -top-2 left-6 h-4 w-4 rotate-45 border-l border-t border-[#84b9aa] bg-white" aria-hidden="true" />
-      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f6f5d]">Do this question</div>
-      <p className="mt-1.5 text-[12px] font-semibold leading-5 text-[#303a36]">{questionAction(question)}</p>
+      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f6f5d]">Use this structure</div>
+      <p className="mt-1.5 text-[12px] font-semibold leading-5 text-[#303a36]">{specification.formatTemplate}</p>
       <div className="mt-3 flex justify-end">
         <button type="button" onClick={onNext} className="inline-flex h-9 items-center gap-2 bg-[#111111] px-4 text-[10px] font-black text-white hover:bg-[#0f8b73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
-          Next question <ChevronRight size={13} aria-hidden="true" />
+          Next guided field <ChevronRight size={13} aria-hidden="true" />
         </button>
       </div>
     </aside>
@@ -371,8 +346,8 @@ function QuestionGuidanceDialog({ question, onClose, onStart }: {
 }) {
   const label = assessmentInterviewFieldLabel(question.field);
   const specification = getAssessmentFieldWritingSpec(question.field);
-  const fallback = structuredQuestionGuidance(question);
-  const steps = specification?.instructionSteps ?? fallback.steps;
+  const narrativeGuide = getAssessmentNarrativeGuide(question.field);
+  if (!specification || !narrativeGuide) return null;
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#18201d]/45 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -390,13 +365,13 @@ function QuestionGuidanceDialog({ question, onClose, onStart }: {
         <div className="space-y-6 px-6 py-6">
           <section>
             <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#5d6762]">What to capture</h3>
-            <p className="mt-2 text-[14px] leading-6 text-[#303a36]">{specification ? fieldPurpose(question) : fallback.purpose}</p>
+            <p className="mt-2 text-[14px] leading-6 text-[#303a36]">{narrativeGuide.purpose}</p>
           </section>
 
           <section>
             <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#5d6762]">How to answer</h3>
             <ol className="mt-3 grid gap-2">
-              {steps.map((step, index) => (
+              {specification.instructionSteps.map((step, index) => (
                 <li key={`${step.title}-${index}`} className="grid grid-cols-[24px_minmax(0,1fr)] gap-3 border-t border-[#e1e4e2] pt-3 first:border-t-0 first:pt-0">
                   <span className="grid h-6 w-6 place-items-center bg-[#e7f3ee] text-[10px] font-black text-[#0f6f5d]">{index + 1}</span>
                   <div>
@@ -408,19 +383,17 @@ function QuestionGuidanceDialog({ question, onClose, onStart }: {
             </ol>
           </section>
 
-          {specification ? (
-            <section className="border border-[#d9dfdb] bg-[#f8faf9] p-4">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0f6f5d]">Note structure</h3>
-              <p className="mt-2 text-[13px] font-semibold leading-6 text-[#303a36]">{specification.formatTemplate}</p>
-            </section>
-          ) : null}
+          <section className="border border-[#d9dfdb] bg-[#f8faf9] p-4">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0f6f5d]">Note structure</h3>
+            <p className="mt-2 text-[13px] font-semibold leading-6 text-[#303a36]">{specification.formatTemplate}</p>
+          </section>
 
           <section className="border-l-4 border-[#0f8b73] bg-white pl-4">
             <h3 className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0f6f5d]">Example</h3>
-            <p className="mt-2 text-[14px] leading-6 text-[#303a36]">{specification?.strongExample ?? fallback.example}</p>
+            <p className="mt-2 text-[14px] leading-6 text-[#303a36]">{specification.strongExample}</p>
           </section>
 
-          <p className="border-t border-[#e1e4e2] pt-4 text-[11px] leading-5 text-[#6b746f]">{specification?.guardrail ?? fallback.guardrail}</p>
+          <p className="border-t border-[#e1e4e2] pt-4 text-[11px] leading-5 text-[#6b746f]">{specification.guardrail}</p>
         </div>
 
         <footer className="flex justify-end border-t border-[#d9dfdb] bg-[#f8faf9] px-6 py-4">
@@ -433,37 +406,8 @@ function QuestionGuidanceDialog({ question, onClose, onStart }: {
   );
 }
 
-function fieldPurpose(question: AssessmentInterviewQuestion) {
-  if (question.help) return question.help;
-  return `Document ${assessmentInterviewFieldLabel(question.field).toLowerCase()} with the source, timeframe, and current placement relevance made clear.`;
-}
-
-function questionAction(question: AssessmentInterviewQuestion) {
-  if (question.control === "textarea") return "Write the answer using the structure you just reviewed. Keep source, timeframe, and current impact explicit.";
-  if (question.control === "yes_no") return "Choose Yes, No, or Unable to assess. If the answer cannot be established, record the reason instead of guessing.";
-  if (question.control === "multi_select") return "Select every option supported by the interview or source material. Do not add an option by inference.";
-  if (question.control === "rating") return "Choose the rating supported by what was observed and reported during this assessment.";
-  if (question.control === "select") return "Choose the most specific supported option. Review the source before selecting an assistance or status level.";
-  if (question.control === "date") return "Enter the verified date. Leave it blank when the date is unknown rather than estimating.";
-  if (question.control === "number") return "Enter the verified count. Do not convert an unclear history into an exact number.";
-  return "Enter the specific value supported by the client, collateral contact, or supplied record.";
-}
-
-function structuredQuestionGuidance(question: AssessmentInterviewQuestion) {
-  const action = questionAction(question);
-  const optionLabels = question.options?.map((option) => option.label).join(", ");
-  return {
-    purpose: question.help ?? `Capture ${assessmentInterviewFieldLabel(question.field).toLowerCase()} as a specific assessment fact.`,
-    steps: [
-      { title: "Check the source", instruction: "Use the client interview, direct observation, collateral contact, or supplied record. Do not fill a gap by assumption." },
-      { title: "Answer the control", instruction: action },
-      { title: "Preserve uncertainty", instruction: "If sources disagree or the answer is not known, make that limitation visible instead of choosing the most likely answer." },
-    ],
-    example: optionLabels
-      ? `Use the supported choice from: ${optionLabels}.`
-      : `Enter the verified ${assessmentInterviewFieldLabel(question.field).toLowerCase()} exactly as supported by the source.`,
-    guardrail: "This practice answer is synthetic and is never saved to a client record.",
-  };
+function hasUsefulWritingGuidance(question: AssessmentInterviewQuestion) {
+  return question.control === "textarea" && Boolean(getAssessmentFieldWritingSpec(question.field));
 }
 
 type PracticeControlProps = {

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Assessment practice lab", () => {
-  test("moves from field guidance to the anchored question and then to the next question", async ({ page }) => {
+  test("keeps obvious fields plain and guides only authored narrative fields", async ({ page }) => {
     const clinicalRequests: string[] = [];
     page.on("request", (request) => {
       if (/\/api\/(assessments|referrals)(?:\/|$)/.test(new URL(request.url()).pathname)) clinicalRequests.push(request.url());
@@ -15,18 +15,23 @@ test.describe("Assessment practice lab", () => {
     await expect(page.getByText("Save and continue", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Open guide launcher" })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Open guidance for Resident name" }).click();
-    const guidance = page.getByRole("dialog", { name: "Resident name" });
+    await expect(page.getByRole("button", { name: "Open writing guide for Resident name" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open writing guide for Date of birth" })).toHaveCount(0);
+
+    const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
+    await sectionRail.getByRole("button", { name: /^History\b/ }).click();
+    await page.getByRole("button", { name: "Open writing guide for Prior placements" }).click();
+    const guidance = page.getByRole("dialog", { name: "Prior placements" });
     await expect(guidance).toBeVisible();
     await expect(guidance.getByText("What to capture", { exact: true })).toBeVisible();
     await expect(guidance.getByText("How to answer", { exact: true })).toBeVisible();
     await guidance.getByRole("button", { name: "OK, go to question" }).click();
 
-    const guidedStep = page.getByRole("dialog", { name: "Guided step for Resident name" });
+    const guidedStep = page.getByRole("dialog", { name: "Guided step for Prior placements" });
     await expect(guidedStep).toBeVisible();
-    await expect(guidedStep.getByText("Do this question", { exact: true })).toBeVisible();
-    await guidedStep.getByRole("button", { name: "Next question" }).click();
-    await expect(page.getByRole("dialog", { name: "Date of birth" })).toBeVisible();
+    await expect(guidedStep.getByText("Use this structure", { exact: true })).toBeVisible();
+    await guidedStep.getByRole("button", { name: "Next guided field" }).click();
+    await expect(page.getByRole("dialog", { name: "Prior AWOL / failed placements" })).toBeVisible();
 
     expect(clinicalRequests).toEqual([]);
   });
@@ -34,18 +39,19 @@ test.describe("Assessment practice lab", () => {
   test("uses canonical conditionals and field-specific narrative guidance", async ({ page }) => {
     await page.goto("/note-lab/practice");
 
-    await page.getByLabel("Section", { exact: true }).selectOption("functional_adl");
+    const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
+    await sectionRail.getByRole("button", { name: /^Function\b/ }).click();
     await expect(page.getByRole("heading", { name: "Function" })).toBeVisible();
     await page.getByLabel("Ability to dress *", { exact: true }).selectOption("some_assistance");
     await expect(page.getByLabel("Dressing assistance needed *", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Open guidance for Dressing assistance needed" }).click();
+    await page.getByRole("button", { name: "Open writing guide for Dressing assistance needed" }).click();
     const writingGuidance = page.getByRole("dialog", { name: "Dressing assistance needed" });
     await expect(writingGuidance.getByText("Note structure", { exact: true })).toBeVisible();
     await expect(writingGuidance.getByText("Example", { exact: true })).toBeVisible();
     await writingGuidance.getByRole("button", { name: "OK, go to question" }).click();
     await page.getByLabel("Dressing assistance needed *", { exact: true }).fill("Synthetic client needs one verbal cue for buttons each morning, per training staff.");
 
-    await page.getByLabel("Section", { exact: true }).selectOption("physical_health");
+    await sectionRail.getByRole("button", { name: /^Physical health\b/ }).click();
     await expect(page.getByLabel("Brief changing support *", { exact: true })).toHaveCount(0);
     await page.getByRole("group", { name: "Incontinence issues", exact: true }).getByRole("button", { name: "Yes", exact: true }).click();
     const briefSupport = page.getByLabel("Brief changing support *", { exact: true });
@@ -62,7 +68,7 @@ test.describe("Assessment practice lab", () => {
     await page.getByRole("button", { name: "Reset" }).click();
     await expect(page.getByLabel("Resident name *", { exact: true })).toHaveValue("Jordan Practice");
     await page.getByRole("button", { name: "Start walkthrough" }).click();
-    await expect(page.getByRole("dialog", { name: "Resident name" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Prior placements" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 });

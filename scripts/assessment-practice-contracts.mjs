@@ -38,7 +38,7 @@ check("practice renders canonical sections and conditional questions",
   && interview.assessmentInterviewSections.every((section) => interview.getAssessmentInterviewQuestions(section.key, data).length > 0));
 check("language guidance comes from the canonical writing specification",
   workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes("Example")
-  && workspace.includes("specification.formatTemplate") && workspace.includes("specification?.strongExample")
+  && workspace.includes("specification.formatTemplate") && workspace.includes("specification.strongExample")
   && workspace.includes("instructionSteps") && workspace.includes("guardrail"));
 check("practice has no clinical persistence or production assessment dependency",
   !workspace.includes("fetch(") && !workspace.includes("/api/") && !workspace.includes("indexedDB")
@@ -48,11 +48,17 @@ check("practice cannot sign, schedule, extract, or create a clinical record",
   !workspace.includes("Sign assessment") && !workspace.includes("Schedule assessment")
   && !workspace.includes("extraction") && !workspace.includes("Create assessment")
   && !workspace.includes("Save assessment"));
-check("the walkthrough is field-scoped and advances through canonical visible questions",
-  workspace.includes("visibleQuestionSteps")
+check("the walkthrough is field-scoped and advances only through guided narrative questions",
+  workspace.includes("guidedQuestionSteps")
+  && workspace.includes("hasUsefulWritingGuidance")
   && workspace.includes("QuestionGuidanceDialog")
   && workspace.includes("PracticeQuestionTooltip")
-  && workspace.includes("openQuestion(next.question.field)"));
+  && workspace.includes("openGuidance(next.question.field)"));
+check("self-evident controls cannot open filler guidance",
+  workspace.includes('question.control === "textarea"')
+  && !workspace.includes("structuredQuestionGuidance")
+  && !workspace.includes("questionAction")
+  && workspace.includes("Open writing guide for"));
 check("question guidance must be acknowledged before the anchored control step",
   workspace.includes("OK, go to question")
   && workspace.includes("setGuidedField(guidanceField)")
@@ -66,6 +72,7 @@ check("practice copy stays restrained",
   && !workspace.includes("Finish practice") && !workspace.includes("Save and continue"));
 check("practice mirrors the production assessment interaction model",
   workspace.includes("assessmentPracticeNavigationGroups")
+  && workspace.includes('aria-label="Assessment section navigation"')
   && workspace.includes('question.control === "yes_no"')
   && workspace.includes('question.control === "rating"')
   && workspace.includes('type="checkbox"')
