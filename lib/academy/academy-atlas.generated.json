@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:e6da4e62f1e7c90f",
-  "fingerprint": "e6da4e62f1e7c90fb7145b5b61e7f4221a78b73bb05c8b917539c6ce6be69d3c",
+  "generatedAt": "source-fingerprint:1b28594f96a9aba7",
+  "fingerprint": "1b28594f96a9aba7608cc0a744299d110994f69b364bcfdeee9ca12bc7d35205",
   "totals": {
     "files": 730,
-    "lines": 222368,
+    "lines": 222328,
     "coveredFiles": 730
   },
   "entries": [
@@ -1674,7 +1674,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 550,
+      "lines": 494,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -6631,7 +6631,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 84,
+      "lines": 91,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -7651,7 +7651,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 262,
+      "lines": 263,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8479,7 +8479,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 24,
+      "lines": 26,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8491,7 +8491,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 69,
+      "lines": 75,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
