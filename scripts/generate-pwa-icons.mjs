@@ -16,6 +16,7 @@ await Promise.all([
   renderIcon(192, 0.18, `${outputDirectory}/pipeline-icon-192-v2.png`),
   renderIcon(512, 0.18, `${outputDirectory}/pipeline-icon-512-v2.png`),
   renderIcon(512, 0.2, `${outputDirectory}/pipeline-icon-maskable-512-v2.png`, "#ffffff"),
+  renderFavicon(`${outputDirectory}/pipeline-favicon-32-v3.png`),
 ]);
 
 async function renderIcon(size, insetRatio, outputPath, backgroundColor = null) {
@@ -34,5 +35,12 @@ async function renderIcon(size, insetRatio, outputPath, backgroundColor = null) 
   const y = Math.round((size - markHeight) / 2 - size * 0.025);
   context.drawImage(brandMark, x, y, markWidth, markHeight);
 
+  await writeFile(outputPath, canvas.toBuffer("image/png"));
+}
+
+async function renderFavicon(outputPath) {
+  const canvas = createCanvas(32, 32);
+  const context = canvas.getContext("2d");
+  context.drawImage(brandMark, 3, 1, 26, 28);
   await writeFile(outputPath, canvas.toBuffer("image/png"));
 }

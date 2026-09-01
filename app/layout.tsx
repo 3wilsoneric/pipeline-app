@@ -20,8 +20,16 @@ export const metadata: Metadata = {
   description: "Pipeline referral and assessment management",
   applicationName: "Pipeline",
   icons: {
-    icon: [{ url: toPipelinePath("/brand/pipeline-mark.svg"), type: "image/svg+xml" }],
-    shortcut: [{ url: toPipelinePath("/brand/pipeline-mark.svg"), type: "image/svg+xml" }],
+    icon: [{
+      url: toPipelinePath("/pwa/pipeline-favicon-32-v3.png"),
+      type: "image/png",
+      sizes: "32x32",
+    }],
+    shortcut: [{
+      url: toPipelinePath("/pwa/pipeline-favicon-32-v3.png"),
+      type: "image/png",
+      sizes: "32x32",
+    }],
   },
   manifest: isPipelineDesktopEnabled() ? toPipelinePath("/desktop-manifest.webmanifest") : undefined,
 };

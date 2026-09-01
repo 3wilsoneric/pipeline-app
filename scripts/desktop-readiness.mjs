@@ -86,6 +86,7 @@ check(
 check("manifest is standalone and scoped through the Pipeline base path", manifest.includes('display: "standalone"') && manifest.includes("pipelineScope") && manifest.includes("toPipelinePath"));
 
 for (const file of [
+  "public/pwa/pipeline-favicon-32-v3.png",
   "public/pwa/pipeline-icon-192-v2.png",
   "public/pwa/pipeline-icon-512-v2.png",
   "public/pwa/pipeline-icon-maskable-512-v2.png",
