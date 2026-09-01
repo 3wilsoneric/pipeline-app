@@ -321,31 +321,17 @@ function FieldProgressRail({
           <div className="absolute inset-x-0 top-0 bg-[#0f8b73] transition-[height] duration-300" style={{ height: `${scrollProgress}%` }} />
         </div>
         <ol className="space-y-2 sm:space-y-3">
-          {fieldReviewSections.map((section, index) => {
-            const active = section.id === activeSectionId;
-            const completed = index < activeIndex
-              && (section.id !== "historical-example" || sampleDecisionComplete);
-            const unavailable = section.id === "historical-example" && !hasCurrentSample;
-            return (
-              <li key={section.id}>
-                <button
-                  type="button"
-                  aria-current={active ? "step" : undefined}
-                  onClick={() => onNavigate(section.id)}
-                  className={`group grid w-full grid-cols-[24px_minmax(0,1fr)] items-center gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 ${active ? "text-[#0b6f5d]" : "text-[#707a75] hover:text-[#303936]"}`}
-                >
-                  <span className={`flex h-6 w-6 items-center justify-center border text-[8px] font-black transition-colors ${active ? "border-[#0f8b73] bg-[#0f8b73] text-white" : completed ? "border-[#8db9aa] bg-[#edf7f3] text-[#0f7a67]" : "border-[#cbd4d0] bg-white text-[#76817c]"}`}>
-                    {completed ? <Check size={11} strokeWidth={2.6} aria-hidden="true" /> : String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className="hidden min-w-0 sm:block">
-                    <span className={`block text-[9px] font-black ${active ? "text-[#0b6f5d]" : "text-[#4f5a55]"}`}>{section.label}</span>
-                    {unavailable ? <span className="mt-0.5 block text-[8px] font-bold text-[#8a938f]">Example skipped</span> : null}
-                  </span>
-                  <span className="sr-only sm:hidden">{section.shortLabel}</span>
-                </button>
-              </li>
-            );
-          })}
+          {fieldReviewSections.map((section, index) => (
+            <FieldProgressRailStep
+              key={section.id}
+              section={section}
+              index={index}
+              active={section.id === activeSectionId}
+              completed={fieldReviewSectionCompleted(section.id, index, activeIndex, sampleDecisionComplete)}
+              unavailable={section.id === "historical-example" && !hasCurrentSample}
+              onNavigate={onNavigate}
+            />
+          ))}
         </ol>
       </nav>
 
@@ -354,6 +340,58 @@ function FieldProgressRail({
       </div>
     </aside>
   );
+}
+
+function FieldProgressRailStep({
+  section,
+  index,
+  active,
+  completed,
+  unavailable,
+  onNavigate,
+}: {
+  section: typeof fieldReviewSections[number];
+  index: number;
+  active: boolean;
+  completed: boolean;
+  unavailable: boolean;
+  onNavigate: (sectionId: FieldReviewSectionId) => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        aria-current={active ? "step" : undefined}
+        onClick={() => onNavigate(section.id)}
+        className={`group grid w-full grid-cols-[24px_minmax(0,1fr)] items-center gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 ${active ? "text-[#0b6f5d]" : "text-[#707a75] hover:text-[#303936]"}`}
+      >
+        <span className={`flex h-6 w-6 items-center justify-center border text-[8px] font-black transition-colors ${progressStepBadgeClass(active, completed)}`}>
+          {completed ? <Check size={11} strokeWidth={2.6} aria-hidden="true" /> : String(index + 1).padStart(2, "0")}
+        </span>
+        <span className="hidden min-w-0 sm:block">
+          <span className={`block text-[9px] font-black ${active ? "text-[#0b6f5d]" : "text-[#4f5a55]"}`}>{section.label}</span>
+          {unavailable ? <span className="mt-0.5 block text-[8px] font-bold text-[#8a938f]">Example skipped</span> : null}
+        </span>
+        <span className="sr-only sm:hidden">{section.shortLabel}</span>
+      </button>
+    </li>
+  );
+}
+
+function fieldReviewSectionCompleted(
+  sectionId: FieldReviewSectionId,
+  sectionIndex: number,
+  activeIndex: number,
+  sampleDecisionComplete: boolean,
+) {
+  if (sectionIndex >= activeIndex) return false;
+  return sectionId !== "historical-example" || sampleDecisionComplete;
+}
+
+function progressStepBadgeClass(active: boolean, completed: boolean) {
+  if (active) return "border-[#0f8b73] bg-[#0f8b73] text-white";
+  if (completed) return "border-[#8db9aa] bg-[#edf7f3] text-[#0f7a67]";
+  return "border-[#cbd4d0] bg-white text-[#76817c]";
 }
 
 function ReviewSection({
