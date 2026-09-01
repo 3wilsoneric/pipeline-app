@@ -28,6 +28,14 @@ test.describe("Assessment practice lab", () => {
     await expect(currentSymptoms.getByText("Observation and report", { exact: true })).toBeVisible();
     await expect(currentSymptoms.getByText("Good note", { exact: true })).toBeVisible();
 
+    await page.getByRole("button", { name: /Physical health/ }).click();
+    await expect(page.getByLabel("Brief changing support *", { exact: true })).toHaveCount(0);
+    await page.getByRole("group", { name: "Incontinence issues", exact: true }).getByRole("button", { name: "Yes", exact: true }).click();
+    const briefSupport = page.getByLabel("Brief changing support *", { exact: true });
+    await expect(briefSupport).toBeVisible();
+    await briefSupport.selectOption("needs_help_changing_briefs");
+    await expect(briefSupport).toHaveValue("needs_help_changing_briefs");
+
     expect(clinicalRequests).toEqual([]);
   });
 

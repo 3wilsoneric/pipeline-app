@@ -56,6 +56,12 @@ const assistanceLevels = [
   { value: "total_assistance", label: "Total assistance" },
 ] as const;
 
+const briefChangeSupportOptions = [
+  { value: "independently_changes_briefs", label: "Client independently changes briefs" },
+  { value: "needs_help_changing_briefs", label: "Client needs help changing briefs" },
+  { value: "needs_briefs_changed", label: "Client needs briefs changed" },
+] as const;
+
 const diagnosisOptions = [
   { value: "schizophrenia", label: "Schizophrenia" },
   { value: "schizoaffective", label: "Schizoaffective disorder" },
@@ -255,6 +261,12 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("catheter_care", "Supportive equipment", "yes_no", { options: yesNo }),
   q("colostomy", "Supportive equipment", "yes_no", { options: yesNo }),
   q("ileostomy", "Supportive equipment", "yes_no", { options: yesNo }),
+  q("incontinence_issues", "Continence", "yes_no", { options: yesNo }),
+  q("brief_change_support", "Continence", "select", {
+    options: briefChangeSupportOptions,
+    showWhen: equals("incontinence_issues", "yes"),
+    requiredWhen: equals("incontinence_issues", "yes"),
+  }),
   q("additional_health_notes", "Additional health", "textarea", { span: "full" }),
 
   q("family_involvement", "Support system", "textarea", { span: "full" }),

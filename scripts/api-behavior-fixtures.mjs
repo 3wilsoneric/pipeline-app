@@ -1106,12 +1106,12 @@ function referralHardeningResults() {
 function assessmentSchemaResults() {
   return [
     run("assessment schema exposes the complete governed interview", () => {
-      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 155, "Expected 155 assessment fields");
+      assert(assessmentSchema.assessmentToolFieldDefinitions.length === 157, "Expected 157 assessment fields");
       assert(
         new Set(assessmentSchema.assessmentToolFieldDefinitions.map((definition) => definition.key)).size === assessmentSchema.assessmentToolFieldDefinitions.length,
         "Every governed assessment field must be defined exactly once",
       );
-      assert(assessmentInterview.assessmentInterviewQuestions.length === 149, "Expected 149 focused user-facing interview questions");
+      assert(assessmentInterview.assessmentInterviewQuestions.length === 151, "Expected 151 focused user-facing interview questions");
       assert(
         new Set(assessmentInterview.assessmentInterviewQuestions.map((question) => question.field)).size === assessmentInterview.assessmentInterviewQuestions.length,
         "Every interview field must appear exactly once",
@@ -1203,7 +1203,7 @@ function assessmentSchemaResults() {
     run("assessment completeness requires the governed interview without requiring a pre-admission resident number", () => {
       const empty = assessmentSchema.createEmptyAssessmentToolData();
       const initial = assessmentSchema.getAssessmentToolCompleteness(empty);
-      assert(initial.required_total === assessmentSchema.requiredAssessmentToolFields.length && initial.required_total === 54, "Expected all 54 core interview answers");
+      assert(initial.required_total === assessmentSchema.requiredAssessmentToolFields.length && initial.required_total === 55, "Expected all 55 core interview answers");
       assert(!initial.missing_fields.includes("resident_number"), "A pre-admission assessment must not require an ElderMark resident number");
 
       const identified = assessmentSchema.getAssessmentToolCompleteness({
@@ -1224,9 +1224,26 @@ function assessmentSchemaResults() {
     run("assessment interview reveals and requires conditional follow-ups", () => {
       const data = assessmentSchema.createEmptyAssessmentToolData();
       assert(!assessmentInterview.getAssessmentInterviewQuestions("functional_adl", data).some((question) => question.field === "language_barrier_details"), "Hidden language detail must not clutter the initial interview");
+      assert(!assessmentInterview.getAssessmentInterviewQuestions("physical_health", data).some((question) => question.field === "brief_change_support"), "Brief support must stay hidden when incontinence has not been reported");
       data.language_barrier = "yes";
       assert(assessmentInterview.getAssessmentInterviewQuestions("functional_adl", data).some((question) => question.field === "language_barrier_details"), "A language barrier must reveal its detail question");
       assert(assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "language_barrier_details"), "A revealed language support detail must be required");
+      data.incontinence_issues = "yes";
+      const physicalHealthQuestions = assessmentInterview.getAssessmentInterviewQuestions("physical_health", data);
+      const briefSupport = physicalHealthQuestions.find((question) => question.field === "brief_change_support");
+      const physicalHealthFields = physicalHealthQuestions.map((question) => question.field);
+      assert(physicalHealthFields.indexOf("incontinence_issues") === physicalHealthFields.indexOf("ileostomy") + 1, "Incontinence must follow colostomy and ileostomy");
+      assert(physicalHealthFields.indexOf("brief_change_support") === physicalHealthFields.indexOf("incontinence_issues") + 1, "Brief-changing support must immediately follow incontinence");
+      assert(
+        briefSupport?.control === "select"
+          && JSON.stringify(briefSupport.options?.map((option) => option.label)) === JSON.stringify([
+            "Client independently changes briefs",
+            "Client needs help changing briefs",
+            "Client needs briefs changed",
+          ]),
+        "Incontinence must reveal the three exact brief-changing support choices",
+      );
+      assert(assessmentInterview.getRequiredAssessmentInterviewQuestions(data).some((question) => question.field === "brief_change_support"), "Revealed brief-changing support must be required");
       data.dress_assistance_level = "independent";
       data.bathing_assistance_level = "some_assistance";
       assert(assessmentInterview.getAssessmentInterviewSnapshot(data).find((item) => item.label === "ADL assistance")?.value === "Yes", "The snapshot must derive ADL assistance from detailed answers");

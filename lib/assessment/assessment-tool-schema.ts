@@ -167,6 +167,8 @@ export type AssessmentToolData = {
   catheter_care: string | null;
   colostomy: string | null;
   ileostomy: string | null;
+  incontinence_issues: string | null;
+  brief_change_support: string | null;
   additional_health_notes: string | null;
 
   family_involvement: string | null;
@@ -402,6 +404,8 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("catheter_care", "Catheter care", "physical_health", "string", true),
   field("colostomy", "Colostomy", "physical_health", "string", true),
   field("ileostomy", "Ileostomy", "physical_health", "string", true),
+  field("incontinence_issues", "Incontinence issues", "physical_health", "string", true),
+  field("brief_change_support", "Brief changing support", "physical_health", "string", false),
   field("additional_health_notes", "Additional health information", "physical_health", "string", false),
 
   field("family_involvement", "Family involvement", "social_support", "string", false),
@@ -583,6 +587,8 @@ export function createEmptyAssessmentToolData(): AssessmentToolData {
     catheter_care: null,
     colostomy: null,
     ileostomy: null,
+    incontinence_issues: null,
+    brief_change_support: null,
     additional_health_notes: null,
     family_involvement: null,
     housing_history: null,
