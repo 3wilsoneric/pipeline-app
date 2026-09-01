@@ -1,12 +1,24 @@
 "use client";
 
+import {
+  assessmentInterviewFieldLabel,
+  assessmentInterviewQuestions,
+  assessmentInterviewSections,
+  type AssessmentInterviewQuestion,
+} from "@/lib/assessment/assessment-interview-schema";
+import {
+  assessmentToolFieldDefinitions,
+  type AssessmentToolSection,
+} from "@/lib/assessment/assessment-tool-schema";
 import type { PipelineAssessmentDraft } from "@/lib/pipeline/user-workspace-state-types";
 
 const databaseName = "pipeline-offline-v1";
-const databaseVersion = 1;
+const databaseVersion = 2;
 const keysStore = "keys";
 const recordsStore = "records";
 const mutationsStore = "mutations";
+const activeStore = "active";
+const activeAssessmentKey = "current-assessment";
 const expiryMs = 7 * 24 * 60 * 60 * 1_000;
 
 type EncryptedPayload = {
@@ -18,9 +30,40 @@ type StoredKey = { id: string; key: CryptoKey; createdAt: number };
 type StoredRecord = EncryptedPayload & {
   id: string;
   principal: string;
-  kind: "assessment-draft";
+  kind: "assessment-draft" | "assessment-working-set";
   updatedAt: number;
   expiresAt: number;
+};
+
+type StoredActiveAssessment = {
+  id: typeof activeAssessmentKey;
+  principal: string;
+  recordId: string;
+  updatedAt: number;
+  expiresAt: number;
+};
+
+export type OfflineAssessmentQuestion = Pick<
+  AssessmentInterviewQuestion,
+  "field" | "group" | "control" | "options" | "showWhen" | "requiredWhen" | "help" | "placeholder" | "span" | "min" | "max"
+> & {
+  label: string;
+  section: AssessmentToolSection;
+  required: boolean;
+};
+
+export type OfflineAssessmentWorkingSet = {
+  schema: 1;
+  savedAt: string;
+  returnPath: string;
+  editable: boolean;
+  draft: PipelineAssessmentDraft;
+  sections: Array<{
+    key: AssessmentToolSection;
+    label: string;
+    description: string;
+  }>;
+  questions: OfflineAssessmentQuestion[];
 };
 
 export type OfflineAssessmentMutation = {
@@ -47,6 +90,7 @@ export type OfflineSyncResult = {
 export async function initializeOfflineAssessmentStore(principalId: string) {
   const principal = await hashValue(principalId);
   const database = await openDatabase();
+  await enforceActivePrincipal(database, principal);
   await getOrCreateKey(database, principal);
   await removeExpired(database, principal);
   database.close();
@@ -96,6 +140,68 @@ export async function removeOfflineAssessmentDraft(principalId: string, assessme
   const principal = await hashValue(principalId);
   const id = await recordId(principal, "assessment-draft", assessmentId);
   await request(database.transaction(recordsStore, "readwrite").objectStore(recordsStore).delete(id));
+  database.close();
+}
+
+export async function saveOfflineAssessmentWorkingSet(
+  principalId: string,
+  draft: PipelineAssessmentDraft,
+  returnPath: string,
+  options: { editable: boolean },
+) {
+  const database = await openDatabase();
+  const principal = await hashValue(principalId);
+  await enforceActivePrincipal(database, principal);
+  const key = await getOrCreateKey(database, principal);
+  const id = await recordId(principal, "assessment-working-set", draft.assessmentId);
+  const workingSet = createWorkingSet(draft, returnPath, options.editable);
+  const encrypted = await encryptPayload(key, principal, id, workingSet);
+  const now = Date.now();
+  const previousActive = await request<StoredActiveAssessment | undefined>(database.transaction(activeStore).objectStore(activeStore).get(activeAssessmentKey));
+  const transaction = database.transaction([recordsStore, activeStore], "readwrite");
+  if (previousActive?.recordId && previousActive.recordId !== id) {
+    transaction.objectStore(recordsStore).delete(previousActive.recordId);
+  }
+  transaction.objectStore(recordsStore).put({
+    id,
+    principal,
+    kind: "assessment-working-set",
+    updatedAt: now,
+    expiresAt: now + expiryMs,
+    ...encrypted,
+  } satisfies StoredRecord);
+  transaction.objectStore(activeStore).put({
+    id: activeAssessmentKey,
+    principal,
+    recordId: id,
+    updatedAt: now,
+    expiresAt: now + expiryMs,
+  } satisfies StoredActiveAssessment);
+  await transactionDone(transaction);
+  database.close();
+}
+
+export async function loadOfflineAssessmentWorkingSet(principalId: string, assessmentId: string) {
+  const database = await openDatabase();
+  const principal = await hashValue(principalId);
+  const id = await recordId(principal, "assessment-working-set", assessmentId);
+  const stored = await request<StoredRecord | undefined>(database.transaction(recordsStore).objectStore(recordsStore).get(id));
+  if (!stored || stored.expiresAt <= Date.now()) {
+    if (stored) await deleteWorkingSet(database, id);
+    database.close();
+    return null;
+  }
+  const key = await getOrCreateKey(database, principal);
+  const value = await decryptPayload<OfflineAssessmentWorkingSet>(key, principal, id, stored);
+  database.close();
+  return value;
+}
+
+export async function removeOfflineAssessmentWorkingSet(principalId: string, assessmentId: string) {
+  const database = await openDatabase();
+  const principal = await hashValue(principalId);
+  const id = await recordId(principal, "assessment-working-set", assessmentId);
+  await deleteWorkingSet(database, id);
   database.close();
 }
 
@@ -156,12 +262,25 @@ export async function flushOfflineAssessmentMutations(
 
 export async function clearPipelineOfflineData() {
   if (!("indexedDB" in window)) return;
+  try {
+    const database = await openDatabase();
+    const transaction = database.transaction([keysStore, recordsStore, mutationsStore, activeStore], "readwrite");
+    transaction.objectStore(keysStore).clear();
+    transaction.objectStore(recordsStore).clear();
+    transaction.objectStore(mutationsStore).clear();
+    transaction.objectStore(activeStore).clear();
+    await transactionDone(transaction);
+    database.close();
+  } catch {
+    // Database deletion below remains the fallback for a damaged local store.
+  }
   await new Promise<void>((resolve) => {
     const deletion = window.indexedDB.deleteDatabase(databaseName);
     deletion.onsuccess = () => resolve();
     deletion.onerror = () => resolve();
     deletion.onblocked = () => resolve();
   });
+  broadcastOfflineDataCleared();
   notifyOfflineStateChanged();
 }
 
@@ -181,6 +300,9 @@ function openDatabase() {
       if (!database.objectStoreNames.contains(mutationsStore)) {
         const mutations = database.createObjectStore(mutationsStore, { keyPath: "id" });
         mutations.createIndex("principal", "principal");
+      }
+      if (!database.objectStoreNames.contains(activeStore)) {
+        database.createObjectStore(activeStore, { keyPath: "id" });
       }
     };
     opening.onsuccess = () => resolve(opening.result);
@@ -225,6 +347,58 @@ async function removeExpired(database: IDBDatabase, principal: string) {
     for (const item of expired) transaction.objectStore(storeName).delete(item.id);
     await transactionDone(transaction);
   }
+  const active = await request<StoredActiveAssessment | undefined>(database.transaction(activeStore).objectStore(activeStore).get(activeAssessmentKey));
+  if (active?.principal === principal && active.expiresAt <= now) {
+    await deleteWorkingSet(database, active.recordId);
+  }
+}
+
+async function enforceActivePrincipal(database: IDBDatabase, principal: string) {
+  const active = await request<StoredActiveAssessment | undefined>(database.transaction(activeStore).objectStore(activeStore).get(activeAssessmentKey));
+  if (!active || active.principal === principal) return;
+  const transaction = database.transaction([keysStore, recordsStore, mutationsStore, activeStore], "readwrite");
+  transaction.objectStore(keysStore).clear();
+  transaction.objectStore(recordsStore).clear();
+  transaction.objectStore(mutationsStore).clear();
+  transaction.objectStore(activeStore).clear();
+  await transactionDone(transaction);
+  broadcastOfflineDataCleared();
+  notifyOfflineStateChanged();
+}
+
+async function deleteWorkingSet(database: IDBDatabase, recordIdValue: string) {
+  const transaction = database.transaction([recordsStore, activeStore], "readwrite");
+  transaction.objectStore(recordsStore).delete(recordIdValue);
+  const active = await request<StoredActiveAssessment | undefined>(transaction.objectStore(activeStore).get(activeAssessmentKey));
+  if (active?.recordId === recordIdValue) transaction.objectStore(activeStore).delete(activeAssessmentKey);
+  await transactionDone(transaction);
+}
+
+function createWorkingSet(draft: PipelineAssessmentDraft, returnPath: string, editable: boolean): OfflineAssessmentWorkingSet {
+  const sectionByField = new Map(assessmentToolFieldDefinitions.map((definition) => [definition.key, definition.section]));
+  const requiredByField = new Map(assessmentToolFieldDefinitions.map((definition) => [definition.key, definition.required_for_completion]));
+  return {
+    schema: 1,
+    savedAt: new Date().toISOString(),
+    returnPath: normalizeReturnPath(returnPath),
+    editable,
+    draft,
+    sections: assessmentInterviewSections.map((section) => ({ ...section })),
+    questions: assessmentInterviewQuestions.map((question) => ({
+      ...question,
+      options: question.options?.map((option) => ({ ...option })),
+      showWhen: question.showWhen ? { ...question.showWhen } : undefined,
+      requiredWhen: question.requiredWhen ? { ...question.requiredWhen } : undefined,
+      label: assessmentInterviewFieldLabel(question.field),
+      section: sectionByField.get(question.field) ?? "provenance_qc",
+      required: requiredByField.get(question.field) ?? false,
+    })),
+  };
+}
+
+function normalizeReturnPath(value: string) {
+  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\n") || value.includes("\r")) return "/";
+  return value.slice(0, 2_000);
 }
 
 function recordsForPrincipal<T>(database: IDBDatabase, storeName: string, principal: string) {
@@ -266,4 +440,11 @@ function statusFor(error: unknown) {
 
 function notifyOfflineStateChanged() {
   window.dispatchEvent(new CustomEvent("pipeline:offline-state-changed"));
+}
+
+function broadcastOfflineDataCleared() {
+  if (!("BroadcastChannel" in window)) return;
+  const channel = new BroadcastChannel("pipeline-offline-control");
+  channel.postMessage({ type: "PIPELINE_OFFLINE_DATA_CLEARED" });
+  channel.close();
 }

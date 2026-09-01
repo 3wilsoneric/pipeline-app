@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
+    <title>Pipeline offline interview</title>
+    <style>
+      :root { color: #111; background: #fff; font-family: Arial, sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: #fff; }
+      button, input, select, textarea { font: inherit; }
+      button { cursor: pointer; }
+      .shell { min-height: 100vh; display: flex; flex-direction: column; }
+      header { min-height: 70px; display: flex; align-items: center; gap: 18px; padding: 12px clamp(18px, 4vw, 54px); border-bottom: 1px solid #d9dfdb; }
+      .brand { color: #0f8b73; font-size: 14px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+      .identity { min-width: 0; flex: 1; }
+      h1 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(18px, 2.4vw, 26px); }
+      .status { margin-top: 4px; color: #6b716e; font-size: 12px; }
+      .online { min-height: 40px; border: 1px solid #c9ceca; background: #fff; padding: 0 16px; font-size: 12px; font-weight: 800; }
+      .online:not(:disabled):hover { border-color: #0f8b73; color: #0f8b73; }
+      .online:disabled { cursor: default; color: #9a6115; }
+      .workspace { min-height: 0; flex: 1; display: grid; grid-template-columns: 230px minmax(0, 1fr); }
+      aside { overflow-y: auto; border-right: 1px solid #d9dfdb; background: #f8faf9; padding: 24px 12px; }
+      .progress-label { display: flex; justify-content: space-between; gap: 12px; padding: 0 10px; color: #626865; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+      .progress { height: 4px; margin: 10px; background: #dfe5e1; }
+      .progress > span { display: block; height: 100%; background: #0f8b73; }
+      nav { margin-top: 22px; }
+      nav button { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; border-left: 2px solid transparent; background: transparent; padding: 8px 12px; text-align: left; color: #595959; font-size: 12px; font-weight: 800; }
+      nav button:hover { background: #fff; color: #0f8b73; }
+      nav button[aria-current="step"] { border-left-color: #0f8b73; background: #e7f3ee; color: #0f6f5d; }
+      nav small { font-size: 10px; opacity: .7; }
+      main { overflow-y: auto; padding: clamp(24px, 4vw, 52px); }
+      .section-head { max-width: 980px; padding-bottom: 24px; border-bottom: 1px solid #d9dfdb; }
+      .eyebrow { color: #0f8b73; font-size: 10px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+      h2 { margin: 9px 0 6px; font-size: clamp(24px, 3vw, 34px); }
+      .description { margin: 0; max-width: 700px; color: #68706c; font-size: 13px; line-height: 1.55; }
+      .notice { margin-top: 16px; border-left: 3px solid #c98924; padding: 10px 14px; background: #fffaf0; color: #70480d; font-size: 12px; line-height: 1.5; }
+      .groups { max-width: 980px; }
+      .group { padding: 28px 0; border-bottom: 1px solid #e2e6e3; }
+      .group h3 { margin: 0 0 18px; font-size: 13px; }
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 22px; }
+      .field.full { grid-column: 1 / -1; }
+      label, legend { display: block; margin-bottom: 7px; color: #414744; font-size: 11px; font-weight: 800; }
+      .required { color: #a63d2f; }
+      input, select, textarea { width: 100%; border: 1px solid #c9ceca; border-radius: 0; background: #fff; color: #111; outline: none; }
+      input, select { min-height: 42px; padding: 0 12px; }
+      textarea { min-height: 98px; resize: vertical; padding: 10px 12px; line-height: 1.5; }
+      input:focus, select:focus, textarea:focus { border-color: #0f8b73; }
+      input:disabled, select:disabled, textarea:disabled { background: #f2f4f3; color: #737773; }
+      fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+      .choices { display: flex; flex-wrap: wrap; gap: 8px; }
+      .choice { position: relative; margin: 0; }
+      .choice input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+      .choice span { min-height: 38px; display: inline-flex; align-items: center; border: 1px solid #c9ceca; padding: 7px 11px; color: #4e5551; font-size: 11px; }
+      .choice input:checked + span { border-color: #0f8b73; background: #e7f3ee; color: #0f6f5d; font-weight: 800; }
+      .choice input:focus + span { outline: 2px solid #80bfb1; outline-offset: 2px; }
+      .help { margin: 6px 0 0; color: #737773; font-size: 10px; line-height: 1.45; }
+      .unable { margin-top: 10px; }
+      .empty { width: min(560px, calc(100% - 40px)); margin: auto; padding: 48px 0; }
+      .empty h1 { margin-top: 20px; white-space: normal; font-size: clamp(32px, 7vw, 52px); }
+      .empty p { color: #626865; font-size: 16px; line-height: 1.6; }
+      .hidden { display: none !important; }
+      @media (max-width: 760px) {
+        header { align-items: flex-start; flex-wrap: wrap; }
+        .brand { width: 100%; }
+        .online { width: 100%; }
+        .workspace { display: block; }
+        aside { position: sticky; top: 0; z-index: 2; overflow: visible; border-right: 0; border-bottom: 1px solid #d9dfdb; padding: 12px 16px; }
+        .progress-label, .progress { display: none; }
+        nav { margin: 0; }
+        nav button { display: none; }
+        nav button[aria-current="step"] { display: flex; border: 1px solid #c9ceca; background: #fff; }
+        main { padding: 24px 18px 42px; }
+        .grid { grid-template-columns: 1fr; }
+        .field.full { grid-column: auto; }
+      }
+    </style>
+    <script src="offline-assessment.js" defer></script>
+  </head>
+  <body>
+    <div id="empty" class="shell">
+      <section class="empty">
+        <div class="brand">Pipeline</div>
+        <h1 id="empty-title">Opening your offline interview...</h1>
+        <p id="empty-detail">Pipeline is checking this device for an encrypted active assessment.</p>
+        <button id="retry" class="online hidden" type="button">Try again</button>
+      </section>
+    </div>
+    <div id="app" class="shell hidden">
+      <header>
+        <div class="brand">Pipeline</div>
+        <div class="identity">
+          <h1 id="client-name">Assessment</h1>
+          <div id="save-status" class="status" aria-live="polite">Encrypted on this device</div>
+        </div>
+        <button id="return-online" class="online" type="button" disabled>Offline · reconnect to sync</button>
+      </header>
+      <div class="workspace">
+        <aside>
+          <div class="progress-label"><span>Answered</span><strong id="progress-count">0/0</strong></div>
+          <div class="progress"><span id="progress-bar" style="width:0%"></span></div>
+          <nav id="sections" aria-label="Assessment sections"></nav>
+        </aside>
+        <main>
+          <div class="section-head">
+            <div id="section-number" class="eyebrow">Offline interview</div>
+            <h2 id="section-title"></h2>
+            <p id="section-description" class="description"></p>
+            <div id="read-only" class="notice hidden">Reconnect to Pipeline to begin this assessment. Scheduling, signing, files, and supervisor actions stay online-only.</div>
+          </div>
+          <div id="groups" class="groups"></div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

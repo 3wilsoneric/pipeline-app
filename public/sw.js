@@ -1,10 +1,13 @@
 const CACHE_PREFIX = "pipeline-static-";
-const CACHE_NAME = `${CACHE_PREFIX}v2`;
+const CACHE_NAME = `${CACHE_PREFIX}v3`;
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 const scopedPath = (path) => `${SCOPE_PATH}${path}`;
 const OFFLINE_URL = scopedPath("/offline.html");
+const OFFLINE_ASSESSMENT_URL = scopedPath("/offline-assessment.html");
 const STATIC_ASSETS = [
   OFFLINE_URL,
+  OFFLINE_ASSESSMENT_URL,
+  scopedPath("/offline-assessment.js"),
   scopedPath("/pwa/icon-192.png"),
   scopedPath("/pwa/icon-512.png"),
   scopedPath("/pwa/icon-maskable-512.png"),
@@ -50,7 +53,7 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(async () => {
       const cache = await caches.open(CACHE_NAME);
-      return await cache.match(OFFLINE_URL) ?? new Response("A connection is required.", {
+      return await cache.match(OFFLINE_ASSESSMENT_URL) ?? await cache.match(OFFLINE_URL) ?? new Response("A connection is required.", {
         status: 503,
         headers: { "Content-Type": "text/plain; charset=utf-8" },
       });

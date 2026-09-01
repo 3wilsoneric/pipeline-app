@@ -62,10 +62,13 @@ import {
   flushOfflineAssessmentMutations,
   initializeOfflineAssessmentStore,
   loadOfflineAssessmentDraft,
+  loadOfflineAssessmentWorkingSet,
   pendingOfflineAssessmentMutations,
   queueOfflineAssessmentMutation,
   removeOfflineAssessmentDraft,
+  removeOfflineAssessmentWorkingSet,
   saveOfflineAssessmentDraft,
+  saveOfflineAssessmentWorkingSet,
 } from "@/lib/offline/offline-assessment-store";
 
 type AssessmentWorkspaceProps = {
@@ -194,6 +197,10 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
     if (offlinePrincipal) {
       try {
         recovered = await loadOfflineAssessmentDraft(offlinePrincipal, assessment.assessment_id);
+        const workingSet = await loadOfflineAssessmentWorkingSet(offlinePrincipal, assessment.assessment_id);
+        if (workingSet?.draft && (!recovered || Date.parse(workingSet.draft.savedAt) >= Date.parse(recovered.savedAt))) {
+          recovered = workingSet.draft;
+        }
       } catch {
         // Server recovery remains available when encrypted browser storage is unavailable.
       }
@@ -240,6 +247,30 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
     setRemoteChange(conflicts.length > 0 ? { assessment, conflicts } : null);
     setMessage(conflicts.length > 0 ? "Recovered changes need conflict review" : "Recovered unsaved assessment changes");
   }, [offlinePrincipal]);
+
+  const persistOfflineWorkingSet = useCallback(async (assessment: PipelineAssessmentRecord) => {
+    if (!offlinePrincipal) return;
+    if (!assessment.started_at || assessment.signed_at || !canEditClinical) {
+      await removeOfflineAssessmentWorkingSet(offlinePrincipal, assessment.assessment_id);
+      return;
+    }
+    const workingDraft: PipelineAssessmentDraft = {
+      schema: 1,
+      assessmentId: assessment.assessment_id,
+      savedAt: new Date().toISOString(),
+      baseVersion: assessment.version,
+      sectionVersions: normalizeAssessmentSectionVersions(assessment.section_versions),
+      dirtySections: [...dirtySectionsRef.current],
+      data: pickAssessmentToolData(draftRef.current),
+      baseData: pickAssessmentToolData(baseDataRef.current),
+    };
+    await saveOfflineAssessmentWorkingSet(
+      offlinePrincipal,
+      workingDraft,
+      `${window.location.pathname}${window.location.search}`,
+      { editable: true },
+    );
+  }, [canEditClinical, offlinePrincipal]);
 
   const persistRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
     if (dirtySectionsRef.current.size === 0) return;
@@ -746,6 +777,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
       upsertAssessment(payload.assessment, true);
       await onAssessmentSaved?.(payload.assessment);
       void clearRecoveryDraft(payload.assessment.assessment_id);
+      if (offlinePrincipal) void removeOfflineAssessmentWorkingSet(offlinePrincipal, payload.assessment.assessment_id);
       setMessage("Assessment signed");
     } catch (signError) {
       setError(messageFor(signError, "The assessment could not be signed."));
@@ -878,6 +910,15 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
     const timer = window.setTimeout(() => void persistRecoveryDraft(current), 350);
     return () => window.clearTimeout(timer);
   }, [dirtySections, draft, persistRecoveryDraft]);
+
+  useEffect(() => {
+    const current = selectedRef.current;
+    if (!current || !offlinePrincipal) return;
+    const timer = window.setTimeout(() => {
+      void persistOfflineWorkingSet(current).catch(() => undefined);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [dirtySections, draft, offlinePrincipal, persistOfflineWorkingSet, selected?.assessment_id, selected?.signed_at]);
 
   useEffect(() => {
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {

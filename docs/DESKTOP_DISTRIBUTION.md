@@ -76,11 +76,12 @@ remains online-only.
 
 The current implementation supports an assessment that is already open when the
 connection drops, encrypted local drafts, queued section saves, replay after
-reconnection, expiry, and sign-out cleanup. Resuming that active assessment after
-the installed application has been fully closed and reopened without a network
-connection is a remaining enhancement. It must use a static offline assessment
-shell plus the encrypted working set; it must not cache protected HTML or broaden
-the service worker into an offline database.
+reconnection, expiry, sign-out cleanup, and cold-start recovery after the installed
+application has been closed. Cold-start recovery uses a static assessment shell
+and one encrypted active working set. The shell can edit interview answers and
+conditional questions, but cannot load files, search, schedule, begin, sign, or
+perform supervisor actions. It hands the draft back to the authenticated page for
+normal section-version validation and synchronization after reconnecting.
 
 ## Safety boundary
 
@@ -99,10 +100,11 @@ runtime unregisters it and removes only cache names beginning with
 
 When desktop support is enabled:
 
-- The worker caches only generated app icons, the generic offline page, and
-  immutable `/_next/static/` assets.
-- Navigations are network-only and fall back to the generic offline page only
-  when the network is unavailable.
+- The worker caches only generated app icons, the generic offline page, the static
+  offline assessment shell/runtime, and immutable `/_next/static/` assets.
+- Navigations are network-only and fall back to the static offline shell when the
+  network is unavailable. The shell shows a generic connection-required state
+  unless a valid encrypted active working set exists.
 - `/api` responses, pages, packet previews, uploaded files, query strings,
   client data, referral data, and authentication responses are never cached.
 - Recovery drafts and the five most recent destinations move from browser
@@ -115,10 +117,13 @@ When desktop support is enabled:
   are deleted on explicit sign-out.
 
 The installed app supports continuity when an assessment is already open and
-connectivity drops. Until offline assessment relaunch is separately implemented
-and certified, cold-start offline access, file previews, new referrals, search,
-profile browsing, and signed clinical actions remain online-only so
-authentication and protected records cannot be bypassed.
+connectivity drops, including relaunching that one active assessment while still
+offline. File previews, new referrals, search, profile browsing, scheduling,
+starting an interview, signing, and supervisor actions remain online-only so
+authentication and protected records cannot be bypassed. A different authenticated
+principal using the same browser profile clears the previous principal's offline
+working set before creating its own; explicit sign-out clears all Pipeline offline
+data.
 
 ## Production prerequisites
 
@@ -144,8 +149,9 @@ After deployment:
 1. Sign in through Microsoft Entra and open a protected deep link.
 2. In Edge DevTools, confirm `/sw.js` controls the page and the manifest reports
    the expected icons, `start_url`, and standalone display.
-3. Inspect Cache Storage. Only `pipeline-static-v2` may exist, and it may contain
-   only the Pipeline-scoped offline page, `/pwa/*`, and `/_next/static/*` URLs.
+3. Inspect Cache Storage. Only `pipeline-static-v3` may exist, and it may contain
+   only the Pipeline-scoped generic page, static offline-assessment shell/runtime,
+   `/pwa/*`, and `/_next/static/*` URLs.
    When Pipeline uses a base path, confirm every cached URL, the manifest
    `start_url`, and the worker scope remain below that base path.
 4. Open and edit a referral. Confirm no `pipeline-referral-draft:*` or
@@ -153,10 +159,13 @@ After deployment:
 5. Reload and confirm the signed-in user recovers only their own draft and
    recents.
 6. Disconnect networking. An assessment that is already open remains editable.
-   Drafts and section-save mutations are encrypted in IndexedDB, expire after
-   seven days, and replay when connectivity returns. A cold navigation still
-   shows the generic connection-required screen; protected HTML and uploaded
-   documents are never written to Cache Storage.
+   Close and relaunch the installed app: the same active interview remains
+   editable through the static shell. Drafts and section-save mutations are
+   encrypted in IndexedDB, expire after seven days, and return to the authenticated
+   conflict-aware save flow when connectivity returns. With no valid working set,
+   the shell shows only the generic connection-required state. Protected HTML,
+   uploaded documents, OCR text, and API responses are never written to Cache
+   Storage.
 7. Run `npm run test:e2e:desktop`. The browser suite installs the worker,
    verifies the generic offline fallback, replaces an old Pipeline cache,
    preserves an unrelated cache, exercises the hosted kill switch, and checks

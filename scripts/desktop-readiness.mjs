@@ -12,6 +12,8 @@ const runtime = read("components/desktop/DesktopRuntime.tsx");
 const config = read("lib/desktop/desktop-config.ts");
 const worker = read("public/sw.js");
 const offline = read("public/offline.html");
+const offlineAssessment = read("public/offline-assessment.html");
+const offlineAssessmentRuntime = read("public/offline-assessment.js");
 const manifest = read("app/desktop-manifest.webmanifest/route.ts");
 const recents = read("lib/pipeline/recent-destinations.ts");
 const workspaceClient = read("lib/pipeline/user-workspace-state-client.ts");
@@ -36,7 +38,7 @@ check(
 check("worker registration is feature gated", runtime.includes("if (!isPipelineDesktopEnabled())") && runtime.includes("serviceWorker.register"));
 check("worker scope follows the Pipeline application base path", runtime.includes("PIPELINE_SERVICE_WORKER_SCOPE") && config.includes('toPipelinePath("/")'));
 check("disabled runtime unregisters Pipeline worker", runtime.includes("registration.unregister()") && runtime.includes("PIPELINE_DESKTOP_CACHE_PREFIX"));
-check("worker has a versioned Pipeline-only cache", worker.includes('CACHE_NAME = `${CACHE_PREFIX}v2`') && worker.includes('CACHE_PREFIX = "pipeline-static-"'));
+check("worker has a versioned Pipeline-only cache", worker.includes('CACHE_NAME = `${CACHE_PREFIX}v3`') && worker.includes('CACHE_PREFIX = "pipeline-static-"'));
 check("worker static paths are confined to its registration scope", worker.includes("self.registration.scope") && worker.includes("scopedPath"));
 check("worker caches only explicit assets and scoped hashed Next assets", worker.includes("isExplicitStaticAsset") && worker.includes('url.pathname.startsWith(scopedPath("/_next/static/"))'));
 check("worker never caches navigations", worker.includes('request.mode === "navigate"') && worker.includes("fetch(request).catch"));
@@ -44,13 +46,39 @@ check("worker has no API caching branch", !/cacheStaticAsset\([^)]*\/api/.test(w
 check("worker reads only its named cache", !worker.includes("caches.match("));
 check("worker script is never HTTP cached", nextConfig.includes('source: "/sw.js"') && nextConfig.includes('no-cache, no-store, must-revalidate'));
 check("offline page contains no runtime script", !/<script/i.test(offline));
-check("offline page explains encrypted active-assessment recovery", offline.includes("encrypted changes sync when the connection returns"));
+check("offline page explains encrypted active-assessment recovery", offline.includes("encrypted working set on this device"));
 const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
 const offlineStore = read("lib/offline/offline-assessment-store.ts");
+const authProvider = read("components/auth/PipelineAuthProvider.tsx");
 check("assessment drafts use encrypted IndexedDB", assessmentWorkspace.includes("saveOfflineAssessmentDraft") && offlineStore.includes('name: "AES-GCM"'));
 check("assessment recovery never writes browser session storage", !assessmentWorkspace.includes("sessionStorage"));
 check("offline assessment saves replay on reconnect", assessmentWorkspace.includes("flushOfflineAssessmentMutations") && assessmentWorkspace.includes('window.addEventListener("online"'));
 check("offline records expire and sign-out cleanup exists", offlineStore.includes("expiryMs") && read("components/auth/PipelineAuthProvider.tsx").includes("clearPipelineOfflineData"));
+check(
+  "cold-start shell is static, self-contained, and denied network access",
+  offlineAssessment.includes('script-src \'self\'')
+    && offlineAssessment.includes("connect-src 'none'")
+    && offlineAssessment.includes('src="offline-assessment.js"')
+    && !/<script(?![^>]*src=)/i.test(offlineAssessment),
+);
+check(
+  "cold-start runtime reads only the encrypted active working set",
+  offlineAssessmentRuntime.includes('DATABASE_NAME = "pipeline-offline-v1"')
+    && offlineAssessmentRuntime.includes('crypto.subtle.decrypt')
+    && offlineAssessmentRuntime.includes('crypto.subtle.encrypt')
+    && offlineAssessmentRuntime.includes('ACTIVE_KEY = "current-assessment"')
+    && !offlineAssessmentRuntime.includes("fetch(")
+    && !offlineAssessmentRuntime.includes("XMLHttpRequest"),
+);
+check(
+  "working-set ownership is isolated and signed assessments are removed",
+  offlineStore.includes("enforceActivePrincipal")
+    && offlineStore.includes("saveOfflineAssessmentWorkingSet")
+    && assessmentWorkspace.includes("removeOfflineAssessmentWorkingSet")
+    && assessmentWorkspace.includes("assessment.signed_at")
+    && assessmentWorkspace.includes("!canEditClinical")
+    && authProvider.includes("initializeOfflineAssessmentStore"),
+);
 check("manifest is standalone and scoped through the Pipeline base path", manifest.includes('display: "standalone"') && manifest.includes("pipelineScope") && manifest.includes("toPipelinePath"));
 
 for (const file of ["public/pwa/icon-192.png", "public/pwa/icon-512.png", "public/pwa/icon-maskable-512.png"]) {
@@ -80,6 +108,7 @@ check("drafts and recents have explicit expiration", draftsRoute.includes("ttlDa
 check("local desktop state is prohibited in production", workspaceStore.includes('process.env.NODE_ENV !== "production"'));
 check("desktop runbook documents MSIX, Intune, rollback, and cache audit", ["MSIX packaging", "Intune", "Rollback and kill switch", "Cache Storage"].every((term) => docs.includes(term)));
 check("browser tests exercise generic offline fallback", browserTests.includes("falls back to a generic PHI-free offline screen") && browserTests.includes("setOffline(true)"));
+check("browser tests exercise encrypted cold-start editing and reconnect", browserTests.includes("Saved on this device · syncs after reconnect") && browserTests.includes("Return to Pipeline and sync"));
 check("browser tests exercise cache upgrade and kill switch", browserTests.includes("pipeline-static-v0") && browserTests.includes("PIPELINE_DISABLE_DESKTOP_CACHE") && browserTests.includes("unrelated-application-cache"));
 
 const failed = checks.filter((item) => !item.ok);

@@ -45,11 +45,15 @@ test.describe("desktop feature enabled", () => {
       }))).flat();
       return { names, urls };
     });
-    expect(cacheAudit.names).toEqual(["pipeline-static-v2"]);
+    expect(cacheAudit.names).toEqual(["pipeline-static-v3"]);
     expect(cacheAudit.urls.some((url) => new URL(url).pathname.startsWith("/api/"))).toBeFalsy();
     expect(cacheAudit.urls.every((url) => {
       const path = new URL(url).pathname;
-      return path === "/offline.html" || path.startsWith("/pwa/") || path.startsWith("/_next/static/");
+      return path === "/offline.html"
+        || path === "/offline-assessment.html"
+        || path === "/offline-assessment.js"
+        || path.startsWith("/pwa/")
+        || path.startsWith("/_next/static/");
     })).toBeTruthy();
   });
 
@@ -63,8 +67,9 @@ test.describe("desktop feature enabled", () => {
     try {
       await page.goto("/referrals", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "A connection is required." })).toBeVisible();
-      await expect(page.getByText("An assessment already open can keep working offline", { exact: false })).toBeVisible();
-      await expect(page.locator("script")).toHaveCount(0);
+      await expect(page.getByText("No current offline assessment is available", { exact: false })).toBeVisible();
+      await expect(page.locator('script[src$="offline-assessment.js"]')).toHaveCount(1);
+      await expect(page.locator("body")).not.toContainText("Offline assessment test client");
     } finally {
       await context.setOffline(false);
     }
@@ -83,7 +88,7 @@ test.describe("desktop feature enabled", () => {
     });
 
     await expect.poll(async () => page.evaluate(async () => (await caches.keys()).sort())).toEqual([
-      "pipeline-static-v2",
+      "pipeline-static-v3",
       "unrelated-application-cache",
     ]);
 
@@ -334,6 +339,56 @@ test.describe("desktop feature enabled", () => {
       const payload = await response.json() as { assessment?: { current_location?: string } };
       return payload.assessment?.current_location ?? "";
     }).toBe(offlineValue);
+
+    await expect.poll(() => page.evaluate(async () => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("pipeline-offline-v1");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const active = await new Promise<unknown>((resolve, reject) => {
+        const request = database.transaction("active").objectStore("active").get("current-assessment");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      database.close();
+      return Boolean(active);
+    })).toBeTruthy();
+
+    const coldStartValue = `Three weeks ${token}`;
+    await context.setOffline(true);
+    try {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("heading", { name: `Offline assessment ${token} assessment` })).toBeVisible();
+      const duration = page.getByRole("textbox", { name: "Time at current location" });
+      await duration.fill(coldStartValue);
+      await expect(page.getByText("Saved on this device · syncs after reconnect", { exact: true })).toBeVisible();
+      const encryptedWorkingSet = await page.evaluate(async (plaintext) => {
+        const database = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open("pipeline-offline-v1");
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        const records = await new Promise<unknown[]>((resolve, reject) => {
+          const request = database.transaction("records").objectStore("records").getAll();
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        database.close();
+        return JSON.stringify(records).includes(plaintext);
+      }, coldStartValue);
+      expect(encryptedWorkingSet).toBeFalsy();
+    } finally {
+      await context.setOffline(false);
+    }
+
+    await page.getByRole("button", { name: "Return to Pipeline and sync" }).click();
+    await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible({ timeout: 15_000 });
+    await expect.poll(async () => {
+      const response = await page.request.get(`/api/assessments/${assessmentPayload.assessment.assessment_id}`);
+      const payload = await response.json() as { assessment?: { time_at_current_location?: string } };
+      return payload.assessment?.time_at_current_location ?? "";
+    }, { timeout: 20_000 }).toBe(coldStartValue);
   });
 });
 

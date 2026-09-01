@@ -30,7 +30,11 @@ import {
   restorePipelineAccountSilently,
 } from "@/lib/auth/browser-session";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
-import { clearPipelineOfflineData } from "@/lib/offline/offline-assessment-store";
+import { isPipelineDesktopEnabled } from "@/lib/desktop/desktop-config";
+import {
+  clearPipelineOfflineData,
+  initializeOfflineAssessmentStore,
+} from "@/lib/offline/offline-assessment-store";
 
 type AuthStatus = "disabled" | "initializing" | "signed_out" | "redirecting" | "signed_in" | "error";
 
@@ -222,6 +226,13 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [status]);
+
+  useEffect(() => {
+    if (status !== "signed_in" || !account || !isPipelineDesktopEnabled()) return;
+    const principal = String(account.idTokenClaims?.oid ?? account.localAccountId ?? "").trim();
+    if (!principal) return;
+    void initializeOfflineAssessmentStore(principal).catch(() => undefined);
+  }, [account, status]);
 
   const contextValue = useMemo<PipelineAuthContextValue>(() => ({
     required: true,
