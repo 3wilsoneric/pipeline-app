@@ -209,7 +209,7 @@ export default function PipelineGuidedCoach() {
   if (!hydrated) return null;
   const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo") return null;
-  const hideLauncher = pathname === "/note-lab/practice";
+  const hideLauncher = pathname === "/note-lab" || pathname.startsWith("/note-lab/");
   return <GuideCoachSurface hideLauncher={hideLauncher} state={state} role={role} tutorial={tutorial} step={step} target={target} exchange={exchange} command={command} onStart={startTutorial} onCommit={commit} onAdvance={advance} onCommandChange={setCommand} onSubmit={submitCommand} onExchange={setExchange} />;
 }
 
@@ -217,11 +217,41 @@ function GuideCoachSurface({ hideLauncher, state, role, tutorial, step, target, 
   if (state.mode === "closed") return hideLauncher ? null : <GuideLauncher resumable={Boolean(state.activeTutorialId)} onOpen={() => onCommit(state.activeTutorialId ? { type: "resume" } : { type: "open-library" })} />;
   if (state.mode === "library") return <GuideLibrary role={role} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={() => onCommit({ type: "resume" })} onClose={() => onCommit({ type: "close" })} />;
   if (!tutorial || !step) return null;
-  return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} step={step} /> : null}<GuideConversation tutorialTitle={tutorial.title} workflow={tutorial.workflow} step={step} stepIndex={state.stepIndex} stepCount={tutorial.steps.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} exchange={exchange} command={command} onCommandChange={onCommandChange} onSubmit={onSubmit} onWhy={() => onExchange({ user: "Why does this matter?", helper: step.why })} onSafety={() => onExchange({ user: "What should I avoid?", helper: step.safety })} onBack={() => onCommit({ type: "previous" })} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} /></>;
+  const conversation = tutorial.id === "practice-assessment"
+    ? <AssessmentPracticeGuide tutorialTitle={tutorial.title} step={step} stepIndex={state.stepIndex} stepCount={tutorial.steps.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} onBack={() => onCommit({ type: "previous" })} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />
+    : <GuideConversation tutorialTitle={tutorial.title} workflow={tutorial.workflow} step={step} stepIndex={state.stepIndex} stepCount={tutorial.steps.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} exchange={exchange} command={command} onCommandChange={onCommandChange} onSubmit={onSubmit} onWhy={() => onExchange({ user: "Why does this matter?", helper: step.why })} onSafety={() => onExchange({ user: "What should I avoid?", helper: step.safety })} onBack={() => onCommit({ type: "previous" })} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
+  return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} step={step} /> : null}{conversation}</>;
 }
 
 function GuideLauncher({ resumable, onOpen }: { resumable: boolean; onOpen: () => void }) {
   return <button type="button" aria-label={resumable ? "Resume guided tutorial" : "Open guide launcher"} onClick={onOpen} className="fixed bottom-4 right-4 z-[75] flex h-11 items-center gap-2 border border-[#b7c9c3] bg-white px-3 text-[10px] font-black text-[#164e43] shadow-[0_8px_24px_rgba(18,48,40,0.16)] outline-none hover:border-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"><MessageCircleQuestion size={16} aria-hidden="true" /><span>{resumable ? "Resume guide" : "Guide"}</span></button>;
+}
+
+function AssessmentPracticeGuide({ tutorialTitle, step, stepIndex, stepCount, targetAvailable, routeMatches, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorialTitle: string; step: OperatorGuideStep; stepIndex: number; stepCount: number; targetAvailable: boolean; routeMatches: boolean; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
+  const targetReady = routeMatches && targetAvailable;
+  const canConfirm = !guideActionRequiresTarget(step, targetReady);
+  return (
+    <section role="dialog" aria-label={`${tutorialTitle} guided tutorial`} className="fixed bottom-0 right-0 z-[100] w-full border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)] sm:bottom-4 sm:right-4 sm:w-[340px]">
+      <header className="flex items-center justify-between gap-3 border-b border-[#d5ddda] bg-[#f2f6f4] px-4 py-3">
+        <div className="min-w-0">
+          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0c705f]">Step {stepIndex + 1} of {stepCount}</div>
+          <h2 className="mt-0.5 truncate text-[13px] font-black text-[#202623]">{step.title}</h2>
+        </div>
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={14} /></button>
+          <button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={15} /></button>
+        </div>
+      </header>
+      <div className="px-4 py-4" aria-live="polite">
+        <p className="text-[12px] font-semibold leading-5 text-[#34403a]">{step.instruction}</p>
+        {!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : null}
+      </div>
+      <footer className="flex items-center justify-between gap-2 border-t border-[#d8dfdc] bg-[#fafcfb] px-3 py-3">
+        <button type="button" disabled={stepIndex === 0} onClick={onBack} className="flex h-9 items-center gap-1.5 px-2 text-[9px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={13} />Back</button>
+        {canConfirm ? <button type="button" onClick={onAdvance} className="flex h-9 items-center gap-2 bg-[#0f8b73] px-4 text-[9px] font-black text-white">{stepIndex === stepCount - 1 ? "Finish" : "Next"}<ArrowRight size={13} /></button> : <span className="text-[9px] font-black text-[#0c705f]">Use highlighted field</span>}
+      </footer>
+    </section>
+  );
 }
 
 function executeGuideCommand({ parsed, raw, step, target, advance, commit, setExchange }: { parsed: ReturnType<typeof parseOperatorGuideCommand>; raw: string; step: OperatorGuideStep; target: TargetView; advance: () => void; commit: (event: OperatorGuideEvent) => void; setExchange: (exchange: GuideExchange) => void }) {

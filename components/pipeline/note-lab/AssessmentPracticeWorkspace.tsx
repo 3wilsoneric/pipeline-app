@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
@@ -20,7 +20,11 @@ import {
   type AssessmentToolFieldKey,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
-import { createAssessmentPracticeData } from "@/lib/note-lab/assessment-practice-scenario";
+import {
+  ASSESSMENT_PRACTICE_TUTORIAL_ID,
+  createAssessmentPracticeData,
+} from "@/lib/note-lab/assessment-practice-scenario";
+import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
 
 const assessmentPracticeNavigationGroups: ReadonlyArray<{
   label: string;
@@ -65,22 +69,26 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
   };
 
   return (
-    <div aria-label={`${traineeName} practice assessment`} className="pipeline-route-enter h-full overflow-hidden bg-[#f4f6f5]">
-      <div className="mx-auto flex h-full max-w-[1500px] flex-col px-3 py-3 sm:px-5 sm:py-5">
-        <header className="flex min-h-16 shrink-0 items-center justify-between gap-3 border border-[#cfd8d4] bg-white px-4 py-2 sm:px-5">
+    <div aria-label={`${traineeName} practice assessment`} className="pipeline-route-enter flex h-full min-h-0 flex-col overflow-hidden bg-white">
+      <header data-guide-target="practice-overview" className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-[#cfd8d4] bg-white px-4 py-2 sm:px-6">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-[17px] font-black text-[#202522]">Jordan Practice assessment</h1>
+              <h1 className="truncate text-[17px] font-black text-[#202522]">Jordan Practice</h1>
               <span className="bg-[#e7f3ee] px-2 py-1 text-[9px] font-black uppercase text-[#0f6f5d]">Practice</span>
             </div>
             <p className="mt-0.5 text-[10px] text-[#737b77]">Synthetic record · not saved</p>
           </div>
-          <button type="button" onClick={reset} className="inline-flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-            <RotateCcw size={13} aria-hidden="true" />Reset
-          </button>
-        </header>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={reset} className="inline-flex h-9 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+              <RotateCcw size={13} aria-hidden="true" />Reset
+            </button>
+            <button type="button" onClick={() => dispatchOperatorGuide({ type: "start", tutorialId: ASSESSMENT_PRACTICE_TUTORIAL_ID })} className="inline-flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[10px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
+              <Sparkles size={13} aria-hidden="true" />Guided practice
+            </button>
+          </div>
+      </header>
 
-        <div className="min-h-0 flex-1 border-x border-b border-[#cfd8d4] bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
+      <div className="min-h-0 flex-1 bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
           <aside className="hidden min-h-0 overflow-y-auto border-r border-[#d9dfdb] bg-[#f8faf9] px-3 py-4 lg:block">
             <div className="mb-5 px-2">
               <div className="flex items-end justify-between">
@@ -138,7 +146,7 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
               </div>
             </div>
 
-            <div className="mx-auto max-w-[980px] px-5 py-7 sm:px-8">
+            <div className="w-full px-5 py-6 sm:px-8 lg:px-10">
               <div className="mb-7 flex items-start justify-between gap-4 border-b border-[#d9dfdb] pb-5">
                 <div>
                   <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Section {currentIndex + 1} of {assessmentInterviewSections.length}</div>
@@ -158,7 +166,6 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
               </footer>
             </div>
           </main>
-        </div>
       </div>
     </div>
   );

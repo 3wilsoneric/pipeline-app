@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "curriculumVersion": "2026.08.operator.3",
   "reviewedAt": "2026-08-27",
-  "reviewedCommit": "ca8b5ba2cf356fc3cbb4b666f2b13b4dffebe902",
-  "sourceFingerprint": "5cdccc635b58043bb3f0e57a0df6d7e1e8615ff30d43cafea69e3eaabf7afcbe",
-  "curriculumFingerprint": "0ab22046962581c7b8b3225b01d2b9c6e3b76034feac764cd26ff891fb0c1ce3",
+  "reviewedCommit": "4918a2b79208b97e70ba123e534c7f44bae484c3",
+  "sourceFingerprint": "d7798b08c9f50bf59c5a4d39b7b0f48d00575dc69d046b85b5cd46179f079ba6",
+  "curriculumFingerprint": "b83e57afb749e1e5dda9428643793445f497b2fc53137a2ce454c67d38df5049",
   "requiredDocuments": [
     "docs/training/README.md",
     "docs/training/CURRICULUM.md",

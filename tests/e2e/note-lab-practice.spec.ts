@@ -13,7 +13,8 @@ test.describe("Assessment practice lab", () => {
     await expect(page.getByText("Practice", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Client & referral" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open guide launcher" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Guided practice" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Guided practice" })).toBeVisible();
+    await expect(page.getByText("Assessment lab", { exact: true })).toHaveCount(0);
 
     await page.getByRole("button", { name: /Function/ }).click();
     await expect(page.getByRole("heading", { name: "Function" })).toBeVisible();
@@ -28,6 +29,16 @@ test.describe("Assessment practice lab", () => {
     await expect(currentSymptoms.getByText("Good note", { exact: true })).toBeVisible();
 
     expect(clinicalRequests).toEqual([]);
+  });
+
+  test("opens the compact guide from the assessment header", async ({ page }) => {
+    await page.goto("/note-lab/practice");
+    await page.getByRole("button", { name: "Guided practice" }).click();
+    const guide = page.getByRole("dialog", { name: "Practice the assessment guided tutorial" });
+    await expect(guide).toBeVisible();
+    await expect(guide.getByText("Step 1 of 5", { exact: true })).toBeVisible();
+    await expect(guide.getByText("Select Function in the section rail.", { exact: true })).toBeVisible();
+    await expect(guide.getByPlaceholder("Ask: why, safety, next, back...")).toHaveCount(0);
   });
 
   test("resets local practice state and remains usable on a narrow screen", async ({ page }) => {

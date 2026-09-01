@@ -62,8 +62,8 @@ check("production assessment remains a separately persisted clinical surface",
   && !assessmentWorkspace.includes("assessment-practice-scenario") && !assessmentWorkspace.includes("practice-assessment"));
 check("practice copy stays restrained",
   !workspace.includes("Welcome to") && !workspace.includes("How to use")
-  && !workspace.includes("Guided practice") && !workspace.includes("Practice complete")
-  && !workspace.includes("Finish practice") && !workspace.includes("dispatchOperatorGuide"));
+  && workspace.includes("Guided practice") && !workspace.includes("Practice complete")
+  && !workspace.includes("Finish practice") && workspace.includes("dispatchOperatorGuide"));
 check("practice mirrors the production assessment interaction model",
   workspace.includes("assessmentPracticeNavigationGroups")
   && workspace.includes('question.control === "yes_no"')
@@ -71,8 +71,12 @@ check("practice mirrors the production assessment interaction model",
   && workspace.includes('type="checkbox"')
   && workspace.includes("setAssessmentUnableReason"));
 check("the resting guide launcher is hidden on the assessment practice route",
-  coach.includes('pathname === "/note-lab/practice"')
+  coach.includes('pathname.startsWith("/note-lab/")')
   && coach.includes("hideLauncher ? null : <GuideLauncher"));
+check("assessment practice uses the compact guide surface",
+  coach.includes('tutorial.id === "practice-assessment"')
+  && coach.includes("function AssessmentPracticeGuide")
+  && !coach.includes('function AssessmentPracticeGuide({ tutorialTitle, workflow'));
 
 const failed = checks.filter((item) => !item.ok);
 process.stdout.write(`${JSON.stringify({ ok: failed.length === 0, checks }, null, 2)}\n`);
