@@ -77,6 +77,13 @@ check(
     && (deployment.match(/enableClinicalReconcileJob='\$\{\{ inputs\.enable_clinical_reconcile_job \}\}'/g) ?? []).length === 2,
 );
 check("retention is fail-closed by default", runtime.includes("param enableRetentionJob bool = false") && runtime.includes("enabled: enableRetentionJob"));
+check(
+  "the supervisor Note Lab is fail-closed and deployment controlled",
+  runtime.includes("param enableNoteLab bool = false")
+    && runtime.includes("{ name: 'PIPELINE_NOTE_LAB_ENABLED', value: enableNoteLab ? 'true' : 'false' }")
+    && deployment.includes("enable_note_lab:")
+    && (deployment.match(/enableNoteLab='\$\{\{ inputs\.enable_note_lab \}\}'/g) ?? []).length === 2,
+);
 check("runtime uses managed identity for Blob", runtime.includes("PIPELINE_AZURE_BLOB_AUTH_MODE") && runtime.includes("managed_identity"));
 check("runtime preserves browser-safe Entra readiness configuration", [
   "NEXT_PUBLIC_ENTRA_TENANT_ID",

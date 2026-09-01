@@ -29,6 +29,11 @@ on:
         required: true
         default: true
         type: boolean
+      enable_note_lab:
+        description: Enable the supervisor-only Assessment Language Lab
+        required: true
+        default: true
+        type: boolean
       initial_database_bootstrap:
         description: One-time only - create database roles on the first deployment
         required: true
@@ -178,6 +183,7 @@ jobs:
               alamoApiScope='${{ vars.PIPELINE_ALAMO_API_SCOPE }}' \
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
+              enableNoteLab='${{ inputs.enable_note_lab }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}'
 
       - name: Deploy runtime and scheduled jobs
@@ -216,6 +222,7 @@ jobs:
               alamoApiScope='${{ vars.PIPELINE_ALAMO_API_SCOPE }}' \
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
+              enableNoteLab='${{ inputs.enable_note_lab }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}' \
             --query properties.outputs \
             --output json > runtime-outputs.json

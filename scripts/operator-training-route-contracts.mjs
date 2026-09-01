@@ -9,6 +9,7 @@ const resources = loadTypeScriptModule(root, "lib/training/operator-training-res
 const progress = loadTypeScriptModule(root, "lib/training/operator-training-progress-contract.ts");
 const tutorials = loadTypeScriptModule(root, "lib/training/operator-guided-tutorials.ts");
 const guideState = loadTypeScriptModule(root, "lib/training/operator-guided-tour-state.ts");
+const videos = loadTypeScriptModule(root, "lib/training/operator-training-video-catalog.ts");
 const page = readFileSync("app/(pipeline)/training/page.tsx", "utf8");
 const route = readFileSync("app/api/training/progress/route.ts", "utf8");
 const accessSource = readFileSync("lib/training/operator-training-access.ts", "utf8");
@@ -16,6 +17,11 @@ const shell = readFileSync("components/pipeline/PipelineOperatorAcademy.tsx", "u
 const header = readFileSync("components/pipeline/PipelineHeader.tsx", "utf8");
 const appShell = readFileSync("components/pipeline/PipelineAppShell.tsx", "utf8");
 const coach = readFileSync("components/pipeline/training/PipelineGuidedCoach.tsx", "utf8");
+const curriculumView = readFileSync("components/pipeline/training/OperatorCurriculumView.tsx", "utf8");
+const lessonVideo = readFileSync("components/pipeline/training/OperatorLessonVideo.tsx", "utf8");
+const nextConfig = readFileSync("next.config.ts", "utf8");
+const proxySource = readFileSync("proxy.ts", "utf8");
+const securityHeaders = readFileSync("shared/pipeline-security-headers.mjs", "utf8");
 const checks = [];
 
 check("training is authenticated but not restricted to the developer owner", () => page.includes("getOperatorTrainingUser") && !page.includes("getDeveloperAcademyOwner") && route.includes("requirePipelineUser(request)"));
@@ -40,6 +46,9 @@ check("every guided target is owned by a current source component", () => tutori
 check("the global coach is mounted once and remains deterministic", () => appShell.includes("<PipelineGuidedCoach />") && coach.includes("parseOperatorGuideCommand") && !coach.includes("ANTHROPIC") && !coach.includes("openai") && coach.includes("never reads values or makes a workflow decision"));
 check("the web shell exposes all six learning surfaces and browser fallback", () => ["path", "guided", "practice", "job-aids", "product-map", "certification"].every((view) => shell.includes(`"${view}"`)) && shell.includes("window.localStorage.setItem") && shell.includes("mergeOperatorProgress"));
 check("learning evidence explicitly prohibits PHI and production identifiers", () => shell.includes("Never enter PHI") && readFileSync("components/pipeline/training/OperatorCurriculumView.tsx", "utf8").includes("Use synthetic examples only"));
+check("lesson videos render inside curriculum activities without adding empty placeholders", () => curriculumView.includes("<OperatorLessonVideo moduleId={module.id} activityId={activity.id} />") && lessonVideo.includes("if (!video) return null") && lessonVideo.includes('loading="lazy"'));
+check("Loom embeds are host-allowlisted by parser and one shared browser policy", () => videos.parseLoomVideoUrl("https://www.loom.com/share/1234567890abcdef")?.id === "1234567890abcdef" && videos.parseLoomVideoUrl("https://evil.example/share/1234567890abcdef") === null && securityHeaders.includes('PIPELINE_LOOM_FRAME_ORIGIN = "https://www.loom.com"') && !securityHeaders.includes("*.loom.com") && nextConfig.includes("pipelineContentSecurityPolicy") && nextConfig.includes("PIPELINE_PERMISSIONS_POLICY") && proxySource.includes("PIPELINE_PERMISSIONS_POLICY"));
+check("configured lesson videos target real curriculum activities", () => videos.operatorTrainingVideoDefinitions.every((video) => curriculum.operatorActivityIds.includes(`${video.moduleId}:${video.activityId}`) && videos.resolveOperatorTrainingVideo(video)));
 
 const failed = checks.filter((check) => !check.ok);
 process.stdout.write(`${JSON.stringify({ ok: !failed.length, checks, tracks: curriculum.operatorTrainingTracks.length, modules: curriculum.operatorModules.length, activities: curriculum.operatorActivityIds.length, scenarios: resources.operatorScenarios.length, guidedTutorials: tutorials.operatorGuidedTutorials.length, guidedSteps: tutorials.operatorGuidedTutorials.reduce((total, tutorial) => total + tutorial.steps.length, 0), interpretation: failed.length ? "The end-user Learning Center contract has drifted." : "Authentication, role paths, curriculum, deterministic guidance, simulations, persistence, and PHI boundaries are intact." }, null, 2)}\n`);

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:a59bafea2d0fb8d1",
-  "fingerprint": "a59bafea2d0fb8d107e8f722c47faa3c031aa3fc40eafede8d334a7212de720c",
+  "generatedAt": "source-fingerprint:1b5ba6614c29a38f",
+  "fingerprint": "1b5ba6614c29a38f052017eed973b4afd924776aa22e824142386d19f56e258a",
   "totals": {
-    "files": 708,
-    "lines": 218183,
-    "coveredFiles": 708
+    "files": 713,
+    "lines": 218371,
+    "coveredFiles": 713
   },
   "entries": [
     {
@@ -1962,7 +1962,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 135,
+      "lines": 137,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1999,6 +1999,18 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 33,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/training/OperatorLessonVideo.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 38,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3872,6 +3884,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 50,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/training/LOOM_VIDEO_GUIDE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 39,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6002,12 +6026,24 @@
       ]
     },
     {
+      "path": "lib/training/operator-training-video-catalog.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 66,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "next.config.ts",
       "subsystem": "Repository configuration",
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 77,
+      "lines": 79,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -6079,7 +6115,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "high",
-      "lines": 82,
+      "lines": 83,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -7327,7 +7363,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 147,
+      "lines": 154,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7507,7 +7543,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 88,
+      "lines": 91,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7519,7 +7555,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 49,
+      "lines": 58,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8174,6 +8210,30 @@
       ]
     },
     {
+      "path": "shared/pipeline-security-headers.d.mts",
+      "subsystem": "Repository configuration",
+      "kind": "repository-file",
+      "runtime": "shared",
+      "risk": "high",
+      "lines": 4,
+      "moduleIds": [
+        "authorization-phi",
+        "threat-supply-chain"
+      ]
+    },
+    {
+      "path": "shared/pipeline-security-headers.mjs",
+      "subsystem": "Repository configuration",
+      "kind": "tooling",
+      "runtime": "shared",
+      "risk": "high",
+      "lines": 14,
+      "moduleIds": [
+        "authorization-phi",
+        "threat-supply-chain"
+      ]
+    },
+    {
       "path": "tests/e2e/academy.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -8347,7 +8407,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 36,
+      "lines": 39,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { requirePipelineUser, isProtectedPath } from "@/lib/auth/pipeline-auth";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
+import { PIPELINE_PERMISSIONS_POLICY } from "@/shared/pipeline-security-headers.mjs";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -63,7 +64,7 @@ function withSecurityHeaders(response: Response, request: NextRequest) {
   );
   response.headers.set("X-Frame-Options", sameOriginPacketPreview ? "SAMEORIGIN" : "DENY");
   response.headers.set("Referrer-Policy", "no-referrer");
-  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  response.headers.set("Permissions-Policy", PIPELINE_PERMISSIONS_POLICY);
   if (request.nextUrl.protocol === "https:") {
     response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }

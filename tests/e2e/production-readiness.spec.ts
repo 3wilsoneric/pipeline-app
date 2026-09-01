@@ -6,10 +6,13 @@ test.describe("production response boundaries", () => {
     expect(response).not.toBeNull();
     const headers = response!.headers();
     expect(headers["content-security-policy"]).toContain("default-src 'self'");
+    expect(headers["content-security-policy"]).toContain("frame-src 'self' https://login.microsoftonline.com https://www.loom.com");
+    expect(headers["content-security-policy"]).not.toContain("*.loom.com");
     expect(headers["x-content-type-options"]).toBe("nosniff");
     expect(headers["x-frame-options"]).toBe("DENY");
     expect(headers["referrer-policy"]).toBe("no-referrer");
     expect(headers["permissions-policy"]).toContain("microphone=()");
+    expect(headers["permissions-policy"]).toContain('fullscreen=(self "https://www.loom.com")');
     expect(headers["x-powered-by"]).toBeUndefined();
   });
 

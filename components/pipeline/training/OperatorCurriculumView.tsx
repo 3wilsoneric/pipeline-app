@@ -3,6 +3,7 @@
 import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Check, ClipboardCheck, Eye, Footprints, LockKeyhole, ShieldCheck, Timer } from "lucide-react";
 import { useState } from "react";
 
+import OperatorLessonVideo from "@/components/pipeline/training/OperatorLessonVideo";
 import {
   getOperatorModule,
   getOperatorTrack,
@@ -99,6 +100,7 @@ function OperatorActivityBody({ progress, module, activity, activityIndex, unloc
     <article className="px-5 py-6 sm:px-7 md:px-9 md:py-8">
       {!unlocked ? <div className="mb-5 flex gap-3 border border-[#e1cda0] bg-[#fff9ea] px-4 py-3 text-[11px] leading-5 text-[#6c5525]"><LockKeyhole size={16} className="mt-0.5 shrink-0" aria-hidden="true" />Preview is available. Complete prerequisite modules before recording completion.</div> : null}
       <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#176b78]">{activityIcon(activity.kind)} {activityLabel(activity.kind)}</div><h3 className="mt-2 text-[23px] font-black tracking-[-0.025em] text-[#202623]">{activity.title}</h3><p className="mt-3 max-w-[820px] text-[13px] leading-6 text-[#59635f]">{activity.summary}</p>
+      <OperatorLessonVideo moduleId={module.id} activityId={activity.id} />
       <section className="mt-6 border border-[#d4ddda] bg-white px-5 py-4"><h4 className="text-[10px] font-black uppercase tracking-[0.11em] text-[#59635f]">Required work</h4><ol className="mt-3 space-y-3">{activity.instructions.map((instruction, stepIndex) => <li key={instruction} className="grid grid-cols-[24px_minmax(0,1fr)] gap-2.5 text-[12px] leading-5 text-[#46504c]"><span className="flex h-6 w-6 items-center justify-center border border-[#b9d2ca] bg-[#f0f7f4] text-[9px] font-black text-[#0c705f]">{stepIndex + 1}</span>{instruction}</li>)}</ol></section>
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]"><section className="border border-[#c9d9d4] bg-[#f4faf7] px-5 py-4"><h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.11em] text-[#0c705f]"><Footprints size={14} aria-hidden="true" /> Practice in Pipeline</h4><div className="mt-3 grid gap-2 sm:grid-cols-2">{activity.locations.map((location) => <a key={`${location.href}:${location.label}`} href={location.href} className="flex min-h-11 items-center justify-between gap-2 border border-[#d7e3df] bg-white px-3 py-2.5 text-[10px] font-black text-[#28574b] hover:border-[#8fb8ab]">{location.label}<ArrowUpRight size={12} aria-hidden="true" /></a>)}</div></section><section className="border border-[#d6dcda] bg-white px-4 py-4"><h4 className="text-[10px] font-black uppercase tracking-[0.11em] text-[#626c68]">Never do this</h4><ul className="mt-3 space-y-2.5">{module.neverDo.map((item) => <li key={item} className="flex gap-2 text-[10px] leading-4 text-[#6a4d48]"><span className="mt-1 h-2 w-2 shrink-0 bg-[#c85b4d]" />{item}</li>)}</ul></section></div>
       {activity.evidencePrompt ? <EvidenceEditor prompt={activity.evidencePrompt} criteria={activity.acceptanceCriteria ?? []} evidence={evidence} onChange={onEvidenceChange} onBlur={onEvidenceCommit} /> : null}

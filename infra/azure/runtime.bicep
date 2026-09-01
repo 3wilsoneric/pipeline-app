@@ -55,6 +55,9 @@ param maximumReplicas int = environment == 'prod' ? 3 : 1
 @description('Run the daily approved retention policy for expired trash and document records.')
 param enableRetentionJob bool = false
 
+@description('Expose the Assessment Language Lab to authenticated supervisors only.')
+param enableNoteLab bool = false
+
 @description('Create the privileged one-time database bootstrap job. Enable only for the first deployment, then remove it and its administrator secret.')
 param initialDatabaseBootstrap bool = false
 
@@ -151,6 +154,7 @@ var baseEnvironment = [
   { name: 'PIPELINE_RESIDENT_LINK_STORE_MODE', value: 'postgres' }
   { name: 'PIPELINE_DESKTOP_STATE_ENABLED', value: 'true' }
   { name: 'NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED', value: 'true' }
+  { name: 'PIPELINE_NOTE_LAB_ENABLED', value: enableNoteLab ? 'true' : 'false' }
   { name: 'PIPELINE_ALLOW_LOCAL_DESKTOP_STATE_STORE', value: 'false' }
   { name: 'PIPELINE_AUTH_MODE', value: 'entra_jwt' }
   { name: 'PIPELINE_ENTRA_TENANT_ID', value: entraTenantId }

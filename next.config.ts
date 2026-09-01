@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizePipelineBasePath } from "./shared/pipeline-base-path.mjs";
+import { PIPELINE_PERMISSIONS_POLICY, pipelineContentSecurityPolicy } from "./shared/pipeline-security-headers.mjs";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 const basePath = normalizePipelineBasePath(process.env.NEXT_PUBLIC_PIPELINE_BASE_PATH);
@@ -12,6 +13,7 @@ const connectSources = isDevelopment
 const scriptSources = isDevelopment
   ? "'self' 'unsafe-inline' 'unsafe-eval'"
   : "'self' 'unsafe-inline'";
+const contentSecurityPolicy = pipelineContentSecurityPolicy({ scriptSources, connectSources });
 
 const nextConfig: NextConfig = {
   basePath: basePath || undefined,
@@ -55,11 +57,11 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: [
-          { key: "Content-Security-Policy", value: `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://login.microsoftonline.com; script-src ${scriptSources}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src ${connectSources}; frame-src 'self' https://login.microsoftonline.com;` },
+          { key: "Content-Security-Policy", value: contentSecurityPolicy },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "no-referrer" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Permissions-Policy", value: PIPELINE_PERMISSIONS_POLICY },
         ],
       },
       {

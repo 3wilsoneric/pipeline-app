@@ -13,6 +13,7 @@ const refresh = process.argv.includes("--refresh");
 const curriculum = loadTypeScriptModule(root, "lib/training/operator-training-curriculum.ts");
 const resources = loadTypeScriptModule(root, "lib/training/operator-training-resources.ts");
 const tutorials = loadTypeScriptModule(root, "lib/training/operator-guided-tutorials.ts");
+const videos = loadTypeScriptModule(root, "lib/training/operator-training-video-catalog.ts");
 let registry = readJson(registryPath);
 const errors = [];
 const warnings = [];
@@ -61,6 +62,8 @@ check("every guided step has a local route, authored rationale, and safety bound
 check("guided target registry exactly covers the authored steps", unique(tutorials.operatorGuideTargetIds) && tutorials.operatorGuideTargetIds.length === Object.keys(tutorials.operatorGuideTargetSources).length && tutorials.operatorGuideTargetIds.every((id) => typeof tutorials.operatorGuideTargetSources[id] === "string"));
 check("every guided target remains declared by its source component", tutorials.operatorGuideTargetIds.every((id) => { const source = tutorials.operatorGuideTargetSources[id]; return validRepositoryFile(source) && readFileSync(source, "utf8").includes(`\"${id}\"`); }));
 check("guided workflows are action-led", tutorials.operatorGuidedTutorials.every((tutorial) => tutorial.steps.filter((step) => step.advance !== "confirm").length / tutorial.steps.length >= 0.6 && tutorial.steps.every((step) => step.phase.trim() && step.instruction.trim() && step.completion.trim())));
+check("Loom video URLs are fail-closed to the reviewed host and route shape", videos.parseLoomVideoUrl("https://www.loom.com/share/1234567890abcdef")?.id === "1234567890abcdef" && videos.parseLoomVideoUrl("https://www.loom.com/embed/1234567890abcdef")?.id === "1234567890abcdef" && videos.parseLoomVideoUrl("https://attacker.example/share/1234567890abcdef") === null && videos.parseLoomVideoUrl("http://www.loom.com/share/1234567890abcdef") === null);
+check("configured training videos map uniquely to current activities and valid Loom embeds", unique(videos.operatorTrainingVideoDefinitions.map((video) => `${video.moduleId}:${video.activityId}`)) && videos.operatorTrainingVideoDefinitions.every((video) => curriculum.operatorActivityIds.includes(`${video.moduleId}:${video.activityId}`) && videos.resolveOperatorTrainingVideo(video)?.embedUrl.startsWith("https://www.loom.com/embed/")));
 check("verified interactions use an explicitly allowed action target", tutorials.operatorGuidedTutorials.every((tutorial) => tutorial.steps.filter((step) => step.advance !== "confirm").every((step) => tutorials.operatorGuideVerifiedActionTargets[step.advance]?.includes(step.target))));
 check("record creation, schedule submission, and export remain human checkpoints", tutorials.operatorGuidedTutorials.every((tutorial) => tutorial.steps.filter((step) => ["create-workspace", "assessment-schedule-save", "operations-report-export"].includes(step.target)).every((step) => step.advance === "confirm")));
 check("all required training documents exist", registry.requiredDocuments.every(validRepositoryFile));
