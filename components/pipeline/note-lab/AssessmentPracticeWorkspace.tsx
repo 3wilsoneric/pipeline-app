@@ -224,15 +224,8 @@ function PracticeField({
   onUpdate: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
 }) {
   const writingSpec = getAssessmentFieldWritingSpec(question.field);
-  const target = question.field === "dress_assistance_level"
-    ? "practice-assistance-level"
-    : question.field === "dress_assistance_details"
-      ? "practice-assistance-details"
-      : question.field === "current_symptoms"
-        ? "practice-current-symptoms"
-        : undefined;
   return (
-    <div data-guide-target={target} className={question.span === "full" || question.control === "multi_select" ? "sm:col-span-2" : undefined}>
+    <div data-guide-target={practiceGuideTarget(question.field)} className={practiceFieldClassName(question)}>
       <div className="flex min-h-5 items-start justify-between gap-3">
         <label htmlFor={`practice-${question.field}`} className="text-[9px] font-black uppercase tracking-[0.06em] text-[#4e5954]">
           {assessmentInterviewFieldLabel(question.field)}{required ? <span className="ml-1 text-[#a44d3d]">*</span> : null}
@@ -250,36 +243,72 @@ function PracticeField({
   );
 }
 
+function practiceGuideTarget(field: AssessmentToolFieldKey) {
+  const targets: Partial<Record<AssessmentToolFieldKey, string>> = {
+    dress_assistance_level: "practice-assistance-level",
+    dress_assistance_details: "practice-assistance-details",
+    current_symptoms: "practice-current-symptoms",
+  };
+  return targets[field];
+}
+
+function practiceFieldClassName(question: AssessmentInterviewQuestion) {
+  return question.span === "full" || question.control === "multi_select" ? "sm:col-span-2" : undefined;
+}
+
 function QuestionControl({ question, value, onUpdate }: { question: AssessmentInterviewQuestion; value: AssessmentToolData[AssessmentToolFieldKey]; onUpdate: (value: AssessmentToolData[AssessmentToolFieldKey]) => void }) {
   const id = `practice-${question.field}`;
   const controlClass = "mt-2 w-full border border-[#bcc8c3] bg-white px-3 text-[12px] text-[#27312c] outline-none transition-colors focus:border-[#0f8b73] focus:ring-1 focus:ring-[#0f8b73]";
-  if (question.control === "textarea") {
-    const text = Array.isArray(value) ? value.join("\n") : String(value ?? "");
-    return <textarea id={id} rows={4} value={text} placeholder={question.placeholder} onChange={(event) => onUpdate(Array.isArray(value) ? event.target.value.split("\n").filter(Boolean) : event.target.value)} className={`${controlClass} min-h-28 resize-y py-3 leading-5`} />;
-  }
-  if (question.control === "multi_select") {
-    const selected = Array.isArray(value) ? value : [];
-    return (
-      <div id={id} className="mt-2 flex flex-wrap gap-2" role="group" aria-label={assessmentInterviewFieldLabel(question.field)}>
-        {(question.options ?? []).map((option) => {
-          const checked = selected.includes(option.value);
-          return <button key={option.value} type="button" aria-pressed={checked} onClick={() => onUpdate(checked ? selected.filter((item) => item !== option.value) : [...selected, option.value])} className={`min-h-9 border px-3 text-[9px] font-bold ${checked ? "border-[#0f8b73] bg-[#edf7f3] text-[#0b705f]" : "border-[#c8d1cd] bg-white text-[#5f6a65] hover:border-[#8da198]"}`}>{option.label}</button>;
-        })}
-      </div>
-    );
-  }
-  if (question.control === "select" || question.control === "yes_no" || question.control === "rating") {
-    const options = question.control === "rating"
-      ? Array.from({ length: (question.max ?? 5) - (question.min ?? 1) + 1 }, (_, index) => ({ value: String((question.min ?? 1) + index), label: String((question.min ?? 1) + index) }))
-      : question.options ?? [];
-    return (
-      <select id={id} value={value === null ? "" : String(value)} onChange={(event) => onUpdate(question.control === "rating" ? (event.target.value ? Number(event.target.value) : null) : event.target.value || null)} className={`${controlClass} h-11 appearance-none`}>
-        <option value="">Select</option>
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-    );
-  }
-  return <input id={id} type={question.control === "date" ? "date" : question.control === "number" ? "number" : "text"} min={question.min} max={question.max} value={value === null ? "" : String(value)} placeholder={question.placeholder} onChange={(event) => onUpdate(question.control === "number" ? (event.target.value ? Number(event.target.value) : null) : event.target.value)} className={`${controlClass} h-11`} />;
+  if (question.control === "textarea") return <PracticeTextarea id={id} question={question} value={value} onUpdate={onUpdate} className={controlClass} />;
+  if (question.control === "multi_select") return <PracticeMultiSelect id={id} question={question} value={value} onUpdate={onUpdate} />;
+  if (["select", "yes_no", "rating"].includes(question.control)) return <PracticeSelect id={id} question={question} value={value} onUpdate={onUpdate} className={controlClass} />;
+  return <PracticeInput id={id} question={question} value={value} onUpdate={onUpdate} className={controlClass} />;
+}
+
+type PracticeControlProps = {
+  id: string;
+  question: AssessmentInterviewQuestion;
+  value: AssessmentToolData[AssessmentToolFieldKey];
+  onUpdate: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
+  className?: string;
+};
+
+function PracticeTextarea({ id, question, value, onUpdate, className }: PracticeControlProps) {
+  const text = Array.isArray(value) ? value.join("\n") : String(value ?? "");
+  const update = (next: string) => onUpdate(Array.isArray(value) ? next.split("\n").filter(Boolean) : next);
+  return <textarea id={id} rows={4} value={text} placeholder={question.placeholder} onChange={(event) => update(event.target.value)} className={`${className} min-h-28 resize-y py-3 leading-5`} />;
+}
+
+function PracticeMultiSelect({ id, question, value, onUpdate }: PracticeControlProps) {
+  const selected = Array.isArray(value) ? value : [];
+  return (
+    <div id={id} className="mt-2 flex flex-wrap gap-2" role="group" aria-label={assessmentInterviewFieldLabel(question.field)}>
+      {(question.options ?? []).map((option) => {
+        const checked = selected.includes(option.value);
+        const next = checked ? selected.filter((item) => item !== option.value) : [...selected, option.value];
+        return <button key={option.value} type="button" aria-pressed={checked} onClick={() => onUpdate(next)} className={`min-h-9 border px-3 text-[9px] font-bold ${checked ? "border-[#0f8b73] bg-[#edf7f3] text-[#0b705f]" : "border-[#c8d1cd] bg-white text-[#5f6a65] hover:border-[#8da198]"}`}>{option.label}</button>;
+      })}
+    </div>
+  );
+}
+
+function PracticeSelect({ id, question, value, onUpdate, className }: PracticeControlProps) {
+  const options = question.control === "rating"
+    ? Array.from({ length: (question.max ?? 5) - (question.min ?? 1) + 1 }, (_, index) => ({ value: String((question.min ?? 1) + index), label: String((question.min ?? 1) + index) }))
+    : question.options ?? [];
+  const update = (next: string) => onUpdate(question.control === "rating" ? (next ? Number(next) : null) : next || null);
+  return (
+    <select id={id} value={value === null ? "" : String(value)} onChange={(event) => update(event.target.value)} className={`${className} h-11 appearance-none`}>
+      <option value="">Select</option>
+      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+  );
+}
+
+function PracticeInput({ id, question, value, onUpdate, className }: PracticeControlProps) {
+  const inputType = question.control === "date" ? "date" : question.control === "number" ? "number" : "text";
+  const update = (next: string) => onUpdate(question.control === "number" ? (next ? Number(next) : null) : next);
+  return <input id={id} type={inputType} min={question.min} max={question.max} value={value === null ? "" : String(value)} placeholder={question.placeholder} onChange={(event) => update(event.target.value)} className={`${className} h-11`} />;
 }
 
 function WritingHelp({ field }: { field: AssessmentToolFieldKey }) {

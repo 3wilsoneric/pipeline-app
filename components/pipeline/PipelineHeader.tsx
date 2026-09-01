@@ -20,9 +20,9 @@ export default function PipelineHeader() {
   const [user, setUser] = useState<PipelineCurrentUser | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname() ?? "/";
+  const pathname = normalizePathname(usePathname());
   const searchParams = useSearchParams();
-  const activeSearchParams = new URLSearchParams(usePipelineLocationSearch(searchParams?.toString() ?? ""));
+  const activeSearchParams = new URLSearchParams(usePipelineLocationSearch(searchParamsText(searchParams)));
   const auth = usePipelineAuth();
   const { homeMode, searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
@@ -247,6 +247,14 @@ export default function PipelineHeader() {
       </div>
     </header>
   );
+}
+
+function normalizePathname(pathname: string | null) {
+  return pathname || "/";
+}
+
+function searchParamsText(searchParams: { toString(): string } | null) {
+  return searchParams ? searchParams.toString() : "";
 }
 
 function ProfileLearningLink({ active, onSelect }: { active: boolean; onSelect: () => void }) {

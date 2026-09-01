@@ -9,7 +9,6 @@ const access = read("lib/note-lab/note-lab-access.ts");
 const page = read("app/(pipeline)/note-lab/practice/page.tsx");
 const workspace = read("components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx");
 const scenarioSource = read("lib/note-lab/assessment-practice-scenario.ts");
-const tutorialsSource = read("lib/training/operator-guided-tutorials.ts");
 const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
 const schema = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
 const interview = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-interview-schema.ts");

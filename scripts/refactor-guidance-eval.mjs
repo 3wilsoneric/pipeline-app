@@ -112,25 +112,29 @@ function containsForbiddenHoldoutContent(value) {
 }
 
 function validateHoldoutManifest(record, label, targetErrors) {
-  if (!record || record.schemaVersion !== 1) {
+  if (!isSchemaVersionOne(record)) {
     targetErrors.push(`${label} must use schemaVersion 1.`);
     return [];
   }
-  if (!record.suiteVersion || !record.custodian || !timestamps.test(record.createdAt ?? "")) {
-    targetErrors.push(`${label} requires suiteVersion, human custodian, and createdAt.`);
-  }
-  if (record.promptContentStoredInRepository !== false || containsForbiddenHoldoutContent(record)) {
-    targetErrors.push(`${label} must contain commitments only, never holdout prompts, fixtures, or expected answers.`);
-  }
+  validateHoldoutHeader(record, label, targetErrors);
   const scenarios = requireArray(record.scenarios, `${label}.scenarios`, targetErrors);
   duplicateIds(scenarios, `${label} scenarios`, targetErrors);
-  for (const scenario of scenarios) {
-    if (!allowedKinds.has(scenario.kind)) targetErrors.push(`${label}/${scenario.id} has invalid kind ${scenario.kind}.`);
-    if (!sha256Pattern.test(scenario.promptSha256 ?? "") || !sha256Pattern.test(scenario.fixtureSha256 ?? "")) {
-      targetErrors.push(`${label}/${scenario.id} requires prompt and fixture SHA-256 commitments.`);
-    }
-  }
+  for (const scenario of scenarios) validateHoldoutScenario(scenario, label, targetErrors);
   return scenarios;
+}
+
+function isSchemaVersionOne(record) {
+  return Boolean(record) && record.schemaVersion === 1;
+}
+
+function validateHoldoutHeader(record, label, targetErrors) {
+  if (!record.suiteVersion || !record.custodian || !timestamps.test(record.createdAt ?? "")) targetErrors.push(`${label} requires suiteVersion, human custodian, and createdAt.`);
+  if (record.promptContentStoredInRepository !== false || containsForbiddenHoldoutContent(record)) targetErrors.push(`${label} must contain commitments only, never holdout prompts, fixtures, or expected answers.`);
+}
+
+function validateHoldoutScenario(scenario, label, targetErrors) {
+  if (!allowedKinds.has(scenario.kind)) targetErrors.push(`${label}/${scenario.id} has invalid kind ${scenario.kind}.`);
+  if (!sha256Pattern.test(scenario.promptSha256 ?? "") || !sha256Pattern.test(scenario.fixtureSha256 ?? "")) targetErrors.push(`${label}/${scenario.id} requires prompt and fixture SHA-256 commitments.`);
 }
 
 function validateResponseShape(response, scenario, label, targetErrors) {
@@ -138,14 +142,26 @@ function validateResponseShape(response, scenario, label, targetErrors) {
     targetErrors.push(`${label} must use schemaVersion 1 and scenarioId ${scenario.id}.`);
     return;
   }
+  validateResponseCollections(response, label, targetErrors);
+  validateResponseReferences(response, label, targetErrors);
   if (!allowedDecisions.has(response.decision)) targetErrors.push(`${label} has invalid decision ${response.decision}.`);
   if (response.selectedSliceId !== null && !sliceIds.has(response.selectedSliceId)) targetErrors.push(`${label} references unknown selectedSliceId ${response.selectedSliceId}.`);
-  for (const field of ["detectedAntiPatternIds", "citedPaths", "proposedChangePaths", "preservedInvariantTags", "requiredGateNames", "blockerCodes"]) {
-    requireArray(response[field], `${label}.${field}`, targetErrors);
-  }
-  for (const id of response.detectedAntiPatternIds ?? []) if (!antiPatternsById.has(id)) targetErrors.push(`${label} references unknown anti-pattern ${id}.`);
-  for (const path of [...(response.citedPaths ?? []), ...(response.proposedChangePaths ?? [])]) if (!pathIsSafe(path.split(":")[0])) targetErrors.push(`${label} contains unsafe path ${path}.`);
   if (!response.rationale || typeof response.rationale !== "string") targetErrors.push(`${label} requires a rationale.`);
+}
+
+function validateResponseCollections(response, label, targetErrors) {
+  const fields = ["detectedAntiPatternIds", "citedPaths", "proposedChangePaths", "preservedInvariantTags", "requiredGateNames", "blockerCodes"];
+  for (const field of fields) requireArray(response[field], `${label}.${field}`, targetErrors);
+}
+
+function validateResponseReferences(response, label, targetErrors) {
+  for (const id of response.detectedAntiPatternIds ?? []) {
+    if (!antiPatternsById.has(id)) targetErrors.push(`${label} references unknown anti-pattern ${id}.`);
+  }
+  const paths = [...(response.citedPaths ?? []), ...(response.proposedChangePaths ?? [])];
+  for (const path of paths) {
+    if (!pathIsSafe(path.split(":")[0])) targetErrors.push(`${label} contains unsafe path ${path}.`);
+  }
 }
 
 function scorePublicResponse(response, scenario) {
@@ -169,9 +185,7 @@ function scorePublicResponse(response, scenario) {
   const proposedPaths = response.proposedChangePaths ?? [];
   add(
     "proposal_scope",
-    expected.allowedProposedChangePaths.length > 0
-      ? proposedPaths.length > 0 && proposedPaths.every((path) => proposedPathAllowed(path, expected.allowedProposedChangePaths))
-      : proposedPaths.length === 0,
+    proposalScopeMatches(proposedPaths, expected.allowedProposedChangePaths),
     `allowed paths: ${expected.allowedProposedChangePaths.join(", ") || "none"}; received: ${proposedPaths.join(", ") || "none"}`,
   );
   for (const tag of expected.requiredInvariantTags) {
@@ -184,6 +198,11 @@ function scorePublicResponse(response, scenario) {
     add(`blocker:${blocker}`, response.blockerCodes?.includes(blocker), `required blocker ${blocker}`);
   }
   return { ok: scoreErrors.length === 0, scenarioId: scenario.id, checks, errors: [...new Set(scoreErrors)] };
+}
+
+function proposalScopeMatches(proposedPaths, allowedPaths) {
+  if (allowedPaths.length === 0) return proposedPaths.length === 0;
+  return proposedPaths.length > 0 && proposedPaths.every((path) => proposedPathAllowed(path, allowedPaths));
 }
 
 function mechanicalEvaluationFor(content, scenario) {
@@ -221,40 +240,79 @@ function validateHumanReview(review, scenario, label, targetErrors) {
   const requiredCriteria = scenario?.humanCriteria?.map((criterion) => criterion.id) ?? [];
   const resultIds = results.map((result) => result.criterionId);
   if (scenario && !sameSet(resultIds, requiredCriteria)) targetErrors.push(`${label} must score every frozen human criterion exactly once.`);
-  for (const result of results) {
-    if (!['pass', 'fail', 'not_applicable'].includes(result.outcome) || !result.evidence) targetErrors.push(`${label}/${result.criterionId} requires an outcome and evidence.`);
-  }
+  for (const result of results) validateHumanCriterionResult(result, label, targetErrors);
   requireArray(review.blockingFailures, `${label}.blockingFailures`, targetErrors);
+}
+
+function validateHumanCriterionResult(result, label, targetErrors) {
+  if (!['pass', 'fail', 'not_applicable'].includes(result.outcome) || !result.evidence) targetErrors.push(`${label}/${result.criterionId} requires an outcome and evidence.`);
 }
 
 function validateRunRecord(record, label = "Guidance run") {
   const runErrors = [];
+  validateRunHeader(record, label, runErrors);
+  const scenario = resolveRunScenario(record, label, runErrors);
+  validateRunGuidance(record, label, runErrors);
+  validateRunResponseArtifact(record, scenario, label, runErrors);
+  validateHumanReview(record.humanReview, scenario, `${label}.humanReview`, runErrors);
+  return { ok: runErrors.length === 0, errors: runErrors, record, scenario };
+}
+
+function validateRunHeader(record, label, runErrors) {
+  validateRunIdentity(record, label, runErrors);
+  validateRunExecutionContext(record, label, runErrors);
+  validateRunModel(record, label, runErrors);
+}
+
+function validateRunIdentity(record, label, runErrors) {
   if (!record || record.schemaVersion !== 1 || !record.runId) runErrors.push(`${label} must use schemaVersion 1 and have a runId.`);
   if (!Number.isInteger(record.trialIndex) || record.trialIndex < 1) runErrors.push(`${label} requires a positive trialIndex.`);
   if (!['baseline', 'candidate'].includes(record.variant)) runErrors.push(`${label} has invalid variant ${record.variant}.`);
   if (!gitCommitExists(record.baseCommit)) runErrors.push(`${label} requires an existing full baseCommit.`);
   if (record.attemptNumber !== 1 || record.rerolled !== false) runErrors.push(`${label} must retain attempt one with rerolled false.`);
+}
+
+function validateRunExecutionContext(record, label, runErrors) {
   if (!record.context?.contextId || record.context.fresh !== true || record.context.implementationConversationUsed !== false) {
     runErrors.push(`${label} requires a fresh context that did not use the implementation conversation.`);
   }
+  if (!timestamps.test(record.startedAt ?? "") || !timestamps.test(record.completedAt ?? "")) runErrors.push(`${label} requires UTC start and completion timestamps.`);
+}
+
+function validateRunModel(record, label, runErrors) {
   if (!record.model?.provider || !record.model?.name || !record.model?.version || typeof record.model.settings !== "object") {
     runErrors.push(`${label} requires pinned provider, model, version, and settings.`);
   }
-  if (!timestamps.test(record.startedAt ?? "") || !timestamps.test(record.completedAt ?? "")) runErrors.push(`${label} requires UTC start and completion timestamps.`);
+}
 
+function resolveRunScenario(record, label, runErrors) {
   const ref = record.scenarioRef;
-  let scenario = null;
-  if (!ref || !['public', 'holdout'].includes(ref.kind) || !ref.id || !sha256Pattern.test(ref.scenarioSha256 ?? "")) {
+  if (!validScenarioReference(ref)) {
     runErrors.push(`${label} has an invalid scenarioRef.`);
-  } else if (ref.kind === "public") {
-    scenario = scenariosById.get(ref.id);
-    if (!scenario) runErrors.push(`${label} references unknown public scenario ${ref.id}.`);
-    else {
-      if (ref.suiteVersion !== scenarioSet.suiteVersion) runErrors.push(`${label} uses the wrong public suite version.`);
-      if (ref.scenarioSha256 !== scenarioDigest(scenario)) runErrors.push(`${label} public scenario digest does not match the frozen scenario.`);
-    }
-  } else if (!ref.suiteVersion) runErrors.push(`${label} holdout scenario requires suiteVersion.`);
+    return null;
+  }
+  if (ref.kind === "holdout") {
+    if (!ref.suiteVersion) runErrors.push(`${label} holdout scenario requires suiteVersion.`);
+    return null;
+  }
+  const scenario = scenariosById.get(ref.id);
+  if (!scenario) {
+    runErrors.push(`${label} references unknown public scenario ${ref.id}.`);
+    return null;
+  }
+  if (ref.suiteVersion !== scenarioSet.suiteVersion) runErrors.push(`${label} uses the wrong public suite version.`);
+  if (ref.scenarioSha256 !== scenarioDigest(scenario)) runErrors.push(`${label} public scenario digest does not match the frozen scenario.`);
+  return scenario;
+}
 
+function validScenarioReference(ref) {
+  return Boolean(ref)
+    && ['public', 'holdout'].includes(ref.kind)
+    && Boolean(ref.id)
+    && sha256Pattern.test(ref.scenarioSha256 ?? "");
+}
+
+function validateRunGuidance(record, label, runErrors) {
   if (!gitCommitExists(record.guidance?.commit)) runErrors.push(`${label} requires an existing full guidance commit.`);
   const guidanceFiles = requireArray(record.guidance?.files, `${label}.guidance.files`, runErrors);
   if (guidanceFiles.length === 0) runErrors.push(`${label} must record at least one loaded guidance file.`);
@@ -270,67 +328,132 @@ function validateRunRecord(record, label = "Guidance run") {
     if (!content) runErrors.push(`${label} cannot read ${file.path} at guidance commit.`);
     else if (sha256(content) !== file.sha256) runErrors.push(`${label} hash mismatch for ${file.path}.`);
   }
+}
 
+function validateRunResponseArtifact(record, scenario, label, runErrors) {
   if (!pathIsSafe(record.responseArtifact ?? "") || !existsSync(record.responseArtifact ?? "")) {
     runErrors.push(`${label} responseArtifact is missing or unsafe.`);
-  } else {
-    const content = readFileSync(record.responseArtifact);
-    if (!sha256Pattern.test(record.responseSha256 ?? "") || sha256(content) !== record.responseSha256) runErrors.push(`${label} responseSha256 does not match the artifact.`);
-    else if (scenario) {
-      const computed = mechanicalEvaluationFor(content, scenario);
-      const recorded = record.mechanicalEvaluation;
-      if (!recorded || recorded.scorerVersion !== 1 || recorded.responseContractValid !== computed.responseContractValid || recorded.passed !== computed.passed || !sameSet(recorded.failedCheckIds, computed.failedCheckIds)) {
-        runErrors.push(`${label} mechanicalEvaluation does not match the preserved first-attempt response.`);
-      }
-    }
+    return;
   }
+  const content = readFileSync(record.responseArtifact);
+  if (!sha256Pattern.test(record.responseSha256 ?? "") || sha256(content) !== record.responseSha256) {
+    runErrors.push(`${label} responseSha256 does not match the artifact.`);
+    return;
+  }
+  if (!scenario) return;
+  const computed = mechanicalEvaluationFor(content, scenario);
+  const recorded = record.mechanicalEvaluation;
+  if (!mechanicalEvaluationMatches(recorded, computed)) runErrors.push(`${label} mechanicalEvaluation does not match the preserved first-attempt response.`);
+}
 
-  validateHumanReview(record.humanReview, scenario, `${label}.humanReview`, runErrors);
-  return { ok: runErrors.length === 0, errors: runErrors, record, scenario };
+function mechanicalEvaluationMatches(recorded, computed) {
+  return Boolean(recorded)
+    && recorded.scorerVersion === 1
+    && recorded.responseContractValid === computed.responseContractValid
+    && recorded.passed === computed.passed
+    && sameSet(recorded.failedCheckIds, computed.failedCheckIds);
 }
 
 function validateCorrectionEntry(entry, targetErrors) {
+  validateCorrectionHeader(entry, targetErrors);
+  const observations = validateCorrectionObservations(entry, targetErrors);
+  validateCorrectionPromotion(entry, observations, targetErrors);
+}
+
+function validateCorrectionHeader(entry, targetErrors) {
   const allowedStates = new Set(["observed", "candidate", "accepted", "rejected", "implemented"]);
   if (!allowedStates.has(entry.state) || !['critical', 'high', 'medium', 'low'].includes(entry.severity)) {
     targetErrors.push(`Correction ${entry.id} has invalid state or severity.`);
   }
+}
+
+function validateCorrectionObservations(entry, targetErrors) {
   const observations = requireArray(entry.observations, `Correction ${entry.id}.observations`, targetErrors);
   if (entry.occurrenceCount !== observations.length) targetErrors.push(`Correction ${entry.id} occurrenceCount must equal its observations length.`);
   const contexts = new Set();
   for (const observation of observations) {
-    if (!observation.runId || !observation.scenarioId || !observation.model || !fullCommit.test(observation.guidanceCommit ?? "") || !observation.reviewer || !timestamps.test(observation.observedAt ?? "") || !observation.evidence) {
-      targetErrors.push(`Correction ${entry.id} contains an incomplete observation.`);
-    }
+    validateCorrectionObservation(entry.id, observation, targetErrors);
     if (contexts.has(observation.contextId)) targetErrors.push(`Correction ${entry.id} repeats observation context ${observation.contextId}.`);
     contexts.add(observation.contextId);
   }
-  if (["accepted", "implemented"].includes(entry.state)) {
-    const recurrenceMet = observations.length >= policy.correctionPolicy.minimumIndependentOccurrencesForPromotion;
-    const criticalEscalation = entry.promotionBasis === "single_critical" && ["critical", "high"].includes(entry.severity) && observations.length >= 1;
-    if (!recurrenceMet && !criticalEscalation) targetErrors.push(`Correction ${entry.id} lacks recurrence or a single-critical escalation basis.`);
-    if (!policy.correctionPolicy.allowedLandingLayers.includes(entry.landingLayer) || !entry.disposition?.decidedBy || !timestamps.test(entry.disposition?.decidedAt ?? "") || !entry.disposition?.rationale) {
-      targetErrors.push(`Correction ${entry.id} lacks a valid human landing-layer disposition.`);
-    }
+  return observations;
+}
+
+function validateCorrectionObservation(entryId, observation, targetErrors) {
+  const complete = observation.runId
+    && observation.scenarioId
+    && observation.model
+    && fullCommit.test(observation.guidanceCommit ?? "")
+    && observation.reviewer
+    && timestamps.test(observation.observedAt ?? "")
+    && observation.evidence;
+  if (!complete) targetErrors.push(`Correction ${entryId} contains an incomplete observation.`);
+}
+
+function validateCorrectionPromotion(entry, observations, targetErrors) {
+  if (!["accepted", "implemented"].includes(entry.state)) return;
+  const recurrenceMet = observations.length >= policy.correctionPolicy.minimumIndependentOccurrencesForPromotion;
+  const criticalEscalation = entry.promotionBasis === "single_critical" && ["critical", "high"].includes(entry.severity) && observations.length >= 1;
+  if (!recurrenceMet && !criticalEscalation) targetErrors.push(`Correction ${entry.id} lacks recurrence or a single-critical escalation basis.`);
+  if (!validCorrectionDisposition(entry)) {
+    targetErrors.push(`Correction ${entry.id} lacks a valid human landing-layer disposition.`);
   }
+}
+
+function validCorrectionDisposition(entry) {
+  return policy.correctionPolicy.allowedLandingLayers.includes(entry.landingLayer)
+    && Boolean(entry.disposition?.decidedBy)
+    && timestamps.test(entry.disposition?.decidedAt ?? "")
+    && Boolean(entry.disposition?.rationale);
 }
 
 function validateComparisonRecord(record, label = "Guidance comparison") {
   const comparisonErrors = [];
+  validateComparisonHeader(record, label, comparisonErrors);
+  const publicIds = validateComparisonPublicScenarios(record, label, comparisonErrors);
+  const holdoutScenarios = loadComparisonHoldouts(record, label, comparisonErrors);
+  const runs = loadComparisonRuns(record, label, comparisonErrors);
+  validateComparisonRunUniqueness(runs, label, comparisonErrors);
+  const scenarioIds = [...new Set([...publicIds, ...holdoutScenarios.map((scenario) => scenario.id)])];
+  const deterministicRegressions = validateComparisonCoverage(record, runs, scenarioIds, label, comparisonErrors);
+  validateCandidateGuidanceBundles(runs, label, comparisonErrors);
+  validateComparisonReviews(record, scenarioIds, label, comparisonErrors);
+  validateComparisonDecision(record, deterministicRegressions, label, comparisonErrors);
+  return { ok: comparisonErrors.length === 0, errors: comparisonErrors, record, runs, holdoutScenarios };
+}
+
+function validateComparisonHeader(record, label, comparisonErrors) {
   if (!record || record.schemaVersion !== 1 || !record.comparisonId || record.status !== "human_decided") comparisonErrors.push(`${label} must be a schemaVersion 1 human_decided record.`);
   if (!['targeted', 'milestone'].includes(record.evaluationType)) comparisonErrors.push(`${label} has invalid evaluationType.`);
   if (record.scenarioSuiteVersion !== scenarioSet.suiteVersion) comparisonErrors.push(`${label} uses the wrong public scenario suite version.`);
+  validateComparisonGuidance(record, label, comparisonErrors);
+}
+
+function validateComparisonGuidance(record, label, comparisonErrors) {
   if (!gitCommitExists(record.baselineGuidance?.commit) || !gitCommitExists(record.candidateGuidance?.commit)) comparisonErrors.push(`${label} requires existing baseline and candidate guidance commits.`);
   if (!record.baselineGuidance?.label || !record.candidateGuidance?.label || record.baselineGuidance.label === record.candidateGuidance.label) comparisonErrors.push(`${label} requires distinct randomized variant labels.`);
+}
 
+function validateComparisonPublicScenarios(record, label, comparisonErrors) {
   const publicIds = requireArray(record.publicScenarioIds, `${label}.publicScenarioIds`, comparisonErrors);
-  for (const id of publicIds) if (!scenariosById.has(id)) comparisonErrors.push(`${label} references unknown public scenario ${id}.`);
+  for (const id of publicIds) {
+    if (!scenariosById.has(id)) comparisonErrors.push(`${label} references unknown public scenario ${id}.`);
+  }
   if (!publicIds.some((id) => scenariosById.get(id)?.kind === "non_refactor_control")) comparisonErrors.push(`${label} requires a public non-refactor control scenario.`);
+  return publicIds;
+}
 
-  let holdoutScenarios = [];
-  if (!pathIsSafe(record.holdoutManifest ?? "") || !existsSync(record.holdoutManifest ?? "")) comparisonErrors.push(`${label} requires an existing safe holdoutManifest path.`);
-  else holdoutScenarios = validateHoldoutManifest(readJson(record.holdoutManifest), `${label} holdout manifest`, comparisonErrors);
+function loadComparisonHoldouts(record, label, comparisonErrors) {
+  if (!pathIsSafe(record.holdoutManifest ?? "") || !existsSync(record.holdoutManifest ?? "")) {
+    comparisonErrors.push(`${label} requires an existing safe holdoutManifest path.`);
+    return [];
+  }
+  const holdoutScenarios = validateHoldoutManifest(readJson(record.holdoutManifest), `${label} holdout manifest`, comparisonErrors);
   if (holdoutScenarios.length < policy.comparisonPolicy.minimumHoldoutScenarios) comparisonErrors.push(`${label} has too few holdout scenarios.`);
+  return holdoutScenarios;
+}
 
+function loadComparisonRuns(record, label, comparisonErrors) {
   const runPaths = requireArray(record.runRecords, `${label}.runRecords`, comparisonErrors);
   const runs = [];
   for (const path of runPaths) {
@@ -342,123 +465,267 @@ function validateComparisonRecord(record, label = "Guidance comparison") {
     comparisonErrors.push(...validated.errors);
     runs.push(validated.record);
   }
+  return runs;
+}
+
+function validateComparisonRunUniqueness(runs, label, comparisonErrors) {
   const runIds = runs.map((run) => run.runId);
   if (new Set(runIds).size !== runIds.length) comparisonErrors.push(`${label} repeats a runId.`);
   const contextIds = runs.map((run) => run.context?.contextId);
   if (new Set(contextIds).size !== contextIds.length) comparisonErrors.push(`${label} reuses an agent context.`);
+}
 
-  const holdoutIds = holdoutScenarios.map((scenario) => scenario.id);
-  const allScenarioIds = [...new Set([...publicIds, ...holdoutIds])];
+function validateComparisonCoverage(record, runs, scenarioIds, label, comparisonErrors) {
   const minimumAttempts = policy.comparisonPolicy.minimumIndependentAttemptsPerVariant;
   const deterministicRegressions = [];
-  for (const scenarioId of allScenarioIds) {
+  for (const scenarioId of scenarioIds) {
     for (const variant of ['baseline', 'candidate']) {
-      const selected = runs.filter((run) => run.scenarioRef?.id === scenarioId && run.variant === variant);
-      if (selected.length < minimumAttempts) comparisonErrors.push(`${label} requires ${minimumAttempts} ${variant} attempts for ${scenarioId}.`);
-      const expectedCommit = variant === "baseline" ? record.baselineGuidance?.commit : record.candidateGuidance?.commit;
-      for (const run of selected) if (run.guidance?.commit !== expectedCommit) comparisonErrors.push(`${label}/${run.runId} uses the wrong ${variant} guidance commit.`);
+      validateVariantCoverage(record, runs, scenarioId, variant, minimumAttempts, label, comparisonErrors);
     }
     for (let trialIndex = 1; trialIndex <= minimumAttempts; trialIndex += 1) {
-      const baseline = runs.find((run) => run.scenarioRef?.id === scenarioId && run.variant === "baseline" && run.trialIndex === trialIndex);
-      const candidate = runs.find((run) => run.scenarioRef?.id === scenarioId && run.variant === "candidate" && run.trialIndex === trialIndex);
-      if (!baseline || !candidate) continue;
-      if (baseline.baseCommit !== candidate.baseCommit) comparisonErrors.push(`${label}/${scenarioId}/trial-${trialIndex} base commits differ.`);
-      if (baseline.scenarioRef.scenarioSha256 !== candidate.scenarioRef.scenarioSha256) comparisonErrors.push(`${label}/${scenarioId}/trial-${trialIndex} scenario digests differ.`);
-      if (canonicalJson(baseline.model) !== canonicalJson(candidate.model)) comparisonErrors.push(`${label}/${scenarioId}/trial-${trialIndex} model settings differ.`);
-      if (baseline.scenarioRef.kind === "public" && candidate.scenarioRef.kind === "public") {
-        const baselineFailures = new Set(baseline.mechanicalEvaluation?.failedCheckIds ?? []);
-        for (const checkId of candidate.mechanicalEvaluation?.failedCheckIds ?? []) {
-          if (!baselineFailures.has(checkId)) deterministicRegressions.push(`${scenarioId}/trial-${trialIndex}/${checkId}`);
-        }
-      }
+      validateTrialPair(runs, scenarioId, trialIndex, label, comparisonErrors, deterministicRegressions);
     }
   }
+  return deterministicRegressions;
+}
 
+function validateVariantCoverage(record, runs, scenarioId, variant, minimumAttempts, label, comparisonErrors) {
+  const selected = runs.filter((run) => run.scenarioRef?.id === scenarioId && run.variant === variant);
+  if (selected.length < minimumAttempts) comparisonErrors.push(`${label} requires ${minimumAttempts} ${variant} attempts for ${scenarioId}.`);
+  const expectedCommit = variant === "baseline" ? record.baselineGuidance?.commit : record.candidateGuidance?.commit;
+  for (const run of selected) {
+    if (run.guidance?.commit !== expectedCommit) comparisonErrors.push(`${label}/${run.runId} uses the wrong ${variant} guidance commit.`);
+  }
+}
+
+function validateTrialPair(runs, scenarioId, trialIndex, label, comparisonErrors, deterministicRegressions) {
+  const baseline = runs.find((run) => run.scenarioRef?.id === scenarioId && run.variant === "baseline" && run.trialIndex === trialIndex);
+  const candidate = runs.find((run) => run.scenarioRef?.id === scenarioId && run.variant === "candidate" && run.trialIndex === trialIndex);
+  if (!baseline || !candidate) return;
+  validateTrialConsistency(baseline, candidate, scenarioId, trialIndex, label, comparisonErrors);
+  collectDeterministicRegressions(baseline, candidate, scenarioId, trialIndex, deterministicRegressions);
+}
+
+function validateTrialConsistency(baseline, candidate, scenarioId, trialIndex, label, comparisonErrors) {
+  if (baseline.baseCommit !== candidate.baseCommit) comparisonErrors.push(`${label}/${scenarioId}/trial-${trialIndex} base commits differ.`);
+  if (baseline.scenarioRef.scenarioSha256 !== candidate.scenarioRef.scenarioSha256) comparisonErrors.push(`${label}/${scenarioId}/trial-${trialIndex} scenario digests differ.`);
+  if (canonicalJson(baseline.model) !== canonicalJson(candidate.model)) comparisonErrors.push(`${label}/${scenarioId}/trial-${trialIndex} model settings differ.`);
+}
+
+function collectDeterministicRegressions(baseline, candidate, scenarioId, trialIndex, deterministicRegressions) {
+  if (baseline.scenarioRef.kind !== "public" || candidate.scenarioRef.kind !== "public") return;
+  const baselineFailures = new Set(baseline.mechanicalEvaluation?.failedCheckIds ?? []);
+  for (const checkId of candidate.mechanicalEvaluation?.failedCheckIds ?? []) {
+    if (!baselineFailures.has(checkId)) deterministicRegressions.push(`${scenarioId}/trial-${trialIndex}/${checkId}`);
+  }
+}
+
+function validateCandidateGuidanceBundles(runs, label, comparisonErrors) {
   const candidateRuns = runs.filter((run) => run.variant === "candidate");
   for (const run of candidateRuns) {
     if (!sameSet(run.guidance?.files?.map((file) => file.path), policy.guidanceBundlePaths)) {
       comparisonErrors.push(`${label}/${run.runId} candidate does not load the complete declared guidance bundle.`);
     }
   }
+}
 
+function validateComparisonReviews(record, scenarioIds, label, comparisonErrors) {
   const reviews = requireArray(record.blindReviews, `${label}.blindReviews`, comparisonErrors);
   if (new Set(reviews.map((review) => review.reviewer)).size < policy.comparisonPolicy.minimumBlindHumanReviewers) comparisonErrors.push(`${label} requires at least ${policy.comparisonPolicy.minimumBlindHumanReviewers} distinct blind human reviewers.`);
   if (new Set(reviews.map((review) => review.contextId)).size !== reviews.length) comparisonErrors.push(`${label} blind reviews must use distinct contexts.`);
   for (const review of reviews) {
-    if (!review.reviewer || !review.contextId || review.variantIdentityVisible !== false || !timestamps.test(review.completedAt ?? "")) comparisonErrors.push(`${label} contains an incomplete or unblinded review.`);
-    const reviewedIds = new Set((review.scenarioResults ?? []).map((result) => result.scenarioId));
-    for (const id of allScenarioIds) if (!reviewedIds.has(id)) comparisonErrors.push(`${label}/${review.reviewer} did not score ${id}.`);
-    for (const result of review.scenarioResults ?? []) {
-      if (!['A', 'B', 'tie', 'neither'].includes(result.preferredLabel) || !Number.isInteger(result.criticalRegressions) || !Number.isInteger(result.highRegressions) || !result.rationale) comparisonErrors.push(`${label}/${review.reviewer}/${result.scenarioId} has an incomplete result.`);
-    }
+    validateComparisonReview(review, scenarioIds, label, comparisonErrors);
   }
+}
 
+function validateComparisonReview(review, scenarioIds, label, comparisonErrors) {
+  validateReviewIdentity(review, label, comparisonErrors);
+  const reviewedIds = new Set((review.scenarioResults ?? []).map((result) => result.scenarioId));
+  for (const id of scenarioIds) {
+    if (!reviewedIds.has(id)) comparisonErrors.push(`${label}/${review.reviewer} did not score ${id}.`);
+  }
+  for (const result of review.scenarioResults ?? []) validateComparisonReviewResult(review, result, label, comparisonErrors);
+}
+
+function validateReviewIdentity(review, label, comparisonErrors) {
+  if (!review.reviewer || !review.contextId || review.variantIdentityVisible !== false || !timestamps.test(review.completedAt ?? "")) comparisonErrors.push(`${label} contains an incomplete or unblinded review.`);
+}
+
+function validateComparisonReviewResult(review, result, label, comparisonErrors) {
+  const complete = ['A', 'B', 'tie', 'neither'].includes(result.preferredLabel)
+    && Number.isInteger(result.criticalRegressions)
+    && Number.isInteger(result.highRegressions)
+    && result.rationale;
+  if (!complete) comparisonErrors.push(`${label}/${review.reviewer}/${result.scenarioId} has an incomplete result.`);
+}
+
+function validateComparisonDecision(record, deterministicRegressions, label, comparisonErrors) {
   if (!policy.comparisonPolicy.allowedDecisions.includes(record.decision) || !record.decidedBy || !timestamps.test(record.decidedAt ?? "") || !record.rationale) comparisonErrors.push(`${label} requires a valid human decision and rationale.`);
   if (!Array.isArray(record.aggregate?.knownLimitations) || record.aggregate.knownLimitations.length === 0) comparisonErrors.push(`${label} must record known limitations.`);
-  if (record.decision === "keep") {
-    if (record.aggregate?.criticalRegressions !== 0 || record.aggregate?.highRegressions !== 0) comparisonErrors.push(`${label} cannot keep guidance with critical or high regressions.`);
-    if (deterministicRegressions.length > 0) comparisonErrors.push(`${label} cannot keep guidance with new deterministic public-suite failures: ${deterministicRegressions.join(", ")}.`);
-    if (record.aggregate?.materialTargetedImprovementObserved !== true) comparisonErrors.push(`${label} cannot keep guidance without a material targeted improvement.`);
-  }
-  return { ok: comparisonErrors.length === 0, errors: comparisonErrors, record, runs, holdoutScenarios };
+  if (record.decision !== "keep") return;
+  validateKeepDecision(record, deterministicRegressions, label, comparisonErrors);
+}
+
+function validateKeepDecision(record, deterministicRegressions, label, comparisonErrors) {
+  if (record.aggregate?.criticalRegressions !== 0 || record.aggregate?.highRegressions !== 0) comparisonErrors.push(`${label} cannot keep guidance with critical or high regressions.`);
+  if (deterministicRegressions.length > 0) comparisonErrors.push(`${label} cannot keep guidance with new deterministic public-suite failures: ${deterministicRegressions.join(", ")}.`);
+  if (record.aggregate?.materialTargetedImprovementObserved !== true) comparisonErrors.push(`${label} cannot keep guidance without a material targeted improvement.`);
 }
 
 function validateStaticSetup() {
+  validatePolicySetup();
+  const coverage = validateScenarioSetup();
+  validateScenarioCoverageCompleteness(coverage);
+  validateAntiPatternSetup();
+  validateCorrectionLedgerSetup();
+  validateHoldoutExampleSetup();
+  validateGuidanceScriptSetup();
+  const baselineItem = validateGuidanceBaseline();
+  validateSliceGuidanceBindings(baselineItem);
+}
+
+function validatePolicySetup() {
+  validatePolicyIdentity();
+  validatePolicyRunRules();
+  validatePolicyComparisonRules();
+  validatePolicyCorrectionRules();
+  validateGuidanceBundlePaths();
+}
+
+function validatePolicyIdentity() {
   if (policy.schemaVersion !== 1 || policy.status !== "setup_draft") errors.push("Refactor guidance evaluation policy must be a schemaVersion 1 setup_draft.");
+}
+
+function validatePolicyRunRules() {
   if (policy.runPolicy?.firstAttemptOnly !== true || policy.runPolicy?.rerollsForbidden !== true || policy.runPolicy?.freshContextRequired !== true) errors.push("Guidance run policy must require fresh first attempts without rerolls.");
+}
+
+function validatePolicyComparisonRules() {
   if ((policy.comparisonPolicy?.minimumIndependentAttemptsPerVariant ?? 0) < 3 || (policy.comparisonPolicy?.minimumBlindHumanReviewers ?? 0) < 2) errors.push("Guidance comparison policy requires at least three attempts per variant and two blind human reviewers.");
   if (policy.comparisonPolicy?.maximumCriticalRegressions !== 0 || policy.comparisonPolicy?.maximumHighRegressions !== 0) errors.push("Guidance adoption must tolerate zero critical and high regressions.");
-  if (policy.correctionPolicy?.automaticPromotionForbidden !== true || policy.correctionPolicy?.humanDispositionRequired !== true) errors.push("Corrections must never promote automatically or without human disposition.");
-  for (const path of policy.guidanceBundlePaths ?? []) if (!existsSync(path)) errors.push(`Guidance bundle references missing path ${path}.`);
+}
 
+function validatePolicyCorrectionRules() {
+  if (policy.correctionPolicy?.automaticPromotionForbidden !== true || policy.correctionPolicy?.humanDispositionRequired !== true) errors.push("Corrections must never promote automatically or without human disposition.");
+}
+
+function validateGuidanceBundlePaths() {
+  for (const path of policy.guidanceBundlePaths ?? []) {
+    if (!existsSync(path)) errors.push(`Guidance bundle references missing path ${path}.`);
+  }
+}
+
+function validateScenarioSetup() {
   if (scenarioSet.schemaVersion !== 1 || !scenarioSet.suiteVersion || !Array.isArray(scenarioSet.scenarios)) errors.push("Public refactor eval scenarios must define schemaVersion 1 and a suite version.");
   duplicateIds(scenarioSet.scenarios, "Public refactor eval scenarios");
   const observedKinds = new Set();
   const coveredSlices = new Set();
   for (const scenario of scenarioSet.scenarios ?? []) {
-    const label = `Scenario ${scenario.id}`;
-    if (!allowedKinds.has(scenario.kind)) errors.push(`${label} has invalid kind ${scenario.kind}.`);
-    observedKinds.add(scenario.kind);
-    if (!scenario.fixedPrompt || typeof scenario.fixedInputs !== "object") errors.push(`${label} requires a fixed prompt and inputs.`);
-    const ids = requireArray(scenario.sliceIds, `${label}.sliceIds`, errors);
-    for (const id of ids) {
-      if (!sliceIds.has(id)) errors.push(`${label} references unknown slice ${id}.`);
-      coveredSlices.add(id);
-    }
-    const expected = scenario.mechanicalExpectations;
-    if (!expected || !allowedDecisions.has(expected.decision)) errors.push(`${label} has invalid mechanical decision.`);
-    if (expected?.selectedSliceId !== null && !sliceIds.has(expected?.selectedSliceId)) errors.push(`${label} references an unknown expected slice.`);
-    for (const id of expected?.requiredAntiPatternIds ?? []) if (!antiPatternsById.has(id)) errors.push(`${label} references unknown anti-pattern ${id}.`);
-    for (const path of expected?.requiredCitedPaths ?? []) if (!existsSync(path)) errors.push(`${label} requires missing citation path ${path}.`);
-    for (const path of expected?.allowedProposedChangePaths ?? []) if (!pathIsSafe(path)) errors.push(`${label} has unsafe allowed proposal path ${path}.`);
-    for (const gate of expected?.requiredGateNames ?? []) if (!manifest.scripts?.[gate]) errors.push(`${label} references missing package script ${gate}.`);
-    const criteria = requireArray(scenario.humanCriteria, `${label}.humanCriteria`, errors);
-    duplicateIds(criteria, `${label} human criteria`);
-    for (const criterion of criteria) if (!['critical', 'high', 'medium', 'low'].includes(criterion.criticality) || !criterion.rubric) errors.push(`${label}/${criterion.id} has an invalid human rubric.`);
-    if (scenario.humanValidated !== true) warnings.push(`${label} awaits human validation.`);
+    validateScenarioSetupEntry(scenario, observedKinds, coveredSlices);
   }
+  return { observedKinds, coveredSlices };
+}
+
+function validateScenarioSetupEntry(scenario, observedKinds, coveredSlices) {
+  const label = `Scenario ${scenario.id}`;
+  if (!allowedKinds.has(scenario.kind)) errors.push(`${label} has invalid kind ${scenario.kind}.`);
+  observedKinds.add(scenario.kind);
+  if (!scenario.fixedPrompt || typeof scenario.fixedInputs !== "object") errors.push(`${label} requires a fixed prompt and inputs.`);
+  const ids = requireArray(scenario.sliceIds, `${label}.sliceIds`, errors);
+  for (const id of ids) validateScenarioSlice(id, label, coveredSlices);
+  validateScenarioExpectations(scenario.mechanicalExpectations, label);
+  validateScenarioCriteria(scenario.humanCriteria, label);
+  if (scenario.humanValidated !== true) warnings.push(`${label} awaits human validation.`);
+}
+
+function validateScenarioSlice(id, label, coveredSlices) {
+  if (!sliceIds.has(id)) errors.push(`${label} references unknown slice ${id}.`);
+  coveredSlices.add(id);
+}
+
+function validateScenarioExpectations(expected, label) {
+  if (!expected || !allowedDecisions.has(expected.decision)) errors.push(`${label} has invalid mechanical decision.`);
+  if (expected?.selectedSliceId !== null && !sliceIds.has(expected?.selectedSliceId)) errors.push(`${label} references an unknown expected slice.`);
+  validateExpectedAntiPatterns(expected, label);
+  validateExpectedPaths(expected, label);
+  validateExpectedGates(expected, label);
+}
+
+function validateExpectedAntiPatterns(expected, label) {
+  for (const id of expected?.requiredAntiPatternIds ?? []) {
+    if (!antiPatternsById.has(id)) errors.push(`${label} references unknown anti-pattern ${id}.`);
+  }
+}
+
+function validateExpectedPaths(expected, label) {
+  for (const path of expected?.requiredCitedPaths ?? []) {
+    if (!existsSync(path)) errors.push(`${label} requires missing citation path ${path}.`);
+  }
+  for (const path of expected?.allowedProposedChangePaths ?? []) {
+    if (!pathIsSafe(path)) errors.push(`${label} has unsafe allowed proposal path ${path}.`);
+  }
+}
+
+function validateExpectedGates(expected, label) {
+  for (const gate of expected?.requiredGateNames ?? []) {
+    if (!manifest.scripts?.[gate]) errors.push(`${label} references missing package script ${gate}.`);
+  }
+}
+
+function validateScenarioCriteria(value, label) {
+  const criteria = requireArray(value, `${label}.humanCriteria`, errors);
+  duplicateIds(criteria, `${label} human criteria`);
+  for (const criterion of criteria) {
+    if (!['critical', 'high', 'medium', 'low'].includes(criterion.criticality) || !criterion.rubric) errors.push(`${label}/${criterion.id} has an invalid human rubric.`);
+  }
+}
+
+function validateScenarioCoverageCompleteness({ observedKinds, coveredSlices }) {
   for (const kind of allowedKinds) if (!observedKinds.has(kind)) errors.push(`Public suite lacks scenario kind ${kind}.`);
   for (const id of sliceIds) if (!coveredSlices.has(id)) errors.push(`Public suite does not cover slice ${id}.`);
+}
 
+function validateAntiPatternSetup() {
   if (antiPatternSet.schemaVersion !== 1 || !Array.isArray(antiPatternSet.antiPatterns)) errors.push("Refactor anti-pattern catalog must use schemaVersion 1.");
   duplicateIds(antiPatternSet.antiPatterns, "Refactor anti-pattern catalog");
-  for (const item of antiPatternSet.antiPatterns ?? []) {
-    if (!item.name || !item.description || !Array.isArray(item.observableIndicators) || item.observableIndicators.length < 2 || !item.requiredResponse || !['guidance', 'machine_control', 'mixed'].includes(item.landingLayer)) errors.push(`Anti-pattern ${item.id} is incomplete.`);
-    for (const id of item.sliceIds ?? []) if (!sliceIds.has(id)) errors.push(`Anti-pattern ${item.id} references unknown slice ${id}.`);
-    if (item.humanValidated !== true) warnings.push(`Anti-pattern ${item.id} awaits human validation.`);
-  }
+  for (const item of antiPatternSet.antiPatterns ?? []) validateAntiPatternSetupEntry(item);
+}
 
+function validateAntiPatternSetupEntry(item) {
+  if (!antiPatternEntryComplete(item)) errors.push(`Anti-pattern ${item.id} is incomplete.`);
+  for (const id of item.sliceIds ?? []) {
+    if (!sliceIds.has(id)) errors.push(`Anti-pattern ${item.id} references unknown slice ${id}.`);
+  }
+  if (item.humanValidated !== true) warnings.push(`Anti-pattern ${item.id} awaits human validation.`);
+}
+
+function antiPatternEntryComplete(item) {
+  return Boolean(item.name)
+    && Boolean(item.description)
+    && Array.isArray(item.observableIndicators)
+    && item.observableIndicators.length >= 2
+    && Boolean(item.requiredResponse)
+    && ['guidance', 'machine_control', 'mixed'].includes(item.landingLayer);
+}
+
+function validateCorrectionLedgerSetup() {
   if (ledger.schemaVersion !== 1 || !Array.isArray(ledger.entries) || ledger.policy?.automaticPromotionForbidden !== true) errors.push("Refactor correction ledger must use schemaVersion 1 and prohibit automatic promotion.");
   duplicateIds(ledger.entries, "Refactor correction ledger");
   for (const entry of ledger.entries ?? []) validateCorrectionEntry(entry, errors);
+}
 
+function validateHoldoutExampleSetup() {
   const holdoutExample = readJson(holdoutExamplePath);
   if (containsForbiddenHoldoutContent(holdoutExample) || holdoutExample.promptContentStoredInRepository !== false) errors.push("Holdout manifest example must contain commitments only.");
   if ((holdoutExample.scenarios ?? []).length < policy.comparisonPolicy.minimumHoldoutScenarios) errors.push("Holdout manifest example must demonstrate the minimum scenario count.");
+}
 
+function validateGuidanceScriptSetup() {
   if (!manifest.scripts?.["check:refactor-guidance"]?.includes("scripts/refactor-guidance-eval.mjs")) errors.push("package.json must define check:refactor-guidance.");
   if (!manifest.scripts?.["check:refactor-setup"]?.includes("npm run check:refactor-guidance")) errors.push("check:refactor-setup must run check:refactor-guidance.");
+}
 
+function validateGuidanceBaseline() {
   const baselineItem = (evidenceMatrix.globalItems ?? []).find((item) => item.id === "evaluated_refactor_guidance_baseline");
   if (!baselineItem) errors.push("Evidence matrix must define evaluated_refactor_guidance_baseline.");
   else if (baselineItem.status === "satisfied") {
@@ -469,19 +736,38 @@ function validateStaticSetup() {
       if (adoption.record?.decision !== "keep") errors.push("Adopted guidance comparison must have decision keep.");
     }
   } else warnings.push("The refactor guidance baseline has not yet passed its initial matched public and holdout comparison.");
+  return baselineItem;
+}
 
+function validateSliceGuidanceBindings(baselineItem) {
   for (const slice of registry.slices ?? []) {
-    if (slice.status === "not_started") continue;
-    if (!slice.assuranceRecord || !existsSync(slice.assuranceRecord)) continue;
-    const record = readJson(slice.assuranceRecord);
-    const binding = record.guidanceEvaluation;
-    if (!binding?.adoptionRecord || !binding.guidanceCommit || !binding.scenarioSuiteVersion || !binding.acknowledgedBy || !timestamps.test(binding.acknowledgedAt ?? "")) {
-      errors.push(`${slice.id} assurance record lacks an exact adopted guidance evaluation binding.`);
-      continue;
-    }
-    if (baselineItem?.adoptionRecord && binding.adoptionRecord !== baselineItem.adoptionRecord) errors.push(`${slice.id} assurance record does not reference the adopted guidance comparison.`);
-    if (binding.scenarioSuiteVersion !== scenarioSet.suiteVersion) errors.push(`${slice.id} assurance record uses a stale guidance scenario suite.`);
+    validateSliceGuidanceBinding(slice, baselineItem);
   }
+}
+
+function validateSliceGuidanceBinding(slice, baselineItem) {
+  if (slice.status === "not_started") return;
+  if (!slice.assuranceRecord || !existsSync(slice.assuranceRecord)) return;
+  const record = readJson(slice.assuranceRecord);
+  const binding = record.guidanceEvaluation;
+  if (!guidanceBindingComplete(binding)) {
+    errors.push(`${slice.id} assurance record lacks an exact adopted guidance evaluation binding.`);
+    return;
+  }
+  validateGuidanceBindingReferences(slice, binding, baselineItem);
+}
+
+function guidanceBindingComplete(binding) {
+  return Boolean(binding?.adoptionRecord)
+    && Boolean(binding.guidanceCommit)
+    && Boolean(binding.scenarioSuiteVersion)
+    && Boolean(binding.acknowledgedBy)
+    && timestamps.test(binding.acknowledgedAt ?? "");
+}
+
+function validateGuidanceBindingReferences(slice, binding, baselineItem) {
+  if (baselineItem?.adoptionRecord && binding.adoptionRecord !== baselineItem.adoptionRecord) errors.push(`${slice.id} assurance record does not reference the adopted guidance comparison.`);
+  if (binding.scenarioSuiteVersion !== scenarioSet.suiteVersion) errors.push(`${slice.id} assurance record uses a stale guidance scenario suite.`);
 }
 
 validateStaticSetup();

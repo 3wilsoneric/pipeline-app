@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:1b5ba6614c29a38f",
-  "fingerprint": "1b5ba6614c29a38f052017eed973b4afd924776aa22e824142386d19f56e258a",
+  "generatedAt": "source-fingerprint:ae141fe3bf2b8a56",
+  "fingerprint": "ae141fe3bf2b8a563db7fb9a6357cf8d9ede697bac8672916b4a81a018967b09",
   "totals": {
-    "files": 713,
-    "lines": 218371,
-    "coveredFiles": 713
+    "files": 731,
+    "lines": 222600,
+    "coveredFiles": 731
   },
   "entries": [
     {
@@ -110,7 +110,7 @@
       "kind": "documentation",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 21,
+      "lines": 22,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -194,7 +194,19 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 72,
+      "lines": 78,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "app/(pipeline)/note-lab/practice/page.tsx",
+      "subsystem": "App Router",
+      "kind": "react-component",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 30,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -919,7 +931,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 84,
+      "lines": 126,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1060,7 +1072,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 200,
+      "lines": 259,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1578,7 +1590,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 296,
+      "lines": 336,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1650,7 +1662,31 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 160,
+      "lines": 295,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/note-lab/AssessmentLabShell.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 44,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 332,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1662,7 +1698,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 488,
+      "lines": 534,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1758,7 +1794,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 271,
+      "lines": 279,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -1794,7 +1830,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 285,
+      "lines": 289,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2827,7 +2863,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 53,
+      "lines": 64,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3151,7 +3187,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 174,
+      "lines": 187,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3331,7 +3367,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 269,
+      "lines": 288,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3499,7 +3535,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 54,
+      "lines": 62,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3511,7 +3547,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 487,
+      "lines": 502,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3535,7 +3571,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 106,
+      "lines": 115,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3595,7 +3631,19 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 126,
+      "lines": 143,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 123,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3608,6 +3656,102 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 98,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/refactor-anti-patterns.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 149,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/refactor-correction-ledger.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 13,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/refactor-eval-response.example.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 14,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/refactor-eval-scenarios.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 367,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/refactor-guidance-comparison.example.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 46,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/refactor-guidance-evaluation-policy.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 83,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/refactor-guidance-run.example.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 59,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/refactor-holdout-manifest.example.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 28,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3643,7 +3787,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 143,
+      "lines": 150,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4207,7 +4351,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 519,
+      "lines": 623,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -4899,7 +5043,19 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 100,
+      "lines": 149,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "lib/note-lab/assessment-practice-scenario.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 30,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -4911,7 +5067,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 33,
+      "lines": 46,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -4923,7 +5079,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 344,
+      "lines": 354,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -4935,7 +5091,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 372,
+      "lines": 339,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -4959,7 +5115,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 339,
+      "lines": 340,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -4990,12 +5146,36 @@
       ]
     },
     {
+      "path": "lib/notifications/meet-client-attachment-policy.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 29,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/notifications/meet-client-attachments.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 187,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/notifications/meet-client-email-template.ts",
       "subsystem": "Repository configuration",
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 37,
+      "lines": 42,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -5007,7 +5187,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 124,
+      "lines": 337,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -5331,7 +5511,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 71,
+      "lines": 139,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -5343,7 +5523,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 207,
+      "lines": 408,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -5355,7 +5535,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 199,
+      "lines": 566,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -5427,7 +5607,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 107,
+      "lines": 111,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -5656,7 +5836,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 2692,
+      "lines": 2700,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -5935,7 +6115,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 168,
+      "lines": 194,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6067,7 +6247,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 215,
+      "lines": 218,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -6079,7 +6259,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 100,
+      "lines": 101,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -6470,6 +6650,18 @@
       ]
     },
     {
+      "path": "scripts/assessment-practice-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 69,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "scripts/assessment-workbook-contracts.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -6487,7 +6679,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 245,
+      "lines": 279,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7243,7 +7435,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 79,
+      "lines": 154,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7363,7 +7555,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 154,
+      "lines": 172,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7483,7 +7675,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 179,
+      "lines": 222,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7862,6 +8054,18 @@
       ]
     },
     {
+      "path": "scripts/refactor-guidance-eval.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 920,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/refactor-high-assurance-readiness.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -7879,7 +8083,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 151,
+      "lines": 165,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8294,6 +8498,18 @@
       ]
     },
     {
+      "path": "tests/e2e/note-lab-practice.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 40,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/operational/concurrent-referral-edits.scaffold.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -8623,7 +8839,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 61,
+      "lines": 63,
       "moduleIds": [
         "developer-toolchain",
         "system-map"

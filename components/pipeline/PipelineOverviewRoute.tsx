@@ -32,7 +32,7 @@ type ReferralSelection = { id: number; name?: string; community?: Referral["comm
 export default function PipelineOverviewRoute() {
   const { searchTerm, setSearchTerm, searchOpen, setSearchOpen, homeMode } = usePipelineShell();
   const searchParams = useSearchParams();
-  const locationSearch = usePipelineLocationSearch(searchParams?.toString() ?? "");
+  const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const screen = getScreenFromParams(activeSearchParams);
   const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
@@ -194,6 +194,10 @@ export default function PipelineOverviewRoute() {
       )}
     </div>
   );
+}
+
+function searchParamsText(searchParams: { toString(): string } | null) {
+  return searchParams ? searchParams.toString() : "";
 }
 
 function getInitialWorkspaceStage(params: URLSearchParams) {
