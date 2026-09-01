@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:930b23f2cfd5f3e8",
-  "fingerprint": "930b23f2cfd5f3e8eeb0eeec491eeccfce50772962d512463037d9ea64582e06",
+  "generatedAt": "source-fingerprint:e6da4e62f1e7c90f",
+  "fingerprint": "e6da4e62f1e7c90fb7145b5b61e7f4221a78b73bb05c8b917539c6ce6be69d3c",
   "totals": {
-    "files": 732,
-    "lines": 222776,
-    "coveredFiles": 732
+    "files": 730,
+    "lines": 222368,
+    "coveredFiles": 730
   },
   "entries": [
     {
@@ -194,7 +194,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 79,
+      "lines": 20,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1669,36 +1669,12 @@
       ]
     },
     {
-      "path": "components/pipeline/note-lab/AssessmentLabShell.tsx",
-      "subsystem": "Pipeline UI",
-      "kind": "react-component",
-      "runtime": "browser",
-      "risk": "standard",
-      "lines": 44,
-      "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
-      ]
-    },
-    {
       "path": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 336,
-      "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
-      ]
-    },
-    {
-      "path": "components/pipeline/note-lab/NoteLabWorkspace.tsx",
-      "subsystem": "Pipeline UI",
-      "kind": "react-component",
-      "runtime": "browser",
-      "risk": "standard",
-      "lines": 450,
+      "lines": 550,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1794,7 +1770,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 279,
+      "lines": 282,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -2094,7 +2070,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 529,
+      "lines": 499,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5055,7 +5031,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 30,
+      "lines": 29,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -6115,7 +6091,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 190,
+      "lines": 168,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8503,7 +8479,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 50,
+      "lines": 24,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8515,7 +8491,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 62,
+      "lines": 69,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
