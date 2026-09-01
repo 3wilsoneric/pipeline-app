@@ -1,7 +1,6 @@
 "use client";
 
 import { ReactNode, Suspense, useState } from "react";
-import { usePathname } from "next/navigation";
 
 import PipelineHeader from "@/components/pipeline/PipelineHeader";
 import DemoEnvironmentBanner from "@/components/pipeline/training/DemoEnvironmentBanner";
@@ -25,13 +24,8 @@ export default function PipelineAppShell({
           <PipelineHeader />
         </Suspense>
         <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
-        <RouteGuidedCoach />
+        <PipelineGuidedCoach />
       </div>
     </PipelineShellProvider>
   );
-}
-
-function RouteGuidedCoach() {
-  const pathname = usePathname();
-  return <PipelineGuidedCoach hideLauncher={pathname === "/note-lab/practice"} />;
 }

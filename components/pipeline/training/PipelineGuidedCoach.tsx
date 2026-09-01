@@ -59,7 +59,7 @@ type TargetInteraction = {
 
 const emptyTarget: TargetView = { element: null, rect: null, available: false };
 
-export default function PipelineGuidedCoach({ hideLauncher = false }: { hideLauncher?: boolean }) {
+export default function PipelineGuidedCoach() {
   const [state, setState] = useState<OperatorGuideState>(() => emptyOperatorGuideState());
   const [hydrated, setHydrated] = useState(false);
   const [role, setRole] = useState<OperatorRole>("viewer");
@@ -207,7 +207,9 @@ export default function PipelineGuidedCoach({ hideLauncher = false }: { hideLaun
   };
 
   if (!hydrated) return null;
-  if (fromPipelinePath(window.location.pathname) === "/training/demo") return null;
+  const pathname = fromPipelinePath(window.location.pathname);
+  if (pathname === "/training/demo") return null;
+  const hideLauncher = pathname === "/note-lab/practice";
   return <GuideCoachSurface hideLauncher={hideLauncher} state={state} role={role} tutorial={tutorial} step={step} target={target} exchange={exchange} command={command} onStart={startTutorial} onCommit={commit} onAdvance={advance} onCommandChange={setCommand} onSubmit={submitCommand} onExchange={setExchange} />;
 }
 

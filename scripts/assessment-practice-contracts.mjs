@@ -8,7 +8,6 @@ const read = (file) => readFileSync(file, "utf8");
 const access = read("lib/note-lab/note-lab-access.ts");
 const page = read("app/(pipeline)/note-lab/practice/page.tsx");
 const workspace = read("components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx");
-const shell = read("components/pipeline/PipelineAppShell.tsx");
 const coach = read("components/pipeline/training/PipelineGuidedCoach.tsx");
 const scenarioSource = read("lib/note-lab/assessment-practice-scenario.ts");
 const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
@@ -72,7 +71,7 @@ check("practice mirrors the production assessment interaction model",
   && workspace.includes('type="checkbox"')
   && workspace.includes("setAssessmentUnableReason"));
 check("the resting guide launcher is hidden on the assessment practice route",
-  shell.includes('hideLauncher={pathname === "/note-lab/practice"}')
+  coach.includes('pathname === "/note-lab/practice"')
   && coach.includes("hideLauncher ? null : <GuideLauncher"));
 
 const failed = checks.filter((item) => !item.ok);
