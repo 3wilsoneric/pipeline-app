@@ -49,9 +49,14 @@ check("only one bounded field scenario is returned", store.includes("const baseS
 check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LAB_CALIBRATION_TARGET")
   && store.includes("reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET)")
   && store.includes("This calibration is already complete."));
-check("UI defines a standard and judges a historical answer", workspace.includes("Required evidence")
-  && workspace.includes("Historical answer") && workspace.includes("Teach as written")
+check("UI explains the supervisor workflow before requesting decisions", workspace.includes("Set the writing standard for assessment answers")
+  && workspace.includes("Confirm required content") && workspace.includes("Judge the example")
+  && workspace.includes("Save and continue") && workspace.includes("do not change a client record"));
+check("UI defines a standard and judges a historical answer", workspace.includes("What must every answer include?")
+  && workspace.includes("Would you use this as an example for assessors?") && workspace.includes("Teach as written")
   && workspace.includes("Useful, but revise") && workspace.includes("Do not teach"));
+check("sample-free UI gives an explicit next action", workspace.includes("No historical answers are mapped in this environment")
+  && workspace.includes("Nothing else is required here") && workspace.includes("Example skipped"));
 check("field scenarios come from canonical writing specifications", engine.includes("getAssessmentNarrativeGuideCoverage().coveredFields")
   && engine.includes("getAssessmentFieldWritingSpec(field)") && engine.includes("formatStandard"));
 check("historical text must map to a canonical assessment field", engine.includes("classifyAssessmentNarrativeField")

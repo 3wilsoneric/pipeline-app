@@ -110,6 +110,7 @@ export default function NoteLabWorkspace({
   return (
     <LabFrame reviewerName={reviewerName}>
       <main className="border border-[#cfd7d4] bg-white">
+        <WorkflowGuide session={session} hasCurrentSample={Boolean(scenario.reviewSample)} />
         <CalibrationProgress session={session} />
         <div className="border-t border-[#d8dfdc] px-4 py-5 sm:px-7 sm:py-7">
           <CompletedTrail session={session} />
@@ -117,7 +118,7 @@ export default function NoteLabWorkspace({
           <header className="grid gap-3 border-b border-[#d8dfdc] pb-5 md:grid-cols-[minmax(0,1fr)_260px] md:gap-8">
             <div>
               <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f7a67]">
-                Field {session.calibration.currentStep} of {session.calibration.targetDecisions} · {humanize(scenario.purposeTrack)}
+                Current field · {session.calibration.currentStep} of {session.calibration.targetDecisions}
               </div>
               <h1 className="mt-1.5 text-[24px] font-black tracking-[-0.035em] text-[#202522] sm:text-[28px]">
                 {scenario.targetFieldLabel}
@@ -127,15 +128,17 @@ export default function NoteLabWorkspace({
               </p>
             </div>
             <div className="border-l-2 border-[#8db9aa] bg-[#f4f8f6] px-4 py-3 text-[10px] leading-5 text-[#4e5c56]">
-              <span className="font-black text-[#24302b]">Quality test:</span> {scenario.reviewQuestion}
+              <span className="block text-[9px] font-black uppercase tracking-[0.08em] text-[#0f7a67]">A strong answer should</span>
+              <span className="mt-1 block">{scenario.reviewQuestion}</span>
             </div>
           </header>
 
           <section className="py-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2 className="text-[14px] font-black text-[#252c28]">Required evidence</h2>
-                <p className="mt-1 text-[10px] font-semibold text-[#75807b]">The evidence-based draft is selected. Remove anything that should not be required for this field.</p>
+                <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">Step 1</div>
+                <h2 className="mt-1 text-[14px] font-black text-[#252c28]">What must every answer include?</h2>
+                <p className="mt-1 text-[10px] font-semibold text-[#75807b]">The suggested requirements are already selected. Deselect an item only if it should not be required every time this field is completed.</p>
               </div>
               <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f7a67]">{selectedCriterionIds.length} required</span>
             </div>
@@ -176,9 +179,12 @@ export default function NoteLabWorkspace({
             <span className="font-black text-[#3e392f]">Do not cross this line:</span> {scenario.guardrail}
           </div>
 
-          <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#d8dfdc] pt-4">
-            <div role="status" className={`max-w-[620px] text-[10px] ${error ? "font-bold text-[#a44337]" : "text-[#6f7a75]"}`}>
-              {error ?? submissionHint(scenario.reviewSample !== null, selectedCriterionIds.length, sampleDisposition, revisionReasonIds.length)}
+          <footer className="sticky bottom-0 z-10 -mx-4 mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#d8dfdc] bg-white/95 px-4 py-3 shadow-[0_-8px_20px_rgba(32,37,34,0.06)] backdrop-blur sm:-mx-7 sm:px-7">
+            <div>
+              <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">Step 3</div>
+              <div role="status" className={`mt-1 max-w-[620px] text-[10px] ${error ? "font-bold text-[#a44337]" : "text-[#6f7a75]"}`}>
+                {error ?? submissionHint(scenario.reviewSample !== null, selectedCriterionIds.length, sampleDisposition, revisionReasonIds.length)}
+              </div>
             </div>
             <button
               type="button"
@@ -193,6 +199,41 @@ export default function NoteLabWorkspace({
         </div>
       </main>
     </LabFrame>
+  );
+}
+
+function WorkflowGuide({ session, hasCurrentSample }: { session: NoteLabSession; hasCurrentSample: boolean }) {
+  const hasSamples = session.stats.corpusSamplesAvailable > 0;
+  return (
+    <section aria-labelledby="note-lab-purpose" className="border-b border-[#d8dfdc] bg-[#f7faf8] px-4 py-4 sm:px-7">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div>
+          <h1 id="note-lab-purpose" className="text-[15px] font-black tracking-[-0.02em] text-[#202522]">Set the writing standard for assessment answers</h1>
+          <p className="mt-1 max-w-[760px] text-[10px] font-semibold leading-5 text-[#626d68]">
+            Review one free-text field at a time. Your saved choices become the field-specific guidance assessors see while documenting; they do not change a client record or make an admission decision.
+          </p>
+        </div>
+        <ol aria-label="Review steps" className="grid min-w-0 gap-1.5 text-[9px] font-bold text-[#4e5a54] sm:grid-cols-3 lg:w-[440px]">
+          <WorkflowStep number="1" label="Confirm required content" />
+          <WorkflowStep number="2" label={hasCurrentSample ? "Judge the example" : "Example skipped"} muted={!hasCurrentSample} />
+          <WorkflowStep number="3" label="Save and continue" />
+        </ol>
+      </div>
+      {!hasSamples ? (
+        <div className="mt-3 border-l-2 border-[#b9924f] bg-[#fffaf0] px-3 py-2 text-[9px] font-semibold leading-4 text-[#665b46]">
+          No historical answers are mapped in this environment. You can still define every field standard; example review will appear after the note corpus is connected.
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function WorkflowStep({ number, label, muted = false }: { number: string; label: string; muted?: boolean }) {
+  return (
+    <li className={`flex min-h-8 items-center gap-2 border px-2.5 ${muted ? "border-[#dde2df] bg-[#f0f2f1] text-[#848d89]" : "border-[#ccd8d3] bg-white"}`}>
+      <span className={`flex h-4 w-4 shrink-0 items-center justify-center text-[8px] font-black ${muted ? "bg-[#dfe4e2] text-[#6f7974]" : "bg-[#0f8b73] text-white"}`}>{number}</span>
+      <span>{label}</span>
+    </li>
   );
 }
 
@@ -217,7 +258,7 @@ function DraftStandard({ scenario }: { scenario: NonNullable<NoteLabSession["sce
   return (
     <section className="grid border border-[#d2dad7] bg-[#f8faf9] lg:grid-cols-[250px_minmax(0,1fr)]">
       <div className="border-b border-[#d2dad7] p-4 lg:border-b-0 lg:border-r">
-        <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#6d7873]">Draft answer format</div>
+        <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#6d7873]">Guidance assessors will see</div>
         <div className="mt-2 text-[14px] font-black text-[#27302c]">{scenario.formatStandard.label}</div>
         <div className="mt-1 text-[10px] font-semibold text-[#707a75]">{scenario.formatStandard.lengthGuidance}</div>
         <div className="mt-4 border-t border-[#dde3e0] pt-3 text-[10px] font-bold leading-5 text-[#43504a]">
@@ -265,8 +306,9 @@ function HistoricalAnswerReview({
   if (!sample) {
     return (
       <section className="mt-4 border border-dashed border-[#cfd7d4] bg-[#fafbfa] p-5">
-        <div className="text-[11px] font-black text-[#3b4540]">No reliable historical answer for this field</div>
-        <p className="mt-1 text-[10px] leading-5 text-[#737d79]">Save the field standard without judging a sample. This gap will remain visible for future corpus work.</p>
+        <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#87908c]">Example review unavailable</div>
+        <div className="mt-1 text-[11px] font-black text-[#3b4540]">There is no mapped historical answer for this field yet.</div>
+        <p className="mt-1 text-[10px] leading-5 text-[#737d79]">Nothing else is required here. Confirm the content requirements above, then save this field and continue.</p>
       </section>
     );
   }
@@ -275,7 +317,8 @@ function HistoricalAnswerReview({
     <section className="mt-4 border border-[#d2dad7] bg-white">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dce2df] bg-[#f7f8f7] px-4 py-3">
         <div>
-          <h2 className="text-[12px] font-black text-[#27302c]">Historical answer</h2>
+          <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">Step 2</div>
+          <h2 className="mt-1 text-[12px] font-black text-[#27302c]">Would you use this as an example for assessors?</h2>
           <p className="mt-0.5 text-[9px] font-semibold text-[#7b8580]">Redacted · {humanize(sample.sourceSection)} · {sample.wordCount} words · not pre-approved</p>
         </div>
         <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#5e6964]"><ShieldCheck size={13} aria-hidden="true" /> Supervisor review required</span>
@@ -336,7 +379,7 @@ function LabFrame({ reviewerName, children }: { reviewerName: string; children: 
     <div className="pipeline-route-enter h-full overflow-y-auto bg-[#f4f6f5]">
       <div className="mx-auto max-w-[1120px] px-3 py-4 sm:px-6 lg:py-6">
         <header className="flex min-h-12 items-center justify-between gap-4 border border-b-0 border-[#cfd7d4] bg-white px-4 sm:px-6">
-          <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Assessment language standard</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Assessment note standards</span>
           <span className="text-[10px] font-bold text-[#737d79]">{reviewerName}</span>
         </header>
         {children}
@@ -351,8 +394,8 @@ function CalibrationProgress({ session }: { session: NoteLabSession }) {
     <div className="px-4 py-4 sm:px-7">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <div className="text-[11px] font-black text-[#252c28]">15 field reviews</div>
-          <div className="mt-1 text-[9px] font-semibold text-[#7a847f]">About {calibration.estimatedMinutesRemaining} minutes remaining · each field saves independently · {session.stats.corpusSamplesAvailable} mapped answers available</div>
+          <div className="text-[11px] font-black text-[#252c28]">Review progress</div>
+          <div className="mt-1 text-[9px] font-semibold text-[#7a847f]">About {calibration.estimatedMinutesRemaining} minutes remaining · each field saves independently</div>
         </div>
         <div className="text-right text-[10px] font-black text-[#0f7a67]">{calibration.decisionsCompleted} / {calibration.targetDecisions}</div>
       </div>
@@ -367,21 +410,19 @@ function CompletedTrail({ session }: { session: NoteLabSession }) {
   const recent = session.calibration.trail.slice(-3);
   if (recent.length === 0) return null;
   return (
-    <ol aria-label="Completed calibration fields" className="mb-4 space-y-1.5">
-      {recent.map((item) => (
-        <li key={item.step} className="flex items-center gap-3">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#b9d2c9] bg-[#edf7f3] text-[#0f7a67]"><Check size={13} strokeWidth={2.4} aria-hidden="true" /></span>
-          <div className="min-w-0 flex-1 border border-[#e0e5e3] bg-[#fafbfa] px-3 py-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="truncate text-[10px] font-black text-[#46514c]">{item.targetFieldLabel}</span>
-              <span className="shrink-0 text-[8px] font-bold uppercase tracking-[0.08em] text-[#87918c]">
-                {item.selectedCriterionIds.length} requirements · {item.sampleDisposition ? dispositionLabel(item.sampleDisposition) : "No sample"}
-              </span>
-            </div>
-          </div>
-        </li>
-      ))}
-    </ol>
+    <details className="group mb-4 border border-[#e0e5e3] bg-[#fafbfa]">
+      <summary className="cursor-pointer list-none px-3 py-2 text-[9px] font-black text-[#5d6863] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]">
+        {session.calibration.decisionsCompleted} completed field{session.calibration.decisionsCompleted === 1 ? "" : "s"} · show recent
+      </summary>
+      <ol aria-label="Completed calibration fields" className="border-t border-[#e0e5e3] px-3 py-2">
+        {recent.map((item) => (
+          <li key={item.step} className="flex items-center justify-between gap-3 py-1 text-[9px]">
+            <span className="flex min-w-0 items-center gap-2 font-bold text-[#46514c]"><Check size={11} className="shrink-0 text-[#0f7a67]" aria-hidden="true" /><span className="truncate">{item.targetFieldLabel}</span></span>
+            <span className="shrink-0 text-[8px] font-bold uppercase tracking-[0.06em] text-[#87918c]">{item.selectedCriterionIds.length} requirements · {item.sampleDisposition ? dispositionLabel(item.sampleDisposition) : "No example"}</span>
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }
 
