@@ -22,7 +22,7 @@ export default function PipelineHeader() {
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeSearchParams = new URLSearchParams(usePipelineLocationSearch(searchParams.toString()));
+  const activeSearchParams = new URLSearchParams(usePipelineLocationSearch(searchParams?.toString() ?? ""));
   const auth = usePipelineAuth();
   const { homeMode, searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
