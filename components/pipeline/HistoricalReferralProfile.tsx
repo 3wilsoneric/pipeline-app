@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Archive, FileSearch, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Archive, FileSearch } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { HistoricalProfileResponse } from "@/lib/pipeline/historical-profile-contracts";
@@ -61,17 +61,13 @@ export default function HistoricalReferralProfile({ referral }: { referral: Refe
 
       {profile ? (
         <>
-          <section className="grid border-l border-t border-[#d7ddd9] sm:grid-cols-3">
-            <CoverageFact label="Source canvases" value={profile.coverage.sourceCount} />
-            <CoverageFact label="Field-mapped statements" value={profile.coverage.mappedPassageCount} />
-            <CoverageFact label="Needs source review" value={profile.coverage.unmappedPassageCount} />
-          </section>
-
           {profile.message ? (
-            <section className="border border-[#d7ddd9] px-4 py-8 text-center">
-              <FileSearch size={22} className="mx-auto text-[#68716d]" aria-hidden="true" />
-              <p className="mt-3 text-[12px] font-black text-[#303633]">{profile.message}</p>
-              <p className="mt-1 text-[10px] leading-5 text-[#737373]">The source files remain available from the Files view.</p>
+            <section className="flex items-start gap-3 border border-[#d7ddd9] bg-white px-4 py-3">
+              <FileSearch size={17} className="mt-0.5 shrink-0 text-[#68716d]" aria-hidden="true" />
+              <div>
+                <p className="text-[11px] font-bold text-[#303633]">No assessment notes were captured for this record.</p>
+                <p className="mt-0.5 text-[10px] leading-4 text-[#737373]">Use Source files to review the original material.</p>
+              </div>
             </section>
           ) : null}
 
@@ -137,12 +133,9 @@ export default function HistoricalReferralProfile({ referral }: { referral: Refe
             </details>
           ) : null}
 
-          <section className="flex items-start gap-3 border-l-2 border-[#0f8b73] bg-[#eff8f5] px-4 py-3">
-            <ShieldCheck size={17} className="mt-0.5 shrink-0 text-[#0c705f]" aria-hidden="true" />
-            <p className="text-[10px] leading-5 text-[#385c53]">
-              Historical mapping is a retrieval aid. It does not establish current status, satisfy a required assessment question, or authorize reuse without verification during a new assessment.
-            </p>
-          </section>
+          <p className="border-t border-[#d7ddd9] pt-3 text-[9px] leading-4 text-[#68716d]">
+            Any historical notes must be verified before reuse in a current assessment.
+          </p>
         </>
       ) : null}
     </div>
@@ -151,10 +144,6 @@ export default function HistoricalReferralProfile({ referral }: { referral: Refe
 
 function ProfileFact({ label, value }: { label: string; value: string }) {
   return <div className="min-w-0 border-b border-r border-[#d7ddd9] px-3 py-2.5"><div className="text-[8px] font-black uppercase tracking-[0.08em] text-[#7b827f]">{label}</div><div className="mt-1 truncate text-[10px] font-bold text-[#303633]" title={value}>{value}</div></div>;
-}
-
-function CoverageFact({ label, value }: { label: string; value: number }) {
-  return <div className="border-b border-r border-[#d7ddd9] px-4 py-3"><div className="text-[17px] font-black text-[#111111]">{value}</div><div className="mt-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#737b77]">{label}</div></div>;
 }
 
 function sourcePeriod(referral: Referral) {

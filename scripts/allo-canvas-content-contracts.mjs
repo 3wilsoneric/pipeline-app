@@ -110,6 +110,23 @@ const noHeading = finalizeSnapshot({
 });
 check("unscoped text is not silently classified", noHeading.block_count === 1 && noHeading.candidates.length === 0);
 
+const legacyRenderedForm = finalizeSnapshot({
+  ...snapshotInput,
+  source_canvas_id: "synthetic-canvas-legacy-form",
+  blocks: [
+    { block_type: "paragraph", text: "Responsible Person:" },
+    { block_type: "paragraph", text: "Synthetic coordinator" },
+    { block_type: "paragraph", text: "Client is alert and oriented, reports sleeping six hours, and denies current AH or VH." },
+    { block_type: "heading", text: "Summary" },
+    { block_type: "heading", text: "Interview" },
+    { block_type: "heading", text: "Instructions" },
+  ],
+});
+check("legacy rendered forms recover narrative placed before the visual Summary heading",
+  legacyRenderedForm.candidates.length === 1
+    && legacyRenderedForm.candidates[0].proposed_value.includes("alert and oriented")
+    && !legacyRenderedForm.candidates[0].proposed_value.includes("Instructions"));
+
 const directory = await mkdtemp(path.join(tmpdir(), "pipeline-allo-content-"));
 const markdownPath = path.join(directory, "content.md");
 const csvPath = path.join(directory, "index.csv");

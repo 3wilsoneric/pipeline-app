@@ -47,6 +47,10 @@ check("historical profile contracts distinguish mapped and unmapped evidence",
 check("database lookup prefers the exact referral link with canvas identity fallback",
   store.includes("s.referral_id = ${referral.id}") && store.includes("s.source_canvas_id = ${referral.sourceWorkspaceId ?? null}")
     && !store.includes("and s.source_canvas_name = ${") && !store.includes("referral.name"));
+check("historical profiles recover bounded legacy Summary content from stored source blocks",
+  store.includes("recoverLegacyCanvasAssessmentCandidate")
+    && store.includes("pipeline.canvas_content_blocks")
+    && store.includes("not exists ("));
 check("private manifests remain disabled in production",
   store.includes("process.env.NODE_ENV === \"production\"") && store.includes("PIPELINE_NOTE_LAB_MANIFEST_PATH"));
 check("historical profile API is authenticated, access-scoped, and no-store",
@@ -62,7 +66,8 @@ check("historical workspace removes mutation affordances",
     && canvas.includes("readOnly={isHistoricalWorkspace}"));
 check("historical UI clearly distinguishes retrieval from current assessment",
   historicalWorkspace.includes("This is not a completed assessment")
-    && historicalWorkspace.includes("does not establish current status")
+    && historicalWorkspace.includes("historical notes must be verified before reuse")
+    && !historicalWorkspace.includes("CoverageFact")
     && historicalWorkspace.includes("Source notes needing structure"));
 check("historical projection code contains no clinical writes",
   !store.includes("insert into pipeline.assessments") && !store.includes("update pipeline.assessments")

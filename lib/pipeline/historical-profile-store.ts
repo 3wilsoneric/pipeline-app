@@ -4,6 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
+import { recoverLegacyCanvasAssessmentCandidate } from "@/lib/pipeline/allo-note-recovery.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { buildHistoricalProfile } from "@/lib/pipeline/historical-profile";
 import type {
@@ -19,6 +20,18 @@ type CanvasCandidateRow = {
   source_locator: string | null;
   captured_at: string | null;
   proposed_value: string | null;
+};
+
+type CanvasBlockRow = {
+  canvas_content_snapshot_id: string;
+  source_canvas_id: string;
+  source_canvas_name: string;
+  source_project_name: string | null;
+  source_locator: string | null;
+  captured_at: string | null;
+  source_block_id: string;
+  block_type: string;
+  text: string;
 };
 
 type ManifestSnapshot = {
@@ -76,7 +89,7 @@ async function postgresCandidates(referral: Referral): Promise<HistoricalProfile
       )
     order by s.captured_at desc, c.canvas_content_candidate_id
   `;
-  return rows.flatMap((row) => row.proposed_value ? [{
+  const imported = rows.flatMap((row) => row.proposed_value ? [{
     candidateId: row.candidate_id,
     sourceCanvasId: row.source_canvas_id,
     sourceCanvasName: row.source_canvas_name,
@@ -85,6 +98,63 @@ async function postgresCandidates(referral: Referral): Promise<HistoricalProfile
     capturedAt: row.captured_at,
     proposedValue: row.proposed_value,
   }] : []);
+  const recovered = await postgresLegacyCandidates(referral);
+  return [...imported, ...recovered];
+}
+
+async function postgresLegacyCandidates(referral: Referral): Promise<HistoricalProfileCandidateSource[]> {
+  const rows = await getPipelineSql()<CanvasBlockRow[]>`
+    select
+      s.canvas_content_snapshot_id::text,
+      s.source_canvas_id,
+      s.source_canvas_name,
+      s.source_project_name,
+      s.source_locator,
+      s.captured_at::text,
+      b.source_block_id,
+      b.block_type,
+      b.text_content as text
+    from pipeline.canvas_content_snapshots s
+    join pipeline.canvas_content_blocks b
+      on b.canvas_content_snapshot_id = s.canvas_content_snapshot_id
+    where (
+      s.referral_id = ${referral.id}
+      or (
+        s.referral_id is null
+        and ${referral.sourceWorkspaceId ?? null}::text is not null
+        and s.source_canvas_id = ${referral.sourceWorkspaceId ?? null}
+      )
+    )
+    and not exists (
+      select 1
+      from pipeline.canvas_content_field_candidates c
+      where c.canvas_content_snapshot_id = s.canvas_content_snapshot_id
+        and c.target_field_key = 'assessment_notes'
+    )
+    order by s.captured_at desc, s.canvas_content_snapshot_id, b.ordinal
+  `;
+
+  const snapshots = new Map<string, CanvasBlockRow[]>();
+  for (const row of rows) {
+    const current = snapshots.get(row.canvas_content_snapshot_id) ?? [];
+    current.push(row);
+    snapshots.set(row.canvas_content_snapshot_id, current);
+  }
+
+  return [...snapshots.entries()].flatMap(([snapshotId, blocks]) => {
+    const recovered = recoverLegacyCanvasAssessmentCandidate(blocks);
+    const source = blocks[0];
+    if (!recovered || !source) return [];
+    return [{
+      candidateId: `recovered:${snapshotId}`,
+      sourceCanvasId: source.source_canvas_id,
+      sourceCanvasName: source.source_canvas_name,
+      sourceProjectName: source.source_project_name,
+      sourceLocator: source.source_locator,
+      capturedAt: source.captured_at,
+      proposedValue: recovered.proposedValue,
+    }];
+  });
 }
 
 async function localManifestCandidates(sourceCanvasId: string | undefined) {

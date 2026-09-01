@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:5f59ac29ecc08f25",
-  "fingerprint": "5f59ac29ecc08f25d1641e368ecde7aace0d0b3c6ee8c3c3e881c31a5ac80f62",
+  "generatedAt": "source-fingerprint:a59bafea2d0fb8d1",
+  "fingerprint": "a59bafea2d0fb8d107e8f722c47faa3c031aa3fc40eafede8d334a7212de720c",
   "totals": {
-    "files": 706,
-    "lines": 218000,
-    "coveredFiles": 706
+    "files": 708,
+    "lines": 218183,
+    "coveredFiles": 708
   },
   "entries": [
     {
@@ -1650,7 +1650,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 171,
+      "lines": 160,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5050,6 +5050,30 @@
       ]
     },
     {
+      "path": "lib/pipeline/allo-note-recovery.d.mts",
+      "subsystem": "Referral domain",
+      "kind": "repository-file",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 16,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
+      ]
+    },
+    {
+      "path": "lib/pipeline/allo-note-recovery.mjs",
+      "subsystem": "Referral domain",
+      "kind": "tooling",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 67,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
+      ]
+    },
+    {
       "path": "lib/pipeline/assessment-calendar.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
@@ -5295,7 +5319,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 137,
+      "lines": 207,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -6283,7 +6307,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 420,
+      "lines": 439,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6295,7 +6319,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 152,
+      "lines": 169,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7183,7 +7207,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 74,
+      "lines": 79,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

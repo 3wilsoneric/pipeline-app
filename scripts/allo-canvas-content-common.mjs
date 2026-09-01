@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { recoverLegacyCanvasAssessmentCandidate } from "../lib/pipeline/allo-note-recovery.mjs";
 import { validateCanvasRecordLink } from "./allo-canvas-record-linking.mjs";
 
 export const alloCanvasContentVersion = 1;
@@ -151,7 +152,15 @@ export function finalizeSnapshot(input) {
 }
 
 export function deriveAssessmentCandidates(snapshot) {
-  const sections = sectionedBlocks(snapshot.blocks);
+  const explicitSections = sectionedBlocks(snapshot.blocks);
+  const recovered = recoverLegacyCanvasAssessmentCandidate(snapshot.blocks);
+  const recoveredSections = recovered
+    ? recovered.sourceBlockIds.flatMap((sourceBlockId) => {
+      const block = snapshot.blocks.find((item) => item.source_block_id === sourceBlockId);
+      return block ? [{ section: "summary", label: "Summary", block }] : [];
+    })
+    : [];
+  const sections = deduplicateSections([...recoveredSections, ...explicitSections]);
   if (sections.length === 0) return [];
   const note = groupSections(sections).map(renderSection).filter(Boolean).join("\n\n");
   if (!note) return [];
@@ -159,10 +168,20 @@ export function deriveAssessmentCandidates(snapshot) {
   return [{
     target_field_key: "assessment_notes",
     proposed_value: note,
-    mapping_confidence: 0.95,
+    mapping_confidence: recovered ? recovered.mappingConfidence : 0.95,
     source_block_ids: sections.map((item) => item.block.source_block_id),
     review_status: "pending",
   }];
+}
+
+function deduplicateSections(sections) {
+  const seen = new Set();
+  return sections.filter((item) => {
+    const id = item.block.source_block_id;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }
 
 function sectionedBlocks(blocks) {
