@@ -71,6 +71,7 @@ export default function PipelineHeader() {
     && activeNav === null
     && !operationsActive
     && !searchOpen;
+  const hideGlobalGuide = pathname === "/note-lab" || pathname.startsWith("/note-lab/");
 
   const navigateTo = (target: "home" | Exclude<PipelineNavTarget, null> | "operations" | "trash") => {
     setSearchOpen(false);
@@ -141,16 +142,18 @@ export default function PipelineHeader() {
       </div>
 
       <div className="relative z-10 ml-auto flex items-center">
-        <button
-          type="button"
-          aria-label="Open guided tutorials"
-          title="Guided tutorials"
-          data-guide-target="guided-help"
-          onClick={() => dispatchOperatorGuide({ type: "open-library" })}
-          className="mr-1 flex h-12 w-10 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 max-[359px]:h-9 max-[359px]:w-9"
-        >
-          <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
-        </button>
+        {!hideGlobalGuide ? (
+          <button
+            type="button"
+            aria-label="Open guided tutorials"
+            title="Guided tutorials"
+            data-guide-target="guided-help"
+            onClick={() => dispatchOperatorGuide({ type: "open-library" })}
+            className="mr-1 flex h-12 w-10 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 max-[359px]:h-9 max-[359px]:w-9"
+          >
+            <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        ) : null}
         <div ref={profileMenuRef} className="relative">
           <button
             type="button"

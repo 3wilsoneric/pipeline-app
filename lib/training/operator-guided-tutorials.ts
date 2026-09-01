@@ -38,23 +38,6 @@ const leadRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "
 
 export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   tutorial(
-    "practice-assessment",
-    "Practice the assessment",
-    "Complete five assessment actions with a synthetic record.",
-    "Assessment practice",
-    "Navigate, answer a conditional question, and write one note.",
-    5,
-    writeRoles,
-    ["assessment-questionnaire"],
-    [
-      step("practice-sections", "/note-lab/practice", "practice-function-section", "Navigate", "Open Function", "Use the section rail to move through the assessment.", "Select Function in the section rail.", "Function is open.", "The practice path matches the live assessment.", "Use only synthetic information in this practice record.", "target-click", "right"),
-      step("practice-condition", "/note-lab/practice", "practice-assistance-level", "Answer", "Set dressing support", "This answer reveals the conditional detail field.", "Choose Some assistance or Total assistance.", "The detail field appears.", "Conditional questions show only relevant follow-ups.", "Use only synthetic information in this practice record.", "target-change", "bottom"),
-      step("practice-detail", "/note-lab/practice", "practice-assistance-details", "Write", "Describe the support", "Enter one specific sentence about dressing support.", "Name the task and assistance needed.", "The detail is present.", "Specific functional support is easier to act on.", "The guide detects typing but does not read or store the answer.", "target-input", "bottom"),
-      step("practice-clinical", "/note-lab/practice", "practice-clinical-section", "Navigate", "Open Clinical", "Return to the section rail for the Clinical fields.", "Select Clinical in the section rail.", "Clinical is open.", "The practice sequence matches the production form.", "This is writing practice, not clinical decision support.", "target-click", "right"),
-      step("practice-narrative", "/note-lab/practice", "practice-current-symptoms", "Write", "Add current symptoms", "Enter one current-symptoms note using synthetic facts.", "Record observation, report, and effect.", "The note is present.", "A consistent note structure makes review more reliable.", "Do not copy examples as facts or enter real client information.", "target-input", "bottom"),
-    ],
-  ),
-  tutorial(
     "first-shift",
     "Run your start-of-shift workflow",
     "Start with assigned work, narrow the active referral queue, check the assessment calendar, and return with a clear next action.",

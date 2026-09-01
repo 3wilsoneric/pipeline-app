@@ -1,49 +1,23 @@
 import { expect, test } from "@playwright/test";
 
-test("assessment field progress is user-scoped, resumable, and directly navigable", async ({ page }) => {
+test("the former language route resolves to the combined question workflow", async ({ page }) => {
   const response = await page.goto("/note-lab");
   expect(response?.ok()).toBeTruthy();
+  await expect(page).toHaveURL(/\/note-lab\/practice$/);
 
-  const rail = page.getByRole("complementary", { name: "Assessment field progress" });
-  const fields = rail.getByRole("button", { name: /^Field \d+:/ });
-  await expect(fields).toHaveCount(15);
+  const rail = page.getByRole("complementary", { name: "Assessment question navigation" });
+  await expect(rail.getByRole("button", { name: "Resident name", exact: true })).toHaveAttribute("aria-current", "step");
+  await expect(page.getByText("Save and continue", { exact: true })).toHaveCount(0);
 
-  const firstField = fields.nth(0);
-  await expect(firstField).toHaveAttribute("aria-current", "step");
-  expect(await reviewedFieldCount(fields)).toBe(0);
-  await expect(page.getByText("Past note to review")).toHaveCount(0);
-  await expect(page.getByText("No historical example for this field.")).toHaveCount(0);
+  await rail.getByRole("button", { name: "Date of birth", exact: true }).click();
+  const guidance = page.getByRole("dialog", { name: "Date of birth" });
+  await expect(guidance).toBeVisible();
+  await guidance.getByRole("button", { name: "OK, go to question" }).click();
+  await expect(page.getByRole("dialog", { name: "Guided step for Date of birth" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Save and continue" }).click();
-  await expect(fields.nth(1)).toHaveAttribute("aria-current", "step");
-  expect(await reviewedFieldCount(fields)).toBe(1);
+  await page.getByRole("button", { name: "Next question" }).click();
+  await expect(page.getByRole("dialog", { name: "Resident number" })).toBeVisible();
 
   await page.reload();
-  await expect(fields.nth(1)).toHaveAttribute("aria-current", "step");
-  expect(await reviewedFieldCount(fields)).toBe(1);
-
-  const ninthField = fields.nth(8);
-  const ninthLabel = await ninthField.getAttribute("aria-label");
-  await ninthField.click();
-  await expect(ninthField).toHaveAttribute("aria-current", "step");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    fieldNameFromAccessibleLabel(ninthLabel),
-  );
-
-  await page.getByRole("button", { name: "Next field" }).click();
-  await expect(fields.nth(9)).toHaveAttribute("aria-current", "step");
-  expect(await reviewedFieldCount(fields)).toBe(1);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    fieldNameFromAccessibleLabel(await fields.nth(9).getAttribute("aria-label")),
-  );
+  await expect(rail.getByRole("button", { name: "Resident name", exact: true })).toHaveAttribute("aria-current", "step");
 });
-
-async function reviewedFieldCount(fields: ReturnType<import("@playwright/test").Page["getByRole"]>) {
-  const labels = await fields.evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label") ?? ""));
-  return labels.filter((label) => label.endsWith(", reviewed")).length;
-}
-
-function fieldNameFromAccessibleLabel(label: string | null) {
-  if (!label) throw new Error("Assessment field is missing its accessible label.");
-  return label.replace(/^Field \d+: /, "").replace(/, reviewed$/, "");
-}

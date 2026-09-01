@@ -3,7 +3,6 @@ import {
   type AssessmentToolData,
 } from "@/lib/assessment/assessment-tool-schema";
 
-export const ASSESSMENT_PRACTICE_TUTORIAL_ID = "practice-assessment";
 export const ASSESSMENT_PRACTICE_SCHEMA_VERSION = 1 as const;
 
 export function createAssessmentPracticeData(): AssessmentToolData {

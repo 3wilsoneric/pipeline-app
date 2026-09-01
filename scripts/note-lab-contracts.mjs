@@ -19,7 +19,7 @@ const engine = read("lib/note-lab/note-lab-engine.ts");
 const samples = read("lib/note-lab/note-lab-samples.ts");
 const store = read("lib/note-lab/note-lab-store.ts");
 const contracts = read("lib/note-lab/note-lab-contracts.ts");
-const workspace = read("components/pipeline/note-lab/NoteLabWorkspace.tsx");
+const workspace = read("components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx");
 const route = read("app/api/note-lab/session/route.ts");
 const page = read("app/(pipeline)/note-lab/page.tsx");
 const admittedAnalysis = read("scripts/analyze-admitted-note-structure.mjs");
@@ -54,37 +54,37 @@ check("only one requested bounded field scenario is returned", store.includes("s
 check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LAB_CALIBRATION_TARGET")
   && store.includes("reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET)")
   && store.includes("This calibration is already complete."));
-check("the progress rail lists the actual assessment fields", workspace.includes('aria-label="Assessment field progress"')
-  && workspace.includes("session.calibration.fieldSteps.map")
-  && workspace.includes("field.label") && engine.includes("fieldSteps")
-  && !workspace.includes('aria-label="Current field sections"') && !workspace.includes("scrollIntoView"));
-check("every assessment field is directly navigable and next-field navigation does not submit",
-  workspace.includes("onClick={() => onNavigate(field.field)}")
-  && workspace.includes('aria-current={active ? "step" : undefined}')
-  && workspace.includes("/api/note-lab/session?field=")
-  && workspace.includes("Next field")
-  && workspace.includes("onClick={() => void navigateToField(nextField.field)}"));
-check("UI keeps only field guidance, a good example, and explicit progress actions", workspace.includes("What this field is about")
-  && workspace.includes("Note structure") && workspace.includes("Good note example")
-  && workspace.includes("Save and continue") && workspace.includes("Next field")
-  && !workspace.includes("Past note to review") && !workspace.includes("HistoricalAnswerReview")
-  && !workspace.includes("No historical example for this field."));
-check("note structure is an instructive sequence rather than a choice grid",
-  workspace.includes("scenario.formatStandard.instructionSteps")
-  && workspace.includes("instructionSteps.map")
-  && workspace.includes("Write the note in this order.")
-  && workspace.includes("Quick pattern")
-  && !workspace.includes("Answer variations for"));
-check("UI removes presentation copy and duplicated progress", !workspace.includes("WorkflowGuide")
-  && !workspace.includes("CompletedTrail") && !workspace.includes("Assessment note standards")
-  && !workspace.includes("Choose how assessment answers should be written")
-  && !workspace.includes("How the selected parts read together") && !workspace.includes("Quality check:")
-  && !workspace.includes("Always applied:") && !workspace.includes("Supervisor review required")
-  && !workspace.includes("min remaining"));
-check("historical samples are not attached to the assessment guidance UI",
+check("the combined rail lists the active section's actual assessment questions",
+  workspace.includes('aria-label="Assessment question navigation"')
+  && workspace.includes("questions.map")
+  && workspace.includes("assessmentInterviewFieldLabel(question.field)")
+  && workspace.includes('aria-current={active ? "step" : undefined}'));
+check("every visible assessment question can open guidance and advance without submitting",
+  workspace.includes("onOpenGuidance={openQuestion}")
+  && workspace.includes("setGuidanceField(field)")
+  && workspace.includes("Next question")
+  && !workspace.includes("/api/note-lab/session")
+  && !workspace.includes("Save and continue"));
+check("language guidance is shown in a modal before an anchored question tooltip",
+  workspace.includes("QuestionGuidanceDialog")
+  && workspace.includes('aria-modal="true"')
+  && workspace.includes("OK, go to question")
+  && workspace.includes("PracticeQuestionTooltip")
+  && workspace.includes("data-practice-field"));
+check("narrative guidance includes instructions, note structure, and a good example",
+  workspace.includes("specification?.instructionSteps")
+  && workspace.includes("Note structure")
+  && workspace.includes("specification.formatTemplate")
+  && workspace.includes("specification?.strongExample"));
+check("the former language page redirects to the one combined workflow",
+  page.includes("getAssessmentPracticeUser")
+  && page.includes('redirect(toPipelinePath("/note-lab/practice"))'));
+check("historical samples and review copy are absent from the combined UI",
   store.includes("corpusSamplesAvailable: 0")
   && !store.includes("attachReviewSample(baseScenario")
-  && !workspace.includes("reviewSample"));
+  && !workspace.includes("reviewSample")
+  && !workspace.includes("Past note")
+  && !workspace.includes("Save and continue"));
 check("field scenarios come from canonical writing specifications", engine.includes("getAssessmentNarrativeGuideCoverage().coveredFields")
   && engine.includes("getAssessmentFieldWritingSpec(field)") && engine.includes("formatStandard"));
 check("historical text must map to a canonical assessment field", engine.includes("classifyAssessmentNarrativeField")

@@ -14,12 +14,10 @@ const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
 const schema = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
 const interview = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-interview-schema.ts");
 const practice = loadTypeScriptModule(process.cwd(), "lib/note-lab/assessment-practice-scenario.ts");
-const tutorials = loadTypeScriptModule(process.cwd(), "lib/training/operator-guided-tutorials.ts");
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
 const data = practice.createAssessmentPracticeData();
-const tutorial = tutorials.getOperatorGuidedTutorial(practice.ASSESSMENT_PRACTICE_TUTORIAL_ID);
 
 check("practice route is authenticated, role-scoped, and hidden from indexing",
   page.includes("getAssessmentPracticeUser") && page.includes("notFound()")
@@ -39,9 +37,9 @@ check("practice renders canonical sections and conditional questions",
   && interview.assessmentInterviewSections.length === schema.assessmentToolSections.length
   && interview.assessmentInterviewSections.every((section) => interview.getAssessmentInterviewQuestions(section.key, data).length > 0));
 check("language guidance comes from the canonical writing specification",
-  workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes(">Example<")
-  && workspace.includes("specification.formatTemplate") && workspace.includes("specification.strongExample")
-  && !workspace.includes("instructionSteps") && !workspace.includes("guardrail"));
+  workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes("Example")
+  && workspace.includes("specification.formatTemplate") && workspace.includes("specification?.strongExample")
+  && workspace.includes("instructionSteps") && workspace.includes("guardrail"));
 check("practice has no clinical persistence or production assessment dependency",
   !workspace.includes("fetch(") && !workspace.includes("/api/") && !workspace.includes("indexedDB")
   && !workspace.includes("localStorage") && !workspace.includes("sessionStorage")
@@ -50,20 +48,22 @@ check("practice cannot sign, schedule, extract, or create a clinical record",
   !workspace.includes("Sign assessment") && !workspace.includes("Schedule assessment")
   && !workspace.includes("extraction") && !workspace.includes("Create assessment")
   && !workspace.includes("Save assessment"));
-check("the authored guide is synthetic, actionable, and uses only the practice route",
-  tutorial?.steps.length === 5
-  && tutorial.steps.every((step) => step.route === "/note-lab/practice" && step.safety.length > 30)
-  && tutorial.steps.every((step) => step.advance !== "confirm"));
-check("every practice guide target is declared by the isolated renderer",
-  tutorial?.steps.every((step) => tutorials.operatorGuideTargetSources[step.target] === "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx"
-    && workspace.includes(`\"${step.target}\"`)));
+check("the walkthrough is field-scoped and advances through canonical visible questions",
+  workspace.includes("visibleQuestionSteps")
+  && workspace.includes("QuestionGuidanceDialog")
+  && workspace.includes("PracticeQuestionTooltip")
+  && workspace.includes("openQuestion(next.question.field)"));
+check("question guidance must be acknowledged before the anchored control step",
+  workspace.includes("OK, go to question")
+  && workspace.includes("setGuidedField(guidanceField)")
+  && workspace.includes("data-practice-field"));
 check("production assessment remains a separately persisted clinical surface",
   assessmentWorkspace.includes("/api/assessments/") && assessmentWorkspace.includes("@/lib/offline/offline-assessment-store")
   && !assessmentWorkspace.includes("assessment-practice-scenario") && !assessmentWorkspace.includes("practice-assessment"));
 check("practice copy stays restrained",
   !workspace.includes("Welcome to") && !workspace.includes("How to use")
-  && workspace.includes("Guided practice") && !workspace.includes("Practice complete")
-  && !workspace.includes("Finish practice") && workspace.includes("dispatchOperatorGuide"));
+  && workspace.includes("Start walkthrough") && !workspace.includes("Practice complete")
+  && !workspace.includes("Finish practice") && !workspace.includes("Save and continue"));
 check("practice mirrors the production assessment interaction model",
   workspace.includes("assessmentPracticeNavigationGroups")
   && workspace.includes('question.control === "yes_no"')
@@ -72,11 +72,11 @@ check("practice mirrors the production assessment interaction model",
   && workspace.includes("setAssessmentUnableReason"));
 check("the resting guide launcher is hidden on the assessment practice route",
   coach.includes('pathname.startsWith("/note-lab/")')
-  && coach.includes("hideLauncher ? null : <GuideLauncher"));
-check("assessment practice uses the compact guide surface",
-  coach.includes('tutorial.id === "practice-assessment"')
-  && coach.includes("function AssessmentPracticeGuide")
-  && !coach.includes('function AssessmentPracticeGuide({ tutorialTitle, workflow'));
+  && coach.includes('pathname === "/note-lab"')
+  && coach.includes("return null"));
+check("assessment practice no longer depends on the global tutorial overlay",
+  !workspace.includes("dispatchOperatorGuide")
+  && !workspace.includes("ASSESSMENT_PRACTICE_TUTORIAL_ID"));
 
 const failed = checks.filter((item) => !item.ok);
 process.stdout.write(`${JSON.stringify({ ok: failed.length === 0, checks }, null, 2)}\n`);
