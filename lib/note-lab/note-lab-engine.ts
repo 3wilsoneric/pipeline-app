@@ -202,6 +202,10 @@ export function buildNoteLabCalibration(
 
   const decisionsCompleted = reviews.length;
   const complete = decisionsCompleted >= NOTE_LAB_CALIBRATION_TARGET;
+  const fieldSteps = catalog.slice(0, NOTE_LAB_CALIBRATION_TARGET).map((scenario) => ({
+    field: scenario.targetField,
+    label: scenario.targetFieldLabel,
+  }));
   const criteria = noteLabDocumentationCriteria.map((criterion) => {
     const selectedCount = criterionCounts.get(criterion.id) ?? 0;
     return {
@@ -226,6 +230,7 @@ export function buildNoteLabCalibration(
     progressPercent: Math.round((decisionsCompleted / NOTE_LAB_CALIBRATION_TARGET) * 100),
     complete,
     estimatedMinutesRemaining: Math.max(0, Math.ceil((NOTE_LAB_CALIBRATION_TARGET - decisionsCompleted) * 1.5)),
+    fieldSteps,
     trail,
     profile: {
       schemaVersion: 3,

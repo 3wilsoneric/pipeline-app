@@ -37,6 +37,7 @@ export default async function NoteLabPage() {
       progressPercent: 0,
       complete: false,
       estimatedMinutesRemaining: 23,
+      fieldSteps: [],
       trail: [],
       profile: {
         schemaVersion: 3 as const,

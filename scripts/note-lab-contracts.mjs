@@ -53,14 +53,13 @@ check("only one bounded field scenario is returned", store.includes("const baseS
 check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LAB_CALIBRATION_TARGET")
   && store.includes("reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET)")
   && store.includes("This calibration is already complete."));
-check("field review uses one vertical scroll-aware progress rail", workspace.includes('aria-label="Current field sections"')
-  && workspace.includes("data-note-lab-scroll-container") && workspace.includes("data-note-lab-section")
-  && workspace.includes('id: "answer-parts"') && workspace.includes('id: "reference-answer"')
-  && workspace.includes('id: "historical-example"') && workspace.includes('id: "save-field"')
-  && workspace.includes("scrollIntoView") && !workspace.includes("sticky bottom-0"));
-check("UI keeps only the field decisions and their evidence", workspace.includes("Answer parts")
-  && workspace.includes("Reference answer") && workspace.includes("Historical example")
-  && workspace.includes("Reference answer for") && workspace.includes("Use as example")
+check("the progress rail lists the actual assessment fields", workspace.includes('aria-label="Assessment field progress"')
+  && workspace.includes("session.calibration.fieldSteps.map")
+  && workspace.includes("field.label") && engine.includes("fieldSteps")
+  && !workspace.includes('aria-label="Current field sections"') && !workspace.includes("scrollIntoView"));
+check("UI keeps only the field guidance and review decisions", workspace.includes("What to document")
+  && workspace.includes("Note structure") && workspace.includes("Good note example")
+  && workspace.includes("Past note to review") && workspace.includes("Use as example")
   && workspace.includes("Revise") && workspace.includes("Do not use")
   && workspace.includes("Revision reasons") && workspace.includes("Save and continue"));
 check("UI removes presentation copy and duplicated progress", !workspace.includes("WorkflowGuide")
@@ -70,7 +69,7 @@ check("UI removes presentation copy and duplicated progress", !workspace.include
   && !workspace.includes("Always applied:") && !workspace.includes("Supervisor review required")
   && !workspace.includes("min remaining"));
 check("sample-free UI is one direct state", workspace.includes("No historical example for this field.")
-  && workspace.includes("Unavailable") && !workspace.includes("Nothing else is required here"));
+  && !workspace.includes("Unavailable") && !workspace.includes("Nothing else is required here"));
 check("field scenarios come from canonical writing specifications", engine.includes("getAssessmentNarrativeGuideCoverage().coveredFields")
   && engine.includes("getAssessmentFieldWritingSpec(field)") && engine.includes("formatStandard"));
 check("historical text must map to a canonical assessment field", engine.includes("classifyAssessmentNarrativeField")
@@ -106,6 +105,10 @@ check("every coachable field has a concrete standard", scenarioCatalog.length ==
 check("base scenarios contain no historical provenance", scenarioCatalog.every((scenario) => scenario.reviewSample === null)
   && !JSON.stringify(scenarioCatalog).includes("sourceCanvasId"));
 const emptyProgress = contractsModule.emptyNoteLabProgress(contractsModule.NOTE_LAB_CALIBRATION_VERSION);
+const emptyCalibration = engineModule.buildNoteLabCalibration(scenarioCatalog, emptyProgress);
+check("the sidebar field sequence is bounded and canonical", emptyCalibration.fieldSteps.length === 15
+  && emptyCalibration.fieldSteps[0].field === "prior_placements"
+  && emptyCalibration.fieldSteps[14].field === "staff_interaction_notes");
 const firstScenario = engineModule.selectNextScenario(scenarioCatalog, emptyProgress);
 const secondScenario = engineModule.selectNextScenario(scenarioCatalog, {
   ...emptyProgress,

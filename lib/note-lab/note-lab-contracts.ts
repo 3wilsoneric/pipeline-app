@@ -118,6 +118,11 @@ export type NoteLabCalibrationTrailItem = {
   sampleDisposition: NoteLabSampleDisposition | null;
 };
 
+export type NoteLabFieldStep = {
+  field: AssessmentToolFieldKey;
+  label: string;
+};
+
 export type NoteLabPreferenceProfile = {
   schemaVersion: 3;
   calibrationVersion: string;
@@ -156,6 +161,7 @@ export type NoteLabCalibration = {
   progressPercent: number;
   complete: boolean;
   estimatedMinutesRemaining: number;
+  fieldSteps: NoteLabFieldStep[];
   trail: NoteLabCalibrationTrailItem[];
   profile: NoteLabPreferenceProfile;
 };

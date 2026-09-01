@@ -312,6 +312,7 @@ function unavailableSession(message: string): NoteLabSession {
       progressPercent: 0,
       complete: false,
       estimatedMinutesRemaining: 23,
+      fieldSteps: [],
       trail: [],
       profile: {
         schemaVersion: 3,
