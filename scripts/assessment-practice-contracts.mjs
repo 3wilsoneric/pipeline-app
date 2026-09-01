@@ -48,8 +48,11 @@ check("practice cannot sign, schedule, extract, or create a clinical record",
   !workspace.includes("Sign assessment") && !workspace.includes("Schedule assessment")
   && !workspace.includes("extraction") && !workspace.includes("Create assessment")
   && !workspace.includes("Save assessment"));
-check("the walkthrough is field-scoped and advances only through guided narrative questions",
+check("the walkthrough is scoped to the selected section and advances only through its guided narrative questions",
   workspace.includes("guidedQuestionSteps")
+  && workspace.includes("firstGuidedStepInSection")
+  && workspace.includes("step.section === section.key")
+  && workspace.includes("step.section === currentStep.section")
   && workspace.includes("hasUsefulWritingGuidance")
   && workspace.includes("QuestionGuidanceDialog")
   && workspace.includes("PracticeQuestionTooltip")

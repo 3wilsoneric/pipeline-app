@@ -59,6 +59,7 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
         .map((question) => ({ section: item.key, question }))),
     [data],
   );
+  const firstGuidedStepInSection = guidedQuestionSteps.find((step) => step.section === section.key) ?? null;
   const guidanceQuestion = guidanceField
     ? guidedQuestionSteps.find((step) => step.question.field === guidanceField)?.question ?? null
     : null;
@@ -105,9 +106,20 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
     setGuidanceField(null);
   };
 
+  const startSectionWalkthrough = () => {
+    if (!firstGuidedStepInSection) return;
+    openGuidance(firstGuidedStepInSection.question.field);
+  };
+
   const moveGuidedQuestion = (field: AssessmentToolFieldKey) => {
-    const index = guidedQuestionSteps.findIndex((step) => step.question.field === field);
-    const next = guidedQuestionSteps[index + 1];
+    const currentStep = guidedQuestionSteps.find((step) => step.question.field === field);
+    if (!currentStep) {
+      setGuidedField(null);
+      return;
+    }
+    const sectionSteps = guidedQuestionSteps.filter((step) => step.section === currentStep.section);
+    const index = sectionSteps.findIndex((step) => step.question.field === field);
+    const next = sectionSteps[index + 1];
     if (!next) {
       setGuidedField(null);
       return;
@@ -134,7 +146,14 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
           <button type="button" onClick={reset} className="inline-flex h-9 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
             <RotateCcw size={13} aria-hidden="true" />Reset
           </button>
-          <button type="button" onClick={() => { const first = guidedQuestionSteps[0]; if (first) openGuidance(first.question.field); }} className="inline-flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[10px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
+          <button
+            type="button"
+            onClick={startSectionWalkthrough}
+            disabled={!firstGuidedStepInSection}
+            aria-label={`Start walkthrough for ${section.label}`}
+            title={firstGuidedStepInSection ? `Start the ${section.label} walkthrough` : `No guided narrative fields in ${section.label}`}
+            className="inline-flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[10px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#d9dfdb] disabled:text-[#737b77]"
+          >
             <Sparkles size={13} aria-hidden="true" />Start walkthrough
           </button>
         </div>

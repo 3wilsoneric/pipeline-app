@@ -58,9 +58,11 @@ check("the combined rail preserves the assessment section navigation",
   workspace.includes('aria-label="Assessment section navigation"')
   && workspace.includes("assessmentPracticeNavigationGroups.map")
   && workspace.includes('aria-current={active ? "step" : undefined}'));
-check("only authored narrative questions can open guidance and advance without submitting",
+check("only authored narrative questions can open guidance and the selected section bounds the walkthrough",
   workspace.includes("onOpenGuidance={openGuidance}")
   && workspace.includes("hasUsefulWritingGuidance")
+  && workspace.includes("firstGuidedStepInSection")
+  && workspace.includes("step.section === currentStep.section")
   && workspace.includes("setGuidanceField(field)")
   && workspace.includes("Next guided field")
   && !workspace.includes("structuredQuestionGuidance")

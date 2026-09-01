@@ -11,7 +11,7 @@ test("the former language route resolves to the combined question workflow", asy
 
   await expect(page.getByRole("button", { name: "Open writing guide for Resident name" })).toHaveCount(0);
   await rail.getByRole("button", { name: /^History\b/ }).click();
-  await page.getByRole("button", { name: "Open writing guide for Prior placements" }).click();
+  await page.getByRole("button", { name: "Start walkthrough for History" }).click();
   const guidance = page.getByRole("dialog", { name: "Prior placements" });
   await expect(guidance).toBeVisible();
   await guidance.getByRole("button", { name: "OK, go to question" }).click();
