@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { ArrowRight, Check, Download, FileCheck2, ShieldCheck } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
@@ -17,6 +17,15 @@ import {
   type NoteLabSession,
 } from "@/lib/note-lab/note-lab-contracts";
 
+const fieldReviewSections = [
+  { id: "answer-parts", label: "Answer parts", shortLabel: "Parts" },
+  { id: "reference-answer", label: "Reference answer", shortLabel: "Reference" },
+  { id: "historical-example", label: "Historical example", shortLabel: "Example" },
+  { id: "save-field", label: "Save field", shortLabel: "Save" },
+] as const;
+
+type FieldReviewSectionId = typeof fieldReviewSections[number]["id"];
+
 export default function NoteLabWorkspace({
   initialSession,
   reviewerName,
@@ -32,6 +41,7 @@ export default function NoteLabWorkspace({
   const [revisionReasonIds, setRevisionReasonIds] = useState<NoteLabRevisionReasonId[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeSectionId, setActiveSectionId] = useState<FieldReviewSectionId>("answer-parts");
   const scenario = session.scenario;
   const sampleDecisionComplete = sampleDecisionIsComplete(
     Boolean(scenario?.reviewSample),
@@ -42,6 +52,43 @@ export default function NoteLabWorkspace({
     && selectedAnswerComponentCount(selectedCriterionIds) > 0
     && sampleDecisionComplete
     && !saving);
+
+  useEffect(() => {
+    const sectionElements = fieldReviewSections
+      .map(({ id }) => document.getElementById(`note-lab-${id}`))
+      .filter((element): element is HTMLElement => element !== null);
+    const scrollContainer = sectionElements[0]?.closest<HTMLElement>("[data-note-lab-scroll-container]");
+    if (!scrollContainer || sectionElements.length === 0) return;
+
+    let animationFrame = 0;
+    const updateActiveSection = () => {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = requestAnimationFrame(() => {
+        const containerTop = scrollContainer.getBoundingClientRect().top;
+        const readingLine = containerTop + Math.min(220, Math.max(110, scrollContainer.clientHeight * 0.24));
+        let nextSectionId: FieldReviewSectionId = fieldReviewSections[0].id;
+
+        for (const element of sectionElements) {
+          if (element.getBoundingClientRect().top <= readingLine) {
+            nextSectionId = element.dataset.noteLabSection as FieldReviewSectionId;
+          }
+        }
+
+        const distanceFromBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight;
+        if (distanceFromBottom < 24) nextSectionId = fieldReviewSections.at(-1)?.id ?? nextSectionId;
+        setActiveSectionId(nextSectionId);
+      });
+    };
+
+    updateActiveSection();
+    scrollContainer.addEventListener("scroll", updateActiveSection, { passive: true });
+    window.addEventListener("resize", updateActiveSection);
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      scrollContainer.removeEventListener("scroll", updateActiveSection);
+      window.removeEventListener("resize", updateActiveSection);
+    };
+  }, [scenario?.id]);
 
   const toggleAnswerComponent = (criterionIds: readonly NoteLabCriterionId[]) => {
     setSelectedCriterionIds((current) => {
@@ -71,6 +118,11 @@ export default function NoteLabWorkspace({
     setSelectedCriterionIds(normalizeAnswerComponentCriteria(next.scenario?.recommendedCriterionIds ?? []));
     setSampleDisposition(null);
     setRevisionReasonIds([]);
+    setActiveSectionId("answer-parts");
+  };
+
+  const navigateToSection = (sectionId: FieldReviewSectionId) => {
+    document.getElementById(`note-lab-${sectionId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const submit = async () => {
@@ -93,7 +145,8 @@ export default function NoteLabWorkspace({
       });
       startTransition(() => {
         applySession(next);
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        document.querySelector<HTMLElement>("[data-note-lab-scroll-container]")
+          ?.scrollTo({ top: 0, behavior: "smooth" });
       });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "The review could not be saved.");
@@ -118,91 +171,105 @@ export default function NoteLabWorkspace({
     <LabFrame reviewerName={reviewerName}>
       <main className="border border-[#cfd7d4] bg-white">
         <WorkflowGuide session={session} hasCurrentSample={Boolean(scenario.reviewSample)} />
-        <CalibrationProgress session={session} />
-        <div className="border-t border-[#d8dfdc] px-4 py-5 sm:px-7 sm:py-7">
-          <CompletedTrail session={session} />
-
-          <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[#d8dfdc] pb-4">
-            <div>
-              <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f7a67]">
-                Current field · {session.calibration.currentStep} of {session.calibration.targetDecisions}
-              </div>
-              <h1 className="mt-1.5 text-[24px] font-black tracking-[-0.035em] text-[#202522] sm:text-[28px]">
-                {scenario.targetFieldLabel}
-              </h1>
-              <p className="mt-1.5 max-w-[760px] text-[10px] font-semibold leading-5 text-[#626d68]">
-                {scenario.fieldPurpose}
-              </p>
-            </div>
-            <span className="text-[9px] font-bold text-[#6d7873]">{scenario.formatStandard.label} · {scenario.formatStandard.lengthGuidance}</span>
-          </header>
-
-          <section className="py-6">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">Step 1</div>
-                <h2 className="mt-1 text-[14px] font-black text-[#252c28]">Choose the answer variations</h2>
-                <p className="mt-1 text-[10px] font-semibold text-[#75807b]">Select every type of detail assessors should be prepared to document for this question.</p>
-              </div>
-              <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f7a67]">{selectedAnswerComponentCount(selectedCriterionIds)} selected</span>
-            </div>
-            <div className="mt-3 border-l-2 border-[#8db9aa] bg-[#f4f8f6] px-3 py-2 text-[9px] font-semibold text-[#4e5c56]">
-              Always applied: person-centered language · concise and current documentation
-            </div>
-            <div role="group" aria-label={`Answer variations for ${scenario.targetFieldLabel}`} className="mt-3 grid gap-px border border-[#c9ceca] bg-[#d9dfdb] md:grid-cols-2">
-              {noteLabAnswerComponents.map((component) => {
-                const selected = component.criterionIds.every((criterionId) => selectedCriterionIds.includes(criterionId));
-                return (
-                  <button
-                    key={component.id}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => toggleAnswerComponent(component.criterionIds)}
-                    className={`grid min-h-[78px] grid-cols-[auto_minmax(0,1fr)] gap-3 p-3 text-left outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-inset ${selected ? "bg-[#edf7f3]" : "bg-white hover:bg-[#f7f9f8]"}`}
-                  >
-                    <SelectionBox selected={selected} />
-                    <span>
-                      <span className={`block text-[10px] font-black ${selected ? "text-[#0b6f5d]" : "text-[#39423e]"}`}>{component.label}</span>
-                      <span className="mt-1 block text-[9px] font-semibold leading-4 text-[#727d78]">{component.description}</span>
-                      <span className="mt-1.5 block text-[9px] leading-4 text-[#59655f]"><span className="font-black text-[#486158]">Pattern:</span> {component.examplePattern}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <AssessmentAnswerPreview scenario={scenario} />
-
-          <HistoricalAnswerReview
-            scenario={scenario}
-            disposition={sampleDisposition}
-            revisionReasonIds={revisionReasonIds}
-            onDisposition={chooseDisposition}
-            onReason={toggleRevisionReason}
+        <div className="grid grid-cols-[42px_minmax(0,1fr)] border-t border-[#d8dfdc] sm:grid-cols-[154px_minmax(0,1fr)] lg:grid-cols-[176px_minmax(0,1fr)]">
+          <FieldProgressRail
+            session={session}
+            activeSectionId={activeSectionId}
+            hasCurrentSample={Boolean(scenario.reviewSample)}
+            sampleDecisionComplete={sampleDecisionComplete}
+            onNavigate={navigateToSection}
           />
 
-          <div className="mt-5 border-l-2 border-[#c9a968] bg-[#fbf8f0] px-4 py-3 text-[10px] leading-5 text-[#625b4b]">
-            <span className="font-black text-[#3e392f]">Do not cross this line:</span> {scenario.guardrail}
-          </div>
+          <div className="min-w-0 border-l border-[#d8dfdc] px-4 py-5 sm:px-7 sm:py-7">
+            <CompletedTrail session={session} />
 
-          <footer className="sticky bottom-0 z-10 -mx-4 mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#d8dfdc] bg-white/95 px-4 py-3 shadow-[0_-8px_20px_rgba(32,37,34,0.06)] backdrop-blur sm:-mx-7 sm:px-7">
-            <div>
-              <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">Step 3</div>
-              <div role="status" className={`mt-1 max-w-[620px] text-[10px] ${error ? "font-bold text-[#a44337]" : "text-[#6f7a75]"}`}>
-                {error ?? submissionHint(scenario.reviewSample !== null, selectedAnswerComponentCount(selectedCriterionIds), sampleDisposition, revisionReasonIds.length)}
+            <header className="flex flex-wrap items-end justify-between gap-3 border-b border-[#d8dfdc] pb-5">
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f7a67]">
+                  Current field · {session.calibration.currentStep} of {session.calibration.targetDecisions}
+                </div>
+                <h1 className="mt-1.5 text-[24px] font-black tracking-[-0.035em] text-[#202522] sm:text-[28px]">
+                  {scenario.targetFieldLabel}
+                </h1>
+                <p className="mt-1.5 max-w-[760px] text-[10px] font-semibold leading-5 text-[#626d68]">
+                  {scenario.fieldPurpose}
+                </p>
               </div>
-            </div>
-            <button
-              type="button"
-              disabled={!canSubmit}
-              onClick={() => void submit()}
-              className="inline-flex h-10 items-center gap-3 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#aeb9b5]"
-            >
-              {submissionButtonLabel(saving, session.calibration.remaining)}
-              <ArrowRight size={15} aria-hidden="true" />
-            </button>
-          </footer>
+              <span className="text-[9px] font-bold text-[#6d7873]">{scenario.formatStandard.label} · {scenario.formatStandard.lengthGuidance}</span>
+            </header>
+
+            <ReviewSection id="answer-parts" activeSectionId={activeSectionId} className="py-7">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">01 · Answer parts</div>
+                  <h2 className="mt-1 text-[14px] font-black text-[#252c28]">Choose the answer variations</h2>
+                  <p className="mt-1 text-[10px] font-semibold text-[#75807b]">Select every type of detail assessors should be prepared to document for this question.</p>
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f7a67]">{selectedAnswerComponentCount(selectedCriterionIds)} selected</span>
+              </div>
+              <div className="mt-3 border-l-2 border-[#8db9aa] bg-[#f4f8f6] px-3 py-2 text-[9px] font-semibold text-[#4e5c56]">
+                Always applied: person-centered language · concise and current documentation
+              </div>
+              <div role="group" aria-label={`Answer variations for ${scenario.targetFieldLabel}`} className="mt-3 grid gap-px border border-[#c9ceca] bg-[#d9dfdb] md:grid-cols-2">
+                {noteLabAnswerComponents.map((component) => {
+                  const selected = component.criterionIds.every((criterionId) => selectedCriterionIds.includes(criterionId));
+                  return (
+                    <button
+                      key={component.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => toggleAnswerComponent(component.criterionIds)}
+                      className={`grid min-h-[78px] grid-cols-[auto_minmax(0,1fr)] gap-3 p-3 text-left outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-inset ${selected ? "bg-[#edf7f3]" : "bg-white hover:bg-[#f7f9f8]"}`}
+                    >
+                      <SelectionBox selected={selected} />
+                      <span>
+                        <span className={`block text-[10px] font-black ${selected ? "text-[#0b6f5d]" : "text-[#39423e]"}`}>{component.label}</span>
+                        <span className="mt-1 block text-[9px] font-semibold leading-4 text-[#727d78]">{component.description}</span>
+                        <span className="mt-1.5 block text-[9px] leading-4 text-[#59655f]"><span className="font-black text-[#486158]">Pattern:</span> {component.examplePattern}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </ReviewSection>
+
+            <ReviewSection id="reference-answer" activeSectionId={activeSectionId} className="border-t border-[#d8dfdc] py-7">
+              <AssessmentAnswerPreview scenario={scenario} />
+            </ReviewSection>
+
+            <ReviewSection id="historical-example" activeSectionId={activeSectionId} className="border-t border-[#d8dfdc] py-7">
+              <HistoricalAnswerReview
+                scenario={scenario}
+                disposition={sampleDisposition}
+                revisionReasonIds={revisionReasonIds}
+                onDisposition={chooseDisposition}
+                onReason={toggleRevisionReason}
+              />
+              <div className="mt-5 border-l-2 border-[#c9a968] bg-[#fbf8f0] px-4 py-3 text-[10px] leading-5 text-[#625b4b]">
+                <span className="font-black text-[#3e392f]">Do not cross this line:</span> {scenario.guardrail}
+              </div>
+            </ReviewSection>
+
+            <ReviewSection id="save-field" activeSectionId={activeSectionId} className="border-t border-[#d8dfdc] py-7">
+              <footer className="flex flex-wrap items-center justify-between gap-4 border border-[#cfd8d4] bg-[#f7faf8] p-4 sm:p-5">
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">04 · Save field</div>
+                  <div role="status" className={`mt-1.5 max-w-[620px] text-[10px] leading-5 ${error ? "font-bold text-[#a44337]" : "text-[#59655f]"}`}>
+                    {error ?? submissionHint(scenario.reviewSample !== null, selectedAnswerComponentCount(selectedCriterionIds), sampleDisposition, revisionReasonIds.length)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={!canSubmit}
+                  onClick={() => void submit()}
+                  className="inline-flex h-10 items-center gap-3 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#aeb9b5]"
+                >
+                  {submissionButtonLabel(saving, session.calibration.remaining)}
+                  <ArrowRight size={15} aria-hidden="true" />
+                </button>
+              </footer>
+            </ReviewSection>
+          </div>
         </div>
       </main>
     </LabFrame>
@@ -213,19 +280,10 @@ function WorkflowGuide({ session, hasCurrentSample }: { session: NoteLabSession;
   const hasSamples = session.stats.corpusSamplesAvailable > 0;
   return (
     <section aria-labelledby="note-lab-purpose" className="border-b border-[#d8dfdc] bg-[#f7faf8] px-4 py-4 sm:px-7">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div>
-          <h1 id="note-lab-purpose" className="text-[15px] font-black tracking-[-0.02em] text-[#202522]">Choose how assessment answers should be written</h1>
-          <p className="mt-1 max-w-[760px] text-[10px] font-semibold leading-5 text-[#626d68]">
-            Choose the answer structure for one assessment field, then judge a historical example. Saving records a supervisor draft only; it does not change client data or publish guidance.
-          </p>
-        </div>
-        <ol aria-label="Review steps" className="grid min-w-0 gap-1.5 text-[9px] font-bold text-[#4e5a54] sm:grid-cols-3 lg:w-[440px]">
-          <WorkflowStep number="1" label="Choose answer variations" />
-          <WorkflowStep number="2" label={hasCurrentSample ? "Judge the example" : "Example skipped"} muted={!hasCurrentSample} />
-          <WorkflowStep number="3" label="Save and continue" />
-        </ol>
-      </div>
+      <h1 id="note-lab-purpose" className="text-[15px] font-black tracking-[-0.02em] text-[#202522]">Choose how assessment answers should be written</h1>
+      <p className="mt-1 max-w-[820px] text-[10px] font-semibold leading-5 text-[#626d68]">
+        Follow the field from top to bottom. Choose answer variations, review the reference, {hasCurrentSample ? "judge the example" : "skip the unavailable example"}, then save and continue. Saving creates a supervisor draft only and does not change client data.
+      </p>
       {!hasSamples ? (
         <div className="mt-3 border-l-2 border-[#b9924f] bg-[#fffaf0] px-3 py-2 text-[9px] font-semibold leading-4 text-[#665b46]">
           No historical answers are mapped in this environment. You can still define every field standard; example review will appear after the note corpus is connected.
@@ -235,12 +293,91 @@ function WorkflowGuide({ session, hasCurrentSample }: { session: NoteLabSession;
   );
 }
 
-function WorkflowStep({ number, label, muted = false }: { number: string; label: string; muted?: boolean }) {
+function FieldProgressRail({
+  session,
+  activeSectionId,
+  hasCurrentSample,
+  sampleDecisionComplete,
+  onNavigate,
+}: {
+  session: NoteLabSession;
+  activeSectionId: FieldReviewSectionId;
+  hasCurrentSample: boolean;
+  sampleDecisionComplete: boolean;
+  onNavigate: (sectionId: FieldReviewSectionId) => void;
+}) {
+  const activeIndex = Math.max(0, fieldReviewSections.findIndex(({ id }) => id === activeSectionId));
+  const scrollProgress = activeIndex / (fieldReviewSections.length - 1) * 100;
   return (
-    <li className={`flex min-h-8 items-center gap-2 border px-2.5 ${muted ? "border-[#dde2df] bg-[#f0f2f1] text-[#848d89]" : "border-[#ccd8d3] bg-white"}`}>
-      <span className={`flex h-4 w-4 shrink-0 items-center justify-center text-[8px] font-black ${muted ? "bg-[#dfe4e2] text-[#6f7974]" : "bg-[#0f8b73] text-white"}`}>{number}</span>
-      <span>{label}</span>
-    </li>
+    <aside className="sticky top-3 h-fit self-start px-2 py-5 sm:px-4 sm:py-6" aria-label="Field review progress">
+      <div className="hidden sm:block">
+        <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7a67]">Field progress</div>
+        <div className="mt-1 text-[12px] font-black text-[#2d3531]">{session.calibration.currentStep} of {session.calibration.targetDecisions}</div>
+        <div className="mt-1 text-[9px] font-semibold leading-4 text-[#7a847f]">{session.calibration.estimatedMinutesRemaining} min remaining</div>
+      </div>
+
+      <nav aria-label="Current field sections" className="mt-1 grid grid-cols-[3px_minmax(0,1fr)] gap-2.5 sm:mt-5 sm:gap-3">
+        <div className="relative my-2 bg-[#dce3e0]" aria-hidden="true">
+          <div className="absolute inset-x-0 top-0 bg-[#0f8b73] transition-[height] duration-300" style={{ height: `${scrollProgress}%` }} />
+        </div>
+        <ol className="space-y-2 sm:space-y-3">
+          {fieldReviewSections.map((section, index) => {
+            const active = section.id === activeSectionId;
+            const completed = index < activeIndex
+              && (section.id !== "historical-example" || sampleDecisionComplete);
+            const unavailable = section.id === "historical-example" && !hasCurrentSample;
+            return (
+              <li key={section.id}>
+                <button
+                  type="button"
+                  aria-current={active ? "step" : undefined}
+                  onClick={() => onNavigate(section.id)}
+                  className={`group grid w-full grid-cols-[24px_minmax(0,1fr)] items-center gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 ${active ? "text-[#0b6f5d]" : "text-[#707a75] hover:text-[#303936]"}`}
+                >
+                  <span className={`flex h-6 w-6 items-center justify-center border text-[8px] font-black transition-colors ${active ? "border-[#0f8b73] bg-[#0f8b73] text-white" : completed ? "border-[#8db9aa] bg-[#edf7f3] text-[#0f7a67]" : "border-[#cbd4d0] bg-white text-[#76817c]"}`}>
+                    {completed ? <Check size={11} strokeWidth={2.6} aria-hidden="true" /> : String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="hidden min-w-0 sm:block">
+                    <span className={`block text-[9px] font-black ${active ? "text-[#0b6f5d]" : "text-[#4f5a55]"}`}>{section.label}</span>
+                    {unavailable ? <span className="mt-0.5 block text-[8px] font-bold text-[#8a938f]">Example skipped</span> : null}
+                  </span>
+                  <span className="sr-only sm:hidden">{section.shortLabel}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
+      <div className="mt-5 hidden h-1 overflow-hidden bg-[#e3e8e6] sm:block" aria-label={`${session.calibration.progressPercent}% of field reviews complete`}>
+        <div className="h-full bg-[#0f8b73]" style={{ width: `${session.calibration.progressPercent}%` }} />
+      </div>
+    </aside>
+  );
+}
+
+function ReviewSection({
+  id,
+  activeSectionId,
+  className,
+  children,
+}: {
+  id: FieldReviewSectionId;
+  activeSectionId: FieldReviewSectionId;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const sectionIndex = fieldReviewSections.findIndex((section) => section.id === id);
+  const activeIndex = fieldReviewSections.findIndex((section) => section.id === activeSectionId);
+  const reached = sectionIndex <= activeIndex;
+  return (
+    <div
+      id={`note-lab-${id}`}
+      data-note-lab-section={id}
+      className={`scroll-mt-4 transition-[opacity,transform] duration-300 motion-reduce:transition-none ${reached ? "translate-y-0 opacity-100" : "translate-y-1.5 opacity-70"} ${className ?? ""}`}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -386,31 +523,13 @@ function DispositionButton({
 
 function LabFrame({ reviewerName, children }: { reviewerName: string; children: React.ReactNode }) {
   return (
-    <div className="pipeline-route-enter h-full overflow-y-auto bg-[#f4f6f5]">
-      <div className="mx-auto max-w-[1120px] px-3 py-4 sm:px-6 lg:py-6">
+    <div data-note-lab-scroll-container className="pipeline-route-enter h-full overflow-y-auto bg-[#f4f6f5]">
+      <div className="mx-auto max-w-[1240px] px-3 py-4 sm:px-6 lg:py-6">
         <header className="flex min-h-12 items-center justify-between gap-4 border border-b-0 border-[#cfd7d4] bg-white px-4 sm:px-6">
           <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Assessment note standards</span>
           <span className="text-[10px] font-bold text-[#737d79]">{reviewerName}</span>
         </header>
         {children}
-      </div>
-    </div>
-  );
-}
-
-function CalibrationProgress({ session }: { session: NoteLabSession }) {
-  const calibration = session.calibration;
-  return (
-    <div className="px-4 py-4 sm:px-7">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-black text-[#252c28]">Review progress</div>
-          <div className="mt-1 text-[9px] font-semibold text-[#7a847f]">About {calibration.estimatedMinutesRemaining} minutes remaining · each field saves independently</div>
-        </div>
-        <div className="text-right text-[10px] font-black text-[#0f7a67]">{calibration.decisionsCompleted} / {calibration.targetDecisions}</div>
-      </div>
-      <div className="mt-3 h-1.5 overflow-hidden bg-[#e3e8e6]">
-        <div className="h-full bg-[#0f8b73] transition-[width] duration-300" style={{ width: `${calibration.progressPercent}%` }} />
       </div>
     </div>
   );

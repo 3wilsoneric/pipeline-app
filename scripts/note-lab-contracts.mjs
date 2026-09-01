@@ -54,8 +54,13 @@ check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LA
   && store.includes("reviews.slice(0, NOTE_LAB_CALIBRATION_TARGET)")
   && store.includes("This calibration is already complete."));
 check("UI explains the supervisor workflow before requesting decisions", workspace.includes("Choose how assessment answers should be written")
-  && workspace.includes("Choose answer variations") && workspace.includes("Judge the example")
+  && workspace.includes("Choose answer variations") && workspace.includes("judge the example")
   && workspace.includes("Save and continue") && workspace.includes("does not change client data"));
+check("field review uses one vertical scroll-aware progress rail", workspace.includes('aria-label="Current field sections"')
+  && workspace.includes("data-note-lab-scroll-container") && workspace.includes("data-note-lab-section")
+  && workspace.includes('id: "answer-parts"') && workspace.includes('id: "reference-answer"')
+  && workspace.includes('id: "historical-example"') && workspace.includes('id: "save-field"')
+  && workspace.includes("scrollIntoView") && !workspace.includes("sticky bottom-0"));
 check("UI mirrors the assessment and judges a historical answer", workspace.includes("Reference answer")
   && workspace.includes("Choose the answer variations") && workspace.includes("Always applied: person-centered language")
   && workspace.includes("Reference answer for")
