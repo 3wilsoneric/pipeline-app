@@ -34,6 +34,16 @@ on:
         required: true
         default: true
         type: boolean
+      enable_meet_client_mail:
+        description: Enable Microsoft 365 Meet the Client summary and packet delivery
+        required: true
+        default: false
+        type: boolean
+      enable_meet_client_large_packets:
+        description: Enable large packet upload sessions after Mail.ReadWrite admin consent
+        required: true
+        default: false
+        type: boolean
       initial_database_bootstrap:
         description: One-time only - create database roles on the first deployment
         required: true
@@ -181,6 +191,11 @@ jobs:
               alamoTenantId='${{ vars.PIPELINE_ALAMO_TENANT_ID }}' \
               alamoClientId='${{ vars.PIPELINE_ALAMO_CLIENT_ID }}' \
               alamoApiScope='${{ vars.PIPELINE_ALAMO_API_SCOPE }}' \
+              enableMeetClientMail='${{ inputs.enable_meet_client_mail }}' \
+              graphMailClientId='${{ vars.PIPELINE_GRAPH_MAIL_CLIENT_ID }}' \
+              meetClientSender='${{ vars.PIPELINE_MEET_CLIENT_SENDER }}' \
+              meetClientAllowedEmailDomains='${{ vars.PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS }}' \
+              enableMeetClientLargePackets='${{ inputs.enable_meet_client_large_packets }}' \
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
               enableNoteLab='${{ inputs.enable_note_lab }}' \
@@ -220,6 +235,11 @@ jobs:
               alamoTenantId='${{ vars.PIPELINE_ALAMO_TENANT_ID }}' \
               alamoClientId='${{ vars.PIPELINE_ALAMO_CLIENT_ID }}' \
               alamoApiScope='${{ vars.PIPELINE_ALAMO_API_SCOPE }}' \
+              enableMeetClientMail='${{ inputs.enable_meet_client_mail }}' \
+              graphMailClientId='${{ vars.PIPELINE_GRAPH_MAIL_CLIENT_ID }}' \
+              meetClientSender='${{ vars.PIPELINE_MEET_CLIENT_SENDER }}' \
+              meetClientAllowedEmailDomains='${{ vars.PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS }}' \
+              enableMeetClientLargePackets='${{ inputs.enable_meet_client_large_packets }}' \
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
               enableNoteLab='${{ inputs.enable_note_lab }}' \

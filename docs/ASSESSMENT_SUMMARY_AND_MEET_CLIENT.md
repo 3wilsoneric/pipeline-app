@@ -52,6 +52,8 @@ The Entra application needs Microsoft Graph `Mail.Send` application permission w
 
 Small packets are sent directly with `Mail.Send`. Larger packets use a Microsoft Graph draft and attachment upload session. That path additionally requires the Microsoft Graph `Mail.ReadWrite` application permission with administrator consent; set `PIPELINE_GRAPH_MAIL_READ_WRITE=true` only after it is granted and mailbox access remains restricted. Pipeline defaults to an all-in 25 MiB packet cap so delivery stays below ordinary Exchange message-size limits after encoding and message content.
 
+For the Azure deployment, store the Graph application secret only as Key Vault secret `pipeline-graph-mail-client-secret`. Configure repository variables `PIPELINE_GRAPH_MAIL_CLIENT_ID`, `PIPELINE_MEET_CLIENT_SENDER`, and `PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS`. Run `Deploy Pipeline to Azure` with `enable_meet_client_mail=true` only after those values and `Mail.Send` are ready. Leave `enable_meet_client_large_packets=false` until `Mail.ReadWrite` is separately approved; this keeps oversized packets blocked rather than partially sent.
+
 ## Operational Notes
 
 - Microsoft Graph returning HTTP `202` means the message was accepted for delivery, not that every recipient opened or received it.

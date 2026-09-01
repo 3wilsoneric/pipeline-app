@@ -41,6 +41,15 @@ param alamoTenantId string = ''
 param alamoClientId string = ''
 param alamoApiScope string = ''
 
+@description('Enable Microsoft 365 Meet the Client delivery after Graph application permissions and the Key Vault client secret are configured.')
+param enableMeetClientMail bool = false
+param graphMailClientId string = ''
+param meetClientSender string = ''
+param meetClientAllowedEmailDomains string = ''
+
+@description('Enable Graph draft/upload-session delivery only after Mail.ReadWrite application permission is consented and mailbox access is restricted.')
+param enableMeetClientLargePackets bool = false
+
 @description('Enable the metered daily clinical reconciliation job only after explicit approval.')
 param enableClinicalReconcileJob bool = false
 
@@ -140,6 +149,14 @@ var clinicalSecrets = clinicalDataMode == 'alamo_api' ? [
   }
 ] : []
 
+var graphMailSecrets = enableMeetClientMail ? [
+  {
+    name: 'graph-mail-client-secret'
+    keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-graph-mail-client-secret'
+    identity: keyVaultSecretIdentity
+  }
+] : []
+
 var baseEnvironment = [
   { name: 'PIPELINE_DEPLOYMENT_ENV', value: environment }
   { name: 'PIPELINE_DATABASE_MODE', value: 'postgres' }
@@ -213,6 +230,17 @@ var clinicalEnvironment = clinicalDataMode == 'alamo_api' ? [
   { name: 'PIPELINE_ALAMO_API_SCOPE', value: alamoApiScope }
 ] : []
 
+var graphMailEnvironment = enableMeetClientMail ? [
+  { name: 'PIPELINE_GRAPH_TENANT_ID', value: entraTenantId }
+  { name: 'PIPELINE_GRAPH_CLIENT_ID', value: graphMailClientId }
+  { name: 'PIPELINE_GRAPH_CLIENT_SECRET', secretRef: 'graph-mail-client-secret' }
+  { name: 'PIPELINE_MEET_CLIENT_SENDER', value: meetClientSender }
+  { name: 'PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS', value: meetClientAllowedEmailDomains }
+  { name: 'PIPELINE_GRAPH_MAIL_READ_WRITE', value: enableMeetClientLargePackets ? 'true' : 'false' }
+  { name: 'PIPELINE_MEET_CLIENT_MAX_ATTACHMENT_COUNT', value: '20' }
+  { name: 'PIPELINE_MEET_CLIENT_MAX_ATTACHMENT_BYTES', value: '26214400' }
+] : []
+
 resource containerEnvironment 'Microsoft.App/managedEnvironments@2025-01-01' existing = {
   name: last(split(containerAppsEnvironmentId, '/'))
 }
@@ -252,7 +280,7 @@ resource web 'Microsoft.App/containerApps@2025-01-01' = {
           identity: runtimeIdentityResourceId
         }
       ]
-      secrets: concat(requiredSecrets, databricksSecrets, clinicalSecrets)
+      secrets: concat(requiredSecrets, databricksSecrets, clinicalSecrets, graphMailSecrets)
     }
     template: {
       revisionSuffix: revisionSuffix
@@ -261,7 +289,7 @@ resource web 'Microsoft.App/containerApps@2025-01-01' = {
         {
           name: 'pipeline-web'
           image: containerImage
-          env: concat(baseEnvironment, databricksEnvironment, clinicalEnvironment)
+          env: concat(baseEnvironment, databricksEnvironment, clinicalEnvironment, graphMailEnvironment)
           resources: {
             cpu: json('1.0')
             memory: '2Gi'

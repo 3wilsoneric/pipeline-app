@@ -84,6 +84,24 @@ check(
     && deployment.includes("enable_note_lab:")
     && (deployment.match(/enableNoteLab='\$\{\{ inputs\.enable_note_lab \}\}'/g) ?? []).length === 2,
 );
+check(
+  "Meet the Client mail is fail-closed and Graph credentials stay in Key Vault",
+  runtime.includes("param enableMeetClientMail bool = false")
+    && runtime.includes("param enableMeetClientLargePackets bool = false")
+    && runtime.includes("keyVaultUrl: '${keyVaultBaseUri}secrets/pipeline-graph-mail-client-secret'")
+    && runtime.includes("{ name: 'PIPELINE_GRAPH_CLIENT_SECRET', secretRef: 'graph-mail-client-secret' }")
+    && !deployment.includes("PIPELINE_GRAPH_CLIENT_SECRET"),
+);
+check(
+  "Meet the Client deployment carries sender, recipient policy, and separate large-packet consent",
+  deployment.includes("enable_meet_client_mail:")
+    && deployment.includes("enable_meet_client_large_packets:")
+    && (deployment.match(/enableMeetClientMail='\$\{\{ inputs\.enable_meet_client_mail \}\}'/g) ?? []).length === 2
+    && (deployment.match(/enableMeetClientLargePackets='\$\{\{ inputs\.enable_meet_client_large_packets \}\}'/g) ?? []).length === 2
+    && (deployment.match(/graphMailClientId='\$\{\{ vars\.PIPELINE_GRAPH_MAIL_CLIENT_ID \}\}'/g) ?? []).length === 2
+    && (deployment.match(/meetClientSender='\$\{\{ vars\.PIPELINE_MEET_CLIENT_SENDER \}\}'/g) ?? []).length === 2
+    && (deployment.match(/meetClientAllowedEmailDomains='\$\{\{ vars\.PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS \}\}'/g) ?? []).length === 2,
+);
 check("runtime uses managed identity for Blob", runtime.includes("PIPELINE_AZURE_BLOB_AUTH_MODE") && runtime.includes("managed_identity"));
 check("runtime preserves browser-safe Entra readiness configuration", [
   "NEXT_PUBLIC_ENTRA_TENANT_ID",
