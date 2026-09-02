@@ -326,8 +326,8 @@ function PracticeQuestionTooltip({ question, lastGuidedField, onNext }: {
           <p className="mt-1 text-[11px] font-semibold leading-5 text-[#303a36]">{specification.formatTemplate}</p>
         </div>
         <div className="border-l-2 border-[#0f8b73] pl-3">
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#6b746f]">Example</div>
-          <p className="mt-1 text-[11px] leading-5 text-[#303a36]">{specification.strongExample}</p>
+          <div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#52615b]">Example</div>
+          <p className="mt-1.5 text-[13px] font-semibold leading-6 text-[#24312c]">{specification.strongExample}</p>
         </div>
       </div>
       <div className="mt-4 flex justify-end">
