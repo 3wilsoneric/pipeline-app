@@ -1,6 +1,10 @@
 import "server-only";
 
-import { getPipelineUserFromRequest, type PipelineUser } from "@/lib/auth/pipeline-auth";
+import {
+  canAccessNoteLab,
+  requireAuthenticatedUser,
+  type PipelineUser,
+} from "@/lib/auth/pipeline-auth";
 
 const supervisorRoles = new Set(["admin", "assessment_coordinator"]);
 const practiceRoles = new Set(["admin", "assessment_coordinator", "reviewer"]);
@@ -19,15 +23,18 @@ export async function getAssessmentPracticeUser(requestHeaders: Headers): Promis
 }
 
 export function canReviewAssessmentLanguage(user: PipelineUser) {
-  return user.roles.some((role) => supervisorRoles.has(role));
+  return user.accessScope === "note_lab" || user.roles.some((role) => supervisorRoles.has(role));
 }
 
 async function getAuthorizedLabUser(requestHeaders: Headers, roles: ReadonlySet<string>, pathname: string) {
   if (!isNoteLabEnabled()) return null;
   const request = new Request(requestUrl(requestHeaders, pathname), { headers: new Headers(requestHeaders) });
   try {
-    const user = await getPipelineUserFromRequest(request);
-    return user?.roles.some((role) => roles.has(role)) ? user : null;
+    const auth = await requireAuthenticatedUser(request);
+    if (!auth.ok || !canAccessNoteLab(auth.user)) return null;
+    const user = auth.user;
+    if (user.accessScope === "note_lab") return user;
+    return user.roles.some((role) => roles.has(role)) ? user : null;
   } catch {
     return null;
   }

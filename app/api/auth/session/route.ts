@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import {
   clearPipelineSessionCookie,
   createPipelineSessionCookie,
-  requirePipelineUser,
+  requireAuthenticatedUser,
 } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   return withApiLogging(request, "/api/auth/session", async () => {
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
-    const auth = await requirePipelineUser(request);
+    const auth = await requireAuthenticatedUser(request);
     if (!auth.ok) return auth.response;
 
     try {

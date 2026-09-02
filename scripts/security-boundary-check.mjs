@@ -90,6 +90,13 @@ const nextConfig = read(path.join(root, "next.config.ts"));
 check("framework disclosure is disabled", nextConfig.includes("poweredByHeader: false"));
 const authSession = read(path.join(root, "app/api/auth/session/route.ts"));
 check("session mutations require same-origin requests", authSession.includes("requireSameOriginMutation(request)"));
+const proxy = read(path.join(root, "proxy.ts"));
+const pipelineAuth = read(path.join(root, "lib/auth/pipeline-auth.ts"));
+check("note-lab-only identities are blocked from Pipeline pages and APIs",
+  proxy.includes("canAccessPipeline(auth.user)")
+  && proxy.includes('toPipelinePath("/note-lab/practice")')
+  && pipelineAuth.includes('"Pipeline.NoteLabReviewer"')
+  && pipelineAuth.includes('accessScope === "note_lab"'));
 const ci = read(path.join(root, ".github/workflows/ci.yml"));
 const platformReadiness = read(path.join(root, "scripts/platform-readiness.mjs"));
 check("CI blocks high-severity dependency advisories", ci.includes("npm audit --audit-level=high"));

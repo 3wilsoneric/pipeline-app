@@ -21,7 +21,7 @@ const store = read("lib/note-lab/note-lab-store.ts");
 const contracts = read("lib/note-lab/note-lab-contracts.ts");
 const workspace = read("components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx");
 const route = read("app/api/note-lab/session/route.ts");
-const page = read("app/(pipeline)/note-lab/page.tsx");
+const page = read("app/(standalone-review)/note-lab/page.tsx");
 const admittedAnalysis = read("scripts/analyze-admitted-note-structure.mjs");
 const migration = read("database/migrations/0023_note_lab_field_reviews.sql");
 const rollback = read("database/rollbacks/0023_note_lab_field_reviews.sql");
@@ -35,7 +35,9 @@ const check = (name, condition) => checks.push({ name, ok: Boolean(condition) })
 check("production route is explicitly feature flagged", access.includes("PIPELINE_NOTE_LAB_ENABLED") && access.includes("NODE_ENV === \"production\""));
 check("only supervisor roles can enter", access.includes("admin") && access.includes("assessment_coordinator"));
 check("page is hidden from indexing", page.includes("index: false") && page.includes("follow: false") && page.includes("notFound()"));
-check("mutation requires authentication and same-origin validation", route.includes("requirePipelineUser") && route.includes("requireSameOriginMutation") && route.includes("readJsonBody(request, 32_000)"));
+check("mutation requires lab authorization and same-origin validation", route.includes("requireAuthenticatedUser")
+  && route.includes("canAccessNoteLab(auth.user)") && route.includes("requireSameOriginMutation")
+  && route.includes("readJsonBody(request, 32_000)"));
 check("source manifest is disabled in production", samples.includes("Private file sources are disabled in production") && samples.includes("PIPELINE_NOTE_LAB_MANIFEST_PATH"));
 check("nine evidence-based documentation criteria are defined", standardsModule.noteLabDocumentationCriteria.length === 9
   && new Set(standardsModule.noteLabDocumentationCriteria.map((criterion) => criterion.id)).size === 9);
@@ -58,27 +60,26 @@ check("the combined rail preserves the assessment section navigation",
   workspace.includes('aria-label="Assessment section navigation"')
   && workspace.includes("assessmentPracticeNavigationGroups.map")
   && workspace.includes('aria-current={active ? "step" : undefined}')
-  && workspace.includes("startSectionWalkthrough(item.key)")
-  && workspace.includes("Start walkthrough for ${item.label}"));
+  && workspace.includes("startSectionWalkthrough")
+  && workspace.includes("Begin walkthrough for ${section.label}"));
 check("only authored narrative questions can open guidance and the selected section bounds the walkthrough",
-  workspace.includes("onOpenGuidance={openGuidance}")
-  && workspace.includes("hasUsefulWritingGuidance")
+  workspace.includes("hasUsefulWritingGuidance")
   && workspace.includes("firstGuidedStepInSection")
   && workspace.includes("step.section === currentStep.section")
-  && workspace.includes("setGuidanceField(field)")
-  && workspace.includes("Next guided field")
+  && workspace.includes("setGuidedField(next.question.field)")
+  && workspace.includes("Next field")
   && !workspace.includes("structuredQuestionGuidance")
   && !workspace.includes("/api/note-lab/session")
   && !workspace.includes("Save and continue"));
-check("language guidance is shown in a modal before an anchored question tooltip",
-  workspace.includes("QuestionGuidanceDialog")
-  && workspace.includes('aria-modal="true"')
-  && workspace.includes("OK, go to question")
-  && workspace.includes("PracticeQuestionTooltip")
-  && workspace.includes("data-practice-field"));
-check("narrative guidance includes instructions, note structure, and a good example",
-  workspace.includes("specification.instructionSteps")
-  && workspace.includes("Note structure")
+check("language guidance is an anchored question tooltip without a modal gate",
+  workspace.includes("PracticeQuestionTooltip")
+  && workspace.includes("data-practice-field")
+  && workspace.includes('role="dialog"')
+  && !workspace.includes("QuestionGuidanceDialog")
+  && !workspace.includes("OK, go to question"));
+check("narrative guidance includes purpose, answer order, and a good example",
+  workspace.includes("narrativeGuide.purpose")
+  && workspace.includes("Use this order")
   && workspace.includes("specification.formatTemplate")
   && workspace.includes("specification.strongExample"));
 check("the former language page redirects to the one combined workflow",

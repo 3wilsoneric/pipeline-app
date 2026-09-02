@@ -1,7 +1,7 @@
 import { isNoteLabEnabled } from "@/lib/note-lab/note-lab-access";
 import { validateNoteLabReviewInput } from "@/lib/note-lab/note-lab-contracts";
 import { getNoteLabSession, submitNoteLabReview } from "@/lib/note-lab/note-lab-store";
-import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { canAccessNoteLab, requireAuthenticatedUser } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -12,8 +12,9 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/note-lab/session", async () => {
     if (!isNoteLabEnabled()) return notFound();
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
+    const auth = await requireAuthenticatedUser(request);
     if (!auth.ok) return auth.response;
+    if (!canAccessNoteLab(auth.user)) return forbidden();
     try {
       const requestedField = new URL(request.url).searchParams.get("field");
       return Response.json(await getNoteLabSession(auth.user.id, requestedField), { headers: noStoreHeaders() });
@@ -28,8 +29,9 @@ export async function POST(request: Request) {
     if (!isNoteLabEnabled()) return notFound();
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
+    const auth = await requireAuthenticatedUser(request);
     if (!auth.ok) return auth.response;
+    if (!canAccessNoteLab(auth.user)) return forbidden();
     const parsed = await readJsonBody(request, 32_000);
     if (!parsed.ok) return Response.json({ error: parsed.message }, { status: parsed.status ?? 400, headers: noStoreHeaders() });
     const validation = validateNoteLabReviewInput(parsed.value);
@@ -56,6 +58,10 @@ function noteLabSubmissionResponse(result: Awaited<ReturnType<typeof submitNoteL
 
 function notFound() {
   return Response.json({ error: "Not found." }, { status: 404, headers: noStoreHeaders() });
+}
+
+function forbidden() {
+  return Response.json({ error: "Forbidden" }, { status: 403, headers: noStoreHeaders() });
 }
 
 function noStoreHeaders() {

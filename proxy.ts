@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { requirePipelineUser, isProtectedPath } from "@/lib/auth/pipeline-auth";
+import {
+  canAccessNoteLab,
+  canAccessPipeline,
+  isProtectedPath,
+  requireAuthenticatedUser,
+} from "@/lib/auth/pipeline-auth";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
 import { PIPELINE_PERMISSIONS_POLICY } from "@/shared/pipeline-security-headers.mjs";
 
@@ -17,7 +22,7 @@ export async function proxy(request: NextRequest) {
     return withSecurityHeaders(NextResponse.next(), request);
   }
 
-  const auth = await requirePipelineUser(request);
+  const auth = await requireAuthenticatedUser(request);
 
   if (!auth.ok) {
     if (!applicationPathname.startsWith("/api/")) {
@@ -31,7 +36,43 @@ export async function proxy(request: NextRequest) {
     return withSecurityHeaders(auth.response, request);
   }
 
+  if (isNoteLabPath(applicationPathname)) {
+    const response = canAccessNoteLab(auth.user)
+      ? NextResponse.next()
+      : NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return withSecurityHeaders(response, request);
+  }
+
+  if (isSharedIdentityPath(applicationPathname)) {
+    return withSecurityHeaders(NextResponse.next(), request);
+  }
+
+  if (!canAccessPipeline(auth.user)) {
+    if (applicationPathname.startsWith("/api/")) {
+      return withSecurityHeaders(
+        NextResponse.json({ error: "Pipeline access is not assigned." }, { status: 403 }),
+        request,
+      );
+    }
+
+    const noteLabUrl = request.nextUrl.clone();
+    noteLabUrl.pathname = toPipelinePath("/note-lab/practice");
+    noteLabUrl.search = "";
+    return withSecurityHeaders(NextResponse.redirect(noteLabUrl), request);
+  }
+
   return withSecurityHeaders(NextResponse.next(), request);
+}
+
+function isNoteLabPath(pathname: string) {
+  return pathname === "/note-lab"
+    || pathname.startsWith("/note-lab/")
+    || pathname === "/api/note-lab"
+    || pathname.startsWith("/api/note-lab/");
+}
+
+function isSharedIdentityPath(pathname: string) {
+  return pathname === "/api/auth/me";
 }
 
 function requireInternalWorkerAtProxy(request: NextRequest) {

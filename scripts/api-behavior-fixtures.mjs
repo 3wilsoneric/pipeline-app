@@ -720,6 +720,29 @@ function authBehaviorResults() {
       }));
       assert(result.ok, "A governed Entra app-role assignment should be sufficient authorization");
     }),
+    run("note-lab reviewers can authenticate without receiving Pipeline access", () => {
+      const auth = loadAuthModule({
+        NODE_ENV: "production",
+        PIPELINE_AUTH_MODE: "headers",
+        PIPELINE_TRUSTED_GATEWAY: "true",
+      });
+      const principal = btoa(JSON.stringify({
+        userId: "note-lab-reviewer",
+        userDetails: "reviewer@example.com",
+        claims: [{ typ: "roles", val: "Pipeline.NoteLabReviewer" }],
+      }));
+      const request = new Request("https://pipeline.local/", {
+        headers: { "x-ms-client-principal": principal },
+      });
+      const authenticated = auth.requireAuthenticatedUser(request);
+      const pipeline = auth.requirePipelineUser(request);
+
+      assert(authenticated.ok, "Lab reviewers must be able to establish a signed-in session");
+      assert(authenticated.user.accessScope === "note_lab", "Lab reviewers must receive the narrow access scope");
+      assert(auth.canAccessNoteLab(authenticated.user), "Lab reviewers must be able to enter the lab");
+      assert(!auth.canAccessPipeline(authenticated.user), "Lab reviewers must not receive Pipeline access");
+      assert(!pipeline.ok && pipeline.response.status === 403, "Pipeline routes must reject a lab-only identity");
+    }),
     run("auth enforces role gates", () => {
       const auth = loadAuthModule({
         NODE_ENV: "production",

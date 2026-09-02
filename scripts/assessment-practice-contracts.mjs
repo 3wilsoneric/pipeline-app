@@ -6,7 +6,7 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const read = (file) => readFileSync(file, "utf8");
 const access = read("lib/note-lab/note-lab-access.ts");
-const page = read("app/(pipeline)/note-lab/practice/page.tsx");
+const page = read("app/(standalone-review)/note-lab/practice/page.tsx");
 const workspace = read("components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx");
 const coach = read("components/pipeline/training/PipelineGuidedCoach.tsx");
 const scenarioSource = read("lib/note-lab/assessment-practice-scenario.ts");
@@ -39,7 +39,7 @@ check("practice renders canonical sections and conditional questions",
 check("language guidance comes from the canonical writing specification",
   workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes("Example")
   && workspace.includes("specification.formatTemplate") && workspace.includes("specification.strongExample")
-  && workspace.includes("instructionSteps") && workspace.includes("guardrail"));
+  && workspace.includes("getAssessmentNarrativeGuide") && workspace.includes("narrativeGuide.purpose"));
 check("practice has no clinical persistence or production assessment dependency",
   !workspace.includes("fetch(") && !workspace.includes("/api/") && !workspace.includes("indexedDB")
   && !workspace.includes("localStorage") && !workspace.includes("sessionStorage")
@@ -53,27 +53,27 @@ check("the walkthrough is scoped to the selected section and advances only throu
   && workspace.includes("firstGuidedStepInSection")
   && workspace.includes("step.section === section.key")
   && workspace.includes("step.section === currentStep.section")
-  && workspace.includes("startSectionWalkthrough(item.key)")
-  && workspace.includes("Start walkthrough for ${item.label}")
+  && workspace.includes("startSectionWalkthrough")
+  && workspace.includes("Begin walkthrough for ${section.label}")
   && workspace.includes("hasUsefulWritingGuidance")
-  && workspace.includes("QuestionGuidanceDialog")
   && workspace.includes("PracticeQuestionTooltip")
-  && workspace.includes("openGuidance(next.question.field)"));
+  && workspace.includes("setGuidedField(next.question.field)"));
 check("self-evident controls cannot open filler guidance",
   workspace.includes('question.control === "textarea"')
   && !workspace.includes("structuredQuestionGuidance")
   && !workspace.includes("questionAction")
-  && workspace.includes("Open writing guide for"));
-check("question guidance must be acknowledged before the anchored control step",
-  workspace.includes("OK, go to question")
-  && workspace.includes("setGuidedField(guidanceField)")
-  && workspace.includes("data-practice-field"));
+  && !workspace.includes("Open writing guide for"));
+check("question guidance stays anchored to its assessment field without a modal gate",
+  workspace.includes("data-practice-field")
+  && workspace.includes('role="dialog"')
+  && !workspace.includes("QuestionGuidanceDialog")
+  && !workspace.includes("OK, go to question"));
 check("production assessment remains a separately persisted clinical surface",
   assessmentWorkspace.includes("/api/assessments/") && assessmentWorkspace.includes("@/lib/offline/offline-assessment-store")
   && !assessmentWorkspace.includes("assessment-practice-scenario") && !assessmentWorkspace.includes("practice-assessment"));
 check("practice copy stays restrained",
   !workspace.includes("Welcome to") && !workspace.includes("How to use")
-  && workspace.includes("Start walkthrough") && !workspace.includes("Practice complete")
+  && workspace.includes("Begin walkthrough") && !workspace.includes("Practice complete")
   && !workspace.includes("Finish practice") && !workspace.includes("Save and continue"));
 check("practice mirrors the production assessment interaction model",
   workspace.includes("assessmentPracticeNavigationGroups")

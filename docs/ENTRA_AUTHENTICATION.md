@@ -58,7 +58,9 @@ ID and the exposed API application ID URI:
 5. Under **Expose an API**, define `access_as_user` with the application ID URI represented by `api://<same app id>`.
 6. Grant the SPA delegated permission to that `access_as_user` scope and grant admin consent.
 7. Set **Assignment required** on the enterprise application and assign every authorized user or group.
-8. If role-based access is needed, define `Pipeline.Admin`, `Pipeline.AssessmentCoordinator`, `Pipeline.Reviewer`, and `Pipeline.Viewer` app roles as allowed member types for users/groups, then assign them to the authorized users or groups.
+8. Define `Pipeline.Admin`, `Pipeline.AssessmentCoordinator`, `Pipeline.Reviewer`, `Pipeline.Viewer`, and `Pipeline.NoteLabReviewer` app roles as allowed member types for users/groups, then assign each person exactly the access they need.
+
+`Pipeline.NoteLabReviewer` is deliberately not a Pipeline application role. It permits the standalone `/note-lab` routes and their bounded API only. A person assigned only this role is redirected back to `/note-lab/practice` from Pipeline pages and receives `403` from non-lab APIs. Use `scripts/configure-note-lab-reviewers.sh` with stable Entra object IDs to replace any broader Pipeline assignment without sending an invitation or notification.
 
 No client secret is needed for the browser SPA registration. The server session secret is generated locally and stored in Azure Key Vault.
 
@@ -71,6 +73,9 @@ No client secret is needed for the browser SPA registration. The server session 
 - Entra enterprise-app assignment is the single admission boundary. App roles
   constrain privileged actions; local identity lists are used only by legacy
   trusted-gateway header mode.
+- `Pipeline.NoteLabReviewer` is a route-limited entitlement. The server session
+  retains that scope, Proxy blocks non-lab navigation, and API handlers enforce
+  the same boundary independently of hidden links or client-side navigation.
 - MSAL v4 stores encrypted authentication artifacts in `localStorage` so the
   account and token cache is shared across Pipeline tabs. Temporary redirect
   state remains in MSAL's default non-persistent storage.

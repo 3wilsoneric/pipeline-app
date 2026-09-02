@@ -4,15 +4,18 @@ import { EncryptJWT, createRemoteJWKSet, jwtDecrypt, jwtVerify } from "jose";
 
 export type PipelineRole = "admin" | "assessment_coordinator" | "reviewer" | "viewer";
 
+export type PipelineAccessScope = "pipeline" | "note_lab";
+
 export type PipelineUser = {
   id: string;
   email: string;
   name: string;
   roles: PipelineRole[];
+  accessScope: PipelineAccessScope;
   entraAppRoleAssigned?: boolean;
 };
 
-type ParsedHeaderUser = Omit<PipelineUser, "roles"> & {
+type ParsedHeaderUser = Omit<PipelineUser, "roles" | "accessScope"> & {
   claimRoles?: string[];
 };
 
@@ -36,7 +39,10 @@ const rolePriority: PipelineRole[] = [
   "reviewer",
   "viewer",
 ];
-const sessionCookieName = "pipeline_entra_session";
+const noteLabReviewerClaimRole = "Pipeline.NoteLabReviewer";
+// Version the cookie when its authorization payload changes so a previously
+// broader session cannot survive a role-boundary deployment.
+const sessionCookieName = "pipeline_entra_session_v2";
 const sessionLifetimeSeconds = 8 * 60 * 60;
 
 class PipelineAuthError extends Error {
@@ -64,10 +70,20 @@ export function requirePipelineUser(
   request: Request,
   allowedRoles: PipelineRole[] = rolePriority,
 ): PipelineAuthResult | Promise<PipelineAuthResult> {
+  const auth = requireAuthenticatedUser(request);
+  if (auth instanceof Promise) {
+    return auth.then((result) => result.ok ? authorizePipelineUser(result.user, allowedRoles) : result);
+  }
+  return auth.ok ? authorizePipelineUser(auth.user, allowedRoles) : auth;
+}
+
+export function requireAuthenticatedUser(
+  request: Request,
+): PipelineAuthResult | Promise<PipelineAuthResult> {
   const mode = getPipelineAuthMode();
 
   if (mode === "entra_jwt") {
-    return requireEntraPipelineUser(request, allowedRoles);
+    return requireEntraAuthenticatedUser(request);
   }
 
   if (mode === "mock" && !isMockRequestAllowed(request)) {
@@ -78,7 +94,7 @@ export function requirePipelineUser(
     return authFailure(503, "Pipeline trusted gateway authentication is not configured.");
   }
 
-  return authorizeUser(getPipelineUserFromHeaders(request.headers), allowedRoles);
+  return authorizeUser(getPipelineUserFromHeaders(request.headers), rolePriority);
 }
 
 export async function getPipelineUserFromRequest(request: Request) {
@@ -110,6 +126,7 @@ export function getPipelineUserFromHeaders(headers: Headers): PipelineUser | nul
   return {
     ...headerUser,
     roles: rolesForUser(headerUser.email, headerUser.claimRoles),
+    accessScope: accessScopeForClaimRoles(headerUser.claimRoles),
     entraAppRoleAssigned: hasMappedClaimRole(headerUser.claimRoles),
   };
 }
@@ -195,14 +212,19 @@ export function getPipelineAuthReadiness(request?: Request) {
   };
 }
 
-async function requireEntraPipelineUser(request: Request, allowedRoles: PipelineRole[]) {
+async function requireEntraAuthenticatedUser(request: Request) {
   try {
     const user = await getPipelineUserFromRequest(request);
-    return authorizeUser(user, allowedRoles);
+    return authorizeUser(user, rolePriority);
   } catch (error) {
     if (error instanceof PipelineAuthError) return authFailure(error.status, error.message);
     return authFailure(401, "Unauthorized");
   }
+}
+
+function authorizePipelineUser(user: PipelineUser, allowedRoles: PipelineRole[]): AuthSuccess | AuthFailure {
+  if (!canAccessPipeline(user)) return authFailure(403, "Pipeline access is not assigned.");
+  return authorizeUser(user, allowedRoles);
 }
 
 function authorizeUser(user: PipelineUser | null, allowedRoles: PipelineRole[]): AuthSuccess | AuthFailure {
@@ -255,6 +277,7 @@ async function verifyEntraAccessToken(token: string) {
     email,
     name,
     roles: rolesForUser(email, claimRoles),
+    accessScope: accessScopeForClaimRoles(claimRoles),
     entraAppRoleAssigned: hasMappedClaimRole(claimRoles),
   } satisfies PipelineUser;
 }
@@ -315,6 +338,7 @@ async function readSessionUser(cookieHeader: string | null) {
       typeof user.email !== "string" ||
       typeof user.name !== "string" ||
       !Array.isArray(user.roles) ||
+      (user.accessScope !== "pipeline" && user.accessScope !== "note_lab") ||
       (user.entraAppRoleAssigned !== undefined && typeof user.entraAppRoleAssigned !== "boolean")
     ) return null;
     return {
@@ -322,6 +346,7 @@ async function readSessionUser(cookieHeader: string | null) {
       email: user.email,
       name: user.name,
       roles: user.roles.filter((role): role is PipelineRole => rolePriority.includes(role as PipelineRole)),
+      accessScope: user.accessScope,
       entraAppRoleAssigned: user.entraAppRoleAssigned === true,
     } satisfies PipelineUser;
   } catch {
@@ -414,6 +439,7 @@ function mockUser(): PipelineUser {
     email,
     name: process.env.PIPELINE_MOCK_USER_NAME ?? "Eric Wilson",
     roles: configuredRoles.length > 0 ? configuredRoles : ["assessment_coordinator", "reviewer", "viewer"],
+    accessScope: process.env.PIPELINE_MOCK_USER_ACCESS_SCOPE === "note_lab" ? "note_lab" : "pipeline",
   };
 }
 
@@ -423,6 +449,7 @@ function anonymousAdmin(): PipelineUser {
     email: "auth-disabled@pipeline.local",
     name: "Auth Disabled",
     roles: ["admin"],
+    accessScope: "pipeline",
   };
 }
 
@@ -456,13 +483,33 @@ function isAllowedUser(user: Pick<PipelineUser, "id" | "email" | "entraAppRoleAs
 }
 
 function hasMappedClaimRole(claimRoles: string[] | undefined) {
-  return mapClaimRoles(claimRoles ?? []).length > 0;
+  return mapClaimRoles(claimRoles ?? []).length > 0 || hasNoteLabClaimRole(claimRoles ?? []);
+}
+
+export function canAccessPipeline(user: PipelineUser) {
+  return user.accessScope !== "note_lab";
+}
+
+export function canAccessNoteLab(user: PipelineUser) {
+  if (user.accessScope === "note_lab") return true;
+  return user.roles.some((role) => role === "admin" || role === "assessment_coordinator" || role === "reviewer");
+}
+
+function accessScopeForClaimRoles(claimRoles: string[] | undefined): PipelineAccessScope {
+  const roles = claimRoles ?? [];
+  if (mapClaimRoles(roles).length > 0) return "pipeline";
+  return hasNoteLabClaimRole(roles) ? "note_lab" : "pipeline";
+}
+
+function hasNoteLabClaimRole(claimRoles: string[]) {
+  const expected = normalizeClaimRole(noteLabReviewerClaimRole);
+  return claimRoles.some((role) => normalizeClaimRole(role) === expected);
 }
 
 function mapClaimRoles(claimRoles: string[]): PipelineRole[] {
   const mapped = new Set<PipelineRole>();
   for (const role of claimRoles) {
-    const normalized = role.trim().toLowerCase().replace(/[._\s-]/g, "");
+    const normalized = normalizeClaimRole(role);
     const mappedRole = normalized === "admin" || normalized === "pipelineadmin" || normalized === "alamoadmissionsadmin"
       ? "admin"
       : normalized === "assessmentcoordinator" || normalized === "pipelineassessmentcoordinator" || normalized === "alamoadmissionssupervisor"
@@ -477,6 +524,10 @@ function mapClaimRoles(claimRoles: string[]): PipelineRole[] {
   if (mapped.size === 0) return [];
   const highestRoleIndex = Math.min(...[...mapped].map((role) => rolePriority.indexOf(role)));
   return rolePriority.slice(highestRoleIndex);
+}
+
+function normalizeClaimRole(role: string) {
+  return role.trim().toLowerCase().replace(/[._\s-]/g, "");
 }
 
 function parseEmailList(value: string | undefined) {

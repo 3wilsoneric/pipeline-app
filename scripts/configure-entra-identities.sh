@@ -64,6 +64,7 @@ if [[ "$pipeline_created" == true ]]; then
   coordinator_role_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
   reviewer_role_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
   viewer_role_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+  note_lab_reviewer_role_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
   body_file="$(mktemp -t pipeline-entra-app.XXXXXX.json)"
   trap 'rm -f "${body_file:-}"' EXIT
   jq -n \
@@ -73,6 +74,7 @@ if [[ "$pipeline_created" == true ]]; then
     --arg coordinator_id "$coordinator_role_id" \
     --arg reviewer_id "$reviewer_role_id" \
     --arg viewer_id "$viewer_role_id" \
+    --arg note_lab_reviewer_id "$note_lab_reviewer_role_id" \
     '{
       identifierUris: ["api://" + $app_id],
       spa: { redirectUris: ["http://localhost:3000/sign-in"] },
@@ -93,7 +95,8 @@ if [[ "$pipeline_created" == true ]]; then
         { id: $admin_id, value: "Pipeline.Admin", displayName: "Pipeline Admin", description: "Administer Pipeline.", isEnabled: true, allowedMemberTypes: ["User"] },
         { id: $coordinator_id, value: "Pipeline.AssessmentCoordinator", displayName: "Pipeline Assessment Coordinator", description: "Coordinate referrals and assessments.", isEnabled: true, allowedMemberTypes: ["User"] },
         { id: $reviewer_id, value: "Pipeline.Reviewer", displayName: "Pipeline Reviewer", description: "Review referral and assessment data.", isEnabled: true, allowedMemberTypes: ["User"] },
-        { id: $viewer_id, value: "Pipeline.Viewer", displayName: "Pipeline Viewer", description: "View authorized Pipeline records.", isEnabled: true, allowedMemberTypes: ["User"] }
+        { id: $viewer_id, value: "Pipeline.Viewer", displayName: "Pipeline Viewer", description: "View authorized Pipeline records.", isEnabled: true, allowedMemberTypes: ["User"] },
+        { id: $note_lab_reviewer_id, value: "Pipeline.NoteLabReviewer", displayName: "Pipeline Note Lab Reviewer", description: "Use the standalone assessment notes lab without access to Pipeline clinical workflows.", isEnabled: true, allowedMemberTypes: ["User"] }
       ],
       requiredResourceAccess: [{
         resourceAppId: $app_id,
@@ -124,10 +127,33 @@ fi
 pipeline_sp_object_id="$(ensure_service_principal "$pipeline_app_id")"
 
 pipeline_manifest="$(az ad app show --id "$pipeline_app_id" --output json)"
+note_lab_reviewer_role_id="$(jq -r '.appRoles[]? | select(.value == "Pipeline.NoteLabReviewer" and .isEnabled == true) | .id' <<<"$pipeline_manifest" | head -n 1)"
+if [[ -z "$note_lab_reviewer_role_id" ]]; then
+  note_lab_reviewer_role_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+  note_lab_role_body="$(mktemp -t pipeline-note-lab-role.XXXXXX.json)"
+  trap 'rm -f "${body_file:-}" "${api_body:-}" "${note_lab_role_body:-}"' EXIT
+  jq \
+    --arg role_id "$note_lab_reviewer_role_id" \
+    '.appRoles += [{
+      id: $role_id,
+      value: "Pipeline.NoteLabReviewer",
+      displayName: "Pipeline Note Lab Reviewer",
+      description: "Use the standalone assessment notes lab without access to Pipeline clinical workflows.",
+      isEnabled: true,
+      allowedMemberTypes: ["User"]
+    }] | {appRoles: .appRoles}' <<<"$pipeline_manifest" > "$note_lab_role_body"
+  az rest \
+    --method PATCH \
+    --url "https://graph.microsoft.com/v1.0/applications/${pipeline_object_id}" \
+    --headers Content-Type=application/json \
+    --body "@$note_lab_role_body" \
+    --output none
+  pipeline_manifest="$(az ad app show --id "$pipeline_app_id" --output json)"
+fi
 access_scope_id="$(jq -r '.api.oauth2PermissionScopes[]? | select(.value == "access_as_user" and .isEnabled == true) | .id' <<<"$pipeline_manifest" | head -n 1)"
 admin_role_id="$(jq -r '.appRoles[]? | select(.value == "Pipeline.Admin" and .isEnabled == true) | .id' <<<"$pipeline_manifest" | head -n 1)"
-if [[ -z "$access_scope_id" || -z "$admin_role_id" ]]; then
-  printf 'The Pipeline Entra app is missing its governed scope or admin role.\n' >&2
+if [[ -z "$access_scope_id" || -z "$admin_role_id" || -z "$note_lab_reviewer_role_id" ]]; then
+  printf 'The Pipeline Entra app is missing its governed scope or required roles.\n' >&2
   exit 2
 fi
 
@@ -268,6 +294,7 @@ jq -n \
   --arg tenant_id "$tenant_id" \
   --arg pipeline_app_id "$pipeline_app_id" \
   --arg pipeline_sp_object_id "$pipeline_sp_object_id" \
+  --arg note_lab_reviewer_role_id "$note_lab_reviewer_role_id" \
   --arg service_app_id "$service_app_id" \
   --arg service_sp_object_id "$service_sp_object_id" \
   --arg alamo_api_app_id "$alamo_api_app_id" \
@@ -277,6 +304,7 @@ jq -n \
     tenantId: $tenant_id,
     pipelineHumanAppClientId: $pipeline_app_id,
     pipelineHumanServicePrincipalObjectId: $pipeline_sp_object_id,
+    pipelineNoteLabReviewerRoleId: $note_lab_reviewer_role_id,
     pipelineClinicalClientId: $service_app_id,
     pipelineClinicalServicePrincipalObjectId: $service_sp_object_id,
     alamoApiAppId: $alamo_api_app_id,
