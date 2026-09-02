@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, RefreshCw, UserRoundCheck, X } from "lucide-
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import { addCalendarDays, calendarToday } from "@/lib/pipeline/assessment-calendar";
+import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type {
   PipelineCalendarEvent,
   PipelineCalendarEventKind,
@@ -123,7 +124,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
 
   const openEvent = (event: PipelineCalendarEvent) => onOpenPacket({
     id: event.referralId,
-    name: event.clientName,
+    name: calendarClientName(event.clientName, event.community),
     community: event.community as Referral["community"],
   });
 
@@ -273,7 +274,7 @@ function AgendaView({ events, loading, hasFilters, preparationCount, onOpen }: {
           <div className="divide-y divide-[#e5e5e5]">
             {dayEvents.map((event) => (
               <button key={event.id} type="button" onClick={() => onOpen(event)} className="grid w-full gap-2 px-4 py-3 text-left hover:bg-[#f7faf9] sm:grid-cols-[minmax(0,1fr)_160px_120px]">
-                <span className="min-w-0"><span className="block truncate text-[13px] font-black text-[#111111]">{event.clientName}</span><span className="mt-1 block truncate text-[11px] text-[#737373]">{event.startsAt ? `${eventTime(event.startsAt)} · ` : ""}{event.title} · {event.detail}</span></span>
+                <span className="min-w-0"><span className="block truncate text-[13px] font-black text-[#111111]">{calendarClientName(event.clientName, event.community)}</span><span className="mt-1 block truncate text-[11px] text-[#737373]">{event.startsAt ? `${eventTime(event.startsAt)} · ` : ""}{event.title} · {event.detail}</span></span>
                 <span className="truncate text-[11px] font-semibold text-[#595959]">{event.community}</span>
                 <span className="truncate text-[10px] text-[#737373]">{event.owner}</span>
               </button>
@@ -290,12 +291,16 @@ function CalendarEventButton({ event, onOpen, compact = false }: { event: Pipeli
     ? "border-l-[#a9473d] bg-[#fff3f1] text-[#7c3229]"
     : eventColors[event.kind];
   return (
-    <button type="button" onClick={() => onOpen(event)} title={`${event.clientName} · ${event.title} · ${event.owner}`} className={`block w-full border-l-2 px-2 text-left ${compact ? "py-1.5" : "py-2"} ${color}`}>
-      <span className={`block truncate font-black ${compact ? "text-[9px]" : "text-[11px]"}`}>{event.clientName}</span>
+    <button type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} · ${event.title} · ${event.owner}`} className={`block w-full border-l-2 px-2 text-left ${compact ? "py-1.5" : "py-2"} ${color}`}>
+      <span className={`block truncate font-black ${compact ? "text-[9px]" : "text-[11px]"}`}>{calendarClientName(event.clientName, event.community)}</span>
       <span className={`mt-0.5 block truncate opacity-80 ${compact ? "text-[8px]" : "text-[9px]"}`}>{event.startsAt ? `${eventTime(event.startsAt)} · ` : ""}{event.title}</span>
       {!compact ? <span className="mt-1 block truncate text-[8px] opacity-70">{event.owner}</span> : null}
     </button>
   );
+}
+
+function calendarClientName(name: string, community: string) {
+  return formatClientIdentityTitle({ name, community });
 }
 
 function calendarRange(view: CalendarView, anchor: string) {

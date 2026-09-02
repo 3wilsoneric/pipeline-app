@@ -1,4 +1,5 @@
 import type { ClinicalClientRecord } from "@/lib/clinical/clinical-contracts";
+import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 export type ClientProfileFact = {
   label: string;
@@ -22,7 +23,7 @@ type FieldDefinition = {
   label: string;
   sources: string[];
   excludeSources?: string[];
-  format?: "date" | "count" | "percent";
+  format?: "date" | "count" | "name" | "percent";
   maxItems?: number;
 };
 
@@ -51,7 +52,7 @@ const profileSections: SectionDefinition[] = [
       { label: "Resident number", sources: ["resident_number", "resident_numbers"], maxItems: 4 },
       { label: "Date of birth", sources: ["date_of_birth"], format: "date" },
       { label: "Age", sources: ["age"], format: "count" },
-      { label: "Also known as", sources: ["name_variants", "platform_resident_names"], excludeSources: ["resident_name", "display_name"], maxItems: 8 },
+      { label: "Also known as", sources: ["name_variants", "platform_resident_names"], excludeSources: ["resident_name", "display_name"], format: "name", maxItems: 8 },
       { label: "Gender", sources: ["gender_values_json", "gender"] },
       { label: "Race", sources: ["race_values_json", "race"] },
       { label: "Primary language", sources: ["primary_language_values_json", "primary_language"] },
@@ -207,12 +208,19 @@ function firstSourceValues(profile: Record<string, unknown>, sources: string[]) 
 }
 
 function buildFact(profile: Record<string, unknown>, definition: FieldDefinition): ClientProfileFact | null {
+  const community = firstSourceValues(profile, ["community_name", "facility_name", "facility_canonical", "community"])[0];
+  const cleanValue = (value: string) => definition.format === "name"
+    ? normalizeClientName(value, { community })
+    : value;
   const excluded = new Set(
     (definition.excludeSources ?? [])
       .flatMap((source) => readableValues(profile[source]))
+      .map(cleanValue)
       .map((value) => value.toLowerCase()),
   );
   const values = firstSourceValues(profile, definition.sources)
+    .map(cleanValue)
+    .filter(Boolean)
     .filter((value) => !excluded.has(value.toLowerCase()));
   if (!values.length) return null;
 

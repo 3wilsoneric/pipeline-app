@@ -5,6 +5,7 @@ import {
   type RecentDestinationInput,
 } from "@/lib/pipeline/user-workspace-state-types";
 import { usesServerUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-client";
+import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 export type { PipelineRecentDestination } from "@/lib/pipeline/user-workspace-state-types";
 
@@ -21,7 +22,7 @@ export function loadRecentDestinations() {
   try {
     const parsed = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "[]") as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isPipelineRecentDestination).slice(0, maxRecentDestinations);
+    return parsed.filter(isPipelineRecentDestination).map(cleanRecentDestination).slice(0, maxRecentDestinations);
   } catch {
     return [];
   }
@@ -33,7 +34,7 @@ export async function refreshRecentDestinations() {
     serverRecentsRequest = fetchPipelineJson<{ recents?: unknown }>("/api/me/recents", { cache: "no-store" })
       .then((payload) => {
         serverRecents = Array.isArray(payload.recents)
-          ? payload.recents.filter(isPipelineRecentDestination).slice(0, maxRecentDestinations)
+          ? payload.recents.filter(isPipelineRecentDestination).map(cleanRecentDestination).slice(0, maxRecentDestinations)
           : [];
         dispatchChange();
         return serverRecents;
@@ -48,10 +49,10 @@ export async function refreshRecentDestinations() {
 export function recordRecentDestination(destination: RecentDestinationInput) {
   if (typeof window === "undefined") return;
 
-  const next: PipelineRecentDestination = {
+  const next = cleanRecentDestination({
     ...destination,
     visitedAt: destination.visitedAt ?? new Date().toISOString(),
-  } as PipelineRecentDestination;
+  } as PipelineRecentDestination);
   const previous = loadRecentDestinations();
   const updated = [next, ...previous.filter((item) => item.id !== next.id)].slice(0, maxRecentDestinations);
 
@@ -87,4 +88,15 @@ export function subscribeToRecentDestinations(onChange: () => void) {
 
 function dispatchChange() {
   window.dispatchEvent(new Event(changeEvent));
+}
+
+function cleanRecentDestination(destination: PipelineRecentDestination): PipelineRecentDestination {
+  if (destination.kind === "page") return destination;
+  return {
+    ...destination,
+    title: formatClientIdentityTitle({
+      name: destination.title,
+      community: destination.kind === "referral" ? destination.community : undefined,
+    }),
+  };
 }

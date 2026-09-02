@@ -8,6 +8,7 @@ import { getReferralStoreReadiness, listReferrals } from "@/lib/pipeline/referra
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { listResidentLinks } from "@/lib/pipeline/resident-link-store";
 import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
+import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 export type PipelineClientWorkspaceListOptions = {
   query?: string;
@@ -151,6 +152,7 @@ export async function getClinicalClientWorkspaceSummaries(
 type PipelineClientRow = {
   external_client_id: string;
   display_name: string;
+  gender: string | null;
   community: string | null;
   admission_date: string | null;
   referral_count: number | string;
@@ -184,6 +186,8 @@ async function listPostgresPipelineClientWorkspaces(
       select
         p.external_client_id,
         p.display_name,
+        (array_agg(nullif(vr.data->>'gender', '') order by vr.updated_at desc, vr.referral_id desc)
+          filter (where coalesce(vr.data->>'gender', '') <> ''))[1]::text as gender,
         coalesce(
           (array_agg(vr.community order by vr.updated_at desc, vr.referral_id desc)
             filter (where vr.community is not null))[1]::text,
@@ -301,7 +305,8 @@ function mapPipelineClientRow(row: PipelineClientRow): ClientWorkspaceDirectoryI
     canonical_client_id: `pipeline:${row.external_client_id}`,
     workspace_origin: "pipeline",
     pipeline_client_id: row.external_client_id,
-    display_name: row.display_name,
+    display_name: normalizeClientName(row.display_name, { community }) || row.display_name.trim(),
+    gender: row.gender?.trim() || null,
     resident_numbers: [],
     current_resident: false,
     community_names: community ? [community] : [],
@@ -336,7 +341,8 @@ function mapLocalPipelineClient(clientId: string, referrals: Referral[]): Client
     canonical_client_id: `pipeline:${clientId}`,
     workspace_origin: "pipeline",
     pipeline_client_id: clientId,
-    display_name: latest.name,
+    display_name: normalizeClientName(latest.name, { community: latest.community }) || latest.name,
+    gender: latest.gender?.trim() || null,
     resident_numbers: [],
     current_resident: false,
     community_names: communities,

@@ -16,6 +16,7 @@ import {
 import { logApi } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import { getClientHistoryForResident } from "./client-history-store";
+import { normalizeClientName, resolveClientGender } from "./client-identity-presentation.mjs";
 import { pipelineCommunityFromClinicalName } from "./community-config";
 import { findClinicalResidentMatch } from "./referral-clinical-reconciliation";
 import type {
@@ -259,8 +260,9 @@ async function getPipelineOnlyClientProfile(
     throw new UnifiedProfileError(404, "pipeline_client_not_found", "This client profile could not be loaded.");
   }
   const latest = referrals[0] ?? null;
-  const workspaceName = latest?.name ?? documents[0].referralName;
   const workspaceCommunity = latest?.community ?? documents.find((document) => document.community)?.community ?? "";
+  const rawWorkspaceName = latest?.name ?? documents[0].referralName;
+  const workspaceName = normalizeClientName(rawWorkspaceName, { community: workspaceCommunity }) || rawWorkspaceName.trim();
   const workspaceUpdatedAt = latest?.updatedAt ?? latest?.createdAt ?? documents[0].uploadedAt;
   const assessments = await loadPipelineOnlyAssessments(referrals, user);
   const visibleReferralIds = new Set(referrals.map((referral) => referral.id));
@@ -271,6 +273,7 @@ async function getPipelineOnlyClientProfile(
   const communities = [...new Set(referrals.map((referral) => referral.community))];
   if (workspaceCommunity && !communities.includes(workspaceCommunity)) communities.push(workspaceCommunity);
   const enrichment = {
+    gender: latest?.gender || null,
     date_of_birth: latest?.dob || null,
     referral_source: latest?.source || null,
     responsible_person: latest?.responsiblePerson || null,
@@ -296,6 +299,7 @@ async function getPipelineOnlyClientProfile(
     client: {
       canonical_client_id: `pipeline:${normalizedClientId}`,
       display_name: workspaceName,
+      gender: resolveClientGender(latest?.gender),
       resident_numbers: reviewedResidentNumbers(referrals),
       current_resident: false,
       community_names: communities,
@@ -425,6 +429,7 @@ async function loadReferralSuggestions(
       referral_id: referral.id,
       pipeline_client_id: referral.clientId,
       client_name: referral.name,
+      gender: referral.gender?.trim() || null,
       community: referral.community,
       stage: referral.stage,
       received_at: referral.date,

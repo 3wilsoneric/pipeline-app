@@ -5,6 +5,11 @@ import { ArrowRight } from "lucide-react";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
+import {
+  formatClientIdentityTitle,
+  presentClientCommunity,
+  presentClientGender,
+} from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import {
   getWorkspaceAdmissionOutcome,
@@ -29,6 +34,7 @@ export default function ReferralWorklist({
       progress,
       extractedTotal,
       extractedReviewed,
+      identityTitle: formatClientIdentityTitle(referral),
       outcome: getWorkspaceAdmissionOutcome(referral),
       county: getWorkspaceCounty(referral),
     };
@@ -37,13 +43,14 @@ export default function ReferralWorklist({
   return (
     <div role="region" aria-label="Referral worklist">
       <div className="divide-y divide-[#e2e2e2] lg:hidden">
-        {rows.map(({ referral, progress, extractedReviewed, extractedTotal, outcome, county }) => (
+        {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, outcome, county }) => (
           <CompactReferralRow
             key={referral.id}
             referral={referral}
             progress={progress}
             extractedReviewed={extractedReviewed}
             extractedTotal={extractedTotal}
+            identityTitle={identityTitle}
             outcome={outcome}
             county={county}
             onOpen={() => onOpenPacket(referral)}
@@ -63,17 +70,18 @@ export default function ReferralWorklist({
           <span className="sr-only">Open</span>
         </div>
         <div className="divide-y divide-[#e2e2e2]">
-          {rows.map(({ referral, progress, extractedReviewed, extractedTotal, outcome, county }) => (
+          {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, outcome, county }) => (
             <button
               key={referral.id}
               type="button"
               data-guide-target="workspace-results"
               onClick={() => onOpenPacket(referral)}
-              aria-label={`Open ${referral.name} referral workspace`}
+              aria-label={`Open ${identityTitle} referral workspace`}
               className="grid w-full grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.9fr)_170px_135px_90px_110px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
             >
               <span className="min-w-0 pr-4">
-                <span className="block truncate text-[13px] font-black text-[#111111]">{referral.name}</span>
+                <span className="block truncate text-[13px] font-black text-[#111111]" title={identityTitle}>{identityTitle}</span>
+                <span className="mt-1 block truncate text-[9px] text-[#737373]">{presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)}</span>
                 {referral.priority !== "standard" ? (
                   <span className="mt-1 block text-[9px] font-semibold text-[#8c392f]">{referral.priority} priority</span>
                 ) : null}
@@ -127,6 +135,7 @@ function CompactReferralRow({
   progress,
   extractedReviewed,
   extractedTotal,
+  identityTitle,
   outcome,
   county,
   onOpen,
@@ -135,6 +144,7 @@ function CompactReferralRow({
   progress: ReferralProgress;
   extractedReviewed: number;
   extractedTotal: number;
+  identityTitle: string;
   outcome: ReturnType<typeof getWorkspaceAdmissionOutcome>;
   county: string;
   onOpen: () => void;
@@ -144,12 +154,13 @@ function CompactReferralRow({
       type="button"
       data-guide-target="workspace-results"
       onClick={onOpen}
-      aria-label={`Open ${referral.name} referral workspace`}
+      aria-label={`Open ${identityTitle} referral workspace`}
       className="block w-full px-3 py-4 text-left transition-colors hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:px-4"
     >
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="min-w-0">
-          <span className="block truncate text-[13px] font-black text-[#111111]">{referral.name}</span>
+          <span className="block truncate text-[13px] font-black text-[#111111]" title={identityTitle}>{identityTitle}</span>
+          <span className="mt-1 block truncate text-[10px] text-[#737373]">{presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)}</span>
         </span>
         <span className="flex shrink-0 items-center gap-2" title={outcome.explanation}>
           <span className={`text-[11px] ${outcomeTextClass(outcome.status)}`}>{outcome.label}</span>

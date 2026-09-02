@@ -15,6 +15,7 @@ export type UnifiedProfileLinkSuggestion = {
   referral_id: number;
   pipeline_client_id: string;
   client_name: string;
+  gender: string | null;
   community: Referral["community"];
   stage: Referral["stage"];
   received_at: string;

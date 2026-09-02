@@ -3,6 +3,11 @@
 import { ArrowRight, CircleAlert } from "lucide-react";
 
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
+import {
+  formatClientIdentityTitle,
+  presentClientCommunity,
+  presentClientGender,
+} from "@/lib/pipeline/client-identity-presentation.mjs";
 import { getReferralProgress, type ReferralProgress, type ReferralProgressPhase } from "@/lib/pipeline/referral-progress";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
@@ -86,20 +91,21 @@ function WorkflowCard({
   progress: ReferralProgress;
   onOpen: () => void;
 }) {
+  const identityTitle = formatClientIdentityTitle(referral);
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Open ${referral.name} referral workspace`}
+      aria-label={`Open ${identityTitle} referral workspace`}
       className="group block w-full border border-[#d9d9d9] bg-white p-3 text-left shadow-[0_1px_0_rgba(0,0,0,0.03)] transition hover:border-[#9fcfc2] hover:shadow-[0_3px_10px_rgba(15,139,115,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="min-w-0">
-          <span className="block truncate text-[12px] font-black text-[#111111]">{referral.name}</span>
+          <span className="block truncate text-[12px] font-black text-[#111111]" title={identityTitle}>{identityTitle}</span>
           <span className="mt-1 block truncate text-[10px] text-[#737373]">
-            {referral.community || "Community pending"}
-            {referral.priority !== "standard" ? ` · ${capitalize(referral.priority)}` : ""}
+            {presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)}
           </span>
+          {referral.priority !== "standard" ? <span className="mt-1 block text-[9px] font-semibold text-[#8c392f]">{capitalize(referral.priority)} priority</span> : null}
         </span>
         <span className="shrink-0 text-[9px] font-semibold text-[#737373]">
           {ageLabel(referral.updatedAt ?? referral.createdAt)}

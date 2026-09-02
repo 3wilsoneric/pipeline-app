@@ -39,6 +39,7 @@ import {
   PipelineApiError,
 } from "@/lib/auth/authenticated-fetch";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
+import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import {
   clearServerReferralDraft,
   loadServerReferralDraft,
@@ -545,12 +546,13 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
       const record = savedRecord;
       setLoadedReferral(record);
       if (record) {
+        const identityTitle = formatClientIdentityTitle(record);
         recordRecentDestination({
           id: `referral:${record.id}`,
           kind: "referral",
           screen: "packet",
-          title: record.name,
-          detail: `${record.community} · Referral workspace`,
+          title: identityTitle.slice(0, 200),
+          detail: "Referral workspace",
           referralId: record.id,
           community: record.community,
         });
@@ -1368,10 +1370,14 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
   const fieldCount = countCompleteFields(fields, visibleChartFieldKeys);
   const admissionDocumentCount = requirements.filter((requirement) => Boolean(documents[requirement.id])).length;
   const attachmentCount = attachments.filter((attachment) => Boolean(documents[attachment.id])).length;
-  const workspaceTitle = loadedReferral?.name?.trim()
-    || referral?.name?.trim()
-    || fields.name.value.trim()
-    || "New referral";
+  const workspaceTitle = formatClientIdentityTitle({
+    name: loadedReferral?.name?.trim()
+      || referral?.name?.trim()
+      || fields.name.value.trim()
+      || "New referral",
+    gender: loadedReferral?.gender || fields.gender.value,
+    community: loadedReferral?.community || referral?.community || fields.community.value,
+  });
   const workspacePresentation = getWorkspacePresentation(
     loadedReferral?.workspaceStatus,
     admissionDocumentCount,
@@ -1426,7 +1432,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
       >
         <div className="sticky top-0 z-20 mb-1 bg-white/95 backdrop-blur-sm">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 border-b border-[#d9d9d9] lg:flex lg:gap-3">
-            <h1 className="max-w-[7rem] shrink-0 truncate text-[12px] font-black text-[#111111] sm:max-w-[11rem] lg:max-w-[15rem]" title={workspaceTitle}>
+            <h1 data-testid="workspace-identity-title" className="max-w-[10rem] shrink-0 truncate text-[12px] font-black text-[#111111] sm:max-w-[18rem] lg:max-w-[26rem]" title={workspaceTitle}>
               {workspaceTitle}
             </h1>
             <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">

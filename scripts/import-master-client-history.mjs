@@ -13,6 +13,7 @@ import {
 import path from "node:path";
 
 import { readBoundedCsvRecords } from "./lib/bounded-csv.mjs";
+import { normalizeClientName } from "../lib/pipeline/client-identity-presentation.mjs";
 
 const CONFIRMATION = "IMPORT-USER-SUPPLIED-REAL-CLIENT-HISTORY";
 const DEFAULT_OUTPUT = ".data/master-client-history.json";
@@ -184,11 +185,14 @@ function normalizeEpisode(row, rowNumber) {
   if (!new Set(["Current", "Discharged"]).has(status)) {
     throw new Error(`Master client history row ${rowNumber} has an invalid resident_status.`);
   }
+  const community = requiredText(row.community, "community", rowNumber, 400);
+  const residentName = normalizeClientName(row.resident_name, { community });
+  if (!residentName) throw new Error(`Master client history row ${rowNumber} has an invalid resident_name.`);
   return {
     resident_number: requiredText(row.resident_number, "resident_number", rowNumber, 128),
-    resident_name: requiredText(row.resident_name, "resident_name", rowNumber, 400),
+    resident_name: residentName,
     date_of_birth: nullableDate(row.date_of_birth, "date_of_birth", rowNumber),
-    community: requiredText(row.community, "community", rowNumber, 400),
+    community,
     admit_date: requiredDate(row.admit_date, "admit_date", rowNumber),
     discharge_date: nullableDate(row.discharge_date, "discharge_date", rowNumber),
     resident_status: status,

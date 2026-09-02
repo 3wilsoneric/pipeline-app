@@ -27,6 +27,7 @@ import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-impo
 import type { ReferralFacets } from "@/lib/pipeline/referral-store";
 import type { ReferralSort } from "@/lib/pipeline/referral-sort";
 import { isInternalWorkspaceTag } from "@/lib/pipeline/workspace-presentation";
+import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import FilePreviewDialog from "@/components/pipeline/ReferralFilePreviewDialog";
 import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
@@ -630,7 +631,7 @@ export default function ReferralHome({
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#e2ca9f] bg-[#fffaf0] text-[#8a5a10]"><Link2 size={16} /></span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-black text-[#111111]">{item.source_file_name}</span>
-                          <span className="mt-1 block truncate text-[11px] text-[#737373]">{item.source_client_name}{item.source_community ? ` · ${item.source_community}` : ""} · {item.source_system}</span>
+                          <span className="mt-1 block truncate text-[11px] text-[#737373]">{formatClientIdentityTitle({ name: item.source_client_name, community: item.source_community })}{item.source_community ? ` · ${item.source_community}` : ""} · {item.source_system}</span>
                         </span>
                         <button type="button" onClick={() => setReviewItem(item)} className="h-9 border border-[#b07b21] px-3 text-[10px] font-black text-[#8a5a10] hover:bg-white">Review identity</button>
                       </div>
@@ -672,7 +673,7 @@ export default function ReferralHome({
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-black text-[#111111]">{file.name}</span>
                           <span className="mt-1 block truncate text-[11px] font-normal text-[#737373]">
-                            {file.referralName} · {presentCommunity(file.community)} · {file.owner || "Unassigned"} · {formatMonthKey(getMonthKey(file.uploadedAt))}
+                            {fileClientName(file)} · {presentCommunity(file.community)} · {file.owner || "Unassigned"} · {formatMonthKey(getMonthKey(file.uploadedAt))}
                           </span>
                         </span>
                         <span className="hidden text-[11px] font-black text-[#737373] sm:block">{file.category}</span>
@@ -686,7 +687,7 @@ export default function ReferralHome({
                           <button
                             type="button"
                             onClick={() => openFileWorkspace(file, onOpenProfile, onOpenPacket)}
-                            aria-label={`Open ${file.referralName} workspace`}
+                            aria-label={`Open ${fileClientName(file)} workspace`}
                             title="Open client workspace"
                             className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d9d9d9] text-[#111111] hover:border-[#0f8b73] hover:text-[#0f8b73]"
                           >
@@ -851,7 +852,7 @@ function ImportIdentityReviewDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [query, setQuery] = useState(item.source_client_name);
+  const [query, setQuery] = useState(formatClientIdentityTitle({ name: item.source_client_name, community: item.source_community }));
   const [clients, setClients] = useState<ClientWorkspaceDirectoryItem[]>([]);
   const [selected, setSelected] = useState<ClientWorkspaceDirectoryItem | null>(null);
   const [loading, setLoading] = useState(false);
@@ -905,7 +906,7 @@ function ImportIdentityReviewDialog({
           <div className="min-w-0">
             <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8a5a10]">Identity review</div>
             <h2 className="mt-2 truncate text-[20px] font-black text-[#111111]">{item.source_file_name}</h2>
-            <p className="mt-1 text-[12px] text-[#737373]">Exported for {item.source_client_name}{item.source_community ? ` · ${item.source_community}` : ""}</p>
+            <p className="mt-1 text-[12px] text-[#737373]">Exported for {formatClientIdentityTitle({ name: item.source_client_name, community: item.source_community })}{item.source_community ? ` · ${item.source_community}` : ""}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close identity review" className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d9d9d9]"><X size={16} /></button>
         </div>
@@ -919,7 +920,7 @@ function ImportIdentityReviewDialog({
             return (
               <button key={client.canonical_client_id} type="button" onClick={() => setSelected(client)} className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-4 py-3 text-left last:border-b-0 ${active ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}>
                 <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-black">{client.display_name}</span>
+                  <span className="block truncate text-[13px] font-black">{formatClientIdentityTitle({ name: client.display_name, community: client.current_community || client.community_names[0] })}</span>
                   <span className="mt-1 block truncate text-[10px] text-[#737373]">{client.current_community || client.community_names.join(" · ") || "Community not reported"} · {client.workspace_origin === "pipeline" ? "Pipeline client workspace" : "Alamo client"}</span>
                 </span>
                 {active ? <Check size={16} className="shrink-0 text-[#0f8b73]" /> : null}
@@ -962,10 +963,14 @@ function openFileWorkspace(
   if (file.canonicalClientId) {
     onOpenProfile(file.canonicalClientId);
   } else if (file.referralId && file.community) {
-    onOpenPacket({ id: file.referralId, name: file.referralName, community: file.community });
+    onOpenPacket({ id: file.referralId, name: fileClientName(file), community: file.community });
   } else if (file.clientId) {
     onOpenProfile(`pipeline:${file.clientId}`);
   }
+}
+
+function fileClientName(file: Pick<ReferralFile, "referralName" | "community">) {
+  return formatClientIdentityTitle({ name: file.referralName, community: file.community });
 }
 
 function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {

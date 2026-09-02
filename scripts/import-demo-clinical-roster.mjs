@@ -5,6 +5,7 @@ import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { readBoundedCsvRecords } from "./lib/bounded-csv.mjs";
+import { normalizeClientName } from "../lib/pipeline/client-identity-presentation.mjs";
 
 const MAX_INPUT_BYTES = 8 * 1024 * 1024;
 const MAX_ROWS = 10_000;
@@ -211,13 +212,17 @@ function normalizeResident(row, rowNumber) {
   if (requiredText(row.status, "status", rowNumber, 32).toLowerCase() !== "active") {
     throw new Error(`Roster row ${rowNumber} is not part of the active governed census.`);
   }
+  const firstName = nullableText(row.first_name, 200);
+  const lastName = nullableText(row.last_name, 200);
+  const displayName = normalizeClientName(row.display_name, { firstName, lastName });
+  if (!displayName) throw new Error(`Roster row ${rowNumber} has an invalid display_name.`);
   return {
     resident_id: residentId,
     resident_key: residentKey,
     resident_number: residentNumber,
-    display_name: requiredText(row.display_name, "display_name", rowNumber, 400),
-    first_name: nullableText(row.first_name, 200),
-    last_name: nullableText(row.last_name, 200),
+    display_name: displayName,
+    first_name: firstName,
+    last_name: lastName,
     date_of_birth: dateOfBirth,
     community_id: communityId,
     community_name: requiredText(row.community_name, "community_name", rowNumber, 400),

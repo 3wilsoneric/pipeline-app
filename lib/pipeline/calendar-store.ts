@@ -14,6 +14,7 @@ import type {
   PipelineCalendarResponse,
   PipelineUnscheduledAssessment,
 } from "@/lib/pipeline/calendar-types";
+import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
 import { listReferrals } from "@/lib/pipeline/referral-store";
@@ -143,6 +144,7 @@ async function getPostgresAssessmentCalendar(
 
   const today = calendarToday();
   const assessmentEvents = assessmentRows.flatMap((row) => {
+    const clientName = calendarClientName(row.client_name, row.community);
     const event = assessmentCalendarEvent({
       assessment_id: row.assessment_id,
       scheduled_start_at: toIso(row.scheduled_start_at),
@@ -156,7 +158,7 @@ async function getPostgresAssessmentCalendar(
       referral_id: Number(row.referral_id),
     }, {
       id: Number(row.referral_id),
-      name: row.client_name,
+      name: clientName,
       community: row.community as Referral["community"],
       ownerId: row.referral_owner_id ?? undefined,
       owner: row.referral_owner_name ?? "Unassigned",
@@ -166,7 +168,7 @@ async function getPostgresAssessmentCalendar(
   const followUpEvents: PipelineCalendarEvent[] = followUpRows.map((row) => ({
     id: `follow-up:${row.work_item_id}`,
     referralId: Number(row.referral_id),
-    clientName: row.client_name,
+    clientName: calendarClientName(row.client_name, row.community),
     community: row.community,
     ownerId: row.owner_id ?? undefined,
     owner: row.owner_name?.trim() || "Unassigned",
@@ -180,7 +182,7 @@ async function getPostgresAssessmentCalendar(
     events: [...assessmentEvents, ...followUpEvents].sort(compareCalendarEvents),
     unscheduled: unscheduledRows.map((row): PipelineUnscheduledAssessment => ({
       referralId: Number(row.referral_id),
-      clientName: row.client_name,
+      clientName: calendarClientName(row.client_name, row.community),
       community: row.community,
       ownerId: row.owner_id ?? undefined,
       owner: row.owner_name?.trim() || "Unassigned",
@@ -189,6 +191,10 @@ async function getPostgresAssessmentCalendar(
     })),
     unscheduledTotal: Number(unscheduledRows[0]?.total_count ?? 0),
   };
+}
+
+function calendarClientName(name: string, community: string) {
+  return normalizeClientName(name, { community }) || "Name not recorded";
 }
 
 function normalizeScheduleMethod(method: string | null) {

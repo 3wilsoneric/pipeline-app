@@ -9,6 +9,7 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { MyQueueItem, MyQueueUrgency } from "@/lib/pipeline/operations-types";
+import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import {
   loadRecentDestinations,
   refreshRecentDestinations,
@@ -166,12 +167,12 @@ function ActivityPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
             <button
               key={item.id}
               type="button"
-              onClick={() => onOpenPacket({ id: item.referral_id, name: item.client_name, community: item.community as Referral["community"] })}
+              onClick={() => onOpenPacket({ id: item.referral_id, name: clientDisplayName(item.client_name, item.community), community: item.community as Referral["community"] })}
               className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-4 px-4 py-3 text-left hover:bg-[#f5faf8] sm:px-5"
             >
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-semibold text-[#202320]">{item.label}</span>
-                <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.client_name} · {item.community} · {item.actor_name}</span>
+                <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{clientDisplayName(item.client_name, item.community)} · {item.community} · {item.actor_name}</span>
               </span>
               <span className="pt-0.5 text-[10px] font-semibold text-[#6e746f]">{relativeTime(item.occurred_at)}</span>
             </button>
@@ -203,11 +204,11 @@ function QueueRow({ item, onOpenPacket }: { item: MyQueueItem } & Pick<BriefingP
   return (
     <button
       type="button"
-      onClick={() => onOpenPacket({ id: item.referral_id, name: item.client_name, community: item.community as Referral["community"] })}
+      onClick={() => onOpenPacket({ id: item.referral_id, name: clientDisplayName(item.client_name, item.community), community: item.community as Referral["community"] })}
       className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left hover:bg-[#f5faf8]"
     >
       <span className="min-w-0">
-        <span className="block truncate text-[13px] font-semibold">{item.client_name}</span>
+        <span className="block truncate text-[13px] font-semibold">{clientDisplayName(item.client_name, item.community)}</span>
         <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.next_action}</span>
       </span>
       <span className={`pt-0.5 text-[9px] font-bold uppercase tracking-[0.08em] ${urgencyColor(item.urgency)}`}>{urgencyLabel(item.urgency)}</span>
@@ -239,12 +240,12 @@ function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } &
   return (
     <button
       type="button"
-      onClick={() => onOpenPacket({ id: event.referralId, name: event.clientName, community: event.community as Referral["community"] })}
+      onClick={() => onOpenPacket({ id: event.referralId, name: clientDisplayName(event.clientName, event.community), community: event.community as Referral["community"] })}
       className="grid w-full grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left hover:bg-[#f5faf8] sm:px-5"
     >
       <span className="text-[10px] font-semibold text-[#176f60]">{formatScheduleDate(event)}</span>
       <span className="min-w-0">
-        <span className="block truncate text-[13px] font-semibold">{event.clientName}</span>
+        <span className="block truncate text-[13px] font-semibold">{clientDisplayName(event.clientName, event.community)}</span>
         <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{event.title} · {event.community}</span>
       </span>
       <span className="text-[10px] text-[#6e746f]">{methodLabel(event.method)}</span>
@@ -256,12 +257,12 @@ function UnscheduledRow({ item, onOpenPacket }: { item: PipelineUnscheduledAsses
   return (
     <button
       type="button"
-      onClick={() => onOpenPacket({ id: item.referralId, name: item.clientName, community: item.community as Referral["community"] })}
+      onClick={() => onOpenPacket({ id: item.referralId, name: clientDisplayName(item.clientName, item.community), community: item.community as Referral["community"] })}
       className="grid w-full grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left hover:bg-[#fff9ef] sm:px-5"
     >
       <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[#9a641c]">Schedule</span>
       <span className="min-w-0">
-        <span className="block truncate text-[13px] font-semibold">{item.clientName}</span>
+        <span className="block truncate text-[13px] font-semibold">{clientDisplayName(item.clientName, item.community)}</span>
         <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.community} · {item.owner}</span>
       </span>
       <ArrowRight size={14} className="text-[#9a641c]" />
@@ -371,5 +372,12 @@ function urgencyColor(value: MyQueueUrgency) {
 }
 
 function recentTitle(item: PipelineRecentDestination) {
-  return item.id === "page:referrals" ? "Workspaces" : item.title;
+  if (item.id === "page:referrals") return "Workspaces";
+  return item.kind === "profile" || item.kind === "referral"
+    ? clientDisplayName(item.title, item.kind === "referral" ? item.community : undefined)
+    : item.title;
+}
+
+function clientDisplayName(name: string, community?: string) {
+  return formatClientIdentityTitle({ name, community });
 }

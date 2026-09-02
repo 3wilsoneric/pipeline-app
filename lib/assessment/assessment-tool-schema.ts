@@ -1,3 +1,5 @@
+import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
+
 export const assessmentToolSections = [
   "identity",
   "prior_placement",
@@ -679,6 +681,13 @@ export function mapExtractedAssessmentFields(
   if (!data.resident_name) {
     const combinedName = [firstName, lastName].filter(Boolean).join(" ");
     if (combinedName) data.resident_name = combinedName;
+  }
+  if (data.resident_name) {
+    data.resident_name = normalizeClientName(data.resident_name, {
+      firstName,
+      lastName,
+      community: data.community,
+    }) || data.resident_name.trim();
   }
 
   return {

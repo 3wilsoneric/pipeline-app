@@ -7,6 +7,7 @@ import type {
   HomeBriefingActivityItem,
   HomeBriefingSnapshot,
 } from "@/lib/pipeline/home-briefing-types";
+import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { getMyQueueSnapshot } from "@/lib/pipeline/operations-snapshot";
 import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { getReferralStoreReadiness, listReferrals } from "@/lib/pipeline/referral-store";
@@ -146,7 +147,7 @@ async function listPostgresHomeActivity(user: PipelineUser): Promise<HomeBriefin
   return rows.map((row) => ({
     id: row.audit_event_id,
     referral_id: Number(row.referral_id),
-    client_name: row.client_name,
+    client_name: normalizeClientName(row.client_name, { community: row.community }) || "Name not recorded",
     community: row.community,
     actor_name: row.actor_name,
     action: row.action,

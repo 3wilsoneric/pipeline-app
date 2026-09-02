@@ -43,6 +43,21 @@ const results = [
       extractImportedClientMetadata(importedName) === "San Francisco",
       "Imported workspace metadata must remain available as county evidence",
     );
+    for (const [source, expected] of [
+      ["IRVIN AVILA (PSH) 09/03", "IRVIN AVILA"],
+      ["Aaron Sanderling 11/19", "Aaron Sanderling"],
+      ["Natalee Atwood-1/17/2025", "Natalee Atwood"],
+      ["Yesenia Brambila-1/22/2026- Crestwood Manor Modesto", "Yesenia Brambila"],
+      ["Hunter Slatten - 6/5/25 - Merced", "Hunter Slatten"],
+      ["Dawn Major-7/15/2025 Santa Clara", "Dawn Major"],
+      ["Christopher Abel-Jones", "Christopher Abel-Jones"],
+      ["Jordan Sample (Jr)", "Jordan Sample (Jr)"],
+    ]) {
+      assert(
+        formatClientIdentityTitle({ name: source }) === expected,
+        `Expected imported client title '${source}' to render as '${expected}'`,
+      );
+    }
   }),
   run("assessment work is limited to the assigned assessor or a supervisor", () => {
     const assigned = { id: "assessor-1", email: "assessor@example.com", name: "Assigned Assessor", roles: ["reviewer"] };

@@ -5,6 +5,11 @@ import { RotateCcw, Search, Trash2 } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import {
+  formatClientIdentityTitle,
+  presentClientCommunity,
+  presentClientGender,
+} from "@/lib/pipeline/client-identity-presentation.mjs";
 
 export default function PipelineTrash() {
   const [query, setQuery] = useState("");
@@ -66,7 +71,7 @@ export default function PipelineTrash() {
           <div className="mt-3 divide-y divide-[#d9d9d9] border-y border-[#d9d9d9]">
             {referrals.map((referral) => (
               <div key={referral.id} className="grid gap-3 px-3 py-4 sm:grid-cols-[minmax(0,1fr)_180px_140px_auto] sm:items-center">
-                <div className="min-w-0"><div className="truncate text-[13px] font-black text-[#111111]">{referral.name}</div><div className="mt-1 truncate text-[10px] text-[#737373]">{referral.community} · {referral.owner || "Unassigned"}</div></div>
+                <div className="min-w-0"><div className="truncate text-[13px] font-black text-[#111111]" title={formatClientIdentityTitle(referral)}>{formatClientIdentityTitle(referral)}</div><div className="mt-1 truncate text-[10px] text-[#737373]">{presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)} · {referral.owner || "Unassigned"}</div></div>
                 <div><div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">Deleted</div><div className="mt-1 text-[10px] text-[#595959]">{formatDate(referral.deletedAt)}</div></div>
                 <div><div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">Removes in</div><div className="mt-1 text-[10px] font-black text-[#a9473d]">{isExpired(referral.deleteAfter) ? "Removal pending" : `${daysRemaining(referral.deleteAfter)} days`}</div></div>
                 <button type="button" disabled={restoringId === referral.id || isExpired(referral.deleteAfter)} onClick={() => void restore(referral)} title={isExpired(referral.deleteAfter) ? "The 30-day recovery window has ended." : "Restore workspace"} className="flex h-9 items-center justify-center gap-2 border border-[#0f8b73] px-3 text-[10px] font-black text-[#0f8b73] hover:bg-[#effaf5] disabled:cursor-not-allowed disabled:opacity-50"><RotateCcw size={14} />{restoringId === referral.id ? "Restoring..." : "Restore"}</button>

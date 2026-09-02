@@ -8,6 +8,11 @@ import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineSiteDestination, PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { searchSiteDestinations } from "@/lib/pipeline/site-search";
+import {
+  formatClientIdentityTitle,
+  presentClientCommunity,
+  presentClientGender,
+} from "@/lib/pipeline/client-identity-presentation.mjs";
 
 type SuggestedSearchMode = "active" | "unassigned" | "packet_review" | "assessment" | "files";
 
@@ -320,10 +325,10 @@ function SearchResponse({
         {result.referrals.map((referral) => (
           <SearchResultRow
             key={`referral-${referral.id}`}
-            title={referral.name}
-            detail={referral.community}
+            title={formatClientIdentityTitle(referral)}
+            detail={`${presentClientGender(referral.gender)} · ${presentClientCommunity(referral.community)} · Referral workspace`}
             kind="Referral"
-            ariaLabel={`Open referral for ${referral.name}`}
+            ariaLabel={`Open referral for ${formatClientIdentityTitle(referral)}`}
             onClick={() => onOpenPacket(referral)}
           />
         ))}
@@ -331,14 +336,14 @@ function SearchResponse({
           <SearchResultRow
             key={`file-${file.id}`}
             title={file.name}
-            detail={`${file.referralName} · ${file.category}`}
+            detail={`${fileClientName(file)} · ${file.category}`}
             kind="File"
             ariaLabel={`Open file ${file.name}`}
             href={file.downloadUrl ?? file.previewUrl}
             onClick={file.downloadUrl || file.previewUrl ? undefined : () => {
               if (file.canonicalClientId) onOpenProfile(file.canonicalClientId);
               else if (file.referralId && file.community) {
-                onOpenPacket({ id: file.referralId, name: file.referralName, community: file.community });
+                onOpenPacket({ id: file.referralId, name: fileClientName(file), community: file.community });
               } else if (file.clientId) onOpenProfile(`pipeline:${file.clientId}`);
             }}
           />
@@ -346,12 +351,20 @@ function SearchResponse({
         {result.clients.map((client) => (
           <SearchResultRow
             key={`client-${client.canonical_client_id}`}
-            title={client.display_name}
-            detail={client.current_resident
-              ? `${client.current_community || "Current resident"}${client.unit ? ` · Unit ${client.unit}` : ""}`
-              : `${client.community_names.join(" · ") || "Community not reported"} · Prior resident`}
+            title={formatClientIdentityTitle({
+              name: client.display_name,
+              gender: client.gender,
+              community: client.current_community || client.community_names[0],
+            })}
+            detail={`${presentClientGender(client.gender)} · ${presentClientCommunity(client.current_community || client.community_names[0])} · ${client.current_resident
+              ? `Current resident${client.unit ? ` · Unit ${client.unit}` : ""}`
+              : "Prior resident"}`}
             kind="Profile"
-            ariaLabel={`Open profile for ${client.display_name}`}
+            ariaLabel={`Open profile for ${formatClientIdentityTitle({
+              name: client.display_name,
+              gender: client.gender,
+              community: client.current_community || client.community_names[0],
+            })}`}
             onClick={() => onOpenProfile(client.canonical_client_id)}
           />
         ))}
@@ -363,6 +376,10 @@ function SearchResponse({
       ) : null}
     </div>
   );
+}
+
+function fileClientName(file: Pick<ReferralFile, "referralName" | "community">) {
+  return formatClientIdentityTitle({ name: file.referralName, community: file.community });
 }
 
 function emptySearchResult(query: string, destinations: PipelineSiteDestination[] = []): SearchResult {

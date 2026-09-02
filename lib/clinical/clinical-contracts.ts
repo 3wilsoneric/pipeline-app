@@ -94,6 +94,7 @@ export type ClinicalClientRecord = { [key: string]: ClinicalJsonValue };
 export type ClinicalClientDirectoryItem = {
   canonical_client_id: string;
   display_name: string;
+  gender: string | null;
   resident_numbers: string[];
   current_resident: boolean;
   community_names: string[];
@@ -565,6 +566,7 @@ function parseClientDirectoryItem(value: unknown, label: string): ClinicalClient
   return {
     canonical_client_id: stringValue(row.canonical_client_id, `${label}.canonical_client_id`, 256),
     display_name: stringValue(row.display_name, `${label}.display_name`, 400),
+    gender: row.gender === undefined ? null : nullableString(row.gender, `${label}.gender`, 200),
     resident_numbers: boundedStringArray(row.resident_numbers, `${label}.resident_numbers`, 100, 128),
     current_resident: booleanValue(row.current_resident, `${label}.current_resident`),
     community_names: boundedStringArray(row.community_names, `${label}.community_names`, 25, 200),

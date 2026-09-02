@@ -7,6 +7,7 @@ import {
   type AssessmentToolFieldKey,
 } from "./assessment-tool-schema";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 export type AssessmentSummaryItem = {
   label: string;
@@ -98,7 +99,7 @@ export function buildMeetClientSummary(
     ? cleanList(assessment.medications_at_intake)
     : splitMedicationFallback(referral.currentMedications);
   return {
-    name: assessment.resident_name || referral.name,
+    name: assessmentClientName(assessment, referral),
     dateOfBirth: assessment.date_of_birth || referral.dob,
     community: assessment.community || referral.community,
     assessmentDate: assessment.assessment_date || "",
@@ -134,7 +135,7 @@ export function buildMeetClientSummary(
 function buildIdentity(assessment: PipelineAssessmentRecord, referral: Referral) {
   return compactItems([
     item("Resident number", assessment.resident_number),
-    item("Name", assessment.resident_name || referral.name),
+    item("Name", assessmentClientName(assessment, referral)),
     item("Date of birth", assessment.date_of_birth || referral.dob),
     item("Community", assessment.community || referral.community),
     item("Current location", assessment.current_location),
@@ -145,6 +146,13 @@ function buildIdentity(assessment: PipelineAssessmentRecord, referral: Referral)
     item("Assessment date", assessment.assessment_date),
     item("Assessor", assessment.assessor),
   ]);
+}
+
+function assessmentClientName(assessment: PipelineAssessmentRecord, referral: Referral) {
+  return formatClientIdentityTitle({
+    name: assessment.resident_name || referral.name,
+    community: assessment.community || referral.community,
+  });
 }
 
 function buildItems(

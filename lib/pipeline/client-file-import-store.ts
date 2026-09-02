@@ -8,6 +8,7 @@ import type {
   ClientFileImportReviewInput,
   ClientFileImportReviewItem,
 } from "@/lib/pipeline/client-file-import-contracts";
+import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 type ReviewRow = Omit<ClientFileImportReviewItem,
   "source_byte_size" | "match_confidence" | "matched_referral_id" | "created_at" | "updated_at"
@@ -129,9 +130,12 @@ export async function reviewClientFileImportItem(
     let referralId: number | null = null;
     if (input.action === "create_client") {
       const externalClientId = `historical-${randomUUID()}`;
+      const clientName = normalizeClientName(current.source_client_name, {
+        community: current.source_community,
+      }) || current.source_client_name.trim();
       const people = await tx<{ person_id: string }[]>`
         insert into pipeline.people (external_client_id, display_name, date_of_birth)
-        values (${externalClientId}, ${current.source_client_name}, ${current.source_date_of_birth}::date)
+        values (${externalClientId}, ${clientName}, ${current.source_date_of_birth}::date)
         returning person_id
       `;
       personId = people[0].person_id;
@@ -214,6 +218,9 @@ export async function reviewClientFileImportItem(
 function mapReviewRow(row: ReviewRow): ClientFileImportReviewItem {
   return {
     ...row,
+    source_client_name: normalizeClientName(row.source_client_name, {
+      community: row.source_community,
+    }) || row.source_client_name.trim(),
     source_date_of_birth: row.source_date_of_birth ? String(row.source_date_of_birth).slice(0, 10) : null,
     source_byte_size: row.source_byte_size === null ? null : Number(row.source_byte_size),
     match_confidence: row.match_confidence === null ? null : Number(row.match_confidence),

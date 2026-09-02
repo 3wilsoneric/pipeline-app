@@ -13,6 +13,7 @@ import type {
   OperationsReportResponse,
   OperationsReportRow,
 } from "@/lib/pipeline/operations-report-types";
+import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 export default function OperationsDashboard({
@@ -268,7 +269,7 @@ function ReportTable({
                 {columns.map((column) => (
                   <td key={column.key} className={`max-w-[360px] border-b border-[#d9d9d9] px-3 py-2.5 text-[11px] leading-5 text-[#4e5550] first:pl-0 ${column.align === "right" ? "text-right tabular-nums" : ""}`}>
                     <span className={column.key === "client" || column.key === "staff" || column.key === "issue" ? "font-semibold text-[#202320]" : ""}>
-                      {formatCell(row.values[column.key], column)}
+                      {formatCell(row.values[column.key], column, row.community)}
                     </span>
                   </td>
                 ))}
@@ -276,8 +277,8 @@ function ReportTable({
                   {canOpen ? (
                     <button
                       type="button"
-                      aria-label={`Open ${row.client_name}`}
-                      onClick={() => onOpenPacket({ id: row.referral_id!, name: row.client_name!, community: row.community as Referral["community"] })}
+                      aria-label={`Open ${reportClientName(row.client_name!, row.community)}`}
+                      onClick={() => onOpenPacket({ id: row.referral_id!, name: reportClientName(row.client_name!, row.community), community: row.community as Referral["community"] })}
                       className="flex h-7 w-7 items-center justify-center text-[#0f8b73] hover:bg-[#e8f5f0]"
                     >
                       <ArrowRight size={14} />
@@ -356,8 +357,9 @@ function formatMonth(value: string) {
     : value;
 }
 
-function formatCell(value: string | number | null | undefined, column: OperationsReportColumn) {
+function formatCell(value: string | number | null | undefined, column: OperationsReportColumn, community?: string | null) {
   if (value === null || value === undefined || value === "") return "—";
+  if (column.key === "client") return reportClientName(String(value), community);
   if (column.format === "datetime") {
     const date = new Date(String(value));
     return Number.isFinite(date.getTime()) ? date.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : String(value);
@@ -373,6 +375,10 @@ function formatCell(value: string | number | null | undefined, column: Operation
   }
   if (column.key === "age_days" || column.key === "oldest_days") return `${value}d`;
   return String(value);
+}
+
+function reportClientName(name: string, community?: string | null) {
+  return formatClientIdentityTitle({ name, community });
 }
 
 function formatTimestamp(value: string) {

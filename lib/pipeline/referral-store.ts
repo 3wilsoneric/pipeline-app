@@ -2166,7 +2166,7 @@ function mapReferralFileRow(row: ReferralFileRow): ReferralFile {
     referralId: row.referral_id === null ? null : Number(row.referral_id),
     clientId: row.external_client_id ?? undefined,
     canonicalClientId: row.canonical_client_id ?? undefined,
-    referralName: row.referral_name,
+    referralName: normalizeClientName(row.referral_name, { community: row.community }) || row.referral_name.trim(),
     community: row.community ?? "",
     owner: row.owner_name ?? "Unassigned",
     uploadedAt: isoTimestamp(row.uploaded_at),

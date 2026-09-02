@@ -39,6 +39,7 @@ import {
   type AssessmentToolFieldKey,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
+import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import {
   assessmentInterviewFieldLabel,
   assessmentInterviewSections,
@@ -1036,7 +1037,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
         <button type="button" onClick={() => { setShowScheduleDialog(false); setShowBeginDialog(false); setIsFocused(false); }} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
         <div className="min-w-[170px] flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-[17px] font-black">{draft.resident_name || "Client"} assessment</h2>
+            <h2 className="truncate text-[17px] font-black">{formatClientIdentityTitle({ name: draft.resident_name || "Client", community: draft.community })} assessment</h2>
             <StatusLabel status={selected.status} />
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[#737373]">

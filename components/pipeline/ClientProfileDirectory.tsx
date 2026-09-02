@@ -7,6 +7,11 @@ import type {
   ClinicalFreshness,
 } from "@/lib/clinical/clinical-contracts";
 import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
+import {
+  formatClientIdentityTitle,
+  presentClientCommunity,
+  presentClientGender,
+} from "@/lib/pipeline/client-identity-presentation.mjs";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 
 type DirectoryClient = ClientWorkspaceDirectoryItem;
@@ -357,19 +362,23 @@ export default function ClientProfileDirectory({
             <span className="text-right">Workspace</span>
           </div>
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
-          {visibleClients.map((client) => (
-            <button
+          {visibleClients.map((client) => {
+            const identityTitle = formatClientIdentityTitle({
+              name: client.display_name,
+              gender: client.gender,
+              community: client.current_community || client.community_names[0],
+            });
+            return <button
               key={client.canonical_client_id}
               type="button"
-              aria-label={`Open profile for ${client.display_name}`}
+              aria-label={`Open profile for ${identityTitle}`}
               onClick={() => onOpenProfile(client.canonical_client_id)}
               className="grid w-full grid-cols-[minmax(0,1fr)] gap-5 border-b border-l-[3px] border-b-[#e5e5e5] border-l-transparent px-5 py-3.5 text-left transition-colors last:border-b-0 hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-l-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none md:grid-cols-[minmax(220px,1fr)_minmax(180px,0.8fr)_minmax(150px,0.6fr)]"
             >
               <span className="min-w-0">
-                <span className="block truncate text-[15px] font-black leading-5 text-[#111111]">{client.display_name}</span>
-                <span className="mt-1 block truncate text-[11px] leading-4 text-[#737373] md:hidden">
-                  {client.current_community || client.community_names.join(" · ") || "No community reported"}
-                  {client.workspace_origin === "pipeline" ? client.referral_count > 0 ? " · Referral workspace" : " · Client files" : ""}
+                <span className="block truncate text-[15px] font-black leading-5 text-[#111111]" title={identityTitle}>{identityTitle}</span>
+                <span className="mt-1 block truncate text-[11px] leading-4 text-[#737373]">
+                  {presentClientGender(client.gender)}<span className="md:hidden"> · {presentClientCommunity(client.current_community || client.community_names[0])}</span>
                 </span>
               </span>
               <span className="hidden min-w-0 md:block">
@@ -400,8 +409,8 @@ export default function ClientProfileDirectory({
                     : `${client.episode_count} episode${client.episode_count === 1 ? "" : "s"}`}
                 </span>
               </span>
-            </button>
-          ))}
+            </button>;
+          })}
 
           {!isLoading && !error && filteredClients.length === 0 ? (
             <div className="px-5 py-16 text-center text-[13px] text-[#737373]">

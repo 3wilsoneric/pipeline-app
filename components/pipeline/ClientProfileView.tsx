@@ -27,6 +27,12 @@ import {
   type ClientProfileFact,
   type ClientProfileSection,
 } from "@/lib/pipeline/client-profile-presentation";
+import {
+  formatClientIdentityTitle,
+  presentClientCommunity,
+  presentClientGender,
+  resolveClientGender,
+} from "@/lib/pipeline/client-identity-presentation.mjs";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records";
@@ -60,14 +66,15 @@ function ClientProfileLoader({ residentKey, onBack }: { residentKey: string; onB
       { cache: "no-store", signal: controller.signal },
     )
       .then((payload) => {
+        const identity = profileIdentity(payload);
         recordRecentDestination({
           id: `profile:${payload.client.canonical_client_id}`,
           kind: "profile",
           screen: "profile",
-          title: payload.client.display_name,
+          title: identity.title.slice(0, 200),
           detail: payload.client.current_resident
-            ? `${payload.client.current_community || "Current community"} · Current resident`
-            : "Prior resident",
+            ? `${identity.community} · Current resident`
+            : `${identity.community} · Prior resident`,
           clientId: payload.client.canonical_client_id,
         });
         setProfile(payload);
@@ -143,11 +150,13 @@ function ResidentProfile({
   const pipelineOnly = profile.profile_origin === "pipeline";
   const history = profile.history ?? UNAVAILABLE_CLIENT_HISTORY;
   const completeness = useMemo(() => getCompleteness(profile), [profile]);
+  const identity = profileIdentity(profile);
   const chart = useMemo(() => {
     const record: ClinicalClientRecord = {
       ...client.enrichment,
-      display_name: client.display_name,
-      resident_name: client.display_name,
+      display_name: identity.title,
+      resident_name: identity.title,
+      gender: identity.gender,
       episode_count: client.episode_count,
       ...(resident ? {
         date_of_birth: resident.date_of_birth,
@@ -164,12 +173,12 @@ function ResidentProfile({
       sections: buildClientProfileSections(record),
       episodes: buildClientEpisodeSummaries(client.resident_episode_history),
     };
-  }, [client, resident]);
-  const currentFacts = useMemo(() => currentResidentFacts(resident), [resident]);
+  }, [client, identity.gender, identity.title, resident]);
+  const currentFacts = useMemo(() => currentResidentFacts(resident, identity.gender, identity.title), [identity.gender, identity.title, resident]);
   const hasPipelineHistory = ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status);
 
   return (
-    <main aria-label={`Client profile for ${client.display_name}`} className="h-full overflow-y-auto bg-white text-[#111111]">
+    <main aria-label={`Client profile for ${identity.title}`} className="h-full overflow-y-auto bg-white text-[#111111]">
       <div data-testid="profile-workspace" className="mx-auto w-full max-w-[1480px] px-4 py-4 sm:px-6 lg:px-8">
         <BackButton onClick={onBack} />
 
@@ -182,11 +191,11 @@ function ResidentProfile({
         <header className="mt-4 border-b border-[#d9d9d9] px-2 pb-5 pt-2 md:px-3">
           <div className="flex min-w-0 items-center gap-4">
             <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#b8dacf] bg-[#effaf5] text-[18px] font-black text-[#0f8b73]">
-              {getInitials(client.display_name)}
+              {getInitials(identity.title)}
             </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-[26px] font-black sm:text-[30px] md:text-[38px]">{client.display_name}</h1>
+                <h1 data-testid="client-identity-title" className="break-words text-[24px] font-black leading-tight sm:text-[28px] md:text-[34px]">{identity.title}</h1>
                 {profile.pipeline.connection.status !== "unlinked" ? (
                   <span className={connectionBadgeClass(profile.pipeline.connection.status)}>
                     {connectionLabel(profile.pipeline.connection.status)}
@@ -194,11 +203,11 @@ function ResidentProfile({
                 ) : null}
               </div>
               <p className="mt-2 text-[13px] text-[#595959]">
-                {pipelineOnly
-                  ? `${client.current_community || client.community_names.join(" · ") || "Community not reported"} · ${profile.pipeline.summary.referral_count > 0 ? "Referral client" : "Client file workspace"}`
+                {presentClientGender(identity.gender)} · {identity.community} · {pipelineOnly
+                  ? profile.pipeline.summary.referral_count > 0 ? "Referral client" : "Client file workspace"
                   : client.current_resident
-                  ? `${client.current_community || resident?.community_name || "Current resident"}${client.unit ? ` · Unit ${client.unit}` : ""}`
-                  : `${client.community_names.join(" · ") || "Community not reported"} · Prior resident`}
+                  ? `Current resident${client.unit ? ` · Unit ${client.unit}` : ""}`
+                  : "Prior resident"}
               </p>
             </div>
           </div>
@@ -534,6 +543,27 @@ function PipelineWorkSummary({
             <SummaryCell label="Assessments" value={summary.assessment_count} detail={formatWorkflowStatus(summary.latest_assessment_status) || "None yet"} />
             <SummaryCell label="Open items" value={summary.open_requirement_count} detail={`${summary.blocker_count} blocking`} />
             <SummaryCell label="Documents" value={summary.document_count} detail="Linked to referrals" />
+          </div>
+          <div role="region" className="mt-5 border-y border-[#d9d9d9]" aria-label="Referral episodes">
+            {profile.pipeline.referrals.map((referral) => {
+              const identityTitle = formatClientIdentityTitle(referral);
+              return (
+                <article key={referral.id} className="grid gap-2 border-b border-[#e5e5e5] px-3 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_140px_140px] sm:items-center">
+                  <div className="min-w-0">
+                    <div className="truncate text-[12px] font-black text-[#111111]" title={identityTitle}>{identityTitle}</div>
+                    <div className="mt-1 text-[10px] text-[#737373]">{presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)} · Received {formatDate(referral.date)} · {referral.source || "Source not recorded"}</div>
+                  </div>
+                  <div className="text-[10px] sm:text-right">
+                    <div className="font-black uppercase tracking-[0.07em] text-[#737373]">Stage</div>
+                    <div className="mt-1 font-semibold text-[#303633]">{referral.stage}</div>
+                  </div>
+                  <div className="text-[10px] sm:text-right">
+                    <div className="font-black uppercase tracking-[0.07em] text-[#737373]">Owner</div>
+                    <div className="mt-1 font-semibold text-[#303633]">{referral.owner || "Unassigned"}</div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
           <div className="mt-5">
             <div className="text-[10px] font-black uppercase text-[#737373]">Next actions</div>
@@ -1217,8 +1247,8 @@ function IdentityLinkControls({
                             className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-3 py-3 text-left last:border-b-0 ${active ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}
                           >
                             <span className="min-w-0">
-                              <span className="block truncate text-[12px] font-black text-[#111111]">{suggestion.client_name}</span>
-                              <span className="mt-1 block truncate text-[10px] text-[#737373]">{suggestion.community}</span>
+                              <span className="block truncate text-[12px] font-black text-[#111111]">{formatClientIdentityTitle({ name: suggestion.client_name, gender: suggestion.gender, community: suggestion.community })}</span>
+                              <span className="mt-1 block truncate text-[10px] text-[#737373]">{presentClientGender(suggestion.gender)} · {presentClientCommunity(suggestion.community)}</span>
                               <span className="mt-1 block truncate text-[10px] font-semibold text-[#356759]">{suggestion.reasons.join(" · ")}</span>
                             </span>
                             <span className="shrink-0 text-right">
@@ -1252,8 +1282,8 @@ function IdentityLinkControls({
                       className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-3 py-3 text-left last:border-b-0 ${active ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-[12px] font-black text-[#111111]">{referral.name}</span>
-                        <span className="mt-1 block truncate text-[10px] text-[#737373]">{referral.community}</span>
+                        <span className="block truncate text-[12px] font-black text-[#111111]">{formatClientIdentityTitle(referral)}</span>
+                        <span className="mt-1 block truncate text-[10px] text-[#737373]">{presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)}</span>
                       </span>
                       {active ? <Check size={15} className="shrink-0 text-[#0f8b73]" /> : null}
                     </button>
@@ -1322,6 +1352,7 @@ type IdentityReferralChoice = {
   id: number;
   clientId: string;
   name: string;
+  gender: string | null;
   community: Referral["community"];
   stage: Referral["stage"];
   matchMethod: UnifiedProfileLinkSuggestion["match_method"] | "manual";
@@ -1333,6 +1364,7 @@ function suggestionChoice(suggestion: UnifiedProfileLinkSuggestion): IdentityRef
     id: suggestion.referral_id,
     clientId: suggestion.pipeline_client_id,
     name: suggestion.client_name,
+    gender: suggestion.gender,
     community: suggestion.community,
     stage: suggestion.stage,
     matchMethod: suggestion.match_method,
@@ -1345,6 +1377,7 @@ function referralChoice(referral: Referral): IdentityReferralChoice {
     id: referral.id,
     clientId: referral.clientId ?? "",
     name: referral.name,
+    gender: referral.gender?.trim() || null,
     community: referral.community,
     stage: referral.stage,
     matchMethod: "manual",
@@ -1492,10 +1525,11 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
   return <div className="min-w-0 bg-white px-3 py-4 sm:px-5"><div className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#737373] sm:text-[10px] sm:tracking-[0.12em]">{label}</div><div className="mt-2 truncate text-[18px] font-black sm:text-[20px]">{value}</div><div className="mt-1 truncate text-[10px] text-[#737373] sm:text-[11px]">{detail}</div></div>;
 }
 
-function currentResidentFacts(resident: ClinicalResident | null): ClientProfileFact[] {
+function currentResidentFacts(resident: ClinicalResident | null, gender: string | null, identityTitle: string): ClientProfileFact[] {
   if (!resident) return [];
   return [
-    fact("Full name", resident.display_name),
+    fact("Full name", identityTitle),
+    fact("Gender", gender),
     fact("Resident number", resident.resident_number),
     fact("Date of birth", formatProfileDate(resident.date_of_birth)),
     fact("Age", resident.age),
@@ -1508,6 +1542,42 @@ function currentResidentFacts(resident: ClinicalResident | null): ClientProfileF
     fact("Physician", resident.physician),
     fact("Diet", resident.diet),
   ].filter((value): value is ClientProfileFact => Boolean(value));
+}
+
+function profileIdentity(profile: UnifiedClientProfileResponse) {
+  const client = profile.client;
+  const enrichment = client.enrichment;
+  const gender = resolveClientGender(
+    client.gender,
+    enrichment.gender_values_json,
+    enrichment.gender_identity,
+    enrichment.gender,
+    enrichment.sex,
+    client.resident_profile?.gender_values_json,
+    client.resident_profile?.gender_identity,
+    client.resident_profile?.gender,
+    client.resident_profile?.sex,
+    ...client.resident_profiles.flatMap((record) => [
+      record.gender_values_json,
+      record.gender_identity,
+      record.gender,
+      record.sex,
+    ]),
+  );
+  const community = presentClientCommunity(
+    client.current_community
+      || profile.resident?.community_name
+      || client.community_names[0],
+  );
+  return {
+    gender,
+    community,
+    title: formatClientIdentityTitle({
+      name: client.display_name,
+      gender,
+      community,
+    }),
+  };
 }
 
 function fact(label: string, value: string | number | null | undefined): ClientProfileFact | null {
