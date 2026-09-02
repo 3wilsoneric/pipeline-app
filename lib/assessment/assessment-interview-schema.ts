@@ -62,6 +62,38 @@ const briefChangeSupportOptions = [
   { value: "needs_briefs_changed", label: "Client needs briefs changed" },
 ] as const;
 
+const priorSettingOptions = [
+  { value: "state_hospital", label: "State hospital" },
+  { value: "acute_psychiatric_hospital", label: "Acute psychiatric hospital" },
+  { value: "imd_mhrc", label: "IMD / MHRC" },
+  { value: "skilled_nursing_facility", label: "Skilled nursing facility" },
+  { value: "board_and_care", label: "Board and care" },
+  { value: "residential_program", label: "Residential program" },
+  { value: "jail_forensic", label: "Jail / forensic setting" },
+  { value: "independent_family_home", label: "Independent or family home" },
+  { value: "unhoused", label: "Unhoused" },
+  { value: "other", label: "Other" },
+] as const;
+
+const medicationRouteOptions = [
+  { value: "oral_only", label: "Oral only" },
+  { value: "lai_only", label: "LAI only" },
+  { value: "oral_and_lai", label: "Oral and LAI" },
+  { value: "neither", label: "Neither" },
+  { value: "unknown", label: "Unknown" },
+] as const;
+
+const hallucinationFrequencyOptions = [
+  { value: "continuous", label: "Continuous" },
+  { value: "daily", label: "Daily" },
+  { value: "several_times_weekly", label: "Several times weekly" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "less_than_monthly", label: "Less than monthly" },
+  { value: "no_current_symptoms", label: "No current symptoms" },
+  { value: "unknown", label: "Unknown" },
+] as const;
+
 const diagnosisOptions = [
   { value: "schizophrenia", label: "Schizophrenia" },
   { value: "schizoaffective", label: "Schizoaffective disorder" },
@@ -90,10 +122,10 @@ const useFrequencyOptions = [
 ] as const;
 
 const conservatorshipOptions = [
-  { value: "non_conserved", label: "Non-conserved" },
-  { value: "lps", label: "LPS conservatorship" },
-  { value: "temporary", label: "Temporary conservatorship (T-Con)" },
-  { value: "murphy", label: "Murphy conservatorship" },
+  { value: "lps", label: "LPS" },
+  { value: "temporary", label: "TCon" },
+  { value: "murphy", label: "Murphy's" },
+  { value: "non_conserved", label: "Non-Conserved" },
 ] as const;
 
 const fieldDefinitionByKey = new Map(assessmentToolFieldDefinitions.map((definition) => [definition.key, definition]));
@@ -126,8 +158,8 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("time_at_current_location", "Interview logistics", "text", { placeholder: "For example, 3 weeks" }),
 
   q("county", "Current placement", "text"),
-  q("referring_facility", "Current placement", "text"),
-  q("prior_setting_bucket", "Current placement", "text"),
+  q("prior_setting_bucket", "Current placement", "select", { options: priorSettingOptions }),
+  q("referring_facility", "Current placement", "text", { placeholder: "Name of the prior placement" }),
   q("admit_date", "Current placement", "date"),
   q("prior_placements", "Placement trajectory", "textarea", { span: "full" }),
   q("prior_awol_failed_placements", "Placement trajectory", "textarea", { span: "full" }),
@@ -191,7 +223,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("medication_refused", "Medication refusals", "text", { showWhen: equals("medication_adherence", "no"), requiredWhen: equals("medication_adherence", "no") }),
   q("medication_refusals_30_days", "Medication refusals", "number", { showWhen: equals("medication_adherence", "no"), requiredWhen: equals("medication_adherence", "no"), min: 0 }),
   q("medications_at_intake", "Medication profile", "textarea", { help: "Enter one medication per line.", span: "full" }),
-  q("lai_vs_oral", "Medication profile", "text"),
+  q("lai_vs_oral", "Medication profile", "select", { options: medicationRouteOptions }),
   q("prn_patterns", "Medication profile", "textarea"),
   q("im_injections", "Medication profile", "yes_no", { options: yesNo }),
 
@@ -222,10 +254,10 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("elopement_risk", "Assault and elopement", "textarea", { showWhen: equals("elopement_history", "yes"), requiredWhen: equals("elopement_history", "yes"), span: "full" }),
   q("aggression_risk", "Assault and elopement", "textarea"),
   q("si_hi_history", "Assault and elopement", "textarea"),
-  q("responds_to_internal_stimuli", "Hallucination history", "text"),
+  q("responds_to_internal_stimuli", "Hallucination history", "yes_no", { options: yesNo }),
   q("auditory_hallucinations", "Hallucination history", "yes_no", { options: yesNo }),
   q("auditory_hallucination_nature", "Auditory hallucinations", "textarea", { showWhen: equals("auditory_hallucinations", "yes"), requiredWhen: equals("auditory_hallucinations", "yes"), span: "full" }),
-  q("auditory_hallucination_frequency", "Auditory hallucinations", "text", { showWhen: equals("auditory_hallucinations", "yes") }),
+  q("auditory_hallucination_frequency", "Auditory hallucinations", "select", { options: hallucinationFrequencyOptions, showWhen: equals("auditory_hallucinations", "yes") }),
   q("auditory_hallucination_triggers", "Auditory hallucinations", "textarea", { showWhen: equals("auditory_hallucinations", "yes") }),
   q("visual_hallucinations", "Hallucination history", "yes_no", { options: yesNo }),
   q("visual_hallucination_details", "Visual hallucinations", "textarea", { showWhen: equals("visual_hallucinations", "yes"), requiredWhen: equals("visual_hallucinations", "yes"), span: "full" }),
@@ -235,7 +267,7 @@ export const assessmentInterviewQuestions: readonly AssessmentInterviewQuestion[
   q("olfactory_hallucination_impact", "Olfactory hallucinations", "textarea", { showWhen: equals("olfactory_hallucinations", "yes") }),
   q("tactile_hallucinations", "Hallucination history", "yes_no", { options: yesNo }),
   q("tactile_hallucination_details", "Tactile hallucinations", "textarea", { showWhen: equals("tactile_hallucinations", "yes"), requiredWhen: equals("tactile_hallucinations", "yes"), span: "full" }),
-  q("tactile_hallucination_frequency", "Tactile hallucinations", "text", { showWhen: equals("tactile_hallucinations", "yes") }),
+  q("tactile_hallucination_frequency", "Tactile hallucinations", "select", { options: hallucinationFrequencyOptions, showWhen: equals("tactile_hallucinations", "yes") }),
   q("gustatory_hallucinations", "Hallucination history", "yes_no", { options: yesNo }),
   q("gustatory_hallucination_details", "Gustatory hallucinations", "textarea", { showWhen: equals("gustatory_hallucinations", "yes"), requiredWhen: equals("gustatory_hallucinations", "yes"), span: "full" }),
   q("hallucination_coping_strategies", "Hallucination impact and treatment", "textarea", { span: "full" }),
@@ -349,6 +381,13 @@ export function getUnableToAssessQuestions(data: AssessmentToolData) {
 
 export function assessmentInterviewFieldLabel(field: AssessmentToolFieldKey) {
   return fieldDefinitionByKey.get(field)?.label ?? field;
+}
+
+export function assessmentInterviewOptionLabel(field: AssessmentToolFieldKey, value: string) {
+  return assessmentInterviewQuestions
+    .find((question) => question.field === field)
+    ?.options?.find((option) => option.value === value)
+    ?.label ?? null;
 }
 
 export function getAssessmentInterviewSnapshot(data: AssessmentToolData) {

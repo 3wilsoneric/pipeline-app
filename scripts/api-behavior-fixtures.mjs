@@ -1163,6 +1163,31 @@ function assessmentSchemaResults() {
           && !referralExtractionSchema.referralPacketExtractionTargets.some((field) => field.field_key === "assessment_tool.assessor"),
         "Initial packet extraction should capture intake context and reviewable clinical evidence without process metadata",
       );
+      const interviewQuestion = (field) => assessmentInterview.assessmentInterviewQuestions.find((question) => question.field === field);
+      assert(
+        interviewQuestion("prior_setting_bucket")?.control === "select"
+          && interviewQuestion("referring_facility")?.control === "text"
+          && interviewQuestion("prior_setting_bucket")?.options?.some((option) => option.value === "state_hospital")
+          && interviewQuestion("prior_setting_bucket")?.options?.some((option) => option.value === "residential_program"),
+        "Prior placement must keep a controlled setting type and a separate placement name",
+      );
+      assert(
+        JSON.stringify(interviewQuestion("conservatorship_type")?.options?.map((option) => option.label))
+          === JSON.stringify(["LPS", "TCon", "Murphy's", "Non-Conserved"]),
+        "Conserved status must use the approved four choices",
+      );
+      assert(
+        ["lai_vs_oral", "auditory_hallucination_frequency", "tactile_hallucination_frequency"]
+          .every((field) => interviewQuestion(field)?.control === "select")
+          && interviewQuestion("responds_to_internal_stimuli")?.control === "yes_no",
+        "Low-ambiguity categorical assessment answers must stay structured",
+      );
+      assert(
+        ["acuity_level", "prompting_level", "self_care_status"].every((field) => interviewQuestion(field)?.control === "text")
+          && ["special_diet_details", "preferred_facility_characteristics", "placement_preferences_concerns"]
+            .every((field) => interviewQuestion(field)?.control === "textarea"),
+        "Interpretive clinical, diet, and placement narratives must not be reduced to speculative option lists",
+      );
     }),
     run("assessment extraction maps known values and banks unknown values", () => {
       const result = assessmentSchema.mapExtractedAssessmentFields(

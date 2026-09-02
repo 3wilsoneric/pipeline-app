@@ -19,7 +19,7 @@ export function createAssessmentPracticeData(): AssessmentToolData {
     current_location: "Training facility",
     time_at_current_location: "Three weeks",
     referring_facility: "Training facility",
-    prior_setting_bucket: "Adult residential",
+    prior_setting_bucket: "residential_program",
     county: "Practice County",
     source_file: "synthetic-practice-packet.pdf",
     extraction_date: "2026-08-25T12:00:00.000Z",

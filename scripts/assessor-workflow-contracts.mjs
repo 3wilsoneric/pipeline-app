@@ -123,10 +123,17 @@ const signedAssessmentReport = assessmentSummary.buildAssessmentSummaryReport({
   updated_by: { id: "assessor-1", name: "Assigned Assessor" },
   medications_at_intake: ["Olanzapine 10 mg nightly", "Metformin 500 mg twice daily"],
   current_location: "County treatment center",
+  prior_setting_bucket: "residential_program",
+  conservatorship_type: "temporary",
+  lai_vs_oral: "oral_and_lai",
   programming_notes: "Prefers a predictable morning routine.",
   family_involvement: "Sister participates in care planning.",
 }, referral);
 check("assessment report carries its exact signed source version", signedAssessmentReport.signed && signedAssessmentReport.assessmentId === "assessment-summary-fixture" && signedAssessmentReport.assessmentVersion === 7);
+check("assessment reports render governed option labels instead of storage tokens",
+  signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Prior setting type" && item.value === "Residential program"))
+  && signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "Conserved status" && item.value === "TCon"))
+  && signedAssessmentReport.sections.some((section) => section.items.some((item) => item.label === "LAI vs oral" && item.value === "Oral and LAI")));
 check("Meet the Client is generated from structured identity, medication, and bio fields", signedAssessmentReport.meetClient.name === referral.name && signedAssessmentReport.meetClient.medications.length === 2 && signedAssessmentReport.meetClient.bio.length >= 2);
 const renderedMeetClient = meetClientTemplate.renderMeetClientEmail({
   ...signedAssessmentReport.meetClient,

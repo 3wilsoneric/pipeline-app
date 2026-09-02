@@ -268,8 +268,8 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("current_location", "Current location", "identity", "string", true, ["referral.current_location"]),
   field("time_at_current_location", "Time at current location", "identity", "string", false),
 
-  field("referring_facility", "Referring facility", "prior_placement", "string", false, ["referral.referring_facility"]),
-  field("prior_setting_bucket", "Prior setting", "prior_placement", "string", false),
+  field("referring_facility", "Prior placement name", "prior_placement", "string", false, ["referral.referring_facility"]),
+  field("prior_setting_bucket", "Prior setting type", "prior_placement", "string", false),
   field("county", "County", "prior_placement", "string", false, ["referral.county"]),
   field("admit_date", "Admit date", "prior_placement", "date", false, ["resident.admit_date"]),
 
@@ -346,8 +346,8 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("hallucination_functional_impact", "Impact on daily functioning", "behavioral_risk", "string", false),
   field("hallucination_treatment_history", "Professional discussion and treatment", "behavioral_risk", "string", false),
 
-  field("conservatorship_status", "Conservatorship status", "legal_conservatorship", "string", false),
-  field("conservatorship_type", "Conservatorship type", "legal_conservatorship", "string", true),
+  field("conservatorship_status", "Conservatorship details", "legal_conservatorship", "string", false),
+  field("conservatorship_type", "Conserved status", "legal_conservatorship", "string", true),
   field("conservator_name", "Conservator name", "legal_conservatorship", "string", false),
   field("hold_type", "Hold type", "legal_conservatorship", "string", false),
   field("court_dates", "Court dates", "legal_conservatorship", "string", false),

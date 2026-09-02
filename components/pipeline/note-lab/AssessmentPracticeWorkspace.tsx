@@ -390,10 +390,12 @@ function PracticeRating({ question, value, onUpdate }: SimplePracticeControlProp
 function PracticeSelect({ question, value, onUpdate }: SimplePracticeControlProps) {
   const id = `practice-${question.field}`;
   const stringValue = value === null ? "" : String(value);
+  const hasLegacyValue = Boolean(stringValue) && !(question.options ?? []).some((option) => option.value === stringValue);
   return (
     <div className="relative">
       <select id={id} value={stringValue} onChange={(event) => onUpdate(event.target.value || null)} className="h-10 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]">
         <option value="">Select...</option>
+        {hasLegacyValue ? <option value={stringValue}>{stringValue}</option> : null}
         {(question.options ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
       <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />

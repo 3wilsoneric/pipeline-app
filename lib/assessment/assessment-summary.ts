@@ -1,5 +1,5 @@
 import { getAssessmentCompletionSummary } from "./assessment-completion";
-import { assessmentInterviewSections } from "./assessment-interview-schema";
+import { assessmentInterviewOptionLabel, assessmentInterviewSections } from "./assessment-interview-schema";
 import type { PipelineAssessmentRecord } from "./assessment-records";
 import {
   assessmentToolFieldDefinitions,
@@ -151,18 +151,29 @@ function buildItems(
   data: AssessmentToolData,
   fields: ReadonlyArray<[AssessmentToolFieldKey, string]>,
 ) {
-  return compactItems(fields.map(([key, label]) => item(label, data[key])));
+  return compactItems(fields.map(([key, label]) => item(label, data[key], key)));
 }
 
-function item(label: string, value: AssessmentToolData[AssessmentToolFieldKey] | string | undefined) {
-  const formatted = formatValue(value);
+function item(
+  label: string,
+  value: AssessmentToolData[AssessmentToolFieldKey] | string | undefined,
+  field?: AssessmentToolFieldKey,
+) {
+  const formatted = formatValue(value, field);
   return formatted ? { label, value: formatted } : null;
 }
 
-function formatValue(value: AssessmentToolData[AssessmentToolFieldKey] | string | undefined) {
-  if (Array.isArray(value)) return cleanList(value).map(formatScalar).join("\n");
+function formatValue(value: AssessmentToolData[AssessmentToolFieldKey] | string | undefined, field?: AssessmentToolFieldKey) {
+  if (Array.isArray(value)) {
+    return cleanList(value)
+      .map((entry) => field ? assessmentInterviewOptionLabel(field, entry) ?? formatScalar(entry) : formatScalar(entry))
+      .join("\n");
+  }
   if (typeof value === "number") return String(value);
-  if (typeof value === "string") return formatScalar(value.trim());
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    return field ? assessmentInterviewOptionLabel(field, normalized) ?? formatScalar(normalized) : formatScalar(normalized);
+  }
   return "";
 }
 
