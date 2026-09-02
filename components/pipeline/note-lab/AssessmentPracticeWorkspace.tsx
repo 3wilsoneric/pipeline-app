@@ -275,7 +275,7 @@ function PracticeQuestions({
 }) {
   const groups = [...new Set(questions.map((question) => question.group))];
   return (
-    <div className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
+    <div className="divide-y divide-[#e1e4e2]">
       {groups.map((group) => (
         <section key={group} className="grid gap-4 py-5 lg:grid-cols-[190px_minmax(0,1fr)]">
           <h3 className="text-[11px] font-black text-[#333333]">{group}</h3>
