@@ -131,11 +131,11 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
             type="button"
             onClick={startSectionWalkthrough}
             disabled={!firstGuidedStepInSection}
-            aria-label={`Begin walkthrough for ${section.label}`}
-            title={firstGuidedStepInSection ? `Begin the ${section.label} walkthrough` : `No guided narrative fields in ${section.label}`}
+            aria-label={`Open guide for ${section.label}`}
+            title={firstGuidedStepInSection ? `Open guidance for ${section.label}` : `No guided note fields in ${section.label}`}
             className="inline-flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[10px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#d9dfdb] disabled:text-[#737b77]"
           >
-            <Sparkles size={13} aria-hidden="true" />Begin walkthrough
+            <Sparkles size={13} aria-hidden="true" />Guide
           </button>
         </div>
       </header>

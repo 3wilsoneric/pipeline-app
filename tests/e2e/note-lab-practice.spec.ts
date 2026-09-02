@@ -22,7 +22,7 @@ test.describe("Assessment practice lab", () => {
 
     const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
     await sectionRail.getByRole("button", { name: /^History\b/ }).click();
-    await page.getByRole("button", { name: "Begin walkthrough for History" }).click();
+    await page.getByRole("button", { name: "Open guide for History" }).click();
     const guidance = page.getByRole("dialog", { name: "Guided step for Prior placements" });
     await expect(guidance).toBeVisible();
     await expect(guidance.getByText(/Explain where the client lived, how long, why each setting ended/)).toBeVisible();
@@ -38,7 +38,7 @@ test.describe("Assessment practice lab", () => {
 
     const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
     await sectionRail.getByRole("button", { name: /^Function\b/ }).click();
-    await page.getByRole("button", { name: "Begin walkthrough for Function" }).click();
+    await page.getByRole("button", { name: "Open guide for Function" }).click();
     await expect(sectionRail.getByRole("button", { name: /^Function\b/ })).toHaveAttribute("aria-current", "step");
     await expect(page.getByRole("heading", { name: "Function" })).toBeVisible();
     const adlGuidance = page.getByRole("dialog", { name: "Guided step for ADL needs" });
@@ -71,9 +71,9 @@ test.describe("Assessment practice lab", () => {
     await page.getByLabel("Resident name *", { exact: true }).fill("Changed synthetic name");
     await page.getByRole("button", { name: "Reset" }).click();
     await expect(page.getByLabel("Resident name *", { exact: true })).toHaveValue("Jordan Practice");
-    await expect(page.getByRole("button", { name: "Begin walkthrough for Client & referral" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Open guide for Client & referral" })).toBeDisabled();
     await page.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
-    await page.getByRole("button", { name: "Begin walkthrough for History" }).click();
+    await page.getByRole("button", { name: "Open guide for History" }).click();
     await expect(page.getByRole("dialog", { name: "Guided step for Prior placements" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });

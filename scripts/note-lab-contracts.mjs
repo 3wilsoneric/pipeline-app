@@ -61,7 +61,7 @@ check("the combined rail preserves the assessment section navigation",
   && workspace.includes("assessmentPracticeNavigationGroups.map")
   && workspace.includes('aria-current={active ? "step" : undefined}')
   && workspace.includes("startSectionWalkthrough")
-  && workspace.includes("Begin walkthrough for ${section.label}"));
+  && workspace.includes("Open guide for ${section.label}"));
 check("only authored narrative questions can open guidance and the selected section bounds the walkthrough",
   workspace.includes("hasUsefulWritingGuidance")
   && workspace.includes("firstGuidedStepInSection")

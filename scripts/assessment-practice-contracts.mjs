@@ -64,7 +64,7 @@ check("the walkthrough is scoped to the selected section and advances only throu
   && workspace.includes("step.section === section.key")
   && workspace.includes("step.section === currentStep.section")
   && workspace.includes("startSectionWalkthrough")
-  && workspace.includes("Begin walkthrough for ${section.label}")
+  && workspace.includes("Open guide for ${section.label}")
   && workspace.includes("hasUsefulWritingGuidance")
   && workspace.includes("PracticeQuestionTooltip")
   && workspace.includes("setGuidedField(next.question.field)"));
@@ -83,7 +83,7 @@ check("production assessment remains a separately persisted clinical surface",
   && !assessmentWorkspace.includes("assessment-practice-scenario") && !assessmentWorkspace.includes("practice-assessment"));
 check("practice copy stays restrained",
   !workspace.includes("Welcome to") && !workspace.includes("How to use")
-  && workspace.includes("Begin walkthrough") && !workspace.includes("Practice complete")
+  && workspace.includes('aria-hidden="true" />Guide') && !workspace.includes("Practice complete")
   && !workspace.includes("Finish practice") && !workspace.includes("Save and continue"));
 check("practice mirrors the production assessment interaction model",
   workspace.includes("assessmentPracticeNavigationGroups")
