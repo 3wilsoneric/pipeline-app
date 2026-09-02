@@ -405,7 +405,7 @@ export const assessmentToolFieldDefinitions: readonly AssessmentToolFieldDefinit
   field("colostomy", "Colostomy", "physical_health", "string", true),
   field("ileostomy", "Ileostomy", "physical_health", "string", true),
   field("incontinence_issues", "Incontinence issues", "physical_health", "string", true),
-  field("brief_change_support", "Brief changing support", "physical_health", "string", false),
+  field("brief_change_support", "Support", "physical_health", "string", false),
   field("additional_health_notes", "Additional health information", "physical_health", "string", false),
 
   field("family_involvement", "Family involvement", "social_support", "string", false),
