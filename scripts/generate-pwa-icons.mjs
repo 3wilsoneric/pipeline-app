@@ -18,11 +18,11 @@ await Promise.all([
   renderIcon(512, 0.18, `${outputDirectory}/pipeline-icon-512-v2.png`),
   renderIcon(512, 0.2, `${outputDirectory}/pipeline-icon-maskable-512-v2.png`, "#ffffff"),
   renderFavicon(`${outputDirectory}/pipeline-favicon-32-v3.png`),
-  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v7.png`),
-  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v7.png`),
-  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v7.png`),
-  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-maskable-512-v7.png`),
-  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-maskable-1024-v7.png`),
+  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v8.png`),
+  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v8.png`),
+  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v8.png`),
+  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-maskable-512-v8.png`),
+  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-maskable-1024-v8.png`),
 ]);
 
 async function renderIcon(size, insetRatio, outputPath, backgroundColor = null) {
@@ -63,7 +63,22 @@ async function renderAppIcon(size, outputPath) {
   const markHeight = Math.round((markWidth * brandMark.height) / brandMark.width);
   const x = Math.round((size - markWidth) / 2);
   const y = Math.round((size - markHeight) / 2);
-  context.drawImage(brandMark, x, y, markWidth, markHeight);
+
+  const markCanvas = createCanvas(size, size);
+  const markContext = markCanvas.getContext("2d");
+  markContext.imageSmoothingEnabled = true;
+  markContext.imageSmoothingQuality = "high";
+  markContext.drawImage(brandMark, x, y, markWidth, markHeight);
+  markContext.globalCompositeOperation = "source-in";
+
+  const markGradient = markContext.createLinearGradient(x, y, x + markWidth, y + markHeight);
+  markGradient.addColorStop(0, "#00d98f");
+  markGradient.addColorStop(0.46, "#00ad78");
+  markGradient.addColorStop(1, "#007b59");
+  markContext.fillStyle = markGradient;
+  markContext.fillRect(x, y, markWidth, markHeight);
+
+  context.drawImage(markCanvas, 0, 0);
 
   await writeFile(outputPath, canvas.toBuffer("image/png"));
 }

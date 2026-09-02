@@ -45,7 +45,7 @@ test.describe("desktop feature enabled", () => {
       }))).flat();
       return { names, urls };
     });
-    expect(cacheAudit.names).toEqual(["pipeline-static-v10"]);
+    expect(cacheAudit.names).toEqual(["pipeline-static-v11"]);
     expect(cacheAudit.urls.some((url) => new URL(url).pathname.startsWith("/api/"))).toBeFalsy();
     expect(cacheAudit.urls.every((url) => {
       const path = new URL(url).pathname;
@@ -89,7 +89,7 @@ test.describe("desktop feature enabled", () => {
     });
 
     await expect.poll(async () => page.evaluate(async () => (await caches.keys()).sort())).toEqual([
-      "pipeline-static-v10",
+      "pipeline-static-v11",
       "unrelated-application-cache",
     ]);
 
