@@ -106,11 +106,9 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
     setGuidanceField(null);
   };
 
-  const startSectionWalkthrough = (sectionKey: AssessmentToolSection) => {
-    const firstStep = guidedQuestionSteps.find((step) => step.section === sectionKey);
-    if (!firstStep) return;
-    chooseSection(sectionKey);
-    setGuidanceField(firstStep.question.field);
+  const startSectionWalkthrough = () => {
+    if (!firstGuidedStepInSection) return;
+    openGuidance(firstGuidedStepInSection.question.field);
   };
 
   const moveGuidedQuestion = (field: AssessmentToolFieldKey) => {
@@ -144,12 +142,24 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
           </div>
           <p className="mt-0.5 text-[10px] text-[#737b77]">Synthetic record - not saved</p>
         </div>
-        <button type="button" onClick={reset} className="inline-flex h-9 shrink-0 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-          <RotateCcw size={13} aria-hidden="true" />Reset
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" onClick={reset} className="inline-flex h-9 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+            <RotateCcw size={13} aria-hidden="true" />Reset
+          </button>
+          <button
+            type="button"
+            onClick={startSectionWalkthrough}
+            disabled={!firstGuidedStepInSection}
+            aria-label={`Begin walkthrough for ${section.label}`}
+            title={firstGuidedStepInSection ? `Begin the ${section.label} walkthrough` : `No guided narrative fields in ${section.label}`}
+            className="inline-flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[10px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#d9dfdb] disabled:text-[#737b77]"
+          >
+            <Sparkles size={13} aria-hidden="true" />Begin walkthrough
+          </button>
+        </div>
       </header>
 
-      <div className="min-h-0 flex-1 bg-white lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="min-h-0 flex-1 bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
         <aside aria-label="Assessment section navigation" className="hidden min-h-0 overflow-y-auto border-r border-[#d9dfdb] bg-[#f8faf9] px-3 py-4 lg:block">
           <div className="mb-5 px-2">
             <div className="flex items-end justify-between">
@@ -169,24 +179,11 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
                     const sectionQuestions = getAssessmentInterviewQuestions(item.key, data);
                     const captured = sectionQuestions.filter((question) => hasAssessmentInterviewValue(data[question.field])).length;
                     const active = item.key === section.key;
-                    const hasWalkthrough = guidedQuestionSteps.some((step) => step.section === item.key);
                     return (
-                      <div key={item.key} className={`grid grid-cols-[minmax(0,1fr)_44px] border-l-2 transition-colors ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#595959] hover:bg-white hover:text-[#0f8b73]"}`}>
-                        <button type="button" onClick={() => chooseSection(item.key)} aria-current={active ? "step" : undefined} className="flex min-w-0 items-center justify-between gap-2 px-3 py-2.5 text-left text-[11px] font-black outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]">
-                          <span className="truncate">{item.label}</span>
-                          <span className="shrink-0 text-[9px] font-semibold opacity-65">{captured}/{sectionQuestions.length}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => startSectionWalkthrough(item.key)}
-                          disabled={!hasWalkthrough}
-                          aria-label={`Start walkthrough for ${item.label}`}
-                          title={hasWalkthrough ? `Start the ${item.label} walkthrough` : `No guided narrative fields in ${item.label}`}
-                          className="grid place-items-center border-l border-current/10 text-[8px] font-black uppercase tracking-[0.04em] text-[#0f7865] outline-none hover:bg-[#d8ebe4] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] disabled:cursor-not-allowed disabled:text-[#bdc4c0] disabled:hover:bg-transparent"
-                        >
-                          Start
-                        </button>
-                      </div>
+                      <button key={item.key} type="button" onClick={() => chooseSection(item.key)} aria-current={active ? "step" : undefined} className={`flex w-full min-w-0 items-center justify-between gap-2 border-l-2 px-3 py-2.5 text-left text-[11px] font-black outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#595959] hover:bg-white hover:text-[#0f8b73]"}`}>
+                        <span className="truncate">{item.label}</span>
+                        <span className="shrink-0 text-[9px] font-semibold opacity-65">{captured}/{sectionQuestions.length}</span>
+                      </button>
                     );
                   })}
                 </div>
@@ -198,30 +195,18 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
         <main data-assessment-practice-scroll className="min-h-0 overflow-y-auto bg-white">
           <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
             <label htmlFor="practice-section" className="mb-1 block text-[9px] font-black uppercase text-[#737373]">Assessment section</label>
-            <div className="grid grid-cols-[minmax(0,1fr)_60px] gap-2">
-              <div className="relative">
-                <select id="practice-section" value={section.key} onChange={(event) => chooseSection(event.target.value as AssessmentToolSection)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-10 text-[12px] font-black outline-none focus:border-[#0f8b73]">
-                  {assessmentPracticeNavigationGroups.map((group) => (
-                    <optgroup key={group.label} label={group.label}>
-                      {group.sections.map((sectionKey) => {
-                        const item = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey);
-                        return item ? <option key={item.key} value={item.key}>{item.label}</option> : null;
-                      })}
-                    </optgroup>
-                  ))}
-                </select>
-                <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
-              </div>
-              <button
-                type="button"
-                onClick={() => startSectionWalkthrough(section.key)}
-                disabled={!firstGuidedStepInSection}
-                aria-label={`Start walkthrough for ${section.label}`}
-                title={firstGuidedStepInSection ? `Start the ${section.label} walkthrough` : `No guided narrative fields in ${section.label}`}
-                className="grid h-11 place-items-center bg-[#0f8b73] text-[9px] font-black uppercase tracking-[0.04em] text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#d9dfdb] disabled:text-[#737b77]"
-              >
-                Start
-              </button>
+            <div className="relative">
+              <select id="practice-section" value={section.key} onChange={(event) => chooseSection(event.target.value as AssessmentToolSection)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-10 text-[12px] font-black outline-none focus:border-[#0f8b73]">
+                {assessmentPracticeNavigationGroups.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.sections.map((sectionKey) => {
+                      const item = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey);
+                      return item ? <option key={item.key} value={item.key}>{item.label}</option> : null;
+                    })}
+                  </optgroup>
+                ))}
+              </select>
+              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
             </div>
           </div>
 
@@ -342,8 +327,8 @@ function PracticeField({
         <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{label}{required ? " *" : ""}</label>
         <div className="flex shrink-0 items-center gap-2">
           {guidanceAvailable ? (
-            <button type="button" onClick={onOpenGuidance} aria-label={`Open writing guide for ${label}`} className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.04em] text-[#0f7865] hover:text-[#0b5f50] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-              <Sparkles size={11} aria-hidden="true" /> Writing guide
+            <button type="button" onClick={onOpenGuidance} aria-label={`Open note help for ${label}`} className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.04em] text-[#0f7865] hover:text-[#0b5f50] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+              <Sparkles size={11} aria-hidden="true" /> Note help
             </button>
           ) : null}
           {hasAssessmentInterviewValue(value) ? <Check size={12} className="text-[#0f8b73]" aria-label="Captured" /> : required ? <span className="text-[9px] font-semibold uppercase text-[#9a6115]">Required</span> : <span className="text-[9px] font-semibold uppercase text-[#999999]">Optional</span>}
