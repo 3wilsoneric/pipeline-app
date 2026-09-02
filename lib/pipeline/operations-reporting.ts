@@ -36,16 +36,16 @@ const reportCatalog: OperationsReportDefinition[] = [
   },
   {
     id: "workspace_inventory",
-    label: "Workspace inventory",
-    description: "Workspaces created in the selected month, including assignment, origin, county, and recorded materials.",
-    cadence: "Monthly",
+    label: "Workspaces",
+    description: "Every accessible workspace with its assignment, location, assessment state, and recorded materials.",
+    cadence: "Current",
     audience: "Operations",
-    filters: ["month", "community", "owner"],
+    filters: ["community", "owner"],
   },
   {
     id: "document_coverage",
-    label: "Document coverage",
-    description: "Recorded materials and required-document coverage for every accessible workspace.",
+    label: "Documents",
+    description: "Recorded files and required-document coverage across accessible workspaces.",
     cadence: "Current",
     audience: "Assessment team",
     filters: ["community", "owner"],
@@ -60,7 +60,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   },
   {
     id: "assessor_workload",
-    label: "Assessor workload",
+    label: "Team workload",
     description: "Current open assignments, overdue assignment targets, assessment work, and oldest workspace by assessor.",
     cadence: "Current",
     audience: "Supervisors",
@@ -76,7 +76,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   },
   {
     id: "assessment_schedule",
-    label: "Assessment schedule",
+    label: "Assessment calendar",
     description: "Scheduled assessments and follow-ups for the selected month.",
     cadence: "Monthly",
     audience: "Assessment team",
@@ -84,7 +84,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   },
   {
     id: "assessment_completion",
-    label: "Assessment completion",
+    label: "Completed assessments",
     description: "Signed assessments and average completion time by staff member.",
     cadence: "Monthly",
     audience: "Supervisors",
@@ -117,6 +117,14 @@ const reportCatalog: OperationsReportDefinition[] = [
   },
 ];
 
+const visibleReportIds = new Set<OperationsReportId>([
+  "workspace_inventory",
+  "document_coverage",
+  "assessment_schedule",
+  "assessment_completion",
+  "assessor_workload",
+]);
+
 const documentRequirementTypes = new Set([
   "medication_list",
   "tb_test",
@@ -130,7 +138,10 @@ const documentRequirementTypes = new Set([
 
 export function getOperationsReportCatalog(user: PipelineUser) {
   const supervisor = user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
-  return reportCatalog.filter((definition) => !definition.supervisor_only || supervisor);
+  return reportCatalog.filter((definition) => (
+    visibleReportIds.has(definition.id)
+    && (!definition.supervisor_only || supervisor)
+  ));
 }
 
 export async function getOperationsReport(
@@ -139,8 +150,9 @@ export async function getOperationsReport(
   options: { export?: boolean } = {},
 ): Promise<OperationsReportResponse> {
   const catalog = getOperationsReportCatalog(user);
-  const definition = catalog.find((item) => item.id === filters.report_id);
-  if (!definition) throw new ReportAccessError();
+  const definition = reportCatalog.find((item) => item.id === filters.report_id);
+  const supervisor = user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
+  if (!definition || (definition.supervisor_only && !supervisor)) throw new ReportAccessError();
 
   const [facets, completeReport] = await Promise.all([
     listReferralFacets("", scopeReferralListOptions(user, {
@@ -239,7 +251,7 @@ async function reportRows(
 
   const referrals = await loadReportReferrals(user, filters, workspaceScopeForReport(reportId));
   if (reportId === "active_referrals") return activeReferralRows(referrals);
-  if (reportId === "workspace_inventory") return workspaceInventoryRows(referrals, filters.month);
+  if (reportId === "workspace_inventory") return workspaceInventoryRows(referrals);
   if (reportId === "document_coverage") return documentCoverageRows(referrals);
   if (reportId === "intake_review") return intakeReviewRows(referrals);
   if (reportId === "assessor_workload") return assessorWorkloadRows(referrals);
@@ -296,20 +308,19 @@ function activeReferralRows(referrals: Referral[]) {
     .sort((left, right) => Number(right.values.age_days) - Number(left.values.age_days));
 }
 
-function workspaceInventoryRows(referrals: Referral[], month: string) {
+function workspaceInventoryRows(referrals: Referral[]) {
   return referrals
-    .filter((referral) => referral.createdAt.startsWith(month))
     .map((referral) => referralRow(referral, {
       client: referral.name,
       community: referral.community,
       county: referral.county ?? "Not recorded",
       owner: referral.owner || "Unassigned",
       created: referral.createdAt,
-      origin: workspaceOriginLabel(referral.workspaceOrigin),
+      assessment: assessmentStatusLabel(referral),
       materials: recordedMaterialCount(referral),
-      packet: referral.documentStatus,
+      updated: referral.updatedAt ?? referral.createdAt,
     }))
-    .sort((left, right) => String(right.values.created).localeCompare(String(left.values.created)));
+    .sort((left, right) => String(right.values.updated).localeCompare(String(left.values.updated)));
 }
 
 function documentCoverageRows(referrals: Referral[]) {
@@ -499,9 +510,10 @@ function reportColumns(reportId: OperationsReportId): OperationsReportColumn[] {
     column("age_days", "Age", "right"), column("last_activity", "Last activity", "left", "datetime"),
   ];
   if (reportId === "workspace_inventory") return [
-    column("created", "Created", "left", "datetime"), column("client", "Client"),
-    column("community", "Community"), column("county", "County"), column("owner", "Owner"),
-    column("origin", "Origin"), column("materials", "Materials", "right"), column("packet", "Initial packet"),
+    column("client", "Client"), column("county", "County"), column("community", "Community"),
+    column("owner", "Owner"), column("assessment", "Assessment"),
+    column("materials", "Documents", "right"), column("created", "Created", "left", "date"),
+    column("updated", "Updated", "left", "datetime"),
   ];
   if (reportId === "document_coverage") return [
     column("client", "Client"), column("community", "Community"), column("owner", "Owner"),
@@ -557,10 +569,10 @@ function reportMetrics(reportId: OperationsReportId, rows: OperationsReportRow[]
     metric("Average age", `${average(rows.map((row) => numericValue(row.values.age_days)))} days`, "Days since the latest recorded workspace activity."),
   ];
   if (reportId === "workspace_inventory") return [
-    metric("Created", rows.length, "Workspaces created in the selected month."),
+    metric("Workspaces", rows.length, "Every accessible workspace in the current scope."),
     metric("Assigned", percent(rows.length - countValue(rows, "owner", "Unassigned"), rows.length), "Share with a recorded owner."),
-    metric("Communities", distinct("community"), "Distinct communities represented."),
-    metric("Recorded materials", sum("materials"), "Material count stored on the selected workspaces."),
+    metric("Documents", sum("materials"), "Recorded documents attached to these workspaces."),
+    metric("Communities", distinct("community"), "Distinct destination communities represented."),
   ];
   if (reportId === "document_coverage") return [
     metric("Workspaces", rows.length, "Accessible workspaces included in the inventory."),
@@ -651,10 +663,17 @@ function recordedMaterialCount(referral: Referral) {
   return referral.documentStatus === "Missing" ? 0 : 1;
 }
 
-function workspaceOriginLabel(origin: Referral["workspaceOrigin"]) {
-  if (origin === "allo") return "Allo import";
-  if (origin === "import") return "Imported";
-  return "Pipeline";
+function assessmentStatusLabel(referral: Referral) {
+  const status = referral.workflowStatus;
+  if (!status) return "Not recorded";
+  if (["intake_unassigned", "intake_documents_needed", "profile_incomplete"].includes(status)) return "Not started";
+  if (status === "ready_to_schedule") return "Ready to schedule";
+  if (status === "assessment_scheduled") return "Scheduled";
+  if (status === "assessment_in_progress") return "In progress";
+  if (status === "waiting_for_information") return "Waiting for information";
+  if (status === "assessment_ready_to_sign") return "Ready to sign";
+  if (["assessment_signed", "recommendation_submitted", "decision_pending", "accepted", "declined", "closed"].includes(status)) return "Signed";
+  return workflowStatusLabels[status];
 }
 
 function isPast(value?: string) {

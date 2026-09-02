@@ -6,7 +6,6 @@ import { ArrowRight, Download } from "lucide-react";
 import { fetchPipelineApi, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type {
   OperationsReportColumn,
-  OperationsReportDefinition,
   OperationsReportFilters,
   OperationsReportId,
   OperationsReportMetric,
@@ -62,8 +61,6 @@ export default function OperationsDashboard({
     () => response?.catalog.find((item) => item.id === filters.report_id) ?? response?.report.definition ?? null,
     [filters.report_id, response],
   );
-  const displayedDefinition = response?.report.definition ?? selectedDefinition;
-  const displayedFilters = response?.filters ?? filters;
   const filtersChanged = response ? !sameFilters(filters, response.filters) : false;
 
   const selectReport = (reportId: OperationsReportId) => {
@@ -102,138 +99,96 @@ export default function OperationsDashboard({
 
   return (
     <main aria-label="Reports" className="h-full overflow-y-auto bg-white text-[#171917]">
-      <div data-testid="operations-workspace" data-guide-target="operations-workspace" className="mx-auto w-full max-w-[1432px] px-4 pb-12 pt-3 sm:px-6 lg:px-8">
-        <div className="grid min-w-0 gap-6 md:grid-cols-[220px_minmax(0,1fr)] lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] xl:gap-8">
-          <aside aria-label="Report library" className="min-w-0">
-            <p className="text-[11px] leading-4 text-[#595959]">Choose an analysis to review.</p>
-            <div className="mt-3 flex snap-x gap-2 overflow-x-auto border-y border-[#171917] py-2 md:block md:overflow-visible md:border-b-0 md:py-0">
-              {(response?.catalog ?? []).map((item) => {
-                const selected = item.id === filters.report_id;
-                return (
-                  <button
-                    type="button"
-                    key={item.id}
-                    aria-pressed={selected}
-                    aria-label={`View ${item.label} report`}
-                    data-guide-target={selected ? "operations-report-select" : undefined}
-                    onClick={() => selectReport(item.id)}
-                    className={`grid min-w-[210px] snap-start grid-cols-[3px_minmax(0,1fr)] gap-3 border border-[#d9d9d9] py-3 pr-2 text-left transition-colors md:w-full md:min-w-0 md:border-x-0 md:border-t-0 ${selected ? "bg-[#f5f4ef]" : "hover:bg-[#fafafa]"}`}
-                  >
-                    <span className={selected ? "bg-[#0f8b73]" : "bg-transparent"} aria-hidden="true" />
-                    <span className="min-w-0">
-                      <span className="block text-[14px] font-bold leading-5">{item.label}</span>
-                      <span className="mt-1 block text-[10px] leading-4 text-[#737373]">{item.cadence} | {item.audience}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </aside>
-
-          <div className="min-w-0">
-            <section data-guide-target="operations-summary" aria-label="Report controls" className="border-b border-[#d9d9d9] pb-4">
-              <p className="max-w-[780px] text-[13px] leading-5 text-[#3f3f3f]">
-                {selectedDefinition?.description ?? "Loading the report library."}
-              </p>
-              <div className="mt-3 flex flex-wrap items-end gap-2">
-                {selectedDefinition?.filters.includes("month") ? (
-                  <Control label="Month">
-                    <input
-                      data-guide-target="operations-report-month"
-                      aria-label="Report month"
-                      type="month"
-                      value={filters.month}
-                      onChange={(event) => setFilters((current) => ({ ...current, month: event.target.value }))}
-                      className={`${selectClass} min-w-[165px]`}
-                    />
-                  </Control>
-                ) : null}
-                {selectedDefinition?.filters.includes("community") ? (
-                  <Control label="Community">
-                    <select aria-label="Report community" value={filters.community} onChange={(event) => setFilters((current) => ({ ...current, community: event.target.value }))} className={`${selectClass} min-w-[190px]`}>
-                      <option value="">All communities</option>
-                      {(response?.facets.communities ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}
-                    </select>
-                  </Control>
-                ) : null}
-                {selectedDefinition?.filters.includes("owner") ? (
-                  <Control label="Owner">
-                    <select aria-label="Report owner" value={filters.owner} onChange={(event) => setFilters((current) => ({ ...current, owner: event.target.value }))} className={`${selectClass} min-w-[180px]`}>
-                      <option value="">All owners</option>
-                      {(response?.facets.owners ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}
-                    </select>
-                  </Control>
-                ) : null}
+      <div data-testid="operations-workspace" data-guide-target="operations-workspace" className="mx-auto w-full max-w-[1500px] px-4 pb-12 pt-2 sm:px-6 lg:px-8">
+        <aside aria-label="Report library" className="min-w-0 border-b border-[#cfd4d1]">
+          <div className="flex snap-x gap-6 overflow-x-auto">
+            {(response?.catalog ?? []).map((item) => {
+              const selected = item.id === filters.report_id;
+              return (
                 <button
                   type="button"
-                  onClick={() => void loadReport(filters)}
-                  disabled={loading || !filtersChanged}
-                  className="h-9 border border-[#171917] bg-[#171917] px-4 text-[11px] font-semibold text-white hover:bg-[#343734] disabled:cursor-not-allowed disabled:opacity-40"
+                  key={item.id}
+                  aria-pressed={selected}
+                  aria-label={`View ${item.label} report`}
+                  data-guide-target={selected ? "operations-report-select" : undefined}
+                  onClick={() => selectReport(item.id)}
+                  className={`min-h-12 shrink-0 snap-start border-b-[3px] px-1 pt-1 text-[12px] font-bold transition-colors ${selected ? "border-[#0f8b73] text-[#0b6f5e]" : "border-transparent text-[#656b67] hover:text-[#171917]"}`}
                 >
-                  {loading ? "Running" : "Apply scope"}
+                  {item.label}
                 </button>
-                <button
-                  type="button"
-                  data-guide-target="operations-report-export"
-                  onClick={() => void exportReport()}
-                  disabled={!response || filtersChanged || exporting}
-                  className="flex h-9 items-center justify-center gap-2 border border-[#b9c6c1] bg-white px-4 text-[11px] font-semibold text-[#176f60] hover:border-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  <Download size={14} /> {exporting ? "Exporting" : "Export CSV"}
-                </button>
-              </div>
-            </section>
-
-            {error ? (
-              <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-[3px] border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
-                <span>{error}</span>
-                <button type="button" onClick={() => void loadReport(filters)} className="font-semibold underline underline-offset-2">Retry</button>
-              </div>
-            ) : null}
-
-            <article aria-labelledby="pipeline-report-title" className="mt-5 min-w-0">
-              <header className="grid items-start gap-5 border-b-2 border-[#171917] pb-5 xl:grid-cols-[minmax(0,8fr)_minmax(200px,3fr)] xl:gap-8">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#0f8b73]">{reportScopeLabel(displayedDefinition, displayedFilters)}</p>
-                  <h1 id="pipeline-report-title" className="mt-2 text-[30px] font-bold leading-[1.05] sm:text-[36px]">{displayedDefinition?.label ?? "Report"}</h1>
-                  <p className="mt-3 max-w-[820px] text-[14px] leading-6 text-[#3f3f3f]">{displayedDefinition?.description}</p>
-                </div>
-                <div className="border-l-[3px] border-[#0f8b73] pl-4 text-[10px] leading-4 text-[#595959]">
-                  <p className="font-bold uppercase tracking-[0.12em] text-[#171917]">Coverage</p>
-                  <p className="mt-1">{reportCoverage(displayedFilters)}</p>
-                  <p className="mt-3 font-bold uppercase tracking-[0.12em] text-[#171917]">Generated</p>
-                  <p className="mt-1">{response ? formatTimestamp(response.report.generated_at) : "Loading"}</p>
-                </div>
-              </header>
-
-              {response ? <MetricGrid metrics={response.report.metrics} /> : null}
-
-              <section data-guide-target="operations-report-results" className="mt-7 border-t-2 border-[#171917] pt-4" aria-label="Report results">
-                <div className="flex items-baseline justify-between gap-4">
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#0f8b73]">01</p>
-                    <h2 className="mt-1 text-[23px] font-bold leading-tight">Source rows</h2>
-                  </div>
-                  <span className="text-[10px] font-semibold text-[#727a75]">
-                    {response ? `${response.report.row_count.toLocaleString()} rows${response.report.truncated ? " · preview limited" : ""}` : "Loading"}
-                  </span>
-                </div>
-                {loading && !response ? <ReportSkeleton /> : null}
-                {response && response.report.rows.length === 0 && !loading ? (
-                  <div className="border-y border-[#d9d9d9] py-12 text-center text-[12px] text-[#727a75]">No records match this report and scope.</div>
-                ) : null}
-                {response && response.report.rows.length > 0 ? (
-                  <ReportTable
-                    columns={response.report.columns}
-                    rows={response.report.rows}
-                    onOpenPacket={onOpenPacket}
-                    refreshing={loading}
-                  />
-                ) : null}
-              </section>
-            </article>
+              );
+            })}
           </div>
-        </div>
+        </aside>
+
+        <section data-guide-target="operations-summary" aria-label="Report controls" className="flex flex-col gap-4 border-b border-[#cfd4d1] py-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="min-w-0">
+            <h1 id="pipeline-report-title" className="text-[20px] font-bold leading-tight">{selectedDefinition?.label ?? "Reports"}</h1>
+            <p className="mt-1 max-w-[760px] text-[12px] leading-5 text-[#595f5b]">{selectedDefinition?.description ?? "Loading report data."}</p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            {selectedDefinition?.filters.includes("month") ? (
+              <Control label="Month">
+                <input
+                  data-guide-target="operations-report-month"
+                  aria-label="Report month"
+                  type="month"
+                  value={filters.month}
+                  onChange={(event) => setFilters((current) => ({ ...current, month: event.target.value }))}
+                  className={`${selectClass} min-w-[165px]`}
+                />
+              </Control>
+            ) : null}
+            {selectedDefinition?.filters.includes("community") ? (
+              <Control label="Community">
+                <select aria-label="Report community" value={filters.community} onChange={(event) => setFilters((current) => ({ ...current, community: event.target.value }))} className={`${selectClass} min-w-[190px]`}>
+                  <option value="">All communities</option>
+                  {(response?.facets.communities ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}
+                </select>
+              </Control>
+            ) : null}
+            {selectedDefinition?.filters.includes("owner") ? (
+              <Control label="Owner">
+                <select aria-label="Report owner" value={filters.owner} onChange={(event) => setFilters((current) => ({ ...current, owner: event.target.value }))} className={`${selectClass} min-w-[180px]`}>
+                  <option value="">All owners</option>
+                  {(response?.facets.owners ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}
+                </select>
+              </Control>
+            ) : null}
+            <button type="button" onClick={() => void loadReport(filters)} disabled={loading || !filtersChanged} className="h-9 border border-[#171917] bg-[#171917] px-4 text-[11px] font-semibold text-white hover:bg-[#343734] disabled:cursor-not-allowed disabled:opacity-40">
+              {loading ? "Loading" : "Apply"}
+            </button>
+            <button type="button" data-guide-target="operations-report-export" onClick={() => void exportReport()} disabled={!response || filtersChanged || exporting} className="flex h-9 items-center justify-center gap-2 border border-[#b9c6c1] bg-white px-4 text-[11px] font-semibold text-[#176f60] hover:border-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-45">
+              <Download size={14} /> {exporting ? "Exporting" : "Export CSV"}
+            </button>
+          </div>
+        </section>
+
+        {error ? (
+          <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-[3px] border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
+            <span>{error}</span>
+            <button type="button" onClick={() => void loadReport(filters)} className="font-semibold underline underline-offset-2">Retry</button>
+          </div>
+        ) : null}
+
+        <article aria-labelledby="pipeline-report-title" className="min-w-0">
+          {response ? <MetricGrid metrics={response.report.metrics} /> : null}
+          <section data-guide-target="operations-report-results" className="mt-5" aria-label="Report results">
+            <div className="flex items-baseline justify-between gap-4 border-b-2 border-[#171917] pb-2">
+              <h2 className="text-[16px] font-bold">Records</h2>
+              <span className="text-[10px] font-semibold text-[#727a75]">
+                {response ? `${response.report.row_count.toLocaleString()} total${response.report.truncated ? " · first 500 shown" : ""}` : "Loading"}
+              </span>
+            </div>
+            {loading && !response ? <ReportSkeleton /> : null}
+            {response && response.report.rows.length === 0 && !loading ? (
+              <div className="border-b border-[#d9d9d9] py-12 text-center text-[12px] text-[#727a75]">No recorded data matches this scope.</div>
+            ) : null}
+            {response && response.report.rows.length > 0 ? (
+              <ReportTable columns={response.report.columns} rows={response.report.rows} onOpenPacket={onOpenPacket} refreshing={loading} />
+            ) : null}
+          </section>
+        </article>
       </div>
     </main>
   );
@@ -329,7 +284,7 @@ function defaultFilters(): OperationsReportFilters {
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   return {
-    report_id: "active_referrals",
+    report_id: "workspace_inventory",
     month,
     community: "",
     owner: "",
@@ -338,23 +293,6 @@ function defaultFilters(): OperationsReportFilters {
 
 function sameFilters(left: OperationsReportFilters, right: OperationsReportFilters) {
   return left.report_id === right.report_id && left.month === right.month && left.community === right.community && left.owner === right.owner;
-}
-
-function reportScopeLabel(definition: OperationsReportDefinition | null, filters: OperationsReportFilters) {
-  if (definition?.filters.includes("month")) return formatMonth(filters.month);
-  return "Current operations";
-}
-
-function reportCoverage(filters: OperationsReportFilters) {
-  const parts = [filters.community || "All communities", filters.owner || "All owners"];
-  return parts.join(" | ");
-}
-
-function formatMonth(value: string) {
-  const date = new Date(`${value}-01T12:00:00`);
-  return Number.isFinite(date.getTime())
-    ? date.toLocaleDateString(undefined, { month: "long", year: "numeric" })
-    : value;
 }
 
 function formatCell(value: string | number | null | undefined, column: OperationsReportColumn, community?: string | null) {
@@ -379,13 +317,6 @@ function formatCell(value: string | number | null | undefined, column: Operation
 
 function reportClientName(name: string, community?: string | null) {
   return formatClientIdentityTitle({ name, community });
-}
-
-function formatTimestamp(value: string) {
-  const date = new Date(value);
-  return Number.isFinite(date.getTime())
-    ? date.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })
-    : "Now";
 }
 
 function downloadName(response: Response, filters: OperationsReportFilters) {

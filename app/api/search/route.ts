@@ -55,6 +55,9 @@ const ignoredWords = new Set([
 ]);
 
 const questionModes = new Set([
+  "my_work",
+  "ready_to_schedule",
+  "scheduled_assessments",
   "active",
   "unassigned",
   "packet_review",
@@ -94,13 +97,10 @@ export async function GET(request: Request) {
     }
 
     if (questionModes.has(mode)) {
-      const bucket = questionWorklistBucket(mode);
       const [referralResult, fileResult] = await Promise.all([
-        bucket
-          ? getReferralWorklistReferrals(bucket, 200, auth.user)
-          : Promise.resolve({ referrals: [], total: 0 }),
+        searchSuggestedWorkspaces(mode, auth.user),
         mode === "files"
-          ? listReferralFiles(scopeReferralListOptions(auth.user, { limit: 200, identityStatus: "linked" }))
+          ? listReferralFiles(scopeReferralListOptions(auth.user, { limit: 50, identityStatus: "linked" }))
           : Promise.resolve({ files: [], total: 0 }),
       ]);
       const referrals = referralResult.referrals;
@@ -263,6 +263,38 @@ function questionWorklistBucket(mode: string): ReferralWorklistBucket | null {
   if (mode === "decision") return "decision_needed";
   if (mode === "documents") return "missing_documents";
   return "all_actionable";
+}
+
+async function searchSuggestedWorkspaces(
+  mode: string,
+  user: Parameters<typeof scopeReferralListOptions>[0],
+) {
+  if (mode === "files") return { referrals: [], total: 0 };
+  if (mode === "my_work") {
+    return listReferrals(scopeReferralListOptions(user, {
+      owner: user.name,
+      limit: 50,
+      workspaceStatus: "active",
+    }));
+  }
+  if (mode === "unassigned") {
+    return listReferrals(scopeReferralListOptions(user, {
+      queue: "unassigned",
+      limit: 50,
+      workspaceStatus: "active",
+    }));
+  }
+  if (mode === "ready_to_schedule" || mode === "scheduled_assessments") {
+    return listReferrals(scopeReferralListOptions(user, {
+      workflowStatus: mode === "ready_to_schedule" ? "ready_to_schedule" : "assessment_scheduled",
+      limit: 50,
+      workspaceStatus: "active",
+    }));
+  }
+  const bucket = questionWorklistBucket(mode);
+  return bucket
+    ? getReferralWorklistReferrals(bucket, 200, user)
+    : { referrals: [], total: 0 };
 }
 
 function normalizeSearchQuery(value: string) {

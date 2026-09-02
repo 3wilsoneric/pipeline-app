@@ -26,6 +26,7 @@ import type {
   ReferralFile,
   ReferralSection,
   ReferralSectionVersions,
+  ReferralWorkflowStatus,
   WorkspaceStatus,
 } from "@/lib/pipeline/referral-types";
 import {
@@ -76,6 +77,7 @@ export type ReferralListOptions = {
   priority?: Priority;
   tag?: string;
   month?: string;
+  workflowStatus?: ReferralWorkflowStatus;
   activeOnly?: boolean;
   /** Active is the safe default so historical imports never enter work queues. */
   workspaceStatus?: WorkspaceStatus | "all";
@@ -995,6 +997,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const priority = options.priority ?? null;
   const tag = options.tag?.trim() || null;
   const month = options.month?.trim() || null;
+  const workflowStatus = options.workflowStatus ?? null;
   const activeOnly = options.activeOnly === true;
   const workspaceStatus = options.workspaceStatus ?? "active";
   const queue = options.queue ?? null;
@@ -1042,6 +1045,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
         and (${priority}::text is null or r.priority = ${priority})
         and (${tag}::text is null or ${tag} = any(r.tags))
         and (${month}::text is null or to_char(r.received_date, 'YYYY-MM') = ${month})
+        and (${workflowStatus}::text is null or r.workflow_status = ${workflowStatus})
         and (${activeOnly} = false or r.closed_at is null)
         and (${workspaceStatus} = 'all' or r.workspace_status = ${workspaceStatus})
         and (
@@ -2443,6 +2447,7 @@ function matchesReferralFilters(referral: Referral, options: ReferralListOptions
   if (options.priority && referral.priority !== options.priority) return false;
   if (options.tag && !(referral.tags ?? []).includes(options.tag)) return false;
   if (options.month && monthKey(referral.date) !== options.month) return false;
+  if (options.workflowStatus && referral.workflowStatus !== options.workflowStatus) return false;
   if (options.activeOnly && isClosedStage(referral.stage)) return false;
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
   if (!matchesAssignmentScope(referral, options)) return false;

@@ -14,7 +14,7 @@ import {
   presentClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 
-type SuggestedSearchMode = "active" | "unassigned" | "packet_review" | "assessment" | "files";
+type SuggestedSearchMode = "my_work" | "unassigned" | "ready_to_schedule" | "scheduled_assessments" | "files";
 
 type PipelineSuggestedSearch = {
   id: string;
@@ -47,33 +47,33 @@ type SearchResult = {
 
 const suggestedSearches: PipelineSuggestedSearch[] = [
   {
-    id: "active-referrals",
-    category: "REFERRALS",
-    prompt: "Show all active referrals.",
-    mode: "active",
+    id: "my-workspaces",
+    category: "MY WORK",
+    prompt: "Show my assigned workspaces.",
+    mode: "my_work",
   },
   {
-    id: "unassigned-referrals",
-    category: "OWNERSHIP",
-    prompt: "Which active referrals are unassigned?",
+    id: "unassigned-workspaces",
+    category: "ASSIGNMENT",
+    prompt: "Show unassigned workspaces.",
     mode: "unassigned",
   },
   {
-    id: "packet-review",
-    category: "PACKETS",
-    prompt: "Which packets need document review?",
-    mode: "packet_review",
+    id: "ready-to-schedule",
+    category: "ASSESSMENTS",
+    prompt: "Which assessments are ready to schedule?",
+    mode: "ready_to_schedule",
   },
   {
-    id: "assessment-work",
+    id: "scheduled-assessments",
     category: "ASSESSMENTS",
-    prompt: "Which referrals are in assessment?",
-    mode: "assessment",
+    prompt: "Show scheduled assessments.",
+    mode: "scheduled_assessments",
   },
   {
     id: "uploaded-files",
-    category: "FILES",
-    prompt: "Show uploaded referral and assessment files.",
+    category: "DOCUMENTS",
+    prompt: "Show uploaded documents.",
     mode: "files",
   },
 ];
@@ -212,7 +212,7 @@ export default function PipelineSearchPanel({
             setError("");
           }}
           onFocus={() => setIsFocused(true)}
-          placeholder="Search or ask about a client, referral, or file..."
+          placeholder="Search workspaces, clients, owners, counties, or documents..."
           className={`${resting ? "h-16 text-[17px]" : "h-12 text-[15px]"} min-w-0 flex-1 bg-transparent px-3 text-[#111111] outline-none placeholder:text-[#8a8a8a]`}
         />
         <button
@@ -230,7 +230,7 @@ export default function PipelineSearchPanel({
         <>
           <div className="flex items-center justify-between px-1 py-3 text-[11px] text-[#737373] md:px-2">
             <span>{visibleSuggestions.length} suggested search{visibleSuggestions.length === 1 ? "" : "es"}</span>
-            <span>Press Enter to search all records</span>
+            <span>Press Enter to search across Pipeline</span>
           </div>
 
           <div className="mt-1 divide-y divide-[#d9d9d9] border-y border-[#d9d9d9]">
@@ -295,6 +295,11 @@ function SearchResponse({
   onOpenProfile: (canonicalClientId: string) => void;
   onOpenDestination: (screen: PipelineSiteScreen) => void;
 }) {
+  const displayedCount = (result.destinations?.length ?? 0)
+    + result.referrals.length
+    + result.files.length
+    + result.clients.length;
+
   if (result.counts.total === 0) {
     return (
       <div className="border-t border-[#d9d9d9] px-5 py-6 text-[13px] text-[#737373] md:px-6">
@@ -308,6 +313,7 @@ function SearchResponse({
       <div className="flex items-center justify-between gap-3 px-5 py-4 md:px-6">
         <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[#0f8b73]">Results</span>
         <span className="text-[12px] text-[#737373]">
+          {displayedCount < result.counts.total ? `Showing ${displayedCount} of ` : ""}
           {result.counts.total} result{result.counts.total === 1 ? "" : "s"}{isSearching ? " · checking clients" : ""}
         </span>
       </div>
@@ -326,9 +332,9 @@ function SearchResponse({
           <SearchResultRow
             key={`referral-${referral.id}`}
             title={formatClientIdentityTitle(referral)}
-            detail={`${presentClientGender(referral.gender)} · ${presentClientCommunity(referral.community)} · Referral workspace`}
-            kind="Referral"
-            ariaLabel={`Open referral for ${formatClientIdentityTitle(referral)}`}
+            detail={`${presentClientGender(referral.gender)} · ${presentClientCommunity(referral.community)} · ${referral.owner || "Unassigned"}`}
+            kind="Workspace"
+            ariaLabel={`Open workspace for ${formatClientIdentityTitle(referral)}`}
             onClick={() => onOpenPacket(referral)}
           />
         ))}
@@ -337,7 +343,7 @@ function SearchResponse({
             key={`file-${file.id}`}
             title={file.name}
             detail={`${fileClientName(file)} · ${file.category}`}
-            kind="File"
+            kind="Document"
             ariaLabel={`Open file ${file.name}`}
             href={file.downloadUrl ?? file.previewUrl}
             onClick={file.downloadUrl || file.previewUrl ? undefined : () => {
@@ -359,7 +365,7 @@ function SearchResponse({
             detail={`${presentClientGender(client.gender)} · ${presentClientCommunity(client.current_community || client.community_names[0])} · ${client.current_resident
               ? `Current resident${client.unit ? ` · Unit ${client.unit}` : ""}`
               : "Prior resident"}`}
-            kind="Profile"
+            kind="Client"
             ariaLabel={`Open profile for ${formatClientIdentityTitle({
               name: client.display_name,
               gender: client.gender,

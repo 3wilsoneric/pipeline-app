@@ -17,15 +17,15 @@ const siteDestinations: SearchableDestination[] = [
   {
     id: "site-referrals",
     screen: "referrals",
-    title: "Referral workspaces",
-    detail: "Browse and filter active referral work",
-    keywords: "referral referrals packet packets intake admissions browse community month worklist",
+    title: "Workspaces",
+    detail: "Browse workspaces by client, owner, county, community, or month",
+    keywords: "workspace workspaces referral referrals assignment assigned owner county community month workflow",
   },
   {
     id: "site-profiles",
     screen: "profiles",
-    title: "Client profiles",
-    detail: "Search the current admitted-client roster",
+    title: "Clients",
+    detail: "Search current and prior client profiles",
     keywords: "client clients profile profiles resident residents admitted census roster people",
   },
   {
@@ -38,9 +38,9 @@ const siteDestinations: SearchableDestination[] = [
   {
     id: "site-operations",
     screen: "operations",
-    title: "Operations",
-    detail: "Review ownership, queues, blockers, and overdue work",
-    keywords: "operations queue queues assigned assignment assignments work blocker blockers overdue supervisor assessor assessors performance",
+    title: "Reports",
+    detail: "Review workspace, document, assessment, and team data",
+    keywords: "report reports workspace documents assessment calendar completed team workload owner performance export csv",
   },
 ];
 

@@ -2017,12 +2017,12 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
     await page.getByLabel("Search or ask").click();
     await expect(page.getByText("5 suggested searches", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Show all active referrals." })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Which active referrals are unassigned?" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Which packets need document review?" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Which referrals are in assessment?" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Show uploaded referral and assessment files." })).toBeVisible();
-    await page.getByRole("button", { name: "Show all active referrals." }).click();
+    await expect(page.getByRole("button", { name: "Show my assigned workspaces." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show unassigned workspaces." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Which assessments are ready to schedule?" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show scheduled assessments." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show uploaded documents." })).toBeVisible();
+    await page.getByRole("button", { name: "Show my assigned workspaces." }).click();
     await expect(
       page.getByText("Results", { exact: true }).or(
         page.getByText("No records match that search.", { exact: true }),
@@ -2035,27 +2035,13 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    const worklistResponse = await page.request.get("/api/operations/referral-worklist");
-    expect(worklistResponse.ok()).toBeTruthy();
-    const worklist = await worklistResponse.json() as {
-      items: Array<{
-        referral_id: number;
-        categories: string[];
-      }>;
-    };
-    const bucketByMode = {
-      active: "all_actionable",
-      unassigned: "unassigned",
-      packet_review: "packet_review",
-      assessment: "assessment_due",
-    } as const;
-    const modes = ["active", "unassigned", "packet_review", "assessment", "files"] as const;
+    const modes = ["my_work", "unassigned", "ready_to_schedule", "scheduled_assessments", "files"] as const;
     for (const mode of modes) {
       const response = await page.request.get(`/api/search?mode=${mode}&q=${encodeURIComponent(mode)}`);
       expect(response.ok()).toBeTruthy();
       const payload = await response.json() as {
         interpreted_query: string;
-        referrals: Array<{ id: number }>;
+        referrals: Array<{ id: number; owner: string; workflowStatus?: string }>;
         files: Array<{ id: string }>;
         counts: { referrals: number; files: number; total: number };
       };
@@ -2064,16 +2050,19 @@ test.describe("Pipeline home", () => {
 
       if (mode === "files") {
         expect(payload.referrals).toEqual([]);
-        expect(payload.counts.files).toBe(payload.files.length);
+        expect(payload.counts.files).toBeGreaterThanOrEqual(payload.files.length);
         continue;
       }
 
-      const bucket = bucketByMode[mode];
-      const expectedIds = worklist.items
-        .filter((item) => bucket === "all_actionable" || item.categories.includes(bucket))
-        .map((item) => item.referral_id);
-      expect(payload.referrals.map((referral) => referral.id)).toEqual(expectedIds);
-      expect(payload.counts.referrals).toBe(expectedIds.length);
+      if (mode === "my_work") {
+        expect(payload.referrals.every((referral) => referral.owner === "Playwright QA")).toBeTruthy();
+      } else if (mode === "unassigned") {
+        expect(payload.referrals.every((referral) => referral.owner === "Unassigned")).toBeTruthy();
+      } else {
+        const expectedStatus = mode === "ready_to_schedule" ? "ready_to_schedule" : "assessment_scheduled";
+        expect(payload.referrals.every((referral) => referral.workflowStatus === expectedStatus)).toBeTruthy();
+      }
+      expect(payload.counts.referrals).toBeGreaterThanOrEqual(payload.referrals.length);
     }
   });
 

@@ -19,16 +19,16 @@ test.describe("role-scoped home and reports", () => {
     await page.getByRole("button", { name: "Open reports" }).click();
 
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Current workflow", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Workspaces", exact: true })).toBeVisible();
     await expect(page.getByRole("complementary", { name: "Report library" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
 
-    await page.getByRole("button", { name: "View Assessment schedule report" }).click();
+    await page.getByRole("button", { name: "View Assessment calendar report" }).click();
     await expect(page.getByLabel("Report month")).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Report community" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Report owner" })).toBeVisible();
 
-    await page.getByRole("button", { name: "View Assessment completion report" }).click();
+    await page.getByRole("button", { name: "View Completed assessments report" }).click();
     await expect(page.getByLabel("Report month")).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Report community" })).toHaveCount(0);
     await expect(page.getByRole("combobox", { name: "Report owner" })).toHaveCount(0);
