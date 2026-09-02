@@ -5,7 +5,7 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 
 const outputDirectory = "public/pwa";
 const brandMarkPath = "public/brand/pipeline-mark.svg";
-const appIconColor = "#009B70";
+const appIconColor = "#00D084";
 const appIconMarkWidthRatio = 0.4;
 
 const brandMark = await loadImage(brandMarkPath);
@@ -24,11 +24,11 @@ await Promise.all([
   renderIcon(512, 0.18, `${outputDirectory}/pipeline-icon-512-v2.png`),
   renderIcon(512, 0.2, `${outputDirectory}/pipeline-icon-maskable-512-v2.png`, "#ffffff"),
   renderFavicon(`${outputDirectory}/pipeline-favicon-32-v3.png`),
-  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v4.png`),
-  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v4.png`),
-  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v4.png`),
-  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-maskable-512-v4.png`),
-  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-maskable-1024-v4.png`),
+  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v5.png`),
+  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v5.png`),
+  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v5.png`),
+  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-maskable-512-v5.png`),
+  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-maskable-1024-v5.png`),
 ]);
 
 async function renderIcon(size, insetRatio, outputPath, backgroundColor = null) {
