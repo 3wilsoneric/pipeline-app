@@ -14,6 +14,11 @@ const referralContextFields = new Set<AssessmentToolFieldKey>([
   "county",
 ]);
 
+const intakeInheritedFields = new Set<AssessmentToolFieldKey>([
+  ...referralContextFields,
+  "medications_at_intake",
+]);
+
 const systemProvenanceFields = new Set<AssessmentToolFieldKey>([
   "assessment_date",
   "assessor",
@@ -33,3 +38,6 @@ export function isPacketAssessmentEvidenceField(field: AssessmentToolFieldKey) {
   return assessmentFieldOwner(field) === "assessment_answer";
 }
 
+export function isAssessmentIntakeInheritedField(field: AssessmentToolFieldKey) {
+  return intakeInheritedFields.has(field);
+}

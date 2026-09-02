@@ -21,6 +21,7 @@ export function createAssessmentPracticeData(): AssessmentToolData {
     referring_facility: "Training facility",
     prior_setting_bucket: "residential_program",
     county: "Practice County",
+    medications_at_intake: ["Risperidone 2 mg by mouth nightly"],
     source_file: "synthetic-practice-packet.pdf",
     extraction_date: "2026-08-25T12:00:00.000Z",
     assessment_notes: "Synthetic training scenario. No client record is associated with this assessment.",

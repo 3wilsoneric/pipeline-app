@@ -599,11 +599,21 @@ export function getAssessmentFieldWritingSpec(field: AssessmentToolFieldKey): As
     formatLabel: formatLabels[specification.preferredFormat],
     guardrail: guide.guardrail,
     ...specification,
+    formatTemplate: naturalWritingOrder(specification.formatTemplate),
+    strongExample: naturalClinicalExample(specification.strongExample),
     instructionSteps: specification.instructionSteps ?? specification.requiredElements.map((element, index) => ({
       title: element,
       instruction: `${index === 0 ? "Start with" : "Then document"} ${element.toLowerCase()} using specific, attributable information.`,
     })),
   };
+}
+
+function naturalWritingOrder(value: string) {
+  return value.replace(/\s*\|\s*/g, ", then ");
+}
+
+function naturalClinicalExample(value: string) {
+  return value.replace(/\s*\|\s*/g, "; ");
 }
 
 export function getAssessmentFieldWritingSpecCoverage() {

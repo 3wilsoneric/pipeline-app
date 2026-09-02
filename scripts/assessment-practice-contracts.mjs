@@ -13,6 +13,7 @@ const scenarioSource = read("lib/note-lab/assessment-practice-scenario.ts");
 const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
 const schema = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-tool-schema.ts");
 const interview = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-interview-schema.ts");
+const writing = loadTypeScriptModule(process.cwd(), "lib/assessment/assessment-field-writing-spec.ts");
 const practice = loadTypeScriptModule(process.cwd(), "lib/note-lab/assessment-practice-scenario.ts");
 
 const checks = [];
@@ -40,6 +41,15 @@ check("language guidance comes from the canonical writing specification",
   workspace.includes("getAssessmentFieldWritingSpec") && workspace.includes("Example")
   && workspace.includes("specification.formatTemplate") && workspace.includes("specification.strongExample")
   && workspace.includes("getAssessmentNarrativeGuide") && workspace.includes("narrativeGuide.purpose"));
+check("visible writing guidance uses natural prose rather than pipe separators",
+  writing.getAssessmentFieldWritingSpecCoverage().coveredFields.every((field) => {
+    const specification = writing.getAssessmentFieldWritingSpec(field);
+    return specification && !specification.formatTemplate.includes("|") && !specification.strongExample.includes("|");
+  }));
+check("intake carryover is visibly distinguished from assessment answers",
+  workspace.includes("isAssessmentIntakeInheritedField")
+  && workspace.includes("From intake")
+  && workspace.includes("This field carries forward from intake. Confirm or correct it during the assessment."));
 check("practice has no clinical persistence or production assessment dependency",
   !workspace.includes("fetch(") && !workspace.includes("/api/") && !workspace.includes("indexedDB")
   && !workspace.includes("localStorage") && !workspace.includes("sessionStorage")

@@ -4,6 +4,7 @@ import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Sparkles } fr
 import { useEffect, useMemo, useState } from "react";
 
 import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
+import { isAssessmentIntakeInheritedField } from "@/lib/assessment/assessment-field-ownership";
 import { getAssessmentNarrativeGuide } from "@/lib/assessment/assessment-narrative-guide";
 import {
   assessmentInterviewFieldLabel,
@@ -253,6 +254,7 @@ function PracticeQuestions({
                 value={data[question.field]}
                 unableReason={getAssessmentUnableReason(data, question.field)}
                 required={requiredFields.has(question.field)}
+                inheritedFromIntake={isAssessmentIntakeInheritedField(question.field)}
                 guided={question.field === guidedField}
                 lastGuidedField={guidedQuestions.at(-1)?.field === question.field}
                 onNextQuestion={() => onNextQuestion(question.field)}
@@ -272,6 +274,7 @@ function PracticeField({
   value,
   unableReason,
   required,
+  inheritedFromIntake,
   guided,
   lastGuidedField,
   onNextQuestion,
@@ -282,6 +285,7 @@ function PracticeField({
   value: AssessmentToolData[AssessmentToolFieldKey];
   unableReason: string;
   required: boolean;
+  inheritedFromIntake: boolean;
   guided: boolean;
   lastGuidedField: boolean;
   onNextQuestion: () => void;
@@ -292,10 +296,15 @@ function PracticeField({
   const label = assessmentInterviewFieldLabel(question.field);
   const fullWidth = question.span === "full" || question.control === "multi_select";
   return (
-    <div data-practice-field={question.field} className={`relative scroll-mt-8 ${fullWidth ? "md:col-span-2" : ""}`}>
+    <div
+      data-practice-field={question.field}
+      title={inheritedFromIntake ? "This field carries forward from intake. Confirm or correct it during the assessment." : undefined}
+      className={`relative scroll-mt-8 ${fullWidth ? "md:col-span-2" : ""} ${inheritedFromIntake ? "-mx-3 border-l-2 border-[#4f8da0] bg-[#f0f7f9] px-3 py-3" : ""}`}
+    >
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{label}{required ? " *" : ""}</label>
         <div className="flex shrink-0 items-center gap-2">
+          {inheritedFromIntake ? <span className="bg-[#dceef3] px-2 py-0.5 text-[9px] font-black uppercase text-[#2f6f82]">From intake</span> : null}
           {hasAssessmentInterviewValue(value) ? <Check size={12} className="text-[#0f8b73]" aria-label="Captured" /> : required ? <span className="text-[9px] font-semibold uppercase text-[#9a6115]">Required</span> : <span className="text-[9px] font-semibold uppercase text-[#999999]">Optional</span>}
         </div>
       </div>
