@@ -3,7 +3,7 @@ import type {
   PipelineCalendarEvent,
   PipelineUnscheduledAssessment,
 } from "@/lib/pipeline/calendar-types";
-import type { Referral } from "@/lib/pipeline/referral-types";
+import type { Referral, ReferralWorkflowStatus } from "@/lib/pipeline/referral-types";
 
 const closedStages = new Set(["Accepted / Admitted", "Declined"]);
 const assessmentPreparationStatuses = new Set([
@@ -48,7 +48,7 @@ export function referralAssignmentCalendarEvent(
 }
 
 export function assessmentCalendarEvent(
-  assessment: Pick<PipelineAssessmentRecord, "assessment_id" | "assessor_id" | "assessor" | "status" | "referral_id" | "scheduled_start_at" | "scheduled_duration_minutes" | "scheduled_method" | "scheduled_location" | "schedule_status">,
+  assessment: Pick<PipelineAssessmentRecord, "assessment_id" | "assessor_id" | "assessor" | "status" | "version" | "referral_id" | "scheduled_start_at" | "scheduled_duration_minutes" | "scheduled_method" | "scheduled_location" | "schedule_status">,
   referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId">,
   today = calendarToday(),
 ): PipelineCalendarEvent | null {
@@ -67,6 +67,7 @@ export function assessmentCalendarEvent(
     id: `assessment:${assessment.assessment_id}`,
     referralId: referral.id,
     assessmentId: assessment.assessment_id,
+    assessmentVersion: assessment.version,
     clientName: referral.name,
     community: referral.community,
     ownerId: referral.ownerId ?? assessment.assessor_id ?? undefined,
@@ -76,6 +77,7 @@ export function assessmentCalendarEvent(
     durationMinutes: assessment.scheduled_duration_minutes ?? undefined,
     method: assessment.scheduled_method ?? undefined,
     location: assessment.scheduled_location?.trim() || undefined,
+    scheduleStatus: calendarScheduleStatus(assessment.schedule_status),
     kind: "assessment",
     status: overdue ? "overdue" : assessment.status,
     title,
@@ -118,8 +120,9 @@ export function assessmentFollowUpEvents(
 
 export function assessmentPreparationItem(
   referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId" | "date" | "createdAt" | "stage" | "workspaceOrigin" | "workflowStatus">,
-  hasScheduledAssessment: boolean,
+  assessment: Pick<PipelineAssessmentRecord, "assessment_id" | "version" | "schedule_status"> | null,
 ): PipelineUnscheduledAssessment | null {
+  const hasScheduledAssessment = isScheduledAssessment(assessment);
   if (referral.workspaceOrigin !== "pipeline" || closedStages.has(referral.stage) || hasScheduledAssessment) return null;
   const workflowStatus = referral.workflowStatus ?? "intake_unassigned";
   if (!assessmentPreparationStatuses.has(workflowStatus)) return null;
@@ -127,13 +130,57 @@ export function assessmentPreparationItem(
   if (!receivedDate) return null;
   return {
     referralId: referral.id,
+    assessmentId: assessment?.assessment_id,
+    assessmentVersion: assessment?.version,
     clientName: referral.name,
     community: referral.community,
     ownerId: referral.ownerId,
     owner: referral.owner?.trim() || "Unassigned",
     receivedDate,
     workflowStatus,
+    nextAction: preparationNextAction(workflowStatus),
   };
+}
+
+function calendarScheduleStatus(status: PipelineAssessmentRecord["schedule_status"]) {
+  return status ?? "unscheduled";
+}
+
+function isScheduledAssessment(
+  assessment: Pick<PipelineAssessmentRecord, "schedule_status"> | null,
+) {
+  if (!assessment) return false;
+  return ["scheduled", "rescheduled"].includes(calendarScheduleStatus(assessment.schedule_status));
+}
+
+function preparationNextAction(workflowStatus: ReferralWorkflowStatus): PipelineUnscheduledAssessment["nextAction"] {
+  if (workflowStatus === "intake_unassigned") return "assign";
+  if (workflowStatus === "ready_to_schedule") return "schedule";
+  return "complete_intake";
+}
+
+export function consolidateCalendarFollowUps(events: PipelineCalendarEvent[]) {
+  const passthrough = events.filter((event) => event.kind !== "follow_up");
+  const groups = new Map<string, PipelineCalendarEvent[]>();
+  for (const event of events) {
+    if (event.kind !== "follow_up") continue;
+    const key = [event.referralId, event.date, event.ownerId ?? event.owner].join(":");
+    groups.set(key, [...(groups.get(key) ?? []), event]);
+  }
+  const consolidated = [...groups.values()].map((items) => {
+    const first = items[0];
+    const labels = items.map((item) => item.title).sort((left, right) => left.localeCompare(right));
+    return {
+      ...first,
+      id: `follow-ups:${items.map((item) => item.id).sort().join("+")}`,
+      followUpCount: items.length,
+      followUpLabels: labels,
+      title: items.length === 1 ? labels[0] : `${items.length} follow-ups due`,
+      detail: labels.join(", "),
+      status: items.some((item) => item.status === "overdue") ? "overdue" as const : "due" as const,
+    };
+  });
+  return [...passthrough, ...consolidated];
 }
 
 export function calendarDate(value: string | undefined) {

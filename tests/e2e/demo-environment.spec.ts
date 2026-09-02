@@ -36,6 +36,30 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.getByText("Open Intake and verify name, date of birth, community, source, and owner")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
+
+  test("previews a Resident Care Director handoff without sending data", async ({ page }) => {
+    const requests: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() !== "GET") requests.push(`${request.method()} ${request.url()}`);
+    });
+
+    await page.goto("/training/demo");
+    const meetClientTab = page.getByRole("tab", { name: "Meet the Client" });
+    await expect(meetClientTab).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await meetClientTab.click();
+    await expect(meetClientTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator('[data-meet-client-demo="true"]')).toBeVisible();
+    const emailPreview = page.getByRole("article", { name: "Meet the Client email preview" });
+    await expect(emailPreview.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New message" })).toBeVisible();
+    await expect(page.getByText("Referral Face Sheet.pdf")).toBeVisible();
+
+    await expect(emailPreview).toBeVisible();
+    await page.getByRole("button", { name: "Simulate delivery" }).click();
+    await expect(page.getByText("Demo delivery complete")).toBeVisible();
+    expect(requests).toEqual([]);
+  });
 });
 
 function watchBrowserErrors(page: import("@playwright/test").Page) {

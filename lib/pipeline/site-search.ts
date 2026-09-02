@@ -40,7 +40,7 @@ const siteDestinations: SearchableDestination[] = [
     screen: "operations",
     title: "Reports",
     detail: "Review workspace, document, assessment, and team data",
-    keywords: "report reports workspace documents assessment calendar completed team workload owner performance export csv",
+    keywords: "report reports workspace documents assessment calendar completed team workload owner performance export csv queue overdue stale blocked conflict conflicts supervisor",
   },
 ];
 

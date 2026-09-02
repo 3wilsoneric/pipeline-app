@@ -31,6 +31,7 @@ const workspaceStateTypes = loadTypeScriptModule(root, "lib/pipeline/user-worksp
 const workspacePresentation = loadTypeScriptModule(root, "lib/pipeline/workspace-presentation.ts");
 const assessmentCalendar = loadTypeScriptModule(root, "lib/pipeline/assessment-calendar.ts");
 const assessmentAccess = loadTypeScriptModule(root, "lib/assessment/assessment-access.ts");
+const assessmentLifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
 
 const results = [
   run("imported client identity keeps county metadata out of the person name", () => {
@@ -66,6 +67,8 @@ const results = [
     assert(assessmentAccess.canWorkAssessment(assigned, "assessor-1"), "The assigned assessor should be able to work the assessment");
     assert(!assessmentAccess.canWorkAssessment(otherAssessor, "assessor-1"), "Another assessor must remain blocked");
     assert(assessmentAccess.canWorkAssessment(supervisor, "assessor-1"), "A supervisor should be able to assist without reassignment");
+    assert(!assessmentAccess.isAssessmentSupervisor(assigned), "A reviewer must not receive supervisor conflict overrides");
+    assert(assessmentAccess.isAssessmentSupervisor(supervisor), "The assessment coordinator must receive supervisor controls");
   }),
   run("supervisor assessment access does not overwrite an existing referral assignment", () => {
     const supervisor = { id: "supervisor-1", email: "supervisor@example.com", name: "Supervisor", roles: ["assessment_coordinator", "reviewer"] };
@@ -184,11 +187,61 @@ const results = [
       stage: "New",
       workspaceOrigin: "pipeline",
       workflowStatus: "ready_to_schedule",
-    }, false);
+    }, null);
     assert(item?.referralId === 44, "Expected a Pipeline referral without an assessment to need scheduling");
-    const blocked = assessmentCalendar.assessmentPreparationItem({ ...item, id: 45, name: "Needs Documents", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "pipeline", workflowStatus: "intake_documents_needed" }, false);
+    assert(item?.nextAction === "schedule", "Ready referrals must expose a scheduling action");
+    const blocked = assessmentCalendar.assessmentPreparationItem({ ...item, id: 45, name: "Needs Documents", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "pipeline", workflowStatus: "intake_documents_needed" }, null);
     assert(blocked?.workflowStatus === "intake_documents_needed", "Expected blocked intake work to remain visible before scheduling");
-    assert(assessmentCalendar.assessmentPreparationItem({ ...item, id: 44, name: "Needs Scheduling", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "allo" }, false) === null, "Imported historical work must not enter the scheduling queue");
+    assert(blocked?.nextAction === "complete_intake", "Blocked intake work must route back to intake");
+    assert(assessmentCalendar.assessmentPreparationItem({ ...item, id: 44, name: "Needs Scheduling", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "allo" }, null) === null, "Imported historical work must not enter the scheduling queue");
+  }),
+  run("calendar consolidates related follow-ups without hiding their labels", () => {
+    const consolidated = assessmentCalendar.consolidateCalendarFollowUps([{
+      id: "follow-up:one",
+      referralId: 50,
+      clientName: "Follow-up Client",
+      community: "Turlock",
+      ownerId: "assessor-1",
+      owner: "Assessor",
+      date: "2026-08-24",
+      kind: "follow_up",
+      status: "due",
+      title: "Face sheet",
+      detail: "Due",
+    }, {
+      id: "follow-up:two",
+      referralId: 50,
+      clientName: "Follow-up Client",
+      community: "Turlock",
+      ownerId: "assessor-1",
+      owner: "Assessor",
+      date: "2026-08-24",
+      kind: "follow_up",
+      status: "overdue",
+      title: "Medication list",
+      detail: "Overdue",
+    }]);
+    assert(consolidated.length === 1, "Related follow-ups should occupy one calendar row");
+    assert(consolidated[0].followUpCount === 2, "The consolidated event must preserve its count");
+    assert(consolidated[0].followUpLabels.join(",") === "Face sheet,Medication list", "The consolidated event must preserve each source label");
+    assert(consolidated[0].status === "overdue", "Any overdue source must keep the consolidated event overdue");
+  }),
+  run("schedule commands require an explicit boolean conflict override", () => {
+    const base = {
+      if_match: 2,
+      client_mutation_id: "fixture-calendar-schedule",
+      schedule: {
+        status: "scheduled",
+        start_at: "2026-08-25T16:00:00.000Z",
+        duration_minutes: 60,
+        method: "zoom",
+        location: "https://zoom.us/j/fixture",
+      },
+    };
+    const allowed = assessmentLifecycle.validateAssessmentScheduleCommand({ ...base, allow_conflict: true });
+    assert(allowed.ok && allowed.value.allow_conflict === true, "A valid explicit override must survive validation");
+    const invalid = assessmentLifecycle.validateAssessmentScheduleCommand({ ...base, allow_conflict: "yes" });
+    assert(!invalid.ok && invalid.message === "allow_conflict must be a boolean.", "String conflict overrides must be rejected");
   }),
   run("create upload rejects missing body", () => {
     const result = contracts.validateCreateUploadUrlRequest(null);

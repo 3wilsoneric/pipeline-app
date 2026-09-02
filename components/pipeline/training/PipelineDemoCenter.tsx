@@ -26,6 +26,7 @@ import { activatePipelineDemoSession } from "@/lib/demo/demo-session";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import MeetClientHandoffDemo from "@/components/pipeline/training/MeetClientHandoffDemo";
 
 type DemoActor = {
   id: string;
@@ -35,7 +36,7 @@ type DemoActor = {
 };
 
 type DemoReferralSummary = Pick<Referral, "id" | "name" | "community" | "tags" | "createdAt">;
-type DemoView = "run" | "lab";
+type DemoView = "run" | "lab" | "handoff";
 
 type DemoChapter = {
   number: number;
@@ -98,6 +99,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
   const [error, setError] = useState("");
   const canWrite = environment.writable && actor.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role));
   const chapter = demoChapters[chapterIndex] ?? demoChapters[0];
+  const showingHandoff = view === "handoff";
 
   useEffect(() => {
     activatePipelineDemoSession();
@@ -189,10 +191,10 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
   };
 
   return (
-    <main data-demo-center="true" className="h-full min-h-0 overflow-y-auto bg-[#f4f7f5] text-[#171a18]">
-      <div className="mx-auto w-full max-w-[1540px] px-4 pb-14 pt-5 sm:px-6 lg:px-8 lg:pt-7">
-        <header className="border border-[#c8d3cf] bg-white">
-          <div className="px-5 py-4 sm:px-7">
+    <main data-demo-center="true" className={`h-full min-h-0 overflow-y-auto text-[#171a18] ${showingHandoff ? "bg-white" : "bg-[#f4f7f5]"}`}>
+      <div className={`mx-auto w-full pb-14 ${showingHandoff ? "max-w-[1320px] px-4 pt-3 sm:px-6 lg:px-8" : "max-w-[1540px] px-4 pt-5 sm:px-6 lg:px-8 lg:pt-7"}`}>
+        <header className={showingHandoff ? "border-b border-[#dfe4e1] bg-white" : "border border-[#c8d3cf] bg-white"}>
+          {!showingHandoff ? <div className="px-5 py-4 sm:px-7">
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-2 border border-[#9fc6b9] bg-[#eaf5f1] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.11em] text-[#0b6d5b]"><FlaskConical size={12} /> Synthetic data</span>
@@ -201,10 +203,11 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
               <h1 className="mt-2 text-[24px] font-semibold tracking-[-0.035em]">Assessor walkthrough</h1>
               <p className="mt-1 text-[11px] leading-5 text-[#5b6662]">Practice referral review, scheduling, interviewing, and supervisor handoff.</p>
             </div>
-          </div>
-          <div className="flex items-end border-t border-[#d8dfdc] bg-[#edf2f0] px-3 pt-2" role="tablist" aria-label="Demo Center sections">
+          </div> : null}
+          <div className={`flex items-end ${showingHandoff ? "gap-1 bg-white px-0" : "border-t border-[#d8dfdc] bg-[#edf2f0] px-3 pt-2"}`} role="tablist" aria-label="Demo Center sections">
             <DemoTab active={view === "run"} label="Walkthrough" onClick={() => setView("run")} />
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => setView("lab")} />
+            <DemoTab active={view === "handoff"} label="Meet the Client" onClick={() => setView("handoff")} />
           </div>
         </header>
 
@@ -220,7 +223,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
             onSelect={setChapterIndex}
             onLaunch={(selected) => void launchScenario(getPipelineDemoScenario(selected.scenarioId)!)}
           />
-        ) : (
+        ) : view === "lab" ? (
           <ScenarioLab
             referrals={referrals}
             loading={loadingCases}
@@ -229,6 +232,8 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
             onLaunch={(scenario) => void launchScenario(scenario)}
             onOpen={openExisting}
           />
+        ) : (
+          <MeetClientHandoffDemo preparedBy={actor.name} />
         )}
       </div>
     </main>

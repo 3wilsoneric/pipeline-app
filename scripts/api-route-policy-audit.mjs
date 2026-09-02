@@ -23,6 +23,15 @@ const ownerScopedMethods = new Set([
   "app/api/academy/progress/route.ts#GET",
   "app/api/academy/progress/route.ts#PUT",
 ]);
+const authenticatedBaseMethods = new Set([
+  "app/api/auth/me/route.ts#GET",
+  "app/api/auth/session/route.ts#POST",
+  "app/api/note-lab/session/route.ts#GET",
+  "app/api/note-lab/session/route.ts#POST",
+]);
+const governedReadMutations = new Set([
+  "app/api/operations/reports/route.ts#POST",
+]);
 const roleRestrictedReads = new Map([
   ["app/api/operations/supervisor-queue/route.ts#GET", ["admin", "assessment_coordinator"]],
   ["app/api/profiles/[residentKey]/route.ts#GET", ["admin", "assessment_coordinator", "reviewer", "viewer"]],
@@ -72,6 +81,14 @@ for (const absoluteFile of routeFiles) {
       check(`${key} is a data-free unauthenticated liveness endpoint`, !body.includes("requirePipelineUser(") && body.includes('service: "pipeline-app"'));
     } else if (key === "app/api/auth/session/route.ts#DELETE") {
       check(`${key} clears only the same-origin session`, body.includes("clearPipelineSessionCookie(") && !body.includes("requirePipelineUser("));
+    } else if (authenticatedBaseMethods.has(key)) {
+      check(`${key} requires authenticated identity without granting Pipeline access`, body.includes("requireAuthenticatedUser(") && !body.includes("requirePipelineUser("));
+      if (key === "app/api/auth/session/route.ts#POST") {
+        check(`${key} establishes only an authenticated session`, body.includes("createPipelineSessionCookie("));
+      }
+      if (route === "/api/note-lab/session") {
+        check(`${key} enforces the standalone Note Lab reviewer allowlist`, body.includes("canAccessNoteLab(auth.user)"));
+      }
     } else if (ownerScopedMethods.has(key)) {
       check(`${key} requires the configured private Academy owner`, body.includes("getDeveloperAcademyOwner("));
     } else {
@@ -96,8 +113,14 @@ for (const absoluteFile of routeFiles) {
     if (route.includes("/assessments/[assessmentId]")) {
       check(`${key} resolves assessment ownership before access`, body.includes("requireReferralAccess("));
     }
-    if (isMutation && !isInternal && !isPublic && !personalStateWrites.has(key) && !ownerScopedMethods.has(key)) {
+    if (isMutation && !isInternal && !isPublic && !personalStateWrites.has(key) && !ownerScopedMethods.has(key) && !authenticatedBaseMethods.has(key) && !governedReadMutations.has(key)) {
       check(`${key} excludes the viewer role from writes`, roleList.length > 0 && !roleList.includes("viewer"));
+    }
+    if (governedReadMutations.has(key)) {
+      check(`${key} enforces report access and audits the export`, body.includes("getOperationsReport(auth.user") && body.includes("ReportAccessError") && body.includes("recordOperationsReportExport("));
+    }
+    if (key === "app/api/note-lab/session/route.ts#POST") {
+      check(`${key} writes only principal-scoped reviewer state`, body.includes("submitNoteLabReview(auth.user.id"));
     }
     if (personalStateWrites.has(key)) {
       check(`${key} writes only principal-scoped personal state`, body.includes("auth.user.id") && body.includes("requirePipelineUser("));

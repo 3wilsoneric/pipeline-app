@@ -1,6 +1,14 @@
-import { getAssessment, patchAssessment, requireAssessmentStore } from "@/lib/assessment/assessment-store";
-import { canWorkAssessment } from "@/lib/assessment/assessment-access";
-import { validateAssessmentScheduleCommand } from "@/lib/assessment/assessment-lifecycle-validation";
+import {
+  AssessmentScheduleConflictError,
+  getAssessment,
+  patchAssessment,
+  requireAssessmentStore,
+} from "@/lib/assessment/assessment-store";
+import { canWorkAssessment, isAssessmentSupervisor } from "@/lib/assessment/assessment-access";
+import {
+  validateAssessmentScheduleCommand,
+  type AssessmentScheduleCommand,
+} from "@/lib/assessment/assessment-lifecycle-validation";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
@@ -30,14 +38,42 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     if (!body.ok) return jsonError(body.message, body.status);
     const command = validateAssessmentScheduleCommand(body.value);
     if (!command.ok) return jsonError(command.message, command.status);
+    return saveAssessmentSchedule(
+      assessmentId,
+      command.value,
+      { id: auth.user.id, name: auth.user.name },
+      isAssessmentSupervisor(auth.user),
+    );
+  });
+}
+
+async function saveAssessmentSchedule(
+  assessmentId: string,
+  command: AssessmentScheduleCommand,
+  actor: { id: string; name: string },
+  canOverride: boolean,
+) {
+  try {
     const result = await patchAssessment(
       assessmentId,
-      { schedule: command.value.schedule },
-      { id: auth.user.id, name: auth.user.name },
-      { expectedVersion: command.value.if_match, mutationId: command.value.client_mutation_id },
+      { schedule: command.schedule },
+      actor,
+      {
+        expectedVersion: command.if_match,
+        mutationId: command.client_mutation_id,
+        allowScheduleConflict: command.allow_conflict === true && canOverride,
+      },
     );
     return mutationResponse(result, "schedule");
-  });
+  } catch (error) {
+    if (!(error instanceof AssessmentScheduleConflictError)) throw error;
+    return Response.json({
+      error: error.message,
+      code: "assessment_schedule_conflict",
+      conflicts: error.conflicts,
+      can_override: canOverride,
+    }, { status: 409 });
+  }
 }
 
 function mutationResponse(result: Awaited<ReturnType<typeof patchAssessment>>, action: string) {

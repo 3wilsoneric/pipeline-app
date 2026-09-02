@@ -44,6 +44,7 @@ import {
   type AssessmentCreateInput,
   type AssessmentListResponse,
   type AssessmentPatchInput,
+  type AssessmentScheduleUpdate,
   type PipelineAssessmentRecord,
 } from "./assessment-records";
 import {
@@ -80,7 +81,22 @@ export type AssessmentPatchOptions = {
   section?: AssessmentToolSection;
   expectedSectionVersion?: number;
   mutationId?: string;
+  allowScheduleConflict?: boolean;
 };
+
+export type AssessmentScheduleConflict = {
+  assessment_id: string;
+  referral_id: number;
+  starts_at: string;
+  duration_minutes: number;
+};
+
+export class AssessmentScheduleConflictError extends Error {
+  constructor(public readonly conflicts: AssessmentScheduleConflict[]) {
+    super("This assessor already has an assessment during that time.");
+    this.name = "AssessmentScheduleConflictError";
+  }
+}
 
 export type AssessmentListOptions = {
   referralId?: number;
@@ -519,6 +535,7 @@ async function patchLocalAssessment(
     if (!options.section && options.expectedVersion !== undefined && options.expectedVersion !== current.version) {
       return { ok: false, conflict: true, assessment: current };
     }
+    assertNoLocalScheduleConflict(current, patch, options, state.assessments);
     assertPatchMatchesSection(patch, options.section);
     const prepared = prepareAssessmentPatch(current, patch, actor);
     const candidate = prepared.candidate;
@@ -537,6 +554,55 @@ async function patchLocalAssessment(
     await syncLocalReferralWorkflow(candidate, actor, prepared.action);
     return { ok: true, assessment: candidate, revision: state.revision };
   });
+}
+
+function assertNoLocalScheduleConflict(
+  current: PipelineAssessmentRecord,
+  patch: AssessmentPatchInput,
+  options: AssessmentPatchOptions,
+  assessments: PipelineAssessmentRecord[],
+) {
+  if (!patch.schedule || options.allowScheduleConflict) return;
+  const conflicts = localScheduleConflicts(current, patch.schedule, assessments);
+  if (conflicts.length > 0) throw new AssessmentScheduleConflictError(conflicts);
+}
+
+function localScheduleConflicts(
+  current: PipelineAssessmentRecord,
+  schedule: AssessmentScheduleUpdate,
+  assessments: PipelineAssessmentRecord[],
+): AssessmentScheduleConflict[] {
+  const requested = scheduleWindow(schedule);
+  if (!requested || !current.assessor_id) return [];
+  return assessments.flatMap((candidate) => {
+    if (
+      candidate.assessment_id === current.assessment_id
+      || candidate.assessor_id !== current.assessor_id
+      || !["scheduled", "rescheduled"].includes(candidate.schedule_status ?? "unscheduled")
+      || !candidate.scheduled_start_at
+    ) return [];
+    const candidateStart = Date.parse(candidate.scheduled_start_at);
+    const candidateDuration = candidate.scheduled_duration_minutes ?? 60;
+    const candidateEnd = candidateStart + candidateDuration * 60_000;
+    if (!Number.isFinite(candidateStart) || candidateStart >= requested.end || candidateEnd <= requested.start) return [];
+    return [{
+      assessment_id: candidate.assessment_id,
+      referral_id: candidate.referral_id,
+      starts_at: candidate.scheduled_start_at,
+      duration_minutes: candidateDuration,
+    }];
+  });
+}
+
+function scheduleWindow(schedule: AssessmentScheduleUpdate) {
+  if (
+    !["scheduled", "rescheduled"].includes(schedule.status)
+    || !schedule.start_at
+    || schedule.duration_minutes === null
+  ) return null;
+  const start = Date.parse(schedule.start_at);
+  if (!Number.isFinite(start)) return null;
+  return { start, end: start + schedule.duration_minutes * 60_000 };
 }
 
 async function importLocalAssessmentExtraction(input: AssessmentImportInput): Promise<AssessmentMutation | null> {
@@ -913,6 +979,7 @@ async function patchPostgresAssessment(
     if (!options.section && options.expectedVersion !== undefined && options.expectedVersion !== current.version) {
       return { ok: false, conflict: true, assessment: current };
     }
+    await assertNoPostgresScheduleConflict(tx, current, patch, options);
     assertPatchMatchesSection(patch, options.section);
     const prepared = prepareAssessmentPatch(current, patch, actor);
     if (prepared.completesAssessment) {
@@ -943,6 +1010,52 @@ async function patchPostgresAssessment(
     if (!saved) throw new Error("The assessment could not be read after update.");
     return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx) };
   });
+}
+
+type ScheduleConflictRow = {
+  assessment_id: string;
+  referral_id: number | string;
+  scheduled_start_at: Date | string;
+  scheduled_duration_minutes: number | string | null;
+};
+
+async function assertNoPostgresScheduleConflict(
+  tx: TransactionSql,
+  current: PipelineAssessmentRecord,
+  patch: AssessmentPatchInput,
+  options: AssessmentPatchOptions,
+) {
+  if (!patch.schedule || options.allowScheduleConflict || !current.assessor_id) return;
+  const conflicts = await postgresScheduleConflicts(tx, current, patch.schedule);
+  if (conflicts.length > 0) throw new AssessmentScheduleConflictError(conflicts);
+}
+
+async function postgresScheduleConflicts(
+  tx: TransactionSql,
+  current: PipelineAssessmentRecord,
+  schedule: AssessmentScheduleUpdate,
+): Promise<AssessmentScheduleConflict[]> {
+  if (!current.assessor_id || !scheduleWindow(schedule) || !schedule.start_at || schedule.duration_minutes === null) return [];
+
+  // Serializing by assessor closes the race between the overlap check and update.
+  await tx`select pg_advisory_xact_lock(hashtextextended(${current.assessor_id}, 0))`;
+  const rows = await tx<ScheduleConflictRow[]>`
+    select assessment_id, referral_id, scheduled_start_at, scheduled_duration_minutes
+    from pipeline.assessments
+    where assessment_id <> ${current.assessment_id}
+      and assessor_id = ${current.assessor_id}
+      and schedule_status in ('scheduled', 'rescheduled')
+      and scheduled_start_at < (${schedule.start_at}::timestamptz + (${schedule.duration_minutes} * interval '1 minute'))
+      and (scheduled_start_at + (coalesce(scheduled_duration_minutes, 60) * interval '1 minute')) > ${schedule.start_at}::timestamptz
+    order by scheduled_start_at, assessment_id
+    limit 10
+  `;
+  return rows.map((row) => ({
+    assessment_id: row.assessment_id,
+    referral_id: Number(row.referral_id),
+    starts_at: isoTimestamp(row.scheduled_start_at),
+    duration_minutes: Number(row.scheduled_duration_minutes ?? 60),
+  }));
 }
 
 function assertPatchMatchesSection(

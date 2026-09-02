@@ -354,13 +354,19 @@ function checkAuthGuardrails() {
     "Authenticated API calls should fall back to the durable cookie before redirecting",
   );
   assert(
-    authMeRoute.includes("requirePipelineUser") && authMeRoute.includes("roles: auth.user.roles"),
-    "Auth identity endpoint should return the authenticated platform user and roles",
+    authIdentityEndpointIsSafe(authMeRoute),
+    "Auth identity endpoint should return authenticated roles without granting note-lab users Pipeline access",
   );
   assert(
     header.includes("fetchCurrentPipelineUser") && !header.includes(">EW<"),
     "Pipeline header should read authenticated identity instead of displaying fixed initials",
   );
+}
+
+function authIdentityEndpointIsSafe(source) {
+  return source.includes("requireAuthenticatedUser")
+    && source.includes("canAccessPipeline(auth.user)")
+    && source.includes("roles: auth.user.roles");
 }
 
 function checkProfileResilience() {

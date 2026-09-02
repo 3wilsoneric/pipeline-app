@@ -106,6 +106,12 @@ and changed-file inventory are in
   next action, blocker or missing-data summary, owner, due date, last activity,
   and completion. Search includes blocker and missing-data labels. The worklist
   is horizontally contained on narrow screens and never widens the page.
+- The operational calendar now derives assignments, assessment appointments,
+  scheduling work, and follow-ups from canonical referral and assessment state.
+  Assessors receive a timed personal week; supervisors receive actionable team
+  lanes with conflict and load indicators. The source-of-truth, conflict,
+  recovery, and future Outlook/Zoom boundary are defined in
+  [`docs/CALENDAR_OPERATIONS_SPEC.md`](./CALENDAR_OPERATIONS_SPEC.md).
 - Durable uploads now carry an explicit governed document category. File
   metadata exposes bounded page pagination, separate authenticated preview and
   thumbnail URLs, dimensions, scan/processing state, and human-readable

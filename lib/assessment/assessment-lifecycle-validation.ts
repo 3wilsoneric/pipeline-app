@@ -11,6 +11,7 @@ export type AssessmentLifecycleCommand = {
 
 export type AssessmentScheduleCommand = AssessmentLifecycleCommand & {
   schedule: AssessmentScheduleUpdate;
+  allow_conflict?: boolean;
 };
 
 export type AssessmentAddendumCommand = AssessmentLifecycleCommand & {
@@ -52,21 +53,18 @@ export function validateAssessmentScheduleCommand(value: unknown): Result<Assess
   }
   const location = nullableString(schedule.location, 500);
   if (!location.ok) return failure("schedule.location is invalid.");
+  const conflictOverride = validateConflictOverride(value.allow_conflict);
+  if (!conflictOverride.ok) return conflictOverride;
   if (["scheduled", "rescheduled"].includes(status) && (!startAt.value || duration === null || method === null)) {
     return failure("Scheduled assessments require a start time, duration, and method.");
   }
   return {
     ok: true,
-    value: {
-      ...common.value,
-      schedule: {
-        status,
-        start_at: startAt.value,
-        duration_minutes: duration === null ? null : Number(duration),
-        method: method as AssessmentScheduleUpdate["method"],
-        location: location.value,
-      },
-    },
+    value: scheduleCommand(
+      common.value,
+      normalizedSchedule(status, startAt.value, duration, method, location.value),
+      conflictOverride.value,
+    ),
   };
 }
 
@@ -99,6 +97,38 @@ function validateCommon(value: Record<string, unknown>): Result<AssessmentLifecy
       ...(typeof mutationId === "string" ? { client_mutation_id: mutationId } : {}),
     },
   };
+}
+
+function validateConflictOverride(value: unknown): Result<boolean> {
+  if (value === undefined) return { ok: true, value: false };
+  if (typeof value === "boolean") return { ok: true, value };
+  return failure("allow_conflict must be a boolean.");
+}
+
+function normalizedSchedule(
+  status: AssessmentScheduleUpdate["status"],
+  startAt: string | null,
+  duration: unknown,
+  method: unknown,
+  location: string | null,
+): AssessmentScheduleUpdate {
+  return {
+    status,
+    start_at: startAt,
+    duration_minutes: duration === null ? null : Number(duration),
+    method: method as AssessmentScheduleUpdate["method"],
+    location,
+  };
+}
+
+function scheduleCommand(
+  common: AssessmentLifecycleCommand,
+  schedule: AssessmentScheduleUpdate,
+  allowConflict: boolean,
+): AssessmentScheduleCommand {
+  const command: AssessmentScheduleCommand = { ...common, schedule };
+  if (allowConflict) command.allow_conflict = true;
+  return command;
 }
 
 function nullableString(value: unknown, maximum: number): Result<string | null> {

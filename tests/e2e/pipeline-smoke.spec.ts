@@ -490,11 +490,34 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("shows assigned referrals and scheduled assessments as distinct calendar events", async ({ page }) => {
+    let schedulePayload: Record<string, unknown> | null = null;
+    await page.route("**/api/assessments/calendar-ready/schedule", async (route) => {
+      schedulePayload = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ assessment: { assessment_id: "calendar-ready", version: 5 } }),
+      });
+    });
+    await page.route("**/api/assessments/calendar-ready", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          assessment: {
+            assessment_id: "calendar-ready",
+            referral_id: 303,
+            version: 4,
+            schedule_status: "unscheduled",
+          },
+        }),
+      });
+    });
     await page.route("**/api/calendar/events?*", async (route) => {
       const requestUrl = new URL(route.request().url());
       const from = requestUrl.searchParams.get("from") ?? new Date().toISOString().slice(0, 8) + "01";
       const to = requestUrl.searchParams.get("to") ?? from;
-      const eventDate = `${from.slice(0, 8)}10`;
+      const eventDate = from;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -528,39 +551,162 @@ test.describe("Referral home and packet canvas", () => {
             startsAt: `${eventDate}T16:00:00.000Z`,
             durationMinutes: 60,
             method: "in_person",
+            scheduleStatus: "scheduled",
             kind: "assessment",
             status: "draft",
             title: "Assessment scheduled",
             detail: "Scheduled assessment",
           }],
-          unscheduled: [],
-          unscheduledTotal: 0,
+          unscheduled: [{
+            referralId: 303,
+            assessmentId: "calendar-ready",
+            assessmentVersion: 4,
+            clientName: "Ready Client",
+            community: "Victoria's Place",
+            ownerId: "playwright-user",
+            owner: "Playwright QA",
+            receivedDate: from,
+            workflowStatus: "ready_to_schedule",
+            nextAction: "schedule",
+          }],
+          unscheduledTotal: 1,
           scope: "team",
           viewer: { id: "playwright-user", name: "Playwright QA" },
+          timezone: "America/Los_Angeles",
           generated_at: new Date().toISOString(),
         }),
       });
     });
 
-    await page.getByRole("button", { name: "Open calendar" }).click();
-    await expect(page.getByText("Team calendar", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Open calendar", exact: true }).click();
+    await expect(page.getByText("Team schedule", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Supervisor team week" })).toBeVisible();
+    await expect(page.getByText("1 assignment/follow-up", { exact: true })).toBeVisible();
+    await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
+
+    await page.getByRole("combobox", { name: "Filter calendar by assessor" }).selectOption({ label: "Playwright QA" });
+    await expect(page.getByRole("region", { name: "Timed assessment week" })).toBeVisible();
     await expect(page.getByText("Assigned Client", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Scheduled Client", { exact: true }).first()).toBeVisible();
-    await expect(page.locator('button[title^="Assigned Client · Referral assigned"]')).toHaveClass(/bg-\[#e8f5f1\]/);
-    await expect(page.locator('button[title^="Scheduled Client · Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
+    await expect(page.locator('button[title^="Assigned Client - Referral assigned"]')).toHaveClass(/bg-\[#e8f5f1\]/);
+    await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
     await expect(page.getByRole("combobox", { name: "Filter calendar by event type" })).toContainText("Referral assignments");
     await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(4);
     await expect(page.getByRole("button", { name: "Open search" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
 
+    await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    const scheduleDialog = page.getByRole("dialog").filter({ hasText: "Ready Client" });
+    await expect(scheduleDialog).toBeVisible();
+    await scheduleDialog.getByLabel("Method").selectOption("zoom");
+    await scheduleDialog.getByLabel("Zoom link").fill("https://zoom.us/j/calendar-fixture");
+    await scheduleDialog.getByRole("button", { name: "Schedule", exact: true }).click();
+    await expect(scheduleDialog).toHaveCount(0);
+    expect(schedulePayload).toMatchObject({
+      if_match: 4,
+      allow_conflict: false,
+      schedule: {
+        status: "scheduled",
+        duration_minutes: 60,
+        method: "zoom",
+        location: "https://zoom.us/j/calendar-fixture",
+      },
+    });
+
     await page.setViewportSize({ width: 768, height: 1024 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
-    await expect(page.getByRole("button", { name: "month", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "agenda", exact: true })).toHaveAttribute("aria-pressed", "true");
 
     await page.setViewportSize({ width: 430, height: 932 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
     await expect(page.getByRole("button", { name: "agenda", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("button:visible").filter({ hasText: "Assigned Client" }).first()).toContainText("Created Sep 1");
+    await expect(page.locator("button:visible").filter({ hasText: "Assigned Client" }).first()).toContainText("Referral assigned");
+  });
+
+  test("rejects overlapping assessor appointments until a supervisor explicitly overrides", async ({ page }) => {
+    const conflictStartAt = new Date(
+      Date.UTC(2090, 0, 1) + Number.parseInt(randomUUID().slice(0, 8), 16) * 120_000,
+    ).toISOString();
+    const referralIds: number[] = [];
+    for (const suffix of ["A", "B"]) {
+      const created = await page.request.post("/api/referrals", {
+        data: {
+          client_mutation_id: `calendar-conflict-referral-${suffix}-${randomUUID()}`,
+          referral: {
+            name: `Calendar Conflict ${suffix} ${randomUUID().slice(0, 6)}`,
+            date: "2031-02-01",
+            stage: "New",
+            community: "San Pablo",
+            source: "Calendar conflict test",
+            priority: "standard",
+            tags: ["calendar-conflict-test"],
+            documentName: "",
+            documentStatus: "Missing",
+            owner: "Playwright QA",
+            note: "",
+            createdAt: new Date().toISOString(),
+            dob: "",
+            phone: "",
+            email: "",
+            payer: "",
+            requirements: [],
+          },
+        },
+      });
+      const createdPayload = await created.json() as { referral: { id: number }; error?: string };
+      expect(created.status(), JSON.stringify(createdPayload)).toBe(201);
+      referralIds.push(createdPayload.referral.id);
+    }
+
+    const assessments: Array<{ assessment_id: string; version: number }> = [];
+    for (const referralId of referralIds) {
+      const created = await page.request.post(`/api/referrals/${referralId}/assessments`, {
+        data: { data: {}, client_mutation_id: `calendar-conflict-assessment-${randomUUID()}` },
+      });
+      const createdPayload = await created.json() as { assessment: { assessment_id: string; version: number }; error?: string };
+      expect(created.status(), JSON.stringify(createdPayload)).toBe(201);
+      assessments.push(createdPayload.assessment);
+    }
+
+    const schedule = {
+      status: "scheduled",
+      start_at: conflictStartAt,
+      duration_minutes: 60,
+      method: "zoom",
+      location: "https://zoom.us/j/conflict-fixture",
+    };
+    const first = await page.request.post(`/api/assessments/${assessments[0].assessment_id}/schedule`, {
+      data: {
+        if_match: assessments[0].version,
+        client_mutation_id: `calendar-conflict-first-${randomUUID()}`,
+        schedule,
+      },
+    });
+    expect(first.status(), await first.text()).toBe(200);
+
+    const blocked = await page.request.post(`/api/assessments/${assessments[1].assessment_id}/schedule`, {
+      data: {
+        if_match: assessments[1].version,
+        client_mutation_id: `calendar-conflict-blocked-${randomUUID()}`,
+        schedule,
+      },
+    });
+    expect(blocked.status()).toBe(409);
+    await expect(blocked.json()).resolves.toMatchObject({
+      code: "assessment_schedule_conflict",
+      can_override: true,
+      conflicts: [expect.objectContaining({ assessment_id: assessments[0].assessment_id })],
+    });
+
+    const overridden = await page.request.post(`/api/assessments/${assessments[1].assessment_id}/schedule`, {
+      data: {
+        if_match: assessments[1].version,
+        client_mutation_id: `calendar-conflict-override-${randomUUID()}`,
+        allow_conflict: true,
+        schedule,
+      },
+    });
+    expect(overridden.status(), await overridden.text()).toBe(200);
   });
 
   test("deduplicates startup identity and retries a transient referral read", async ({ page }) => {
