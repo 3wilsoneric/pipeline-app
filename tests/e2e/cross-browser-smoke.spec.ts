@@ -12,5 +12,6 @@ test("core Pipeline surfaces render and navigate", async ({ page }) => {
 
   await page.goto("/?screen=operations");
   await expect(page.getByTestId("operations-workspace")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Current workflow" })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Report library" })).toBeVisible();
 });

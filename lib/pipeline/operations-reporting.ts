@@ -10,6 +10,7 @@ import {
   type OperationsReportColumn,
   type OperationsReportFilters,
   type OperationsReportId,
+  type OperationsReportMetric,
   type OperationsReportResponse,
   type OperationsReportResult,
   type OperationsReportRow,
@@ -17,7 +18,7 @@ import {
 import { getSupervisorExceptionSnapshot } from "@/lib/pipeline/operations-snapshot";
 import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { listReferralFacets, listReferrals } from "@/lib/pipeline/referral-store";
-import { getStageLabel, isClosedReferralStage } from "@/lib/pipeline/referral-workflow";
+import { isClosedReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { AdmissionRequirement, Referral } from "@/lib/pipeline/referral-types";
 import { resolveReferralWorkflowStatus, workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 
@@ -27,44 +28,90 @@ const exportLimit = 5_000;
 const reportCatalog: OperationsReportDefinition[] = [
   {
     id: "active_referrals",
-    label: "Active referrals",
-    description: "Current owner, stage, next action, and age.",
+    label: "Current workflow",
+    description: "Open workspaces by explicit workflow status, assignment, age, and next recorded action.",
+    cadence: "Current",
+    audience: "Assessment team",
+    filters: ["community", "owner"],
+  },
+  {
+    id: "workspace_inventory",
+    label: "Workspace inventory",
+    description: "Workspaces created in the selected month, including assignment, origin, county, and recorded materials.",
+    cadence: "Monthly",
+    audience: "Operations",
+    filters: ["month", "community", "owner"],
+  },
+  {
+    id: "document_coverage",
+    label: "Document coverage",
+    description: "Recorded materials and required-document coverage for every accessible workspace.",
+    cadence: "Current",
+    audience: "Assessment team",
+    filters: ["community", "owner"],
+  },
+  {
+    id: "intake_review",
+    label: "Intake extraction review",
+    description: "Extracted fields, completed reviews, pending corrections, and conflicts retained on each workspace.",
+    cadence: "Current",
+    audience: "Assessment team",
+    filters: ["community", "owner"],
+  },
+  {
+    id: "assessor_workload",
+    label: "Assessor workload",
+    description: "Current open assignments, overdue assignment targets, assessment work, and oldest workspace by assessor.",
+    cadence: "Current",
+    audience: "Supervisors",
     filters: ["community", "owner"],
   },
   {
     id: "missing_documents",
     label: "Missing documents",
     description: "Open referrals still waiting on required packet items.",
+    cadence: "Current",
+    audience: "Assessment team",
     filters: ["community", "owner"],
   },
   {
     id: "assessment_schedule",
     label: "Assessment schedule",
     description: "Scheduled assessments and follow-ups for the selected month.",
+    cadence: "Monthly",
+    audience: "Assessment team",
     filters: ["month", "community", "owner"],
   },
   {
     id: "assessment_completion",
     label: "Assessment completion",
     description: "Signed assessments and average completion time by staff member.",
+    cadence: "Monthly",
+    audience: "Supervisors",
     filters: ["month"],
   },
   {
     id: "decisions",
     label: "Admission decisions",
     description: "Accepted and declined decisions recorded in the selected month.",
+    cadence: "Monthly",
+    audience: "Supervisors",
     filters: ["month", "community", "owner"],
   },
   {
     id: "ehr_handoff",
     label: "EHR handoff queue",
     description: "Accepted referrals and their current handoff state.",
+    cadence: "Current",
+    audience: "Operations",
     filters: ["community", "owner"],
   },
   {
     id: "supervisor_exceptions",
     label: "Supervisor exceptions",
     description: "Overdue, blocked, unassigned, failed, or conflicted work.",
+    cadence: "Current",
+    audience: "Supervisors",
     filters: ["community", "owner"],
     supervisor_only: true,
   },
@@ -173,6 +220,7 @@ async function buildReport(
   return {
     definition,
     columns: reportColumns(definition.id),
+    metrics: reportMetrics(definition.id, rows),
     rows,
     row_count: rows.length,
     truncated: false,
@@ -191,6 +239,10 @@ async function reportRows(
 
   const referrals = await loadReportReferrals(user, filters, workspaceScopeForReport(reportId));
   if (reportId === "active_referrals") return activeReferralRows(referrals);
+  if (reportId === "workspace_inventory") return workspaceInventoryRows(referrals, filters.month);
+  if (reportId === "document_coverage") return documentCoverageRows(referrals);
+  if (reportId === "intake_review") return intakeReviewRows(referrals);
+  if (reportId === "assessor_workload") return assessorWorkloadRows(referrals);
   if (reportId === "missing_documents") return missingDocumentRows(referrals);
   if (reportId === "decisions") return decisionRows(referrals, filters.month);
   return ehrHandoffRows(referrals);
@@ -220,7 +272,9 @@ async function loadReportReferrals(
 }
 
 function workspaceScopeForReport(reportId: OperationsReportId): "active" | "all" {
-  return ["decisions", "ehr_handoff"].includes(reportId) ? "all" : "active";
+  return ["workspace_inventory", "document_coverage", "intake_review", "decisions", "ehr_handoff"].includes(reportId)
+    ? "all"
+    : "active";
 }
 
 function activeReferralRows(referrals: Referral[]) {
@@ -232,7 +286,6 @@ function activeReferralRows(referrals: Referral[]) {
       return referralRow(referral, {
         client: referral.name,
         community: referral.community,
-        stage: getStageLabel(referral.stage),
         status: workflowStatusLabels[workflowStatus],
         owner: referral.owner || "Unassigned",
         next_action: progress.next_action ?? "Review referral",
@@ -241,6 +294,94 @@ function activeReferralRows(referrals: Referral[]) {
       });
     })
     .sort((left, right) => Number(right.values.age_days) - Number(left.values.age_days));
+}
+
+function workspaceInventoryRows(referrals: Referral[], month: string) {
+  return referrals
+    .filter((referral) => referral.createdAt.startsWith(month))
+    .map((referral) => referralRow(referral, {
+      client: referral.name,
+      community: referral.community,
+      county: referral.county ?? "Not recorded",
+      owner: referral.owner || "Unassigned",
+      created: referral.createdAt,
+      origin: workspaceOriginLabel(referral.workspaceOrigin),
+      materials: recordedMaterialCount(referral),
+      packet: referral.documentStatus,
+    }))
+    .sort((left, right) => String(right.values.created).localeCompare(String(left.values.created)));
+}
+
+function documentCoverageRows(referrals: Referral[]) {
+  return referrals.map((referral) => {
+    const requirements = (referral.requirements ?? []).filter((requirement) => documentRequirementTypes.has(requirement.type));
+    const ready = requirements.filter((requirement) => !isRequirementOpen(requirement)).length;
+    const missing = requirements.filter(isRequirementOpen);
+    return referralRow(referral, {
+      client: referral.name,
+      community: referral.community,
+      owner: referral.owner || "Unassigned",
+      materials: recordedMaterialCount(referral),
+      packet: referral.documentStatus,
+      ready: requirements.length ? `${ready} of ${requirements.length}` : "Not configured",
+      missing: missing.map((requirement) => requirement.label).join("; "),
+      missing_count: missing.length,
+    });
+  }).sort((left, right) => Number(right.values.missing_count) - Number(left.values.missing_count));
+}
+
+function intakeReviewRows(referrals: Referral[]) {
+  return referrals.flatMap((referral) => {
+    const fields = referral.packetFields ?? [];
+    if (!fields.length) return [];
+    const reviewed = fields.filter((field) => field.review_status === "accepted" || field.review_status === "edited").length;
+    const pending = fields.filter((field) => field.review_status === "pending").length;
+    const rejected = fields.filter((field) => field.review_status === "rejected").length;
+    const conflicts = fields.filter((field) => field.is_conflict).length;
+    return [referralRow(referral, {
+      client: referral.name,
+      community: referral.community,
+      owner: referral.owner || "Unassigned",
+      extracted: fields.length,
+      reviewed,
+      pending,
+      rejected,
+      conflicts,
+      readiness: referral.packetReadiness?.ready ? "Ready" : "Review required",
+    })];
+  }).sort((left, right) => Number(right.values.pending) - Number(left.values.pending));
+}
+
+function assessorWorkloadRows(referrals: Referral[]) {
+  const owners = new Map<string, Referral[]>();
+  for (const referral of referrals.filter((item) => !isClosedReferralStage(item.stage))) {
+    const owner = referral.owner?.trim() || "Unassigned";
+    owners.set(owner, [...(owners.get(owner) ?? []), referral]);
+  }
+  return [...owners.entries()].map(([owner, assignments]) => {
+    const overdue = assignments.filter((referral) => isPast(referral.assignmentDueAt)).length;
+    const assessmentWork = assignments.filter((referral) => {
+      const status = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
+      return ["ready_to_schedule", "assessment_scheduled", "assessment_in_progress", "assessment_ready_to_sign"].includes(status);
+    }).length;
+    const waiting = assignments.filter((referral) => (
+      (referral.workflowStatus ?? resolveReferralWorkflowStatus(referral)) === "waiting_for_information"
+    )).length;
+    return {
+      row_id: `owner:${owner.toLocaleLowerCase()}`,
+      referral_id: null,
+      client_name: null,
+      community: null,
+      values: {
+        owner,
+        assigned: assignments.length,
+        assessment_work: assessmentWork,
+        waiting,
+        overdue,
+        oldest_days: Math.max(...assignments.map((referral) => ageDays(referral.createdAt))),
+      },
+    };
+  }).sort((left, right) => Number(right.values.assigned) - Number(left.values.assigned));
 }
 
 function missingDocumentRows(referrals: Referral[]) {
@@ -353,9 +494,30 @@ async function supervisorExceptionRows(filters: OperationsReportFilters) {
 
 function reportColumns(reportId: OperationsReportId): OperationsReportColumn[] {
   if (reportId === "active_referrals") return [
-    column("client", "Client"), column("community", "Community"), column("stage", "Stage"),
-    column("status", "Status"), column("owner", "Owner"), column("next_action", "Next action"),
+    column("client", "Client"), column("community", "Community"), column("status", "Workflow"),
+    column("owner", "Owner"), column("next_action", "Next action"),
     column("age_days", "Age", "right"), column("last_activity", "Last activity", "left", "datetime"),
+  ];
+  if (reportId === "workspace_inventory") return [
+    column("created", "Created", "left", "datetime"), column("client", "Client"),
+    column("community", "Community"), column("county", "County"), column("owner", "Owner"),
+    column("origin", "Origin"), column("materials", "Materials", "right"), column("packet", "Initial packet"),
+  ];
+  if (reportId === "document_coverage") return [
+    column("client", "Client"), column("community", "Community"), column("owner", "Owner"),
+    column("materials", "Materials", "right"), column("packet", "Initial packet"),
+    column("ready", "Required documents"), column("missing", "Still needed"),
+  ];
+  if (reportId === "intake_review") return [
+    column("client", "Client"), column("community", "Community"), column("owner", "Owner"),
+    column("extracted", "Extracted", "right"), column("reviewed", "Reviewed", "right"),
+    column("pending", "Pending", "right"), column("rejected", "Rejected", "right"),
+    column("conflicts", "Conflicts", "right"), column("readiness", "Readiness"),
+  ];
+  if (reportId === "assessor_workload") return [
+    column("owner", "Assessor"), column("assigned", "Open", "right"),
+    column("assessment_work", "Assessment work", "right"), column("waiting", "Waiting", "right"),
+    column("overdue", "Overdue", "right"), column("oldest_days", "Oldest", "right"),
   ];
   if (reportId === "missing_documents") return [
     column("client", "Client"), column("community", "Community"), column("missing_documents", "Missing"),
@@ -382,6 +544,76 @@ function reportColumns(reportId: OperationsReportId): OperationsReportColumn[] {
   return [
     column("urgency", "Urgency"), column("issue", "Issue"), column("client", "Client"),
     column("community", "Community"), column("owner", "Owner"), column("due", "Due", "left", "datetime"),
+  ];
+}
+
+function reportMetrics(reportId: OperationsReportId, rows: OperationsReportRow[]): OperationsReportMetric[] {
+  const sum = (key: string) => rows.reduce((total, row) => total + numericValue(row.values[key]), 0);
+  const distinct = (key: string) => new Set(rows.map((row) => String(row.values[key] ?? "").trim()).filter(Boolean)).size;
+  if (reportId === "active_referrals") return [
+    metric("Open workspaces", rows.length, "Every accessible workspace not in a closed state."),
+    metric("Unassigned", countValue(rows, "owner", "Unassigned"), "Open workspaces without a recorded assessor."),
+    metric("Communities", distinct("community"), "Distinct destination communities represented."),
+    metric("Average age", `${average(rows.map((row) => numericValue(row.values.age_days)))} days`, "Days since the latest recorded workspace activity."),
+  ];
+  if (reportId === "workspace_inventory") return [
+    metric("Created", rows.length, "Workspaces created in the selected month."),
+    metric("Assigned", percent(rows.length - countValue(rows, "owner", "Unassigned"), rows.length), "Share with a recorded owner."),
+    metric("Communities", distinct("community"), "Distinct communities represented."),
+    metric("Recorded materials", sum("materials"), "Material count stored on the selected workspaces."),
+  ];
+  if (reportId === "document_coverage") return [
+    metric("Workspaces", rows.length, "Accessible workspaces included in the inventory."),
+    metric("With materials", rows.filter((row) => numericValue(row.values.materials) > 0).length, "Workspaces with at least one recorded material."),
+    metric("Missing required items", sum("missing_count"), "Open required-document items across these workspaces."),
+    metric("Requirements complete", rows.filter((row) => numericValue(row.values.missing_count) === 0).length, "Workspaces with no open configured document requirements."),
+  ];
+  if (reportId === "intake_review") return [
+    metric("Workspaces extracted", rows.length, "Workspaces retaining structured intake extraction."),
+    metric("Fields extracted", sum("extracted"), "Structured fields retained from source documents."),
+    metric("Pending review", sum("pending"), "Extracted fields still awaiting human review."),
+    metric("Conflicts", sum("conflicts"), "Fields with competing extraction candidates."),
+  ];
+  if (reportId === "assessor_workload") return [
+    metric("Open assignments", sum("assigned"), "Current open workspaces across the visible team."),
+    metric("Assignees", rows.filter((row) => row.values.owner !== "Unassigned").length, "People with at least one open assignment."),
+    metric("Assessment work", sum("assessment_work"), "Workspaces ready to schedule through ready to sign."),
+    metric("Overdue", sum("overdue"), "Assignments past their recorded assignment target."),
+  ];
+  if (reportId === "missing_documents") return [
+    metric("Workspaces waiting", rows.length, "Open workspaces with at least one missing required document."),
+    metric("Required items missing", sum("count"), "Total open document requirements."),
+    metric("Unassigned", countValue(rows, "owner", "Unassigned"), "Waiting workspaces without an owner."),
+    metric("Communities", distinct("community"), "Communities affected by missing documents."),
+  ];
+  if (reportId === "assessment_schedule") return [
+    metric("Calendar items", rows.length, "Assessments and follow-ups in the selected month."),
+    metric("Assessments", countValue(rows, "type", "Assessment"), "Scheduled assessment events."),
+    metric("Follow-ups", countValue(rows, "type", "Follow-up"), "Scheduled follow-up events."),
+    metric("Assignees", distinct("owner"), "Distinct owners represented on the calendar."),
+  ];
+  if (reportId === "assessment_completion") return [
+    metric("Signed assessments", sum("signed"), "Assessments signed in the selected month."),
+    metric("Staff members", rows.length, "Staff with at least one signed assessment."),
+    metric("Average time", `${average(rows.map((row) => numericValue(row.values.average_minutes)))} min`, "Unweighted average of the displayed staff averages."),
+  ];
+  if (reportId === "decisions") return [
+    metric("Recorded decisions", rows.length, "Decisions explicitly recorded in the selected month."),
+    metric("Accepted", countValue(rows, "outcome", "Accepted"), "Recorded accepted decisions."),
+    metric("Declined", countValue(rows, "outcome", "Declined"), "Recorded declined decisions."),
+    metric("Decision makers", distinct("decided_by"), "Distinct staff who recorded a decision."),
+  ];
+  if (reportId === "ehr_handoff") return [
+    metric("Accepted workspaces", rows.length, "Accepted or admitted workspaces in the handoff view."),
+    metric("Ready", countValue(rows, "handoff_status", "Ready"), "Records explicitly marked ready."),
+    metric("Queued", countValue(rows, "handoff_status", "Queued"), "Records explicitly queued."),
+    metric("Failed", countValue(rows, "handoff_status", "Failed"), "Recorded handoff failures."),
+  ];
+  return [
+    metric("Exceptions", rows.length, "Current exception records in the supervisor view."),
+    metric("Critical", countValue(rows, "urgency", "Critical"), "Exceptions marked critical."),
+    metric("Attention", countValue(rows, "urgency", "Attention"), "Exceptions requiring attention."),
+    metric("Unassigned", countValue(rows, "owner", "Unassigned"), "Exceptions without a recorded owner."),
   ];
 }
 
@@ -412,6 +644,45 @@ function missingDocumentRequirements(referral: Referral) {
 
 function isRequirementOpen(requirement: AdmissionRequirement) {
   return !["received", "reviewed", "waived", "not_applicable"].includes(requirement.status);
+}
+
+function recordedMaterialCount(referral: Referral) {
+  if ((referral.sourceMaterialCount ?? 0) > 0) return referral.sourceMaterialCount ?? 0;
+  return referral.documentStatus === "Missing" ? 0 : 1;
+}
+
+function workspaceOriginLabel(origin: Referral["workspaceOrigin"]) {
+  if (origin === "allo") return "Allo import";
+  if (origin === "import") return "Imported";
+  return "Pipeline";
+}
+
+function isPast(value?: string) {
+  if (!value) return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp < Date.now();
+}
+
+function numericValue(value: string | number | null | undefined) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function countValue(rows: OperationsReportRow[], key: string, expected: string) {
+  return rows.filter((row) => String(row.values[key] ?? "") === expected).length;
+}
+
+function average(values: number[]) {
+  if (!values.length) return 0;
+  return Math.round(values.reduce((total, value) => total + value, 0) / values.length);
+}
+
+function percent(numerator: number, denominator: number) {
+  return denominator ? `${Math.round((numerator / denominator) * 100)}%` : "0%";
+}
+
+function metric(label: string, value: string | number, detail: string): OperationsReportMetric {
+  return { label, value: String(value), detail };
 }
 
 function monthRange(month: string) {

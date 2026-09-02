@@ -1,5 +1,9 @@
 export const operationsReportIds = [
   "active_referrals",
+  "workspace_inventory",
+  "document_coverage",
+  "intake_review",
+  "assessor_workload",
   "missing_documents",
   "assessment_schedule",
   "assessment_completion",
@@ -15,6 +19,8 @@ export type OperationsReportDefinition = {
   id: OperationsReportId;
   label: string;
   description: string;
+  cadence: "Current" | "Monthly";
+  audience: "Operations" | "Assessment team" | "Supervisors";
   filters: OperationsReportFilterKey[];
   supervisor_only?: boolean;
 };
@@ -34,6 +40,12 @@ export type OperationsReportRow = {
   values: Record<string, string | number | null>;
 };
 
+export type OperationsReportMetric = {
+  label: string;
+  value: string;
+  detail: string;
+};
+
 export type OperationsReportFilters = {
   report_id: OperationsReportId;
   month: string;
@@ -49,6 +61,7 @@ export type OperationsReportFacet = {
 export type OperationsReportResult = {
   definition: OperationsReportDefinition;
   columns: OperationsReportColumn[];
+  metrics: OperationsReportMetric[];
   rows: OperationsReportRow[];
   row_count: number;
   truncated: boolean;
