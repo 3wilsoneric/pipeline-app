@@ -261,7 +261,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
     total: 52,
     status: "not_started",
   });
-  const [savedAt, setSavedAt] = useState(referral?.id ? "Loading workspace..." : "Begin with the chart or import documents");
+  const [savedAt, setSavedAt] = useState(referral?.id ? "Loading workspace..." : "Add documents, then complete intake");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(usesServerReferralDrafts());
   const [isSaving, setIsSaving] = useState(false);
@@ -519,7 +519,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
         void loadServerReferralDraft(newDraftKey).then((draft) => {
           if (cancelled) return;
           const recovered = draft ? applyRecoveryDraft(draft, setters) : null;
-          setSavedAt(recovered ? "Recovered unsaved changes" : "Begin with the chart or import documents");
+          setSavedAt(recovered ? "Recovered unsaved changes" : "Add documents, then complete intake");
         }).catch(() => {
           if (!cancelled) setSaveError("Could not check for a recovery draft.");
         }).finally(() => {
@@ -528,7 +528,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
       } else {
         setDraftRecoveryLoading(false);
         const recovered = restoreSessionDraft(newDraftKey, setters);
-        setSavedAt(recovered ? "Recovered unsaved changes" : "Begin with the chart or import documents");
+        setSavedAt(recovered ? "Recovered unsaved changes" : "Add documents, then complete intake");
       }
       return () => {
         cancelled = true;
@@ -1616,6 +1616,31 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
             </PacketPage>
           ) : activePage === 1 ? (
           <PacketPage id="packet-page-1" title="Intake">
+            <IntakeDocumentChecklist
+              initialPacket={initialPacket}
+              initialPacketCategory={initialPacketCategory}
+              recordedName={loadedReferral?.documentName}
+              recordedStatus={loadedReferral?.documentStatus}
+              packetMessage={loadedReferral?.packetMessage}
+              documents={documents}
+              pendingDocuments={pendingDocuments}
+              referral={loadedReferral}
+              uploadingDocumentIds={uploadingDocumentIds}
+              onInitialPacketCategoryChange={(category) => {
+                setInitialPacketCategory(category);
+                if (initialPacket) {
+                  markDirty("initialPacket");
+                  setSavedAt("Unsaved changes");
+                }
+              }}
+              onInitialPacketSelect={selectInitialPacket}
+              onInitialPacketClear={() => {
+                setInitialPacket(null);
+                markDirty("initialPacket");
+                setSavedAt("Unsaved changes");
+              }}
+              onAttach={attachDocument}
+            />
             {referralContextPacketFields.length ? (
               <PacketExtractionReview
                 fields={referralContextPacketFields}
@@ -1740,35 +1765,13 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
                 </ChartSection>
               </div>
 
-              <aside aria-label="Chart completion and documents" className="space-y-4 xl:sticky xl:top-[54px]">
+              <aside aria-label="Chart completion" className="space-y-4 xl:sticky xl:top-[54px]">
                 <ChartCompletionRail
                   fieldCount={fieldCount}
                   fieldTotal={visibleChartFieldKeys.length}
-                  documents={documents}
                   referral={loadedReferral}
                   assessmentSummary={assessmentSummary}
                   onOpenStep={openPage}
-                />
-                <InitialPacketDropzone
-                  compact
-                  file={initialPacket}
-                  recordedName={loadedReferral?.documentName}
-                  recordedStatus={loadedReferral?.documentStatus}
-                  message={loadedReferral?.packetMessage}
-                  category={initialPacketCategory}
-                  onCategoryChange={(category) => {
-                    setInitialPacketCategory(category);
-                    if (initialPacket) {
-                      markDirty("initialPacket");
-                      setSavedAt("Unsaved changes");
-                    }
-                  }}
-                  onSelect={selectInitialPacket}
-                  onClear={() => {
-                    setInitialPacket(null);
-                    markDirty("initialPacket");
-                    setSavedAt("Unsaved changes");
-                  }}
                 />
               </aside>
             </div>
@@ -1967,6 +1970,84 @@ function WorkspaceFilesPage({
   );
 }
 
+function IntakeDocumentChecklist({
+  initialPacket,
+  initialPacketCategory,
+  recordedName,
+  recordedStatus,
+  packetMessage,
+  documents,
+  pendingDocuments,
+  referral,
+  uploadingDocumentIds,
+  onInitialPacketCategoryChange,
+  onInitialPacketSelect,
+  onInitialPacketClear,
+  onAttach,
+}: {
+  initialPacket: File | null;
+  initialPacketCategory: InitialDocumentCategory;
+  recordedName?: string;
+  recordedStatus?: Referral["documentStatus"];
+  packetMessage?: string;
+  documents: Record<string, string>;
+  pendingDocuments: Record<string, File>;
+  referral: Referral | null;
+  uploadingDocumentIds: Set<string>;
+  onInitialPacketCategoryChange: (category: InitialDocumentCategory) => void;
+  onInitialPacketSelect: (file: File | undefined) => void;
+  onInitialPacketClear: () => void;
+  onAttach: (requirementId: string, file: File) => void;
+}) {
+  const documentItems = [...requirements, ...attachments];
+  const capturedDocuments = documentItems.filter((item) => (
+    getRequirementReviewValue(item, documents[item.id], referral)
+  )).length;
+
+  return (
+    <section aria-label="Document checklist" className="mb-6">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-t-2 border-[#111111] pt-3">
+        <div>
+          <h2 className="text-[14px] font-black text-[#111111]">Documents</h2>
+          <p className="mt-0.5 text-[11px] text-[#737373]">Add the referral packet and any files received with it before completing the intake.</p>
+        </div>
+        <span className={`text-[11px] font-black ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#737373]"}`}>
+          {capturedDocuments} / {documentItems.length} supporting files
+        </span>
+      </div>
+
+      <InitialPacketDropzone
+        file={initialPacket}
+        recordedName={recordedName}
+        recordedStatus={recordedStatus}
+        message={packetMessage}
+        category={initialPacketCategory}
+        onCategoryChange={onInitialPacketCategoryChange}
+        onSelect={onInitialPacketSelect}
+        onClear={onInitialPacketClear}
+      />
+
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h3 className="text-[11px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Document checklist</h3>
+        <span className="text-[10px] font-semibold text-[#737373]">Drop a file into its checklist item</span>
+      </div>
+      <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] sm:grid-cols-2 xl:grid-cols-4">
+        {documentItems.map((requirement) => (
+          <DocumentDropRow
+            key={requirement.id}
+            requirement={requirement}
+            fileName={getRequirementReviewValue(requirement, documents[requirement.id], referral)}
+            onAttach={(file) => onAttach(requirement.id, file)}
+            uploading={uploadingDocumentIds.has(requirement.id)}
+            queued={Boolean(pendingDocuments[requirement.id])}
+            variant="checklist"
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 
 function ChartSection({
   title,
@@ -2007,14 +2088,12 @@ function chartGuideTarget(title: string) {
 function ChartCompletionRail({
   fieldCount,
   fieldTotal,
-  documents,
   referral,
   assessmentSummary,
   onOpenStep,
 }: {
   fieldCount: number;
   fieldTotal: number;
-  documents: Record<string, string>;
   referral: Referral | null;
   assessmentSummary: {
     captured: number;
@@ -2027,11 +2106,6 @@ function ChartCompletionRail({
   };
   onOpenStep: (page: WorkspaceView) => void;
 }) {
-  const documentItems = [
-    ...requirements.map((requirement) => ({ ...requirement, page: "files" as const })),
-    ...attachments.map((requirement) => ({ ...requirement, page: "files" as const })),
-  ];
-  const capturedDocuments = documentItems.filter((item) => getRequirementReviewValue(item, documents[item.id], referral)).length;
   const percent = fieldTotal === 0 ? 0 : Math.round((fieldCount / fieldTotal) * 100);
 
   return (
@@ -2045,36 +2119,12 @@ function ChartCompletionRail({
       </div>
       <dl className="mt-4 divide-y divide-[#e3e5e3] border-y border-[#e3e5e3]">
         <ChartStatusRow label="Chart fields" value={`${fieldCount} / ${fieldTotal}`} />
-        <ChartStatusRow label="Required files" value={`${capturedDocuments} / ${documentItems.length}`} attention={capturedDocuments < documentItems.length} />
         <ChartStatusRow
           label="Assessment"
           value={assessmentSummary.assessmentId ? assessmentSummary.status.replaceAll("_", " ") : "Not started"}
           attention={assessmentSummary.status !== "complete"}
         />
       </dl>
-
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <h3 className="text-[11px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Documents needed</h3>
-        <button type="button" onClick={() => onOpenStep("files")} className="text-[10px] font-black text-[#595959] hover:text-[#0f8b73]">Manage files</button>
-      </div>
-      <div className="mt-2 divide-y divide-[#e3e5e3] border-y border-[#e3e5e3]">
-        {documentItems.map((item) => {
-          const value = getRequirementReviewValue(item, documents[item.id], referral);
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onOpenStep(item.page)}
-              aria-label={`${item.label}: ${value ? "attached" : "missing"}`}
-              className="flex min-h-10 w-full items-center gap-2 py-2 text-left hover:bg-[#f7faf9]"
-            >
-              {value ? <CheckCircle2 size={14} className="shrink-0 text-[#0f8b73]" /> : <Circle size={14} className="shrink-0 text-[#b1b6b3]" />}
-              <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[#303638]">{item.label}</span>
-              <span className={`text-[9px] font-black uppercase ${value ? "text-[#0f8b73]" : "text-[#9a9a9a]"}`}>{value ? "Ready" : "Missing"}</span>
-            </button>
-          );
-        })}
-      </div>
       <button
         type="button"
         onClick={() => onOpenStep(2)}
@@ -2115,7 +2165,6 @@ function PacketPage({
 }
 
 function InitialPacketDropzone({
-  compact = false,
   file,
   recordedName,
   recordedStatus,
@@ -2125,7 +2174,6 @@ function InitialPacketDropzone({
   onSelect,
   onClear,
 }: {
-  compact?: boolean;
   file: File | null;
   recordedName?: string;
   recordedStatus?: Referral["documentStatus"];
@@ -2140,7 +2188,7 @@ function InitialPacketDropzone({
   const hasRecordedPacket = Boolean(recordedName && recordedStatus !== "Missing");
 
   return (
-    <section data-guide-target="initial-packet" aria-label="Initial referral packet" className={compact ? "border-t-2 border-[#111111] pt-4" : "mb-5 border-b border-[#d9d9d9] pb-5"}>
+    <section data-guide-target="initial-packet" aria-label="Initial referral packet" className="mb-5 border-b border-[#d9d9d9] pb-5">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="text-[12px] font-black uppercase tracking-[0.12em] text-[#0f8b73]">Initial document</h3>
@@ -2167,7 +2215,7 @@ function InitialPacketDropzone({
           event.preventDefault();
           onSelect(event.dataTransfer.files?.[0]);
         }}
-        className={`flex items-center gap-3 border border-dashed px-3 py-3 transition-colors ${compact ? "min-h-24" : "min-h-20"} ${
+        className={`flex min-h-20 items-center gap-3 border border-dashed px-3 py-3 transition-colors ${
           displayName
             ? "border-[#8fc7b7] bg-[#effaf5]"
             : "border-[#c6ba59] bg-[#fffde8] hover:bg-[#fffbd5]"
@@ -2407,16 +2455,22 @@ function DocumentDropRow({
   fileName,
   onAttach,
   uploading = false,
+  queued = false,
   readOnly = false,
+  variant = "row",
 }: {
   requirement: Requirement;
   fileName?: string;
   onAttach: (file: File) => void;
   uploading?: boolean;
+  queued?: boolean;
   readOnly?: boolean;
+  variant?: "row" | "checklist";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   if (readOnly) return <ReadOnlyDocumentRow requirement={requirement} fileName={fileName} />;
+  const isChecklist = variant === "checklist";
+  const status = uploading ? "Uploading" : queued ? "Queued" : fileName ? "Received" : "Needed";
 
   return (
     <div
@@ -2426,14 +2480,18 @@ function DocumentDropRow({
         const file = event.dataTransfer.files?.[0];
         if (file) onAttach(file);
       }}
-      className="grid gap-2 border-b border-[#e1e4e2] bg-white px-3 py-2.5 transition-colors hover:bg-[#fbfdfc] md:grid-cols-[minmax(0,1fr)_minmax(210px,280px)] md:items-center"
+      className={isChecklist
+        ? "flex min-h-[112px] flex-col justify-between border-b border-r border-[#d7ddd9] bg-white p-3 transition-colors hover:bg-[#fbfdfc]"
+        : "grid gap-2 border-b border-[#e1e4e2] bg-white px-3 py-2.5 transition-colors hover:bg-[#fbfdfc] md:grid-cols-[minmax(0,1fr)_minmax(210px,280px)] md:items-center"}
     >
       <div>
-        <div className="flex items-center gap-2">
-          <FileText size={15} className="text-[#6f641b]" />
-          <div className="text-[13px] font-black text-[#303638]">{requirement.label}</div>
-          <span className={`ml-auto text-[9px] font-black uppercase tracking-[0.08em] ${fileName ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
-            {fileName ? "Received" : "Needed"}
+        <div className={`flex gap-2 ${isChecklist ? "items-start" : "items-center"}`}>
+          {fileName
+            ? <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[#0f8b73]" />
+            : <Circle size={15} className="mt-0.5 shrink-0 text-[#a59b55]" />}
+          <div className={`${isChecklist ? "min-h-8 text-[11px] leading-4" : "text-[13px]"} font-black text-[#303638]`}>{requirement.label}</div>
+          <span className={`ml-auto shrink-0 text-[9px] font-black uppercase tracking-[0.08em] ${uploading || queued ? "text-[#8a6a16]" : fileName ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
+            {status}
           </span>
         </div>
       </div>
@@ -2441,10 +2499,11 @@ function DocumentDropRow({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className={`flex h-10 w-full items-center justify-center gap-2 border border-dashed px-3 text-[10px] font-black transition-colors ${fileName ? "border-[#8fc6b7] bg-[#f2faf7] text-[#0c705f] hover:bg-white" : "border-[#d2c77b] bg-[#fffdf0] text-[#6f641b] hover:bg-white"}`}
+        aria-label={isChecklist ? `${requirement.label}: ${fileName ? "replace document" : "drop document or browse"}` : undefined}
+        className={`flex ${isChecklist ? "mt-3 h-9" : "h-10"} w-full items-center justify-center gap-2 border border-dashed px-3 text-[10px] font-black transition-colors ${fileName ? "border-[#8fc6b7] bg-[#f2faf7] text-[#0c705f] hover:bg-white" : "border-[#d2c77b] bg-[#fffdf0] text-[#6f641b] hover:bg-white"}`}
       >
         {uploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#c6ba59] border-t-transparent" /> : fileName ? <Check size={15} /> : <UploadCloud size={16} />}
-        <span className="max-w-full truncate">{uploading ? "Uploading..." : fileName ?? "Drop document or browse"}</span>
+        <span className="max-w-full truncate">{uploading ? "Uploading..." : fileName || (isChecklist ? "Add file" : "Drop document or browse")}</span>
       </button>
       <input
         ref={inputRef}

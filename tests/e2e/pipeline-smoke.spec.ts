@@ -307,7 +307,15 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Create new referral" }).click();
 
     await expect(page.getByRole("region", { name: "Intake", exact: true })).toBeVisible();
-    await expect(page.getByRole("complementary", { name: "Chart completion and documents" })).toBeVisible();
+    const documentChecklist = page.getByRole("region", { name: "Document checklist" });
+    await expect(documentChecklist).toBeVisible();
+    await expect(documentChecklist.getByRole("button", { name: /drop document or browse$/ })).toHaveCount(8);
+    await expect(page.getByRole("complementary", { name: "Chart completion" })).toBeVisible();
+    const documentChecklistBox = await documentChecklist.boundingBox();
+    const identityBox = await page.getByRole("region", { name: "Identity chart section" }).boundingBox();
+    expect(documentChecklistBox).not.toBeNull();
+    expect(identityBox).not.toBeNull();
+    expect((documentChecklistBox?.y ?? 0) + (documentChecklistBox?.height ?? 0)).toBeLessThanOrEqual(identityBox?.y ?? 0);
     await expect(page.getByText("Upload a face sheet or referral packet to create the referral.", { exact: true })).toBeVisible();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("textbox", { name: "DOB", exact: true }).fill("06/12/1984");
@@ -332,25 +340,24 @@ test.describe("Referral home and packet canvas", () => {
     const referralId = new URL(page.url()).searchParams.get("referralId");
     expect(referralId).not.toBeNull();
 
-    const response = await page.request.get(`/api/referrals?q=${encodeURIComponent(clientName)}`);
+    const response = await page.request.get(`/api/referrals/${referralId}`);
     expect(response.ok()).toBeTruthy();
     const payload = await response.json() as {
-      referrals: Array<{ id: number; documentStatus: string; tags?: string[]; note: string }>;
+      referral: { id: number; name: string; documentStatus: string; tags?: string[]; note: string };
     };
-    expect(payload.referrals).toHaveLength(1);
-    expect(payload.referrals[0]).toMatchObject({
+    expect(payload.referral).toMatchObject({
       id: Number(referralId),
       documentStatus: "Uploaded",
       note: "## Reason for referral\nReferral chart created from the initial document.",
     });
-    expect(payload.referrals[0].tags).toEqual(expect.arrayContaining(["packet-import", "needs-review"]));
+    expect(payload.referral.tags).toEqual(expect.arrayContaining(["packet-import", "needs-review"]));
 
     await page.reload();
-    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(payload.referral.name);
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toHaveValue("Referral chart created from the initial document.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
-    await expect(page.getByRole("button", { name: /Signed Medication List: missing/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Signed Medication List: drop document or browse" })).toBeVisible();
   });
 
   test("starts a clean intake every time New referral is explicitly opened", async ({ page }) => {
@@ -1063,27 +1070,19 @@ test.describe("Referral home and packet canvas", () => {
     });
     await page.getByLabel("Initial document type").selectOption("face_sheet");
 
-    await page.getByRole("button", { name: "Workspace files" }).click();
-    const documentsRegion = page.getByRole("region", { name: "Files" });
-    const medicationButton = documentsRegion
-      .getByRole("region", { name: "Required for admission" })
-      .getByRole("button", { name: "Drop document or browse" })
-      .first();
+    const documentsRegion = page.getByRole("region", { name: "Document checklist" });
+    const medicationButton = documentsRegion.getByRole("button", { name: "Signed Medication List: drop document or browse" });
     await medicationButton.locator("xpath=..").locator('input[type="file"]').setInputFiles({
       name: "synthetic-medication-list.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from("synthetic-medication-list"),
     });
-    const providerButton = documentsRegion
-      .getByRole("region", { name: "Assessment and supporting files" })
-      .getByRole("button", { name: "Drop document or browse" })
-      .first();
+    const providerButton = documentsRegion.getByRole("button", { name: "Provider Form: drop document or browse" });
     await providerButton.locator("xpath=..").locator('input[type="file"]').setInputFiles({
       name: "synthetic-provider-form.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from("synthetic-provider-form"),
     });
-    await page.getByRole("button", { name: "01 Intake" }).click();
 
     await expect(page.getByText("face-sheet.pdf", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
