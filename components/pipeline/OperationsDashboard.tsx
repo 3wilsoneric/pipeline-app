@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowRight, Download, FileSpreadsheet } from "lucide-react";
+import { ArrowRight, Download } from "lucide-react";
 
 import { fetchPipelineApi, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type {
@@ -97,18 +97,8 @@ export default function OperationsDashboard({
 
   return (
     <main aria-label="Reports" className="h-full overflow-y-auto bg-[#fbfcfb] text-[#202320]">
-      <div data-testid="operations-workspace" data-guide-target="operations-workspace" className="mx-auto w-full max-w-[1480px] px-4 pb-8 pt-4 sm:px-6 lg:px-8">
-        <header data-guide-target="operations-summary" className="flex min-h-[62px] flex-wrap items-end justify-between gap-3 border-b border-[#d8dedb] pb-4">
-          <div>
-            <h1 className="flex items-center gap-2 text-[28px] font-semibold tracking-[-0.035em] sm:text-[32px]">
-              <FileSpreadsheet size={24} className="text-[#0f8b73]" /> Reports
-            </h1>
-            <div className="mt-1 text-[11px] text-[#727a75]">Referral, assessment, decision, and handoff records</div>
-          </div>
-          {response ? <div className="text-[10px] text-[#727a75]">Updated {formatTime(response.report.generated_at)}</div> : null}
-        </header>
-
-        <section className="mt-4 border border-[#d8dedb] bg-white" aria-label="Report controls">
+      <div data-testid="operations-workspace" data-guide-target="operations-workspace" className="mx-auto w-full max-w-[1480px] px-4 pb-8 pt-2 sm:px-6 sm:pt-3 lg:px-8">
+        <section data-guide-target="operations-summary" className="border border-[#d8dedb] bg-white" aria-label="Report controls">
           <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-[minmax(240px,1.3fr)_repeat(3,minmax(170px,0.75fr))_auto_auto] xl:items-end">
             <Control label="Report">
               <select
@@ -168,7 +158,10 @@ export default function OperationsDashboard({
             </button>
           </div>
           {selectedDefinition ? (
-            <div className="border-t border-[#e3e7e5] px-4 py-2 text-[11px] text-[#6e746f]">{selectedDefinition.description}</div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e3e7e5] px-4 py-2 text-[11px] text-[#6e746f]">
+              <span>{selectedDefinition.description}</span>
+              {response ? <span className="text-[10px] text-[#727a75]">Updated {formatTime(response.report.generated_at)}</span> : null}
+            </div>
           ) : null}
         </section>
 
