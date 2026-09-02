@@ -4,6 +4,12 @@ test("the former language route resolves to the combined question workflow", asy
   const response = await page.goto("/note-lab");
   expect(response?.ok()).toBeTruthy();
   await expect(page).toHaveURL(/\/note-lab\/practice$/);
+  await expect(page.getByTestId("standalone-review-shell")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pipeline home" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open guided tutorials" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Open profile menu for/ })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: /Pipeline/i })).toHaveCount(0);
+  await expect(page.locator("a")).toHaveCount(0);
 
   const rail = page.getByRole("complementary", { name: "Assessment section navigation" });
   await expect(rail.getByRole("button", { name: /^Client & referral\b/ })).toHaveAttribute("aria-current", "step");

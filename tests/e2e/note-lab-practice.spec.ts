@@ -9,6 +9,9 @@ test.describe("Assessment practice lab", () => {
 
     const response = await page.goto("/note-lab/practice");
     expect(response?.status()).toBe(200);
+    await expect(page.getByTestId("standalone-review-shell")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pipeline home" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Open profile menu for/ })).toHaveCount(0);
     await expect(page.getByLabel("Resident name *", { exact: true })).toHaveValue("Jordan Practice");
     await expect(page.getByText("Practice", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Client & referral" })).toBeVisible();
