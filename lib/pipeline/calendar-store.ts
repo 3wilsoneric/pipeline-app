@@ -8,6 +8,7 @@ import {
   assessmentPreparationItem,
   assessmentFollowUpEvents,
   calendarToday,
+  referralAssignmentCalendarEvent,
 } from "@/lib/pipeline/assessment-calendar";
 import type {
   PipelineCalendarEvent,
@@ -35,6 +36,18 @@ type AssessmentCalendarRow = {
   community: string;
   referral_owner_id: string | null;
   referral_owner_name: string | null;
+};
+
+type ReferralAssignmentCalendarRow = {
+  referral_id: number | string;
+  client_name: string;
+  community: string;
+  owner_id: string;
+  owner_name: string | null;
+  assigned_at: Date | string;
+  assignment_version: number | string;
+  created_at: Date | string;
+  received_date: string | null;
 };
 
 type FollowUpCalendarRow = {
@@ -70,6 +83,7 @@ export async function getAssessmentCalendar(
   return {
     ...range,
     ...data,
+    scope: isAssessorUser(user) ? "personal" : "team",
     viewer: { id: user.id, name: user.name },
     generated_at: new Date().toISOString(),
   };
@@ -86,7 +100,20 @@ async function getPostgresAssessmentCalendar(
     (${restricted} = false or r.owner_id = ${user.id}
       or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${ownerAliases}::text[])))
   `;
-  const [assessmentRows, followUpRows, unscheduledRows] = await Promise.all([
+  const [assignmentRows, assessmentRows, followUpRows, unscheduledRows] = await Promise.all([
+    sql<ReferralAssignmentCalendarRow[]>`
+      select r.referral_id, p.display_name as client_name, r.community::text as community,
+        r.owner_id, r.owner_name, r.assigned_at, r.assignment_version, r.created_at,
+        r.received_date::text as received_date
+      from pipeline.referrals r
+      join pipeline.people p on p.person_id = r.person_id
+      where r.workspace_origin = 'pipeline' and r.workspace_status = 'active'
+        and r.deleted_at is null and r.owner_id is not null and r.assigned_at is not null
+        and r.assigned_at >= (${range.from}::date - interval '1 day')
+        and r.assigned_at < (${range.to}::date + interval '2 days')
+        and ${access}
+      order by r.assigned_at, lower(p.display_name), r.referral_id
+    `,
     sql<AssessmentCalendarRow[]>`
       select a.assessment_id, a.referral_id, a.scheduled_start_at,
         a.scheduled_duration_minutes, a.scheduled_method, a.scheduled_location,
@@ -96,8 +123,8 @@ async function getPostgresAssessmentCalendar(
       from pipeline.assessments a
       join pipeline.referrals r on r.referral_id = a.referral_id
       join pipeline.people p on p.person_id = r.person_id
-      where a.scheduled_start_at >= ${range.from}::date
-        and a.scheduled_start_at < (${range.to}::date + interval '1 day')
+      where a.scheduled_start_at >= (${range.from}::date - interval '1 day')
+        and a.scheduled_start_at < (${range.to}::date + interval '2 days')
         and a.schedule_status in ('scheduled', 'rescheduled', 'completed')
         and r.deleted_at is null and r.workspace_status = 'active' and ${access}
       order by a.scheduled_start_at, lower(p.display_name), a.assessment_id
@@ -143,6 +170,22 @@ async function getPostgresAssessmentCalendar(
   ]);
 
   const today = calendarToday();
+  const assignmentEvents = assignmentRows.flatMap((row) => {
+    const event = referralAssignmentCalendarEvent({
+      id: Number(row.referral_id),
+      name: calendarClientName(row.client_name, row.community),
+      community: row.community as Referral["community"],
+      ownerId: row.owner_id,
+      owner: row.owner_name?.trim() || "Assigned assessor",
+      assignedAt: toIso(row.assigned_at),
+      assignmentVersion: Number(row.assignment_version),
+      createdAt: toIso(row.created_at),
+      date: row.received_date ?? "",
+      workspaceOrigin: "pipeline",
+      workspaceStatus: "active",
+    });
+    return event && event.date >= range.from && event.date <= range.to ? [event] : [];
+  });
   const assessmentEvents = assessmentRows.flatMap((row) => {
     const clientName = calendarClientName(row.client_name, row.community);
     const event = assessmentCalendarEvent({
@@ -163,7 +206,7 @@ async function getPostgresAssessmentCalendar(
       ownerId: row.referral_owner_id ?? undefined,
       owner: row.referral_owner_name ?? "Unassigned",
     }, today);
-    return event ? [event] : [];
+    return event && event.date >= range.from && event.date <= range.to ? [event] : [];
   });
   const followUpEvents: PipelineCalendarEvent[] = followUpRows.map((row) => ({
     id: `follow-up:${row.work_item_id}`,
@@ -179,7 +222,7 @@ async function getPostgresAssessmentCalendar(
     detail: row.due_date < today ? "Assessment follow-up overdue" : "Assessment follow-up due",
   }));
   return {
-    events: [...assessmentEvents, ...followUpEvents].sort(compareCalendarEvents),
+    events: [...assignmentEvents, ...assessmentEvents, ...followUpEvents].sort(compareCalendarEvents),
     unscheduled: unscheduledRows.map((row): PipelineUnscheduledAssessment => ({
       referralId: Number(row.referral_id),
       clientName: calendarClientName(row.client_name, row.community),
@@ -235,6 +278,10 @@ async function getLocalAssessmentCalendar(
       .map((assessment) => assessment.referral_id),
   );
   const events = [
+    ...referrals.flatMap((referral) => {
+      const event = referralAssignmentCalendarEvent(referral);
+      return event && event.date >= range.from && event.date <= range.to ? [event] : [];
+    }),
     ...assessments.flatMap((assessment) => {
       const referral = referralById.get(assessment.referral_id);
       if (!referral) return [];

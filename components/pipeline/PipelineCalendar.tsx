@@ -10,21 +10,20 @@ import type {
   PipelineCalendarEvent,
   PipelineCalendarEventKind,
   PipelineCalendarResponse,
-  PipelineUnscheduledAssessment,
 } from "@/lib/pipeline/calendar-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 
 type CalendarView = "month" | "week" | "agenda";
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const emptyEvents: PipelineCalendarEvent[] = [];
-const emptyUnscheduled: PipelineUnscheduledAssessment[] = [];
 const eventColors: Record<PipelineCalendarEventKind, string> = {
+  referral_assigned: "border-l-[#0f8b73] bg-[#e8f5f1] text-[#0c705f]",
   assessment: "border-l-[#4b68ad] bg-[#eef1ff] text-[#354b85]",
   follow_up: "border-l-[#a16a16] bg-[#fff8ed] text-[#6f4b13]",
 };
 const kindLabels: Record<PipelineCalendarEventKind, string> = {
+  referral_assigned: "Referral assignments",
   assessment: "Assessments",
   follow_up: "Follow-ups",
 };
@@ -45,16 +44,14 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const [result, setResult] = useState<{
     key: string;
     events: PipelineCalendarEvent[];
-    unscheduled: PipelineUnscheduledAssessment[];
-    unscheduledTotal: number;
+    scope: "personal" | "team";
     viewer: { id: string; name: string } | null;
     error: string;
     refreshToken: number;
-  }>({ key: "", events: [], unscheduled: [], unscheduledTotal: 0, viewer: null, error: "", refreshToken: -1 });
+  }>({ key: "", events: [], scope: "team", viewer: null, error: "", refreshToken: -1 });
   const loading = result.key !== requestKey;
   const refreshing = loading || result.refreshToken !== refreshToken;
   const events = loading ? emptyEvents : result.events;
-  const unscheduled = result.unscheduled ?? emptyUnscheduled;
   const error = loading ? "" : result.error;
 
   useEffect(() => {
@@ -73,6 +70,18 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   }, []);
 
   useEffect(() => {
+    const refreshVisibleCalendar = () => {
+      if (document.visibilityState === "visible") setRefreshToken((value) => value + 1);
+    };
+    window.addEventListener("focus", refreshVisibleCalendar);
+    document.addEventListener("visibilitychange", refreshVisibleCalendar);
+    return () => {
+      window.removeEventListener("focus", refreshVisibleCalendar);
+      document.removeEventListener("visibilitychange", refreshVisibleCalendar);
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     const params = new URLSearchParams({ from: range.from, to: range.to });
     fetchPipelineJson<PipelineCalendarResponse>(`/api/calendar/events?${params}`, { cache: "no-store" })
@@ -80,8 +89,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         if (!cancelled) setResult({
           key: requestKey,
           events: payload.events ?? [],
-          unscheduled: payload.unscheduled ?? [],
-          unscheduledTotal: payload.unscheduledTotal ?? 0,
+          scope: payload.scope ?? "team",
           viewer: payload.viewer ?? null,
           error: "",
           refreshToken,
@@ -92,33 +100,21 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           ...current,
           key: requestKey,
           events: current.key === requestKey ? current.events : [],
-          error: reason instanceof Error ? reason.message : "Assessment schedule could not be loaded.",
+          error: reason instanceof Error ? reason.message : "Calendar could not be loaded.",
           refreshToken,
         }));
       });
     return () => { cancelled = true; };
   }, [range.from, range.to, requestKey, refreshToken]);
 
-  const communityOptions = useMemo(() => uniqueValues([
-    ...events.map((event) => event.community),
-    ...unscheduled.map((item) => item.community),
-  ]), [events, unscheduled]);
-  const ownerOptions = useMemo(() => uniqueOwnerOptions([
-    ...events.map((event) => ({ id: event.ownerId, name: event.owner })),
-    ...unscheduled.map((item) => ({ id: item.ownerId, name: item.owner })),
-  ]), [events, unscheduled]);
+  const communityOptions = useMemo(() => uniqueValues(events.map((event) => event.community)), [events]);
+  const ownerOptions = useMemo(() => uniqueOwnerOptions(events.map((event) => ({ id: event.ownerId, name: event.owner }))), [events]);
   const visibleEvents = useMemo(() => events.filter((event) => (
     (!community || event.community === community)
     && (!owner || ownerKey(event.ownerId, event.owner) === owner)
     && (!mySchedule || (Boolean(result.viewer?.id) && event.ownerId === result.viewer?.id))
     && (!kind || event.kind === kind)
   )), [community, events, kind, mySchedule, owner, result.viewer?.id]);
-  const visibleUnscheduled = useMemo(() => unscheduled.filter((item) => (
-    (!community || item.community === community)
-    && (!owner || ownerKey(item.ownerId, item.owner) === owner)
-    && (!mySchedule || (Boolean(result.viewer?.id) && item.ownerId === result.viewer?.id))
-    && (!kind || kind === "assessment")
-  )), [community, kind, mySchedule, owner, result.viewer?.id, unscheduled]);
   const eventsByDate = useMemo(() => groupEventsByDate(visibleEvents), [visibleEvents]);
   const hasFilters = Boolean(community || owner || kind || mySchedule);
 
@@ -139,8 +135,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
             <button type="button" onClick={() => setAnchor(todayKey())} className="ml-1 h-9 border border-[#111111] px-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#111111] hover:bg-[#111111] hover:text-white">Today</button>
           </div>
           <div className="flex items-center gap-3">
-            <span role="status" aria-live="polite" className="hidden text-[10px] text-[#737373] sm:inline">{loading ? "Loading assessment schedule..." : refreshing ? "Refreshing assessment schedule..." : `${visibleEvents.length} calendar item${visibleEvents.length === 1 ? "" : "s"}`}</span>
-            <button type="button" aria-label="Refresh assessment schedule" onClick={() => setRefreshToken((value) => value + 1)} className="hidden h-9 w-9 items-center justify-center text-[#737373] hover:text-[#0f8b73] sm:flex"><RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /></button>
+            <span role="status" aria-live="polite" className="hidden text-[10px] text-[#737373] sm:inline">{loading ? "Loading calendar..." : refreshing ? "Refreshing calendar..." : `${visibleEvents.length} calendar item${visibleEvents.length === 1 ? "" : "s"}`}</span>
+            <button type="button" aria-label="Refresh calendar" onClick={() => setRefreshToken((value) => value + 1)} className="hidden h-9 w-9 items-center justify-center text-[#737373] hover:text-[#0f8b73] sm:flex"><RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /></button>
             <div data-guide-target="calendar-view" role="group" aria-label="Calendar view" className="flex border border-[#d9d9d9]">
               {(["month", "week", "agenda"] as const).map((option) => (
                 <button key={option} type="button" aria-pressed={displayView === option} onClick={() => setView(option)} className={`${option === "agenda" ? "" : "hidden md:block"} h-9 px-3 text-[10px] font-black uppercase tracking-[0.06em] ${displayView === option ? "bg-[#111111] text-white" : "bg-white text-[#595959] hover:text-[#111111]"}`}>{option}</button>
@@ -150,28 +146,26 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         </div>
 
         <div data-guide-target="calendar-filters" className="flex flex-wrap items-center gap-2 border-b border-[#e5e5e5] py-2 md:flex-nowrap md:overflow-x-auto">
-          <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.12em] text-[#0c705f]">Show</span>
+          <span className="shrink-0 bg-[#f0f4f2] px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#315e50]">{result.scope === "personal" ? "My assigned work" : "Team calendar"}</span>
           <CalendarFilter label="community" value={community} onChange={setCommunity} options={communityOptions} />
-          <OwnerFilter value={owner} onChange={setOwner} options={ownerOptions} />
+          {result.scope === "team" ? <OwnerFilter value={owner} onChange={setOwner} options={ownerOptions} /> : null}
           <select aria-label="Filter calendar by event type" value={kind} onChange={(event) => setKind(event.target.value as PipelineCalendarEventKind | "")} className="h-8 w-[154px] shrink-0 border-0 border-b border-[#d9d9d9] bg-white px-1 text-[11px] font-bold text-[#111111] outline-none focus:border-[#0f8b73]">
             <option value="">All event types</option>
             {(Object.keys(kindLabels) as PipelineCalendarEventKind[]).map((value) => <option key={value} value={value}>{kindLabels[value]}</option>)}
           </select>
-          <button type="button" aria-pressed={mySchedule} onClick={() => { setMySchedule((value) => !value); setOwner(""); }} className={`flex h-8 shrink-0 items-center gap-1.5 border px-3 text-[9px] font-black uppercase tracking-[0.08em] ${mySchedule ? "border-[#4b68ad] bg-[#eef1ff] text-[#354b85]" : "border-[#d9d9d9] text-[#595959] hover:border-[#4b68ad]"}`}><UserRoundCheck size={13} /> My schedule</button>
+          {result.scope === "team" ? <button type="button" aria-pressed={mySchedule} onClick={() => { setMySchedule((value) => !value); setOwner(""); }} className={`flex h-8 shrink-0 items-center gap-1.5 border px-3 text-[9px] font-black uppercase tracking-[0.08em] ${mySchedule ? "border-[#4b68ad] bg-[#eef1ff] text-[#354b85]" : "border-[#d9d9d9] text-[#595959] hover:border-[#4b68ad]"}`}><UserRoundCheck size={13} /> My schedule</button> : null}
           {hasFilters ? <button type="button" onClick={() => { setCommunity(""); setOwner(""); setKind(""); setMySchedule(false); }} className="flex h-8 shrink-0 items-center gap-1 px-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#a63d2f]"><X size={12} /> Clear</button> : null}
         </div>
 
         {error ? <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a16a16] bg-[#fff8ed] px-4 py-3 text-[12px] text-[#6f4b13]"><span>{error}</span><button type="button" onClick={() => setRefreshToken((value) => value + 1)} className="shrink-0 font-black uppercase tracking-[0.06em]">Try again</button></div> : null}
 
-        <AssessmentPreparation items={visibleUnscheduled} total={result.unscheduledTotal} filtered={hasFilters} onOpen={(item) => onOpenPacket({ id: item.referralId, name: item.clientName, community: item.community as Referral["community"] })} />
-
         <div className="hidden md:block">
           {view === "month" ? <MonthView month={anchor.slice(0, 7)} eventsByDate={eventsByDate} onOpen={openEvent} /> : null}
           {view === "week" ? <WeekView range={range} eventsByDate={eventsByDate} onOpen={openEvent} /> : null}
-          {view === "agenda" ? <AgendaView events={visibleEvents} loading={loading} hasFilters={hasFilters} preparationCount={visibleUnscheduled.length} onOpen={openEvent} /> : null}
+          {view === "agenda" ? <AgendaView events={visibleEvents} loading={loading} hasFilters={hasFilters} onOpen={openEvent} /> : null}
         </div>
         <div className="md:hidden">
-          <AgendaView events={visibleEvents} loading={loading} hasFilters={hasFilters} preparationCount={visibleUnscheduled.length} onOpen={openEvent} />
+          <AgendaView events={visibleEvents} loading={loading} hasFilters={hasFilters} onOpen={openEvent} />
         </div>
       </div>
     </main>
@@ -193,29 +187,6 @@ function OwnerFilter({ value, onChange, options }: { value: string; onChange: (v
       <option value="">All assessors</option>
       {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
     </select>
-  );
-}
-
-function AssessmentPreparation({ items, total, filtered, onOpen }: { items: PipelineUnscheduledAssessment[]; total: number; filtered: boolean; onOpen: (item: PipelineUnscheduledAssessment) => void }) {
-  return (
-    <section data-guide-target="assessment-preparation" aria-label="Assessment preparation" className="border-b border-[#e5e5e5] py-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-[11px] font-black text-[#111111]">Assessment preparation <span className="ml-1 text-[#737373]">{filtered ? items.length : total}</span></h2>
-        {total > items.length && !filtered ? <span className="text-[9px] text-[#737373]">Showing {items.length} oldest</span> : null}
-      </div>
-      {items.length > 0 ? (
-        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-          {items.map((item) => (
-            <button key={item.referralId} type="button" onClick={() => onOpen(item)} className="min-w-[210px] border border-[#d9d9d9] px-3 py-2 text-left hover:border-[#0f8b73] hover:bg-[#f7faf9]">
-              <span className="block truncate text-[11px] font-black text-[#111111]">{item.clientName}</span>
-              <span className={`mt-1 block truncate text-[9px] font-bold ${item.workflowStatus === "ready_to_schedule" ? "text-[#0c705f]" : "text-[#8a5a10]"}`}>{workflowStatusLabels[item.workflowStatus]}</span>
-              <span className="mt-1 block truncate text-[9px] text-[#737373]">{item.owner} · received {shortDate(item.receivedDate)}</span>
-            </button>
-          ))}
-        </div>
-      ) : <div className="mt-2 text-[10px] text-[#737373]">{filtered ? "No assessment preparation matches these filters." : "No open assessment work is waiting for preparation or scheduling."}</div>}
-      <p className="mt-2 text-[9px] leading-4 text-[#737373]">Dates appear on the calendar only after an assessment is scheduled from its workspace.</p>
-    </section>
   );
 }
 
@@ -258,14 +229,14 @@ function WeekView({ range, eventsByDate, onOpen }: { range: { from: string; to: 
   );
 }
 
-function AgendaView({ events, loading, hasFilters, preparationCount, onOpen }: { events: PipelineCalendarEvent[]; loading: boolean; hasFilters: boolean; preparationCount: number; onOpen: (event: PipelineCalendarEvent) => void }) {
+function AgendaView({ events, loading, hasFilters, onOpen }: { events: PipelineCalendarEvent[]; loading: boolean; hasFilters: boolean; onOpen: (event: PipelineCalendarEvent) => void }) {
   const groups = groupEventsByDate(events);
   return (
     <div className="mt-4 border-y border-[#d9d9d9]">
       {!loading && events.length === 0 ? (
         <div className="px-4 py-14 text-center">
-          <div className="text-[12px] font-black text-[#333333]">{hasFilters ? "No scheduled work matches these filters." : "No assessments are scheduled in this range."}</div>
-          <div className="mx-auto mt-2 max-w-[520px] text-[10px] leading-5 text-[#737373]">{preparationCount > 0 ? "Open a workspace from Assessment preparation above to set the date, time, and assessor." : "Scheduled assessments and dated follow-ups will appear here automatically."}</div>
+          <div className="text-[12px] font-black text-[#333333]">{hasFilters ? "No calendar work matches these filters." : "No calendar work falls in this range."}</div>
+          <div className="mx-auto mt-2 max-w-[520px] text-[10px] leading-5 text-[#737373]">Referral assignments, scheduled assessments, and dated follow-ups appear here automatically.</div>
         </div>
       ) : null}
       {[...groups.entries()].map(([date, dayEvents]) => (
@@ -274,7 +245,7 @@ function AgendaView({ events, loading, hasFilters, preparationCount, onOpen }: {
           <div className="divide-y divide-[#e5e5e5]">
             {dayEvents.map((event) => (
               <button key={event.id} type="button" onClick={() => onOpen(event)} className="grid w-full gap-2 px-4 py-3 text-left hover:bg-[#f7faf9] sm:grid-cols-[minmax(0,1fr)_160px_120px]">
-                <span className="min-w-0"><span className="block truncate text-[13px] font-black text-[#111111]">{calendarClientName(event.clientName, event.community)}</span><span className="mt-1 block truncate text-[11px] text-[#737373]">{event.startsAt ? `${eventTime(event.startsAt)} · ` : ""}{event.title} · {event.detail}</span></span>
+                <span className="min-w-0"><span className="block truncate text-[13px] font-black text-[#111111]">{calendarClientName(event.clientName, event.community)}</span><span className="mt-1 block truncate text-[11px] text-[#737373]">{event.startsAt ? `${eventTime(event.startsAt)} · ` : ""}{event.title} · {calendarEventDetail(event)}</span></span>
                 <span className="truncate text-[11px] font-semibold text-[#595959]">{event.community}</span>
                 <span className="truncate text-[10px] text-[#737373]">{event.owner}</span>
               </button>
@@ -294,6 +265,7 @@ function CalendarEventButton({ event, onOpen, compact = false }: { event: Pipeli
     <button type="button" onClick={() => onOpen(event)} title={`${calendarClientName(event.clientName, event.community)} · ${event.title} · ${event.owner}`} className={`block w-full border-l-2 px-2 text-left ${compact ? "py-1.5" : "py-2"} ${color}`}>
       <span className={`block truncate font-black ${compact ? "text-[9px]" : "text-[11px]"}`}>{calendarClientName(event.clientName, event.community)}</span>
       <span className={`mt-0.5 block truncate opacity-80 ${compact ? "text-[8px]" : "text-[9px]"}`}>{event.startsAt ? `${eventTime(event.startsAt)} · ` : ""}{event.title}</span>
+      {event.kind === "referral_assigned" ? <span className={`mt-0.5 block truncate opacity-70 ${compact ? "text-[8px]" : "text-[9px]"}`}>{calendarEventDetail(event)}</span> : null}
       {!compact ? <span className="mt-1 block truncate text-[8px] opacity-70">{event.owner}</span> : null}
     </button>
   );
@@ -301,6 +273,13 @@ function CalendarEventButton({ event, onOpen, compact = false }: { event: Pipeli
 
 function calendarClientName(name: string, community: string) {
   return formatClientIdentityTitle({ name, community });
+}
+
+function calendarEventDetail(event: PipelineCalendarEvent) {
+  if (event.kind !== "referral_assigned") return event.detail;
+  const created = event.createdDate ? shortDate(event.createdDate) : "date unavailable";
+  if (!event.receivedDate || event.receivedDate === event.createdDate) return `Created ${created}`;
+  return `Created ${created} · received ${shortDate(event.receivedDate)}`;
 }
 
 function calendarRange(view: CalendarView, anchor: string) {

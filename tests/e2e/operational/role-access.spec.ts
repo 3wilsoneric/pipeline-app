@@ -115,7 +115,7 @@ test.describe("operational account and role boundaries", () => {
     }
   });
 
-  test("scopes home briefings and reports to the signed-in role", async ({ baseURL }) => {
+  test("scopes home briefings, calendars, and reports to the signed-in role", async ({ baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const assessor = await actorApiContext("assessorA", url);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
@@ -129,6 +129,15 @@ test.describe("operational account and role boundaries", () => {
       expect(coordinatorHome.status()).toBe(200);
       expect(await assessorHome.json()).toEqual(expect.objectContaining({ scope: "personal" }));
       expect(await coordinatorHome.json()).toEqual(expect.objectContaining({ scope: "team" }));
+
+      const [assessorCalendar, coordinatorCalendar] = await Promise.all([
+        assessor.get("/api/calendar/events?from=2026-09-01&to=2026-09-30"),
+        coordinator.get("/api/calendar/events?from=2026-09-01&to=2026-09-30"),
+      ]);
+      expect(assessorCalendar.status()).toBe(200);
+      expect(coordinatorCalendar.status()).toBe(200);
+      expect(await assessorCalendar.json()).toEqual(expect.objectContaining({ scope: "personal" }));
+      expect(await coordinatorCalendar.json()).toEqual(expect.objectContaining({ scope: "team" }));
 
       const assessorReports = await assessor.get("/api/operations/reports?report_id=active_referrals&month=2026-09");
       expect(assessorReports.status()).toBe(200);

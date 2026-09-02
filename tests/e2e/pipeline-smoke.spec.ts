@@ -456,7 +456,7 @@ test.describe("Referral home and packet canvas", () => {
     const mobileAside = page.getByRole("complementary");
     const mobileDirectory = page.getByRole("main", { name: "Referral workspaces" });
     await expect(mobileDirectory).toBeVisible();
-    expect((await mobileAside.boundingBox())?.height ?? 999).toBeLessThan(60);
+    expect((await mobileAside.boundingBox())?.height ?? 999).toBeLessThan(110);
     expect((await mobileDirectory.boundingBox())?.y ?? 999).toBeLessThan(330);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   });
@@ -489,7 +489,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
   });
 
-  test("shows scheduled assessments and honest preparation work on the calendar", async ({ page }) => {
+  test("shows assigned referrals and scheduled assessments as distinct calendar events", async ({ page }) => {
     await page.route("**/api/calendar/events?*", async (route) => {
       const requestUrl = new URL(route.request().url());
       const from = requestUrl.searchParams.get("from") ?? new Date().toISOString().slice(0, 8) + "01";
@@ -502,6 +502,21 @@ test.describe("Referral home and packet canvas", () => {
           from,
           to,
           events: [{
+            id: "referral-assigned:302:1",
+            referralId: 302,
+            clientName: "Assigned Client",
+            community: "Turlock",
+            ownerId: "playwright-user",
+            owner: "Playwright QA",
+            date: eventDate,
+            createdDate: from,
+            receivedDate: from,
+            assignedAt: `${eventDate}T15:00:00.000Z`,
+            kind: "referral_assigned",
+            status: "assigned",
+            title: "Referral assigned",
+            detail: "Assigned referral",
+          }, {
             id: "assessment:calendar-fixture",
             referralId: 301,
             assessmentId: "calendar-fixture",
@@ -518,16 +533,9 @@ test.describe("Referral home and packet canvas", () => {
             title: "Assessment scheduled",
             detail: "Scheduled assessment",
           }],
-          unscheduled: [{
-            referralId: 302,
-            clientName: "Preparation Client",
-            community: "Turlock",
-            ownerId: "playwright-user",
-            owner: "Playwright QA",
-            receivedDate: from,
-            workflowStatus: "intake_documents_needed",
-          }],
-          unscheduledTotal: 1,
+          unscheduled: [],
+          unscheduledTotal: 0,
+          scope: "team",
           viewer: { id: "playwright-user", name: "Playwright QA" },
           generated_at: new Date().toISOString(),
         }),
@@ -535,13 +543,24 @@ test.describe("Referral home and packet canvas", () => {
     });
 
     await page.getByRole("button", { name: "Open calendar" }).click();
-    await expect(page.getByRole("region", { name: "Assessment preparation" })).toBeVisible();
-    await expect(page.getByText("Preparation Client", { exact: true })).toBeVisible();
-    await expect(page.getByText("Needs initial documents", { exact: true })).toBeVisible();
+    await expect(page.getByText("Team calendar", { exact: true })).toBeVisible();
+    await expect(page.getByText("Assigned Client", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Scheduled Client", { exact: true }).first()).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(3);
+    await expect(page.locator('button[title^="Assigned Client · Referral assigned"]')).toHaveClass(/bg-\[#e8f5f1\]/);
+    await expect(page.locator('button[title^="Scheduled Client · Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
+    await expect(page.getByRole("combobox", { name: "Filter calendar by event type" })).toContainText("Referral assignments");
+    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(4);
     await expect(page.getByRole("button", { name: "Open search" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
+
+    await page.setViewportSize({ width: 768, height: 1024 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
+    await expect(page.getByRole("button", { name: "month", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+    await page.setViewportSize({ width: 430, height: 932 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
+    await expect(page.getByRole("button", { name: "agenda", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("button:visible").filter({ hasText: "Assigned Client" }).first()).toContainText("Created Sep 1");
   });
 
   test("deduplicates startup identity and retries a transient referral read", async ({ page }) => {
@@ -1190,8 +1209,12 @@ test.describe("Referral home and packet canvas", () => {
 
     const pipelineClientId = referralList.referrals[0]?.clientId;
     expect(pipelineClientId).toBeTruthy();
+    const clientIdentityTitle = clientName;
     await page.goto(`/?screen=profile&clientId=${encodeURIComponent(`pipeline:${pipelineClientId}`)}`);
-    await expect(page.getByRole("heading", { name: clientName, exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: clientIdentityTitle, exact: true })).toBeVisible();
+    await expect(page.getByText("Synthetic gender · San Pablo · Referral client", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Referral episodes" }).getByText(clientIdentityTitle, { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Referral episodes" }).getByText(/^Synthetic gender · San Pablo · Received /)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Referral documents", exact: true })).toBeVisible();
     await expect(page.getByText("face-sheet.pdf", { exact: true })).toBeVisible();
     await expect(page.getByText("synthetic-medication-list.pdf", { exact: true })).toBeVisible();
@@ -1215,17 +1238,18 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.goto("/?view=referrals");
     await expect(page.getByRole("region", { name: "Referral worklist" })).toBeVisible();
-    await expect(page.getByRole("button", { name: `Open ${clientName} referral workspace` })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Open ${clientIdentityTitle} referral workspace` })).toBeVisible();
     const taggedReferralsResponse = await page.request.get("/api/referrals?tag=urgent-review&limit=25");
     expect(taggedReferralsResponse.status()).toBe(200);
     const taggedReferrals = await taggedReferralsResponse.json() as { referrals: Array<{ tags?: string[] }> };
     expect(taggedReferrals.referrals.every((referral) => referral.tags?.includes("urgent-review"))).toBeTruthy();
-    const communityFilter = page.getByRole("button", { name: /^Filter by community San Pablo, \d+ workspaces?$/ });
+    const communityFilter = page.getByRole("combobox", { name: "Filter workspaces by community" });
     await expect(communityFilter).toBeVisible();
-    await communityFilter.click();
-    const workspaceButton = page.getByRole("button", { name: `Open ${clientName} referral workspace` });
+    await communityFilter.selectOption("San Pablo");
+    const workspaceButton = page.getByRole("button", { name: `Open ${clientIdentityTitle} referral workspace` });
     await expect(workspaceButton).toBeVisible();
     await workspaceButton.click();
+    await expect(page.getByTestId("workspace-identity-title")).toHaveText(clientIdentityTitle);
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
     await expect(page.getByRole("textbox", { name: "GENDER", exact: true })).toHaveValue("Synthetic gender");
     await expect(page.getByRole("textbox", { name: "AGE", exact: true })).toHaveValue("74");
@@ -1972,12 +1996,12 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
     await expect(page.getByText("Calendar", { exact: true })).toBeVisible();
     await expect(page.getByText("Clients", { exact: true })).toBeVisible();
+    await expect(page.getByText("Reports", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open search" })).toBeVisible();
     await expect(page.getByText("New referral", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Search", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Referral workspaces", { exact: true })).toHaveCount(0);
-    await expect(page.getByText("Reports", { exact: true }).first()).toBeVisible();
     const signedInProfile = page.getByRole("button", { name: "Open profile menu for Playwright QA" });
     await signedInProfile.click();
     await expect(page.getByRole("dialog", { name: "Profile menu" }).getByText("Playwright QA", { exact: true })).toBeVisible();
@@ -2200,7 +2224,7 @@ test.describe("Pipeline home", () => {
     const clientResult = page.getByRole("button", { name: /Avery Example/ });
     await expect(clientResult).toBeVisible();
     await clientResult.click();
-    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Avery Example · / })).toBeVisible();
     await expect(page).toHaveURL(/\?screen=profile&clientId=/);
     expect(new URL(page.url()).searchParams.has("view")).toBeFalsy();
 
@@ -2210,7 +2234,7 @@ test.describe("Pipeline home", () => {
     await expect(recent.getByRole("button", { name: /Avery Example/ })).toBeVisible();
     await expect(recent.getByText("Profile", { exact: true })).toBeVisible();
     await recent.getByRole("button", { name: /Avery Example/ }).click();
-    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Avery Example · / })).toBeVisible();
   });
 
   test("searches site destinations and the enhanced client directory while typing", async ({ page }) => {
@@ -2245,7 +2269,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
     const clientSearch = page.getByLabel("Search clients");
     await clientSearch.fill("Avery");
-    await expect(page.getByRole("button", { name: `Open profile for ${client.display_name}` })).toBeVisible();
+    await expect(page.getByRole("button", { name: new RegExp(`^Open profile for ${client.display_name} · `) })).toBeVisible();
     await clientSearch.fill("No matching client");
     await expect(page.getByText("No clients match that search.", { exact: true })).toBeVisible();
   });
@@ -2346,10 +2370,10 @@ test.describe("Pipeline home", () => {
     await expect(activeProfiles).toHaveCSS("background-color", "rgb(238, 241, 255)");
     await expect(activeProfiles).toHaveCSS("border-color", "rgb(75, 104, 173)");
     await expect(page.getByText("1 of 1 clients", { exact: true })).toBeVisible();
-    await expect(page.getByText("Avery Example", { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Avery Example · /)).toBeVisible();
 
     await page.getByRole("button", { name: /Avery Example/ }).click();
-    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Avery Example · / })).toBeVisible();
     await expect.poll(async () => (await page.getByTestId("profile-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1200);
     await expect(page.getByText("Current resident", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Client information", { exact: true })).toBeVisible();

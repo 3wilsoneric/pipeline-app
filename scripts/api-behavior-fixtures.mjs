@@ -101,6 +101,40 @@ const results = [
     assert(event?.ownerId === "referral-owner" && event?.owner === "Referral Owner", "Expected the referral assignment to own the event");
     assert(event?.status === "draft" && event?.title === "Assessment scheduled", "Expected scheduled draft status");
   }),
+  run("calendar creates a referral assignment event with creation context", () => {
+    const event = assessmentCalendar.referralAssignmentCalendarEvent({
+      id: 40,
+      name: "New Referral",
+      community: "San Pablo",
+      ownerId: "assessor-1",
+      owner: "Assigned Assessor",
+      assignedAt: "2026-08-25T03:30:00.000Z",
+      assignmentVersion: 2,
+      createdAt: "2026-08-23T18:00:00.000Z",
+      date: "08/22/2026",
+      workspaceOrigin: "pipeline",
+      workspaceStatus: "active",
+    });
+    assert(event?.id === "referral-assigned:40:2", "Expected assignment-version event identity");
+    assert(event?.date === "2026-08-24", "Expected the assignment day in the Pacific operating timezone");
+    assert(event?.createdDate === "2026-08-23", "Expected the original creation date on the event");
+    assert(event?.receivedDate === "2026-08-22", "Expected the received date on the event");
+    assert(event?.ownerId === "assessor-1" && event?.kind === "referral_assigned", "Expected an assessor-scoped assignment event");
+  }),
+  run("calendar does not expose unassigned or imported historical work as assignments", () => {
+    const base = {
+      id: 40,
+      name: "New Referral",
+      community: "San Pablo",
+      owner: "Unassigned",
+      assignedAt: "2026-08-25T16:00:00.000Z",
+      createdAt: "2026-08-23T18:00:00.000Z",
+      date: "08/22/2026",
+      workspaceStatus: "active",
+    };
+    assert(assessmentCalendar.referralAssignmentCalendarEvent({ ...base, workspaceOrigin: "pipeline" }) === null, "Unassigned work must not create an assignment event");
+    assert(assessmentCalendar.referralAssignmentCalendarEvent({ ...base, ownerId: "assessor-1", workspaceOrigin: "historical_import" }) === null, "Historical imports must not create live assignment events");
+  }),
   run("calendar marks unfinished past assessments overdue", () => {
     const event = assessmentCalendar.assessmentCalendarEvent({
       assessment_id: "assessment-2",

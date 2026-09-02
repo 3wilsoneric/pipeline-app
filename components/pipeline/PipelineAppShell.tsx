@@ -20,7 +20,7 @@ export default function PipelineAppShell({
     <PipelineShellProvider value={{ searchTerm, setSearchTerm, searchOpen, setSearchOpen, homeMode, setHomeMode }}>
       <div className="flex h-screen flex-col overflow-hidden bg-white text-[#111111]">
         <DemoEnvironmentBanner />
-        <Suspense fallback={<div aria-hidden="true" className="h-[82px] shrink-0 bg-white" />}>
+        <Suspense fallback={<div aria-hidden="true" className="h-[68px] shrink-0 bg-white sm:h-[74px] xl:h-[82px]" />}>
           <PipelineHeader />
         </Suspense>
         <main className="min-h-0 flex-1 overflow-hidden">{children}</main>

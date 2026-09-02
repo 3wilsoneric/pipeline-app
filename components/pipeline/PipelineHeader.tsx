@@ -90,7 +90,7 @@ export default function PipelineHeader() {
   };
 
   return (
-    <header className="relative flex h-[82px] shrink-0 items-center overflow-visible bg-white px-4 max-[359px]:px-2 sm:px-6 lg:px-8">
+    <header className="relative flex h-[68px] shrink-0 items-center overflow-visible bg-white px-3 max-[359px]:px-1 sm:h-[74px] sm:px-5 lg:px-6 xl:h-[82px] xl:px-8">
       <div className="relative z-10 flex shrink-0 items-center">
         <div
           role={isWelcomeSurface ? "img" : undefined}
@@ -120,13 +120,13 @@ export default function PipelineHeader() {
           data-pipeline-home="true"
           data-guide-target="pipeline-home"
           data-platform-page-active="pipeline"
-          className="flex h-12 w-[72px] items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] max-sm:h-9 max-sm:w-12"
+          className="flex h-12 w-[72px] items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] max-sm:h-9 max-sm:w-9 min-[360px]:max-sm:w-10"
         >
           <PipelineLogoMark size={32} />
         </button>
       </div>
 
-      <div className="pipeline-nav-dock-enter ml-3 min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-3 max-sm:ml-1 sm:ml-6">
+      <div data-testid="primary-navigation-dock" className="pipeline-nav-dock-enter ml-2 min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-2 max-sm:ml-0.5 sm:ml-4 lg:ml-5 xl:ml-6 xl:py-3">
         <div className="pointer-events-auto w-max">
           <PipelineActionNav
             active={activeNav}
@@ -146,7 +146,7 @@ export default function PipelineHeader() {
             title="Guided tutorials"
             data-guide-target="guided-help"
             onClick={() => dispatchOperatorGuide({ type: "open-library" })}
-            className="mr-1 hidden h-12 w-10 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 sm:flex"
+            className="mr-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 min-[360px]:flex sm:h-12 sm:w-10"
           >
             <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
           </button>

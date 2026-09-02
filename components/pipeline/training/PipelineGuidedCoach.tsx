@@ -209,19 +209,15 @@ export default function PipelineGuidedCoach() {
   if (!hydrated) return null;
   const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
-  return <GuideCoachSurface hideLauncher={false} state={state} role={role} tutorial={tutorial} step={step} target={target} exchange={exchange} command={command} onStart={startTutorial} onCommit={commit} onAdvance={advance} onCommandChange={setCommand} onSubmit={submitCommand} onExchange={setExchange} />;
+  return <GuideCoachSurface state={state} role={role} tutorial={tutorial} step={step} target={target} exchange={exchange} command={command} onStart={startTutorial} onCommit={commit} onAdvance={advance} onCommandChange={setCommand} onSubmit={submitCommand} onExchange={setExchange} />;
 }
 
-function GuideCoachSurface({ hideLauncher, state, role, tutorial, step, target, exchange, command, onStart, onCommit, onAdvance, onCommandChange, onSubmit, onExchange }: { hideLauncher: boolean; state: OperatorGuideState; role: OperatorRole; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; exchange: GuideExchange | null; command: string; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onCommandChange: (value: string) => void; onSubmit: (event: FormEvent) => void; onExchange: (exchange: GuideExchange) => void }) {
-  if (state.mode === "closed") return hideLauncher ? null : <GuideLauncher resumable={Boolean(state.activeTutorialId)} onOpen={() => onCommit(state.activeTutorialId ? { type: "resume" } : { type: "open-library" })} />;
+function GuideCoachSurface({ state, role, tutorial, step, target, exchange, command, onStart, onCommit, onAdvance, onCommandChange, onSubmit, onExchange }: { state: OperatorGuideState; role: OperatorRole; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; exchange: GuideExchange | null; command: string; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onCommandChange: (value: string) => void; onSubmit: (event: FormEvent) => void; onExchange: (exchange: GuideExchange) => void }) {
+  if (state.mode === "closed") return null;
   if (state.mode === "library") return <GuideLibrary role={role} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={() => onCommit({ type: "resume" })} onClose={() => onCommit({ type: "close" })} />;
-  if (!tutorial || !step) return <GuideLauncher resumable={false} onOpen={() => onCommit({ type: "open-library" })} />;
+  if (!tutorial || !step) return null;
   const conversation = <GuideConversation tutorialTitle={tutorial.title} workflow={tutorial.workflow} step={step} stepIndex={state.stepIndex} stepCount={tutorial.steps.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} exchange={exchange} command={command} onCommandChange={onCommandChange} onSubmit={onSubmit} onWhy={() => onExchange({ user: "Why does this matter?", helper: step.why })} onSafety={() => onExchange({ user: "What should I avoid?", helper: step.safety })} onBack={() => onCommit({ type: "previous" })} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
   return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} step={step} /> : null}{conversation}</>;
-}
-
-function GuideLauncher({ resumable, onOpen }: { resumable: boolean; onOpen: () => void }) {
-  return <button type="button" aria-label={resumable ? "Resume guided tutorial" : "Open guide launcher"} onClick={onOpen} className="fixed bottom-4 right-4 z-[75] flex h-11 items-center gap-2 border border-[#b7c9c3] bg-white px-3 text-[10px] font-black text-[#164e43] shadow-[0_8px_24px_rgba(18,48,40,0.16)] outline-none hover:border-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"><MessageCircleQuestion size={16} aria-hidden="true" /><span>{resumable ? "Resume guide" : "Guide"}</span></button>;
 }
 
 function executeGuideCommand({ parsed, raw, step, target, advance, commit, setExchange }: { parsed: ReturnType<typeof parseOperatorGuideCommand>; raw: string; step: OperatorGuideStep; target: TargetView; advance: () => void; commit: (event: OperatorGuideEvent) => void; setExchange: (exchange: GuideExchange) => void }) {

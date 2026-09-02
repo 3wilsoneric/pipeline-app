@@ -150,9 +150,10 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByText(/Do not enter names, packet text, or other PHI/)).toBeVisible();
 
     await page.getByRole("button", { name: "Pause tutorial" }).click();
-    await expect(page.getByRole("button", { name: "Resume guided tutorial" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Resume guided tutorial" })).toHaveCount(0);
     await page.reload();
-    await page.getByRole("button", { name: "Resume guided tutorial" }).click();
+    await page.getByRole("button", { name: "Open guided tutorials" }).click();
+    await page.getByRole("button", { name: /Continue where you stopped/ }).click();
     await expect(page.getByRole("heading", { name: "Read your due-today, overdue, and blocked work" })).toBeVisible();
   });
 

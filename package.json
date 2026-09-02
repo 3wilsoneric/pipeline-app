@@ -166,6 +166,7 @@
     "desktop:icons:generate": "node scripts/generate-pwa-icons.mjs",
     "start": "node scripts/start-standalone.mjs",
     "test:e2e": "playwright test",
+    "test:e2e:responsive": "PIPELINE_NEXT_DIST_DIR=.next-responsive-e2e PORT=3192 playwright test tests/e2e/responsive-navigation.spec.ts tests/e2e/responsive-accessibility.spec.ts --project=chromium --project=mobile-chromium",
     "test:e2e:training": "playwright test tests/e2e/operator-training.spec.ts --project=chromium",
     "test:e2e:assessment-practice": "PIPELINE_NEXT_DIST_DIR=.next-assessment-practice-e2e PIPELINE_NOTE_LAB_ENABLED=true PORT=3194 playwright test tests/e2e/note-lab-practice.spec.ts --project=chromium",
     "test:e2e:note-lab": "PIPELINE_NEXT_DIST_DIR=.next-note-lab-e2e PIPELINE_NOTE_LAB_ENABLED=true PORT=3195 playwright test tests/e2e/note-lab-navigation.spec.ts --project=chromium",

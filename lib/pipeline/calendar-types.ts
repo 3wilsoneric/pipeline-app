@@ -1,9 +1,9 @@
 import type { AssessmentWorkflowStatus } from "@/lib/assessment/assessment-records";
 import type { ReferralWorkflowStatus } from "@/lib/pipeline/referral-types";
 
-export type PipelineCalendarEventKind = "assessment" | "follow_up";
+export type PipelineCalendarEventKind = "referral_assigned" | "assessment" | "follow_up";
 
-export type PipelineCalendarEventStatus = AssessmentWorkflowStatus | "overdue" | "due";
+export type PipelineCalendarEventStatus = AssessmentWorkflowStatus | "assigned" | "overdue" | "due";
 
 export type PipelineCalendarEvent = {
   id: string;
@@ -14,6 +14,9 @@ export type PipelineCalendarEvent = {
   ownerId?: string;
   owner: string;
   date: string;
+  createdDate?: string;
+  receivedDate?: string;
+  assignedAt?: string;
   startsAt?: string;
   durationMinutes?: number;
   method?: string;
@@ -40,6 +43,7 @@ export type PipelineCalendarResponse = {
   events: PipelineCalendarEvent[];
   unscheduled: PipelineUnscheduledAssessment[];
   unscheduledTotal: number;
+  scope: "personal" | "team";
   viewer: { id: string; name: string };
   generated_at: string;
 };

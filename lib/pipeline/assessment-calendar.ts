@@ -13,6 +13,40 @@ const assessmentPreparationStatuses = new Set([
   "ready_to_schedule",
 ]);
 
+export function referralAssignmentCalendarEvent(
+  referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId" | "assignedAt" | "assignmentVersion" | "createdAt" | "date" | "workspaceOrigin" | "workspaceStatus" | "deletedAt">,
+): PipelineCalendarEvent | null {
+  if (
+    referral.workspaceOrigin !== "pipeline"
+    || (referral.workspaceStatus ?? "active") !== "active"
+    || referral.deletedAt
+    || !referral.assignedAt
+    || !referral.ownerId
+  ) return null;
+
+  const date = calendarDate(referral.assignedAt);
+  const createdDate = calendarDate(referral.createdAt);
+  const receivedDate = calendarDate(referral.date);
+  if (!date || !createdDate) return null;
+
+  return {
+    id: `referral-assigned:${referral.id}:${referral.assignmentVersion ?? 1}`,
+    referralId: referral.id,
+    clientName: referral.name,
+    community: referral.community,
+    ownerId: referral.ownerId,
+    owner: referral.owner.trim() || "Unassigned",
+    date,
+    createdDate,
+    receivedDate: receivedDate ?? undefined,
+    assignedAt: referral.assignedAt,
+    kind: "referral_assigned",
+    status: "assigned",
+    title: "Referral assigned",
+    detail: "Assigned referral",
+  };
+}
+
 export function assessmentCalendarEvent(
   assessment: Pick<PipelineAssessmentRecord, "assessment_id" | "assessor_id" | "assessor" | "status" | "referral_id" | "scheduled_start_at" | "scheduled_duration_minutes" | "scheduled_method" | "scheduled_location" | "schedule_status">,
   referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId">,
@@ -112,7 +146,7 @@ export function calendarDate(value: string | undefined) {
     return isValidDateKey(result) ? result : null;
   }
   const parsed = new Date(trimmed);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+  return Number.isNaN(parsed.getTime()) ? null : operationalDateKey(parsed);
 }
 
 export function addCalendarDays(value: string, amount: number) {
@@ -139,4 +173,15 @@ function isValidDateKey(value: string) {
 
 function dateKey(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+function operationalDateKey(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
 }

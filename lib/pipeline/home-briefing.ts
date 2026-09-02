@@ -72,6 +72,13 @@ export async function getHomeBriefing(user: PipelineUser): Promise<HomeBriefingS
   if (activityResult.status === "rejected") unavailableSections.push("activity");
   if (queueResult.status === "rejected") unavailableSections.push("current_work");
   if (calendarResult.status === "rejected") unavailableSections.push("upcoming");
+  const upcoming = calendar.events.slice(0, 8);
+  const upcomingAssignmentIds = new Set(
+    upcoming
+      .filter((event) => event.kind === "referral_assigned")
+      .map((event) => event.referralId),
+  );
+  const unscheduled = calendar.unscheduled.filter((item) => !upcomingAssignmentIds.has(item.referralId));
 
   return {
     generated_at: new Date().toISOString(),
@@ -83,8 +90,8 @@ export async function getHomeBriefing(user: PipelineUser): Promise<HomeBriefingS
       total: queue.total,
       items: queue.items.slice(0, 5),
     },
-    upcoming: calendar.events.slice(0, 8),
-    unscheduled: calendar.unscheduled.slice(0, 5),
+    upcoming,
+    unscheduled: unscheduled.slice(0, 5),
     unscheduled_total: calendar.unscheduledTotal,
     unavailable_sections: unavailableSections,
   };

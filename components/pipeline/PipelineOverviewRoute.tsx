@@ -19,6 +19,11 @@ import {
   type PipelineRecentDestination,
 } from "@/lib/pipeline/recent-destinations";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import {
+  formatClientIdentityTitle,
+  presentClientCommunity,
+  presentClientGender,
+} from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import {
   pushPipelineHistory,
@@ -27,7 +32,7 @@ import {
 } from "@/lib/pipeline/client-navigation";
 
 type PipelineScreen = "home" | "referrals" | "packet" | "calendar" | "profiles" | "profile" | "operations" | "trash";
-type ReferralSelection = { id: number; name?: string; community?: Referral["community"] };
+type ReferralSelection = { id: number; name?: string; gender?: string; community?: Referral["community"] };
 
 export default function PipelineOverviewRoute() {
   const { searchTerm, setSearchTerm, searchOpen, setSearchOpen, homeMode } = usePipelineShell();
@@ -47,7 +52,7 @@ export default function PipelineOverviewRoute() {
 
   const navigate = (
     nextScreen: PipelineScreen,
-    referral?: Pick<Referral, "id" | "name" | "community">,
+    referral?: ReferralSelection,
     clientId?: string,
   ) => {
     setSearchOpen(false);
@@ -81,7 +86,9 @@ export default function PipelineOverviewRoute() {
       params.delete("draftId");
     }
     pushPipelineHistory(params.size ? `/?${params.toString()}` : "/");
-    recordNavigation(nextScreen, referral);
+    if (!(nextScreen === "packet" && referral && (!referral.name || !referral.community))) {
+      recordNavigation(nextScreen, referral);
+    }
     setReferralDetails(referral);
   };
 
@@ -94,7 +101,6 @@ export default function PipelineOverviewRoute() {
     if (destination.kind === "referral") {
       navigate("packet", {
         id: destination.referralId,
-        name: destination.title,
         community: destination.community as Referral["community"],
       });
       return;
@@ -230,7 +236,7 @@ function getNewReferralDraftKey(params: URLSearchParams): `new-${string}` | unde
 
 function recordNavigation(
   nextScreen: PipelineScreen,
-  referral?: Pick<Referral, "id" | "name" | "community">,
+  referral?: ReferralSelection,
 ) {
   if (nextScreen === "home") return;
   if (nextScreen === "referrals") {
@@ -263,13 +269,14 @@ function recordNavigation(
     });
     return;
   }
-  if (nextScreen === "packet" && referral) {
+  if (nextScreen === "packet" && referral?.name && referral.community) {
+    const identityTitle = formatClientIdentityTitle(referral);
     recordRecentDestination({
       id: `referral:${referral.id}`,
       kind: "referral",
       screen: "packet",
-      title: referral.name,
-      detail: `${referral.community} · Referral workspace`,
+      title: identityTitle.slice(0, 200),
+      detail: `${presentClientGender(referral.gender)} · ${presentClientCommunity(referral.community)} · Referral workspace`,
       referralId: referral.id,
       community: referral.community,
     });

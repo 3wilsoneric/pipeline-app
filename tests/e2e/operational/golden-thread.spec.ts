@@ -74,6 +74,28 @@ test.describe("role-separated referral golden thread", () => {
         },
       );
       expect(referral.version).toBe(1);
+      const calendarFrom = new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString().slice(0, 10);
+      const calendarTo = new Date(Date.now() + 2 * 24 * 60 * 60 * 1_000).toISOString().slice(0, 10);
+      const calendarPath = `/api/calendar/events?from=${calendarFrom}&to=${calendarTo}`;
+      const [assessorCalendarResponse, otherCalendarResponse, teamCalendarResponse] = await Promise.all([
+        assessor.get(calendarPath),
+        otherAssessor.get(calendarPath),
+        coordinator.get(calendarPath),
+      ]);
+      expect(assessorCalendarResponse.status()).toBe(200);
+      expect(otherCalendarResponse.status()).toBe(200);
+      expect(teamCalendarResponse.status()).toBe(200);
+      const assessorCalendar = asRecord(await assessorCalendarResponse.json());
+      const otherCalendar = asRecord(await otherCalendarResponse.json());
+      const teamCalendar = asRecord(await teamCalendarResponse.json());
+      expect(assessorCalendar.scope).toBe("personal");
+      expect(teamCalendar.scope).toBe("team");
+      expect(assessorCalendar.events).toEqual(expect.arrayContaining([
+        expect.objectContaining({ referralId: referral.id, kind: "referral_assigned", ownerId: pipelineActors.assessorA.id }),
+      ]));
+      expect(otherCalendar.events).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ referralId: referral.id }),
+      ]));
 
       const reservationResponse = await coordinator.post("/api/uploads/create-url", {
         data: {
@@ -124,6 +146,17 @@ test.describe("role-separated referral golden thread", () => {
       ]);
 
       assessment = await scheduleOperationalAssessment(assessor, assessment);
+      const scheduledCalendarResponse = await assessor.get(calendarPath);
+      expect(scheduledCalendarResponse.status()).toBe(200);
+      const scheduledCalendar = asRecord(await scheduledCalendarResponse.json());
+      expect(scheduledCalendar.events).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          referralId: referral.id,
+          assessmentId: assessment.assessment_id,
+          kind: "assessment",
+          ownerId: pipelineActors.assessorA.id,
+        }),
+      ]));
       assessment = await startOperationalAssessment(assessor, assessment);
 
       const unauthorizedDecision = await assessor.put(`/api/referrals/${referral.id}/decision`, {

@@ -19,10 +19,11 @@ export default function PipelineActionNav({
   onNavigate: (target: Exclude<PipelineNavTarget, null>) => void;
 }) {
   const utilitySize = "h-11 w-11 px-0 max-sm:h-9 max-sm:w-9 xl:h-[50px] xl:w-[50px]";
-  const destinationSize = "h-11 w-11 px-0 max-sm:h-9 max-sm:w-9 md:w-[128px] md:px-3 xl:h-[50px] xl:w-[144px]";
+  const destinationSize = "h-11 w-11 px-0 max-sm:h-9 max-sm:w-9 xl:h-[50px] xl:w-[136px] xl:px-3";
+  const workspaceDestinationSize = "h-11 w-11 px-0 max-sm:h-9 max-sm:w-9 xl:h-[50px] xl:w-[152px] xl:px-3";
   const navItem =
     "group flex shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border-2 outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current";
-  const labelClass = "hidden md:inline";
+  const labelClass = "hidden xl:inline";
   const inactiveSearch =
     "border-transparent bg-transparent text-[#8a5a10] hover:border-[#c4832c] hover:bg-[#fff3dc] hover:shadow-[0_4px_14px_rgba(196,131,44,0.14)]";
   const inactiveReferrals =
@@ -33,7 +34,7 @@ export default function PipelineActionNav({
     "border-transparent bg-transparent text-[#a9473d] hover:border-[#c85b4d] hover:bg-[#fff0ed] hover:shadow-[0_4px_14px_rgba(200,91,77,0.14)]";
 
   return (
-    <div className="flex flex-nowrap items-center gap-1.5 max-sm:gap-1 xl:gap-2.5">
+    <div data-testid="primary-navigation" className="flex flex-nowrap items-center gap-1.5 max-sm:gap-0.5 min-[360px]:max-sm:gap-1 xl:gap-2.5">
       <SearchNavigationButton
         visible={showSearch}
         searchOpen={searchOpen}
@@ -41,7 +42,7 @@ export default function PipelineActionNav({
         className={`${navItem} ${utilitySize}`}
         inactiveClassName={inactiveSearch}
       />
-      <nav aria-label="Primary navigation" className="flex flex-nowrap items-center gap-1.5 max-sm:gap-1 xl:gap-2.5">
+      <nav aria-label="Primary navigation" className="flex flex-nowrap items-center gap-1.5 max-sm:gap-0.5 min-[360px]:max-sm:gap-1 xl:gap-2.5">
         <button
           type="button"
           aria-label="Open referrals"
@@ -59,7 +60,7 @@ export default function PipelineActionNav({
             });
             onNavigate("referrals");
           }}
-          className={`${navItem} ${destinationSize} text-[#0c705f] ${
+          className={`${navItem} ${workspaceDestinationSize} text-[#0c705f] ${
             active === "referrals"
               ? "border-[#0f8b73] bg-[#e7f3ee] shadow-[0_4px_14px_rgba(15,139,115,0.14)]"
               : inactiveReferrals
