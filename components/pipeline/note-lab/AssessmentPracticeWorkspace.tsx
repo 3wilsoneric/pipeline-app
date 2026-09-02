@@ -346,8 +346,8 @@ function PracticeQuestionGuide({ question }: { question: AssessmentInterviewQues
   const label = assessmentInterviewFieldLabel(question.field);
   return (
     <details className="group mt-2">
-      <summary aria-label={`Guide for ${label}`} className="flex w-fit cursor-pointer list-none items-center gap-1 text-[9px] font-black uppercase tracking-[0.06em] text-[#0f7d69] outline-none hover:text-[#0a6555] focus-visible:ring-2 focus-visible:ring-[#0f8b73] [&::-webkit-details-marker]:hidden">
-        Guide <ChevronDown size={12} className="transition-transform group-open:rotate-180" aria-hidden="true" />
+      <summary aria-label={`Answer help for ${label}`} className="flex w-fit cursor-pointer list-none items-center gap-1 text-[9px] font-black uppercase tracking-[0.06em] text-[#0f7d69] outline-none hover:text-[#0a6555] focus-visible:ring-2 focus-visible:ring-[#0f8b73] [&::-webkit-details-marker]:hidden">
+        Answer help <ChevronDown size={12} className="transition-transform group-open:rotate-180" aria-hidden="true" />
       </summary>
       <div className="mt-2 border-l-2 border-[#84b9aa] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(28,52,45,0.10)]">
         <p className="text-[12px] leading-5 text-[#4f5954]">{narrativeGuide.purpose}</p>

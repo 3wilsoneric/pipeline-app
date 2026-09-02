@@ -64,7 +64,7 @@ check("authored narrative questions expose their own compact guide disclosure",
   && workspace.includes("PracticeQuestionGuide")
   && workspace.includes("<details")
   && workspace.includes("<summary")
-  && workspace.includes("Guide for ${label}"));
+  && workspace.includes("Answer help for ${label}"));
 check("self-evident controls cannot open filler guidance",
   workspace.includes('question.control === "textarea"')
   && !workspace.includes("structuredQuestionGuidance")
@@ -72,7 +72,7 @@ check("self-evident controls cannot open filler guidance",
   && !workspace.includes("Open writing guide for"));
 check("question guidance stays inline without a modal or forced sequence",
   workspace.includes("data-practice-field")
-  && workspace.includes('aria-label={`Guide for ${label}`}')
+  && workspace.includes('aria-label={`Answer help for ${label}`}')
   && !workspace.includes('role="dialog"')
   && !workspace.includes("QuestionGuidanceDialog")
   && !workspace.includes("guidedQuestionSteps")
@@ -84,7 +84,7 @@ check("production assessment remains a separately persisted clinical surface",
   && !assessmentWorkspace.includes("assessment-practice-scenario") && !assessmentWorkspace.includes("practice-assessment"));
 check("practice copy stays restrained",
   !workspace.includes("Welcome to") && !workspace.includes("How to use")
-  && workspace.includes("Guide <ChevronDown") && !workspace.includes("Practice complete")
+  && workspace.includes("Answer help <ChevronDown") && !workspace.includes("Practice complete")
   && !workspace.includes("Finish practice") && workspace.includes("Save and continue")
   && workspace.includes(">Back</button>") && !workspace.includes("Next section")
   && !workspace.includes("Open guide for ${section.label}"));

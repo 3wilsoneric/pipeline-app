@@ -72,7 +72,7 @@ check("only authored narrative questions expose field-level guidance",
 check("language guidance is an inline disclosure without a modal or forced sequence",
   workspace.includes("PracticeQuestionGuide")
   && workspace.includes("data-practice-field")
-  && workspace.includes('aria-label={`Guide for ${label}`}')
+  && workspace.includes('aria-label={`Answer help for ${label}`}')
   && !workspace.includes('role="dialog"')
   && !workspace.includes("QuestionGuidanceDialog")
   && !workspace.includes("guidedQuestionSteps")
