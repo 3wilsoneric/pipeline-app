@@ -18,11 +18,11 @@ await Promise.all([
   renderIcon(512, 0.18, `${outputDirectory}/pipeline-icon-512-v2.png`),
   renderIcon(512, 0.2, `${outputDirectory}/pipeline-icon-maskable-512-v2.png`, "#ffffff"),
   renderFavicon(`${outputDirectory}/pipeline-favicon-32-v3.png`),
-  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v8.png`),
-  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v8.png`),
-  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v8.png`),
-  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-maskable-512-v8.png`),
-  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-maskable-1024-v8.png`),
+  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v9.png`),
+  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v9.png`),
+  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v9.png`),
+  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-maskable-512-v9.png`),
+  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-maskable-1024-v9.png`),
 ]);
 
 async function renderIcon(size, insetRatio, outputPath, backgroundColor = null) {
@@ -78,7 +78,30 @@ async function renderAppIcon(size, outputPath) {
   markContext.fillStyle = markGradient;
   markContext.fillRect(x, y, markWidth, markHeight);
 
-  context.drawImage(markCanvas, 0, 0);
+  const { x: opticalX, y: opticalY } = alphaCentroid(markContext, size);
+  const offsetX = Math.round((size - 1) / 2 - opticalX);
+  const offsetY = Math.round((size - 1) / 2 - opticalY);
+  context.drawImage(markCanvas, offsetX, offsetY);
 
   await writeFile(outputPath, canvas.toBuffer("image/png"));
+}
+
+function alphaCentroid(context, size) {
+  const pixels = context.getImageData(0, 0, size, size).data;
+  let alphaTotal = 0;
+  let weightedX = 0;
+  let weightedY = 0;
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const alpha = pixels[(y * size + x) * 4 + 3];
+      if (alpha === 0) continue;
+      alphaTotal += alpha;
+      weightedX += x * alpha;
+      weightedY += y * alpha;
+    }
+  }
+
+  if (alphaTotal === 0) return { x: (size - 1) / 2, y: (size - 1) / 2 };
+  return { x: weightedX / alphaTotal, y: weightedY / alphaTotal };
 }
