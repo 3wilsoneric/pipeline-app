@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
+import {
+  extractImportedClientMetadata,
+  formatClientIdentityTitle,
+} from "../lib/pipeline/client-identity-presentation.mjs";
 
 const root = process.cwd();
 
@@ -29,6 +33,17 @@ const assessmentCalendar = loadTypeScriptModule(root, "lib/pipeline/assessment-c
 const assessmentAccess = loadTypeScriptModule(root, "lib/assessment/assessment-access.ts");
 
 const results = [
+  run("imported client identity keeps county metadata out of the person name", () => {
+    const importedName = "Xin Quan Lin - - San Francisco";
+    assert(
+      formatClientIdentityTitle({ name: importedName }) === "Xin Quan Lin",
+      "Imported workspace metadata must not be displayed as part of the client name",
+    );
+    assert(
+      extractImportedClientMetadata(importedName) === "San Francisco",
+      "Imported workspace metadata must remain available as county evidence",
+    );
+  }),
   run("assessment work is limited to the assigned assessor or a supervisor", () => {
     const assigned = { id: "assessor-1", email: "assessor@example.com", name: "Assigned Assessor", roles: ["reviewer"] };
     const otherAssessor = { id: "assessor-2", email: "other@example.com", name: "Other Assessor", roles: ["reviewer"] };
@@ -409,6 +424,10 @@ const results = [
     assert(
       workspacePresentation.getWorkspaceCounty({ sourceProjectName: "Contra Costa County referrals" }) === "Contra Costa County",
       "Recorded source metadata should recover a county for imported workspaces",
+    );
+    assert(
+      workspacePresentation.getWorkspaceCounty({ name: "Xin Quan Lin - - San Francisco" }) === "San Francisco County",
+      "An imported title suffix should populate the county column without remaining in the client name",
     );
   }),
   run("canvas extraction fills reviewed values without replacing active edits", () => {

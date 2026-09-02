@@ -1,4 +1,5 @@
 import type { Referral } from "./referral-types";
+import { extractImportedClientMetadata } from "./client-identity-presentation.mjs";
 
 export type WorkspaceAdmissionOutcome = {
   status: "admitted" | "accepted" | "denied" | "pending" | "unmatched";
@@ -176,6 +177,9 @@ export function resolveWorkspaceCounty(referral: Partial<Referral>) {
 
   const storedCounty = referral.community ? canonicalCountyLabel(referral.community) : null;
   if (storedCounty) return storedCounty;
+
+  const importedTitleCounty = canonicalCountyLabel(extractImportedClientMetadata(referral.name) ?? "");
+  if (importedTitleCounty) return importedTitleCounty;
 
   const sourceValues = [
     referral.sourceWorkspaceName,

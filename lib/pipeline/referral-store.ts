@@ -13,6 +13,7 @@ import {
   type StoreAdapters,
 } from "@/lib/persistence/store-adapter";
 import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from "@/lib/pipeline/keyset-cursor";
+import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { isUnassignedOwner, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import type { ReferralSort } from "@/lib/pipeline/referral-sort";
@@ -408,7 +409,12 @@ export async function createReferral(
   mutationId?: string,
   actor: ReferralActor = systemActor(),
 ) {
-  return getReferralStore().create(input, actor, mutationId);
+  const name = normalizeClientName(input.name, {
+    gender: input.gender,
+    community: input.community,
+  });
+  if (!name) throw new Error("A client name is required.");
+  return getReferralStore().create({ ...input, name }, actor, mutationId);
 }
 
 export async function patchReferral(
@@ -2330,6 +2336,10 @@ function assertPacketIsUnique(documentHash: string | undefined, currentReferralI
 function normalizeReferral(input: Referral): Referral {
   const normalized = {
     ...input,
+    name: normalizeClientName(input.name, {
+      gender: input.gender,
+      community: input.community,
+    }) || "Name not recorded",
     id: Number(input.id),
     clientId: normalizeClientId(input.clientId) || buildLocalClientId(Number(input.id)),
     workspaceOrigin: input.workspaceOrigin ?? "pipeline",
