@@ -50,9 +50,10 @@ check("intake carryover is visibly distinguished from assessment answers",
   workspace.includes("isAssessmentIntakeInheritedField")
   && workspace.includes("From intake")
   && workspace.includes("This field carries forward from intake. Confirm or correct it during the assessment."));
-check("practice has no clinical persistence or production assessment dependency",
+check("practice autosave is browser-local and has no clinical persistence dependency",
   !workspace.includes("fetch(") && !workspace.includes("/api/") && !workspace.includes("indexedDB")
-  && !workspace.includes("localStorage") && !workspace.includes("sessionStorage")
+  && workspace.includes("window.localStorage") && workspace.includes("assessmentPracticeStoragePrefix")
+  && !workspace.includes("sessionStorage")
   && !workspace.includes("AssessmentWorkspace") && !scenarioSource.includes("server-only"));
 check("practice cannot sign, schedule, extract, or create a clinical record",
   !workspace.includes("Sign assessment") && !workspace.includes("Schedule assessment")
@@ -76,6 +77,7 @@ check("self-evident controls cannot open filler guidance",
 check("question guidance stays anchored to its assessment field without a modal gate",
   workspace.includes("data-practice-field")
   && workspace.includes('role="dialog"')
+  && workspace.includes("Close guide for ${label}")
   && !workspace.includes("QuestionGuidanceDialog")
   && !workspace.includes("OK, go to question"));
 check("production assessment remains a separately persisted clinical surface",
@@ -84,7 +86,13 @@ check("production assessment remains a separately persisted clinical surface",
 check("practice copy stays restrained",
   !workspace.includes("Welcome to") && !workspace.includes("How to use")
   && workspace.includes('aria-hidden="true" />Guide') && !workspace.includes("Practice complete")
-  && !workspace.includes("Finish practice") && !workspace.includes("Save and continue"));
+  && !workspace.includes("Finish practice") && workspace.includes("Save and continue")
+  && workspace.includes(">Back</button>") && !workspace.includes("Next section"));
+check("section progress is recoverable and explicitly committed before advancing",
+  workspace.includes("readStoredAssessmentPractice")
+  && workspace.includes("writeStoredAssessmentPractice")
+  && workspace.includes("Autosaved in this browser")
+  && workspace.includes("saveAndContinue"));
 check("practice mirrors the production assessment interaction model",
   workspace.includes("assessmentPracticeNavigationGroups")
   && workspace.includes('aria-label="Assessment section navigation"')

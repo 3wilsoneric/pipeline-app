@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default async function AssessmentPracticePage() {
   const user = await getAssessmentPracticeUser(new Headers(await headers()));
   if (!user) notFound();
-  return <AssessmentPracticeWorkspace traineeName={firstName(user.name)} />;
+  return <AssessmentPracticeWorkspace traineeId={user.id} traineeName={firstName(user.name)} />;
 }
 
 function firstName(displayName: string) {

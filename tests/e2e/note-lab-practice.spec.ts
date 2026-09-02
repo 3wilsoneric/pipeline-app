@@ -15,7 +15,8 @@ test.describe("Assessment practice lab", () => {
     await expect(page.getByLabel("Resident name *", { exact: true })).toHaveValue("Jordan Practice");
     await expect(page.getByText("Practice", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Client & referral" })).toBeVisible();
-    await expect(page.getByText("Save and continue", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Save and continue" })).toBeVisible();
+    await expect(page.getByText("Autosaved in this browser", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open guide launcher" })).toHaveCount(0);
 
     await expect(page.getByText("Note help", { exact: true })).toHaveCount(0);
@@ -26,7 +27,7 @@ test.describe("Assessment practice lab", () => {
     const guidance = page.getByRole("dialog", { name: "Guided step for Prior placements" });
     await expect(guidance).toBeVisible();
     await expect(guidance.getByText(/Explain where the client lived, how long, why each setting ended/)).toBeVisible();
-    await expect(guidance.getByText(/Board-and-care \| approximately 8 months/)).toBeVisible();
+    await expect(guidance.getByText(/Board-and-care; approximately 8 months/)).toBeVisible();
     await guidance.getByRole("button", { name: "Next field" }).click();
     await expect(page.getByRole("dialog", { name: "Guided step for Prior AWOL / failed placements" })).toBeVisible();
 
@@ -44,7 +45,7 @@ test.describe("Assessment practice lab", () => {
     const adlGuidance = page.getByRole("dialog", { name: "Guided step for ADL needs" });
     await expect(adlGuidance).toBeVisible();
     await expect(adlGuidance.getByText(/State exactly what the client can do/)).toBeVisible();
-    await expect(adlGuidance.getByText(/Laundry \| completes sorting and folding/)).toBeVisible();
+    await expect(adlGuidance.getByText(/Laundry; completes sorting and folding/)).toBeVisible();
     await adlGuidance.getByRole("button", { name: "Next field" }).click();
     const peerGuidance = page.getByRole("dialog", { name: "Guided step for Peer interaction notes" });
     await expect(peerGuidance).toBeVisible();
@@ -56,19 +57,23 @@ test.describe("Assessment practice lab", () => {
     await expect(page.getByRole("heading", { name: "Function" })).toBeVisible();
 
     await sectionRail.getByRole("button", { name: /^Physical health\b/ }).click();
-    await expect(page.getByLabel("Brief changing support *", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Support *", { exact: true })).toHaveCount(0);
     await page.getByRole("group", { name: "Incontinence issues", exact: true }).getByRole("button", { name: "Yes", exact: true }).click();
-    const briefSupport = page.getByLabel("Brief changing support *", { exact: true });
+    const briefSupport = page.getByLabel("Support *", { exact: true });
     await expect(briefSupport).toBeVisible();
     await briefSupport.selectOption("needs_help_changing_briefs");
     await expect(briefSupport).toHaveValue("needs_help_changing_briefs");
   });
 
-  test("starts at question one, resets locally, and remains usable on a narrow screen", async ({ page }) => {
+  test("autosaves, restores, resets locally, and remains usable on a narrow screen", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/note-lab/practice");
     await expect(page.getByLabel("Assessment section", { exact: true })).toBeVisible();
     await page.getByLabel("Resident name *", { exact: true }).fill("Changed synthetic name");
+    await expect(page.getByText("Saving...", { exact: true })).toBeVisible();
+    await expect(page.getByText("Autosaved in this browser", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Resident name *", { exact: true })).toHaveValue("Changed synthetic name");
     await page.getByRole("button", { name: "Reset" }).click();
     await expect(page.getByLabel("Resident name *", { exact: true })).toHaveValue("Jordan Practice");
     await expect(page.getByRole("button", { name: "Open guide for Client & referral" })).toBeDisabled();

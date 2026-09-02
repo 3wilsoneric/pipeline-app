@@ -13,7 +13,9 @@ test("the former language route resolves to the combined question workflow", asy
 
   const rail = page.getByRole("complementary", { name: "Assessment section navigation" });
   await expect(rail.getByRole("button", { name: /^Client & referral\b/ })).toHaveAttribute("aria-current", "step");
-  await expect(page.getByText("Save and continue", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save and continue" })).toBeVisible();
+  await expect(page.getByText("Autosaved in this browser", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next section" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Open guide for/ })).toHaveCount(1);
   await expect(page.getByText("Writing guide", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Note help", { exact: true })).toHaveCount(0);
@@ -30,9 +32,13 @@ test("the former language route resolves to the combined question workflow", asy
   await expect(page.getByText("How to answer", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Note structure", { exact: true })).toHaveCount(0);
 
-  await guidance.getByRole("button", { name: "Next field" }).click();
+  await guidance.getByRole("button", { name: "Close guide for Prior placements" }).click();
+  await expect(guidance).toHaveCount(0);
+  await page.getByRole("button", { name: "Open guide for History" }).click();
+
+  await page.getByRole("dialog", { name: "Guided step for Prior placements" }).getByRole("button", { name: "Next field" }).click();
   await expect(page.getByRole("dialog", { name: "Guided step for Prior AWOL / failed placements" })).toBeVisible();
 
   await page.reload();
-  await expect(rail.getByRole("button", { name: /^Client & referral\b/ })).toHaveAttribute("aria-current", "step");
+  await expect(rail.getByRole("button", { name: /^History\b/ })).toHaveAttribute("aria-current", "step");
 });

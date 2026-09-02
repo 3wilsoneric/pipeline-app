@@ -70,11 +70,12 @@ check("only authored narrative questions can open guidance and the selected sect
   && workspace.includes("Next field")
   && !workspace.includes("structuredQuestionGuidance")
   && !workspace.includes("/api/note-lab/session")
-  && !workspace.includes("Save and continue"));
+  && workspace.includes("Save and continue"));
 check("language guidance is an anchored question tooltip without a modal gate",
   workspace.includes("PracticeQuestionTooltip")
   && workspace.includes("data-practice-field")
   && workspace.includes('role="dialog"')
+  && workspace.includes("Close guide for ${label}")
   && !workspace.includes("QuestionGuidanceDialog")
   && !workspace.includes("OK, go to question"));
 check("narrative guidance includes purpose, answer order, and a good example",
@@ -90,7 +91,13 @@ check("historical samples and review copy are absent from the combined UI",
   && !store.includes("attachReviewSample(baseScenario")
   && !workspace.includes("reviewSample")
   && !workspace.includes("Past note")
-  && !workspace.includes("Save and continue"));
+  && !workspace.includes("Historical answer"));
+check("practice progress autosaves locally without writing clinical records",
+  workspace.includes("window.localStorage")
+  && workspace.includes("Autosaved in this browser")
+  && workspace.includes("Save and continue")
+  && !workspace.includes("fetch(")
+  && !workspace.includes("Next section"));
 check("field scenarios come from canonical writing specifications", engine.includes("getAssessmentNarrativeGuideCoverage().coveredFields")
   && engine.includes("getAssessmentFieldWritingSpec(field)") && engine.includes("formatStandard"));
 check("historical text must map to a canonical assessment field", engine.includes("classifyAssessmentNarrativeField")

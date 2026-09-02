@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Sparkles } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
@@ -18,6 +18,7 @@ import {
   type AssessmentInterviewQuestion,
 } from "@/lib/assessment/assessment-interview-schema";
 import {
+  pickAssessmentToolData,
   type AssessmentToolData,
   type AssessmentToolFieldKey,
   type AssessmentToolSection,
@@ -39,10 +40,61 @@ type PracticeQuestionStep = {
   question: AssessmentInterviewQuestion;
 };
 
-export default function AssessmentPracticeWorkspace({ traineeName }: { traineeName: string }) {
+type PracticeAutosaveState = "loading" | "saving" | "saved" | "failed";
+
+type StoredAssessmentPractice = {
+  version: 1;
+  activeSection: AssessmentToolSection;
+  data: AssessmentToolData;
+};
+
+const assessmentPracticeStoragePrefix = "pipeline:assessment-practice:v1";
+
+function readStoredAssessmentPractice(raw: string | null): StoredAssessmentPractice | null {
+  if (!raw) return null;
+  const parsed: unknown = JSON.parse(raw);
+  if (!isRecord(parsed) || parsed.version !== 1 || !isAssessmentPracticeSection(parsed.activeSection) || !isRecord(parsed.data)) return null;
+  return {
+    version: 1,
+    activeSection: parsed.activeSection,
+    data: pickAssessmentToolData(parsed.data as Partial<AssessmentToolData>),
+  };
+}
+
+function writeStoredAssessmentPractice(storageKey: string, state: StoredAssessmentPractice) {
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(state));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isAssessmentPracticeSection(value: unknown): value is AssessmentToolSection {
+  return typeof value === "string" && assessmentInterviewSections.some((section) => section.key === value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function autosaveLabel(state: PracticeAutosaveState) {
+  if (state === "loading") return "Loading saved practice...";
+  if (state === "saving") return "Saving...";
+  if (state === "failed") return "Autosave unavailable";
+  return "Autosaved in this browser";
+}
+
+export default function AssessmentPracticeWorkspace({ traineeId, traineeName }: { traineeId: string; traineeName: string }) {
   const [data, setData] = useState(createAssessmentPracticeData);
   const [activeSection, setActiveSection] = useState<AssessmentToolSection>(assessmentInterviewSections[0].key);
   const [guidedField, setGuidedField] = useState<AssessmentToolFieldKey | null>(null);
+  const [autosaveState, setAutosaveState] = useState<PracticeAutosaveState>("loading");
+  const [storageReady, setStorageReady] = useState(false);
+  const storageKey = useMemo(
+    () => `${assessmentPracticeStoragePrefix}:${encodeURIComponent(traineeId.trim().toLowerCase() || traineeName.trim().toLowerCase() || "assessor")}`,
+    [traineeId, traineeName],
+  );
   const coverage = getAssessmentInterviewCoverage(data);
   const currentIndex = assessmentInterviewSections.findIndex((section) => section.key === activeSection);
   const section = assessmentInterviewSections[currentIndex] ?? assessmentInterviewSections[0];
@@ -62,6 +114,31 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
   const firstGuidedStepInSection = guidedQuestionSteps.find((step) => step.section === section.key) ?? null;
 
   useEffect(() => {
+    setStorageReady(false);
+    try {
+      const stored = readStoredAssessmentPractice(window.localStorage.getItem(storageKey));
+      if (stored) {
+        setData(pickAssessmentToolData({ ...createAssessmentPracticeData(), ...stored.data }));
+        setActiveSection(stored.activeSection);
+      }
+      setAutosaveState("saved");
+    } catch {
+      setAutosaveState("failed");
+    } finally {
+      setStorageReady(true);
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    setAutosaveState("saving");
+    const timeout = window.setTimeout(() => {
+      setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection, data }) ? "saved" : "failed");
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [activeSection, data, storageKey, storageReady]);
+
+  useEffect(() => {
     if (!guidedField) return;
     const frame = window.requestAnimationFrame(() => {
       document.querySelector<HTMLElement>(`[data-practice-field="${guidedField}"]`)
@@ -75,6 +152,11 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
   };
 
   const reset = () => {
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      setAutosaveState("failed");
+    }
     setData(createAssessmentPracticeData());
     setActiveSection(assessmentInterviewSections[0].key);
     setGuidedField(null);
@@ -82,6 +164,7 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
   };
 
   const chooseSection = (sectionKey: AssessmentToolSection) => {
+    setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection: sectionKey, data }) ? "saved" : "failed");
     setActiveSection(sectionKey);
     setGuidedField(null);
     document.querySelector<HTMLElement>("[data-assessment-practice-scroll]")?.scrollTo({ top: 0 });
@@ -113,6 +196,16 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
     chooseSection(assessmentInterviewSections[nextIndex].key);
   };
 
+  const saveAndContinue = () => {
+    const nextIndex = Math.min(assessmentInterviewSections.length - 1, currentIndex + 1);
+    const nextSection = assessmentInterviewSections[nextIndex].key;
+    if (nextIndex !== currentIndex) {
+      chooseSection(nextSection);
+      return;
+    }
+    setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection, data }) ? "saved" : "failed");
+  };
+
   return (
     <div aria-label={`${traineeName} practice assessment`} className="pipeline-route-enter flex h-full min-h-0 flex-col overflow-hidden bg-white">
       <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-[#cfd8d4] bg-white px-4 py-2 sm:px-6">
@@ -121,7 +214,7 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
             <h1 className="truncate text-[17px] font-black text-[#202522]">Jordan Practice</h1>
             <span className="bg-[#e7f3ee] px-2 py-1 text-[9px] font-black uppercase text-[#0f6f5d]">Practice</span>
           </div>
-          <p className="mt-0.5 text-[10px] text-[#737b77]">Synthetic record - not saved</p>
+          <p className="mt-0.5 text-[10px] text-[#737b77]">Synthetic training record</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button type="button" onClick={reset} className="inline-flex h-9 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
@@ -208,13 +301,20 @@ export default function AssessmentPracticeWorkspace({ traineeName }: { traineeNa
               data={data}
               requiredFields={requiredFields}
               guidedField={guidedField}
+              onCloseGuidance={() => setGuidedField(null)}
               onNextQuestion={moveGuidedQuestion}
               onUpdate={update}
             />
 
-            <footer className="mt-7 flex items-center justify-between gap-3">
-              <button type="button" disabled={currentIndex === 0} onClick={() => moveSection(-1)} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black text-[#4d5652] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} />Previous section</button>
-              <button type="button" disabled={currentIndex === assessmentInterviewSections.length - 1} onClick={() => moveSection(1)} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-35">Next section<ChevronRight size={14} /></button>
+            <footer className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#d9dfdb] pt-5">
+              <button type="button" disabled={currentIndex === 0} onClick={() => moveSection(-1)} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black text-[#4d5652] hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} aria-hidden="true" />Back</button>
+              <span aria-live="polite" className={`order-3 w-full text-center text-[9px] font-bold sm:order-none sm:w-auto ${autosaveState === "failed" ? "text-[#a33b32]" : "text-[#747d79]"}`}>
+                {autosaveLabel(autosaveState)}
+              </span>
+              <button type="button" onClick={saveAndContinue} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
+                {currentIndex === assessmentInterviewSections.length - 1 ? "Save" : "Save and continue"}
+                {currentIndex < assessmentInterviewSections.length - 1 ? <ChevronRight size={14} aria-hidden="true" /> : null}
+              </button>
             </footer>
           </div>
         </main>
@@ -229,6 +329,7 @@ function PracticeQuestions({
   data,
   requiredFields,
   guidedField,
+  onCloseGuidance,
   onNextQuestion,
   onUpdate,
 }: {
@@ -236,6 +337,7 @@ function PracticeQuestions({
   data: AssessmentToolData;
   requiredFields: ReadonlySet<AssessmentToolFieldKey>;
   guidedField: AssessmentToolFieldKey | null;
+  onCloseGuidance: () => void;
   onNextQuestion: (field: AssessmentToolFieldKey) => void;
   onUpdate: (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => void;
 }) {
@@ -257,6 +359,7 @@ function PracticeQuestions({
                 inheritedFromIntake={isAssessmentIntakeInheritedField(question.field)}
                 guided={question.field === guidedField}
                 lastGuidedField={guidedQuestions.at(-1)?.field === question.field}
+                onCloseGuidance={onCloseGuidance}
                 onNextQuestion={() => onNextQuestion(question.field)}
                 onUnableReasonChange={(reason) => onUpdate("unable_to_assess_reasons", setAssessmentUnableReason(data.unable_to_assess_reasons, question.field, reason))}
                 onUpdate={(value) => onUpdate(question.field, value)}
@@ -277,6 +380,7 @@ function PracticeField({
   inheritedFromIntake,
   guided,
   lastGuidedField,
+  onCloseGuidance,
   onNextQuestion,
   onUnableReasonChange,
   onUpdate,
@@ -288,6 +392,7 @@ function PracticeField({
   inheritedFromIntake: boolean;
   guided: boolean;
   lastGuidedField: boolean;
+  onCloseGuidance: () => void;
   onNextQuestion: () => void;
   onUnableReasonChange: (reason: string) => void;
   onUpdate: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
@@ -310,14 +415,15 @@ function PracticeField({
       </div>
       <PracticeControl question={question} value={value} unableReason={unableReason} onUnableReasonChange={onUnableReasonChange} onUpdate={onUpdate} />
       {question.help ? <p className="mt-1.5 text-[10px] leading-4 text-[#737373]">{question.help}</p> : null}
-      {guided ? <PracticeQuestionTooltip question={question} lastGuidedField={lastGuidedField} onNext={onNextQuestion} /> : null}
+      {guided ? <PracticeQuestionTooltip question={question} lastGuidedField={lastGuidedField} onClose={onCloseGuidance} onNext={onNextQuestion} /> : null}
     </div>
   );
 }
 
-function PracticeQuestionTooltip({ question, lastGuidedField, onNext }: {
+function PracticeQuestionTooltip({ question, lastGuidedField, onClose, onNext }: {
   question: AssessmentInterviewQuestion;
   lastGuidedField: boolean;
+  onClose: () => void;
   onNext: () => void;
 }) {
   const specification = getAssessmentFieldWritingSpec(question.field);
@@ -327,7 +433,10 @@ function PracticeQuestionTooltip({ question, lastGuidedField, onNext }: {
   return (
     <aside role="dialog" aria-label={`Guided step for ${label}`} className="relative z-10 mt-4 border border-[#84b9aa] bg-white p-4 shadow-[0_12px_28px_rgba(28,52,45,0.16)]">
       <span className="absolute -top-2 left-6 h-4 w-4 rotate-45 border-l border-t border-[#84b9aa] bg-white" aria-hidden="true" />
-      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f6f5d]">{label}</div>
+      <button type="button" onClick={onClose} aria-label={`Close guide for ${label}`} className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center text-[#6b746f] outline-none hover:bg-[#f0f4f2] hover:text-[#202522] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+        <X size={14} aria-hidden="true" />
+      </button>
+      <div className="pr-8 text-[9px] font-black uppercase tracking-[0.08em] text-[#0f6f5d]">{label}</div>
       <p className="mt-1.5 text-[12px] leading-5 text-[#4f5954]">{narrativeGuide.purpose}</p>
       <div className="mt-3 grid gap-3 border-t border-[#e1e4e2] pt-3 lg:grid-cols-2">
         <div>
