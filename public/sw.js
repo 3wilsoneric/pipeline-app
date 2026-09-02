@@ -13,8 +13,6 @@ const STATIC_ASSETS = [
   scopedPath("/pwa/pipeline-app-icon-192-v9.png"),
   scopedPath("/pwa/pipeline-app-icon-512-v9.png"),
   scopedPath("/pwa/pipeline-app-icon-1024-v9.png"),
-  scopedPath("/pwa/pipeline-app-icon-maskable-512-v9.png"),
-  scopedPath("/pwa/pipeline-app-icon-maskable-1024-v9.png"),
 ];
 
 self.addEventListener("install", (event) => {

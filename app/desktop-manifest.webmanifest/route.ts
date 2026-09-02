@@ -35,13 +35,13 @@ const manifest: MetadataRoute.Manifest = {
       type: "image/png",
     },
     {
-      src: toPipelinePath("/pwa/pipeline-app-icon-maskable-512-v9.png"),
+      src: toPipelinePath("/pwa/pipeline-app-icon-512-v9.png"),
       sizes: "512x512",
       type: "image/png",
       purpose: "maskable",
     },
     {
-      src: toPipelinePath("/pwa/pipeline-app-icon-maskable-1024-v9.png"),
+      src: toPipelinePath("/pwa/pipeline-app-icon-1024-v9.png"),
       sizes: "1024x1024",
       type: "image/png",
       purpose: "maskable",

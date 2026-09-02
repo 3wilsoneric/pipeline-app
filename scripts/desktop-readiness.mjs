@@ -90,8 +90,6 @@ for (const [file, minimumBytes] of [
   ["public/pwa/pipeline-app-icon-192-v9.png", 1_000],
   ["public/pwa/pipeline-app-icon-512-v9.png", 1_000],
   ["public/pwa/pipeline-app-icon-1024-v9.png", 1_000],
-  ["public/pwa/pipeline-app-icon-maskable-512-v9.png", 1_000],
-  ["public/pwa/pipeline-app-icon-maskable-1024-v9.png", 1_000],
 ]) {
   check(`${file} is a non-empty PNG`, statSync(file).size > minimumBytes && createHash("sha256").update(readFileSync(file)).digest("hex").length === 64);
 }
