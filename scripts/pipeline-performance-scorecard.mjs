@@ -223,12 +223,11 @@ await measureJourney("packet_step_change", "tab", async () => {
 });
 await measureJourney("new_referral_to_home", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Pipeline home", exact: true }));
-  await page.getByRole("region", { name: "Your assigned work", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("region", { name: "Current work", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("home_to_operations", "navigation", async () => {
-  await activate(page.getByRole("button", { name: /Open profile menu for/ }));
-  await activate(page.getByRole("link", { name: /Pipeline operations/ }));
-  await page.getByRole("main", { name: "Operations overview", exact: true }).waitFor({ state: "visible" });
+  await activate(page.getByRole("button", { name: "Open reports", exact: true }));
+  await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("operations_to_referrals", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open referrals", exact: true }));

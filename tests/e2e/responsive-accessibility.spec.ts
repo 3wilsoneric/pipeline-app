@@ -11,7 +11,7 @@ test.describe("Responsive and accessible application shell", () => {
   test("keeps home and referral navigation usable without page overflow", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { name: /^Welcome(?: back)?, .+\.$/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Good (?:morning|afternoon|evening), .+\.$/ })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
@@ -22,6 +22,8 @@ test.describe("Responsive and accessible application shell", () => {
       await expect(platformBrand).toBeHidden();
     }
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open reports" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
 
     await page.getByRole("button", { name: "Open search" }).click();
     await expect(page.getByLabel("Search or ask")).toBeVisible();

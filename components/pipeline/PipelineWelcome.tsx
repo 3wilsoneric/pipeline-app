@@ -1,21 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { ArrowRight, CalendarClock, RefreshCw } from "lucide-react";
 
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
-import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import {
-  getPipelineWelcomeHistoryKey,
-  getPipelineWelcomeSessionKey,
-} from "@/lib/pipeline/home-state";
+import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
+import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
+import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
+import type { MyQueueItem, MyQueueUrgency } from "@/lib/pipeline/operations-types";
 import {
   loadRecentDestinations,
   refreshRecentDestinations,
   subscribeToRecentDestinations,
   type PipelineRecentDestination,
 } from "@/lib/pipeline/recent-destinations";
-import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
-import type { MyQueueSnapshot, MyQueueUrgency } from "@/lib/pipeline/operations-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 
@@ -23,62 +22,50 @@ export default function PipelineWelcome({
   onOpenPacket,
   onOpenRecent,
   onOpenProfile,
-  onOpenOperations,
   onOpenSearchDestination,
-  initialMode = "welcome",
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenRecent: (destination: PipelineRecentDestination) => void;
   onOpenProfile: (residentKey: string) => void;
-  onOpenOperations: () => void;
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
   initialMode?: "welcome" | "workspace";
 }) {
-  const [welcomeName, setWelcomeName] = useState("");
-  const [welcomeKind, setWelcomeKind] = useState<"first" | "returning" | null>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [welcomeResolved, setWelcomeResolved] = useState(false);
+  const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(null);
   const [recentItems, setRecentItems] = useState<PipelineRecentDestination[]>([]);
-  const { searchOpen, setHomeMode } = usePipelineShell();
+  const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const { searchOpen } = usePipelineShell();
+
+  const loadBriefing = useCallback(async (signal?: AbortSignal) => {
+    setRefreshing(true);
+    try {
+      const payload = await fetchPipelineJson<HomeBriefingSnapshot>("/api/operations/home", {
+        cache: "no-store",
+        signal,
+      });
+      setBriefing(payload);
+      setError("");
+    } catch (loadError) {
+      if (!signal?.aborted) {
+        setError(loadError instanceof Error ? loadError.message : "Home is unavailable right now.");
+      }
+    } finally {
+      if (!signal?.aborted) setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    fetchCurrentPipelineUser()
-      .then((payload) => {
-        const id = payload?.user?.id?.trim();
-        const name = payload?.user?.name?.trim();
-        if (cancelled || !id || !name) return;
-
-        const sessionKey = getPipelineWelcomeSessionKey(id);
-        const historyKey = getPipelineWelcomeHistoryKey(id);
-        const seenThisSession = readStorage(window.sessionStorage, sessionKey);
-        const returningUser = readStorage(window.localStorage, historyKey);
-
-        setWelcomeName(getFirstName(name));
-        writeStorage(window.localStorage, historyKey);
-
-        if (initialMode === "workspace" || seenThisSession) {
-          writeStorage(window.sessionStorage, sessionKey);
-          setShowWelcome(false);
-          setWelcomeKind(null);
-          setHomeMode("workspace");
-          return;
-        }
-
-        writeStorage(window.sessionStorage, sessionKey);
-        setWelcomeKind(returningUser ? "returning" : "first");
-        setShowWelcome(true);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (!cancelled) setWelcomeResolved(true);
-      });
-
+    const controller = new AbortController();
+    void loadBriefing(controller.signal);
+    const refreshOnFocus = () => void loadBriefing();
+    const interval = window.setInterval(() => void loadBriefing(), 60_000);
+    window.addEventListener("focus", refreshOnFocus);
     return () => {
-      cancelled = true;
+      controller.abort();
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshOnFocus);
     };
-  }, [initialMode, setHomeMode]);
+  }, [loadBriefing]);
 
   useEffect(() => {
     const refreshRecent = () => setRecentItems(loadRecentDestinations());
@@ -87,219 +74,106 @@ export default function PipelineWelcome({
     return subscribeToRecentDestinations(refreshRecent);
   }, []);
 
-  return (
-    <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#111111]">
-      <div className={`mx-auto flex min-h-full w-full max-w-[1240px] flex-col px-5 md:px-8 ${showWelcome ? "py-8 md:py-10" : "py-4 md:py-5"}`}>
-        {!welcomeResolved ? <WelcomeSkeleton /> : null}
-
-        {welcomeResolved && showWelcome && welcomeKind && !searchOpen ? (
-          <div>
-            <h1 className="text-[42px] font-semibold leading-[1.02] text-[#111111] md:text-[58px]">
-              {welcomeKind === "first" ? "Welcome" : "Welcome back"}, {welcomeName}.
-            </h1>
-            <p className="mt-3 max-w-[560px] text-[15px] font-normal leading-6 text-[#595959]">
-              Move referrals through assessment and keep every client record current.
-            </p>
-          </div>
-        ) : null}
-
-        {welcomeResolved && !searchOpen ? (
-          <div className={`${showWelcome ? "mt-8 md:mt-10" : "mt-1"} grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.42fr)_minmax(340px,0.88fr)]`}>
-            <MyQueue
-              ownerName={welcomeName}
-              onOpenPacket={onOpenPacket}
-              onOpenOperations={onOpenOperations}
-            />
-            <RecentWork
-              items={recentItems}
-              onOpenRecent={onOpenRecent}
-              className="mt-0"
-            />
-          </div>
-        ) : null}
-
-        {welcomeResolved && searchOpen ? (
+  if (searchOpen) {
+    return (
+      <main className="h-full overflow-y-auto bg-white px-5 py-4 text-[#111111] md:px-8">
+        <div className="mx-auto w-full max-w-[1280px]">
           <PipelineSearchPanel
             autoFocus
-            className="mt-1"
             onOpenPacket={onOpenPacket}
             onOpenProfile={onOpenProfile}
             onOpenDestination={onOpenSearchDestination}
           />
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-[#fbfcfb] text-[#202320]">
+      <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-4 sm:px-6 lg:px-8">
+        <header className="flex min-h-[62px] flex-wrap items-end justify-between gap-3 border-b border-[#d8dedb] pb-4">
+          <div>
+            <div className="text-[11px] font-semibold text-[#626a65]">{formatLongDate(new Date())}</div>
+            <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.035em] text-[#202320] sm:text-[32px]">
+              {briefing ? `${daypart()}, ${firstName(briefing.viewer.name)}.` : "Home"}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {briefing ? (
+              <span className="text-[11px] font-semibold text-[#626a65]">
+                {briefing.scope === "team" ? "Team view" : "Your work"}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              aria-label="Refresh home"
+              title="Refresh home"
+              onClick={() => void loadBriefing()}
+              className="flex h-8 w-8 items-center justify-center border border-[#b9c6c1] bg-white text-[#176f60] hover:border-[#0f8b73]"
+            >
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+            </button>
+          </div>
+        </header>
+
+        {error ? (
+          <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
+            <span>{error}</span>
+            <button type="button" onClick={() => void loadBriefing()} className="font-semibold underline underline-offset-2">Retry</button>
+          </div>
         ) : null}
 
+        {!briefing && !error ? <HomeSkeleton /> : null}
+        {briefing ? (
+          <div className="mt-4 space-y-4">
+            {briefing.unavailable_sections.length > 0 ? (
+              <div role="status" className="border-l-2 border-[#b77b27] bg-[#fff8eb] px-4 py-2.5 text-[11px] text-[#73501f]">
+                Some Home sections are temporarily unavailable. Available work remains current.
+              </div>
+            ) : null}
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
+              <ActivityPanel briefing={briefing} onOpenPacket={onOpenPacket} />
+              <CurrentWorkPanel briefing={briefing} onOpenPacket={onOpenPacket} />
+            </div>
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
+              <UpcomingPanel briefing={briefing} onOpenPacket={onOpenPacket} />
+              <RecentPanel items={recentItems} onOpenRecent={onOpenRecent} />
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   );
 }
 
-function WelcomeSkeleton() {
+function ActivityPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
   return (
-    <div aria-label="Loading home" aria-busy="true" className="min-h-[300px] animate-pulse pt-1">
-      <div className="h-12 w-full max-w-[520px] rounded bg-[#f0f2f1]" />
-      <div className="mt-4 h-5 w-full max-w-[430px] rounded bg-[#f5f6f5]" />
-    </div>
-  );
-}
-
-function getFirstName(displayName: string) {
-  const trimmedName = displayName.trim();
-  const naturalOrderName = trimmedName.includes(",")
-    ? trimmedName.split(",").slice(1).join(",").trim()
-    : trimmedName;
-
-  return naturalOrderName.split(/\s+/).find(Boolean) ?? trimmedName;
-}
-
-function readStorage(storage: Storage, key: string) {
-  try {
-    return storage.getItem(key) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function writeStorage(storage: Storage, key: string) {
-  try {
-    storage.setItem(key, "true");
-  } catch {
-    // The greeting remains usable when browser storage is unavailable.
-  }
-}
-
-function MyQueue({
-  ownerName,
-  onOpenPacket,
-  onOpenOperations,
-}: {
-  ownerName: string;
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
-  onOpenOperations: () => void;
-}) {
-  const [queue, setQueue] = useState<MyQueueSnapshot | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
-  const queueSequence = useRef(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    let loading = false;
-    let checking = false;
-    const controller = new AbortController();
-    const loadQueue = async () => {
-      if (loading) return;
-      loading = true;
-      try {
-        const payload = await fetchPipelineJson<MyQueueSnapshot & { sequence?: number }>("/api/operations/my-queue", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (!cancelled) {
-          setQueue(payload);
-          if (Number.isSafeInteger(payload.sequence) && Number(payload.sequence) >= 0) {
-            queueSequence.current = Number(payload.sequence);
-          }
-          setLoadFailed(false);
-        }
-      } catch {
-        if (!cancelled) {
-          setLoadFailed(true);
-        }
-      } finally {
-        loading = false;
-      }
-    };
-    const checkForQueueChanges = async () => {
-      if (checking || loading) return;
-      checking = true;
-      try {
-        const change = await fetchPipelineJson<{ changed?: boolean; sequence?: number }>(
-          `/api/referrals/changes?after=${queueSequence.current}`,
-          { cache: "no-store", signal: controller.signal },
-        );
-        if (Number.isSafeInteger(change.sequence) && Number(change.sequence) >= 0) {
-          queueSequence.current = Number(change.sequence);
-        }
-        if (change.changed) await loadQueue();
-      } catch {
-        // Keep the last successful queue and retry on the next heartbeat.
-      } finally {
-        checking = false;
-      }
-    };
-    const refreshOnFocus = () => void checkForQueueChanges();
-    void loadQueue();
-    const interval = window.setInterval(() => void checkForQueueChanges(), 10_000);
-    window.addEventListener("focus", refreshOnFocus);
-    return () => {
-      cancelled = true;
-      controller.abort();
-      window.clearInterval(interval);
-      window.removeEventListener("focus", refreshOnFocus);
-    };
-  }, []);
-
-  const items = queue?.items.slice(0, 5) ?? [];
-  const summary = summarizeQueue(queue?.items ?? []);
-
-  return (
-    <section data-guide-target="my-queue" aria-label="Your assigned work" className="flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#c9d3cf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_8px_24px_rgba(28,58,49,0.06)] sm:min-h-[330px] xl:min-h-[360px]">
-      <div className="flex min-h-[88px] items-center justify-between gap-5 border-b border-[#dce3e0] px-6 py-5 md:px-7">
-        <div className="min-w-0">
-          <h2 className="text-[22px] font-black leading-tight text-[#111111]">Your work</h2>
-          <p className="mt-1.5 text-[13px] leading-5 text-[#656565]">Assigned referral actions, ordered by urgency</p>
-        </div>
-        <button
-          type="button"
-          onClick={onOpenOperations}
-          title={loadFailed && queue ? "The latest queue refresh failed. Showing the last successful snapshot." : undefined}
-          className={`min-w-[108px] shrink-0 rounded-sm border px-4 py-2.5 text-[12px] font-black transition-colors ${loadFailed && queue ? "border-[#d7bd84] bg-[#fffaf0] text-[#8a6118] hover:bg-[#fff5df]" : "border-[#9fcbbd] bg-[#f4faf7] text-[#0c705f] hover:border-[#0f8b73] hover:bg-[#e9f6f0]"}`}
-        >
-          {queue ? loadFailed ? "Refresh failed" : `${queue.total} open` : ownerName || "Loading"}
-        </button>
-      </div>
-      {queue ? (
-        <dl className="grid grid-cols-3 border-b border-[#dce3e0] bg-[#fafcfb]">
-          <QueueSummaryItem label="Due today" value={summary.dueToday} tone={summary.dueToday > 0 ? "attention" : "neutral"} />
-          <QueueSummaryItem label="Overdue" value={summary.overdue} tone={summary.overdue > 0 ? "critical" : "neutral"} />
-          <QueueSummaryItem label="Blocked" value={summary.blocked} tone={summary.blocked > 0 ? "critical" : "neutral"} last />
-        </dl>
-      ) : null}
-      {loadFailed && !queue ? (
-        <button type="button" onClick={onOpenOperations} className="flex flex-1 flex-col justify-center px-7 py-10 text-left hover:bg-[#fff9f7]">
-          <span className="text-[16px] font-black text-[#a04436]">Assigned work is unavailable</span>
-          <span className="mt-2 max-w-[460px] text-[13px] leading-5 text-[#666666]">Open Operations to review assignments and retry the current snapshot.</span>
-        </button>
-      ) : !queue ? (
-        <QueueSkeleton />
-      ) : items.length === 0 ? (
-        <div className="flex flex-1 flex-col justify-center px-7 py-10">
-          <div className="text-[17px] font-black text-[#111111]">No assigned actions</div>
-          <p className="mt-2 max-w-[470px] text-[13px] leading-6 text-[#666666]">Referral and requirement assignments will appear here with their deadline and next step.</p>
-        </div>
+    <section aria-label="Last 24 hours" className="min-w-0 border border-[#d8dedb] bg-white">
+      <SectionHeader
+        title="Last 24 hours"
+        detail={briefing.unavailable_sections.includes("activity")
+          ? "Unavailable"
+          : `${briefing.activity.length}${briefing.activity_truncated ? "+" : ""} ${briefing.scope === "team" ? "team actions" : "actions"}`}
+      />
+      {briefing.unavailable_sections.includes("activity") ? (
+        <UnavailableLine />
+      ) : briefing.activity.length === 0 ? (
+        <EmptyLine>No recorded activity in the last 24 hours.</EmptyLine>
       ) : (
-        <div className="flex-1 divide-y divide-[#dfe5e2]">
-          {items.map((item) => (
+        <div className="max-h-[340px] divide-y divide-[#e5e9e7] overflow-y-auto">
+          {briefing.activity.map((item) => (
             <button
               key={item.id}
               type="button"
-              onClick={() => onOpenPacket({
-                id: item.referral_id,
-                name: item.client_name,
-                community: item.community as Referral["community"],
-              })}
-              className="group grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-5 border-l-[3px] border-transparent px-6 py-4 text-left transition-colors hover:border-[#0f8b73] hover:bg-[#f6faf8] focus-visible:border-[#0f8b73] focus-visible:bg-[#f6faf8] focus-visible:outline-none md:px-7"
+              onClick={() => onOpenPacket({ id: item.referral_id, name: item.client_name, community: item.community as Referral["community"] })}
+              className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-4 px-4 py-3 text-left hover:bg-[#f5faf8] sm:px-5"
             >
               <span className="min-w-0">
-                <span className="block truncate text-[16px] font-black text-[#111111]">{item.client_name}</span>
-                <span className="mt-1 block truncate text-[12px] font-semibold text-[#595959]">{item.community}</span>
-                <span className="mt-2 block line-clamp-2 text-[13px] leading-5 text-[#666666]">{item.next_action}</span>
+                <span className="block truncate text-[13px] font-semibold text-[#202320]">{item.label}</span>
+                <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.client_name} · {item.community} · {item.actor_name}</span>
               </span>
-              <span className="self-center text-right">
-                <span className={`block text-[10px] font-black uppercase tracking-[0.08em] ${queueUrgencyColor(item.urgency)}`}>
-                  {queueUrgencyLabel(item.urgency)}
-                </span>
-                <span className="mt-1.5 block text-[11px] text-[#6f6f6f]">{formatQueueDueDate(item.due_at)}</span>
-              </span>
+              <span className="pt-0.5 text-[10px] font-semibold text-[#6e746f]">{relativeTime(item.occurred_at)}</span>
             </button>
           ))}
         </div>
@@ -308,89 +182,108 @@ function MyQueue({
   );
 }
 
-function QueueSkeleton() {
+function CurrentWorkPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
   return (
-    <div aria-label="Loading queue" aria-busy="true" className="flex-1 divide-y divide-[#e5e5e5]">
-      {Array.from({ length: 3 }, (_, index) => (
-        <div key={index} className="grid grid-cols-[minmax(0,1fr)_56px] gap-4 px-5 py-4">
-          <div className="animate-pulse">
-            <div className="h-3.5 w-2/5 rounded bg-[#e9ecea]" />
-            <div className="mt-2 h-2.5 w-3/5 rounded bg-[#f0f2f1]" />
-            <div className="mt-2 h-2.5 w-4/5 rounded bg-[#f4f5f4]" />
-          </div>
-          <div className="h-3 animate-pulse rounded bg-[#f0f2f1]" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function QueueSummaryItem({
-  label,
-  value,
-  tone,
-  last = false,
-}: {
-  label: string;
-  value: number;
-  tone: "neutral" | "attention" | "critical";
-  last?: boolean;
-}) {
-  const toneClass = tone === "critical"
-    ? "text-[#a04436]"
-    : tone === "attention"
-      ? "text-[#9b5b0b]"
-      : "text-[#111111]";
-  return (
-    <div className={`px-6 py-4 ${last ? "" : "border-r border-[#dce3e0]"}`}>
-      <dt className="text-[10px] font-black uppercase tracking-[0.1em] text-[#737373]">{label}</dt>
-      <dd className={`mt-1 text-[22px] font-black leading-none ${toneClass}`}>{value}</dd>
-    </div>
-  );
-}
-
-function RecentWork({
-  items,
-  onOpenRecent,
-  className = "",
-}: {
-  items: PipelineRecentDestination[];
-  onOpenRecent: (destination: PipelineRecentDestination) => void;
-  className?: string;
-}) {
-  return (
-    <section data-guide-target="recent-work" aria-label="Recent" className={`flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-md border border-[#c9d3cf] border-t-[3px] border-t-[#4568b1] bg-white shadow-[0_8px_24px_rgba(37,54,94,0.05)] sm:min-h-[330px] xl:min-h-[360px] ${className}`}>
-      <div className="flex min-h-[88px] items-center justify-between gap-5 border-b border-[#dce3e0] px-6 py-5">
-        <div className="min-w-0">
-          <h2 className="text-[22px] font-black leading-tight text-[#111111]">Recent</h2>
-          <p className="mt-1.5 text-[13px] leading-5 text-[#656565]">Resume where you left off</p>
-        </div>
-        <span className="shrink-0 rounded-sm bg-[#f1f4fb] px-3 py-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#4568b1]">Last five</span>
-      </div>
-      {items.length === 0 ? (
-        <div className="flex flex-1 flex-col justify-center px-7 py-10">
-          <div className="text-[17px] font-black text-[#111111]">Nothing opened yet</div>
-          <p className="mt-2 max-w-[360px] text-[13px] leading-6 text-[#666666]">Client profiles and referral workspaces you open will appear here.</p>
-        </div>
+    <section data-guide-target="my-queue" aria-label="Current work" className="min-w-0 border border-[#d8dedb] bg-white">
+      <SectionHeader title="Current work" detail={briefing.unavailable_sections.includes("current_work") ? "Unavailable" : `${briefing.current_work.total} assigned`} />
+      {briefing.unavailable_sections.includes("current_work") ? (
+        <UnavailableLine />
+      ) : briefing.current_work.items.length === 0 ? (
+        <EmptyLine>No assigned actions.</EmptyLine>
       ) : (
-        <div className="flex-1 divide-y divide-[#dfe5e2]">
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onOpenRecent(item)}
-              className="group block w-full min-w-0 border-l-[3px] border-transparent px-6 py-4 text-left transition-colors hover:border-[#4568b1] hover:bg-[#f7f8fc] focus-visible:border-[#4568b1] focus-visible:bg-[#f7f8fc] focus-visible:outline-none"
-            >
-              <span className="flex min-w-0 items-start justify-between gap-4">
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-black text-[#111111]">{recentTitle(item)}</span>
-                  <span className="mt-1.5 block truncate text-[13px] text-[#666666]">{recentDetail(item)}</span>
-                </span>
-                <span className="shrink-0 pt-0.5 text-right">
-                  <span className="block text-[10px] font-black uppercase tracking-[0.1em] text-[#4568b1]">{recentKindLabel(item)}</span>
-                  <span className="mt-1.5 block text-[11px] text-[#6f6f6f]">{formatRecentTime(item.visitedAt)}</span>
-                </span>
+        <div className="divide-y divide-[#e5e9e7]">
+          {briefing.current_work.items.map((item) => <QueueRow key={item.id} item={item} onOpenPacket={onOpenPacket} />)}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function QueueRow({ item, onOpenPacket }: { item: MyQueueItem } & Pick<BriefingPanelProps, "onOpenPacket">) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenPacket({ id: item.referral_id, name: item.client_name, community: item.community as Referral["community"] })}
+      className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left hover:bg-[#f5faf8]"
+    >
+      <span className="min-w-0">
+        <span className="block truncate text-[13px] font-semibold">{item.client_name}</span>
+        <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.next_action}</span>
+      </span>
+      <span className={`pt-0.5 text-[9px] font-bold uppercase tracking-[0.08em] ${urgencyColor(item.urgency)}`}>{urgencyLabel(item.urgency)}</span>
+    </button>
+  );
+}
+
+function UpcomingPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
+  return (
+    <section aria-label="Upcoming" className="min-w-0 border border-[#d8dedb] bg-white">
+      <SectionHeader title="Upcoming" detail={briefing.unavailable_sections.includes("upcoming") ? "Unavailable" : "Next 7 days"} icon={<CalendarClock size={15} />} />
+      {briefing.unavailable_sections.includes("upcoming") ? (
+        <UnavailableLine />
+      ) : briefing.upcoming.length === 0 && briefing.unscheduled.length === 0 ? (
+        <EmptyLine>No scheduled assessments or follow-ups.</EmptyLine>
+      ) : (
+        <div className="divide-y divide-[#e5e9e7]">
+          {briefing.upcoming.slice(0, 6).map((event) => <ScheduleRow key={event.id} event={event} onOpenPacket={onOpenPacket} />)}
+          {briefing.unscheduled.slice(0, Math.max(0, 6 - briefing.upcoming.length)).map((item) => (
+            <UnscheduledRow key={item.referralId} item={item} onOpenPacket={onOpenPacket} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } & Pick<BriefingPanelProps, "onOpenPacket">) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenPacket({ id: event.referralId, name: event.clientName, community: event.community as Referral["community"] })}
+      className="grid w-full grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left hover:bg-[#f5faf8] sm:px-5"
+    >
+      <span className="text-[10px] font-semibold text-[#176f60]">{formatScheduleDate(event)}</span>
+      <span className="min-w-0">
+        <span className="block truncate text-[13px] font-semibold">{event.clientName}</span>
+        <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{event.title} · {event.community}</span>
+      </span>
+      <span className="text-[10px] text-[#6e746f]">{methodLabel(event.method)}</span>
+    </button>
+  );
+}
+
+function UnscheduledRow({ item, onOpenPacket }: { item: PipelineUnscheduledAssessment } & Pick<BriefingPanelProps, "onOpenPacket">) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenPacket({ id: item.referralId, name: item.clientName, community: item.community as Referral["community"] })}
+      className="grid w-full grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left hover:bg-[#fff9ef] sm:px-5"
+    >
+      <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[#9a641c]">Schedule</span>
+      <span className="min-w-0">
+        <span className="block truncate text-[13px] font-semibold">{item.clientName}</span>
+        <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.community} · {item.owner}</span>
+      </span>
+      <ArrowRight size={14} className="text-[#9a641c]" />
+    </button>
+  );
+}
+
+function RecentPanel({ items, onOpenRecent }: { items: PipelineRecentDestination[]; onOpenRecent: (destination: PipelineRecentDestination) => void }) {
+  return (
+    <section data-guide-target="recent-work" aria-label="Recent" className="min-w-0 border border-[#d8dedb] bg-white">
+      <SectionHeader title="Recent" detail="Your last five" />
+      {items.length === 0 ? (
+        <EmptyLine>Opened referrals and profiles will appear here.</EmptyLine>
+      ) : (
+        <div className="divide-y divide-[#e5e9e7]">
+          {items.slice(0, 5).map((item) => (
+            <button key={item.id} type="button" onClick={() => onOpenRecent(item)} className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left hover:bg-[#f5f7fb]">
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-semibold">{recentTitle(item)}</span>
+                <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.detail}</span>
               </span>
+              <span className="pt-0.5 text-[10px] text-[#6e746f]">{relativeTime(item.visitedAt)}</span>
             </button>
           ))}
         </div>
@@ -399,77 +292,84 @@ function RecentWork({
   );
 }
 
-function recentKindLabel(item: PipelineRecentDestination) {
-  if (item.kind === "profile") return "Profile";
-  if (item.kind === "referral") return "Workspace";
-  if (item.screen === "packet") return "New referral";
-  if (item.screen === "operations") return "Operations";
-  return "Page";
+type BriefingPanelProps = {
+  briefing: HomeBriefingSnapshot;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+};
+
+function SectionHeader({ title, detail, icon }: { title: string; detail: string; icon?: ReactNode }) {
+  return (
+    <div className="flex h-11 items-center justify-between gap-3 border-b border-[#d8dedb] px-4 sm:px-5">
+      <h2 className="flex items-center gap-2 text-[13px] font-semibold">{icon}{title}</h2>
+      <span className="text-[10px] font-semibold text-[#626a65]">{detail}</span>
+    </div>
+  );
+}
+
+function EmptyLine({ children }: { children: ReactNode }) {
+  return <div className="px-5 py-10 text-center text-[12px] text-[#626a65]">{children}</div>;
+}
+
+function UnavailableLine() {
+  return <div className="px-5 py-10 text-center text-[12px] text-[#8a5a10]">Temporarily unavailable. Refresh to try again.</div>;
+}
+
+function HomeSkeleton() {
+  return (
+    <div aria-label="Loading home" aria-busy="true" className="mt-4 grid animate-pulse gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
+      <div className="h-[250px] border border-[#e1e5e3] bg-white" />
+      <div className="h-[250px] border border-[#e1e5e3] bg-white" />
+    </div>
+  );
+}
+
+function firstName(value: string) {
+  const naturalOrder = value.includes(",") ? value.split(",").slice(1).join(",").trim() : value.trim();
+  return naturalOrder.split(/\s+/).find(Boolean) ?? value;
+}
+
+function daypart() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function formatLongDate(value: Date) {
+  return value.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+}
+
+function relativeTime(value: string) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return "Recently";
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+  if (minutes < 1) return "Now";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
+}
+
+function formatScheduleDate(event: PipelineCalendarEvent) {
+  const date = new Date(event.startsAt ?? `${event.date}T12:00:00`);
+  if (!Number.isFinite(date.getTime())) return event.date;
+  const day = date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  if (!event.startsAt) return day;
+  return `${day} · ${date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+}
+
+function methodLabel(value?: string) {
+  const labels: Record<string, string> = { in_person: "In person", phone: "Phone", zoom: "Zoom", video: "Zoom", record_review: "Record review" };
+  return labels[value ?? ""] ?? "";
+}
+
+function urgencyLabel(value: MyQueueUrgency) {
+  return { overdue: "Overdue", blocked: "Blocked", due_soon: "Due soon", stale: "Stale", normal: "Next" }[value];
+}
+
+function urgencyColor(value: MyQueueUrgency) {
+  return value === "overdue" || value === "blocked" ? "text-[#a9473d]" : value === "due_soon" ? "text-[#9a641c]" : "text-[#176f60]";
 }
 
 function recentTitle(item: PipelineRecentDestination) {
   return item.id === "page:referrals" ? "Workspaces" : item.title;
-}
-
-function recentDetail(item: PipelineRecentDestination) {
-  return item.id === "page:referrals" ? "Client referral records" : item.detail;
-}
-
-function formatRecentTime(value: string) {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return "Recently";
-  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
-  if (elapsedMinutes < 1) return "Just now";
-  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `${elapsedHours}h ago`;
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  return elapsedDays === 1 ? "Yesterday" : `${elapsedDays}d ago`;
-}
-
-function queueUrgencyLabel(urgency: MyQueueUrgency) {
-  return {
-    overdue: "Overdue",
-    blocked: "Blocked",
-    due_soon: "Due soon",
-    stale: "Stale",
-    normal: "Next",
-  }[urgency];
-}
-
-function queueUrgencyColor(urgency: MyQueueUrgency) {
-  return {
-    overdue: "text-[#a04436]",
-    blocked: "text-[#a04436]",
-    due_soon: "text-[#9b5b0b]",
-    stale: "text-[#6b5b2c]",
-    normal: "text-[#0f8b73]",
-  }[urgency];
-}
-
-function summarizeQueue(items: MyQueueSnapshot["items"]) {
-  const today = localDateKey(new Date());
-  return {
-    dueToday: items.filter((item) => item.due_at?.slice(0, 10) === today).length,
-    overdue: items.filter((item) => item.urgency === "overdue").length,
-    blocked: items.filter((item) => item.urgency === "blocked").length,
-  };
-}
-
-function formatQueueDueDate(value: string | null) {
-  if (!value) return "No deadline";
-  const dateKey = value.slice(0, 10);
-  const today = localDateKey(new Date());
-  if (dateKey === today) return "Due today";
-
-  const parsed = new Date(`${dateKey}T12:00:00`);
-  if (!Number.isFinite(parsed.getTime())) return "Deadline set";
-  return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function localDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }

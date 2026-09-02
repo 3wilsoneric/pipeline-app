@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, ArrowRight, CircleHelp, GraduationCap, LogOut, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, CircleHelp, GraduationCap, LogOut, Trash2, UserRound } from "lucide-react";
 
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
@@ -13,7 +13,6 @@ import { getAccountDisplayName } from "@/lib/auth/entra-client";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/client-navigation";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
-import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
 
 export default function PipelineHeader() {
@@ -64,12 +63,10 @@ export default function PipelineHeader() {
   }, [isProfileMenuOpen]);
 
   const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : "Eric Wilson");
-  const operationsActive = activeSearchParams.get("screen") === "operations";
   const trashActive = activeSearchParams.get("screen") === "trash";
   const isWelcomeSurface = homeMode === "welcome"
     && pathname === "/"
     && activeNav === null
-    && !operationsActive
     && !searchOpen;
   const hideGlobalGuide = pathname === "/note-lab" || pathname.startsWith("/note-lab/");
 
@@ -123,13 +120,13 @@ export default function PipelineHeader() {
           data-pipeline-home="true"
           data-guide-target="pipeline-home"
           data-platform-page-active="pipeline"
-          className="flex h-12 w-[72px] items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] max-[359px]:w-14"
+          className="flex h-12 w-[72px] items-center justify-center outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] max-sm:h-9 max-sm:w-12"
         >
           <PipelineLogoMark size={32} />
         </button>
       </div>
 
-      <div className="pipeline-nav-dock-enter ml-3 min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-3 max-[359px]:ml-1 sm:ml-6">
+      <div className="pipeline-nav-dock-enter ml-3 min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-3 max-sm:ml-1 sm:ml-6">
         <div className="pointer-events-auto w-max">
           <PipelineActionNav
             active={activeNav}
@@ -149,7 +146,7 @@ export default function PipelineHeader() {
             title="Guided tutorials"
             data-guide-target="guided-help"
             onClick={() => dispatchOperatorGuide({ type: "open-library" })}
-            className="mr-1 flex h-12 w-10 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 max-[359px]:h-9 max-[359px]:w-9"
+            className="mr-1 hidden h-12 w-10 shrink-0 items-center justify-center rounded-md text-[#0f8b73] outline-none hover:bg-[#eff8f5] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 sm:flex"
           >
             <CircleHelp size={18} strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -164,7 +161,7 @@ export default function PipelineHeader() {
             data-profile-scope="signed-in-user"
             data-guide-target="profile-menu"
             onClick={() => setIsProfileMenuOpen((open) => !open)}
-            className="flex h-12 max-w-[190px] shrink-0 items-center gap-2 rounded-md border border-transparent px-3 text-[#595959] outline-none transition-colors hover:bg-[#f7faf9] hover:text-[#111111] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 aria-expanded:border-[#b8dacf] aria-expanded:bg-[#effaf5] max-[359px]:h-9 max-[359px]:w-9 max-[359px]:justify-center max-[359px]:px-0"
+            className="flex h-12 max-w-[190px] shrink-0 items-center gap-2 rounded-md border border-transparent px-3 text-[#595959] outline-none transition-colors hover:bg-[#f7faf9] hover:text-[#111111] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 aria-expanded:border-[#b8dacf] aria-expanded:bg-[#effaf5] max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0"
           >
             <UserRound size={18} strokeWidth={1.8} className="shrink-0 text-[#0f8b73]" />
             <span className="hidden truncate text-[12px] font-black uppercase tracking-[0.1em] xl:inline">{signedInName}</span>
@@ -187,35 +184,6 @@ export default function PipelineHeader() {
                 </div>
               </div>
               <ProfileLearningLink active={pathname === "/training"} onSelect={() => setIsProfileMenuOpen(false)} />
-              <Link
-                href="/?screen=operations"
-                aria-label="Pipeline operations Queue, ownership, and record gaps"
-                aria-current={operationsActive ? "page" : undefined}
-                onClick={(event) => {
-                  event.preventDefault();
-                  setIsProfileMenuOpen(false);
-                  recordRecentDestination({
-                    id: "page:operations",
-                    kind: "page",
-                    screen: "operations",
-                    title: "Pipeline operations",
-                    detail: "Queue, ownership, and record gaps",
-                  });
-                  navigateTo("operations");
-                }}
-                className={`group grid min-h-[64px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-b border-[#e5e5e5] border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${
-                  operationsActive
-                    ? "border-l-[#0f8b73] bg-[#edf7f3]"
-                    : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"
-                }`}
-              >
-                <Activity size={18} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" />
-                <span className="min-w-0">
-                  <span className="block text-[12px] font-black text-[#111111]">Operations</span>
-                  <span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Queues, ownership, and gaps</span>
-                </span>
-                <ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-              </Link>
               {user?.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role)) ? (
                 <button
                   type="button"
@@ -277,5 +245,6 @@ function getActiveNavTarget(searchParams: URLSearchParams, pathname: string): Pi
   if (pathname === "/referrals") return "referrals";
   if (searchParams.get("screen") === "referrals" || searchParams.get("view") === "referrals") return "referrals";
   if (searchParams.get("screen") === "profiles" || searchParams.get("screen") === "profile") return "profiles";
+  if (searchParams.get("screen") === "operations") return "operations";
   return null;
 }

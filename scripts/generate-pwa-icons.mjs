@@ -1,19 +1,14 @@
 #!/usr/bin/env node
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 
 const outputDirectory = "public/pwa";
 const brandMarkPath = "public/brand/pipeline-mark.svg";
-const appIconColor = "#00D084";
-const appIconMarkWidthRatio = 0.4;
+const appIconSourcePath = "public/brand/pipeline-mark.png";
 
 const brandMark = await loadImage(brandMarkPath);
-const appIconMark = await loadImage(
-  Buffer.from(
-    (await readFile(brandMarkPath, "utf8")).replace("#00A873", appIconColor),
-  ),
-);
+const appIconSource = await loadImage(appIconSourcePath);
 
 await mkdir(outputDirectory, { recursive: true });
 await Promise.all([
@@ -24,11 +19,11 @@ await Promise.all([
   renderIcon(512, 0.18, `${outputDirectory}/pipeline-icon-512-v2.png`),
   renderIcon(512, 0.2, `${outputDirectory}/pipeline-icon-maskable-512-v2.png`, "#ffffff"),
   renderFavicon(`${outputDirectory}/pipeline-favicon-32-v3.png`),
-  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v5.png`),
-  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v5.png`),
-  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v5.png`),
-  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-maskable-512-v5.png`),
-  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-maskable-1024-v5.png`),
+  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v6.png`),
+  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v6.png`),
+  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v6.png`),
+  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-maskable-512-v6.png`),
+  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-maskable-1024-v6.png`),
 ]);
 
 async function renderIcon(size, insetRatio, outputPath, backgroundColor = null) {
@@ -60,14 +55,9 @@ async function renderFavicon(outputPath) {
 async function renderAppIcon(size, outputPath) {
   const canvas = createCanvas(size, size);
   const context = canvas.getContext("2d");
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, size, size);
-
-  const markWidth = Math.round(size * appIconMarkWidthRatio);
-  const markHeight = Math.round((markWidth * appIconMark.height) / appIconMark.width);
-  const x = Math.round((size - markWidth) / 2);
-  const y = Math.round((size - markHeight) / 2);
-  context.drawImage(appIconMark, x, y, markWidth, markHeight);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(appIconSource, 0, 0, size, size);
 
   await writeFile(outputPath, canvas.toBuffer("image/png"));
 }

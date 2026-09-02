@@ -286,10 +286,9 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("heading", { name: /Welcome( back)?, / })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Search and ask" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Your assigned work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Upcoming" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
-    await expect(page.getByText("Assigned referral actions, ordered by urgency", { exact: true })).toBeVisible();
-    await expect(page.getByText("Resume where you left off", { exact: true })).toBeVisible();
 
     const queueResponse = await page.request.get("/api/operations/my-queue");
     expect(queueResponse.ok()).toBeTruthy();
@@ -1952,8 +1951,10 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.getByRole("heading", { name: "Welcome, Playwright." })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Your assigned work" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Last 24 hours" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Upcoming" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
@@ -1968,11 +1969,12 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("New referral", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Search", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Referral workspaces", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Reports", { exact: true }).first()).toBeVisible();
     const signedInProfile = page.getByRole("button", { name: "Open profile menu for Playwright QA" });
     await signedInProfile.click();
     await expect(page.getByRole("dialog", { name: "Profile menu" }).getByText("Playwright QA", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Pipeline operations Queue, ownership, and record gaps" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open operations" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Pipeline operations Queue, ownership, and record gaps" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open reports" })).toBeVisible();
     const referralsLink = page.getByRole("button", { name: "Open referrals" });
     await expect(referralsLink).toBeVisible();
     await referralsLink.hover();
@@ -1980,7 +1982,7 @@ test.describe("Pipeline home", () => {
 
     await page.getByRole("button", { name: "Open search" }).click();
     await expect(page.getByLabel("Search or ask")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Welcome, Playwright." })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
     await page.getByLabel("Search or ask").click();
     await expect(page.getByText("5 suggested searches", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Show all active referrals." })).toBeVisible();
@@ -2240,11 +2242,11 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("No clients match that search.", { exact: true })).toBeVisible();
   });
 
-  test("shows the welcome once, then returns to the home workspace", async ({ page }) => {
+  test("returns to the same operational home workspace", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { name: "Welcome, Playwright." })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Your assigned work" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     const welcomePipelinePosition = await page.locator('[data-pipeline-home="true"]').boundingBox();
 
@@ -2261,7 +2263,8 @@ test.describe("Pipeline home", () => {
     await expect(page.getByTitle("Pipeline home")).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Search and ask" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Your assigned work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Upcoming" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
 
     const queueResponse = await page.request.get("/api/operations/my-queue");
@@ -2285,7 +2288,7 @@ test.describe("Pipeline home", () => {
 
     await page.evaluate(() => window.sessionStorage.clear());
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Welcome back, Playwright." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
   });
 
   test("opens the Alamo enhanced client directory and governed profile", async ({ page }) => {
@@ -2713,27 +2716,17 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Referral history available", { exact: true }).first()).toBeVisible();
   });
 
-  test("opens the lightweight operations overview from the profile menu", async ({ page }) => {
+  test("opens the report runner from primary navigation", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: "Open profile menu for Playwright QA" }).click();
-    await page.getByRole("link", { name: "Pipeline operations Queue, ownership, and record gaps" }).click();
-    await expect(page.getByRole("heading", { name: "Operations", exact: true })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Operations summary" })).toBeVisible();
-    await expect(page.getByText("Active referrals", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Work queue", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Team", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Data gaps", exact: true })).toBeVisible();
-    const exceptionFilter = page.getByRole("combobox", { name: "Filter supervisor exceptions" });
-    await expect(exceptionFilter.getByRole("option", { name: "All exceptions" })).toBeAttached();
-    const exceptionOptionCount = await exceptionFilter.getByRole("option").count();
-    if (exceptionOptionCount === 1) {
-      await expect(page.getByText("No open exceptions", { exact: true })).toBeVisible();
-    } else {
-      expect(exceptionOptionCount).toBeGreaterThan(1);
-    }
-    await expect(page.getByText("Referral flow", { exact: true })).toHaveCount(0);
-    await expect(page.getByText("Data health", { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Open reports" }).click();
+    await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Run report" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
+    await expect(page.getByText("Work queue", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Data gaps", { exact: true })).toHaveCount(0);
   });
 });

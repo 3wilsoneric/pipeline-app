@@ -96,27 +96,27 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   ),
   tutorial(
     "operational-control",
-    "Run the operations control loop",
-    "Read queue health, filter exceptions, open evidence, reproduce a report period, and stop at the export boundary.",
-    "Operational control",
-    "Turn an operational signal into an owned next action and a reproducible report scope.",
-    8,
+    "Run and verify a report",
+    "Choose a report, set only the relevant filters, inspect the source rows, and stop at the export boundary.",
+    "Reporting",
+    "Produce a reproducible referral or assessment report without losing its scope.",
+    6,
     leadRoles,
     ["dashboard-meaning", "supervisor-exceptions", "filter-report-export", "processing-failure"],
     [
-      step("read-summary", "/?screen=operations", "operations-summary", "Detect", "Identify the operational signal", "Compare active referrals, open tasks, and overdue work in the current freshness context.", "Choose the metric that requires follow-up and state what population it represents.", "You can name the metric, scope, and limitation.", "Metrics prioritize investigation when their population is explicit.", "A summary count is not a clinical conclusion or proof of cause.", "confirm", "top", true),
-      step("filter-exceptions", "/?screen=operations", "operations-exception-filter", "Triage", "Filter the exception queue", "Separate stale, unowned, failed, or blocked work so the responsible team can act.", "Change the exception type filter.", "The queue displays the selected exception class.", "Classification turns a large warning count into an actionable population.", "Never clear an exception just to improve the dashboard.", "target-change", "bottom", true),
-      step("open-exception", "/?screen=operations", "operations-exception-list", "Investigate", "Open row-level evidence", "The referral workspace contains the owner, blocker, evidence, and activity needed to resolve an exception.", "Open an available exception row. If the queue is clear, confirm that no row is available.", "The source referral opens, or the empty queue is explicitly acknowledged.", "Row-level evidence prevents conclusions from being invented from aggregate counts.", "Opening a record is read-only; resolve only within your assigned authority.", "target-click", "top", true),
-      step("select-report-period", "/?screen=operations", "operations-report-month", "Reproduce", "Choose the assessment report month", "The period selector defines the signed-assessment population and completion-time calculation.", "Change the report month.", "The report refreshes for the selected month.", "A selected period makes the report reproducible.", "Verify freshness and scope before interpreting staff comparisons.", "target-change", "bottom", true),
+      step("open-reports", "/", "primary-reports", "Open", "Open Reports", "Reports contains the governed operational lists and exports.", "Select the highlighted Reports control.", "The report runner is open.", "One report surface keeps operational questions reproducible.", "Opening Reports is read-only and does not create an export.", "target-click", "bottom"),
+      step("choose-report", "/?screen=operations", "operations-report-select", "Choose", "Select the report", "Choose the report that directly answers the operational question.", "Select a report from the highlighted list.", "The relevant filters and preview load for that report.", "Starting with the question prevents unrelated data from entering the export.", "Supervisor exceptions are available only to authorized roles.", "target-change", "bottom"),
+      step("select-report-period", "/?screen=operations", "operations-report-month", "Scope", "Set the reporting month", "Reports that depend on time expose a month filter; other reports intentionally do not.", "If the selected report uses a month, change it now. Otherwise continue.", "The preview reflects the selected period after Run report.", "An explicit period makes the output reproducible.", "Confirm the displayed scope before interpreting staff comparisons.", "target-change", "bottom", true),
+      step("review-results", "/?screen=operations", "operations-report-results", "Verify", "Inspect the source rows", "The preview shows the records included by the report and current filters.", "Check the report title, row count, and at least one source row before exporting.", "You can explain what each row represents and which filters produced it.", "Row-level review catches scope mistakes before data leaves Pipeline.", "A report is operational evidence, not a clinical conclusion.", "confirm", "top"),
       step("export-checkpoint", "/?screen=operations", "operations-report-export", "Share", "Stop at the export boundary", "CSV creates a portable copy of the currently scoped report.", "Verify month, row count, audience, and minimum-necessary fields. Complete the guide; export yourself only through the approved workflow.", "The export is deliberately downloaded by you or withheld for correction.", "A human export checkpoint protects scope and PHI handling.", "The guide never clicks CSV or transmits report data.", "confirm", "left", true),
     ],
   ),
 ];
 
 export const operatorGuideVerifiedActionTargets: Readonly<Record<Exclude<OperatorGuideAdvance, "confirm">, readonly string[]>> = {
-  "target-click": ["pipeline-home", "primary-workspaces", "primary-calendar", "primary-new-referral", "workspace-views", "calendar-view", "workspace-results", "assessment-stage", "assessment-schedule-open", "operations-exception-list"],
+  "target-click": ["pipeline-home", "primary-workspaces", "primary-calendar", "primary-new-referral", "primary-reports", "workspace-views", "calendar-view", "workspace-results", "assessment-stage", "assessment-schedule-open"],
   "target-input": ["workspace-search", "intake-identity", "intake-medications"],
-  "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "operations-exception-filter", "operations-report-month"],
+  "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "operations-report-select", "operations-report-month"],
 };
 
 export const operatorGuidedTutorialIds = operatorGuidedTutorials.map((tutorial) => tutorial.id);
@@ -127,6 +127,7 @@ export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
   "primary-workspaces": "components/pipeline/PipelineActionNav.tsx",
   "primary-calendar": "components/pipeline/PipelineActionNav.tsx",
   "primary-new-referral": "components/pipeline/PipelineActionNav.tsx",
+  "primary-reports": "components/pipeline/PipelineActionNav.tsx",
   "my-queue": "components/pipeline/PipelineWelcome.tsx",
   "workspace-search": "components/pipeline/ReferralHome.tsx",
   "workspace-views": "components/pipeline/ReferralHome.tsx",
@@ -143,10 +144,9 @@ export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
   "assessment-schedule-open": "components/pipeline/AssessmentWorkspace.tsx",
   "assessment-schedule-fields": "components/pipeline/AssessmentWorkspace.tsx",
   "assessment-schedule-save": "components/pipeline/AssessmentWorkspace.tsx",
-  "operations-summary": "components/pipeline/OperationsDashboard.tsx",
-  "operations-exception-filter": "components/pipeline/OperationsDashboard.tsx",
-  "operations-exception-list": "components/pipeline/OperationsDashboard.tsx",
+  "operations-report-select": "components/pipeline/OperationsDashboard.tsx",
   "operations-report-month": "components/pipeline/OperationsDashboard.tsx",
+  "operations-report-results": "components/pipeline/OperationsDashboard.tsx",
   "operations-report-export": "components/pipeline/OperationsDashboard.tsx",
 };
 

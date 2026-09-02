@@ -350,7 +350,7 @@ async function verifyProductDemoSurfaces(
   const surfaces = [
     { name: "home", path: "/", mainLabel: undefined },
     { name: "referrals", path: "/?view=referrals", mainLabel: "Referral workspaces" },
-    { name: "operations", path: "/?screen=operations", mainLabel: "Operations overview" },
+    { name: "operations", path: "/?screen=operations", mainLabel: "Reports" },
   ] as const;
   const evidence: Array<{ name: string; status: number; horizontally_bounded: boolean }> = [];
 
@@ -370,8 +370,9 @@ async function verifyProductDemoSurfaces(
           name: "Open Synthetic Referral 001 referral workspace",
         })).toBeVisible({ timeout: 15_000 });
       } else {
-        await expect(page.getByRole("region", { name: "Operations summary" })).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByText(`${expectedActiveTotal} active referrals`, { exact: true })).toBeVisible();
+        const results = page.getByRole("region", { name: "Report results" });
+        await expect(results).toBeVisible({ timeout: 15_000 });
+        await expect(results).toContainText(`${expectedActiveTotal} rows`);
       }
       await expect(page.getByText("Application error", { exact: false })).toHaveCount(0);
       const horizontallyBounded = await page.evaluate(() => (

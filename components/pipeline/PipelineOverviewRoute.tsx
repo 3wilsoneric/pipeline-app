@@ -124,7 +124,6 @@ export default function PipelineOverviewRoute() {
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenRecent={openRecent}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
-        onOpenOperations={() => navigate("operations")}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
       />
     );

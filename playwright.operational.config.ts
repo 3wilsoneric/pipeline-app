@@ -16,6 +16,7 @@ process.env.PIPELINE_E2E_ASSESSMENT_STORE_PATH ??= `${storeRoot}/assessments.jso
 process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH ??= `${storeRoot}/resident-links.json`;
 process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH ??= `${storeRoot}/documents`;
 process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH ??= `${storeRoot}/desktop-state.json`;
+process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH ??= `${storeRoot}/note-lab.json`;
 
 export default defineConfig({
   testDir: "./tests/e2e/operational",
@@ -52,6 +53,7 @@ export default defineConfig({
       PIPELINE_REFERRAL_STORE_PATH: process.env.PIPELINE_E2E_REFERRAL_STORE_PATH,
       PIPELINE_ASSESSMENT_STORE_PATH: process.env.PIPELINE_E2E_ASSESSMENT_STORE_PATH,
       PIPELINE_RESIDENT_LINK_STORE_PATH: process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH,
+      PIPELINE_NOTE_LAB_STORE_PATH: process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH,
       PIPELINE_LOCAL_DOCUMENT_ROOT: process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH,
       PIPELINE_ENABLE_SYNTHETIC_PROFILES: "true",
       PIPELINE_WORKER_SHARED_SECRET: process.env.PIPELINE_WORKER_SHARED_SECRET ?? "operational-worker-secret",

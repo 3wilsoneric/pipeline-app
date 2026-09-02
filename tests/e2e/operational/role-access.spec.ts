@@ -114,4 +114,36 @@ test.describe("operational account and role boundaries", () => {
       ]);
     }
   });
+
+  test("scopes home briefings and reports to the signed-in role", async ({ baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const assessor = await actorApiContext("assessorA", url);
+    const coordinator = await actorApiContext("assessmentCoordinator", url);
+
+    try {
+      const [assessorHome, coordinatorHome] = await Promise.all([
+        assessor.get("/api/operations/home"),
+        coordinator.get("/api/operations/home"),
+      ]);
+      expect(assessorHome.status()).toBe(200);
+      expect(coordinatorHome.status()).toBe(200);
+      expect(await assessorHome.json()).toEqual(expect.objectContaining({ scope: "personal" }));
+      expect(await coordinatorHome.json()).toEqual(expect.objectContaining({ scope: "team" }));
+
+      const assessorReports = await assessor.get("/api/operations/reports?report_id=active_referrals&month=2026-09");
+      expect(assessorReports.status()).toBe(200);
+      const assessorReportBody = await assessorReports.json();
+      expect(assessorReportBody.catalog).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: "supervisor_exceptions" }),
+      ]));
+
+      const assessorExceptions = await assessor.get("/api/operations/reports?report_id=supervisor_exceptions&month=2026-09");
+      expect(assessorExceptions.status()).toBe(403);
+
+      const coordinatorExceptions = await coordinator.get("/api/operations/reports?report_id=supervisor_exceptions&month=2026-09");
+      expect(coordinatorExceptions.status()).toBe(200);
+    } finally {
+      await Promise.all([assessor.dispose(), coordinator.dispose()]);
+    }
+  });
 });

@@ -1,9 +1,9 @@
 "use client";
 
-import { CalendarDays, FolderOpen, Plus, Search, UsersRound } from "lucide-react";
+import { BarChart3, CalendarDays, FolderOpen, Plus, Search, UsersRound } from "lucide-react";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 
-export type PipelineNavTarget = "referrals" | "calendar" | "profiles" | "packet" | null;
+export type PipelineNavTarget = "referrals" | "calendar" | "profiles" | "operations" | "packet" | null;
 
 export default function PipelineActionNav({
   active = null,
@@ -18,8 +18,8 @@ export default function PipelineActionNav({
   onOpenSearch: () => void;
   onNavigate: (target: Exclude<PipelineNavTarget, null>) => void;
 }) {
-  const utilitySize = "h-11 w-11 px-0 max-[359px]:h-9 max-[359px]:w-9 xl:h-[50px] xl:w-[50px]";
-  const destinationSize = "h-11 w-11 px-0 max-[359px]:h-9 max-[359px]:w-9 md:w-[128px] md:px-3 xl:h-[50px] xl:w-[144px]";
+  const utilitySize = "h-11 w-11 px-0 max-sm:h-9 max-sm:w-9 xl:h-[50px] xl:w-[50px]";
+  const destinationSize = "h-11 w-11 px-0 max-sm:h-9 max-sm:w-9 md:w-[128px] md:px-3 xl:h-[50px] xl:w-[144px]";
   const navItem =
     "group flex shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border-2 outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current";
   const labelClass = "hidden md:inline";
@@ -33,7 +33,7 @@ export default function PipelineActionNav({
     "border-transparent bg-transparent text-[#a9473d] hover:border-[#c85b4d] hover:bg-[#fff0ed] hover:shadow-[0_4px_14px_rgba(200,91,77,0.14)]";
 
   return (
-    <div className="flex flex-nowrap items-center gap-1.5 max-[359px]:gap-1 xl:gap-2.5">
+    <div className="flex flex-nowrap items-center gap-1.5 max-sm:gap-1 xl:gap-2.5">
       <SearchNavigationButton
         visible={showSearch}
         searchOpen={searchOpen}
@@ -41,7 +41,7 @@ export default function PipelineActionNav({
         className={`${navItem} ${utilitySize}`}
         inactiveClassName={inactiveSearch}
       />
-      <nav aria-label="Primary navigation" className="flex flex-nowrap items-center gap-1.5 max-[359px]:gap-1 xl:gap-2.5">
+      <nav aria-label="Primary navigation" className="flex flex-nowrap items-center gap-1.5 max-sm:gap-1 xl:gap-2.5">
         <button
           type="button"
           aria-label="Open referrals"
@@ -114,6 +114,32 @@ export default function PipelineActionNav({
           <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>
             Clients
           </span>
+        </button>
+        <button
+          type="button"
+          aria-label="Open reports"
+          data-guide-target="primary-reports"
+          aria-current={active === "operations" ? "page" : undefined}
+          data-active={active === "operations" ? "true" : undefined}
+          title="Reports"
+          onClick={() => {
+            recordRecentDestination({
+              id: "page:operations",
+              kind: "page",
+              screen: "operations",
+              title: "Reports",
+              detail: "Referral and assessment reports",
+            });
+            onNavigate("operations");
+          }}
+          className={`${navItem} ${destinationSize} text-[#59652d] ${
+            active === "operations"
+              ? "border-[#7d8b3f] bg-[#f4f6e8] shadow-[0_4px_14px_rgba(125,139,63,0.14)]"
+              : "border-transparent bg-transparent hover:border-[#7d8b3f] hover:bg-[#f4f6e8] hover:shadow-[0_4px_14px_rgba(125,139,63,0.14)]"
+          }`}
+        >
+          <BarChart3 size={20} className="shrink-0" />
+          <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>Reports</span>
         </button>
       </nav>
       <button
