@@ -59,24 +59,24 @@ check("calibration is bounded to fifteen field reviews", store.includes("NOTE_LA
 check("the combined rail preserves the assessment section navigation",
   workspace.includes('aria-label="Assessment section navigation"')
   && workspace.includes("assessmentPracticeNavigationGroups.map")
-  && workspace.includes('aria-current={active ? "step" : undefined}')
-  && workspace.includes("startSectionWalkthrough")
-  && workspace.includes("Open guide for ${section.label}"));
-check("only authored narrative questions can open guidance and the selected section bounds the walkthrough",
+  && workspace.includes('aria-current={active ? "step" : undefined}'));
+check("only authored narrative questions expose field-level guidance",
   workspace.includes("hasUsefulWritingGuidance")
-  && workspace.includes("firstGuidedStepInSection")
-  && workspace.includes("step.section === currentStep.section")
-  && workspace.includes("setGuidedField(next.question.field)")
-  && workspace.includes("Next field")
+  && workspace.includes('question.control === "textarea"')
+  && workspace.includes("PracticeQuestionGuide")
+  && workspace.includes("<details")
+  && workspace.includes("<summary")
   && !workspace.includes("structuredQuestionGuidance")
   && !workspace.includes("/api/note-lab/session")
   && workspace.includes("Save and continue"));
-check("language guidance is an anchored question tooltip without a modal gate",
-  workspace.includes("PracticeQuestionTooltip")
+check("language guidance is an inline disclosure without a modal or forced sequence",
+  workspace.includes("PracticeQuestionGuide")
   && workspace.includes("data-practice-field")
-  && workspace.includes('role="dialog"')
-  && workspace.includes("Close guide for ${label}")
+  && workspace.includes('aria-label={`Guide for ${label}`}')
+  && !workspace.includes('role="dialog"')
   && !workspace.includes("QuestionGuidanceDialog")
+  && !workspace.includes("guidedQuestionSteps")
+  && !workspace.includes("Next field")
   && !workspace.includes("OK, go to question"));
 check("narrative guidance includes purpose, answer order, and a good example",
   workspace.includes("narrativeGuide.purpose")

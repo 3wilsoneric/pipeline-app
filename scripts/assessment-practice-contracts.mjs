@@ -59,35 +59,35 @@ check("practice cannot sign, schedule, extract, or create a clinical record",
   !workspace.includes("Sign assessment") && !workspace.includes("Schedule assessment")
   && !workspace.includes("extraction") && !workspace.includes("Create assessment")
   && !workspace.includes("Save assessment"));
-check("the walkthrough is scoped to the selected section and advances only through its guided narrative questions",
-  workspace.includes("guidedQuestionSteps")
-  && workspace.includes("firstGuidedStepInSection")
-  && workspace.includes("step.section === section.key")
-  && workspace.includes("step.section === currentStep.section")
-  && workspace.includes("startSectionWalkthrough")
-  && workspace.includes("Open guide for ${section.label}")
-  && workspace.includes("hasUsefulWritingGuidance")
-  && workspace.includes("PracticeQuestionTooltip")
-  && workspace.includes("setGuidedField(next.question.field)"));
+check("authored narrative questions expose their own compact guide disclosure",
+  workspace.includes("hasUsefulWritingGuidance")
+  && workspace.includes("PracticeQuestionGuide")
+  && workspace.includes("<details")
+  && workspace.includes("<summary")
+  && workspace.includes("Guide for ${label}"));
 check("self-evident controls cannot open filler guidance",
   workspace.includes('question.control === "textarea"')
   && !workspace.includes("structuredQuestionGuidance")
   && !workspace.includes("questionAction")
   && !workspace.includes("Open writing guide for"));
-check("question guidance stays anchored to its assessment field without a modal gate",
+check("question guidance stays inline without a modal or forced sequence",
   workspace.includes("data-practice-field")
-  && workspace.includes('role="dialog"')
-  && workspace.includes("Close guide for ${label}")
+  && workspace.includes('aria-label={`Guide for ${label}`}')
+  && !workspace.includes('role="dialog"')
   && !workspace.includes("QuestionGuidanceDialog")
+  && !workspace.includes("guidedQuestionSteps")
+  && !workspace.includes("Next field")
+  && !workspace.includes("Finish walkthrough")
   && !workspace.includes("OK, go to question"));
 check("production assessment remains a separately persisted clinical surface",
   assessmentWorkspace.includes("/api/assessments/") && assessmentWorkspace.includes("@/lib/offline/offline-assessment-store")
   && !assessmentWorkspace.includes("assessment-practice-scenario") && !assessmentWorkspace.includes("practice-assessment"));
 check("practice copy stays restrained",
   !workspace.includes("Welcome to") && !workspace.includes("How to use")
-  && workspace.includes('aria-hidden="true" />Guide') && !workspace.includes("Practice complete")
+  && workspace.includes("Guide <ChevronDown") && !workspace.includes("Practice complete")
   && !workspace.includes("Finish practice") && workspace.includes("Save and continue")
-  && workspace.includes(">Back</button>") && !workspace.includes("Next section"));
+  && workspace.includes(">Back</button>") && !workspace.includes("Next section")
+  && !workspace.includes("Open guide for ${section.label}"));
 check("section progress is recoverable and explicitly committed before advancing",
   workspace.includes("readStoredAssessmentPractice")
   && workspace.includes("writeStoredAssessmentPractice")

@@ -23,13 +23,17 @@ test.describe("Assessment practice lab", () => {
 
     const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
     await sectionRail.getByRole("button", { name: /^History\b/ }).click();
-    await page.getByRole("button", { name: "Open guide for History" }).click();
-    const guidance = page.getByRole("dialog", { name: "Guided step for Prior placements" });
-    await expect(guidance).toBeVisible();
+    const guidance = page.locator("details").filter({ has: page.getByLabel("Guide for Prior placements") });
+    await expect(guidance).not.toHaveAttribute("open", "");
+    await page.getByLabel("Guide for Prior placements").click();
+    await expect(guidance).toHaveAttribute("open", "");
     await expect(guidance.getByText(/Explain where the client lived, how long, why each setting ended/)).toBeVisible();
     await expect(guidance.getByText(/Board-and-care; approximately 8 months/)).toBeVisible();
-    await guidance.getByRole("button", { name: "Next field" }).click();
-    await expect(page.getByRole("dialog", { name: "Guided step for Prior AWOL / failed placements" })).toBeVisible();
+    const nextGuidance = page.locator("details").filter({ has: page.getByLabel("Guide for Prior AWOL / failed placements") });
+    await expect(nextGuidance).not.toHaveAttribute("open", "");
+    await page.getByLabel("Guide for Prior AWOL / failed placements").click();
+    await expect(nextGuidance).toHaveAttribute("open", "");
+    await expect(page.getByRole("button", { name: "Next field" })).toHaveCount(0);
 
     expect(clinicalRequests).toEqual([]);
   });
@@ -39,16 +43,16 @@ test.describe("Assessment practice lab", () => {
 
     const sectionRail = page.getByRole("complementary", { name: "Assessment section navigation" });
     await sectionRail.getByRole("button", { name: /^Function\b/ }).click();
-    await page.getByRole("button", { name: "Open guide for Function" }).click();
     await expect(sectionRail.getByRole("button", { name: /^Function\b/ })).toHaveAttribute("aria-current", "step");
     await expect(page.getByRole("heading", { name: "Function" })).toBeVisible();
-    const adlGuidance = page.getByRole("dialog", { name: "Guided step for ADL needs" });
-    await expect(adlGuidance).toBeVisible();
+    const adlGuidance = page.locator("details").filter({ has: page.getByLabel("Guide for ADL needs") });
+    await page.getByLabel("Guide for ADL needs").click();
+    await expect(adlGuidance).toHaveAttribute("open", "");
     await expect(adlGuidance.getByText(/State exactly what the client can do/)).toBeVisible();
     await expect(adlGuidance.getByText(/Laundry; completes sorting and folding/)).toBeVisible();
-    await adlGuidance.getByRole("button", { name: "Next field" }).click();
-    const peerGuidance = page.getByRole("dialog", { name: "Guided step for Peer interaction notes" });
-    await expect(peerGuidance).toBeVisible();
+    const peerGuidance = page.locator("details").filter({ has: page.getByLabel("Guide for Peer interaction notes") });
+    await page.getByLabel("Guide for Peer interaction notes").click();
+    await expect(peerGuidance).toHaveAttribute("open", "");
     await expect(peerGuidance.getByText(/Describe actual communication, interaction, and program participation patterns/)).toBeVisible();
     await expect(peerGuidance.getByText(/joins peers for meals daily/)).toBeVisible();
     await page.getByLabel("Ability to dress *", { exact: true }).selectOption("some_assistance");
@@ -76,10 +80,12 @@ test.describe("Assessment practice lab", () => {
     await expect(page.getByLabel("Resident name *", { exact: true })).toHaveValue("Changed synthetic name");
     await page.getByRole("button", { name: "Reset" }).click();
     await expect(page.getByLabel("Resident name *", { exact: true })).toHaveValue("Jordan Practice");
-    await expect(page.getByRole("button", { name: "Open guide for Client & referral" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Open guide for/ })).toHaveCount(0);
     await page.getByLabel("Assessment section", { exact: true }).selectOption("prior_history");
-    await page.getByRole("button", { name: "Open guide for History" }).click();
-    await expect(page.getByRole("dialog", { name: "Guided step for Prior placements" })).toBeVisible();
+    const guidance = page.locator("details").filter({ has: page.getByLabel("Guide for Prior placements") });
+    await page.getByLabel("Guide for Prior placements").click();
+    await expect(guidance).toHaveAttribute("open", "");
+    await expect(guidance.getByText("Example", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 });

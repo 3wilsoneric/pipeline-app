@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Sparkles, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
@@ -34,11 +34,6 @@ const assessmentPracticeNavigationGroups: ReadonlyArray<{
   { label: "Safety and care", sections: ["behavioral_risk", "physical_health", "legal_conservatorship"] },
   { label: "Plan and review", sections: ["social_support", "provenance_qc"] },
 ];
-
-type PracticeQuestionStep = {
-  section: AssessmentToolSection;
-  question: AssessmentInterviewQuestion;
-};
 
 type PracticeAutosaveState = "loading" | "saving" | "saved" | "failed";
 
@@ -88,7 +83,6 @@ function autosaveLabel(state: PracticeAutosaveState) {
 export default function AssessmentPracticeWorkspace({ traineeId, traineeName }: { traineeId: string; traineeName: string }) {
   const [data, setData] = useState(createAssessmentPracticeData);
   const [activeSection, setActiveSection] = useState<AssessmentToolSection>(assessmentInterviewSections[0].key);
-  const [guidedField, setGuidedField] = useState<AssessmentToolFieldKey | null>(null);
   const [autosaveState, setAutosaveState] = useState<PracticeAutosaveState>("loading");
   const [storageReady, setStorageReady] = useState(false);
   const storageKey = useMemo(
@@ -104,15 +98,6 @@ export default function AssessmentPracticeWorkspace({ traineeId, traineeName }: 
     () => new Set(getRequiredAssessmentInterviewQuestions(data).map((question) => question.field)),
     [data],
   );
-  const guidedQuestionSteps: readonly PracticeQuestionStep[] = useMemo(
-    () => assessmentInterviewSections.flatMap((item) =>
-      getAssessmentInterviewQuestions(item.key, data)
-        .filter(hasUsefulWritingGuidance)
-        .map((question) => ({ section: item.key, question }))),
-    [data],
-  );
-  const firstGuidedStepInSection = guidedQuestionSteps.find((step) => step.section === section.key) ?? null;
-
   useEffect(() => {
     setStorageReady(false);
     try {
@@ -138,15 +123,6 @@ export default function AssessmentPracticeWorkspace({ traineeId, traineeName }: 
     return () => window.clearTimeout(timeout);
   }, [activeSection, data, storageKey, storageReady]);
 
-  useEffect(() => {
-    if (!guidedField) return;
-    const frame = window.requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(`[data-practice-field="${guidedField}"]`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [activeSection, guidedField]);
-
   const update = (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => {
     setData((current) => ({ ...current, [field]: value }) as AssessmentToolData);
   };
@@ -159,36 +135,13 @@ export default function AssessmentPracticeWorkspace({ traineeId, traineeName }: 
     }
     setData(createAssessmentPracticeData());
     setActiveSection(assessmentInterviewSections[0].key);
-    setGuidedField(null);
     document.querySelector<HTMLElement>("[data-assessment-practice-scroll]")?.scrollTo({ top: 0 });
   };
 
   const chooseSection = (sectionKey: AssessmentToolSection) => {
     setAutosaveState(writeStoredAssessmentPractice(storageKey, { version: 1, activeSection: sectionKey, data }) ? "saved" : "failed");
     setActiveSection(sectionKey);
-    setGuidedField(null);
     document.querySelector<HTMLElement>("[data-assessment-practice-scroll]")?.scrollTo({ top: 0 });
-  };
-
-  const startSectionWalkthrough = () => {
-    if (!firstGuidedStepInSection) return;
-    setGuidedField(firstGuidedStepInSection.question.field);
-  };
-
-  const moveGuidedQuestion = (field: AssessmentToolFieldKey) => {
-    const currentStep = guidedQuestionSteps.find((step) => step.question.field === field);
-    if (!currentStep) {
-      setGuidedField(null);
-      return;
-    }
-    const sectionSteps = guidedQuestionSteps.filter((step) => step.section === currentStep.section);
-    const index = sectionSteps.findIndex((step) => step.question.field === field);
-    const next = sectionSteps[index + 1];
-    if (!next) {
-      setGuidedField(null);
-      return;
-    }
-    setGuidedField(next.question.field);
   };
 
   const moveSection = (offset: number) => {
@@ -216,21 +169,9 @@ export default function AssessmentPracticeWorkspace({ traineeId, traineeName }: 
           </div>
           <p className="mt-0.5 text-[10px] text-[#737b77]">Synthetic training record</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button type="button" onClick={reset} className="inline-flex h-9 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-            <RotateCcw size={13} aria-hidden="true" />Reset
-          </button>
-          <button
-            type="button"
-            onClick={startSectionWalkthrough}
-            disabled={!firstGuidedStepInSection}
-            aria-label={`Open guide for ${section.label}`}
-            title={firstGuidedStepInSection ? `Open guidance for ${section.label}` : `No guided note fields in ${section.label}`}
-            className="inline-flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[10px] font-black text-white outline-none hover:bg-[#0c705f] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#d9dfdb] disabled:text-[#737b77]"
-          >
-            <Sparkles size={13} aria-hidden="true" />Guide
-          </button>
-        </div>
+        <button type="button" onClick={reset} className="inline-flex h-9 shrink-0 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+          <RotateCcw size={13} aria-hidden="true" />Reset
+        </button>
       </header>
 
       <div className="min-h-0 flex-1 bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">
@@ -300,9 +241,6 @@ export default function AssessmentPracticeWorkspace({ traineeId, traineeName }: 
               questions={questions}
               data={data}
               requiredFields={requiredFields}
-              guidedField={guidedField}
-              onCloseGuidance={() => setGuidedField(null)}
-              onNextQuestion={moveGuidedQuestion}
               onUpdate={update}
             />
 
@@ -328,21 +266,14 @@ function PracticeQuestions({
   questions,
   data,
   requiredFields,
-  guidedField,
-  onCloseGuidance,
-  onNextQuestion,
   onUpdate,
 }: {
   questions: readonly AssessmentInterviewQuestion[];
   data: AssessmentToolData;
   requiredFields: ReadonlySet<AssessmentToolFieldKey>;
-  guidedField: AssessmentToolFieldKey | null;
-  onCloseGuidance: () => void;
-  onNextQuestion: (field: AssessmentToolFieldKey) => void;
   onUpdate: (field: AssessmentToolFieldKey, value: AssessmentToolData[AssessmentToolFieldKey]) => void;
 }) {
   const groups = [...new Set(questions.map((question) => question.group))];
-  const guidedQuestions = questions.filter(hasUsefulWritingGuidance);
   return (
     <div className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
       {groups.map((group) => (
@@ -357,10 +288,6 @@ function PracticeQuestions({
                 unableReason={getAssessmentUnableReason(data, question.field)}
                 required={requiredFields.has(question.field)}
                 inheritedFromIntake={isAssessmentIntakeInheritedField(question.field)}
-                guided={question.field === guidedField}
-                lastGuidedField={guidedQuestions.at(-1)?.field === question.field}
-                onCloseGuidance={onCloseGuidance}
-                onNextQuestion={() => onNextQuestion(question.field)}
                 onUnableReasonChange={(reason) => onUpdate("unable_to_assess_reasons", setAssessmentUnableReason(data.unable_to_assess_reasons, question.field, reason))}
                 onUpdate={(value) => onUpdate(question.field, value)}
               />
@@ -378,10 +305,6 @@ function PracticeField({
   unableReason,
   required,
   inheritedFromIntake,
-  guided,
-  lastGuidedField,
-  onCloseGuidance,
-  onNextQuestion,
   onUnableReasonChange,
   onUpdate,
 }: {
@@ -390,10 +313,6 @@ function PracticeField({
   unableReason: string;
   required: boolean;
   inheritedFromIntake: boolean;
-  guided: boolean;
-  lastGuidedField: boolean;
-  onCloseGuidance: () => void;
-  onNextQuestion: () => void;
   onUnableReasonChange: (reason: string) => void;
   onUpdate: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
 }) {
@@ -415,45 +334,35 @@ function PracticeField({
       </div>
       <PracticeControl question={question} value={value} unableReason={unableReason} onUnableReasonChange={onUnableReasonChange} onUpdate={onUpdate} />
       {question.help ? <p className="mt-1.5 text-[10px] leading-4 text-[#737373]">{question.help}</p> : null}
-      {guided ? <PracticeQuestionTooltip question={question} lastGuidedField={lastGuidedField} onClose={onCloseGuidance} onNext={onNextQuestion} /> : null}
+      {hasUsefulWritingGuidance(question) ? <PracticeQuestionGuide question={question} /> : null}
     </div>
   );
 }
 
-function PracticeQuestionTooltip({ question, lastGuidedField, onClose, onNext }: {
-  question: AssessmentInterviewQuestion;
-  lastGuidedField: boolean;
-  onClose: () => void;
-  onNext: () => void;
-}) {
+function PracticeQuestionGuide({ question }: { question: AssessmentInterviewQuestion }) {
   const specification = getAssessmentFieldWritingSpec(question.field);
   const narrativeGuide = getAssessmentNarrativeGuide(question.field);
   if (!specification || !narrativeGuide) return null;
   const label = assessmentInterviewFieldLabel(question.field);
   return (
-    <aside role="dialog" aria-label={`Guided step for ${label}`} className="relative z-10 mt-4 border border-[#84b9aa] bg-white p-4 shadow-[0_12px_28px_rgba(28,52,45,0.16)]">
-      <span className="absolute -top-2 left-6 h-4 w-4 rotate-45 border-l border-t border-[#84b9aa] bg-white" aria-hidden="true" />
-      <button type="button" onClick={onClose} aria-label={`Close guide for ${label}`} className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center text-[#6b746f] outline-none hover:bg-[#f0f4f2] hover:text-[#202522] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-        <X size={14} aria-hidden="true" />
-      </button>
-      <div className="pr-8 text-[9px] font-black uppercase tracking-[0.08em] text-[#0f6f5d]">{label}</div>
-      <p className="mt-1.5 text-[12px] leading-5 text-[#4f5954]">{narrativeGuide.purpose}</p>
-      <div className="mt-3 grid gap-3 border-t border-[#e1e4e2] pt-3 lg:grid-cols-2">
-        <div>
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#6b746f]">Use this order</div>
-          <p className="mt-1 text-[11px] font-semibold leading-5 text-[#303a36]">{specification.formatTemplate}</p>
-        </div>
-        <div className="border-l-2 border-[#0f8b73] pl-3">
-          <div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#52615b]">Example</div>
-          <p className="mt-1.5 text-[13px] font-semibold leading-6 text-[#24312c]">{specification.strongExample}</p>
+    <details className="group mt-2">
+      <summary aria-label={`Guide for ${label}`} className="flex w-fit cursor-pointer list-none items-center gap-1 text-[9px] font-black uppercase tracking-[0.06em] text-[#0f7d69] outline-none hover:text-[#0a6555] focus-visible:ring-2 focus-visible:ring-[#0f8b73] [&::-webkit-details-marker]:hidden">
+        Guide <ChevronDown size={12} className="transition-transform group-open:rotate-180" aria-hidden="true" />
+      </summary>
+      <div className="mt-2 border-l-2 border-[#84b9aa] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(28,52,45,0.10)]">
+        <p className="text-[12px] leading-5 text-[#4f5954]">{narrativeGuide.purpose}</p>
+        <div className="mt-3 grid gap-3 border-t border-[#e1e4e2] pt-3 lg:grid-cols-2">
+          <div>
+            <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#6b746f]">Use this order</div>
+            <p className="mt-1 text-[11px] font-semibold leading-5 text-[#303a36]">{specification.formatTemplate}</p>
+          </div>
+          <div className="border-l-2 border-[#0f8b73] pl-3">
+            <div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#52615b]">Example</div>
+            <p className="mt-1.5 text-[13px] font-semibold leading-6 text-[#24312c]">{specification.strongExample}</p>
+          </div>
         </div>
       </div>
-      <div className="mt-4 flex justify-end">
-        <button type="button" onClick={onNext} className="inline-flex h-9 items-center gap-2 bg-[#111111] px-4 text-[10px] font-black text-white hover:bg-[#0f8b73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">
-          {lastGuidedField ? "Finish walkthrough" : "Next field"} <ChevronRight size={13} aria-hidden="true" />
-        </button>
-      </div>
-    </aside>
+    </details>
   );
 }
 
