@@ -66,7 +66,11 @@ for (const source of sources) {
       : source.key === "current_residents"
         ? row.display_name
         : row.resident_name;
-    return !value || /\d/.test(value) || /\s+·\s+/.test(value) || /\s+(?:gender|sex|community|facility)\s*[:=]/i.test(value);
+    return !value
+      || value.split(/\s+/).filter(Boolean).length !== 2
+      || /\d/.test(value)
+      || /\s+·\s+/.test(value)
+      || /\s+(?:gender|sex|community|facility)\s*[:=]/i.test(value);
   }).length;
   prepared.push({
     ...source,

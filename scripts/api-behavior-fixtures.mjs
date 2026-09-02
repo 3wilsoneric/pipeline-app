@@ -37,7 +37,7 @@ const results = [
   run("imported client identity keeps county metadata out of the person name", () => {
     const importedName = "Xin Quan Lin - - San Francisco";
     assert(
-      formatClientIdentityTitle({ name: importedName }) === "Xin Quan Lin",
+      formatClientIdentityTitle({ name: importedName }) === "Xin Lin",
       "Imported workspace metadata must not be displayed as part of the client name",
     );
     assert(
@@ -52,7 +52,11 @@ const results = [
       ["Hunter Slatten - 6/5/25 - Merced", "Hunter Slatten"],
       ["Dawn Major-7/15/2025 Santa Clara", "Dawn Major"],
       ["Christopher Abel-Jones", "Christopher Abel-Jones"],
-      ["Jordan Sample (Jr)", "Jordan Sample (Jr)"],
+      ["Jordan Sample (Jr)", "Jordan Sample"],
+      ["Zachary Laman- WL", "Zachary Laman"],
+      ["Zachary Laman- LA JAIL", "Zachary Laman"],
+      ["Yuri Kawaakoa- -Monterey County", "Yuri Kawaakoa"],
+      ["Yvonne", "Yvonne"],
     ]) {
       assert(
         formatClientIdentityTitle({ name: source }) === expected,

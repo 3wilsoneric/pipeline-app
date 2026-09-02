@@ -41,7 +41,7 @@ const workspaceTitleFailures = referrals.filter((referral) => {
 const workspaceNameFailures = referrals.filter((referral) => referral.name !== normalizeClientName(referral.name, {
   gender: referral.gender,
   community: referral.community,
-})).length;
+}) || !hasFirstAndLastName(referral.name)).length;
 const duplicateWorkspaceIds = duplicateCount(referrals.map((referral) => String(referral.id ?? "")).filter(Boolean));
 
 const residentMissing = countMissing(residents, [
@@ -56,7 +56,7 @@ const residentMissing = countMissing(residents, [
 const residentNameFailures = residents.filter((resident) => resident.display_name !== normalizeClientName(
   resident.display_name,
   { firstName: resident.first_name, lastName: resident.last_name },
-)).length;
+) || !hasFirstAndLastName(resident.display_name)).length;
 const historyMissing = {
   resident_name: episodes.filter((episode) => !readable(episode.resident_name)).length,
   community: episodes.filter((episode) => !readable(episode.community) && !readable(episode.facility_canonical)).length,
@@ -65,7 +65,7 @@ const historyMissing = {
 const historyNameFailures = episodes.filter((episode) => episode.resident_name !== normalizeClientName(
   episode.resident_name,
   { community: episode.community || episode.facility_canonical },
-)).length;
+) || !hasFirstAndLastName(episode.resident_name)).length;
 
 const surfaceContracts = [
   ["components/pipeline/ClientProfileDirectory.tsx", "formatClientIdentityTitle"],
@@ -101,14 +101,19 @@ const formatterFailures = [
   normalizeClientName("Synthetic Client · Nonbinary · San Pablo", { gender: "Nonbinary", community: "San Pablo" })
     === "Synthetic Client",
   normalizeClientName("Synthetic Client 123456") === "Synthetic Client",
-  normalizeClientName("Xin Quan Lin - - San Francisco") === "Xin Quan Lin",
-  normalizeClientName("Xin Quan Lin -- San Francisco") === "Xin Quan Lin",
-  normalizeClientName("Xin Quan Lin - San Francisco", { community: "San Francisco" }) === "Xin Quan Lin",
+  normalizeClientName("Xin Quan Lin - - San Francisco") === "Xin Lin",
+  normalizeClientName("Xin Quan Lin -- San Francisco") === "Xin Lin",
+  normalizeClientName("Xin Quan Lin - San Francisco", { community: "San Francisco" }) === "Xin Lin",
   normalizeClientName("Xuele Qu · Unknown · San Pablo", { community: "San Pablo" }) === "Xuele Qu",
   normalizeClientName("IRVIN AVILA (PSH) 09/03") === "IRVIN AVILA",
   normalizeClientName("Natalee Atwood-1/17/2025") === "Natalee Atwood",
   normalizeClientName("Hunter Slatten - 6/5/25 - Merced") === "Hunter Slatten",
   normalizeClientName("Christopher Abel-Jones") === "Christopher Abel-Jones",
+  normalizeClientName("Zachary Laman- WL") === "Zachary Laman",
+  normalizeClientName("Zachary Laman- LA JAIL") === "Zachary Laman",
+  normalizeClientName("Yuri Kawaakoa- -Monterey County") === "Yuri Kawaakoa",
+  normalizeClientName("Jordan Sample (Jr)") === "Jordan Sample",
+  normalizeClientName("Yvonne") === "Yvonne",
   resolveClientGender('[{"value":"Female"}]') === "Female",
 ].filter((passed) => !passed).length;
 
@@ -173,6 +178,10 @@ function countMissing(rows, fields) {
     field,
     rows.filter((row) => !readable(row?.[field])).length,
   ]));
+}
+
+function hasFirstAndLastName(value) {
+  return String(value ?? "").trim().split(/\s+/).filter(Boolean).length === 2;
 }
 
 function duplicateCount(values) {
