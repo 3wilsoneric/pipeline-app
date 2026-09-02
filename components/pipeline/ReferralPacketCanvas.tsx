@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import {
   Check,
   CheckCircle2,
+  ChevronDown,
   Circle,
   FileText,
   FolderOpen,
@@ -2003,47 +2004,61 @@ function IntakeDocumentChecklist({
   const capturedDocuments = documentItems.filter((item) => (
     getRequirementReviewValue(item, documents[item.id], referral)
   )).length;
+  const hasInitialPacket = Boolean(initialPacket || (recordedName && recordedStatus !== "Missing"));
 
   return (
     <section aria-label="Document checklist" className="mb-6">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-t-2 border-[#111111] pt-3">
-        <div>
-          <h2 className="text-[14px] font-black text-[#111111]">Documents</h2>
-          <p className="mt-0.5 text-[11px] text-[#737373]">Add the referral packet and any files received with it before completing the intake.</p>
-        </div>
-        <span className={`text-[11px] font-black ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#737373]"}`}>
-          {capturedDocuments} / {documentItems.length} supporting files
-        </span>
-      </div>
+      <details data-testid="document-checklist-panel" className="group border-y border-[#d7ddd9] bg-white">
+        <summary
+          data-testid="document-checklist-toggle"
+          className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 border-t-2 border-[#111111] px-3 py-3 outline-none transition-colors hover:bg-[#f7faf9] focus-visible:bg-[#f1f7f4] [&::-webkit-details-marker]:hidden"
+        >
+          <div className="min-w-0">
+            <h2 className="text-[14px] font-black text-[#111111]">Documents</h2>
+            <p className="mt-0.5 text-[11px] text-[#737373]">Referral packet and admission files</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className={`text-[10px] font-black ${hasInitialPacket ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
+              {hasInitialPacket ? "Packet added" : "Packet needed"}
+            </span>
+            <span className={`text-[10px] font-black ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#737373]"}`}>
+              {capturedDocuments} / {documentItems.length} files
+            </span>
+            <ChevronDown size={16} aria-hidden="true" className="text-[#595959] transition-transform group-open:rotate-180" />
+          </div>
+        </summary>
 
-      <InitialPacketDropzone
-        file={initialPacket}
-        recordedName={recordedName}
-        recordedStatus={recordedStatus}
-        message={packetMessage}
-        category={initialPacketCategory}
-        onCategoryChange={onInitialPacketCategoryChange}
-        onSelect={onInitialPacketSelect}
-        onClear={onInitialPacketClear}
-      />
-
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h3 className="text-[11px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Document checklist</h3>
-        <span className="text-[10px] font-semibold text-[#737373]">Drop a file into its checklist item</span>
-      </div>
-      <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] sm:grid-cols-2 xl:grid-cols-4">
-        {documentItems.map((requirement) => (
-          <DocumentDropRow
-            key={requirement.id}
-            requirement={requirement}
-            fileName={getRequirementReviewValue(requirement, documents[requirement.id], referral)}
-            onAttach={(file) => onAttach(requirement.id, file)}
-            uploading={uploadingDocumentIds.has(requirement.id)}
-            queued={Boolean(pendingDocuments[requirement.id])}
-            variant="checklist"
+        <div className="border-t border-[#d7ddd9] px-3 pb-4 pt-4">
+          <InitialPacketDropzone
+            file={initialPacket}
+            recordedName={recordedName}
+            recordedStatus={recordedStatus}
+            message={packetMessage}
+            category={initialPacketCategory}
+            onCategoryChange={onInitialPacketCategoryChange}
+            onSelect={onInitialPacketSelect}
+            onClear={onInitialPacketClear}
           />
-        ))}
-      </div>
+
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Document checklist</h3>
+            <span className="text-[10px] font-semibold text-[#737373]">Drop a file into its checklist item</span>
+          </div>
+          <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] sm:grid-cols-2 xl:grid-cols-4">
+            {documentItems.map((requirement) => (
+              <DocumentDropRow
+                key={requirement.id}
+                requirement={requirement}
+                fileName={getRequirementReviewValue(requirement, documents[requirement.id], referral)}
+                onAttach={(file) => onAttach(requirement.id, file)}
+                uploading={uploadingDocumentIds.has(requirement.id)}
+                queued={Boolean(pendingDocuments[requirement.id])}
+                variant="checklist"
+              />
+            ))}
+          </div>
+        </div>
+      </details>
     </section>
   );
 }

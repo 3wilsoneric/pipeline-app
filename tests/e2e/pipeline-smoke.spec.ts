@@ -309,6 +309,13 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("region", { name: "Intake", exact: true })).toBeVisible();
     const documentChecklist = page.getByRole("region", { name: "Document checklist" });
     await expect(documentChecklist).toBeVisible();
+    const documentPanel = page.getByTestId("document-checklist-panel");
+    const documentToggle = page.getByTestId("document-checklist-toggle");
+    await expect(documentPanel).not.toHaveAttribute("open", "");
+    await expect(page.getByRole("region", { name: "Initial referral packet" })).toBeHidden();
+    await expect(page.getByRole("region", { name: "Identity chart section" })).toBeVisible();
+    await documentToggle.click();
+    await expect(documentPanel).toHaveAttribute("open", "");
     await expect(documentChecklist.getByRole("button", { name: /drop document or browse$/ })).toHaveCount(8);
     await expect(page.getByRole("complementary", { name: "Chart completion" })).toBeVisible();
     const documentChecklistBox = await documentChecklist.boundingBox();
@@ -353,6 +360,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(payload.referral.tags).toEqual(expect.arrayContaining(["packet-import", "needs-review"]));
 
     await page.reload();
+    await page.getByTestId("document-checklist-toggle").click();
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(payload.referral.name);
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toHaveValue("Referral chart created from the initial document.");
@@ -1063,6 +1071,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("textbox", { name: "Tags", exact: true }).fill("Urgent Review, county-intake");
     await page.getByRole("button", { name: "yes", exact: true }).click();
 
+    await page.getByTestId("document-checklist-toggle").click();
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "face-sheet.pdf",
       mimeType: "application/pdf",
