@@ -87,9 +87,9 @@ check("manifest is standalone and scoped through the Pipeline base path", manife
 
 for (const [file, minimumBytes] of [
   ["public/pwa/pipeline-favicon-32-v3.png", 100],
-  ["public/pwa/pipeline-app-icon-192-v10.png", 1_000],
-  ["public/pwa/pipeline-app-icon-512-v10.png", 1_000],
-  ["public/pwa/pipeline-app-icon-1024-v10.png", 1_000],
+  ["public/pwa/pipeline-app-icon-192-v11.png", 1_000],
+  ["public/pwa/pipeline-app-icon-512-v11.png", 1_000],
+  ["public/pwa/pipeline-app-icon-1024-v11.png", 1_000],
 ]) {
   check(`${file} is a non-empty PNG`, statSync(file).size > minimumBytes && createHash("sha256").update(readFileSync(file)).digest("hex").length === 64);
 }

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "pipeline-static-";
-const CACHE_NAME = `${CACHE_PREFIX}v12`;
+const CACHE_NAME = `${CACHE_PREFIX}v13`;
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 const scopedPath = (path) => `${SCOPE_PATH}${path}`;
 const OFFLINE_URL = scopedPath("/offline.html");
@@ -10,9 +10,9 @@ const STATIC_ASSETS = [
   scopedPath("/offline-assessment.js"),
   scopedPath("/brand/pipeline-mark.svg"),
   scopedPath("/pwa/pipeline-favicon-32-v3.png"),
-  scopedPath("/pwa/pipeline-app-icon-192-v10.png"),
-  scopedPath("/pwa/pipeline-app-icon-512-v10.png"),
-  scopedPath("/pwa/pipeline-app-icon-1024-v10.png"),
+  scopedPath("/pwa/pipeline-app-icon-192-v11.png"),
+  scopedPath("/pwa/pipeline-app-icon-512-v11.png"),
+  scopedPath("/pwa/pipeline-app-icon-1024-v11.png"),
 ];
 
 self.addEventListener("install", (event) => {

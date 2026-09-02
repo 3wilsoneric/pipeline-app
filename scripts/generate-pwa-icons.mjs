@@ -6,15 +6,16 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 const outputDirectory = "public/pwa";
 const brandMarkPath = "public/brand/pipeline-mark.svg";
 const appIconMarkWidthRatio = 0.36;
+const appIconHorizontalNudgeRatio = 0.01;
 
 const brandMark = await loadImage(brandMarkPath);
 
 await mkdir(outputDirectory, { recursive: true });
 await Promise.all([
   renderFavicon(`${outputDirectory}/pipeline-favicon-32-v3.png`),
-  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v10.png`),
-  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v10.png`),
-  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v10.png`),
+  renderAppIcon(192, `${outputDirectory}/pipeline-app-icon-192-v11.png`),
+  renderAppIcon(512, `${outputDirectory}/pipeline-app-icon-512-v11.png`),
+  renderAppIcon(1024, `${outputDirectory}/pipeline-app-icon-1024-v11.png`),
 ]);
 
 async function renderFavicon(outputPath) {
@@ -52,7 +53,7 @@ async function renderAppIcon(size, outputPath) {
   markContext.fillRect(x, y, markWidth, markHeight);
 
   const bounds = alphaBounds(markContext, size);
-  const offsetX = Math.round((size - 1 - bounds.left - bounds.right) / 2);
+  const offsetX = Math.round((size - 1 - bounds.left - bounds.right) / 2 + size * appIconHorizontalNudgeRatio);
   const offsetY = Math.round((size - 1 - bounds.top - bounds.bottom) / 2);
   context.drawImage(markCanvas, offsetX, offsetY);
 
