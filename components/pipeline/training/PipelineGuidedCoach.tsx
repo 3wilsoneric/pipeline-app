@@ -50,6 +50,7 @@ type TargetInteraction = {
 };
 
 const emptyTarget: TargetView = { element: null, rect: null, available: false };
+const OPERATOR_GUIDE_NAVIGATION_RESUME_KEY = "pipeline-guided-coach:navigation-resume:v1";
 
 export default function PipelineGuidedCoach() {
   const [state, setState] = useState<OperatorGuideState>(() => emptyOperatorGuideState());
@@ -141,7 +142,12 @@ export default function PipelineGuidedCoach() {
 
   useEffect(() => {
     startTransition(() => {
-      setState(readGuideState());
+      const stored = readGuideState();
+      const next = shouldResumeGuideNavigation()
+        ? stored
+        : { ...stored, mode: "closed" as const };
+      writeGuideState(next);
+      setState(next);
       setHydrated(true);
     });
     fetchCurrentPipelineUser()
@@ -385,7 +391,26 @@ function openGuideRoute(route: string) {
     pushPipelineHistory(`${destination.pathname}${destination.search}`);
     return;
   }
+  markGuideNavigationForResume();
   window.location.assign(toPipelinePath(`${destination.pathname}${destination.search}`));
+}
+
+function markGuideNavigationForResume() {
+  try {
+    window.sessionStorage.setItem(OPERATOR_GUIDE_NAVIGATION_RESUME_KEY, "true");
+  } catch {
+    // A full navigation will pause the guide when browser storage is unavailable.
+  }
+}
+
+function shouldResumeGuideNavigation() {
+  try {
+    const shouldResume = window.sessionStorage.getItem(OPERATOR_GUIDE_NAVIGATION_RESUME_KEY) === "true";
+    window.sessionStorage.removeItem(OPERATOR_GUIDE_NAVIGATION_RESUME_KEY);
+    return shouldResume;
+  } catch {
+    return false;
+  }
 }
 
 function readGuideState() {

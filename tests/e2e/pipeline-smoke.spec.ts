@@ -1314,6 +1314,7 @@ test.describe("Referral home and packet canvas", () => {
     const referralPayload = await referralResponse.json() as {
       referral: {
         clientId?: string;
+        name: string;
         documentHash?: string;
         documentName: string;
         documentStatus: string;

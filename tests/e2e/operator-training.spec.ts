@@ -79,6 +79,21 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
   });
 
+  test("keeps an unfinished walkthrough closed on an ordinary return", async ({ page }) => {
+    await mockTrainingProgress(page);
+    await page.goto(trainingUrl);
+    await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
+    await page.getByRole("button", { name: "Open Find and reopen a referral" }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Find and reopen a referral" }).click();
+    await expect(page.getByRole("dialog", { name: /Find and reopen a referral guided tutorial/ })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("dialog", { name: /guided tutorial/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Open guided tutorials" }).click();
+    await expect(page.getByRole("dialog", { name: "Guided tutorial library" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Continue where you stopped/ })).toBeVisible();
+  });
+
   test("is discoverable from the signed-in profile menu", async ({ page }) => {
     await page.goto(homeUrl);
     await page.getByRole("button", { name: /Open profile menu for/ }).click();
