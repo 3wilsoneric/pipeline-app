@@ -24,6 +24,7 @@
     "0020_allo_canvas_content.sql": "34b24dcf4dc5e89109344e37bf532a2a9f08885de29d20205c62bc372f6d3bfb",
     "0021_note_practice_lab.sql": "1f9a8d1c2a27dfd61bcb93c99a5d9d3c8d05faa5fb2bbdcc08df504ab8edcf99",
     "0022_note_lab_pattern_selections.sql": "4b9617c6575ef3e73ec6f0abfef1d0c0d6dfa5a903efdbfcc3c74c668854238c",
-    "0023_note_lab_field_reviews.sql": "550f7394f5ba04931d0cc0d9e2cb4843b70ea14369a36f85e102ae0d24e2083f"
+    "0023_note_lab_field_reviews.sql": "550f7394f5ba04931d0cc0d9e2cb4843b70ea14369a36f85e102ae0d24e2083f",
+    "0024_workspace_month_provenance.sql": "a78b576cd557f3fcb10998b6410029bb0d1e6bd7be7304aeaf41dd9a2da0787d"
   }
 }

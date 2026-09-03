@@ -5,6 +5,7 @@ import type {
 } from "@/lib/extraction/contracts";
 import type { PipelineCommunity } from "@/lib/pipeline/community-config";
 import type { ReferralStage as Stage } from "@/lib/pipeline/referral-workflow";
+import type { WorkspaceMonthBasis } from "@/lib/pipeline/workspace-month.mjs";
 
 export type Priority = "urgent" | "high" | "standard";
 export type WorkspaceOrigin = "pipeline" | "allo" | "import";
@@ -208,6 +209,10 @@ export type Referral = {
   sourceProjectId?: string;
   sourceProjectName?: string;
   sourceMaterialCount?: number;
+  /** Month-precision filing date used by workspace navigation. */
+  workspaceMonth?: string;
+  /** Auditable source for workspaceMonth; unknown means no trustworthy month exists. */
+  workspaceMonthBasis?: WorkspaceMonthBasis;
   name: string;
   date: string;
   stage: Stage;

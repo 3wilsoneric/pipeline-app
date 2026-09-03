@@ -9,7 +9,7 @@ const residentLinks = read("lib/pipeline/resident-link-store.ts");
 const processingWorker = read("lib/extraction/processing-worker.ts");
 const cursor = read("lib/pipeline/keyset-cursor.ts");
 const migration = read("database/migrations/0004_document_processing.sql");
-const referralMonthMigration = read("database/migrations/0017_referral_received_month.sql");
+const referralMonthMigration = read("database/migrations/0024_workspace_month_provenance.sql");
 const operations = read("lib/pipeline/operations-snapshot.ts");
 const changeMetadataQuery = store.match(/async function getPostgresReferralChangeMetadata[\s\S]*?\n}\n/)?.[0] ?? "";
 const checks = [];
@@ -24,7 +24,7 @@ check("assessment cursors preserve text assessment IDs", assessments.includes("$
 check("resident-link lists encode keyset cursors", residentLinks.includes("encodeKeysetCursor") && residentLinks.includes("decodeKeysetCursor"));
 check("keyset cursor is versioned and bounded", cursor.includes("v: 1") && cursor.includes("{8,512}"));
 check("referral ordering has a matching index", migration.includes("referrals_updated_keyset_idx"));
-check("referral received-month navigation has a matching index", referralMonthMigration.includes("referrals_workspace_received_idx") && referralMonthMigration.includes("received_date desc"));
+check("workspace-month navigation has a matching index", referralMonthMigration.includes("referrals_workspace_month_idx") && referralMonthMigration.includes("workspace_month desc"));
 check("document ordering has a matching index", migration.includes("documents_uploaded_keyset_idx"));
 check("assessment ordering has a matching index", migration.includes("assessments_updated_keyset_idx"));
 check("resident-link ordering has a matching index", migration.includes("resident_links_updated_keyset_idx"));

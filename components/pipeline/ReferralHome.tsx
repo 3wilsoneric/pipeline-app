@@ -461,12 +461,12 @@ export default function ReferralHome({
         <option value="standard">Standard</option>
       </select>
       <select
-        aria-label="Filter by creation month"
+        aria-label="Filter by workspace month"
         value={activeMonth}
         onChange={(event) => setFilter(referralFilterWithMonth(filter, event.target.value))}
         className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]"
       >
-        <option value="">All creation months</option>
+        <option value="">All workspace months</option>
         {monthOptions.map((month) => (
           <option key={month} value={month}>
             {formatMonthKey(month)} ({facets.months.find((entry) => entry.value === month)?.count ?? 0})

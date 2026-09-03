@@ -3,6 +3,8 @@
 import { chmod, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { workspaceMonthFromProjectName } from "../lib/pipeline/workspace-month.mjs";
+
 const args = new Map(process.argv.slice(2).map((argument) => {
   const [key, ...rest] = argument.split("=");
   return [key, rest.join("=")];
@@ -81,14 +83,19 @@ for (const row of inventoryRows) {
   workspaces.set(canvasId, workspace);
 }
 
-const workspaceValues = [...workspaces.values()].map((workspace) => ({
-  ...workspace,
-  primary_owner: workspace.owner_candidates[0]?.name ?? null,
-  material_count: workspace.files.length,
-  available_file_count: workspace.files.filter((file) => file.source_available).length,
-  missing_file_count: workspace.files.filter((file) => !file.source_available).length,
-  first_material_at: workspace.files.map((file) => file.source_created_at).filter(Boolean).sort()[0] ?? null,
-})).sort((left, right) => left.source_workspace_name.localeCompare(right.source_workspace_name, "en")
+const workspaceValues = [...workspaces.values()].map((workspace) => {
+  const workspaceMonth = workspaceMonthFromProjectName(workspace.project_name);
+  return {
+    ...workspace,
+    workspace_month: workspaceMonth,
+    workspace_month_basis: workspaceMonth ? "source_project_name" : "unknown",
+    primary_owner: workspace.owner_candidates[0]?.name ?? null,
+    material_count: workspace.files.length,
+    available_file_count: workspace.files.filter((file) => file.source_available).length,
+    missing_file_count: workspace.files.filter((file) => !file.source_available).length,
+    first_material_at: workspace.files.map((file) => file.source_created_at).filter(Boolean).sort()[0] ?? null,
+  };
+}).sort((left, right) => left.source_workspace_name.localeCompare(right.source_workspace_name, "en")
   || left.source_workspace_id.localeCompare(right.source_workspace_id, "en"));
 
 const payload = {

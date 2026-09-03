@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 
+import { resolveWorkspaceMonth } from "../lib/pipeline/workspace-month.mjs";
+
 export const importConfirmation = "IMPORT-ALLO-MATERIAL-WORKSPACES";
 export const uploadConfirmation = "UPLOAD-ALLO-MATERIALS";
 export const scanConfirmation = "SCAN-ALLO-MATERIALS";
@@ -23,35 +25,45 @@ export function cloudManifest(localManifest, containerName) {
     material_count: localManifest.material_count,
     available_file_count: localManifest.available_file_count,
     missing_file_count: localManifest.missing_file_count,
-    workspaces: localManifest.workspaces.map((workspace) => ({
-      source_workspace_id: workspace.source_workspace_id,
-      source_workspace_name: workspace.source_workspace_name,
-      project_id: workspace.project_id,
-      project_name: workspace.project_name,
-      community: workspace.community,
-      display_name: workspace.display_name,
-      primary_owner: workspace.primary_owner,
-      owner_candidates: workspace.owner_candidates,
-      profile_candidates: workspace.profile_candidates,
-      material_count: workspace.material_count,
-      available_file_count: workspace.available_file_count,
-      missing_file_count: workspace.missing_file_count,
-      first_material_at: workspace.first_material_at,
-      files: workspace.files.filter((file) => file.source_available).map((file) => ({
-        source_item_id: file.source_item_id,
-        source_file_name: file.source_file_name,
-        source_content_type: file.source_content_type,
-        source_byte_size: file.source_byte_size,
-        source_sha256: file.source_sha256,
-        source_created_at: file.source_created_at,
-        source_page: file.source_page,
-        source_page_title: file.source_page_title,
-        source_file_category: file.source_file_category,
-        document_category: file.document_category,
-        blob_container: containerName,
-        blob_key: stableBlobKey(workspace.source_workspace_id, file.source_item_id, file.source_file_name),
-      })),
-    })),
+    workspaces: localManifest.workspaces.map((workspace) => {
+      const workspaceMonth = resolveWorkspaceMonth({
+        workspaceMonth: workspace.workspace_month,
+        workspaceMonthBasis: workspace.workspace_month_basis,
+        workspaceOrigin: "allo",
+        sourceProjectName: workspace.project_name,
+      });
+      return {
+        source_workspace_id: workspace.source_workspace_id,
+        source_workspace_name: workspace.source_workspace_name,
+        project_id: workspace.project_id,
+        project_name: workspace.project_name,
+        workspace_month: workspaceMonth.month,
+        workspace_month_basis: workspaceMonth.basis,
+        community: workspace.community,
+        display_name: workspace.display_name,
+        primary_owner: workspace.primary_owner,
+        owner_candidates: workspace.owner_candidates,
+        profile_candidates: workspace.profile_candidates,
+        material_count: workspace.material_count,
+        available_file_count: workspace.available_file_count,
+        missing_file_count: workspace.missing_file_count,
+        first_material_at: workspace.first_material_at,
+        files: workspace.files.filter((file) => file.source_available).map((file) => ({
+          source_item_id: file.source_item_id,
+          source_file_name: file.source_file_name,
+          source_content_type: file.source_content_type,
+          source_byte_size: file.source_byte_size,
+          source_sha256: file.source_sha256,
+          source_created_at: file.source_created_at,
+          source_page: file.source_page,
+          source_page_title: file.source_page_title,
+          source_file_category: file.source_file_category,
+          document_category: file.document_category,
+          blob_container: containerName,
+          blob_key: stableBlobKey(workspace.source_workspace_id, file.source_item_id, file.source_file_name),
+        })),
+      };
+    }),
   };
 }
 
@@ -130,6 +142,18 @@ function validateWorkspace(workspace) {
   }
   if (!Number.isSafeInteger(workspace.material_count) || workspace.material_count < workspace.files.length) {
     throw new Error("workspace_material_count_invalid");
+  }
+  if (workspace.workspace_month !== undefined || workspace.workspace_month_basis !== undefined) {
+    const resolved = resolveWorkspaceMonth({
+      workspaceMonth: workspace.workspace_month,
+      workspaceMonthBasis: workspace.workspace_month_basis,
+      workspaceOrigin: "allo",
+      sourceProjectName: workspace.project_name,
+    });
+    if ((workspace.workspace_month ?? null) !== resolved.month
+      || workspace.workspace_month_basis !== resolved.basis) {
+      throw new Error("workspace_month_invalid");
+    }
   }
 }
 

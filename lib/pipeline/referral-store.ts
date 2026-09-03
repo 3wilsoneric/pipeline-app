@@ -42,6 +42,7 @@ import {
 } from "@/lib/pipeline/referral-workflow";
 import { resolveReferralWorkflowStatus } from "@/lib/pipeline/workflow-status";
 import { presentWorkspaceNote, resolveWorkspaceCounty, visibleWorkspaceTags } from "@/lib/pipeline/workspace-presentation";
+import { resolveWorkspaceMonth, workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
 
 type ReferralStoreState = {
   initialized: boolean;
@@ -934,6 +935,8 @@ type ReferralRow = {
   priority: Referral["priority"];
   source: string;
   received_date: Date | string | null;
+  workspace_month?: Date | string | null;
+  workspace_month_basis?: Referral["workspaceMonthBasis"];
   tags: string[];
   summary: string | null;
   document_sha256: string | null;
@@ -1044,7 +1047,11 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
           or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${assignedOwnerNames}::text[])))
         and (${priority}::text is null or r.priority = ${priority})
         and (${tag}::text is null or ${tag} = any(r.tags))
-        and (${month}::text is null or to_char(r.received_date, 'YYYY-MM') = ${month})
+        and (
+          ${month}::text is null
+          or (${month} = 'unknown' and r.workspace_month is null)
+          or to_char(r.workspace_month, 'YYYY-MM') = ${month}
+        )
         and (${workflowStatus}::text is null or r.workflow_status = ${workflowStatus})
         and (${activeOnly} = false or r.closed_at is null)
         and (${workspaceStatus} = 'all' or r.workspace_status = ${workspaceStatus})
@@ -1152,9 +1159,9 @@ async function listPostgresReferralFacets(
       group by tag order by tag
     `,
     sql<FacetRow[]>`
-      select to_char(r.received_date, 'YYYY-MM') as value, count(*) as count
+      select coalesce(to_char(r.workspace_month, 'YYYY-MM'), 'unknown') as value, count(*) as count
       from pipeline.referrals r where ${searchClause}
-      group by value order by value desc
+      group by r.workspace_month order by r.workspace_month desc nulls last
     `,
   ]);
 
@@ -2131,6 +2138,8 @@ function mapReferralRow(row: ReferralRow): Referral {
     sourceProjectId: row.source_project_id ?? data.sourceProjectId ?? undefined,
     sourceProjectName: row.source_project_name ?? data.sourceProjectName ?? undefined,
     sourceMaterialCount: Number(row.source_material_count ?? data.sourceMaterialCount ?? 0),
+    workspaceMonth: row.workspace_month ? isoTimestamp(row.workspace_month).slice(0, 7) : data.workspaceMonth ?? undefined,
+    workspaceMonthBasis: row.workspace_month_basis ?? data.workspaceMonthBasis ?? undefined,
     version: Number(row.version),
     sectionVersions: normalizeReferralSectionVersions(row.section_versions ?? data.sectionVersions),
     updatedBy: {
@@ -2324,6 +2333,7 @@ function referralDataPayload(referral: Referral): JSONValue {
   for (const key of [
     "id", "sectionVersions", "updatedAt", "updatedBy", "version",
     "workflowStatus", "assignedAt", "assignmentDueAt", "assignmentVersion",
+    "workspaceMonth", "workspaceMonthBasis",
   ]) delete data[key];
   return JSON.parse(JSON.stringify(data)) as JSONValue;
 }
@@ -2338,6 +2348,7 @@ function assertPacketIsUnique(documentHash: string | undefined, currentReferralI
 }
 
 function normalizeReferral(input: Referral): Referral {
+  const workspaceMonth = resolveWorkspaceMonth(input);
   const normalized = {
     ...input,
     name: normalizeClientName(input.name, {
@@ -2354,6 +2365,8 @@ function normalizeReferral(input: Referral): Referral {
     sourceMaterialCount: Number.isSafeInteger(input.sourceMaterialCount) && Number(input.sourceMaterialCount) >= 0
       ? Number(input.sourceMaterialCount)
       : 0,
+    workspaceMonth: workspaceMonth.month ?? undefined,
+    workspaceMonthBasis: workspaceMonth.basis,
     version: Number.isInteger(input.version) && input.version && input.version > 0
       ? input.version
       : 1,
@@ -2446,7 +2459,7 @@ function matchesReferralFilters(referral: Referral, options: ReferralListOptions
   if (options.owner && normalizeOwnerName(referral.owner) !== normalizeOwnerName(options.owner)) return false;
   if (options.priority && referral.priority !== options.priority) return false;
   if (options.tag && !(referral.tags ?? []).includes(options.tag)) return false;
-  if (options.month && monthKey(referral.date) !== options.month) return false;
+  if (options.month && workspaceMonthKey(referral) !== options.month) return false;
   if (options.workflowStatus && referral.workflowStatus !== options.workflowStatus) return false;
   if (options.activeOnly && isClosedStage(referral.stage)) return false;
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
@@ -2491,7 +2504,11 @@ function buildReferralFacets(referrals: Referral[]): ReferralFacets {
     owners: countFacet(referrals.map((referral) => normalizeOwnerName(referral.owner))),
     priorities: countFacet(referrals.map((referral) => referral.priority)),
     tags: countFacet(referrals.flatMap((referral) => referral.tags ?? [])),
-    months: countFacet(referrals.map((referral) => monthKey(referral.date))).sort((left, right) => right.value.localeCompare(left.value)),
+    months: countFacet(referrals.map(workspaceMonthKey)).sort((left, right) => {
+      if (left.value === "unknown") return 1;
+      if (right.value === "unknown") return -1;
+      return right.value.localeCompare(left.value);
+    }),
   };
 }
 
@@ -2510,11 +2527,6 @@ function mapFacetRows(rows: FacetRow[]): ReferralFacetValue[] {
   return rows.map((row) => ({ value: row.value, count: Number(row.count) }));
 }
 
-function monthKey(value: string) {
-  const date = new Date(value.includes("T") ? value : `${value}T12:00:00Z`);
-  if (Number.isNaN(date.getTime())) return "unknown";
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
 
 function searchableReferralText(referral: Referral) {
   return normalize(

@@ -30,6 +30,7 @@ const alloCanvasContentRollback = await readFile("database/rollbacks/0020_allo_c
 const notePracticeLabRollback = await readFile("database/rollbacks/0021_note_practice_lab.sql", "utf8");
 const noteLabPatternSelectionsRollback = await readFile("database/rollbacks/0022_note_lab_pattern_selections.sql", "utf8");
 const noteLabFieldReviewsRollback = await readFile("database/rollbacks/0023_note_lab_field_reviews.sql", "utf8");
+const workspaceMonthRollback = await readFile("database/rollbacks/0024_workspace_month_provenance.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -107,7 +108,10 @@ try {
       to_regclass('pipeline.note_lab_pattern_selections') is not null as note_lab_pattern_selections,
       exists(select 1 from pipeline.schema_migrations where migration_id='0022_note_lab_pattern_selections') as note_lab_pattern_selections_history,
       to_regclass('pipeline.note_lab_field_reviews') is not null as note_lab_field_reviews,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0023_note_lab_field_reviews') as note_lab_field_reviews_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0023_note_lab_field_reviews') as note_lab_field_reviews_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='workspace_month') as workspace_month,
+      to_regclass('pipeline.referrals_workspace_month_idx') is not null as workspace_month_index,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0024_workspace_month_provenance') as workspace_month_history
   `;
   checks.push({
     name: "latest migrations exist before drill",
@@ -160,6 +164,28 @@ try {
       && before[0].note_lab_pattern_selections_history
       && before[0].note_lab_field_reviews
       && before[0].note_lab_field_reviews_history
+      && before[0].workspace_month
+      && before[0].workspace_month_index
+      && before[0].workspace_month_history
+    ),
+  });
+  await connection.unsafe(workspaceMonthRollback);
+  const workspaceMonthDuring = await connection`
+    select
+      not exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='workspace_month') as month_removed,
+      to_regclass('pipeline.referrals_workspace_month_idx') is null as month_index_removed,
+      to_regclass('pipeline.referrals_workspace_received_idx') is not null as prior_index_restored,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0024_workspace_month_provenance') as history_removed,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0023_note_lab_field_reviews') as prior_history_preserved
+  `;
+  checks.push({
+    name: "rollback removes workspace-month fields and restores the prior month index",
+    ok: Boolean(
+      workspaceMonthDuring[0].month_removed
+      && workspaceMonthDuring[0].month_index_removed
+      && workspaceMonthDuring[0].prior_index_restored
+      && workspaceMonthDuring[0].history_removed
+      && workspaceMonthDuring[0].prior_history_preserved
     ),
   });
   await connection.unsafe(noteLabFieldReviewsRollback);
@@ -478,7 +504,10 @@ try {
       to_regclass('pipeline.note_lab_pattern_selections') is not null as note_lab_pattern_selections,
       exists(select 1 from pipeline.schema_migrations where migration_id='0022_note_lab_pattern_selections') as note_lab_pattern_selections_history,
       to_regclass('pipeline.note_lab_field_reviews') is not null as note_lab_field_reviews,
-      exists(select 1 from pipeline.schema_migrations where migration_id='0023_note_lab_field_reviews') as note_lab_field_reviews_history
+      exists(select 1 from pipeline.schema_migrations where migration_id='0023_note_lab_field_reviews') as note_lab_field_reviews_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referrals' and column_name='workspace_month') as workspace_month,
+      to_regclass('pipeline.referrals_workspace_month_idx') is not null as workspace_month_index,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0024_workspace_month_provenance') as workspace_month_history
   `;
   checks.push({
     name: "drill transaction restores original schema",
@@ -533,6 +562,9 @@ try {
       && after[0].note_lab_pattern_selections_history
       && after[0].note_lab_field_reviews
       && after[0].note_lab_field_reviews_history
+      && after[0].workspace_month
+      && after[0].workspace_month_index
+      && after[0].workspace_month_history
     ),
   });
   const failed = checks.filter((check) => !check.ok);

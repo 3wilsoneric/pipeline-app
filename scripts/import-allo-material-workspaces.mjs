@@ -7,6 +7,8 @@ import { DefaultAzureCredential } from "@azure/identity";
 import { BlobServiceClient } from "@azure/storage-blob";
 import postgres from "postgres";
 
+import { resolveWorkspaceMonth } from "../lib/pipeline/workspace-month.mjs";
+
 import {
   hasVerifiedCleanScan,
   importConfirmation,
@@ -68,9 +70,9 @@ try {
   await connection`select pg_advisory_lock(hashtextextended('pipeline_allo_workspace_import', 0))`;
   const migrations = await connection`
     select 1 from pipeline.schema_migrations
-    where migration_id = '0011_historical_material_workspaces'
+    where migration_id in ('0011_historical_material_workspaces', '0024_workspace_month_provenance')
   `;
-  if (migrations.length !== 1) throw new Error("missing_migration");
+  if (migrations.length !== 2) throw new Error("missing_migration");
 
   const memberRows = await connection`
     select principal_id, display_name
@@ -158,6 +160,12 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
   const dateOfBirth = sqlDate(profile?.date_of_birth);
   const admissionDate = sqlDate(profile?.admit_date);
   const receivedDate = sqlDate(workspace.first_material_at);
+  const workspaceMonth = resolveWorkspaceMonth({
+    workspaceMonth: workspace.workspace_month,
+    workspaceMonthBasis: workspace.workspace_month_basis,
+    workspaceOrigin: "allo",
+    sourceProjectName: workspace.project_name,
+  });
   const owner = workspace.primary_owner ? members.get(normalizeName(workspace.primary_owner)) : null;
   const ownerName = owner?.display_name ?? "Unassigned";
   const ownerId = owner?.principal_id ?? null;
@@ -207,13 +215,16 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
   const referrals = await tx`
     insert into pipeline.referrals (
       person_id, stage, community, owner_id, owner_name, priority, source, received_date,
+      workspace_month, workspace_month_basis,
       tags, summary, search_text, data, closed_at,
       workspace_origin, workspace_status, source_workspace_id, source_workspace_name,
       source_project_id, source_project_name, source_material_count, workspace_import_batch_id,
       created_by, created_by_name, updated_by, updated_by_name, created_at, updated_at
     ) values (
       ${personId}::uuid, ${importedReferenceStage}, ${workspace.community}, ${ownerId}, ${ownerName},
-      'standard', 'Allo workspace import', ${receivedDate}::date, ${tags}, ${data.note}, ${searchText},
+      'standard', 'Allo workspace import', ${receivedDate}::date,
+      ${workspaceMonth.month ? `${workspaceMonth.month}-01` : null}::date, ${workspaceMonth.basis},
+      ${tags}, ${data.note}, ${searchText},
       ${tx.json(data)}, coalesce(${workspace.first_material_at}::timestamptz, now()),
       'allo', 'historical', ${workspace.source_workspace_id}, ${workspace.source_workspace_name},
       ${workspace.project_id}, ${workspace.project_name}, ${workspace.material_count}, ${workspaceImportBatchId}::uuid,
@@ -230,6 +241,8 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
       source_workspace_name = excluded.source_workspace_name,
       source_project_id = excluded.source_project_id,
       source_project_name = excluded.source_project_name,
+      workspace_month = excluded.workspace_month,
+      workspace_month_basis = excluded.workspace_month_basis,
       source_material_count = excluded.source_material_count,
       workspace_import_batch_id = excluded.workspace_import_batch_id,
       search_text = excluded.search_text,
