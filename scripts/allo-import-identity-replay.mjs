@@ -10,6 +10,10 @@ import {
   sha256,
   stableBlobKey,
 } from "./allo-workspace-import-common.mjs";
+import {
+  admittedProfileEvidence,
+  resolveImportedWorkspaceCommunity,
+} from "./allo-admission-evidence.mjs";
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -37,6 +41,27 @@ check("same source id and digest is restart-idempotent",
     { source_item_id: "item-a", source_file_name: "first.pdf", source_sha256: digestA },
     { source_item_id: "item-a", source_file_name: "renamed.pdf", source_sha256: digestA },
   ) === "unchanged");
+
+const admittedProfile = {
+  community: "Unassigned",
+  profile_candidates: [{ admit_date: "2026-08-01", community: "JC Wallace House" }],
+};
+check("a unique admitted profile supplies a canonical community",
+  admittedProfileEvidence(admittedProfile)?.community === "JC Wallace"
+    && resolveImportedWorkspaceCommunity(admittedProfile) === "JC Wallace");
+check("a non-admitted profile never supplies a community",
+  resolveImportedWorkspaceCommunity({
+    community: "Community not recorded",
+    profile_candidates: [{ admit_date: "", community: "San Pablo" }],
+  }) === "");
+check("ambiguous profile candidates never supply a community",
+  resolveImportedWorkspaceCommunity({
+    community: "Unknown",
+    profile_candidates: [
+      { admit_date: "2026-08-01", community: "San Pablo" },
+      { admit_date: "2026-08-01", community: "Santa Clarita" },
+    ],
+  }) === "");
 
 const local = {
   version: 1,

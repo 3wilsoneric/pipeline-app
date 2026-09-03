@@ -14,6 +14,7 @@ import type { Referral } from "@/lib/pipeline/referral-types";
 import {
   getWorkspaceAdmissionOutcome,
   getWorkspaceCounty,
+  isRecordedWorkspaceCommunity,
 } from "@/lib/pipeline/workspace-presentation";
 
 export default function ReferralWorklist({
@@ -81,7 +82,7 @@ export default function ReferralWorklist({
             >
               <span className="min-w-0 pr-4">
                 <span className="block truncate text-[13px] font-black text-[#111111]" title={identityTitle}>{identityTitle}</span>
-                <span className="mt-1 block truncate text-[9px] text-[#737373]">{presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)}</span>
+                <span className="mt-1 block truncate text-[9px] text-[#737373]">{workspaceIdentityDetail(referral)}</span>
                 {referral.priority !== "standard" ? (
                   <span className="mt-1 block text-[9px] font-semibold text-[#8c392f]">{referral.priority} priority</span>
                 ) : null}
@@ -160,7 +161,7 @@ function CompactReferralRow({
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="min-w-0">
           <span className="block truncate text-[13px] font-black text-[#111111]" title={identityTitle}>{identityTitle}</span>
-          <span className="mt-1 block truncate text-[10px] text-[#737373]">{presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)}</span>
+          <span className="mt-1 block truncate text-[10px] text-[#737373]">{workspaceIdentityDetail(referral)}</span>
         </span>
         <span className="flex shrink-0 items-center gap-2" title={outcome.explanation}>
           <span className={`text-[11px] ${outcomeTextClass(outcome.status)}`}>{outcome.label}</span>
@@ -201,6 +202,13 @@ function outcomeTextClass(status: "admitted" | "accepted" | "denied" | "pending"
   if (status === "denied") return "font-semibold text-[#8c392f]";
   if (status === "unmatched") return "font-normal text-[#737373]";
   return "font-normal text-[#6b5a2a]";
+}
+
+function workspaceIdentityDetail(referral: Referral) {
+  return [
+    presentClientGender(referral.gender),
+    isRecordedWorkspaceCommunity(referral.community) ? presentClientCommunity(referral.community) : "",
+  ].filter(Boolean).join(" · ");
 }
 
 function ageLabel(value: string) {

@@ -8,6 +8,7 @@ import { BlobServiceClient } from "@azure/storage-blob";
 import postgres from "postgres";
 
 import { resolveWorkspaceMonth } from "../lib/pipeline/workspace-month.mjs";
+import { resolveImportedWorkspaceCommunity } from "./allo-admission-evidence.mjs";
 
 import {
   hasVerifiedCleanScan,
@@ -156,6 +157,7 @@ if (failure) {
 
 async function processWorkspace(tx, workspace, workspaceImportBatchId, members, shouldQueuePreviews, isCleanScanVerified) {
   const profile = workspace.profile_candidates?.length === 1 ? workspace.profile_candidates[0] : null;
+  const community = resolveImportedWorkspaceCommunity(workspace);
   const externalClientId = profileExternalId(profile, workspace.source_workspace_id);
   const dateOfBirth = sqlDate(profile?.date_of_birth);
   const admissionDate = sqlDate(profile?.admit_date);
@@ -182,7 +184,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
     sourceMaterialCount: workspace.material_count,
     name: workspace.display_name,
     date: receivedDate ?? "",
-    community: workspace.community,
+    community,
     source: "Allo workspace import",
     priority: "standard",
     tags,
@@ -210,7 +212,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
     returning person_id::text
   `;
   const personId = people[0].person_id;
-  const searchText = [workspace.display_name, workspace.community, ownerName, workspace.source_workspace_name,
+  const searchText = [workspace.display_name, community, ownerName, workspace.source_workspace_name,
     workspace.project_name, "allo import", ...workspace.files.map((file) => file.source_file_name)].filter(Boolean).join(" ").toLowerCase();
   const referrals = await tx`
     insert into pipeline.referrals (
@@ -221,7 +223,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
       source_project_id, source_project_name, source_material_count, workspace_import_batch_id,
       created_by, created_by_name, updated_by, updated_by_name, created_at, updated_at
     ) values (
-      ${personId}::uuid, ${importedReferenceStage}, ${workspace.community}, ${ownerId}, ${ownerName},
+      ${personId}::uuid, ${importedReferenceStage}, ${community}, ${ownerId}, ${ownerName},
       'standard', 'Allo workspace import', ${receivedDate}::date,
       ${workspaceMonth.month ? `${workspaceMonth.month}-01` : null}::date, ${workspaceMonth.basis},
       ${tags}, ${data.note}, ${searchText},
@@ -270,7 +272,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
         coalesce(${file.source_created_at}::timestamptz, now()), coalesce(${file.source_created_at}::timestamptz, now()),
         'pending', ${isCleanScanVerified ? "clean" : "pending"}, now() + interval '7 years',
         'allo', ${sourceExternalId}, ${workspace.source_workspace_id}, ${sqlDate(file.source_created_at)}::date,
-        ${workspace.display_name}, ${workspace.community}, 'linked'
+        ${workspace.display_name}, ${community}, 'linked'
       )
       on conflict do nothing
       returning document_id::text, category

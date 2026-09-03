@@ -41,7 +41,12 @@ import {
   type ReferralStage,
 } from "@/lib/pipeline/referral-workflow";
 import { resolveReferralWorkflowStatus } from "@/lib/pipeline/workflow-status";
-import { presentWorkspaceNote, resolveWorkspaceCounty, visibleWorkspaceTags } from "@/lib/pipeline/workspace-presentation";
+import {
+  isRecordedWorkspaceCommunity,
+  presentWorkspaceNote,
+  resolveWorkspaceCounty,
+  visibleWorkspaceTags,
+} from "@/lib/pipeline/workspace-presentation";
 import { resolveWorkspaceMonth, workspaceMonthKey } from "@/lib/pipeline/workspace-month.mjs";
 
 type ReferralStoreState = {
@@ -1126,6 +1131,8 @@ async function listPostgresReferralFacets(
     sql<FacetRow[]>`
       select r.community as value, count(*) as count
       from pipeline.referrals r where ${searchClause}
+        and nullif(trim(r.community), '') is not null
+        and lower(trim(r.community)) not in ('unassigned', 'unknown', 'not recorded', 'community not recorded')
       group by r.community order by r.community
     `,
     sql<FacetRow[]>`
@@ -2498,7 +2505,9 @@ function matchesReferralQueue(referral: Referral, queue: ReferralQueueView) {
 
 function buildReferralFacets(referrals: Referral[]): ReferralFacets {
   return {
-    communities: countFacet(referrals.map((referral) => referral.community)),
+    communities: countFacet(referrals
+      .map((referral) => referral.community)
+      .filter(isRecordedWorkspaceCommunity)),
     counties: countFacet(referrals.flatMap((referral) => resolveWorkspaceCounty(referral) ?? [])),
     stages: countFacet(referrals.map((referral) => referral.stage)),
     owners: countFacet(referrals.map((referral) => normalizeOwnerName(referral.owner))),

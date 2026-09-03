@@ -19,6 +19,13 @@ const internalWorkspaceTags = new Set([
   "real-intake",
 ]);
 
+const missingWorkspaceCommunities = new Set([
+  "unassigned",
+  "unknown",
+  "not recorded",
+  "community not recorded",
+]);
+
 export const californiaCountyNames = [
   "Alameda",
   "Alpine",
@@ -160,8 +167,13 @@ export function isInternalWorkspaceTag(tag: string) {
     || normalized.startsWith("needs-");
 }
 
+export function isRecordedWorkspaceCommunity(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  return Boolean(normalized) && !missingWorkspaceCommunities.has(normalized);
+}
+
 export function getWorkspaceCounty(referral: Referral) {
-  return resolveWorkspaceCounty(referral) ?? "Not recorded";
+  return resolveWorkspaceCounty(referral) ?? "";
 }
 
 export function resolveWorkspaceCounty(referral: Partial<Referral>) {

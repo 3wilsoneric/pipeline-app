@@ -29,7 +29,7 @@ import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspa
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
 import type { ReferralFacets } from "@/lib/pipeline/referral-store";
 import type { ReferralSort } from "@/lib/pipeline/referral-sort";
-import { isInternalWorkspaceTag } from "@/lib/pipeline/workspace-presentation";
+import { isInternalWorkspaceTag, isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
 import {
   formatClientIdentityTitle,
   presentClientCommunity,
@@ -718,7 +718,7 @@ export default function ReferralHome({
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-black text-[#111111]">{file.name}</span>
                           <span className="mt-1 block truncate text-[11px] font-normal text-[#737373]">
-                            {fileClientName(file)} · {presentCommunity(file.community)} · {file.owner || "Unassigned"} · {formatMonthKey(getMonthKey(file.uploadedAt))}
+                            {fileMetadata(file)}
                           </span>
                         </span>
                         <span className="hidden text-[11px] font-black text-[#737373] sm:block">{file.category}</span>
@@ -1174,7 +1174,16 @@ function getMonthKey(value: string) {
 }
 
 function presentCommunity(value?: string | null) {
-  return !value || value === "Unassigned" ? "Community not recorded" : value;
+  return isRecordedWorkspaceCommunity(value) ? value!.trim() : "";
+}
+
+function fileMetadata(file: ReferralFile) {
+  return [
+    fileClientName(file),
+    presentCommunity(file.community),
+    file.owner || "Unassigned",
+    formatMonthKey(getMonthKey(file.uploadedAt)),
+  ].filter(Boolean).join(" · ");
 }
 
 function openFileWorkspace(

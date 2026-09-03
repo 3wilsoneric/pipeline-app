@@ -4,6 +4,7 @@ import { chmod, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { workspaceMonthFromProjectName } from "../lib/pipeline/workspace-month.mjs";
+import { resolveImportedWorkspaceCommunity } from "./allo-admission-evidence.mjs";
 
 const args = new Map(process.argv.slice(2).map((argument) => {
   const [key, ...rest] = argument.split("=");
@@ -67,7 +68,7 @@ for (const row of inventoryRows) {
   const exportedHash = value(row.hash);
   workspace.files.push({
     source_item_id: value(row.object_id) || value(row.hash),
-    source_file_name: value(row.display_name) || path.basename(sourcePath ?? "file"),
+    source_file_name: value(row.display_name) || path.basename(source?.path ?? "file"),
     source_content_type: value(row.mime_type) || "application/octet-stream",
     source_byte_size: source?.size ?? integer(row.size_bytes),
     source_sha256: /^[a-f0-9]{64}$/.test(exportedHash ?? "") ? exportedHash : null,
@@ -87,6 +88,7 @@ const workspaceValues = [...workspaces.values()].map((workspace) => {
   const workspaceMonth = workspaceMonthFromProjectName(workspace.project_name);
   return {
     ...workspace,
+    community: resolveImportedWorkspaceCommunity(workspace),
     workspace_month: workspaceMonth,
     workspace_month_basis: workspaceMonth ? "source_project_name" : "unknown",
     primary_owner: workspace.owner_candidates[0]?.name ?? null,
@@ -215,7 +217,7 @@ function communityFor(projectName) {
   if (normalized.includes("turlock")) return "Turlock";
   if (normalized.includes("victoria")) return "Victoria's House";
   if (normalized.includes("jcwh") || normalized.includes("jc wallace")) return "JC Wallace";
-  return "Unassigned";
+  return "";
 }
 
 function parseCommentedCsv(input) {

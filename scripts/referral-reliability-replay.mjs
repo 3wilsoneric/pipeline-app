@@ -564,7 +564,7 @@ function checkWorkspaceCountyResolution() {
   for (const [input, expected] of cases) {
     assert(getWorkspaceCounty(input) === expected, `Expected workspace county ${expected}`);
   }
-  assert(getWorkspaceCounty(referral()) === "Not recorded", "County resolution must not invent missing data");
+  assert(getWorkspaceCounty(referral()) === "", "Missing county renders blank rather than becoming a filter category");
 }
 
 function checkDocsAndRunbooks() {
