@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { startTransition, useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
+import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { fetchCurrentPipelineUser, fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
@@ -218,8 +218,8 @@ function GuideCoachSurface({ state, roles, tutorial, step, target, onStart, onCo
   if (state.mode === "closed") return null;
   if (state.mode === "library") return <GuideLibrary roles={roles} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
   if (!tutorial || !step) return null;
-  const conversation = <GuideConversation tutorialTitle={tutorial.title} step={step} stepIndex={state.stepIndex} stepCount={tutorial.steps.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} onBack={onBack} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
-  return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} step={step} /> : null}{conversation}</>;
+  const conversation = <GuideConversation tutorialTitle={tutorial.title} step={step} stepIndex={state.stepIndex} stepCount={tutorial.steps.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} panelSide={guidePanelSide(target.rect)} onBack={onBack} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
+  return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} /> : null}{conversation}</>;
 }
 
 function rebindGuideInteraction(current: TargetInteraction, candidate: HTMLElement | null, step: OperatorGuideStep, onAdvance: () => void): TargetInteraction {
@@ -241,7 +241,7 @@ function detachGuideInteraction(interaction: TargetInteraction) {
 function scrollGuideTargetIntoView(candidate: HTMLElement | null, alreadyScrolled: boolean) {
   if (!candidate || alreadyScrolled) return alreadyScrolled;
   if (isMostlyVisible(candidate.getBoundingClientRect())) return false;
-  candidate.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center", inline: "center" });
+  candidate.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
   return true;
 }
 
@@ -279,7 +279,7 @@ function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume
                 <div className="space-y-2">
                   {items.map((tutorial) => {
                     const done = completed.includes(tutorial.id);
-                    return <button key={tutorial.id} type="button" onClick={() => onStart(tutorial.id)} className="group w-full border border-[#d4dcda] bg-white p-3 text-left hover:border-[#86afa3] hover:bg-[#f8fbfa]"><span className="flex items-center gap-3"><span className={`flex h-8 w-8 shrink-0 items-center justify-center border ${done ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#c2d3cd] bg-[#eff6f3] text-[#0c705f]"}`}>{done ? <Check size={15} /> : <BookOpenCheck size={15} />}</span><span className="min-w-0 flex-1"><span className="block text-[12px] font-black text-[#232927]">{tutorial.title}</span><span className="mt-1 block text-[9px] leading-4 text-[#6d7773]">{tutorial.clickpath.join(" → ")}</span><span className="mt-1 block text-[8px] font-black uppercase tracking-[0.08em] text-[#7b8581]">{tutorial.steps.length} actions · {tutorial.minutes} min{done ? " · completed" : ""}</span></span><ChevronRight size={14} className="shrink-0 text-[#84908b] group-hover:text-[#0f8b73]" /></span></button>;
+                    return <button key={tutorial.id} type="button" onClick={() => onStart(tutorial.id)} className="group w-full border border-[#d4dcda] bg-white p-3 text-left hover:border-[#86afa3] hover:bg-[#f8fbfa]"><span className="flex items-center gap-3"><span className={`flex h-8 w-8 shrink-0 items-center justify-center border ${done ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#c2d3cd] bg-[#eff6f3] text-[#0c705f]"}`}>{done ? <Check size={15} /> : <BookOpenCheck size={15} />}</span><span className="min-w-0 flex-1"><span className="block text-[12px] font-black text-[#232927]">{tutorial.title}</span><span className="mt-1 block text-[9px] leading-4 text-[#6d7773]">{tutorial.clickpath.join(" → ")}</span><span className="mt-1 block text-[8px] font-black uppercase tracking-[0.08em] text-[#7b8581]">{tutorial.steps.length} steps · {tutorial.minutes} min{done ? " · completed" : ""}</span></span><ChevronRight size={14} className="shrink-0 text-[#84908b] group-hover:text-[#0f8b73]" /></span></button>;
                   })}
                 </div>
               </section>
@@ -292,77 +292,66 @@ function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume
   );
 }
 
-function GuideConversation({ tutorialTitle, step, stepIndex, stepCount, targetAvailable, routeMatches, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorialTitle: string; step: OperatorGuideStep; stepIndex: number; stepCount: number; targetAvailable: boolean; routeMatches: boolean; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
+function GuideConversation({ tutorialTitle, step, stepIndex, stepCount, targetAvailable, routeMatches, panelSide, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorialTitle: string; step: OperatorGuideStep; stepIndex: number; stepCount: number; targetAvailable: boolean; routeMatches: boolean; panelSide: "left" | "right"; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
   const targetReady = routeMatches && targetAvailable;
-  const canConfirm = !guideActionRequiresTarget(step, targetReady);
+  const canConfirm = step.advance === "confirm";
   return (
-    <section role="dialog" aria-label={`${tutorialTitle} guided tutorial`} className="fixed bottom-0 right-0 z-[100] flex max-h-[min(560px,calc(100dvh-1rem))] w-full flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)] sm:bottom-4 sm:right-4 sm:w-[380px]">
+    <section role="dialog" aria-label={`${tutorialTitle} guided tutorial`} data-testid="guided-coach-panel" className={`fixed bottom-0 right-0 z-[100] flex max-h-[min(560px,calc(100dvh-1rem))] w-full flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)] sm:bottom-4 sm:w-[380px] ${panelSide === "left" ? "sm:left-4 sm:right-auto" : "sm:right-4"}`}>
       <header className="border-b border-[#d5ddda] bg-[#f2f6f4] px-4 py-3">
         <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-[8px] font-black uppercase tracking-[0.11em] text-[#0c705f]">Step {stepIndex + 1} of {stepCount}</div><h2 className="mt-1 truncate text-[13px] font-black text-[#202623]">{tutorialTitle}</h2></div><div className="flex items-center gap-1"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={14} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={15} /></button></div></div>
-        <div className="mt-3 flex gap-1" aria-label={`Action ${stepIndex + 1} of ${stepCount}`}>{Array.from({ length: stepCount }, (_, index) => <span key={index} className={`h-1 flex-1 ${index <= stepIndex ? "bg-[#0f8b73]" : "bg-[#d7dfdc]"}`} />)}</div>
+        <div className="mt-3 flex gap-1" aria-label={`Step ${stepIndex + 1} of ${stepCount}`}>{Array.from({ length: stepCount }, (_, index) => <span key={index} className={`h-1 flex-1 ${index <= stepIndex ? "bg-[#0f8b73]" : "bg-[#d7dfdc]"}`} />)}</div>
       </header>
-      <GuideConversationBody step={step} stepIndex={stepIndex} targetReady={targetReady} routeMatches={routeMatches} onOpenRoute={onOpenRoute} />
-      <GuideConversationFooter step={step} stepIndex={stepIndex} stepCount={stepCount} targetReady={targetReady} canConfirm={canConfirm} onBack={onBack} onAdvance={onAdvance} />
+      <GuideConversationBody step={step} targetReady={targetReady} routeMatches={routeMatches} onOpenRoute={onOpenRoute} />
+      <GuideConversationFooter stepIndex={stepIndex} stepCount={stepCount} canConfirm={canConfirm} onBack={onBack} onAdvance={onAdvance} />
     </section>
   );
 }
 
-function GuideConversationBody({ step, stepIndex, targetReady, routeMatches, onOpenRoute }: { step: OperatorGuideStep; stepIndex: number; targetReady: boolean; routeMatches: boolean; onOpenRoute: () => void }) {
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-4" aria-live="polite"><div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">{step.phase} · Action {stepIndex + 1}</div><h3 className="mt-1.5 text-[18px] font-black leading-6 tracking-[-0.02em] text-[#1d2421]">{step.title}</h3><p className="mt-3 border-l-2 border-[#0f8b73] bg-[#f0f7f4] px-3 py-3 text-[12px] font-bold leading-5 text-[#285448]">{step.instruction}</p><p className="mt-3 text-[10px] leading-4 text-[#5f6a66]"><span className="font-black text-[#293d37]">Done when: </span>{step.completion}</p>{step.advance === "confirm" ? <p className="mt-3 border border-[#e2d6b8] bg-[#fffaf0] px-3 py-2 text-[9px] leading-4 text-[#705924]">{step.safety}</p> : null}{!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : null}</div>;
+function GuideConversationBody({ step, targetReady, routeMatches, onOpenRoute }: { step: OperatorGuideStep; targetReady: boolean; routeMatches: boolean; onOpenRoute: () => void }) {
+  return <div className="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-4" aria-live="polite"><div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">{step.phase}</div><h3 className="mt-1.5 text-[18px] font-black leading-6 tracking-[-0.02em] text-[#1d2421]">{step.title}</h3><p className="mt-3 border-l-2 border-[#0f8b73] pl-3 text-[12px] font-bold leading-5 text-[#285448]">{step.instruction}</p><p className="mt-3 text-[10px] leading-4 text-[#5f6a66]"><span className="font-black text-[#293d37]">Done when: </span>{step.completion}</p>{step.advance === "confirm" ? <p className="mt-3 border-t border-[#e3e8e6] pt-3 text-[9px] leading-4 text-[#705924]">{step.safety}</p> : null}{!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : null}</div>;
 }
 
 function UnavailableGuideAction({ step, routeMatches, onOpenRoute }: { step: OperatorGuideStep; routeMatches: boolean; onOpenRoute: () => void }) {
-  return <div className="mt-3 border border-[#dbc48d] bg-[#fff9e9] px-3 py-2.5 text-[10px] leading-4 text-[#6e561f]">{unavailableGuideMessage(step, routeMatches)}{!routeMatches ? <button type="button" onClick={onOpenRoute} className="mt-2 flex h-8 items-center gap-2 bg-[#6e561f] px-3 text-[9px] font-black uppercase tracking-[0.06em] text-white">Open this action <ArrowRight size={12} /></button> : null}</div>;
+  return <div className="mt-3 border-t border-[#e3e8e6] pt-3 text-[10px] leading-4 text-[#6e561f]">{unavailableGuideMessage(step, routeMatches)}{!routeMatches ? <button type="button" onClick={onOpenRoute} className="mt-2 flex h-8 items-center gap-2 border border-[#9c8145] px-3 text-[9px] font-black uppercase tracking-[0.06em] text-[#6e561f] hover:bg-[#fffaf0]">Open page <ArrowRight size={12} /></button> : null}</div>;
 }
 
 function unavailableGuideMessage(step: OperatorGuideStep, routeMatches: boolean) {
-  if (!routeMatches) return "This action is on another Pipeline page.";
-  if (step.optionalTarget) return "No matching work or permitted control is available. Acknowledge the stop condition instead of inventing a workaround.";
-  return "I am waiting for the highlighted action to become available.";
+  if (!routeMatches) return "This step is on another Pipeline page.";
+  if (step.optionalTarget) return "This control is not available for this training record. Skip this step to continue.";
+  return "This control is not available yet. Skip this step or open the required page.";
 }
 
-function GuideConversationFooter({ step, stepIndex, stepCount, targetReady, canConfirm, onBack, onAdvance }: { step: OperatorGuideStep; stepIndex: number; stepCount: number; targetReady: boolean; canConfirm: boolean; onBack: () => void; onAdvance: () => void }) {
-  return <footer className="flex items-center justify-between gap-2 border-t border-[#d8dfdc] bg-[#fafcfb] px-3 py-3"><button type="button" disabled={stepIndex === 0} onClick={onBack} className="flex h-9 items-center gap-1.5 px-2 text-[9px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={13} /> Back</button>{canConfirm ? <button type="button" onClick={onAdvance} className="flex h-9 items-center gap-2 bg-[#0f8b73] px-4 text-[9px] font-black text-white">{guideAdvanceLabel(step, stepIndex, stepCount, targetReady)}<ArrowRight size={13} /></button> : <span className="flex h-9 items-center gap-2 border border-[#9fc8bb] bg-[#edf7f3] px-3 text-[9px] font-black text-[#0c705f]">Use highlighted control <ChevronRight size={12} /></span>}</footer>;
+function GuideConversationFooter({ stepIndex, stepCount, canConfirm, onBack, onAdvance }: { stepIndex: number; stepCount: number; canConfirm: boolean; onBack: () => void; onAdvance: () => void }) {
+  return <footer className="flex items-center justify-between gap-2 border-t border-[#d8dfdc] bg-[#fafcfb] px-3 py-3"><button type="button" disabled={stepIndex === 0} onClick={onBack} className="flex h-9 items-center gap-1.5 px-2 text-[9px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={13} /> Back</button><div className="flex items-center gap-1.5"><button type="button" onClick={onAdvance} className="h-9 px-2 text-[9px] font-black text-[#66716d] hover:text-[#111111]">{stepIndex === stepCount - 1 ? "Skip and finish" : "Skip step"}</button>{canConfirm ? <button type="button" onClick={onAdvance} className="flex h-9 items-center gap-2 bg-[#0f8b73] px-4 text-[9px] font-black text-white">{guideAdvanceLabel(stepIndex, stepCount)}<ArrowRight size={13} /></button> : <span className="flex h-9 items-center gap-1.5 px-2 text-[9px] font-black text-[#0c705f]">Use control <ChevronRight size={12} /></span>}</div></footer>;
 }
 
-function guideActionRequiresTarget(step: OperatorGuideStep, targetReady: boolean) {
-  return step.advance !== "confirm" && !(step.optionalTarget && !targetReady);
-}
-
-function guideAdvanceLabel(step: OperatorGuideStep, stepIndex: number, stepCount: number, targetReady: boolean) {
+function guideAdvanceLabel(stepIndex: number, stepCount: number) {
   if (stepIndex === stepCount - 1) return "Finish";
-  if (step.optionalTarget && !targetReady) return "Acknowledge stop";
   return "Continue";
 }
 
-function GuideSpotlight({ rect, step }: { rect: DOMRect; step: OperatorGuideStep }) {
+function GuideSpotlight({ rect }: { rect: DOMRect }) {
   const pad = 6;
   const left = Math.max(0, rect.left - pad);
   const top = Math.max(0, rect.top - pad);
   const right = Math.min(window.innerWidth, rect.right + pad);
   const bottom = Math.min(window.innerHeight, rect.bottom + pad);
-  const tooltip = tooltipPosition(rect, step.placement ?? "auto");
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[80]">
-      <span className="absolute left-0 top-0 w-full bg-[#10201b]/45" style={{ height: top }} />
-      <span className="absolute left-0 bg-[#10201b]/45" style={{ top, width: left, height: Math.max(0, bottom - top) }} />
-      <span className="absolute right-0 bg-[#10201b]/45" style={{ top, width: Math.max(0, window.innerWidth - right), height: Math.max(0, bottom - top) }} />
-      <span className="absolute bottom-0 left-0 w-full bg-[#10201b]/45" style={{ top: bottom }} />
-      <span className="absolute border-2 border-[#1ba889] shadow-[0_0_0_4px_rgba(255,255,255,0.92),0_0_0_7px_rgba(15,139,115,0.35)]" style={{ left, top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) }} />
-      <span className="absolute max-w-[250px] border border-[#0f8b73] bg-[#103f35] px-3 py-2 text-[10px] font-black leading-4 text-white shadow-[0_8px_24px_rgba(10,35,29,0.25)]" style={tooltip}>{step.title}</span>
+    <div aria-hidden="true" data-testid="guide-spotlight" className="pointer-events-none fixed inset-0 z-[80]">
+      <span className="absolute left-0 top-0 w-full bg-[#10201b]/30" style={{ height: top }} />
+      <span className="absolute left-0 bg-[#10201b]/30" style={{ top, width: left, height: Math.max(0, bottom - top) }} />
+      <span className="absolute right-0 bg-[#10201b]/30" style={{ top, width: Math.max(0, window.innerWidth - right), height: Math.max(0, bottom - top) }} />
+      <span className="absolute bottom-0 left-0 w-full bg-[#10201b]/30" style={{ top: bottom }} />
+      <span data-testid="guide-spotlight-outline" className="absolute border-2 border-[#13977d] shadow-[0_0_0_3px_rgba(255,255,255,0.96),0_0_0_6px_rgba(15,139,115,0.26)] transition-[left,top,width,height] duration-150" style={{ left, top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) }} />
     </div>
   );
 }
 
-function tooltipPosition(rect: DOMRect, placement: OperatorGuideStep["placement"]): CSSProperties {
-  const width = 250;
-  const gap = 14;
-  const resolved = placement === "auto" ? (rect.bottom + 80 < window.innerHeight ? "bottom" : "top") : placement;
-  if (resolved === "left") return { left: Math.max(8, rect.left - width - gap), top: clamp(rect.top, 8, window.innerHeight - 90), width };
-  if (resolved === "right") return { left: Math.min(window.innerWidth - width - 8, rect.right + gap), top: clamp(rect.top, 8, window.innerHeight - 90), width };
-  const left = clamp(rect.left + rect.width / 2 - width / 2, 8, window.innerWidth - width - 8);
-  if (resolved === "top") return { left, top: Math.max(8, rect.top - 66), width };
-  return { left, top: Math.min(window.innerHeight - 70, rect.bottom + gap), width };
+function guidePanelSide(rect: DOMRect | null): "left" | "right" {
+  if (!rect || window.innerWidth < 640) return "right";
+  const panelLeft = window.innerWidth - 396;
+  const panelTop = Math.max(16, window.innerHeight - 576);
+  return rect.right > panelLeft - 12 && rect.bottom > panelTop - 12 ? "left" : "right";
 }
 
 function findVisibleGuideTarget(id: string) {
@@ -500,12 +489,4 @@ function guideAdvanceEvent(advance: OperatorGuideStep["advance"], target: HTMLEl
 
 function isMostlyVisible(rect: DOMRect) {
   return rect.top >= 82 && rect.left >= 0 && rect.bottom <= window.innerHeight && rect.right <= window.innerWidth;
-}
-
-function prefersReducedMotion() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }

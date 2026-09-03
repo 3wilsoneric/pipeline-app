@@ -52,7 +52,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect.poll(() => errors).toEqual([]);
   });
 
-  test("runs a common-task walkthrough with action verification", async ({ page }) => {
+  test("lets an operator skip a step without performing its action", async ({ page }) => {
     await mockTrainingProgress(page);
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
@@ -60,7 +60,10 @@ test.describe("Pipeline Learning Center", () => {
     await page.getByRole("button", { name: "Start guided walkthrough: Find and reopen a referral" }).click();
 
     await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
-    await expect(page.getByText("Use highlighted control", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
+    await page.getByRole("button", { name: "Skip step" }).click();
+    await expect(page).toHaveURL(/view=referrals/);
+    await expect(page.getByRole("heading", { name: "Choose Current work or All" })).toBeVisible();
   });
 
   test("persists and resumes a paused walkthrough", async ({ page }) => {
@@ -142,6 +145,7 @@ test.describe("Pipeline Learning Center", () => {
     await page.getByRole("button", { name: "Open Find and reopen a referral" }).click();
     await page.getByRole("button", { name: "Start guided walkthrough: Find and reopen a referral" }).click();
     await expect(page.getByRole("dialog", { name: /Find and reopen a referral guided tutorial/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Skip step" })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 });
