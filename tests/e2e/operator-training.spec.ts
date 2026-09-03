@@ -40,7 +40,7 @@ test.describe("Pipeline Learning Center", () => {
     await page.getByRole("button", { name: "Open Find my assigned work" }).click();
     await page.getByRole("button", { name: "Start guided walkthrough: Find my assigned work" }).click();
 
-    await expect(page.getByRole("dialog", { name: /Start an assessor shift guided tutorial/ })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /Review assigned assessment work guided tutorial/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Review your assigned work" })).toBeVisible();
     await expect(page.locator('[data-guide-target="my-queue"]')).toBeVisible();
     await page.getByRole("button", { name: "Continue" }).click();

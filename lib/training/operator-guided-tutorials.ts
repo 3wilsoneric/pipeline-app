@@ -62,7 +62,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   }),
   tutorial({
     id: "assessor-shift",
-    title: "Start an assessor shift",
+    title: "Review assigned assessment work",
     workflow: "Assessor",
     summary: "Find assigned work, check today’s schedule, and open the referral that needs action.",
     outcome: "Leave Home with the correct assigned referral open and a clear next action.",
@@ -108,7 +108,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   }),
   tutorial({
     id: "supervisor-shift",
-    title: "Start a supervisor shift",
+    title: "Review team referral work",
     workflow: "Supervisor",
     summary: "Review team exceptions, current referral work, and upcoming assessment coverage.",
     outcome: "Identify unowned, blocked, overdue, or unscheduled work and assign a next action.",
