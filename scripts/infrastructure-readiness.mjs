@@ -118,9 +118,10 @@ check(
     && runtime.includes("{ name: 'NEXT_PUBLIC_PIPELINE_API_SCOPE', value: pipelineApiScope }"),
 );
 check(
-  "runtime explicitly trusts preserved custom domains for browser mutations",
-  runtime.includes("PIPELINE_ALLOWED_MUTATION_ORIGINS")
-    && runtime.includes("join(map(customDomains, domain => 'https://${domain.name}'), ',')"),
+  "runtime canonicalizes browser pages and trusts every production hostname for mutations",
+  runtime.includes("PIPELINE_CANONICAL_ORIGIN")
+    && runtime.includes("generatedApplicationOrigin")
+    && runtime.includes("concat([generatedApplicationOrigin], customApplicationOrigins)"),
 );
 check(
   "immutable runtime deployments preserve custom hostname bindings",

@@ -85,7 +85,10 @@ var revisionSuffix = take(toLower(replace(deploymentId, '-', '')), 16)
 // client ID GUID, while the delegated scope retains the api:// URI prefix.
 var pipelineApiAudience = pipelineEntraClientId
 var pipelineApiScope = 'api://${pipelineEntraClientId}/access_as_user'
-var allowedMutationOrigins = join(map(customDomains, domain => 'https://${domain.name}'), ',')
+var generatedApplicationOrigin = 'https://${webName}.${containerEnvironment.properties.defaultDomain}'
+var customApplicationOrigins = map(customDomains, domain => 'https://${domain.name}')
+var canonicalApplicationOrigin = length(customApplicationOrigins) > 0 ? customApplicationOrigins[0] : generatedApplicationOrigin
+var allowedMutationOrigins = join(concat([generatedApplicationOrigin], customApplicationOrigins), ',')
 var keyVaultBaseUri = endsWith(keyVaultUri, '/') ? keyVaultUri : '${keyVaultUri}/'
 var keyVaultSecretIdentity = runtimeIdentityResourceId
 
@@ -182,6 +185,7 @@ var baseEnvironment = [
   { name: 'NEXT_PUBLIC_PIPELINE_API_SCOPE', value: pipelineApiScope }
   { name: 'NEXT_PUBLIC_PIPELINE_AUTH_REQUIRED', value: 'true' }
   { name: 'PIPELINE_ENTRA_SESSION_SECRET', secretRef: 'entra-session-secret' }
+  { name: 'PIPELINE_CANONICAL_ORIGIN', value: canonicalApplicationOrigin }
   { name: 'PIPELINE_ALLOWED_MUTATION_ORIGINS', value: allowedMutationOrigins }
   { name: 'PIPELINE_TRUSTED_GATEWAY', value: 'false' }
   { name: 'PIPELINE_ALLOW_UNVERIFIED_AUTH_HEADERS', value: 'false' }
@@ -616,7 +620,8 @@ resource jobs 'Microsoft.App/jobs@2025-01-01' = [for job in scheduledJobs: if (j
 
 output containerAppName string = web.name
 output containerAppFqdn string = web.properties.configuration.ingress.fqdn
-output applicationUrl string = 'https://${web.properties.configuration.ingress.fqdn}'
+output applicationUrl string = canonicalApplicationOrigin
+output generatedApplicationUrl string = 'https://${web.properties.configuration.ingress.fqdn}'
 output livenessUrl string = 'https://${web.properties.configuration.ingress.fqdn}/api/health/live'
 output readinessUrl string = 'https://${web.properties.configuration.ingress.fqdn}/api/health'
 output pipelineApiScope string = pipelineApiScope

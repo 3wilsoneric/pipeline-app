@@ -6,10 +6,16 @@ import {
   isProtectedPath,
   requireAuthenticatedUser,
 } from "@/lib/auth/pipeline-auth";
+import { getCanonicalPageRedirect } from "@/lib/auth/canonical-origin";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
 import { PIPELINE_PERMISSIONS_POLICY } from "@/shared/pipeline-security-headers.mjs";
 
 export async function proxy(request: NextRequest) {
+  const canonicalUrl = getCanonicalPageRedirect(request);
+  if (canonicalUrl) {
+    return withSecurityHeaders(NextResponse.redirect(canonicalUrl, 308), request);
+  }
+
   const { pathname } = request.nextUrl;
   const applicationPathname = fromPipelinePath(pathname);
 

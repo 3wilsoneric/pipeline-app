@@ -1238,6 +1238,52 @@ function referralHardeningResults() {
       });
       assert(requestSecurity.requireSameOriginMutation(request) === null, "Configured custom origin should pass through the Azure proxy");
     }),
+    run("mutation origin accepts the generated Azure hostname behind a reverse proxy", () => {
+      const requestSecurity = loadRequestSecurityModule({
+        PIPELINE_ALLOWED_MUTATION_ORIGINS: "https://pipeline-prod-web.example.azurecontainerapps.io,https://alamo-pipeline.com",
+      });
+      const request = new Request("https://pipeline-prod.internal/api/auth/session", {
+        method: "POST",
+        headers: {
+          Origin: "https://pipeline-prod-web.example.azurecontainerapps.io",
+          "Sec-Fetch-Site": "same-origin",
+        },
+      });
+      assert(requestSecurity.requireSameOriginMutation(request) === null, "Generated Azure origin should pass through the Azure proxy");
+    }),
+    run("browser documents canonicalize the generated Azure hostname", () => {
+      const canonicalOrigin = loadTypeScriptModule(root, "lib/auth/canonical-origin.ts", {
+        process: { env: { PIPELINE_CANONICAL_ORIGIN: "https://alamo-pipeline.com" } },
+      });
+      const redirected = canonicalOrigin.getCanonicalPageRedirect(new Request("https://pipeline-prod.internal/training?step=2", {
+        headers: {
+          Accept: "text/html,application/xhtml+xml",
+          Host: "pipeline-prod-web.example.azurecontainerapps.io",
+          "Sec-Fetch-Dest": "document",
+          "X-Forwarded-Host": "pipeline-prod-web.example.azurecontainerapps.io",
+        },
+      }));
+      assert(redirected?.href === "https://alamo-pipeline.com/training?step=2", "Canonical redirect should preserve the page path and query");
+    }),
+    run("canonical browser origin does not redirect and API mutations are untouched", () => {
+      const canonicalOrigin = loadTypeScriptModule(root, "lib/auth/canonical-origin.ts", {
+        process: { env: { PIPELINE_CANONICAL_ORIGIN: "https://alamo-pipeline.com" } },
+      });
+      const canonicalPage = new Request("https://pipeline-prod.internal/sign-in", {
+        headers: {
+          Accept: "text/html",
+          Host: "alamo-pipeline.com",
+          "Sec-Fetch-Dest": "document",
+          "X-Forwarded-Host": "alamo-pipeline.com",
+        },
+      });
+      const mutation = new Request("https://pipeline-prod.internal/api/auth/session", {
+        method: "POST",
+        headers: { Accept: "application/json", Host: "pipeline-prod-web.example.azurecontainerapps.io" },
+      });
+      assert(canonicalOrigin.getCanonicalPageRedirect(canonicalPage) === null, "Canonical page should not redirect");
+      assert(canonicalOrigin.getCanonicalPageRedirect(mutation) === null, "API mutation should not redirect");
+    }),
     run("mutation origin still rejects unconfigured domains behind a reverse proxy", () => {
       const requestSecurity = loadRequestSecurityModule({
         PIPELINE_ALLOWED_MUTATION_ORIGINS: "https://www.alamo-pipeline.com",
