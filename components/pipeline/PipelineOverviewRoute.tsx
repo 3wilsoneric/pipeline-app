@@ -20,9 +20,10 @@ import {
 } from "@/lib/pipeline/recent-destinations";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import {
+  formatClientIdentityDetail,
   formatClientIdentityTitle,
-  presentClientCommunity,
-  presentClientGender,
+  resolveClientCommunity,
+  resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import {
@@ -276,7 +277,7 @@ function recordNavigation(
       kind: "referral",
       screen: "packet",
       title: identityTitle.slice(0, 200),
-      detail: `${presentClientGender(referral.gender)} · ${presentClientCommunity(referral.community)} · Referral workspace`,
+      detail: formatClientIdentityDetail(resolveClientGender(referral.gender), resolveClientCommunity(referral.community), "Referral workspace"),
       referralId: referral.id,
       community: referral.community,
     });

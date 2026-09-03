@@ -274,8 +274,10 @@ export function buildClientEpisodeSummaries(episodes: ClinicalClientRecord[]): C
 
     return {
       key: `${admitted || "episode"}-${discharged || "current"}-${index}`,
-      period: `${formatProfileDate(admitted) || "Admission not recorded"} to ${discharged ? formatProfileDate(discharged) : "Current"}`,
-      community: community || "Community not recorded",
+      period: admitted
+        ? `${formatProfileDate(admitted)} to ${discharged ? formatProfileDate(discharged) : "Current"}`
+        : discharged ? `Through ${formatProfileDate(discharged)}` : "",
+      community,
       facts,
     };
   });

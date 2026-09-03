@@ -31,9 +31,10 @@ import type { ReferralFacets } from "@/lib/pipeline/referral-store";
 import type { ReferralSort } from "@/lib/pipeline/referral-sort";
 import { isInternalWorkspaceTag, isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
 import {
+  formatClientIdentityDetail,
   formatClientIdentityTitle,
-  presentClientCommunity,
-  presentClientGender,
+  resolveClientCommunity,
+  resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import FilePreviewDialog from "@/components/pipeline/ReferralFilePreviewDialog";
@@ -1143,7 +1144,7 @@ function ImportIdentityReviewDialog({
               <button key={client.canonical_client_id} type="button" onClick={() => setSelected(client)} className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-4 py-3 text-left last:border-b-0 ${active ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}>
                 <span className="min-w-0">
                   <span className="block truncate text-[13px] font-black" title={formatClientIdentityTitle({ name: client.display_name, gender: client.gender, community: client.current_community || client.community_names[0] })}>{formatClientIdentityTitle({ name: client.display_name, gender: client.gender, community: client.current_community || client.community_names[0] })}</span>
-                  <span className="mt-1 block truncate text-[10px] text-[#737373]">{presentClientGender(client.gender)} · {presentClientCommunity(client.current_community || client.community_names[0])} · {client.workspace_origin === "pipeline" ? "Pipeline client workspace" : "Alamo client"}</span>
+                  <span className="mt-1 block truncate text-[10px] text-[#737373]">{formatClientIdentityDetail(resolveClientGender(client.gender), resolveClientCommunity(client.current_community, client.community_names[0]), client.workspace_origin === "pipeline" ? "Pipeline client workspace" : "Alamo client")}</span>
                 </span>
                 {active ? <Check size={16} className="shrink-0 text-[#0f8b73]" /> : null}
               </button>

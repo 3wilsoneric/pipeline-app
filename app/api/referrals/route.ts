@@ -19,6 +19,7 @@ import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
 import { getActiveWorkspaceMember, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
 import { createDefaultAdmissionRequirements, isRequirementComplete } from "@/lib/pipeline/workflow-records";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { applyReviewedClinicalIdentity } from "@/lib/pipeline/referral-clinical-identity";
 
 export const runtime = "nodejs";
 
@@ -59,13 +60,14 @@ export async function GET(request: Request) {
       });
     }
 
-    const contexts = await getReferralWorkflowContexts(result.referrals);
-    const progress = Object.fromEntries(result.referrals.map((referral) => [
+    const referrals = await applyReviewedClinicalIdentity(request, auth.user.id, result.referrals);
+    const contexts = await getReferralWorkflowContexts(referrals);
+    const progress = Object.fromEntries(referrals.map((referral) => [
       referral.id,
       getReferralProgress(referral, contexts.get(referral.id)),
     ]));
 
-    return Response.json({ ...result, progress }, {
+    return Response.json({ ...result, referrals, progress }, {
       headers: {
         "Cache-Control": "no-store, max-age=0",
       },

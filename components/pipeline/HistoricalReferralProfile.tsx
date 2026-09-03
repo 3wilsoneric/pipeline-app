@@ -7,7 +7,7 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { HistoricalProfileResponse } from "@/lib/pipeline/historical-profile-contracts";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { getWorkspaceCounty } from "@/lib/pipeline/workspace-presentation";
-import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { formatClientIdentityTitle, resolveClientCommunity, resolveClientGender } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 export default function HistoricalReferralProfile({ referral }: { referral: Referral }) {
   const [profile, setProfile] = useState<HistoricalProfileResponse | null>(null);
@@ -27,8 +27,8 @@ export default function HistoricalReferralProfile({ referral }: { referral: Refe
   }, [referral.id]);
 
   const county = firstValue(profileFact(profile, "county"), getWorkspaceCounty(referral));
-  const dob = firstValue(profileFact(profile, "dob"), referral.dob, "Not recorded");
-  const gender = firstValue(profileFact(profile, "gender"), referral.gender, "Gender not recorded");
+  const dob = firstValue(profileFact(profile, "dob"), referral.dob);
+  const gender = resolveClientGender(profileFact(profile, "gender"), referral.gender) ?? "";
 
   return (
     <div className="space-y-5">
@@ -43,6 +43,13 @@ const prominentFactKeys = new Set(["name", "gender", "county", "dob"]);
 
 function HistoricalProfileHeader({ referral, county, dob, gender }: { referral: Referral; county: string; dob: string; gender: string }) {
   const identityTitle = formatClientIdentityTitle({ name: referral.name, gender, community: referral.community });
+  const facts = [
+    { label: "Community", value: resolveClientCommunity(referral.community) ?? "" },
+    { label: "Gender", value: gender },
+    { label: "County", value: county },
+    { label: "Date of birth", value: dob },
+    { label: "Source period", value: sourcePeriod(referral) },
+  ].filter((fact) => fact.value);
   return (
     <section className="border border-[#cfd7d4] bg-[#f7faf9] px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -55,13 +62,7 @@ function HistoricalProfileHeader({ referral, county, dob, gender }: { referral: 
             Read-only facts and notes reconstructed from imported source material. This is not a completed assessment and does not enter assessment reporting.
           </p>
         </div>
-        <div className="grid min-w-[260px] grid-cols-2 border-l border-t border-[#d7ddd9] bg-white">
-          <ProfileFact label="Community" value={firstValue(referral.community, "Not recorded")} />
-          <ProfileFact label="Gender" value={gender} />
-          <ProfileFact label="County" value={county} />
-          <ProfileFact label="Date of birth" value={dob} />
-          <ProfileFact label="Source period" value={sourcePeriod(referral)} />
-        </div>
+        {facts.length > 0 ? <div className="grid min-w-[260px] grid-cols-2 border-l border-t border-[#d7ddd9] bg-white">{facts.map((fact) => <ProfileFact key={fact.label} {...fact} />)}</div> : null}
       </div>
     </section>
   );

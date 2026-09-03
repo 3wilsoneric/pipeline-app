@@ -20,6 +20,8 @@ import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspa
 import {
   formatClientIdentityTitle,
   presentClientCommunity,
+  resolveClientCommunity,
+  resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 
@@ -353,10 +355,9 @@ export default function ClientProfileDirectory({
         {error ? <DirectoryError message={error} onRetry={() => setReloadKey((current) => current + 1)} hasPartialResults={clients.length > 0} /> : null}
 
         <section className="border-b border-[#d9dfdc]" aria-label="Client list">
-          <div className="hidden grid-cols-[minmax(250px,1.15fr)_minmax(245px,1fr)_minmax(220px,0.85fr)_36px] items-center gap-6 border-b border-[#d9dfdc] bg-[#fafbfa] px-5 py-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#68716d] md:grid">
+          <div className="hidden grid-cols-[minmax(280px,0.9fr)_minmax(360px,1.4fr)_36px] items-center gap-6 border-b border-[#d9dfdc] bg-[#fafbfa] px-5 py-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#68716d] md:grid">
             <span>Client</span>
-            <span>Current placement</span>
-            <span>Pipeline activity</span>
+            <span>Details</span>
             <span className="sr-only">Open</span>
           </div>
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
@@ -479,47 +480,43 @@ function ClientDirectoryRow({ client, onOpen }: { client: DirectoryClient; onOpe
     gender: client.gender,
     community: client.current_community || client.community_names[0],
   });
-  const community = presentClientCommunity(client.current_community || client.community_names[0]);
-  const identityDetail = client.current_resident
-    ? ["Current census", client.resident_numbers[0] ? `Resident ${client.resident_numbers[0]}` : null].filter(Boolean).join(" · ")
-    : client.workspace_origin === "pipeline"
-      ? "Referral record"
-      : "Client record";
+  const gender = resolveClientGender(client.gender);
+  const community = resolveClientCommunity(client.current_community, client.community_names[0]);
+  const identityDetail = [
+    gender,
+    client.current_resident ? "Current census" : null,
+  ].filter(Boolean).join(" · ");
   const placementDetail = [
+    community,
     client.unit ? `Unit ${client.unit}` : null,
     client.admit_date ? `Admitted ${formatDate(client.admit_date)}` : null,
-  ].filter(Boolean).join(" · ") || (client.current_resident ? "Current stay details unavailable" : "Not on the current census");
+  ].filter(Boolean).join(" · ");
   const activityTotal = client.referral_count + client.document_count;
   const activity = activityTotal > 0
     ? `${countNoun(client.document_count, "document")} · ${countNoun(client.referral_count, "referral")}`
-    : "No Pipeline activity";
+    : "";
+  const secondaryDetail = [client.care_level, activity].filter(Boolean).join(" · ");
 
   return (
     <button
       type="button"
       aria-label={`Open profile for ${identityTitle}`}
       onClick={onOpen}
-      className="group grid w-full grid-cols-[minmax(0,1fr)_32px] items-start gap-x-3 gap-y-3 border-b border-l-[3px] border-b-[#e3e7e5] border-l-transparent px-4 py-4 text-left transition-colors last:border-b-0 hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-l-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none sm:px-5 md:grid-cols-[minmax(250px,1.15fr)_minmax(245px,1fr)_minmax(220px,0.85fr)_36px] md:items-center md:gap-6"
+      className="group grid w-full grid-cols-[minmax(0,1fr)_32px] items-start gap-x-3 gap-y-2 border-b border-l-[3px] border-b-[#e3e7e5] border-l-transparent px-4 py-4 text-left transition-colors last:border-b-0 hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-l-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none sm:px-5 md:grid-cols-[minmax(280px,0.9fr)_minmax(360px,1.4fr)_36px] md:items-center md:gap-6"
     >
       <span className="min-w-0">
-        <span className="block truncate text-[16px] font-black leading-5 text-[#151a18]" title={identityTitle}>{identityTitle}</span>
-        <span className="mt-1 block truncate text-[11px] leading-4 text-[#68716d]">{identityDetail}</span>
+        <span className="block truncate text-[16px] font-bold leading-5 text-[#151a18]" title={identityTitle}>{identityTitle}</span>
+        {identityDetail ? <span className="mt-1 block truncate text-[11px] leading-4 text-[#68716d]">{identityDetail}</span> : null}
       </span>
-      <span className="col-span-2 grid min-w-0 grid-cols-[92px_minmax(0,1fr)] md:col-span-1 md:col-start-2 md:row-start-1 md:block">
-        <span className="text-[9px] font-black uppercase tracking-[0.07em] text-[#78817d] md:hidden">Placement</span>
+      {placementDetail || secondaryDetail ? (
+      <span className="col-span-2 min-w-0 md:col-span-1 md:col-start-2 md:row-start-1">
         <span className="min-w-0">
-          <span className="block truncate text-[13px] font-bold text-[#343b38]" title={community}>{community}</span>
-          <span className="mt-1 block truncate text-[11px] text-[#747c78]">{placementDetail}</span>
+          {placementDetail ? <span className="block truncate text-[13px] font-semibold text-[#343b38]" title={placementDetail}>{placementDetail}</span> : null}
+          {secondaryDetail ? <span className={`block truncate text-[11px] ${placementDetail ? "mt-1" : ""} ${activityTotal > 0 ? "text-[#0c705f]" : "text-[#747c78]"}`}>{secondaryDetail}</span> : null}
         </span>
       </span>
-      <span className="col-span-2 grid min-w-0 grid-cols-[92px_minmax(0,1fr)] md:col-span-1 md:col-start-3 md:row-start-1 md:block">
-        <span className="text-[9px] font-black uppercase tracking-[0.07em] text-[#78817d] md:hidden">Pipeline</span>
-        <span className="min-w-0">
-          <span className={`block truncate text-[12px] font-bold ${activityTotal > 0 ? "text-[#0c705f]" : "text-[#68716d]"}`}>{activity}</span>
-          <span className="mt-1 block truncate text-[11px] text-[#747c78]">{client.care_level || (client.current_resident ? "Current client profile" : "Profile available")}</span>
-        </span>
-      </span>
-      <span className="col-start-2 row-start-1 flex h-8 w-8 items-center justify-center self-center text-[#77807c] transition-transform group-hover:translate-x-0.5 group-hover:text-[#0f8b73] md:col-start-4"><ArrowRight size={17} /></span>
+      ) : null}
+      <span className="col-start-2 row-start-1 flex h-8 w-8 items-center justify-center self-center text-[#77807c] transition-transform group-hover:translate-x-0.5 group-hover:text-[#0f8b73] md:col-start-3"><ArrowRight size={17} /></span>
     </button>
   );
 }
@@ -534,15 +531,11 @@ function RosterSkeleton() {
       {Array.from({ length: 7 }, (_, index) => (
         <div
           key={index}
-          className="grid min-h-[88px] grid-cols-[minmax(0,1fr)_32px] items-center gap-3 border-l-[3px] border-transparent px-4 py-4 sm:px-5 md:grid-cols-[minmax(250px,1.15fr)_minmax(245px,1fr)_minmax(220px,0.85fr)_36px] md:gap-6"
+          className="grid min-h-[80px] grid-cols-[minmax(0,1fr)_32px] items-center gap-3 border-l-[3px] border-transparent px-4 py-4 sm:px-5 md:grid-cols-[minmax(280px,0.9fr)_minmax(360px,1.4fr)_36px] md:gap-6"
         >
           <div className="animate-pulse">
             <div className="h-4 w-2/5 bg-[#e8ebe9]" />
             <div className="mt-2 h-2.5 w-3/5 bg-[#f1f2f1]" />
-          </div>
-          <div className="hidden animate-pulse md:block">
-            <div className="h-3 w-1/2 bg-[#edf0ee]" />
-            <div className="mt-2 h-2.5 w-2/3 bg-[#f4f5f4]" />
           </div>
           <div className="hidden animate-pulse md:block">
             <div className="h-3 w-2/3 bg-[#edf0ee]" />
@@ -568,7 +561,10 @@ async function fetchClientPage(query: string, cursor: string | null, signal: Abo
 function collectCommunities(clients: DirectoryClient[]) {
   const communities = new Set<string>();
   for (const client of clients) {
-    for (const community of client.community_names) communities.add(community);
+    for (const community of client.community_names) {
+      const resolved = resolveClientCommunity(community);
+      if (resolved) communities.add(resolved);
+    }
   }
   return [...communities]
     .map((name) => ({ id: name, name }))
@@ -604,9 +600,11 @@ function matchesProfileDataFilter(client: DirectoryClient, filter: ProfileDataFi
 function compareDirectoryClients(left: DirectoryClient, right: DirectoryClient, sort: SortOption) {
   const byName = left.display_name.localeCompare(right.display_name, "en", { sensitivity: "base" });
   if (sort === "community") {
-    const leftCommunity = presentClientCommunity(left.current_community || left.community_names[0]);
-    const rightCommunity = presentClientCommunity(right.current_community || right.community_names[0]);
-    return leftCommunity.localeCompare(rightCommunity, "en", { sensitivity: "base" }) || byName;
+    const leftCommunity = resolveClientCommunity(left.current_community, left.community_names[0]);
+    const rightCommunity = resolveClientCommunity(right.current_community, right.community_names[0]);
+    if (!leftCommunity && rightCommunity) return 1;
+    if (leftCommunity && !rightCommunity) return -1;
+    return (leftCommunity ?? "").localeCompare(rightCommunity ?? "", "en", { sensitivity: "base" }) || byName;
   }
   if (sort === "recent_admission") {
     return (right.admit_date ?? "").localeCompare(left.admit_date ?? "") || byName;

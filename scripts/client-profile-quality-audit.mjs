@@ -106,7 +106,7 @@ const formatterFailures = [
   normalizeClientName("Xin Quan Lin -- San Francisco") === "Xin Lin",
   normalizeClientName("Xin Quan Lin - San Francisco", { community: "San Francisco" }) === "Xin Lin",
   normalizeClientName("Xuele Qu · Unknown · San Pablo", { community: "San Pablo" }) === "Xuele Qu",
-  normalizeClientName("IRVIN AVILA (PSH) 09/03") === "IRVIN AVILA",
+  normalizeClientName("IRVIN AVILA (PSH) 09/03") === "Irvin Avila",
   normalizeClientName("Natalee Atwood-1/17/2025") === "Natalee Atwood",
   normalizeClientName("Hunter Slatten - 6/5/25 - Merced") === "Hunter Slatten",
   normalizeClientName("Christopher Abel-Jones") === "Christopher Abel-Jones",

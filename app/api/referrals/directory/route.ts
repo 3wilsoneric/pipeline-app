@@ -11,6 +11,7 @@ import {
   requireReferralStore,
 } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowContexts } from "@/lib/pipeline/workflow-store";
+import { applyReviewedClinicalIdentity } from "@/lib/pipeline/referral-clinical-identity";
 
 export const runtime = "nodejs";
 
@@ -37,14 +38,16 @@ export async function GET(request: Request) {
       listReferralFacets(query.value.query, facetAccess),
       listReferralFiles(scopeReferralListOptions(auth.user, { limit: 1, identityStatus: "linked" })),
     ]);
-    const contexts = await getReferralWorkflowContexts(result.referrals);
-    const progress = Object.fromEntries(result.referrals.map((referral) => [
+    const referrals = await applyReviewedClinicalIdentity(request, auth.user.id, result.referrals);
+    const contexts = await getReferralWorkflowContexts(referrals);
+    const progress = Object.fromEntries(referrals.map((referral) => [
       referral.id,
       getReferralProgress(referral, contexts.get(referral.id)),
     ]));
 
     return Response.json({
       ...result,
+      referrals,
       progress,
       facets,
       file_total: files.total,

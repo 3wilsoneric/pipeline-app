@@ -7,8 +7,8 @@ import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import {
   formatClientIdentityTitle,
-  presentClientCommunity,
-  presentClientGender,
+  resolveClientCommunity,
+  resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import {
@@ -60,10 +60,9 @@ export default function ReferralWorklist({
       </div>
 
       <div className="hidden overflow-x-auto lg:block">
-        <div className="min-w-[940px]">
-        <div className="grid grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.9fr)_170px_135px_90px_110px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#666666]">
+        <div className="min-w-[820px]">
+        <div className="grid grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_110px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#666666]">
           <span>Client</span>
-          <span>County</span>
           <span>Data capture</span>
           <span>Owner</span>
           <span>Updated</span>
@@ -78,17 +77,17 @@ export default function ReferralWorklist({
               data-guide-target="workspace-results"
               onClick={() => onOpenPacket(referral)}
               aria-label={`Open ${identityTitle} referral workspace`}
-              className="grid w-full grid-cols-[minmax(220px,1.35fr)_minmax(150px,0.9fr)_170px_135px_90px_110px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
+              className="grid w-full grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_110px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
             >
               <span className="min-w-0 pr-4">
-                <span className="block truncate text-[13px] font-black text-[#111111]" title={identityTitle}>{identityTitle}</span>
-                <span className="mt-1 block truncate text-[9px] text-[#737373]">{workspaceIdentityDetail(referral)}</span>
+                <span className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
+                {workspaceIdentityDetail(referral, county) ? (
+                  <span className="mt-1 block truncate text-[9px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
+                ) : null}
                 {referral.priority !== "standard" ? (
                   <span className="mt-1 block text-[9px] font-semibold text-[#8c392f]">{referral.priority} priority</span>
                 ) : null}
               </span>
-
-              <span className="min-w-0 truncate pr-4 text-[11px] font-semibold text-[#404040]" title={county}>{county}</span>
 
               <span className="pr-5">
                 {referral.workspaceStatus === "historical" ? (
@@ -160,8 +159,10 @@ function CompactReferralRow({
     >
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="min-w-0">
-          <span className="block truncate text-[13px] font-black text-[#111111]" title={identityTitle}>{identityTitle}</span>
-          <span className="mt-1 block truncate text-[10px] text-[#737373]">{workspaceIdentityDetail(referral)}</span>
+          <span className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
+          {workspaceIdentityDetail(referral, county) ? (
+            <span className="mt-1 block truncate text-[10px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
+          ) : null}
         </span>
         <span className="flex shrink-0 items-center gap-2" title={outcome.explanation}>
           <span className={`text-[11px] ${outcomeTextClass(outcome.status)}`}>{outcome.label}</span>
@@ -169,11 +170,7 @@ function CompactReferralRow({
         </span>
       </span>
 
-      <span className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,0.75fr)_minmax(170px,1.25fr)] sm:items-end">
-        <span className="min-w-0">
-          <span className="block text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">County</span>
-          <span className="mt-1 block truncate text-[11px] font-semibold text-[#303638]" title={county}>{county}</span>
-        </span>
+      <span className="mt-3 block">
         <span>
           <span className="flex items-center justify-between gap-3 text-[10px]">
             <span className="font-black text-[#111111]">Data capture</span>
@@ -204,10 +201,11 @@ function outcomeTextClass(status: "admitted" | "accepted" | "denied" | "pending"
   return "font-normal text-[#6b5a2a]";
 }
 
-function workspaceIdentityDetail(referral: Referral) {
+function workspaceIdentityDetail(referral: Referral, county = "") {
   return [
-    presentClientGender(referral.gender),
-    isRecordedWorkspaceCommunity(referral.community) ? presentClientCommunity(referral.community) : "",
+    resolveClientGender(referral.gender),
+    isRecordedWorkspaceCommunity(referral.community) ? resolveClientCommunity(referral.community) : null,
+    county || null,
   ].filter(Boolean).join(" · ");
 }
 

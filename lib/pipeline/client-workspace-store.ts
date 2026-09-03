@@ -28,6 +28,59 @@ export type ClinicalClientWorkspaceSummary = {
   documentCount: number;
 };
 
+export type ConfirmedReferralClinicalIdentity = {
+  residentKey: string;
+  residentNumber: string | null;
+};
+
+export async function getConfirmedReferralClinicalIdentities(referrals: Referral[]) {
+  const result = new Map<number, ConfirmedReferralClinicalIdentity>();
+  if (referrals.length === 0) return result;
+  if (getReferralStoreReadiness().mode !== "postgres") {
+    await Promise.all(referrals.map(async (referral) => {
+      const links = await listResidentLinks({ referralId: referral.id, status: "confirmed", limit: 2 });
+      const residentKeys = [...new Set(links.links.map((link) => link.resident_key))];
+      if (residentKeys.length !== 1) return;
+      const matchingLinks = links.links.filter((link) => link.resident_key === residentKeys[0]);
+      const residentNumbers = [...new Set(matchingLinks.map((link) => link.resident_number?.trim()).filter(Boolean))];
+      result.set(referral.id, {
+        residentKey: residentKeys[0],
+        residentNumber: residentNumbers.length === 1 ? residentNumbers[0] ?? null : null,
+      });
+    }));
+    return result;
+  }
+
+  const referralIds = referrals.map((referral) => referral.id);
+  const sql = getPipelineSql();
+  const rows = await sql<{
+    referral_id: number | string;
+    resident_key: string;
+    resident_number: string | null;
+  }[]>`
+    select
+      requested.referral_id,
+      min(rl.resident_key)::text as resident_key,
+      case
+        when count(distinct nullif(btrim(rl.resident_number), '')) = 1
+          then max(nullif(btrim(rl.resident_number), ''))::text
+        else null
+      end as resident_number
+    from unnest(${referralIds}::bigint[]) as requested(referral_id)
+    join pipeline.referrals r on r.referral_id = requested.referral_id
+    join pipeline.resident_links rl on rl.person_id = r.person_id and rl.status = 'confirmed'
+    group by requested.referral_id
+    having count(distinct rl.resident_key) = 1
+  `;
+  for (const row of rows) {
+    result.set(Number(row.referral_id), {
+      residentKey: row.resident_key,
+      residentNumber: row.resident_number,
+    });
+  }
+  return result;
+}
+
 export async function listPipelineClientWorkspaces(
   user: PipelineUser,
   options: PipelineClientWorkspaceListOptions = {},

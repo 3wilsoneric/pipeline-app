@@ -28,9 +28,9 @@ import {
   type ClientProfileSection,
 } from "@/lib/pipeline/client-profile-presentation";
 import {
+  formatClientIdentityDetail,
   formatClientIdentityTitle,
-  presentClientCommunity,
-  presentClientGender,
+  resolveClientCommunity,
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
@@ -201,11 +201,11 @@ function ResidentProfile({
                 ) : null}
               </div>
               <p className="mt-2 text-[13px] text-[#595959]">
-                {presentClientGender(identity.gender)} · {identity.community} · {pipelineOnly
+                {formatClientIdentityDetail(identity.gender, identity.community, pipelineOnly
                   ? profile.pipeline.summary.referral_count > 0 ? "Referral profile" : "Client files"
                   : client.current_resident
                   ? `Current resident${client.unit ? ` · Unit ${client.unit}` : ""}`
-                  : "Prior resident"}
+                  : "Prior resident")}
               </p>
             </div>
             <div className="shrink-0 text-[10px] leading-5 text-[#737b77] sm:text-right">
@@ -365,15 +365,15 @@ function GovernedEpisodeHistory({ episodes }: { episodes: ClientEpisodeSummary[]
       {episodes.map((episode, index) => episode.facts.length > 0 ? (
           <details key={episode.key} open={index === 0} className="border-b border-[#d9d9d9]">
             <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 py-3">
-              <span className="text-[13px] font-black text-[#111111]">{episode.community}</span>
-              <span className="text-[11px] text-[#737373]">{episode.period}</span>
+              {episode.community ? <span className="text-[13px] font-black text-[#111111]">{episode.community}</span> : null}
+              {episode.period ? <span className="text-[11px] text-[#737373]">{episode.period}</span> : null}
             </summary>
             <FactGrid facts={episode.facts} className="pb-5" />
           </details>
         ) : (
           <div key={episode.key} className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d9d9d9] py-3">
-            <span className="text-[13px] font-black text-[#111111]">{episode.community}</span>
-            <span className="text-[11px] text-[#737373]">{episode.period}</span>
+            {episode.community ? <span className="text-[13px] font-black text-[#111111]">{episode.community}</span> : null}
+            {episode.period ? <span className="text-[11px] text-[#737373]">{episode.period}</span> : null}
           </div>
         ))}
     </div>
@@ -508,11 +508,13 @@ function PipelineWorkSummary({
                   className="grid gap-4 border-b border-[#e5e9e7] px-1 py-4 last:border-b-0 sm:grid-cols-[130px_minmax(0,1fr)_180px]"
                 >
                   <ProfileDatum label="Received" value={formatDate(referral.date)} />
-                  <ProfileDatum
-                    label="Referral source"
-                    value={referral.source || "Not recorded"}
-                    detail={presentClientCommunity(referral.community)}
-                  />
+                  {referral.source?.trim() ? (
+                    <ProfileDatum
+                      label="Referral source"
+                      value={referral.source}
+                      detail={resolveClientCommunity(referral.community) ?? undefined}
+                    />
+                  ) : null}
                   <ProfileDatum label="Assigned to" value={referral.owner || "Unassigned"} />
                 </article>
               ))}
@@ -1212,7 +1214,9 @@ function IdentityLinkControls({
                           >
                             <span className="min-w-0">
                               <span className="block truncate text-[12px] font-black text-[#111111]">{formatClientIdentityTitle({ name: suggestion.client_name, gender: suggestion.gender, community: suggestion.community })}</span>
-                              <span className="mt-1 block truncate text-[10px] text-[#737373]">{presentClientGender(suggestion.gender)} · {presentClientCommunity(suggestion.community)}</span>
+                              {formatClientIdentityDetail(resolveClientGender(suggestion.gender), resolveClientCommunity(suggestion.community)) ? (
+                                <span className="mt-1 block truncate text-[10px] text-[#737373]">{formatClientIdentityDetail(resolveClientGender(suggestion.gender), resolveClientCommunity(suggestion.community))}</span>
+                              ) : null}
                               <span className="mt-1 block truncate text-[10px] font-semibold text-[#356759]">{suggestion.reasons.join(" · ")}</span>
                             </span>
                             <span className="shrink-0 text-right">
@@ -1247,7 +1251,9 @@ function IdentityLinkControls({
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-[12px] font-black text-[#111111]">{formatClientIdentityTitle(referral)}</span>
-                        <span className="mt-1 block truncate text-[10px] text-[#737373]">{presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)}</span>
+                        {formatClientIdentityDetail(resolveClientGender(referral.gender), resolveClientCommunity(referral.community)) ? (
+                          <span className="mt-1 block truncate text-[10px] text-[#737373]">{formatClientIdentityDetail(resolveClientGender(referral.gender), resolveClientCommunity(referral.community))}</span>
+                        ) : null}
                       </span>
                       {active ? <Check size={15} className="shrink-0 text-[#0f8b73]" /> : null}
                     </button>
@@ -1507,7 +1513,7 @@ function profileIdentity(profile: UnifiedClientProfileResponse) {
       record.sex,
     ]),
   );
-  const community = presentClientCommunity(
+  const community = resolveClientCommunity(
     client.current_community
       || profile.resident?.community_name
       || client.community_names[0],

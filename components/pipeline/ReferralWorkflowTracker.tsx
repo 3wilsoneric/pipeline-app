@@ -4,9 +4,10 @@ import { ArrowRight, CircleAlert } from "lucide-react";
 
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import {
+  formatClientIdentityDetail,
   formatClientIdentityTitle,
-  presentClientCommunity,
-  presentClientGender,
+  resolveClientCommunity,
+  resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { getReferralProgress, type ReferralProgress, type ReferralProgressPhase } from "@/lib/pipeline/referral-progress";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -92,6 +93,10 @@ function WorkflowCard({
   onOpen: () => void;
 }) {
   const identityTitle = formatClientIdentityTitle(referral);
+  const identityDetail = formatClientIdentityDetail(
+    resolveClientGender(referral.gender),
+    resolveClientCommunity(referral.community),
+  );
   return (
     <button
       type="button"
@@ -101,10 +106,8 @@ function WorkflowCard({
     >
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="min-w-0">
-          <span className="block truncate text-[12px] font-black text-[#111111]" title={identityTitle}>{identityTitle}</span>
-          <span className="mt-1 block truncate text-[10px] text-[#737373]">
-            {presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)}
-          </span>
+          <span className="block truncate text-[12px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
+          {identityDetail ? <span className="mt-1 block truncate text-[10px] text-[#737373]">{identityDetail}</span> : null}
           {referral.priority !== "standard" ? <span className="mt-1 block text-[9px] font-semibold text-[#8c392f]">{capitalize(referral.priority)} priority</span> : null}
         </span>
         <span className="shrink-0 text-[9px] font-semibold text-[#737373]">

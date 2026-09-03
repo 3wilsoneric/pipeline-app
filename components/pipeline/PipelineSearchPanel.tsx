@@ -9,9 +9,10 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineSiteDestination, PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { searchSiteDestinations } from "@/lib/pipeline/site-search";
 import {
+  formatClientIdentityDetail,
   formatClientIdentityTitle,
-  presentClientCommunity,
-  presentClientGender,
+  resolveClientCommunity,
+  resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 type SuggestedSearchMode = "my_work" | "unassigned" | "ready_to_schedule" | "scheduled_assessments" | "files";
@@ -332,7 +333,7 @@ function SearchResponse({
           <SearchResultRow
             key={`referral-${referral.id}`}
             title={formatClientIdentityTitle(referral)}
-            detail={`${presentClientGender(referral.gender)} · ${presentClientCommunity(referral.community)} · ${referral.owner || "Unassigned"}`}
+            detail={formatClientIdentityDetail(resolveClientGender(referral.gender), resolveClientCommunity(referral.community), referral.owner || "Unassigned")}
             kind="Workspace"
             ariaLabel={`Open workspace for ${formatClientIdentityTitle(referral)}`}
             onClick={() => onOpenPacket(referral)}
@@ -362,9 +363,9 @@ function SearchResponse({
               gender: client.gender,
               community: client.current_community || client.community_names[0],
             })}
-            detail={`${presentClientGender(client.gender)} · ${presentClientCommunity(client.current_community || client.community_names[0])} · ${client.current_resident
+            detail={formatClientIdentityDetail(resolveClientGender(client.gender), resolveClientCommunity(client.current_community, client.community_names[0]), client.current_resident
               ? `Current resident${client.unit ? ` · Unit ${client.unit}` : ""}`
-              : "Prior resident"}`}
+              : "Prior resident")}
             kind="Client"
             ariaLabel={`Open profile for ${formatClientIdentityTitle({
               name: client.display_name,

@@ -5,6 +5,7 @@ import {
   extractImportedClientMetadata,
   formatClientIdentityTitle,
   isPersonOnlyClientName,
+  resolveClientGender,
 } from "../lib/pipeline/client-identity-presentation.mjs";
 
 const root = process.cwd();
@@ -46,7 +47,7 @@ const results = [
       "Imported workspace metadata must remain available as county evidence",
     );
     for (const [source, expected] of [
-      ["IRVIN AVILA (PSH) 09/03", "IRVIN AVILA"],
+      ["IRVIN AVILA (PSH) 09/03", "Irvin Avila"],
       ["Aaron Sanderling 11/19", "Aaron Sanderling"],
       ["Natalee Atwood-1/17/2025", "Natalee Atwood"],
       ["Yesenia Brambila-1/22/2026- Crestwood Manor Modesto", "Yesenia Brambila"],
@@ -68,6 +69,7 @@ const results = [
     assert(!isPersonOnlyClientName("Synthetic Pre-assessment"), "Operational labels must not pass as person names");
     assert(!isPersonOnlyClientName("K Avery"), "Initial-only identities must not pass as complete names");
     assert(isPersonOnlyClientName("Khadijah Avery"), "A complete first and last name must pass");
+    assert(resolveClientGender("Not specified for synthetic exercise") === null, "Synthetic missing-value labels must not reach the client list");
   }),
   run("assessment work is limited to the assigned assessor or a supervisor", () => {
     const assigned = { id: "assessor-1", email: "assessor@example.com", name: "Assigned Assessor", roles: ["reviewer"] };
