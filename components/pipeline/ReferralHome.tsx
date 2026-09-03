@@ -536,7 +536,7 @@ export default function ReferralHome({
   );
 
   const fileFilterToolbar = (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-2 md:py-3">
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-2.5">
       <span className="mr-1 shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Files</span>
       <button
         type="button"
@@ -591,7 +591,9 @@ export default function ReferralHome({
         <h1 className="sr-only">Referral workspaces</h1>
         <div className="min-w-0">
           {workspaceSearch}
-          {filter.kind === "files" ? fileFilterToolbar : filter.kind === "workflow" ? null : filterToolbar}
+          <div className="min-h-14">
+            {filter.kind === "files" ? fileFilterToolbar : filter.kind === "workflow" ? null : filterToolbar}
+          </div>
           {loadError && filter.kind !== "files" ? (
             <div className="mb-3 flex items-center justify-between gap-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-4 py-3 text-[12px] font-semibold text-[#59332d]" role="alert">
               <span>{loadError}</span>
@@ -601,7 +603,7 @@ export default function ReferralHome({
             </div>
           ) : null}
         </div>
-        <div className="grid gap-3 xl:grid-cols-[220px_minmax(0,1fr)] xl:gap-5">
+        <div data-testid="workspace-content-grid" className="grid gap-3 xl:grid-cols-[220px_minmax(0,1fr)] xl:gap-5">
           <aside aria-label="Workspace navigation" className="min-w-0 bg-white pt-0 xl:sticky xl:top-0 xl:self-start">
             <nav
               data-guide-target="workspace-views"
