@@ -194,8 +194,8 @@ function ResidentProfile({
   const hasPipelineHistory = ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status);
 
   return (
-    <main aria-label={`Client profile for ${identity.title}`} className="h-full overflow-y-auto bg-white text-[#111111]">
-      <div data-testid="profile-workspace" className="mx-auto w-full max-w-[1480px] px-4 py-4 sm:px-6 lg:px-8">
+    <main aria-label={`Client profile for ${identity.title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-white text-[#111111] [scrollbar-gutter:stable]">
+      <div data-testid="profile-workspace" className="mx-auto w-full max-w-[1480px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">
         <BackButton onClick={onBack} />
 
         {profile.freshness.status === "stale" || profile.freshness.warning ? (
@@ -306,7 +306,7 @@ function CuratedClientRecord({ sections }: { sections: ClientProfileSection[] })
     <div className="border-y border-[#d9dfdc]">
       {sections.map((section) => (
         <section key={section.key} className="grid border-b border-[#d9dfdc] last:border-b-0 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <h3 className="bg-[#f2f6f4] px-4 py-4 text-[10px] font-black uppercase tracking-[0.08em] text-[#244b41] lg:px-5">
+          <h3 className="bg-[#f2f6f4] px-4 py-4 text-[11px] font-black uppercase tracking-[0.08em] text-[#244b41] lg:px-5">
             {section.label}
           </h3>
           <FactGrid facts={section.facts} className="px-4 py-4 lg:px-6" />
@@ -1488,7 +1488,7 @@ function EmptyChartMessage({ children }: { children: React.ReactNode }) {
 function DataPoint({ label, value }: { label: string; value: string | number | null }) {
   const display = typeof value === "number" ? String(value) : value?.trim() || "Not reported";
   const present = display !== "Not reported";
-  return <div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#737373]">{label}</div><div className={`mt-1 break-words text-[13px] font-semibold ${present ? "text-[#111111]" : "text-[#9a6a18]"}`}>{display}</div></div>;
+  return <div><div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#68706c]">{label}</div><div className={`mt-1.5 break-words text-[14px] font-semibold leading-5 ${present ? "text-[#111111]" : "text-[#9a6a18]"}`}>{display}</div></div>;
 }
 
 function RecordQualitySummary({

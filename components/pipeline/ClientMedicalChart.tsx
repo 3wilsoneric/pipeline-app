@@ -10,13 +10,13 @@ export default function ClientMedicalChart({
   sourceLabel: string;
 }) {
   return (
-    <article aria-label="Client medical chart" className="overflow-hidden border border-[#bfcac5] bg-white">
-      <header className="flex flex-wrap items-center justify-between gap-3 bg-[#183f37] px-5 py-4 text-white sm:px-6">
+    <article aria-label="Client medical chart" className="overflow-hidden border border-[#aebbb5] bg-white">
+      <header className="flex flex-wrap items-center justify-between gap-4 bg-[#183f37] px-5 py-5 text-white sm:px-7">
         <div>
-          <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#afd2c8]">Pipeline clinical record</div>
-          <h1 className="mt-1 text-[18px] font-black tracking-[-0.02em] sm:text-[20px]">Client medical chart</h1>
+          <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#afd2c8]">Pipeline clinical record</div>
+          <h1 className="mt-1 text-[22px] font-black tracking-[-0.025em] sm:text-[24px]">Client medical chart</h1>
         </div>
-        <div className="text-[9px] leading-4 text-[#dcece7] sm:text-right">
+        <div className="text-[10px] leading-5 text-[#dcece7] sm:text-right">
           <div className="font-black uppercase tracking-[0.08em]">{sourceLabel}</div>
           <div>Data through {formatDate(dataAsOf)}</div>
         </div>
@@ -38,7 +38,7 @@ export default function ClientMedicalChart({
         </ChartGrid>
       </ChartBand>
 
-      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[#cfd7d2] bg-[#f7faf8] px-5 py-3 text-[9px] text-[#66716c] sm:px-6">
+      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[#bfcac5] bg-[#f7faf8] px-5 py-3.5 text-[10px] leading-4 text-[#5f6b66] sm:px-7">
         <span>Missing means the field was not documented in the available record.</span>
         {chart.assessmentDate ? <span>Latest assessment {formatDate(chart.assessmentDate)}</span> : null}
       </footer>
@@ -49,7 +49,7 @@ export default function ClientMedicalChart({
 function ChartBand({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section aria-labelledby={`client-chart-${slug(title)}`}>
-      <h2 id={`client-chart-${slug(title)}`} className="border-y border-[#bfcac5] bg-[#edf3f0] px-5 py-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#244b41] sm:px-6">
+      <h2 id={`client-chart-${slug(title)}`} className="border-y-2 border-[#aebbb5] bg-[#eaf1ee] px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.09em] text-[#244b41] sm:px-7 sm:text-[12px]">
         {title}
       </h2>
       {children}
@@ -71,16 +71,16 @@ function ChartGrid({
     : columns === "priorities"
       ? "md:grid-cols-3"
       : "grid-cols-2 lg:grid-cols-3";
-  return <dl aria-label={ariaLabel} className={`grid gap-px bg-[#cfd7d2] ${layout}`}>{children}</dl>;
+  return <dl aria-label={ariaLabel} className={`grid gap-px bg-[#bfcac5] ${layout}`}>{children}</dl>;
 }
 
 function ChartCell({ fact, multiline = false }: { fact: ClientChartFact; multiline?: boolean }) {
   const missing = fact.value === "Not documented";
   const span = fact.span === "wide" ? "col-span-2" : "";
   return (
-    <div className={`min-w-0 bg-white px-5 py-3.5 ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
-      <dt className="text-[8px] font-black uppercase tracking-[0.08em] text-[#68736e]">{fact.label}</dt>
-      <dd className={`mt-1 break-words font-semibold leading-5 ${fact.label === "Client" ? "text-[18px] tracking-[-0.02em]" : "text-[12px]"} ${multiline ? "whitespace-pre-line" : ""} ${missing ? "text-[#966715]" : "text-[#1c2521]"}`}>
+    <div className={`min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${multiline ? "md:min-h-[104px]" : ""} ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
+      <dt className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{fact.label}</dt>
+      <dd className={`mt-1.5 break-words font-bold leading-6 ${fact.label === "Client" ? "text-[22px] tracking-[-0.025em] sm:text-[24px]" : multiline ? "text-[14px] sm:text-[15px]" : "text-[14px]"} ${multiline ? "whitespace-pre-line" : ""} ${missing ? "text-[#966715]" : "text-[#18211d]"}`}>
         {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : fact.value}
       </dd>
     </div>

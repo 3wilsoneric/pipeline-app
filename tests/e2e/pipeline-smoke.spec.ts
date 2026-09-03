@@ -2583,6 +2583,12 @@ test.describe("Pipeline home", () => {
     await expect
       .poll(async () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
       .toBeLessThanOrEqual(1);
+    const profileMain = page.getByRole("main", { name: "Client profile for Avery Example" });
+    await profileMain.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+    await expect
+      .poll(async () => profileMain.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop))
+      .toBeLessThanOrEqual(1);
+    await expect(page.getByRole("heading", { name: "Record quality", exact: true })).toBeInViewport();
   });
 
   test("recovers a client profile after a temporary server failure", async ({ page }) => {
