@@ -10,7 +10,7 @@ import { emptyAcademyProgress, type AcademyProgressRecord } from "@/lib/academy/
 import { getAcademyProgressRecord } from "@/lib/academy/academy-progress-store";
 
 export const metadata: Metadata = {
-  title: "Developer Academy | Pipeline",
+  title: "Developer Academy | AHS - Pipeline",
   description: "Private, source-grounded Pipeline developer curriculum.",
   robots: {
     index: false,

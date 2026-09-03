@@ -16,7 +16,7 @@ const pipelineSans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Pipeline",
+  title: "AHS - Pipeline",
   description: "Pipeline referral and assessment management",
   applicationName: "Pipeline",
   icons: {

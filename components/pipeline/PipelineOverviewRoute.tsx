@@ -109,6 +109,18 @@ export default function PipelineOverviewRoute() {
     navigate(destination.screen === "packet" ? "packet" : destination.screen);
   };
 
+  const resumeReferralDraft = (draftKey: `new-${string}`) => {
+    setSearchOpen(false);
+    const params = new URLSearchParams(activeSearchParams.toString());
+    params.set("view", "referrals");
+    params.set("screen", "packet");
+    params.set("draftId", draftKey.slice(4));
+    params.delete("referralId");
+    params.delete("clientId");
+    pushPipelineHistory(`/?${params.toString()}`);
+    setReferralDetails(undefined);
+  };
+
   const globalSearchPanel = searchOpen ? (
     <PipelineSearchPanel
       autoFocus
@@ -132,6 +144,7 @@ export default function PipelineOverviewRoute() {
         onOpenRecent={openRecent}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
+        onResumeDraft={resumeReferralDraft}
       />
     );
   }
@@ -181,6 +194,7 @@ export default function PipelineOverviewRoute() {
         onSearchTermChange={setSearchTerm}
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
+        onResumeDraft={resumeReferralDraft}
       />
     );
   }

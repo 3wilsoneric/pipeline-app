@@ -164,6 +164,12 @@ export type ReferralMutation =
   | ReferralConflict
   | ReferralTransitionBlocked;
 
+export type ReferralCreateResult = {
+  referral: Referral;
+  revision: number;
+  idempotentReplay: boolean;
+};
+
 export type DeletedReferralListResult = {
   referrals: Referral[];
   total: number;
@@ -208,7 +214,7 @@ export interface ReferralStore {
   listDeleted(query?: string): Promise<DeletedReferralListResult>;
   softDelete(id: number, actor: ReferralActor, expectedVersion?: number): Promise<ReferralMutation | null>;
   restore(id: number, actor: ReferralActor, expectedVersion?: number): Promise<ReferralMutation | null>;
-  create(input: ReferralCreateInput, actor: ReferralActor, mutationId?: string): Promise<{ referral: Referral; revision: number }>;
+  create(input: ReferralCreateInput, actor: ReferralActor, mutationId?: string): Promise<ReferralCreateResult>;
   patch(
     id: number,
     patch: ReferralPatch,
@@ -674,7 +680,7 @@ async function createLocalReferral(
   input: ReferralCreateInput,
   actor: ReferralActor,
   mutationId?: string,
-): Promise<{ referral: Referral; revision: number }> {
+): Promise<ReferralCreateResult> {
   await ensureLoaded();
 
   const existingId = mutationId ? state.createMutations.get(mutationId) : undefined;
@@ -683,7 +689,7 @@ async function createLocalReferral(
     : undefined;
 
   if (existingReferral) {
-    return { referral: existingReferral, revision: state.revision };
+    return { referral: existingReferral, revision: state.revision, idempotentReplay: true };
   }
 
   assertPacketIsUnique(input.documentHash);
@@ -712,7 +718,7 @@ async function createLocalReferral(
   if (mutationId) state.createMutations.set(mutationId, referral.id);
   await persist();
 
-  return { referral, revision: state.revision };
+  return { referral, revision: state.revision, idempotentReplay: false };
 }
 
 async function patchLocalReferral(
@@ -1462,7 +1468,7 @@ async function createPostgresReferral(
   input: ReferralCreateInput,
   actor: ReferralActor,
   mutationId?: string,
-): Promise<{ referral: Referral; revision: number }> {
+): Promise<ReferralCreateResult> {
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
     if (mutationId) {
@@ -1474,7 +1480,13 @@ async function createPostgresReferral(
       `;
       if (idempotent[0]) {
         const existing = await getReferralInTransaction(tx, Number(idempotent[0].entity_id));
-        if (existing) return { referral: existing, revision: await getReferralRevisionInTransaction(tx) };
+        if (existing) {
+          return {
+            referral: existing,
+            revision: await getReferralRevisionInTransaction(tx),
+            idempotentReplay: true,
+          };
+        }
       }
     }
 
@@ -1542,7 +1554,7 @@ async function createPostgresReferral(
       `;
     }
     const revision = await bumpReferralRevision(tx);
-    return { referral, revision };
+    return { referral, revision, idempotentReplay: false };
   });
 }
 

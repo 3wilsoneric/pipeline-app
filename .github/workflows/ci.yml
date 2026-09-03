@@ -134,6 +134,10 @@ jobs:
           fi
 
           PIPELINE_E2E_EXTERNAL_SERVER=true npm run test:e2e
+      - name: Verify isolated note-lab-only access
+        env:
+          PIPELINE_E2E_PREBUILT: "true"
+        run: npm run test:e2e:note-lab-access
       - name: Enforce Pipeline McMaster certification budget
         run: npm run check:mcmaster && npm run certify:mcmaster:performance
       - run: npm run test:e2e:desktop

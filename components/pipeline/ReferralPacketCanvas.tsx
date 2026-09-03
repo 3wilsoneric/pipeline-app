@@ -113,6 +113,22 @@ type DirtyDraftKey = ReferralCanvasDirtyKey;
 
 type CanvasSessionDraft = PipelineReferralDraft;
 
+type DraftValueSnapshot = {
+  fields: Record<FieldKey, PacketField>;
+  conserved: "yes" | "no" | "";
+  tagsInput: string;
+  documents: Record<string, string>;
+  initialPacket: File | null;
+};
+
+type ReferralSaveSnapshot = {
+  dirtyKeys: Set<DirtyDraftKey>;
+  signatures: Map<DirtyDraftKey, string>;
+  initialPacket: File | null;
+  initialPacketCategory: InitialDocumentCategory;
+  pendingDocuments: Record<string, File>;
+};
+
 type RemoteFieldConflict = {
   key: DirtyDraftKey;
   label: string;
@@ -292,6 +308,9 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
   const dirtyKeysRef = useRef(dirtyKeys);
   const isSavingRef = useRef(isSaving);
   const draftRevisionRef = useRef(0);
+  const creationMutationIdRef = useRef(newReferralCreationMutationId(newDraftKey));
+  const saveDraftRef = useRef<() => Promise<void>>(async () => undefined);
+  const materializationAttemptRef = useRef<{ revision: number; attempts: number }>({ revision: -1, attempts: 0 });
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
   useWorkspaceStageRouting(referral?.id, newDraftKey, initialWorkspaceStage, setActivePage);
   const defaultOwnerRef = useRef<{ principalId: string; displayName: string } | null>(null);
@@ -443,9 +462,10 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
           .then(() => {
             if (draftRevisionRef.current === revision) setSavedAt("Recovery draft saved");
           })
-          .catch(() => {
+          .catch((error) => {
             if (draftRevisionRef.current === revision) {
-              setSaveError("Could not save the recovery draft. Save the referral before leaving this page.");
+              const message = error instanceof Error ? error.message : "Could not save the recovery draft.";
+              setSaveError(`${message} Save the referral before leaving this page.`);
             }
           });
         return;
@@ -472,35 +492,46 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
 
   const markDirty = (key: DirtyDraftKey) => {
     draftRevisionRef.current += 1;
-    setDirtyKeys((current) => {
-      if (current.has(key)) return current;
-      const next = new Set(current);
-      next.add(key);
-      return next;
-    });
+    const next = new Set(dirtyKeysRef.current);
+    next.add(key);
+    dirtyKeysRef.current = next;
+    setDirtyKeys(next);
   };
 
   useEffect(() => {
     if (!referral?.id) {
       let cancelled = false;
+      creationMutationIdRef.current = newReferralCreationMutationId(newDraftKey);
+      materializationAttemptRef.current = { revision: -1, attempts: 0 };
       const defaultOwner = defaultOwnerRef.current;
-      setFields({
+      const resetFields = {
         ...initialFields,
         name: { ...initialFields.name },
         owner: { ...initialFields.owner, value: defaultOwner?.displayName ?? "" },
-      });
+      };
+      fieldsRef.current = resetFields;
+      setFields(resetFields);
+      ownerPrincipalIdRef.current = defaultOwner?.principalId ?? "";
       setOwnerPrincipalId(defaultOwner?.principalId ?? "");
+      conservedRef.current = "";
       setConserved("");
+      tagsInputRef.current = "";
       setTagsInput("");
+      documentsRef.current = {};
       setDocuments({});
+      initialPacketRef.current = null;
       setInitialPacket(null);
       setInitialPacketCategory("face_sheet");
       setLoadedReferral(null);
       loadedReferralRef.current = null;
-      setDirtyKeys(new Set());
+      const resetDirtyKeys = new Set<DirtyDraftKey>();
+      dirtyKeysRef.current = resetDirtyKeys;
+      setDirtyKeys(resetDirtyKeys);
+      draftRevisionRef.current = 0;
       setRemoteChange(null);
       setExtractionConflict(null);
       setPresence([]);
+      pendingDocumentsRef.current = {};
       setPendingDocuments({});
       setUploadingDocumentIds(new Set());
       setRecoveredDraftAt("");
@@ -746,10 +777,14 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
   const updateField = (key: FieldKey, value: string) => {
     setSavedAt("Unsaved changes");
     markDirty(key);
-    setFields((current) => ({
-      ...current,
-      [key]: { ...current[key], value },
-    }));
+    setFields((current) => {
+      const next = {
+        ...current,
+        [key]: { ...current[key], value },
+      };
+      fieldsRef.current = next;
+      return next;
+    });
   };
 
   const attachDocument = (id: string, file: File) => {
@@ -764,8 +799,12 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
     }
     setSavedAt("Unsaved changes");
     markDirty("documents");
-    setDocuments((current) => ({ ...current, [id]: file.name }));
-    setPendingDocuments((current) => ({ ...current, [id]: file }));
+    const nextDocuments = { ...documentsRef.current, [id]: file.name };
+    const nextPendingDocuments = { ...pendingDocumentsRef.current, [id]: file };
+    documentsRef.current = nextDocuments;
+    pendingDocumentsRef.current = nextPendingDocuments;
+    setDocuments(nextDocuments);
+    setPendingDocuments(nextPendingDocuments);
     const currentReferral = loadedReferralRef.current;
     if (currentReferral) void uploadAndLinkSupportingDocument(currentReferral, id, file).catch(() => undefined);
   };
@@ -800,17 +839,13 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
       }
       loadedReferralRef.current = refreshed.referral;
       setLoadedReferral(refreshed.referral);
-      setDocuments(documentsFromReferral(refreshed.referral));
-      setPendingDocuments((current) => {
-        const next = { ...current };
-        delete next[requirementId];
-        return next;
-      });
-      setDirtyKeys((current) => {
-        const next = new Set(current);
-        if (Object.keys(pendingDocumentsRef.current).every((id) => id === requirementId)) next.delete("documents");
-        return next;
-      });
+      const refreshedDocuments = mergePendingDocumentNames(
+        documentsFromReferral(refreshed.referral),
+        pendingDocumentsRef.current,
+      );
+      documentsRef.current = refreshedDocuments;
+      setDocuments(refreshedDocuments);
+      completeSupportingDocumentUpload(requirementId, file);
       setSavedAt(`${definition.label} uploaded`);
       return refreshed.referral;
     } catch (error) {
@@ -823,6 +858,19 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
         return next;
       });
     }
+  };
+
+  const completeSupportingDocumentUpload = (requirementId: string, uploadedFile: File) => {
+    if (pendingDocumentsRef.current[requirementId] !== uploadedFile) return;
+    const nextPendingDocuments = { ...pendingDocumentsRef.current };
+    delete nextPendingDocuments[requirementId];
+    pendingDocumentsRef.current = nextPendingDocuments;
+    setPendingDocuments(nextPendingDocuments);
+    if (Object.keys(nextPendingDocuments).length > 0) return;
+    const nextDirtyKeys = new Set(dirtyKeysRef.current);
+    nextDirtyKeys.delete("documents");
+    dirtyKeysRef.current = nextDirtyKeys;
+    setDirtyKeys(nextDirtyKeys);
   };
 
   const selectInitialPacket = (file: File | undefined) => {
@@ -838,6 +886,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
       return;
     }
 
+    initialPacketRef.current = file;
     setInitialPacket(file);
     markDirty("initialPacket");
     setSaveError("");
@@ -917,28 +966,32 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
       initialPacket,
     })]));
     const timer = window.setTimeout(async () => {
+      isSavingRef.current = true;
       setIsSaving(true);
       setSaveError("");
       setSavedAt("Autosaving...");
       try {
         const saved = await persistExistingChanges(current, keys);
-        setDirtyKeys((active) => {
-          const next = new Set(active);
-          for (const key of keys) {
-            const signature = draftKeySignature(key, {
-              fields: fieldsRef.current,
-              conserved: conservedRef.current,
-              tagsInput: tagsInputRef.current,
-              documents: documentsRef.current,
-              initialPacket: initialPacketRef.current,
-            });
-            if (signature === signatures.get(key)) next.delete(key);
-          }
-          if (next.size === 0) void clearSessionDraft(saved.id);
-          return next;
-        });
+        const remainingDirtyKeys = new Set(dirtyKeysRef.current);
+        for (const key of keys) {
+          const signature = draftKeySignature(key, {
+            fields: fieldsRef.current,
+            conserved: conservedRef.current,
+            tagsInput: tagsInputRef.current,
+            documents: documentsRef.current,
+            initialPacket: initialPacketRef.current,
+          });
+          if (signature === signatures.get(key)) remainingDirtyKeys.delete(key);
+        }
+        dirtyKeysRef.current = remainingDirtyKeys;
+        setDirtyKeys(remainingDirtyKeys);
+        if (remainingDirtyKeys.size === 0) {
+          void clearSessionDraft(saved.id);
+          setSavedAt(`Autosaved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
+        } else {
+          setSavedAt("Autosaved; newer changes remain");
+        }
         setRemoteChange(null);
-        setSavedAt(`Autosaved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
       } catch (error) {
         if (error instanceof PipelineApiError && error.status === 409) {
           const latest = getConflictReferral(error.payload);
@@ -946,11 +999,154 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
         }
         setSaveError(error instanceof Error ? error.message : "Autosave failed. Your recovery draft is still in this tab.");
       } finally {
+        isSavingRef.current = false;
         setIsSaving(false);
       }
     }, 1_500);
     return () => window.clearTimeout(timer);
   }, [conserved, dirtyKeys, documents, fields, initialPacket, isSaving, loadedReferral, pendingDocuments, remoteChange?.conflicts.length, tagsInput]);
+
+  const persistReferralSave = async (
+    snapshot: ReferralSaveSnapshot,
+    community: PipelineCommunity,
+    tags: string[],
+    admissionRequirements: Referral["requirements"],
+    documentHash: string | undefined,
+  ) => {
+    const currentReferral = loadedReferralRef.current;
+    const referralId = referral?.id ?? currentReferral?.id;
+    if (referralId) {
+      if (!currentReferral) throw new Error("Wait for the saved referral to finish loading before making changes.");
+      const saved = await persistExistingChanges(
+        currentReferral,
+        snapshot.dirtyKeys,
+        packetPatch(snapshot.initialPacket, documentHash),
+      );
+      return { referral: saved, created: false };
+    }
+
+    const owner = fieldsRef.current.owner.value.trim() || "Unassigned";
+    const createdReferral: ReferralCreateInput = buildReferralCanvasCreateInput({
+      fields: fieldsRef.current,
+      conserved: conservedRef.current,
+      community,
+      tags: referralCreateTags(tags, owner, community),
+      requirements: admissionRequirements,
+      createdAt: new Date().toISOString(),
+      ...initialDocumentInput(snapshot.initialPacket, documentHash),
+    });
+    const payload = await fetchPipelineJson<{ referral?: Referral; error?: string; idempotent_replay?: boolean }>("/api/referrals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        referral: createdReferral,
+        client_mutation_id: creationMutationIdRef.current,
+        ...(ownerPrincipalIdRef.current ? { assignee_id: ownerPrincipalIdRef.current } : {}),
+      }),
+    });
+    if (!payload.referral) throw new Error(payload.error ?? "Could not save this referral workspace.");
+    const saved = await mergeIdempotentCreateReplay(payload.referral, payload.idempotent_replay, snapshot, documentHash);
+    return { referral: saved, created: true };
+  };
+
+  const mergeIdempotentCreateReplay = async (
+    savedReferral: Referral,
+    replayed: boolean | undefined,
+    snapshot: ReferralSaveSnapshot,
+    documentHash: string | undefined,
+  ) => {
+    if (!replayed || snapshot.dirtyKeys.size === 0) return savedReferral;
+    loadedReferralRef.current = savedReferral;
+    return persistExistingChanges(
+      savedReferral,
+      snapshot.dirtyKeys,
+      packetPatch(snapshot.initialPacket, documentHash),
+    );
+  };
+
+  const uploadAndLinkInitialPacket = async (
+    currentReferral: Referral,
+    snapshot: ReferralSaveSnapshot,
+    documentHash: string | undefined,
+  ) => {
+    const packet = snapshot.initialPacket;
+    if (!packet || !documentHash) return currentReferral;
+    setSavedAt("Uploading packet...");
+    const upload = await uploadReferralPacket(currentReferral, packet, documentHash, snapshot.initialPacketCategory);
+    const refreshedWorkspace = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${currentReferral.id}/canvas`, { cache: "no-store" });
+    if (!refreshedWorkspace.referral) throw new Error("The document was saved, but the referral workspace could not be refreshed.");
+    assertInitialDocumentLinked(refreshedWorkspace.referral, snapshot.initialPacketCategory, upload.document?.document_id);
+    loadedReferralRef.current = refreshedWorkspace.referral;
+    setLoadedReferral(refreshedWorkspace.referral);
+    const refreshedDocuments = mergePendingDocumentNames(
+      documentsFromReferral(refreshedWorkspace.referral),
+      pendingDocumentsRef.current,
+    );
+    documentsRef.current = refreshedDocuments;
+    setDocuments(refreshedDocuments);
+    setSavedAt("Linking extraction...");
+    const extractedForm = upload.fields
+      ? populateFormFromExtraction(fieldsRef.current, upload.fields.fields, packet.name, dirtyKeysRef.current)
+      : fieldsRef.current;
+    const extractedKeys = changedExtractionKeys(fieldsRef.current, extractedForm, dirtyKeysRef.current);
+    const extractedPatch = buildReferralCanvasPatch({
+      keys: extractedKeys,
+      fields: extractedForm,
+      conserved: conservedRef.current,
+      tags: normalizeTags(tagsInputRef.current),
+      requirements: refreshedWorkspace.referral.requirements ?? [],
+    });
+    const linkedPayload = await fetchPipelineJson<{ referral?: Referral; error?: string }>(`/api/referrals/${currentReferral.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        if_match: refreshedWorkspace.referral.version,
+        if_match_sections: normalizeReferralSectionVersions(refreshedWorkspace.referral.sectionVersions),
+        patch: {
+          ...extractedPatch,
+          documentName: packet.name,
+          documentSizeBytes: packet.size,
+          documentHash,
+          documentStatus: "Uploaded",
+          packetId: upload.packetId,
+          packetStatus: upload.status,
+          packetFields: upload.fields?.fields,
+          packetReadiness: upload.fields?.ehr_readiness,
+          packetCompleteness: upload.fields?.packet_completeness,
+          packetMessage: packetUploadStatusMessage(upload.mock, upload.pageCount),
+        },
+      }),
+    });
+    if (!linkedPayload.referral) throw new Error(linkedPayload.error ?? "Could not link the packet to this referral.");
+    loadedReferralRef.current = linkedPayload.referral;
+    setLoadedReferral(linkedPayload.referral);
+    setFields((current) => {
+      const next = mergeExtractedFields(current, extractedForm, extractedKeys, dirtyKeysRef.current);
+      fieldsRef.current = next;
+      return next;
+    });
+    if (initialPacketRef.current === packet) {
+      initialPacketRef.current = null;
+      setInitialPacket(null);
+    }
+    return linkedPayload.referral;
+  };
+
+  const finishReferralSave = async (savedReferral: Referral, snapshot: ReferralSaveSnapshot) => {
+    const remainingDirtyKeys = reconcileSavedDirtyKeys(
+      dirtyKeysRef.current,
+      snapshot,
+      currentDraftValues(fieldsRef.current, conservedRef.current, tagsInputRef.current, documentsRef.current, initialPacketRef.current),
+      Object.keys(pendingDocumentsRef.current).length === 0,
+    );
+    dirtyKeysRef.current = remainingDirtyKeys;
+    setDirtyKeys(remainingDirtyKeys);
+    if (remainingDirtyKeys.size === 0) await clearSessionDraft(savedReferral.id);
+    setRecoveredDraftAt("");
+    setRecoveredPacketName("");
+    setRemoteChange(null);
+    setSavedAt(referralSaveStatus(remainingDirtyKeys.size, Boolean(snapshot.initialPacket)));
+  };
 
   const saveDraft = async () => {
     setSaveError("");
@@ -964,173 +1160,46 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
     }
     setIsSaving(true);
     isSavingRef.current = true;
-    let savedReferral = loadedReferral;
+    const snapshot = captureReferralSaveSnapshot(
+      dirtyKeysRef.current,
+      currentDraftValues(fieldsRef.current, conservedRef.current, tagsInputRef.current, documentsRef.current, initialPacketRef.current),
+      initialPacketCategory,
+      pendingDocumentsRef.current,
+    );
+    let savedReferral = loadedReferralRef.current;
     try {
-      const referralId = referral?.id ?? loadedReferral?.id;
-      const tags = normalizeTags(tagsInput);
-      const fallbackCommunity = loadedReferral?.community ?? referral?.community;
-      const community: PipelineCommunity = pipelineCommunities.includes(fields.community.value.trim() as PipelineCommunity)
-        ? fields.community.value.trim() as PipelineCommunity
-        : pipelineCommunities.includes(fallbackCommunity as PipelineCommunity)
-          ? fallbackCommunity as PipelineCommunity
-          : "Unassigned";
+      const tags = normalizeTags(tagsInputRef.current);
+      const community = resolveDraftCommunity(
+        fieldsRef.current.community.value,
+        loadedReferralRef.current?.community ?? referral?.community,
+      );
       const admissionRequirements = createDefaultAdmissionRequirements(
-        loadedReferral?.requirements ?? [],
-        getEvidenceByType(documents),
+        loadedReferralRef.current?.requirements ?? [],
+        getEvidenceByType(documentsRef.current),
         new Date().toISOString(),
-        fields.owner.value.trim() || "Unassigned",
-        ownerPrincipalId || undefined,
+        fieldsRef.current.owner.value.trim() || "Unassigned",
+        ownerPrincipalIdRef.current || undefined,
         {
-          date_of_birth: fields.dob.value,
+          date_of_birth: fieldsRef.current.dob.value,
           community,
-          referral_source: fields.referent.value,
+          referral_source: fieldsRef.current.referent.value,
         },
       );
-      let payload: { referral?: Referral; error?: string };
-
-      if (!referralId && !initialPacket) {
-        throw new Error("Upload the initial face sheet or referral packet before creating this referral.");
-      }
-      if (referralId && !loadedReferral) {
-        throw new Error("Wait for the saved referral to finish loading before making changes.");
-      }
-
-      let documentHash = loadedReferral?.documentHash;
-      if (initialPacket) {
-        setSavedAt("Checking packet...");
-        documentHash = await hashPacket(initialPacket);
-      }
-
-      if (!referralId) {
-        const owner = fields.owner.value.trim() || "Unassigned";
-        const createTags = tags.length > 0
-          ? tags
-          : [
-              "packet-import",
-              "needs-review",
-              ...(!isAssignedValue(owner) || community === "Unassigned" ? ["needs-assignment"] : []),
-            ];
-
-        const now = new Date();
-        const createdReferral: ReferralCreateInput = buildReferralCanvasCreateInput({
-          fields,
-          conserved,
-          community,
-          tags: createTags,
-          requirements: admissionRequirements,
-          createdAt: now.toISOString(),
-          ...(initialPacket
-            ? { document: { name: initialPacket.name, size: initialPacket.size, hash: documentHash } }
-            : {}),
-        });
-
-        payload = await fetchPipelineJson<{ referral?: Referral; error?: string }>("/api/referrals", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            referral: createdReferral,
-            client_mutation_id: createMutationId(),
-            ...(ownerPrincipalId ? { assignee_id: ownerPrincipalId } : {}),
-          }),
-        });
-      } else {
-        const saved = await persistExistingChanges(
-          loadedReferral!,
-          dirtyKeys,
-          initialPacket && documentHash ? { file: initialPacket, hash: documentHash } : undefined,
-        );
-        payload = { referral: saved };
-      }
-      if (!payload.referral) {
-        throw new Error(payload.error ?? "Could not save this referral workspace.");
-      }
-      savedReferral = payload.referral;
+      const documentHash = await resolveInitialDocumentHash(snapshot.initialPacket, loadedReferralRef.current?.documentHash, setSavedAt);
+      const persisted = await persistReferralSave(snapshot, community, tags, admissionRequirements, documentHash);
+      savedReferral = persisted.referral;
       loadedReferralRef.current = savedReferral;
       setLoadedReferral(savedReferral);
-
-      if (initialPacket) {
-        setSavedAt("Uploading packet...");
-        const upload = await uploadReferralPacket(savedReferral, initialPacket, documentHash!, initialPacketCategory);
-        const refreshedWorkspace = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${savedReferral.id}/canvas`, { cache: "no-store" });
-        if (!refreshedWorkspace.referral) throw new Error("The document was saved, but the referral workspace could not be refreshed.");
-        savedReferral = refreshedWorkspace.referral;
-        if (initialPacketCategory === "face_sheet" && upload.document) {
-          const faceSheet = savedReferral.requirements?.find((item) => item.type === "face_sheet");
-          if (faceSheet?.evidenceDocumentId !== upload.document.document_id) {
-            throw new Error("The face sheet was stored, but its checklist item was not updated. Retry the upload.");
-          }
-        }
-        loadedReferralRef.current = savedReferral;
-        setLoadedReferral(savedReferral);
-        setDocuments(documentsFromReferral(savedReferral));
-        setSavedAt("Linking extraction...");
-        const extractedForm = upload.fields
-          ? populateFormFromExtraction(
-              fieldsRef.current,
-              upload.fields.fields,
-              initialPacket.name,
-              dirtyKeys,
-            )
-          : fieldsRef.current;
-        const extractedKeys = new Set<PersistedFieldKey>(persistedFieldKeys.filter((key) => (
-          extractedForm[key].value !== fieldsRef.current[key].value
-          || extractedForm[key].sourceFile !== fieldsRef.current[key].sourceFile
-        )));
-        const extractedPatch = buildReferralCanvasPatch({
-          keys: extractedKeys,
-          fields: extractedForm,
-          conserved: conservedRef.current,
-          tags: normalizeTags(tagsInputRef.current),
-          requirements: savedReferral.requirements ?? [],
-        });
-        const linkedPayload = await fetchPipelineJson<{ referral?: Referral; error?: string }>(`/api/referrals/${savedReferral.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            if_match: savedReferral.version,
-            if_match_sections: normalizeReferralSectionVersions(savedReferral.sectionVersions),
-            patch: {
-              ...extractedPatch,
-              documentName: initialPacket.name,
-              documentSizeBytes: initialPacket.size,
-              documentHash,
-              documentStatus: "Uploaded",
-              packetId: upload.packetId,
-              packetStatus: upload.status,
-              packetFields: upload.fields?.fields,
-              packetReadiness: upload.fields?.ehr_readiness,
-              packetCompleteness: upload.fields?.packet_completeness,
-              packetMessage: upload.mock
-                ? `Development local extraction completed. ${upload.pageCount} source page${upload.pageCount === 1 ? "" : "s"} preserved; confirm the stripped values below.`
-                : "Packet uploaded and extraction started.",
-            },
-          }),
-        });
-        if (!linkedPayload.referral) throw new Error(linkedPayload.error ?? "Could not link the packet to this referral.");
-        savedReferral = linkedPayload.referral;
-        loadedReferralRef.current = savedReferral;
-        setLoadedReferral(savedReferral);
-        setFields(extractedForm);
-        setInitialPacket(null);
+      if (persisted.created) {
+        onReferralSaved?.({ id: savedReferral.id, name: savedReferral.name, community: savedReferral.community });
+        void clearSessionDraft(newDraftKey);
+        setSavedAt(snapshot.initialPacket ? "Workspace created; uploading packet..." : "Workspace created");
       }
-
-      for (const [requirementId, file] of Object.entries(pendingDocumentsRef.current)) {
+      savedReferral = await uploadAndLinkInitialPacket(savedReferral, snapshot, documentHash);
+      for (const [requirementId, file] of Object.entries(snapshot.pendingDocuments)) {
         savedReferral = await uploadAndLinkSupportingDocument(savedReferral, requirementId, file);
       }
-
-      setDirtyKeys(new Set());
-      setPendingDocuments({});
-      if (!referralId) await clearSessionDraft(newDraftKey);
-      await clearSessionDraft(savedReferral.id);
-      onReferralSaved?.({ id: savedReferral.id, name: savedReferral.name, community: savedReferral.community });
-      setRecoveredDraftAt("");
-      setRecoveredPacketName("");
-      setRemoteChange(null);
-      setSavedAt(
-        initialPacket
-          ? "Packet uploaded and ready for review"
-          : `Saved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
-      );
+      await finishReferralSave(savedReferral, snapshot);
     } catch (error) {
       let latestConflict: Referral | null = null;
       if (error instanceof PipelineApiError && error.status === 409) {
@@ -1144,6 +1213,43 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
       setIsSaving(false);
     }
   };
+
+  saveDraftRef.current = saveDraft;
+
+  useEffect(() => {
+    const hasMeaningfulWork = dirtyKeys.size > 0
+      || Object.keys(pendingDocuments).length > 0
+      || Boolean(initialPacket);
+    if (
+      referral?.id
+      || loadedReferral
+      || draftRecoveryLoading
+      || isSaving
+      || !hasMeaningfulWork
+      || remoteChange?.conflicts.length
+    ) return;
+
+    const revision = draftRevisionRef.current;
+    const previous = materializationAttemptRef.current;
+    const attempts = previous.revision === revision ? previous.attempts : 0;
+    if (attempts >= 3) return;
+
+    const materialize = () => {
+      if (isSavingRef.current || loadedReferralRef.current) return;
+      const current = materializationAttemptRef.current;
+      const currentAttempts = current.revision === revision ? current.attempts : 0;
+      if (currentAttempts >= 3) return;
+      materializationAttemptRef.current = { revision, attempts: currentAttempts + 1 };
+      void saveDraftRef.current();
+    };
+    const delay = attempts === 0 ? 1_200 : attempts * 10_000;
+    const timer = window.setTimeout(materialize, delay);
+    window.addEventListener("online", materialize);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("online", materialize);
+    };
+  }, [draftRecoveryLoading, dirtyKeys, initialPacket, isSaving, loadedReferral, pendingDocuments, referral?.id, remoteChange?.conflicts.length]);
 
   const reviewExtractedField = async (
     extractedField: ExtractedField,
@@ -2252,7 +2358,7 @@ function InitialPacketDropzone({
               ? `${formatFileSize(file.size)} · Ready to upload`
               : hasRecordedPacket
                 ? `${recordedStatus} · Choose another file to replace it`
-                : "Upload a face sheet or referral packet to create the referral."}
+                : "Add a face sheet or referral packet now or after the workspace is created."}
           </span>
         </button>
         {file ? (
@@ -2692,6 +2798,136 @@ function buildCanvasPatch(input: {
   });
 }
 
+function currentDraftValues(
+  fields: Record<FieldKey, PacketField>,
+  conserved: "yes" | "no" | "",
+  tagsInput: string,
+  documents: Record<string, string>,
+  initialPacket: File | null,
+): DraftValueSnapshot {
+  return { fields, conserved, tagsInput, documents, initialPacket };
+}
+
+function captureReferralSaveSnapshot(
+  dirtyKeys: ReadonlySet<DirtyDraftKey>,
+  values: DraftValueSnapshot,
+  initialPacketCategory: InitialDocumentCategory,
+  pendingDocuments: Record<string, File>,
+): ReferralSaveSnapshot {
+  const capturedDirtyKeys = new Set(dirtyKeys);
+  return {
+    dirtyKeys: capturedDirtyKeys,
+    signatures: new Map([...capturedDirtyKeys].map((key) => [key, draftKeySignature(key, values)])),
+    initialPacket: values.initialPacket,
+    initialPacketCategory,
+    pendingDocuments: { ...pendingDocuments },
+  };
+}
+
+function resolveDraftCommunity(value: string, fallback: string | undefined): PipelineCommunity {
+  const selected = value.trim() as PipelineCommunity;
+  if (pipelineCommunities.includes(selected)) return selected;
+  if (pipelineCommunities.includes(fallback as PipelineCommunity)) return fallback as PipelineCommunity;
+  return "Unassigned";
+}
+
+function referralCreateTags(tags: string[], owner: string, community: PipelineCommunity) {
+  if (tags.length > 0) return tags;
+  const defaults = ["packet-import", "needs-review"];
+  if (!isAssignedValue(owner) || community === "Unassigned") defaults.push("needs-assignment");
+  return defaults;
+}
+
+function initialDocumentInput(packet: File | null, hash: string | undefined) {
+  if (!packet) return {};
+  return { document: { name: packet.name, size: packet.size, hash } };
+}
+
+function packetPatch(packet: File | null, hash: string | undefined) {
+  if (!packet || !hash) return undefined;
+  return { file: packet, hash };
+}
+
+async function resolveInitialDocumentHash(
+  packet: File | null,
+  existingHash: string | undefined,
+  setSavedAt: Dispatch<SetStateAction<string>>,
+) {
+  if (!packet) return existingHash;
+  setSavedAt("Checking packet...");
+  return hashPacket(packet);
+}
+
+function assertInitialDocumentLinked(
+  referral: Referral,
+  category: InitialDocumentCategory,
+  documentId: string | undefined,
+) {
+  if (category !== "face_sheet" || !documentId) return;
+  const faceSheet = referral.requirements?.find((item) => item.type === "face_sheet");
+  if (faceSheet?.evidenceDocumentId !== documentId) {
+    throw new Error("The face sheet was stored, but its checklist item was not updated. Retry the upload.");
+  }
+}
+
+function changedExtractionKeys(
+  current: Record<FieldKey, PacketField>,
+  extracted: Record<FieldKey, PacketField>,
+  dirtyKeys: ReadonlySet<DirtyDraftKey>,
+) {
+  return new Set<PersistedFieldKey>(persistedFieldKeys.filter((key) => (
+    !dirtyKeys.has(key)
+    && (extracted[key].value !== current[key].value
+      || extracted[key].sourceFile !== current[key].sourceFile)
+  )));
+}
+
+function mergeExtractedFields(
+  current: Record<FieldKey, PacketField>,
+  extracted: Record<FieldKey, PacketField>,
+  extractedKeys: ReadonlySet<PersistedFieldKey>,
+  dirtyKeys: ReadonlySet<DirtyDraftKey>,
+) {
+  const next = { ...current };
+  for (const key of extractedKeys) {
+    if (!dirtyKeys.has(key)) next[key] = extracted[key];
+  }
+  return next;
+}
+
+function packetUploadStatusMessage(mock: boolean, pageCount: number) {
+  if (!mock) return "Packet uploaded and extraction started.";
+  const pageLabel = pageCount === 1 ? "page" : "pages";
+  return `Development local extraction completed. ${pageCount} source ${pageLabel} preserved; confirm the stripped values below.`;
+}
+
+function reconcileSavedDirtyKeys(
+  activeDirtyKeys: ReadonlySet<DirtyDraftKey>,
+  saved: ReferralSaveSnapshot,
+  current: DraftValueSnapshot,
+  allSupportingDocumentsUploaded: boolean,
+) {
+  const remaining = new Set(activeDirtyKeys);
+  for (const key of saved.dirtyKeys) {
+    if (key === "initialPacket") {
+      if (saved.initialPacket && current.initialPacket === null) remaining.delete(key);
+      continue;
+    }
+    if (key === "documents") {
+      if (allSupportingDocumentsUploaded) remaining.delete(key);
+      continue;
+    }
+    if (draftKeySignature(key, current) === saved.signatures.get(key)) remaining.delete(key);
+  }
+  return remaining;
+}
+
+function referralSaveStatus(remainingChanges: number, uploadedInitialPacket: boolean) {
+  if (remainingChanges > 0) return "Saved; newer changes remain";
+  if (uploadedInitialPacket) return "Packet uploaded and ready for review";
+  return `Saved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+}
+
 function draftKeySignature(
   key: DirtyDraftKey,
   input: {
@@ -2709,6 +2945,16 @@ function draftKeySignature(
   return input.initialPacket
     ? JSON.stringify([input.initialPacket.name, input.initialPacket.size, input.initialPacket.lastModified])
     : "";
+}
+
+function mergePendingDocumentNames(
+  savedDocuments: Record<string, string>,
+  pending: Record<string, File>,
+) {
+  return Object.fromEntries([
+    ...Object.entries(savedDocuments),
+    ...Object.entries(pending).map(([requirementId, file]) => [requirementId, file.name]),
+  ]);
 }
 
 function referralBaseDraftValue(referral: Referral | null, key: DirtyDraftKey) {
@@ -2833,6 +3079,12 @@ function conservedLabel(value: Referral["conserved"]) {
 
 function canvasDraftStorageKey(draftReference?: ReferralRecoveryDraftKey) {
   return `pipeline-referral-draft:${draftReference ?? "new"}`;
+}
+
+function newReferralCreationMutationId(draftReference?: `new-${string}`) {
+  return draftReference
+    ? `referral-create:${draftReference}`
+    : `referral-create:${createMutationId()}`;
 }
 
 async function clearSessionDraft(draftReference?: ReferralRecoveryDraftKey) {

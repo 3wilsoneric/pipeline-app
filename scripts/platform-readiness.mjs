@@ -42,6 +42,11 @@ const checks = [
     args: ["scripts/assessor-workflow-contracts.mjs"],
   },
   {
+    name: "Referral intake recovery contracts",
+    command: "node",
+    args: ["scripts/referral-intake-recovery-contracts.mjs"],
+  },
+  {
     name: "Release compatibility",
     command: "node",
     args: ["scripts/release-compatibility.mjs"],

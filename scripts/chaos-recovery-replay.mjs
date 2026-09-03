@@ -23,7 +23,7 @@ const clinical = read("lib/clinical/clinical-data.ts");
 const documentAssets = read("lib/extraction/document-assets.ts");
 const worker = read("lib/extraction/processing-worker.ts");
 const packetUpload = read("lib/pipeline/referral-packet-upload.ts");
-const welcome = read("components/pipeline/PipelineWelcome.tsx");
+const referralHome = read("components/pipeline/ReferralHome.tsx");
 const browserFetch = read("lib/auth/authenticated-fetch.ts");
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -70,7 +70,7 @@ check("Blob loss returns a safe preview failure", documentAssets.includes("asset
 check("interrupted packet uploads remain retryable and never auto-retry mutations", packetUpload.includes("Retry the upload.")
   && browserFetch.includes('const attempts = method === "GET" ? 2 : 1')
   && packetUpload.indexOf("/api/uploads/complete") > packetUpload.indexOf("/api/uploads/create-url"));
-check("failed queue refresh preserves the last successful snapshot", welcome.includes("Showing the last successful snapshot")
+check("failed queue refresh preserves the last successful snapshot", referralHome.includes("The last successful list remains visible")
   && read("tests/e2e/pipeline-smoke.spec.ts").includes("keeps the last successful referral snapshot when refresh fails"));
 
 const failed = checks.filter((item) => !item.ok);

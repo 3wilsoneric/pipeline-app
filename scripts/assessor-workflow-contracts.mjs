@@ -247,8 +247,8 @@ check("email delivery is idempotent and audited without recipient addresses or f
   && !deliveryAudit.includes("attachment_names"));
 check("attachment inventory failures do not take down the signed chart", admissionSummaryRoute.includes("loadAdmissionPacketInventory")
   && admissionSummaryRoute.includes("Admission packet files are temporarily unavailable"));
-check("the referral workspace exposes assessment Charts without adding them to historical records", referralPacketCanvas.includes('{ page: 3, label: "Charts" }') && referralPacketCanvas.includes("normalizeWorkspaceView") && referralPacketCanvas.includes('workspaceStatus !== "historical"'));
-check("the Charts workspace contains only the complete chart and Meet the Client outputs", assessmentChartWorkspace.includes('label="Complete chart"') && assessmentChartWorkspace.includes('label="Meet the Client"') && assessmentChartWorkspace.includes("<CompleteAssessmentChart") && assessmentChartWorkspace.includes("<MeetClientChart") && !assessmentChartWorkspace.includes("DecisionPanel") && !assessmentChartWorkspace.includes("overrideReason"));
+check("the referral workspace exposes the assessment Chart without adding it to historical records", referralPacketCanvas.includes('{ page: 3, label: "Chart" }') && referralPacketCanvas.includes("normalizeWorkspaceView") && referralPacketCanvas.includes('workspaceStatus !== "historical"'));
+check("the Chart workspace contains only the complete chart and Meet the Client outputs", assessmentChartWorkspace.includes('label="Complete chart"') && assessmentChartWorkspace.includes('label="Meet the Client"') && assessmentChartWorkspace.includes("<CompleteAssessmentChart") && assessmentChartWorkspace.includes("<MeetClientChart") && !assessmentChartWorkspace.includes("DecisionPanel") && !assessmentChartWorkspace.includes("overrideReason"));
 check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes("<AdmissionPacketSummary")
   && assessmentChartWorkspace.includes("listed admission files")
   && assessmentChartWorkspace.includes("Email summary + packet"));

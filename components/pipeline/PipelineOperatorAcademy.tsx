@@ -78,7 +78,7 @@ export default function PipelineOperatorAcademy({
 
         <footer className="mt-5 flex items-center gap-2 text-[10px] leading-4 text-[#6d7773]">
           <CheckCircle2 size={14} className="shrink-0 text-[#0f8b73]" aria-hidden="true" />
-          Use test records while learning. The guide does not read what you type or submit actions for you.
+          Practice with test records. The guide never types, signs, sends, or exports for you.
         </footer>
       </div>
     </main>

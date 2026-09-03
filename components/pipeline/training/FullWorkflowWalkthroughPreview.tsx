@@ -18,38 +18,38 @@ type WalkthroughStep = {
 const steps: readonly WalkthroughStep[] = [
   {
     label: "Home",
-    title: "Find the work that needs attention",
-    instruction: "Start with assigned referrals, today's assessments, and anything blocked or overdue.",
+    title: "Check what needs attention",
+    instruction: "Review your assigned referrals, today's assessments, and anything overdue.",
     location: "Home > My work",
   },
   {
     label: "Referral",
-    title: "Create the referral workspace",
-    instruction: "Attach the packet, confirm the basic intake details, and assign one accountable assessor.",
+    title: "Create a referral",
+    instruction: "Add the packet, enter the basic details, and assign an assessor.",
     location: "New referral",
   },
   {
     label: "Intake",
-    title: "Verify the source information",
-    instruction: "Compare extracted or entered facts with the packet before assessment work begins.",
+    title: "Check the intake",
+    instruction: "Compare the entered information with the packet before moving on.",
     location: "Workspace > Intake",
   },
   {
     label: "Assessment",
-    title: "Schedule and complete the assessment",
-    instruction: "Schedule the interview, work through each section, and confirm every change is saved.",
+    title: "Complete the assessment",
+    instruction: "Schedule it, answer each section, and sign it when it is ready.",
     location: "Workspace > Assessment",
   },
   {
     label: "Chart",
-    title: "Review the completed chart",
-    instruction: "Resolve missing information and review the signed assessment as one readable record.",
+    title: "Review the Chart",
+    instruction: "Check the signed assessment and fix anything that is missing.",
     location: "Workspace > Chart",
   },
   {
     label: "Handoff",
-    title: "Prepare the accepted referral handoff",
-    instruction: "Review the chart, Meet the Client summary, required documents, and recipient before sending.",
+    title: "Send the handoff",
+    instruction: "Check the Meet the Client summary, documents, and recipient before sending.",
     location: "Chart > Meet the Client",
   },
 ];
@@ -77,18 +77,15 @@ export default function FullWorkflowWalkthroughPreview({ onClose }: { onClose: (
   const isLastStep = index === steps.length - 1;
 
   return createPortal(
-    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[#10251f]/35 p-3 sm:p-6">
+    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[#10251f]/25 p-2 sm:p-4">
       <section
         role="dialog"
         aria-modal="true"
         aria-label="Full Pipeline walkthrough"
-        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[980px] min-w-0 flex-col overflow-hidden border border-[#aebcb7] bg-white shadow-[0_24px_70px_rgba(12,34,28,0.24)] sm:max-h-[calc(100dvh-3rem)]"
+        className="flex h-[calc(100dvh-1rem)] w-full max-w-[1180px] min-w-0 flex-col overflow-hidden border border-[#aebcb7] bg-white sm:h-[calc(100dvh-2rem)]"
       >
         <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-[#d2dad7] px-5 py-3 sm:px-7">
-          <div className="min-w-0">
-            <div className="text-[9px] font-black uppercase tracking-[0.11em] text-[#0f7c68]">Learning Center</div>
-            <h2 className="mt-1 truncate text-[19px] font-black text-[#1d2421] sm:text-[22px]">The Pipeline workflow</h2>
-          </div>
+          <h2 className="min-w-0 truncate text-[20px] font-black text-[#1d2421] sm:text-[24px]">Full walkthrough</h2>
           <button
             type="button"
             aria-label="Close full walkthrough"
@@ -131,19 +128,17 @@ export default function FullWorkflowWalkthroughPreview({ onClose }: { onClose: (
               </div>
             </div>
 
-            <article className="flex min-h-0 flex-1 flex-col justify-start overflow-y-auto px-5 py-7 sm:justify-center sm:px-8 sm:py-10 lg:px-12">
+            <article className="flex min-h-0 flex-1 flex-col justify-start overflow-y-auto px-5 py-7 sm:justify-center sm:px-10 sm:py-10 lg:px-14">
               <div className="text-[10px] font-black uppercase tracking-[0.11em] text-[#0f7c68]">{step.label} · {String(index + 1).padStart(2, "0")}</div>
               <h3 className="mt-3 max-w-[650px] text-[30px] font-black leading-[34px] text-[#1b211e] sm:text-[38px] sm:leading-[42px]">{step.title}</h3>
               <p className="mt-5 max-w-[620px] text-[14px] leading-6 text-[#5d6863]">{step.instruction}</p>
 
               <dl className="mt-8 max-w-[620px] border-y border-[#d9dfdc]">
                 <div className="grid gap-1 py-4 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center">
-                  <dt className="text-[9px] font-black uppercase tracking-[0.1em] text-[#7a8480]">Where this happens</dt>
+                  <dt className="text-[9px] font-black uppercase tracking-[0.1em] text-[#7a8480]">Go to</dt>
                   <dd className="text-[13px] font-black text-[#27302c]">{step.location}</dd>
                 </div>
               </dl>
-
-              <p className="mt-5 max-w-[620px] text-[11px] leading-5 text-[#717b77]">Use the task walkthroughs in the Learning Center when you want Pipeline to open the real screen and guide each click.</p>
             </article>
 
             <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d2dad7] px-5 py-4 sm:px-8">
@@ -160,7 +155,7 @@ export default function FullWorkflowWalkthroughPreview({ onClose }: { onClose: (
                 onClick={() => isLastStep ? onClose() : setIndex((current) => Math.min(steps.length - 1, current + 1))}
                 className="flex h-11 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white hover:bg-[#0b715e]"
               >
-                {isLastStep ? "Done" : "Next step"}
+                {isLastStep ? "Done" : "Next"}
                 {!isLastStep ? <ArrowRight size={14} aria-hidden="true" /> : null}
               </button>
             </footer>

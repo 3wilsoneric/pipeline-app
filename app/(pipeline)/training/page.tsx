@@ -11,7 +11,7 @@ import { emptyOperatorProgress, type OperatorProgressRecord } from "@/lib/traini
 import { getOperatorProgressRecord } from "@/lib/training/operator-training-progress-store";
 
 export const metadata: Metadata = {
-  title: "Learning Center | Pipeline",
+  title: "Learning Center | AHS - Pipeline",
   description: "Guided walkthroughs for common Pipeline workflows.",
   robots: { index: false, follow: false, nocache: true },
 };

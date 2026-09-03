@@ -360,7 +360,7 @@ await measureJourney("referrals_to_learning_center", "navigation", async () => {
   const commitStartedAt = performance.now();
   const academy = page.locator('[data-operator-academy="true"]');
   const hydratedAcademy = page.locator('[data-training-hydrated="true"]');
-  const workflowAction = page.getByRole("button", { name: "Open full Pipeline workflow overview", exact: true });
+  const workflowAction = page.getByRole("button", { name: "Open full Pipeline walkthrough", exact: true });
   await Promise.all([
     recordPhase(navigationPhases, "learning_url_commit_ms", commitStartedAt, page.waitForURL((url) => url.pathname === "/training")),
     recordPhase(navigationPhases, "learning_dom_attached_ms", commitStartedAt, academy.waitFor({ state: "attached" })),
@@ -370,11 +370,11 @@ await measureJourney("referrals_to_learning_center", "navigation", async () => {
   ]);
 });
 await measureJourney("learning_workflow_open", "overlay", async () => {
-  await activate(page.getByRole("button", { name: "Open full Pipeline workflow overview", exact: true }));
+  await activate(page.getByRole("button", { name: "Open full Pipeline walkthrough", exact: true }));
   await page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("learning_workflow_step", "overlay", async () => {
-  await activate(page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).getByRole("button", { name: "Next step", exact: true }));
+  await activate(page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).getByRole("button", { name: "Next", exact: true }));
   await page.getByRole("heading", { name: "Create the referral workspace", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("learning_workflow_close", "overlay", async () => {

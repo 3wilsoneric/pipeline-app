@@ -36,6 +36,7 @@ const requiredMetrics = [
   "pipeline.presence.stale_leases",
   "pipeline.storage.failures",
   "pipeline.retention.documents",
+  "pipeline.retention.workspace_state",
   "pipeline.clinical.freshness_age",
   "pipeline.api.duration",
   "pipeline.api.overload_rejections",

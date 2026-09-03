@@ -73,6 +73,18 @@ export type PipelineReferralDraft = {
   initialPacketCategory?: "referral_packet" | "face_sheet";
 };
 
+export type PipelineReferralDraftSummary = {
+  draft_key: `new-${string}`;
+  version: number;
+  saved_at: string;
+  expires_at: string;
+  client_name: string;
+  community: string;
+  packet_name?: string;
+  completed_fields: number;
+  total_fields: number;
+};
+
 export type PipelineAssessmentDraft = {
   schema: 1;
   assessmentId: string;
@@ -177,6 +189,38 @@ export function parsePipelineReferralDraft(value: unknown): PipelineReferralDraf
     ...(candidate.initialPacketName ? { initialPacketName: candidate.initialPacketName } : {}),
     ...(candidate.initialPacketCategory ? { initialPacketCategory: candidate.initialPacketCategory } : {}),
   };
+}
+
+export function parsePipelineReferralDraftSummary(value: unknown): PipelineReferralDraftSummary | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Partial<PipelineReferralDraftSummary>;
+  if (!hasValidReferralDraftSummaryIdentity(candidate)) return null;
+  if (!hasValidReferralDraftSummaryProgress(candidate)) return null;
+  return candidate as PipelineReferralDraftSummary;
+}
+
+export function isNewReferralDraftKey(value: unknown): value is `new-${string}` {
+  return typeof value === "string"
+    && /^new-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function hasValidReferralDraftSummaryIdentity(candidate: Partial<PipelineReferralDraftSummary>) {
+  return isNewReferralDraftKey(candidate.draft_key)
+    && Number.isSafeInteger(candidate.version)
+    && Number(candidate.version) >= 1
+    && validTimestamp(candidate.saved_at)
+    && validTimestamp(candidate.expires_at)
+    && isBoundedText(candidate.client_name, 200, true)
+    && isBoundedText(candidate.community, 120, true)
+    && (candidate.packet_name === undefined || isBoundedText(candidate.packet_name, 255, true));
+}
+
+function hasValidReferralDraftSummaryProgress(candidate: Partial<PipelineReferralDraftSummary>) {
+  return Number.isSafeInteger(candidate.completed_fields)
+    && Number(candidate.completed_fields) >= 0
+    && Number.isSafeInteger(candidate.total_fields)
+    && Number(candidate.total_fields) >= 1
+    && Number(candidate.completed_fields) <= Number(candidate.total_fields);
 }
 
 export function parsePipelineAssessmentDraft(value: unknown): PipelineAssessmentDraft | null {

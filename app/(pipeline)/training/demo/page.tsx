@@ -7,7 +7,7 @@ import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import { getOperatorTrainingUser } from "@/lib/training/operator-training-access";
 
 export const metadata: Metadata = {
-  title: "Demo Center | Pipeline",
+  title: "Demo Center | AHS - Pipeline",
   description: "Isolated synthetic rehearsal environment for the Pipeline admissions workflow.",
   robots: { index: false, follow: false, nocache: true },
 };

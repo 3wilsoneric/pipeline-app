@@ -20,6 +20,7 @@ import { getActiveWorkspaceMember, touchWorkspaceMember } from "@/lib/pipeline/w
 import { createDefaultAdmissionRequirements, isRequirementComplete } from "@/lib/pipeline/workflow-records";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { applyReviewedClinicalIdentity } from "@/lib/pipeline/referral-clinical-identity";
+import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 
 export const runtime = "nodejs";
 
@@ -153,7 +154,13 @@ export async function POST(request: Request) {
         { id: auth.user.id, name: auth.user.name },
       );
 
-      return Response.json(result, {
+      recordWorkspaceMaterialization(result.referral, result.idempotentReplay);
+
+      return Response.json({
+        referral: result.referral,
+        revision: result.revision,
+        idempotent_replay: result.idempotentReplay,
+      }, {
         status: 201,
         headers: {
           "Cache-Control": "no-store, max-age=0",
@@ -175,6 +182,14 @@ export async function POST(request: Request) {
         507,
       );
     }
+  });
+}
+
+function recordWorkspaceMaterialization(referral: Referral, idempotentReplay: boolean) {
+  recordPipelineMetric("pipeline.intake.workspace_materialization", 1, "count", {
+    result: idempotentReplay ? "replayed" : "created",
+    assignment: isUnassignedOwner(referral.owner) ? "unassigned" : "assigned",
+    packet: referral.documentName ? "present" : "missing",
   });
 }
 

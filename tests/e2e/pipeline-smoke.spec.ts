@@ -311,7 +311,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(queue.items.every((item) => Number.isInteger(item.referral_id))).toBeTruthy();
   });
 
-  test("requires an initial document and recalls the saved referral chart", async ({ page }) => {
+  test("creates a durable shell before its initial document and recalls the saved referral chart", async ({ page }) => {
     const clientName = `Referral chart ${randomUUID().slice(0, 8)}`;
     await page.getByRole("button", { name: "Create new referral" }).click();
 
@@ -332,7 +332,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(documentChecklistBox).not.toBeNull();
     expect(identityBox).not.toBeNull();
     expect((documentChecklistBox?.y ?? 0) + (documentChecklistBox?.height ?? 0)).toBeLessThanOrEqual(identityBox?.y ?? 0);
-    await expect(page.getByText("Upload a face sheet or referral packet to create the referral.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Add a face sheet or referral packet now or after the workspace is created.", { exact: true })).toBeVisible();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("textbox", { name: "DOB", exact: true }).fill("06/12/1984");
     await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
@@ -342,19 +342,22 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true }).fill("Referral chart created from the initial document.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
-    await page.getByRole("button", { name: "Create workspace", exact: true }).click();
-    await expect(page.getByText("Upload the initial face sheet or referral packet before creating this referral.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
+    await expect(page.getByRole("button", { name: "Save workspace", exact: true })).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
+    const referralId = new URL(page.url()).searchParams.get("referralId");
+    expect(referralId).not.toBeNull();
+    const shellResponse = await page.request.get(`/api/referrals/${referralId}`);
+    expect(shellResponse.ok()).toBeTruthy();
+    expect(await shellResponse.json()).toMatchObject({ referral: { documentStatus: "Missing" } });
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "required-face-sheet.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from(`required-face-sheet-${randomUUID()}`),
     });
-    await page.getByRole("button", { name: "Create workspace", exact: true }).click();
+    await page.getByRole("button", { name: "Save workspace", exact: true }).click();
 
-    await expect(page.getByRole("button", { name: "Save workspace", exact: true })).toBeVisible();
-    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
-    const referralId = new URL(page.url()).searchParams.get("referralId");
-    expect(referralId).not.toBeNull();
+    await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible();
 
     const response = await page.request.get(`/api/referrals/${referralId}`);
     expect(response.ok()).toBeTruthy();

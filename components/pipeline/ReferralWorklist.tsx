@@ -11,6 +11,7 @@ import {
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { resolveReferralWorkflowStatus, workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import {
   getWorkspaceAdmissionOutcome,
   getWorkspaceCounty,
@@ -38,13 +39,14 @@ export default function ReferralWorklist({
       identityTitle: formatClientIdentityTitle(referral),
       outcome: getWorkspaceAdmissionOutcome(referral),
       county: getWorkspaceCounty(referral),
+      workflowLabel: workflowStatusLabels[referral.workflowStatus ?? resolveReferralWorkflowStatus(referral)],
     };
   });
 
   return (
     <div role="region" aria-label="Referral worklist">
       <div className="divide-y divide-[#e2e2e2] lg:hidden">
-        {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, outcome, county }) => (
+        {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, outcome, county, workflowLabel }) => (
           <CompactReferralRow
             key={referral.id}
             referral={referral}
@@ -54,6 +56,7 @@ export default function ReferralWorklist({
             identityTitle={identityTitle}
             outcome={outcome}
             county={county}
+            workflowLabel={workflowLabel}
             onOpen={() => onOpenPacket(referral)}
           />
         ))}
@@ -70,7 +73,7 @@ export default function ReferralWorklist({
           <span className="sr-only">Open</span>
         </div>
         <div className="divide-y divide-[#e2e2e2]">
-          {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, outcome, county }) => (
+          {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, outcome, county, workflowLabel }) => (
             <button
               key={referral.id}
               type="button"
@@ -84,6 +87,7 @@ export default function ReferralWorklist({
                 {workspaceIdentityDetail(referral, county) ? (
                   <span className="mt-1 block truncate text-[9px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
                 ) : null}
+                <span className="mt-1 block truncate text-[9px] font-semibold text-[#0f705f]">{workflowLabel}</span>
                 {referral.priority !== "standard" ? (
                   <span className="mt-1 block text-[9px] font-semibold text-[#8c392f]">{referral.priority} priority</span>
                 ) : null}
@@ -138,6 +142,7 @@ function CompactReferralRow({
   identityTitle,
   outcome,
   county,
+  workflowLabel,
   onOpen,
 }: {
   referral: Referral;
@@ -147,6 +152,7 @@ function CompactReferralRow({
   identityTitle: string;
   outcome: ReturnType<typeof getWorkspaceAdmissionOutcome>;
   county: string;
+  workflowLabel: string;
   onOpen: () => void;
 }) {
   return (
@@ -163,6 +169,7 @@ function CompactReferralRow({
           {workspaceIdentityDetail(referral, county) ? (
             <span className="mt-1 block truncate text-[10px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
           ) : null}
+          <span className="mt-1 block truncate text-[10px] font-semibold text-[#0f705f]">{workflowLabel}</span>
         </span>
         <span className="flex shrink-0 items-center gap-2" title={outcome.explanation}>
           <span className={`text-[11px] ${outcomeTextClass(outcome.status)}`}>{outcome.label}</span>

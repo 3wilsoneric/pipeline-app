@@ -7,7 +7,7 @@ import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Practice Assessment | Pipeline",
+  title: "Practice Assessment | AHS - Pipeline",
   description: "Synthetic Pipeline assessment practice.",
   robots: { index: false, follow: false, nocache: true },
 };

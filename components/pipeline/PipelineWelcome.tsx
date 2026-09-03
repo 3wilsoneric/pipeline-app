@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { CalendarClock, RefreshCw } from "lucide-react";
 
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
+import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent } from "@/lib/pipeline/calendar-types";
@@ -24,11 +25,13 @@ export default function PipelineWelcome({
   onOpenRecent,
   onOpenProfile,
   onOpenSearchDestination,
+  onResumeDraft,
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenRecent: (destination: PipelineRecentDestination) => void;
   onOpenProfile: (residentKey: string) => void;
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
+  onResumeDraft: (draftKey: `new-${string}`) => void;
   initialMode?: "welcome" | "workspace";
 }) {
   const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(null);
@@ -124,6 +127,8 @@ export default function PipelineWelcome({
             <button type="button" onClick={() => void loadBriefing()} className="font-semibold underline underline-offset-2">Retry</button>
           </div>
         ) : null}
+
+        <ReferralDraftResumeList onResume={onResumeDraft} className="mt-4" />
 
         {!briefing && !error ? <HomeSkeleton /> : null}
         {briefing ? (

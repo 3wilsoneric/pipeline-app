@@ -40,6 +40,7 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import FilePreviewDialog from "@/components/pipeline/ReferralFilePreviewDialog";
 import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
 import ReferralWorklist from "@/components/pipeline/ReferralWorklist";
+import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
 
 type ReferralFilter =
   | { kind: "workflow" }
@@ -84,11 +85,13 @@ export default function ReferralHome({
   onSearchTermChange,
   onOpenPacket,
   onOpenProfile,
+  onResumeDraft,
 }: {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
+  onResumeDraft: (draftKey: `new-${string}`) => void;
 }) {
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [progressByReferral, setProgressByReferral] = useState<Record<number, ReferralProgress>>({});
@@ -589,10 +592,15 @@ export default function ReferralHome({
     <main data-guide-target="workspace-directory" aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
       <div className="w-full px-4 pb-8 pt-0 sm:px-5 md:px-6 lg:px-8 xl:px-10">
         <h1 className="sr-only">Referral workspaces</h1>
+        <ReferralDraftResumeList onResume={onResumeDraft} className="mb-3 mt-3" />
         <div className="min-w-0">
           {workspaceSearch}
           <div className="min-h-14">
-            {filter.kind === "files" ? fileFilterToolbar : filter.kind === "workflow" ? null : filterToolbar}
+            {filter.kind === "files"
+              ? fileFilterToolbar
+              : filter.kind === "workflow"
+                ? <div aria-hidden="true" className="h-14 sm:h-[104px] xl:h-14" />
+                : filterToolbar}
           </div>
           {loadError && filter.kind !== "files" ? (
             <div className="mb-3 flex items-center justify-between gap-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-4 py-3 text-[12px] font-semibold text-[#59332d]" role="alert">

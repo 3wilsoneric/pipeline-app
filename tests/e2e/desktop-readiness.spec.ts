@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 
 const desktopEnabled = process.env.PIPELINE_DESKTOP_E2E === "true";
 
@@ -45,7 +46,8 @@ test.describe("desktop feature enabled", () => {
       }))).flat();
       return { names, urls };
     });
-    expect(cacheAudit.names).toEqual(["pipeline-static-v11"]);
+    expect(cacheAudit.names).toHaveLength(1);
+    expect(cacheAudit.names[0]).toMatch(/^pipeline-static-v\d+$/);
     expect(cacheAudit.urls.some((url) => new URL(url).pathname.startsWith("/api/"))).toBeFalsy();
     expect(cacheAudit.urls.every((url) => {
       const path = new URL(url).pathname;
@@ -88,10 +90,13 @@ test.describe("desktop feature enabled", () => {
       registration.active?.postMessage({ type: "PIPELINE_PRUNE_DESKTOP_CACHES" });
     });
 
-    await expect.poll(async () => page.evaluate(async () => (await caches.keys()).sort())).toEqual([
-      "pipeline-static-v11",
-      "unrelated-application-cache",
-    ]);
+    await expect.poll(async () => page.evaluate(async () => ({
+      pipelineCaches: (await caches.keys()).filter((name) => name.startsWith("pipeline-static-")),
+      unrelated: (await caches.keys()).includes("unrelated-application-cache"),
+    }))).toEqual({
+      pipelineCaches: [expect.stringMatching(/^pipeline-static-v\d+$/)],
+      unrelated: true,
+    });
 
     await page.evaluate(async () => {
       const registration = await navigator.serviceWorker.getRegistration("/");
@@ -188,22 +193,110 @@ test.describe("desktop feature enabled", () => {
     const draftId = new URL(page.url()).searchParams.get("draftId");
     expect(draftId).toMatch(/^[0-9a-f-]{36}$/i);
     const draftEndpoint = `/api/me/referral-drafts/new-${draftId}`;
-    await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Desktop draft cleanup check");
+    await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Casey Hartwell");
     await expect(page.getByText("Recovery draft saved", { exact: true })).toBeVisible({ timeout: 15_000 });
     const autosaved = await page.request.get(draftEndpoint);
     expect(await autosaved.json()).toMatchObject({
-      draft: { fields: { name: { value: "Desktop draft cleanup check" } } },
+      draft: { fields: { name: { value: "Casey Hartwell" } } },
+    });
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId"), { timeout: 15_000 }).not.toBeNull();
+    const referralId = Number(new URL(page.url()).searchParams.get("referralId"));
+    expect(referralId).toBeGreaterThan(0);
+    const materialized = await page.request.get(`/api/referrals/${referralId}`);
+    expect(await materialized.json()).toMatchObject({
+      referral: {
+        id: referralId,
+        name: "Casey Hartwell",
+        documentStatus: "Missing",
+      },
     });
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "desktop-recovery-face-sheet.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from(`desktop-recovery-face-sheet-${Date.now()}`),
     });
-    await page.getByRole("button", { name: "Create workspace" }).click();
+    await page.getByRole("button", { name: "Save workspace" }).click();
+    await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible({ timeout: 20_000 });
     await expect.poll(async () => {
       const response = await page.request.get(draftEndpoint);
       return (await response.json()) as { draft?: unknown; version?: number };
     }).toMatchObject({ draft: null, version: 0 });
+  });
+
+  test("lists and resumes an interrupted pre-workspace intake", async ({ page }) => {
+    await page.goto("/?view=referrals");
+    const draftId = randomUUID();
+    const draftKey = `new-${draftId}`;
+    const clientName = `Interrupted intake ${draftId.slice(0, 8)}`;
+    const createDraft = await page.request.put(`/api/me/referral-drafts/${draftKey}`, {
+      data: {
+        if_match: 0,
+        draft: referralDraft("Needs intake completion", clientName, "San Pablo"),
+      },
+    });
+    expect(createDraft.status(), await createDraft.text()).toBe(200);
+
+    const list = await page.request.get("/api/me/referral-drafts");
+    expect(list.status(), await list.text()).toBe(200);
+    expect(await list.json()).toMatchObject({
+      drafts: expect.arrayContaining([
+        expect.objectContaining({
+          draft_key: draftKey,
+          client_name: clientName,
+          community: "San Pablo",
+        }),
+      ]),
+    });
+
+    await page.reload();
+    const recovery = page.getByRole("region", { name: "Unfinished referral intake" });
+    await expect(recovery).toBeVisible();
+    await recovery.getByText(clientName, { exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`draftId=${draftId}`));
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
+    await expect(page.getByRole("combobox", { name: "Community:", exact: true })).toHaveValue("San Pablo");
+  });
+
+  test("merges disjoint edits when two tabs materialize the same intake", async ({ context, page }) => {
+    await page.goto("/?view=referrals");
+    const draftId = randomUUID();
+    const draftKey = `new-${draftId}`;
+    const clientName = "Morgan Vale";
+    const createDraft = await page.request.put(`/api/me/referral-drafts/${draftKey}`, {
+      data: {
+        if_match: 0,
+        draft: referralDraft("Concurrent intake recovery", clientName, "San Pablo"),
+      },
+    });
+    expect(createDraft.status(), await createDraft.text()).toBe(200);
+
+    const otherPage = await context.newPage();
+    const draftUrl = `/?view=referrals&screen=packet&draftId=${draftId}`;
+    await Promise.all([page.goto(draftUrl), otherPage.goto(draftUrl)]);
+    await Promise.all([
+      expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName),
+      expect(otherPage.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName),
+    ]);
+
+    await Promise.all([
+      page.getByRole("textbox", { name: "Referent:", exact: true }).fill("North County Behavioral Health"),
+      otherPage.getByRole("combobox", { name: "County:", exact: true }).selectOption("Marin County"),
+    ]);
+
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId"), { timeout: 20_000 }).not.toBeNull();
+    await expect.poll(() => new URL(otherPage.url()).searchParams.get("referralId"), { timeout: 20_000 }).not.toBeNull();
+    const referralId = Number(new URL(page.url()).searchParams.get("referralId"));
+    expect(Number(new URL(otherPage.url()).searchParams.get("referralId"))).toBe(referralId);
+    await expect.poll(async () => {
+      const response = await page.request.get(`/api/referrals/${referralId}`);
+      const payload = await response.json() as { referral?: { name?: string; source?: string; county?: string } };
+      return payload.referral;
+    }, { timeout: 20_000 }).toMatchObject({
+      name: clientName,
+      source: "North County Behavioral Health",
+      county: "Marin County",
+    });
+    await otherPage.close();
   });
 
   test("encrypts offline assessment edits and syncs them after reconnecting", async ({ context, page }) => {
@@ -360,7 +453,8 @@ test.describe("desktop feature enabled", () => {
     await context.setOffline(true);
     try {
       await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: `Offline assessment ${token} assessment` })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Offline Assessment assessment", exact: true })).toBeVisible();
+      await expect(page.getByRole("textbox", { name: "Current location *", exact: true })).toHaveValue(offlineValue);
       const duration = page.getByRole("textbox", { name: "Time at current location" });
       await duration.fill(coldStartValue);
       await expect(page.getByText("Saved on this device · syncs after reconnect", { exact: true })).toBeVisible();
@@ -393,15 +487,24 @@ test.describe("desktop feature enabled", () => {
   });
 });
 
-function referralDraft(summary: string) {
+function referralDraft(summary: string, name = "", community = "") {
   const fields = Object.fromEntries([
     "name", "gender", "age", "dob", "ssn", "owner", "referralReceived",
-    "admissionDate", "county", "referent", "responsiblePerson", "summary", "interview",
-  ].map((key) => [key, { value: key === "summary" ? summary : "" }]));
+    "admissionDate", "community", "county", "referent", "responsiblePerson",
+    "currentMedications", "summary", "interview",
+  ].map((key) => [key, {
+    value: key === "summary"
+      ? summary
+      : key === "name"
+        ? name
+        : key === "community"
+          ? community
+          : "",
+  }]));
   return {
     schema: 1,
     savedAt: new Date().toISOString(),
-    dirtyKeys: ["summary"],
+    dirtyKeys: ["name", "community", "summary"],
     fields,
     conserved: "",
     tagsInput: "",

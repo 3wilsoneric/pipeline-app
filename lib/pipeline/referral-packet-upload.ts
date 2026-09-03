@@ -1,5 +1,5 @@
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import {
   allowedUploadContentTypes,
   type CompleteUploadResponse,
@@ -134,11 +134,11 @@ async function reserveUpload(
 }
 
 async function completeUpload(packetId: string, fileId: string) {
-  return fetchPipelineJson<CompleteUploadResponse>("/api/uploads/complete", {
+  return retryIdempotentOperation(() => fetchPipelineJson<CompleteUploadResponse>("/api/uploads/complete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ packet_id: packetId, uploaded_file_ids: [fileId] }),
-  });
+  }), isRetryablePipelineError);
 }
 
 async function writeReservedBlob(signedUrl: string, sentinelUrl: string, file: File) {
@@ -147,16 +147,48 @@ async function writeReservedBlob(signedUrl: string, sentinelUrl: string, file: F
 }
 
 async function putBlob(url: string, body: Blob, contentType: string) {
-  const response = await fetch(url, {
-    method: "PUT",
-    credentials: "omit",
-    headers: {
-      "Content-Type": contentType,
-      "x-ms-blob-type": "BlockBlob",
-    },
-    body,
+  await retryIdempotentOperation(async () => {
+    const response = await fetch(url, {
+      method: "PUT",
+      credentials: "omit",
+      headers: {
+        "Content-Type": contentType,
+        "x-ms-blob-type": "BlockBlob",
+      },
+      body,
+    });
+    if (!response.ok) {
+      const error = new Error("The packet could not be written to secure storage. Retry the upload.") as Error & { status?: number };
+      error.status = response.status;
+      throw error;
+    }
+  }, (error) => {
+    const status = error && typeof error === "object" && "status" in error ? Number(error.status) : 0;
+    return status === 0 || status === 408 || status === 429 || status >= 500;
   });
-  if (!response.ok) throw new Error("The packet could not be written to secure storage. Retry the upload.");
+}
+
+async function retryIdempotentOperation<T>(
+  operation: () => Promise<T>,
+  shouldRetry: (error: unknown) => boolean,
+  maximumAttempts = 3,
+) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt + 1 >= maximumAttempts || !shouldRetry(error)) throw error;
+      await new Promise((resolve) => window.setTimeout(resolve, 300 * 2 ** attempt));
+    }
+  }
+  throw lastError;
+}
+
+function isRetryablePipelineError(error: unknown) {
+  return error instanceof PipelineApiError
+    && (error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500);
 }
 
 function isMockUploadUrl(url: string) {

@@ -8,6 +8,8 @@ const allowedDimensions = new Set([
   "result",
   "job_type",
   "backend",
+  "assignment",
+  "packet",
 ]);
 
 export type PipelineMetricEvent = {

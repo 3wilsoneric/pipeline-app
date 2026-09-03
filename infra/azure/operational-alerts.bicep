@@ -220,7 +220,7 @@ ContainerAppConsoleLogs_CL
     query: '''
 ContainerAppConsoleLogs_CL
 | extend payload = parse_json(Log_s)
-| where tostring(payload.kind) == 'metric' and tostring(payload.metric) in ('pipeline.retention.documents', 'pipeline.retention.referrals')
+| where tostring(payload.kind) == 'metric' and tostring(payload.metric) in ('pipeline.retention.documents', 'pipeline.retention.referrals', 'pipeline.retention.workspace_state')
 | where tostring(payload.dimensions.result) == 'failed'
 | summarize MetricValue = sum(todouble(payload.value))
 '''

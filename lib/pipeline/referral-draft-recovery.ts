@@ -3,7 +3,9 @@
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import {
   parsePipelineReferralDraft,
+  parsePipelineReferralDraftSummary,
   type PipelineReferralDraft,
+  type PipelineReferralDraftSummary,
 } from "@/lib/pipeline/user-workspace-state-types";
 import { usesServerUserWorkspaceState } from "@/lib/pipeline/user-workspace-state-client";
 
@@ -30,6 +32,14 @@ export async function loadServerReferralDraft(draftReference?: ReferralRecoveryD
   return parsePipelineReferralDraft(payload.draft);
 }
 
+export async function listServerReferralDrafts() {
+  const payload = await fetchPipelineJson<{ drafts?: unknown }>("/api/me/referral-drafts", { cache: "no-store" });
+  if (!Array.isArray(payload.drafts)) return [];
+  return payload.drafts
+    .map(parsePipelineReferralDraftSummary)
+    .filter((draft): draft is PipelineReferralDraftSummary => Boolean(draft));
+}
+
 export function saveServerReferralDraft(draftReference: ReferralRecoveryDraftKey, draft: PipelineReferralDraft) {
   const key = draftKey(draftReference);
   const previous = saveQueues.get(key) ?? Promise.resolve();
@@ -48,8 +58,9 @@ export function saveServerReferralDraft(draftReference: ReferralRecoveryDraftKey
   return next;
 }
 
-export function clearServerReferralDraft(draftReference?: ReferralRecoveryDraftKey) {
+export function clearServerReferralDraft(draftReference?: ReferralRecoveryDraftKey, expectedVersion?: number) {
   const key = draftKey(draftReference);
+  if (Number.isSafeInteger(expectedVersion) && Number(expectedVersion) > 0) versions.set(key, Number(expectedVersion));
   const previous = saveQueues.get(key) ?? Promise.resolve();
   const next = previous.catch(() => undefined).then(async () => {
     await fetchPipelineJson(`/api/me/referral-drafts/${encodeURIComponent(key)}`, {

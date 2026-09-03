@@ -2,6 +2,7 @@ import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import {
   deleteVersionedUserWorkspaceState,
   getUserWorkspaceState,
@@ -67,6 +68,7 @@ export async function PUT(
       ttlDays: 30,
     });
     if (!result.ok) {
+      recordDraftMutation("save", "conflict");
       return Response.json(
         {
           error: "This recovery draft changed in another signed-in session.",
@@ -77,6 +79,7 @@ export async function PUT(
         { status: 409, headers: noStoreHeaders },
       );
     }
+    recordDraftMutation("save", "saved");
     return Response.json(
       { draft: result.state.payload, version: result.state.version },
       { headers: noStoreHeaders },
@@ -110,6 +113,7 @@ export async function DELETE(
       Number(body.value?.if_match),
     );
     if (!result.ok) {
+      recordDraftMutation("delete", "conflict");
       return Response.json(
         {
           error: "A newer recovery draft exists in another signed-in session.",
@@ -119,8 +123,13 @@ export async function DELETE(
         { status: 409, headers: noStoreHeaders },
       );
     }
+    recordDraftMutation("delete", result.deleted ? "deleted" : "already_absent");
     return Response.json({ deleted: result.deleted }, { headers: noStoreHeaders });
   });
+}
+
+function recordDraftMutation(operation: "save" | "delete", result: string) {
+  recordPipelineMetric("pipeline.intake.draft_mutations", 1, "count", { operation, result });
 }
 
 async function parseDraftKey(context: { params: Promise<{ draftKey: string }> }) {

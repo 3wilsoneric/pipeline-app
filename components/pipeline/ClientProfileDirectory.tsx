@@ -273,7 +273,7 @@ export default function ClientProfileDirectory({
 
             <div className="flex min-h-10 items-center justify-between gap-3 lg:justify-end">
               <div aria-live="polite" className="text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}</div>
-              {dataAsOf ? <div className="hidden border-l border-[#d8ddda] pl-3 text-[11px] text-[#737b77] sm:block">Data through <strong className="font-bold text-[#343c38]">{formatDate(dataAsOf)}</strong></div> : null}
+              {dataAsOf ? <div className="hidden border-l border-[#d8ddda] pl-3 text-[11px] text-[#69716c] sm:block">Data through <strong className="font-bold text-[#343c38]">{formatDate(dataAsOf)}</strong></div> : null}
               <button
                 type="button"
                 aria-label="Refresh client directory"
@@ -438,7 +438,7 @@ function ScopeButton({
     >
       <span className="sm:hidden">{mobileLabel}</span>
       <span className="hidden sm:inline">{label}</span>
-      <span className="text-[10px] font-semibold tabular-nums text-[#7a837f]">{complete ? count : "..."}</span>
+      <span className="text-[10px] font-semibold tabular-nums text-[#69716c]">{complete ? count : "..."}</span>
     </button>
   );
 }
