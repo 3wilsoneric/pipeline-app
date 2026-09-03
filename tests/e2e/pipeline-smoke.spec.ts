@@ -1378,17 +1378,18 @@ test.describe("Referral home and packet canvas", () => {
     const clientIdentityTitle = referralPayload.referral.name;
     await page.goto(`/?screen=profile&clientId=${encodeURIComponent(`pipeline:${pipelineClientId}`)}`);
     await expect(page.getByRole("heading", { name: clientIdentityTitle, exact: true })).toBeVisible();
-    await expect(page.getByText("Synthetic gender · San Pablo · Referral profile", { exact: true })).toBeVisible();
-    const referralHistory = page.getByRole("region", { name: "1 referral in referral history" });
-    await expect(referralHistory).toBeVisible();
-    await expect(referralHistory.getByText("Synthetic County Access", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Referral documents", exact: true })).toBeVisible();
+    const medicalChart = page.getByRole("article", { name: "Client medical chart" });
+    await expect(medicalChart.getByText("Synthetic gender", { exact: true })).toBeVisible();
+    await expect(medicalChart.getByText("San Pablo", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Client files", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral files", exact: true })).toBeVisible();
     await expect(page.getByText("face-sheet.pdf", { exact: true })).toBeVisible();
     await expect(page.getByText("synthetic-medication-list.pdf", { exact: true })).toBeVisible();
     await expect(page.getByText("synthetic-provider-form.pdf", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Assessments", exact: true })).toBeVisible();
     await expect(page.getByText("Draft", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("No referral history", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Connect a referral" })).toHaveCount(0);
 
     const packetId = referralList.referrals[0]?.packetId;
     expect(packetId).toBeTruthy();
@@ -2552,9 +2553,10 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Clinical overview", { exact: true })).toBeVisible();
     await expect(page.getByText("Legal and support", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Record quality", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Assessments", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Source documents", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Client files", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Clinical source files", exact: true })).toBeVisible();
     await expect(
       page.getByRole("article").getByText("Sanitized referral packet.pdf", { exact: true }),
     ).toBeVisible();
@@ -2568,14 +2570,17 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Canonical client id", { exact: true })).toHaveCount(0);
     await expect(page.getByText("client-sanitized-100", { exact: true })).toHaveCount(0);
     await expect(page.getByText("141 governed fields", { exact: true })).toHaveCount(0);
-    await expect(page.getByText("No referral history has been connected to this client.", { exact: false })).toBeVisible();
+    await expect(page.getByText("No referral history has been connected to this client.", { exact: false })).toHaveCount(0);
     await expect(page.getByText("active_or_unknown", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Connect a referral" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Connect a referral" })).toHaveCount(0);
     await expect(page.getByText("Open referral packet", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
     await expect(page.getByText("Admission and placement", { exact: true })).toBeVisible();
     await expect(page.getByText("Sanitized hospital · Sanitized residential program", { exact: true })).toBeVisible();
     await expect(page.getByText('["Sanitized hospital","Sanitized residential program"]', { exact: true })).toHaveCount(0);
+    const sectionOrder = await page.locator("main section h2").allTextContents();
+    expect(sectionOrder.indexOf("Client information")).toBeLessThan(sectionOrder.indexOf("Client files"));
+    expect(sectionOrder.indexOf("Client files")).toBeLessThan(sectionOrder.indexOf("Record quality"));
 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(medicalChart).toBeVisible();
@@ -2647,9 +2652,8 @@ test.describe("Pipeline home", () => {
     await page.goto(`/?screen=profile&clientId=${encodeURIComponent(canonicalClientId)}`);
 
     await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
-    const unavailableNotice = page.getByRole("status").filter({ hasText: "Referral history unavailable" });
-    await expect(unavailableNotice).toBeVisible();
-    await expect(unavailableNotice).toContainText("Referral information cannot be loaded right now.");
+    await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Client files", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Connect a referral" })).toHaveCount(0);
   });
 
@@ -2828,7 +2832,7 @@ test.describe("Pipeline home", () => {
       updated_at: "2026-08-09T12:00:00.000Z",
       audit_events: [],
     };
-    let connectionStatus: "unlinked" | "candidate" | "confirmed" = "unlinked";
+    let connectionStatus: "candidate" | "confirmed" = "candidate";
 
     await page.route("**/api/clinical/clients**", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.clients) });
@@ -2855,57 +2859,23 @@ test.describe("Pipeline home", () => {
           reasons: string[];
         }>;
         message: string;
-      } = connectionStatus === "unlinked"
+      } = connectionStatus === "candidate"
         ? {
-            ...unifiedProfileFixture.pipeline.connection,
-            suggestions: [{
-              referral_id: referral.id,
-              pipeline_client_id: referral.clientId,
-              client_name: referral.name,
-              community: referral.community,
-              stage: referral.stage,
-              received_at: referral.date,
-              confidence: 1,
-              match_method: "exact_name_dob",
-              reasons: ["Name and date of birth match exactly", "Community matches the current census"],
-            }],
+            status: "candidate",
+            confirmed_link: null,
+            candidates: [candidate],
+            suggestions: [],
+            message: "A possible Pipeline identity match needs human review before records can be joined.",
           }
-        : connectionStatus === "candidate"
-          ? {
-              status: "candidate",
-              confirmed_link: null,
-              candidates: [candidate],
-              suggestions: [],
-              message: "A possible Pipeline identity match needs human review before records can be joined.",
-            }
-          : {
-              status: "confirmed",
-              confirmed_link: { ...candidate, status: "confirmed", version: 2 },
-              candidates: [],
-              suggestions: [],
-              message: "Pipeline records are joined through a reviewed resident link.",
-            };
+        : {
+            status: "confirmed",
+            confirmed_link: { ...candidate, status: "confirmed", version: 2 },
+            candidates: [],
+            suggestions: [],
+            message: "Pipeline records are joined through a reviewed resident link.",
+          };
       (profile.pipeline as unknown as { connection: typeof connection }).connection = connection;
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(profile) });
-    });
-    await page.route("**/api/referrals?**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ referrals: [referral], total: 1, revision: 1, generated_at: new Date().toISOString() }),
-      });
-    });
-    await page.route("**/api/resident-links", async (route) => {
-      expect(route.request().method()).toBe("POST");
-      const body = route.request().postDataJSON() as { referral_id: number; resident_key: string; match_method: string };
-      expect(body).toMatchObject({
-        referral_id: referral.id,
-        resident_key: resident.resident_key,
-        match_method: "manual",
-        match_confidence: 1,
-      });
-      connectionStatus = "candidate";
-      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ ok: true, link: candidate, revision: 1 }) });
     });
     await page.route("**/api/resident-links/**", async (route) => {
       const body = route.request().postDataJSON() as { action: string; if_match: number };
@@ -2917,16 +2887,13 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await page.getByRole("button", { name: /Avery Example/ }).click();
-    await page.getByRole("button", { name: "Connect a referral" }).click();
-    await expect(page.getByText("Suggested matches", { exact: true })).toBeVisible();
-    await expect(page.getByText("Name and date of birth match exactly", { exact: false })).toBeVisible();
-    await page.getByRole("button", { name: /Avery Example.*San Pablo.*Name and date of birth match exactly/ }).click();
-    await page.getByRole("button", { name: "Send match for review" }).click();
-    await expect(page.getByText("Referral match to review", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Identity review", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);
     await expect(page.getByText(/version 1/i)).toHaveCount(0);
     await page.getByRole("button", { name: "Review" }).click();
     await page.getByRole("button", { name: "Confirm connection" }).click();
-    await expect(page.getByText("Referral history available", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Identity review", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);
   });
 
   test("opens the report runner from primary navigation", async ({ page }) => {

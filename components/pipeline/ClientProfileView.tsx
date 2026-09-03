@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Private no-store thumbnails require the signed-in browser request. */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, Check, CircleAlert, ExternalLink, FileText, ImageOff, Link2, LoaderCircle, Search, X } from "lucide-react";
+import { ArrowLeft, CircleAlert, ExternalLink, FileText, ImageOff, LoaderCircle, Search, X } from "lucide-react";
 
 import type {
   ClinicalClientRecord,
@@ -30,18 +30,14 @@ import {
   removePromotedClientProfileFacts,
 } from "@/lib/pipeline/client-medical-chart";
 import {
-  formatClientIdentityDetail,
   formatClientIdentityTitle,
   resolveClientCommunity,
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
-import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
+import type { ReferralFile } from "@/lib/pipeline/referral-types";
 import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records";
-import type {
-  UnifiedClientProfileResponse,
-  UnifiedProfileLinkSuggestion,
-} from "@/lib/pipeline/unified-profile-contracts";
+import type { UnifiedClientProfileResponse } from "@/lib/pipeline/unified-profile-contracts";
 import ClientAssessmentSummary from "@/components/pipeline/ClientAssessmentSummary";
 import ClientMedicalChart from "@/components/pipeline/ClientMedicalChart";
 
@@ -213,6 +209,12 @@ function ResidentProfile({
         </div>
 
         <div className="mt-5 min-w-0 space-y-5">
+          {profile.pipeline.connection.status === "candidate" ? (
+            <ProfileSection title="Identity review" detail="Confirm the client before records are joined">
+              <IdentityReviewControls profile={profile} onConnectionChanged={onConnectionChanged} />
+            </ProfileSection>
+          ) : null}
+
           {hasPipelineHistory || profile.pipeline.assessments.length > 0 ? (
             <ProfileSection title="Assessments">
               <ClientAssessmentSummary
@@ -222,25 +224,18 @@ function ResidentProfile({
             </ProfileSection>
           ) : null}
 
-          <ProfileSection title="Client information" detail="Additional clinical and support detail">
+          <ProfileSection title="Client information" detail="Clinical, support, and stay details">
             <CuratedClientRecord sections={chart.detailSections} />
+            {!pipelineOnly ? (
+              <ClientStayHistory episodes={chart.episodes} history={history} />
+            ) : null}
           </ProfileSection>
 
-          {!pipelineOnly ? (
-            <ProfileSection title="Stay history">
-              <GovernedEpisodeHistory episodes={chart.episodes} />
-            </ProfileSection>
-          ) : null}
-
-          {client.resident_episode_history.length === 0 && history.status === "available" ? (
-            <ProfileSection title="Placement trajectory" detail="Exact resident-number history; newest episode first">
-              <ClientHistorySummary history={history} />
-            </ProfileSection>
-          ) : null}
-
-          <ProfileSection title="Referral history" detail={pipelineWorkDetail(profile.pipeline.connection.status)}>
-            <PipelineWorkSummary profile={profile} onConnectionChanged={onConnectionChanged} />
-          </ProfileSection>
+          <ClientFilesSection
+            canonicalClientId={client.canonical_client_id}
+            sourceDocuments={client.source_documents}
+            referralDocuments={profile.pipeline.documents}
+          />
 
           {client.facts.length > 0 ? (
             <ProfileSection title="Source-backed information" detail="Extracted packet facts">
@@ -249,25 +244,6 @@ function ResidentProfile({
                 facts={client.facts}
                 documents={client.source_documents}
               />
-            </ProfileSection>
-          ) : null}
-
-          {client.source_documents.length > 0 ? (
-            <ProfileSection title="Source documents" detail={`${client.source_documents.length} available`}>
-              <ClientDocumentSearch
-                canonicalClientId={client.canonical_client_id}
-                documents={client.source_documents}
-              />
-              <ClinicalSourceDocumentGallery
-                canonicalClientId={client.canonical_client_id}
-                documents={client.source_documents}
-              />
-            </ProfileSection>
-          ) : null}
-
-          {profile.pipeline.documents.length > 0 || ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status) ? (
-            <ProfileSection title="Referral documents" detail={`${profile.pipeline.documents.length} available`}>
-              <ClientDocumentGallery documents={profile.pipeline.documents} />
             </ProfileSection>
           ) : null}
 
@@ -313,6 +289,92 @@ function CuratedClientRecord({ sections }: { sections: ClientProfileSection[] })
         </section>
       ))}
     </div>
+  );
+}
+
+function ClientStayHistory({
+  episodes,
+  history,
+}: {
+  episodes: ClientEpisodeSummary[];
+  history: UnifiedClientProfileResponse["history"];
+}) {
+  const useProjectedHistory = episodes.length === 0 && history.status === "available";
+  const count = useProjectedHistory ? history.episode_count : episodes.length;
+
+  return (
+    <section aria-labelledby="client-stay-history" className="mt-6 border-t-2 border-[#b8c4be] pt-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h3 id="client-stay-history" className="text-[13px] font-black tracking-[-0.01em] text-[#17231e]">
+          Stay history
+        </h3>
+        <span className="text-[10px] font-bold text-[#69726e]">{formatCount(count, "recorded stay")}</span>
+      </div>
+      <div className="mt-3">
+        {useProjectedHistory
+          ? <ClientHistorySummary history={history} />
+          : <GovernedEpisodeHistory episodes={episodes} />}
+      </div>
+    </section>
+  );
+}
+
+function ClientFilesSection({
+  canonicalClientId,
+  sourceDocuments,
+  referralDocuments,
+}: {
+  canonicalClientId: string;
+  sourceDocuments: ClinicalClientSourceDocument[];
+  referralDocuments: ReferralFile[];
+}) {
+  const total = sourceDocuments.length + referralDocuments.length;
+
+  return (
+    <section aria-labelledby="client-files-heading" className="border-2 border-[#aebbb5] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#bfcac5] bg-[#f3f7f5] px-5 py-3.5 md:px-6">
+        <h2 id="client-files-heading" className="flex items-center gap-2 text-[16px] font-black tracking-[-0.01em] text-[#17231e]">
+          <FileText size={17} className="text-[#2f8475]" aria-hidden="true" />
+          Client files
+        </h2>
+        <span className="text-[11px] font-black text-[#52605a]">{formatCount(total, "file")}</span>
+      </div>
+      <div className="space-y-7 px-5 py-5 md:px-6">
+        {sourceDocuments.length > 0 ? (
+          <FileCollection title="Clinical source files" count={sourceDocuments.length}>
+            <ClientDocumentSearch canonicalClientId={canonicalClientId} documents={sourceDocuments} />
+            <ClinicalSourceDocumentGallery canonicalClientId={canonicalClientId} documents={sourceDocuments} />
+          </FileCollection>
+        ) : null}
+        {referralDocuments.length > 0 ? (
+          <FileCollection title="Referral files" count={referralDocuments.length}>
+            <ClientDocumentGallery documents={referralDocuments} />
+          </FileCollection>
+        ) : null}
+        {total === 0 ? <EmptyChartMessage>No files are attached to this client.</EmptyChartMessage> : null}
+      </div>
+    </section>
+  );
+}
+
+function FileCollection({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: ReactNode;
+}) {
+  const id = `client-files-${title === "Clinical source files" ? "clinical-source" : "referral"}`;
+  return (
+    <section aria-labelledby={id}>
+      <div className="mb-4 flex items-baseline justify-between gap-3 border-b border-[#d9dfdc] pb-2.5">
+        <h3 id={id} className="text-[12px] font-black text-[#222b27]">{title}</h3>
+        <span className="text-[10px] font-bold text-[#737b77]">{count}</span>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -427,92 +489,6 @@ function ClientHistorySummary({ history }: { history: UnifiedClientProfileRespon
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-function PipelineWorkSummary({
-  profile,
-  onConnectionChanged,
-}: {
-  profile: UnifiedClientProfileResponse;
-  onConnectionChanged: () => void;
-}) {
-  const { connection, summary } = profile.pipeline;
-  const confirmed = connection.status === "confirmed" || connection.status === "pipeline_only";
-  const needsReview = connection.status === "candidate" || connection.status === "unavailable";
-
-  return (
-    <div>
-      {connection.status === "unlinked" ? (
-        <div className="text-[12px] leading-5 text-[#595959]" role="status">
-          No referral history has been connected to this client. This is normal for clients admitted before Pipeline was used.
-        </div>
-      ) : needsReview ? (
-        <div className="border-l-2 border-[#d7bd84] bg-[#fffaf0] px-4 py-3 text-[12px] leading-5 text-[#5d4925]" role="status">
-          <div className="font-black">{connectionLabel(connection.status)}</div>
-          <div className="mt-1">{connectionMessage(connection.status)}</div>
-        </div>
-      ) : null}
-
-      {confirmed ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_270px]">
-          <div className="min-w-0">
-            <div role="region" className="border-t border-[#d9dfdc]" aria-label={`${formatCount(summary.referral_count, "referral")} in referral history`}>
-              {profile.pipeline.referrals.map((referral) => (
-                <article
-                  key={referral.id}
-                  className="grid gap-4 border-b border-[#e5e9e7] px-1 py-4 last:border-b-0 sm:grid-cols-[130px_minmax(0,1fr)_180px]"
-                >
-                  <ProfileDatum label="Received" value={formatDate(referral.date)} />
-                  {referral.source?.trim() ? (
-                    <ProfileDatum
-                      label="Referral source"
-                      value={referral.source}
-                      detail={resolveClientCommunity(referral.community) ?? undefined}
-                    />
-                  ) : null}
-                  <ProfileDatum label="Assigned to" value={referral.owner || "Unassigned"} />
-                </article>
-              ))}
-              {profile.pipeline.referrals.length === 0 ? (
-                <div className="px-1 py-4 text-[12px] text-[#737b77]">No referral records are available.</div>
-              ) : null}
-            </div>
-          </div>
-          <aside className="border-t border-[#d9dfdc] pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-            <ProfileDatum
-              label="Assessment"
-              value={formatWorkflowStatus(summary.latest_assessment_status) || "Not started"}
-              detail={formatCount(summary.assessment_count, "assessment")}
-            />
-            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.08em] text-[#69726e]">Needs attention</div>
-            {summary.actions_needed.length > 0 ? (
-              <ul className="mt-2 space-y-2.5">
-                {summary.actions_needed.map((action) => (
-                  <li key={action} className="flex items-start gap-2 text-[11px] leading-5 text-[#404743]">
-                    <CircleAlert size={14} className="mt-0.5 shrink-0 text-[#b07b21]" />
-                    <span>{action}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="mt-2 flex items-center gap-2 text-[11px] font-semibold text-[#0f8b73]">
-                <Check size={14} /> No open Pipeline actions
-              </div>
-            )}
-            <div className="mt-5 border-t border-[#e2e6e4] pt-3 text-[10px] text-[#737b77]">
-              {formatCount(summary.document_count, "document")} attached
-            </div>
-          </aside>
-        </div>
-      ) : connection.status === "unavailable" ? null : profile.resident ? (
-        <IdentityLinkControls profile={profile} onConnectionChanged={onConnectionChanged} />
-      ) : (
-        <div className="mt-4 text-[12px] text-[#737373]">
-          Clients outside the current census remain searchable. A referral can be connected after the client appears on the current census.
-        </div>
-      )}
     </div>
   );
 }
@@ -1033,85 +1009,19 @@ function DocumentThumbnail({ document }: { document: ReferralFile }) {
   );
 }
 
-function IdentityLinkControls({
+function IdentityReviewControls({
   profile,
   onConnectionChanged,
 }: {
   profile: UnifiedClientProfileResponse;
   onConnectionChanged: () => void;
 }) {
-  const currentResident = profile.resident;
   const { connection } = profile.pipeline;
-  const canCreate = profile.pipeline.permissions?.can_create_identity_candidate ?? false;
   const canReview = profile.pipeline.permissions?.can_review_identity ?? false;
-  const suggestions = connection.suggestions ?? [];
-  const [isChoosing, setIsChoosing] = useState(false);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Referral[]>([]);
-  const [selected, setSelected] = useState<IdentityReferralChoice | null>(null);
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [rejectionNote, setRejectionNote] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!isChoosing) return;
-    if (query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      const params = new URLSearchParams({ limit: "25" });
-      if (query.trim()) params.set("q", query.trim());
-      fetchPipelineJson<{ referrals: Referral[] }>(`/api/referrals?${params}`, {
-        cache: "no-store",
-        signal: controller.signal,
-      })
-        .then((payload) => setResults(payload.referrals))
-        .catch((loadError) => {
-          if (!controller.signal.aborted) {
-            setError(loadError instanceof Error ? loadError.message : "Referrals could not be loaded.");
-          }
-        });
-    }, 250);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [isChoosing, query]);
-
-  if (!currentResident) return null;
-
-  async function createCandidate() {
-    const resident = currentResident;
-    if (!selected || !resident) return;
-    setIsBusy(true);
-    setError("");
-    try {
-      await fetchPipelineJson("/api/resident-links", {
-        method: "POST",
-        body: JSON.stringify({
-          pipeline_client_id: selected.clientId,
-          display_name: selected.name,
-          referral_id: selected.id,
-          resident_key: resident.resident_key,
-          resident_number: resident.resident_number
-            ?? profile.client.resident_numbers.find((value) => value === resident.resident_id)
-            ?? resident.resident_id,
-          community_id: resident.community_id,
-          match_method: selected.matchMethod === "resident_number_exact" ? "resident_number_exact" : "manual",
-          match_confidence: selected.confidence,
-          client_mutation_id: crypto.randomUUID(),
-        }),
-      });
-      onConnectionChanged();
-    } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : "The identity candidate could not be created.");
-    } finally {
-      setIsBusy(false);
-    }
-  }
 
   async function reviewCandidate(link: PipelineResidentLink, action: "confirm" | "reject") {
     setIsBusy(true);
@@ -1136,106 +1046,8 @@ function IdentityLinkControls({
   }
 
   return (
-    <div className="mt-4">
-      {connection.status === "unlinked" ? (
-        canCreate ? (
-          <>
-            <button
-              type="button"
-              onClick={() => {
-                setIsChoosing((value) => !value);
-                setSelected(null);
-                setError("");
-              }}
-              className="inline-flex h-10 items-center gap-2 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0f8b73] hover:bg-[#effaf5]"
-            >
-              {isChoosing ? <X size={14} /> : <Link2 size={14} />}
-              {isChoosing ? "Cancel" : "Connect a referral"}
-            </button>
-            {isChoosing ? (
-              <div className="mt-4 border-t border-[#d9d9d9] pt-4">
-                {suggestions.length > 0 ? (
-                  <div className="mb-4">
-                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Suggested matches</div>
-                    <p className="mt-1 text-[10px] leading-4 text-[#737373]">Suggestions are evidence-based, but a person must still submit and confirm the connection.</p>
-                    <div className="mt-2 border-y border-[#d9d9d9]">
-                      {suggestions.map((suggestion) => {
-                        const choice = suggestionChoice(suggestion);
-                        const active = selected?.id === choice.id;
-                        return (
-                          <button
-                            key={suggestion.referral_id}
-                            type="button"
-                            onClick={() => setSelected(choice)}
-                            className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-3 py-3 text-left last:border-b-0 ${active ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate text-[12px] font-black text-[#111111]">{formatClientIdentityTitle({ name: suggestion.client_name, gender: suggestion.gender, community: suggestion.community })}</span>
-                              {formatClientIdentityDetail(resolveClientGender(suggestion.gender), resolveClientCommunity(suggestion.community)) ? (
-                                <span className="mt-1 block truncate text-[10px] text-[#737373]">{formatClientIdentityDetail(resolveClientGender(suggestion.gender), resolveClientCommunity(suggestion.community))}</span>
-                              ) : null}
-                              <span className="mt-1 block truncate text-[10px] font-semibold text-[#356759]">{suggestion.reasons.join(" · ")}</span>
-                            </span>
-                            <span className="shrink-0 text-right">
-                              <span className="block text-[10px] font-black text-[#0f8b73]">{Math.round(suggestion.confidence * 100)}%</span>
-                              {active ? <Check size={15} className="ml-auto mt-1 text-[#0f8b73]" /> : null}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-                <label className="flex h-10 items-center gap-2 border border-[#bdbdbd] px-3 focus-within:border-[#0f8b73]">
-                  <Search size={14} className="shrink-0 text-[#737373]" />
-                  <input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Find the exact referral"
-                    className="min-w-0 flex-1 bg-transparent text-[12px] outline-none"
-                  />
-                </label>
-                <div className="mt-2 max-h-56 overflow-y-auto border-y border-[#e5e5e5]">
-                  {results.length > 0 ? results.map((referral) => {
-                    const choice = referralChoice(referral);
-                    const active = selected?.id === choice.id;
-                    return (
-                    <button
-                      key={referral.id}
-                      type="button"
-                      onClick={() => setSelected(choice)}
-                      className={`flex w-full items-center justify-between gap-4 border-b border-[#eeeeee] px-3 py-3 text-left last:border-b-0 ${active ? "bg-[#effaf5]" : "hover:bg-[#f8f8f8]"}`}
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-[12px] font-black text-[#111111]">{formatClientIdentityTitle(referral)}</span>
-                        {formatClientIdentityDetail(resolveClientGender(referral.gender), resolveClientCommunity(referral.community)) ? (
-                          <span className="mt-1 block truncate text-[10px] text-[#737373]">{formatClientIdentityDetail(resolveClientGender(referral.gender), resolveClientCommunity(referral.community))}</span>
-                        ) : null}
-                      </span>
-                      {active ? <Check size={15} className="shrink-0 text-[#0f8b73]" /> : null}
-                    </button>
-                    );
-                  }) : (
-                    <div className="px-3 py-5 text-center text-[11px] text-[#737373]">
-                      {query.trim().length < 2 ? "Type at least two characters to search all referrals." : "No matching referrals."}
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  disabled={!selected || isBusy}
-                  onClick={createCandidate}
-                  className="mt-3 h-10 bg-[#111111] px-4 text-[11px] font-black text-white disabled:bg-[#d9d9d9]"
-                >
-                  {isBusy ? "Saving..." : "Send match for review"}
-                </button>
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <div className="text-[12px] text-[#737373]">Ask an assessor to select the matching Pipeline referral.</div>
-        )
-      ) : (
+    <div>
+      {connection.candidates.length > 0 ? (
         <div className="space-y-3">
           {connection.candidates.map((link) => (
             <div key={link.link_id} className="border-t border-[#d9d9d9] pt-3">
@@ -1269,55 +1081,8 @@ function IdentityLinkControls({
             </div>
           ))}
         </div>
-      )}
+      ) : <EmptyChartMessage>The possible match is no longer available. Refresh this profile.</EmptyChartMessage>}
       {error ? <div className="mt-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-3 py-2 text-[11px] text-[#59332d]" role="alert">{error}</div> : null}
-    </div>
-  );
-}
-
-type IdentityReferralChoice = {
-  id: number;
-  clientId: string;
-  name: string;
-  gender: string | null;
-  community: Referral["community"];
-  stage: Referral["stage"];
-  matchMethod: UnifiedProfileLinkSuggestion["match_method"] | "manual";
-  confidence: number | null;
-};
-
-function suggestionChoice(suggestion: UnifiedProfileLinkSuggestion): IdentityReferralChoice {
-  return {
-    id: suggestion.referral_id,
-    clientId: suggestion.pipeline_client_id,
-    name: suggestion.client_name,
-    gender: suggestion.gender,
-    community: suggestion.community,
-    stage: suggestion.stage,
-    matchMethod: suggestion.match_method,
-    confidence: suggestion.confidence,
-  };
-}
-
-function referralChoice(referral: Referral): IdentityReferralChoice {
-  return {
-    id: referral.id,
-    clientId: referral.clientId ?? "",
-    name: referral.name,
-    gender: referral.gender?.trim() || null,
-    community: referral.community,
-    stage: referral.stage,
-    matchMethod: "manual",
-    confidence: null,
-  };
-}
-
-function ProfileDatum({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#69726e]">{label}</div>
-      <div className="mt-1 break-words text-[12px] font-semibold leading-5 text-[#222825]">{value}</div>
-      {detail ? <div className="mt-0.5 break-words text-[10px] leading-4 text-[#737b77]">{detail}</div> : null}
     </div>
   );
 }
@@ -1326,32 +1091,12 @@ function formatCount(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-function connectionLabel(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
-  if (status === "pipeline_only") return "Pipeline workspace";
-  if (status === "confirmed") return "Referral history available";
-  if (status === "candidate") return "Referral match to review";
-  if (status === "unavailable") return "Referral history unavailable";
-  return "No referral history";
-}
-
 function clientRecordStatus(currentResident: boolean, pipelineOnly: boolean, referralCount: number) {
   if (currentResident) return "Current resident";
   if (!pipelineOnly) return "Prior resident";
   return referralCount > 0 ? "Referral record" : "Client file record";
 }
 
-function pipelineWorkDetail(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
-  if (status === "candidate") return "Possible match awaiting review";
-  if (status === "unavailable") return "Temporarily unavailable";
-  return undefined;
-}
-
-function connectionMessage(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
-  if (status === "confirmed") return "This client's Pipeline referrals, assessments, and files are shown below.";
-  if (status === "pipeline_only") return "This workspace contains referral records and files captured in Pipeline.";
-  if (status === "candidate") return "A possible referral match needs review before its records are shown here.";
-  return "Referral information cannot be loaded right now. The client record above is still available.";
-}
 
 function formatWorkflowStatus(value: string | null | undefined) {
   if (!value) return null;
