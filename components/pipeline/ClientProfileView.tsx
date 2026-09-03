@@ -208,7 +208,7 @@ function ResidentProfile({
           <ClientMedicalChart
             chart={medicalChart}
             dataAsOf={profile.data_as_of}
-            sourceLabel={pipelineOnly ? "Pipeline record" : client.current_resident ? "Current census" : "Longitudinal record"}
+            sourceLabel={pipelineOnly ? "Referral intake" : client.current_resident ? "Current census" : "Longitudinal record"}
           />
         </div>
 

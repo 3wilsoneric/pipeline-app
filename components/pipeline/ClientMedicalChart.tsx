@@ -11,15 +11,13 @@ export default function ClientMedicalChart({
 }) {
   return (
     <article aria-label="Client medical chart" className="overflow-hidden border border-[#aebbb5] bg-white">
-      <header className="flex flex-wrap items-center justify-between gap-4 bg-[#183f37] px-5 py-5 text-white sm:px-7">
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#afd2c8]">Pipeline clinical record</div>
-          <h1 className="mt-1 text-[22px] font-black tracking-[-0.025em] sm:text-[24px]">Client medical chart</h1>
+      <header className="grid grid-cols-2 border-b-2 border-[#aebbb5] bg-[#f3f7f5] sm:grid-cols-[1fr_minmax(9rem,auto)_minmax(9rem,auto)]">
+        <div className="col-span-2 flex items-center gap-2.5 px-5 py-3.5 sm:col-span-1 sm:px-6">
+          <span aria-hidden="true" className="h-6 w-1 bg-[#2f8475]" />
+          <h1 className="text-[16px] font-black tracking-[-0.02em] text-[#1d2924] sm:text-[17px]">Client chart</h1>
         </div>
-        <div className="text-[10px] leading-5 text-[#dcece7] sm:text-right">
-          <div className="font-black uppercase tracking-[0.08em]">{sourceLabel}</div>
-          <div>Data through {formatDate(dataAsOf)}</div>
-        </div>
+        <ChartHeaderCell label="Source" value={sourceLabel} />
+        <ChartHeaderCell label="Data through" value={formatDate(dataAsOf)} />
       </header>
 
       <ChartGrid ariaLabel="Client identity" columns="identity">
@@ -43,6 +41,15 @@ export default function ClientMedicalChart({
         {chart.assessmentDate ? <span>Latest assessment {formatDate(chart.assessmentDate)}</span> : null}
       </footer>
     </article>
+  );
+}
+
+function ChartHeaderCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 border-t border-[#c3cec9] px-4 py-2.5 sm:border-l sm:border-t-0 sm:px-5">
+      <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#66736d]">{label}</div>
+      <div className="mt-0.5 truncate text-[11px] font-bold text-[#28332e]" title={value}>{value}</div>
+    </div>
   );
 }
 

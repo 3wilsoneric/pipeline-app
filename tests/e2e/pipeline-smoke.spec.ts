@@ -2538,7 +2538,7 @@ test.describe("Pipeline home", () => {
     await expect.poll(async () => (await page.getByTestId("profile-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1200);
     const medicalChart = page.getByRole("article", { name: "Client medical chart" });
     await expect(medicalChart).toBeVisible();
-    await expect(medicalChart.getByRole("heading", { name: "Client medical chart", exact: true })).toBeVisible();
+    await expect(medicalChart.getByRole("heading", { name: "Client chart", exact: true })).toBeVisible();
     await expect(medicalChart.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
     await expect(medicalChart.getByText("Clinical priorities", { exact: true })).toBeVisible();
     await expect(medicalChart.getByText("Sanitized diagnosis", { exact: true })).toBeVisible();
