@@ -56,6 +56,7 @@ test.describe("Responsive application navigation", () => {
         await expect(archive.getByRole("button", { name: "Recent" })).toBeVisible();
         await expandMonth(archive.getByRole("button", { name: /September 2026/ }));
         await expect(archive.getByRole("button", { name: "San Pablo" })).toBeVisible();
+        await expectCommunityRowsAreAdjacent(archive);
       }
 
       await expectNoDocumentOverflow(page);
@@ -65,6 +66,22 @@ test.describe("Responsive application navigation", () => {
 
 async function expandMonth(button: Locator) {
   if (await button.getAttribute("aria-expanded") !== "true") await button.click();
+}
+
+async function expectCommunityRowsAreAdjacent(archive: Locator) {
+  const allCommunities = archive.getByRole("button", { name: "All communities", exact: true });
+  const firstCommunity = archive.getByRole("button", { name: "San Pablo", exact: true });
+  const [allBox, firstBox] = await Promise.all([
+    allCommunities.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return { bottom: box.bottom };
+    }),
+    firstCommunity.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return { top: box.top };
+    }),
+  ]);
+  expect(firstBox.top - allBox.bottom).toBeLessThanOrEqual(1);
 }
 
 async function mockReferralDirectory(page: Page) {

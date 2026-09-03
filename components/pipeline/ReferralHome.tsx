@@ -331,6 +331,10 @@ export default function ReferralHome({
 
   const monthOptions = useMemo(() => facets.months.map((entry) => entry.value), [facets.months]);
   const ownerOptions = useMemo(() => facets.owners.map((entry) => entry.value), [facets.owners]);
+  const recordedCommunityFacets = useMemo(
+    () => facets.communities.filter((entry) => isRecordedWorkspaceCommunity(entry.value)),
+    [facets.communities],
+  );
   const fileOwnerOptions = useMemo(
     () => [...new Set([...ownerOptions, ...(files ?? []).map((file) => file.owner ?? "Unassigned")])].filter(Boolean).sort((left, right) => left.localeCompare(right)),
     [files, ownerOptions],
@@ -375,6 +379,7 @@ export default function ReferralHome({
 
   const refreshLabel = lastRefreshedAt === null ? "" : formatRefreshAge(lastRefreshedAt);
   const sidebarCommunities = pipelineCommunities
+    .filter((community) => isRecordedWorkspaceCommunity(community))
     .map((community) => ({
       name: community,
       count: facets.communities.find((entry) => entry.value === community)?.count ?? 0,
@@ -434,7 +439,7 @@ export default function ReferralHome({
         className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All communities</option>
-        {facets.communities.map((community) => <option key={community.value} value={community.value}>{presentCommunity(community.value)}</option>)}
+        {recordedCommunityFacets.map((community) => <option key={community.value} value={community.value}>{presentCommunity(community.value)}</option>)}
       </select>
       <select
         aria-label="Filter workspaces by county"
