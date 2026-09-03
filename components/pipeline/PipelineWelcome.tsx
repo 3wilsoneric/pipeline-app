@@ -43,7 +43,7 @@ export default function PipelineWelcome({
       const payload = await fetchPipelineJson<HomeBriefingSnapshot>("/api/operations/home", {
         cache: "no-store",
         signal,
-      });
+      }, { cacheTtlMs: 15_000 });
       setBriefing(payload);
       setError("");
     } catch (loadError) {

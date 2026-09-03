@@ -34,11 +34,11 @@ type EstablishedSession = {
 
 let tokenRequest: Promise<AuthenticationResult | null> | null = null;
 let sessionRequest: Promise<EstablishedSession | null> | null = null;
+let sessionProbeRequest: Promise<PipelineSessionProbe> | null = null;
+let sessionProbeCache: { probe: PipelineSessionProbe; expiresAt: number } | null = null;
+let sessionProbeGeneration = 0;
 
-export async function getOptionalPipelineAccessToken(forceRefresh = false) {
-  const result = await acquireActiveAccountToken(forceRefresh);
-  return result?.accessToken ?? null;
-}
+const sessionProbeCacheMs = 60_000;
 
 export async function establishPipelineServerSession(
   account: AccountInfo,
@@ -55,6 +55,7 @@ export async function establishPipelineServerSession(
           credentials: "same-origin",
           cache: "no-store",
         });
+        if (response.ok) clearPipelineBrowserSessionCache();
         return { accessToken: result.accessToken, response };
       })
       .finally(() => {
@@ -72,15 +73,35 @@ export async function renewActivePipelineSession(forceRefresh = false) {
   return result?.response.ok ? result.accessToken : null;
 }
 
-export async function probePipelineServerSession(): Promise<PipelineSessionProbe> {
-  const response = await fetch(toPipelinePath("/api/auth/me"), {
-    credentials: "same-origin",
-    cache: "no-store",
-  });
-  if (!response.ok) return { response, user: null };
+export async function probePipelineServerSession(forceRefresh = false): Promise<PipelineSessionProbe> {
+  if (!forceRefresh && sessionProbeCache?.expiresAt && sessionProbeCache.expiresAt > Date.now()) {
+    return sessionProbeCache.probe;
+  }
+  if (!sessionProbeRequest) {
+    const generation = sessionProbeGeneration;
+    const request = fetch(toPipelinePath("/api/auth/me"), {
+      credentials: "same-origin",
+      cache: "no-store",
+    }).then(async (response) => {
+      if (!response.ok) return { response, user: null };
+      const payload = await response.json().catch(() => null) as { user?: PipelineSessionUser } | null;
+      const probe = { response, user: payload?.user ?? null };
+      if (probe.user && generation === sessionProbeGeneration) {
+        sessionProbeCache = { probe, expiresAt: Date.now() + sessionProbeCacheMs };
+      }
+      return probe;
+    }).finally(() => {
+      if (sessionProbeRequest === request) sessionProbeRequest = null;
+    });
+    sessionProbeRequest = request;
+  }
+  return sessionProbeRequest;
+}
 
-  const payload = await response.json().catch(() => null) as { user?: PipelineSessionUser } | null;
-  return { response, user: payload?.user ?? null };
+export function clearPipelineBrowserSessionCache() {
+  sessionProbeGeneration += 1;
+  sessionProbeCache = null;
+  sessionProbeRequest = null;
 }
 
 export async function restorePipelineAccountSilently(user: PipelineSessionUser) {
@@ -95,9 +116,7 @@ export async function restorePipelineAccountSilently(user: PipelineSessionUser) 
       loginHint: user.email,
     });
     const account = selectActiveAccount(result.account);
-    if (!account) return null;
-    const session = await establishPipelineServerSession(account);
-    return session?.response.ok ? account : null;
+    return account ?? null;
   } catch {
     // The existing HttpOnly Pipeline session remains usable. Silent SSO can be
     // blocked by browser privacy settings and should never sign the user out.

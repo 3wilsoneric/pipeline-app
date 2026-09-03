@@ -23,7 +23,10 @@ import {
   normalizePostLoginPath,
   savePostLoginPath,
 } from "@/lib/auth/post-login-path";
-import { REAUTHENTICATION_KEY } from "@/lib/auth/authenticated-fetch";
+import {
+  clearPipelineClientSessionCache,
+  REAUTHENTICATION_KEY,
+} from "@/lib/auth/authenticated-fetch";
 import {
   establishPipelineServerSession,
   probePipelineServerSession,
@@ -94,7 +97,24 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
     async function bootstrap() {
       setStatus("initializing");
       try {
-        await initializeMsal();
+        const msalReady = initializeMsal();
+        const serverSessionRequest = probePipelineServerSession();
+
+        if (!hasMicrosoftRedirectResponse()) {
+          const serverSession = await serverSessionRequest;
+          if (serverSession.user) {
+            if (!cancelled) markSignedIn(null);
+            void hydrateMicrosoftAccount(serverSession.user, msalReady);
+            return;
+          }
+          if (!cancelled && serverSession.response.status === 403) {
+            setStatus("error");
+            setError(await readSessionFailure(serverSession.response));
+            return;
+          }
+        }
+
+        await msalReady;
         const redirectResult = await instance.handleRedirectPromise();
         const activeAccount = selectActiveAccount(redirectResult?.account ?? getActiveAccount());
 
@@ -122,7 +142,7 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
           }
         }
 
-        const serverSession = await probePipelineServerSession();
+        const serverSession = await serverSessionRequest;
         if (serverSession.user) {
           if (!cancelled) markSignedIn(activeAccount);
           if (!activeAccount) {
@@ -156,6 +176,22 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
       setAccount(activeAccount);
       setStatus("signed_in");
       setError(null);
+    }
+
+    async function hydrateMicrosoftAccount(
+      serverUser: Parameters<typeof restorePipelineAccountSilently>[0],
+      msalReady: Promise<void>,
+    ) {
+      try {
+        await msalReady;
+        await instance.handleRedirectPromise();
+        const activeAccount = selectActiveAccount(getActiveAccount())
+          ?? await restorePipelineAccountSilently(serverUser);
+        if (!cancelled && activeAccount) setAccount(activeAccount);
+      } catch {
+        // The valid HttpOnly Pipeline session remains authoritative. Browser
+        // privacy settings may prevent MSAL account hydration in the background.
+      }
     }
 
     void bootstrap();
@@ -193,20 +229,16 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
     if (status !== "signed_in") return;
     let cancelled = false;
 
-    const renew = async () => {
+    const renew = async (forceProbe = false) => {
       if (document.visibilityState === "hidden") return;
       try {
+        const serverSession = await probePipelineServerSession(forceProbe);
+        if (serverSession.user) return;
+
         const activeAccount = selectActiveAccount(getActiveAccount());
         if (activeAccount) {
           const session = await establishPipelineServerSession(activeAccount);
           if (!cancelled && session?.response.ok) setAccount(activeAccount);
-          return;
-        }
-
-        const serverSession = await probePipelineServerSession();
-        if (!cancelled && serverSession.user) {
-          const restoredAccount = await restorePipelineAccountSilently(serverSession.user);
-          if (!cancelled && restoredAccount) setAccount(restoredAccount);
         }
       } catch {
         // A transient renewal failure must not discard a still-valid cookie.
@@ -216,13 +248,14 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") void renew();
     };
-    const interval = window.setInterval(() => void renew(), 10 * 60 * 1_000);
-    window.addEventListener("focus", renew);
+    const interval = window.setInterval(() => void renew(true), 10 * 60 * 1_000);
+    const refreshOnFocus = () => void renew();
+    window.addEventListener("focus", refreshOnFocus);
     document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
-      window.removeEventListener("focus", renew);
+      window.removeEventListener("focus", refreshOnFocus);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [status]);
@@ -242,6 +275,7 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
     error,
     signIn: async (nextPath = "/") => {
       const safePath = normalizePostLoginPath(nextPath);
+      clearPipelineClientSessionCache();
       savePostLoginPath(safePath);
       setError(null);
       setStatus("redirecting");
@@ -254,6 +288,7 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
     },
     signOut: async () => {
       clearPostLoginPath();
+      clearPipelineClientSessionCache();
       await clearPipelineOfflineData().catch(() => undefined);
       await fetch(toPipelinePath("/api/auth/session"), { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
       await instance.logoutRedirect({ postLogoutRedirectUri: `${window.location.origin}${toPipelinePath("/sign-in")}` });
@@ -265,6 +300,16 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
       {status === "initializing" ? <AuthenticationProgress /> : children}
     </PipelineAuthContext.Provider>
   );
+}
+
+function hasMicrosoftRedirectResponse() {
+  if (typeof window === "undefined") return false;
+  const query = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  return [query, hash].some((params) => (
+    params.has("state")
+    && (params.has("code") || params.has("error") || params.has("error_description"))
+  ));
 }
 
 async function readSessionFailure(response: Response) {

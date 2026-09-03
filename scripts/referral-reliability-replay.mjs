@@ -349,9 +349,11 @@ function checkAuthGuardrails() {
     "The HttpOnly Pipeline session should recover MSAL without exposing session contents",
   );
   assert(
-    authenticatedFetch.includes('cookieHeaders.delete("Authorization")')
-      && authenticatedFetch.includes("renewActivePipelineSession(true)"),
-    "Authenticated API calls should fall back to the durable cookie before redirecting",
+    authenticatedFetch.includes("let response = await request(headers)")
+      && authenticatedFetch.includes("response.status === 401")
+      && authenticatedFetch.includes("renewActivePipelineSession(true)")
+      && !authenticatedFetch.includes("getOptionalPipelineAccessToken"),
+    "Authenticated API calls should use the durable cookie before attempting token renewal",
   );
   assert(
     authIdentityEndpointIsSafe(authMeRoute),

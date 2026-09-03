@@ -1,6 +1,28 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Pipeline warm navigation and bounded reads", () => {
+  test("leaves the Learning Center without reloading the document or auth shell", async ({ page }) => {
+    let documentRequests = 0;
+    let authIdentityRequests = 0;
+    let sessionExchangeRequests = 0;
+    page.on("request", (request) => {
+      if (request.resourceType() === "document") documentRequests += 1;
+      const pathname = new URL(request.url()).pathname;
+      if (pathname === "/api/auth/me") authIdentityRequests += 1;
+      if (pathname === "/api/auth/session" && request.method() === "POST") sessionExchangeRequests += 1;
+    });
+
+    await page.goto("/training");
+    await expect(page.getByRole("heading", { name: "I want to...", exact: true })).toBeVisible();
+    const initialDocumentRequests = documentRequests;
+
+    await page.getByRole("button", { name: "Open referrals", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
+    expect(documentRequests).toBe(initialDocumentRequests);
+    expect(authIdentityRequests).toBeLessThanOrEqual(1);
+    expect(sessionExchangeRequests).toBe(0);
+  });
+
   test("keeps one shell and restores work surfaces through browser history", async ({ page }) => {
     let documentRequests = 0;
     page.on("request", (request) => {

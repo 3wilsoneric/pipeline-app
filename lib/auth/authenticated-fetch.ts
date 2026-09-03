@@ -6,7 +6,8 @@ import {
   pipelineAuthRequired,
 } from "@/lib/auth/entra-client";
 import {
-  getOptionalPipelineAccessToken,
+  clearPipelineBrowserSessionCache,
+  probePipelineServerSession,
   renewActivePipelineSession,
   type PipelineSessionUser,
 } from "@/lib/auth/browser-session";
@@ -17,9 +18,15 @@ const defaultTimeoutMs = 15_000;
 const defaultMaxResponseBytes = 8 * 1024 * 1024;
 export const REAUTHENTICATION_KEY = "pipeline.reauthentication.v1";
 
-export type PipelineCurrentUser = PipelineSessionUser;
+type PipelineFetchOptions = {
+  timeoutMs?: number;
+  maxResponseBytes?: number;
+  cacheTtlMs?: number;
+};
 
-let currentUserRequest: Promise<{ user?: PipelineCurrentUser }> | null = null;
+const jsonResponseCache = new Map<string, { expiresAt: number; payload: unknown }>();
+
+export type PipelineCurrentUser = PipelineSessionUser;
 
 export class PipelineApiError extends Error {
   constructor(
@@ -36,9 +43,16 @@ export class PipelineApiError extends Error {
 export async function fetchPipelineJson<T>(
   input: string,
   init: RequestInit = {},
-  options: { timeoutMs?: number; maxResponseBytes?: number } = {},
+  options: PipelineFetchOptions = {},
 ) {
   const method = (init.method ?? "GET").toUpperCase();
+  const cacheKey = method === "GET" && options.cacheTtlMs ? input : null;
+  if (init.signal?.aborted) throw new PipelineApiError("Request cancelled.", 499);
+  if (cacheKey) {
+    const cached = jsonResponseCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.payload as T;
+    if (cached) jsonResponseCache.delete(cacheKey);
+  }
   const attempts = method === "GET" ? 2 : 1;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -64,7 +78,16 @@ export async function fetchPipelineJson<T>(
       throw error;
     }
 
-    if (response.ok) return payload as T;
+    if (response.ok) {
+      if (cacheKey) {
+        jsonResponseCache.set(cacheKey, {
+          expiresAt: Date.now() + (options.cacheTtlMs ?? 0),
+          payload,
+        });
+        trimJsonResponseCache();
+      }
+      return payload as T;
+    }
     if (response.status === 401) void beginReauthentication();
     if (attempt + 1 < attempts && isTransientStatus(response.status) && !init.signal?.aborted) {
       await waitForRetry(response, attempt);
@@ -81,30 +104,29 @@ export async function fetchPipelineJson<T>(
 }
 
 export function fetchCurrentPipelineUser() {
-  if (!currentUserRequest) {
-    currentUserRequest = fetchPipelineJson<{ user?: PipelineCurrentUser }>("/api/auth/me", { cache: "no-store" })
-      .catch((error) => {
-        currentUserRequest = null;
-        throw error;
-      });
-  }
-  return currentUserRequest;
+  return probePipelineServerSession().then(({ response, user }) => {
+    if (response.ok && user) return { user };
+    throw new PipelineApiError(
+      response.status === 401 ? "Your Microsoft session expired. Sign in again." : "Pipeline could not load your account.",
+      response.status,
+      response.headers.get("x-request-id") ?? undefined,
+    );
+  });
+}
+
+export function clearPipelineClientSessionCache() {
+  clearPipelineBrowserSessionCache();
+  jsonResponseCache.clear();
 }
 
 export async function fetchPipelineApi(
   input: string,
   init: RequestInit = {},
-  options: { timeoutMs?: number; maxResponseBytes?: number } = {},
+  options: PipelineFetchOptions = {},
 ) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? defaultTimeoutMs);
   const headers = new Headers(init.headers);
-  let accessToken: string | null = null;
-
-  if (pipelineAuthRequired) {
-    accessToken = await getOptionalPipelineAccessToken();
-    if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-  }
 
   if (init.body && !headers.has("Content-Type") && typeof init.body === "string") {
     headers.set("Content-Type", "application/json");
@@ -122,21 +144,19 @@ export async function fetchPipelineApi(
     });
     let response = await request(headers);
 
-    // The HttpOnly cookie is the durable app session. If a cached bearer is
-    // stale, retry against that cookie before sending the user through Entra.
-    if (pipelineAuthRequired && response.status === 401 && accessToken) {
-      const cookieHeaders = new Headers(headers);
-      cookieHeaders.delete("Authorization");
-      response = await request(cookieHeaders);
-    }
-
+    // The encrypted HttpOnly cookie is Pipeline's normal, fast application
+    // session. Only involve MSAL when the server says that session is gone.
     if (pipelineAuthRequired && response.status === 401) {
+      clearPipelineClientSessionCache();
       const renewedToken = await renewActivePipelineSession(true);
       if (renewedToken) {
         const renewedHeaders = new Headers(headers);
         renewedHeaders.set("Authorization", `Bearer ${renewedToken}`);
         response = await request(renewedHeaders);
       }
+    }
+    if (response.ok && (init.method ?? "GET").toUpperCase() !== "GET") {
+      jsonResponseCache.clear();
     }
     return response;
   } catch (error) {
@@ -148,6 +168,18 @@ export async function fetchPipelineApi(
   } finally {
     window.clearTimeout(timeout);
     init.signal?.removeEventListener("abort", abortFromCaller);
+  }
+}
+
+function trimJsonResponseCache() {
+  const now = Date.now();
+  for (const [key, value] of jsonResponseCache) {
+    if (value.expiresAt <= now) jsonResponseCache.delete(key);
+  }
+  while (jsonResponseCache.size > 50) {
+    const oldest = jsonResponseCache.keys().next().value;
+    if (typeof oldest !== "string") break;
+    jsonResponseCache.delete(oldest);
   }
 }
 

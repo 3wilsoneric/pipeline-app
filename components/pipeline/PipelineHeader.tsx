@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CircleHelp, GraduationCap, LogOut, Trash2, UserRound } from "lucide-react";
 
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
@@ -20,6 +20,7 @@ export default function PipelineHeader() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const pathname = normalizePathname(usePathname());
+  const router = useRouter();
   const searchParams = useSearchParams();
   const activeSearchParams = new URLSearchParams(usePipelineLocationSearch(searchParamsText(searchParams)));
   const auth = usePipelineAuth();
@@ -86,7 +87,7 @@ export default function PipelineHeader() {
             : target === "trash"
               ? "/?screen=trash"
             : "/";
-    navigatePipelineDestination(pathname, destination);
+    navigatePipelineDestination(pathname, destination, router);
   };
 
   return (
@@ -232,9 +233,13 @@ function ProfileLearningLink({ active, onSelect }: { active: boolean; onSelect: 
   return <Link href="/training" aria-label="Learning Center Guided walkthroughs and common tasks" aria-current={active ? "page" : undefined} onClick={onSelect} className={`group grid min-h-[64px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-y border-[#e5e5e5] border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${active ? "border-l-[#0f8b73] bg-[#edf7f3]" : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"}`}><GraduationCap size={18} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black text-[#111111]">Learning Center</span><span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Walkthroughs and common tasks</span></span><ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></Link>;
 }
 
-function navigatePipelineDestination(pathname: string, destination: string) {
+function navigatePipelineDestination(
+  pathname: string,
+  destination: string,
+  router: ReturnType<typeof useRouter>,
+) {
   if (pathname === "/") pushPipelineHistory(destination);
-  else window.location.assign(toPipelinePath(destination));
+  else router.push(toPipelinePath(destination), { scroll: false });
 }
 
 function getActiveNavTarget(searchParams: URLSearchParams, pathname: string): PipelineNavTarget {

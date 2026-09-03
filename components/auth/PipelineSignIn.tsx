@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import AuthenticationBrand, { MicrosoftMark } from "@/components/auth/AuthenticationBrand";
 import AuthenticationProgress from "@/components/auth/AuthenticationProgress";
@@ -10,6 +11,7 @@ import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 export default function PipelineSignIn({ nextPath }: { nextPath: string }) {
   const auth = usePipelineAuth();
+  const router = useRouter();
   const safeNextPath = toPipelinePath(
     normalizePostLoginPath(nextPath !== "/" ? nextPath : readPostLoginPath()),
   );
@@ -17,8 +19,8 @@ export default function PipelineSignIn({ nextPath }: { nextPath: string }) {
   useEffect(() => {
     if (auth.status !== "signed_in") return;
     clearPostLoginPath();
-    window.location.replace(safeNextPath);
-  }, [auth.status, safeNextPath]);
+    router.replace(safeNextPath, { scroll: false });
+  }, [auth.status, router, safeNextPath]);
 
   if (auth.status === "initializing" || auth.status === "redirecting" || auth.status === "signed_in") {
     return <AuthenticationProgress label={auth.status === "signed_in" ? "Opening Pipeline" : "Signing you in"} />;

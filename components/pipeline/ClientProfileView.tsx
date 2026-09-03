@@ -64,6 +64,7 @@ function ClientProfileLoader({ residentKey, onBack }: { residentKey: string; onB
     fetchPipelineJson<UnifiedClientProfileResponse>(
       `/api/profiles/${encodeURIComponent(residentKey)}`,
       { cache: "no-store", signal: controller.signal },
+      { cacheTtlMs: 15_000 },
     )
       .then((payload) => {
         const identity = profileIdentity(payload);

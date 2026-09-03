@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     if (!auth.ok) return auth.response;
 
     try {
-      const cookie = await createPipelineSessionCookie(request);
+      const cookie = await createPipelineSessionCookie(request, auth.user);
       return NextResponse.json({ ok: true }, { headers: { ...noStoreHeaders, "Set-Cookie": cookie } });
     } catch (error) {
       const message = error instanceof Error && error.message.includes("not configured")

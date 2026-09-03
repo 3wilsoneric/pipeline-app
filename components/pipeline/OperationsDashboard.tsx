@@ -39,7 +39,7 @@ export default function OperationsDashboard({
       const payload = await fetchPipelineJson<OperationsReportResponse>(`/api/operations/reports?${params}`, {
         cache: "no-store",
         signal,
-      });
+      }, { cacheTtlMs: 15_000 });
       setResponse(payload);
       setFilters(payload.filters);
     } catch (loadError) {

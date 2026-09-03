@@ -131,12 +131,9 @@ export function getPipelineUserFromHeaders(headers: Headers): PipelineUser | nul
   };
 }
 
-export async function createPipelineSessionCookie(request: Request) {
-  const token = getBearerToken(request.headers);
-  if (!token) throw new PipelineAuthError(401, "Sign in is required to establish a Pipeline session.");
-
+export async function createPipelineSessionCookie(request: Request, authenticatedUser?: PipelineUser) {
+  const user = authenticatedUser ?? await authenticatedUserFromBearer(request.headers);
   const secret = getSessionSecret();
-  const user = await verifyEntraAccessToken(token);
   const encrypted = await new EncryptJWT({ user })
     .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
     .setIssuedAt()
@@ -145,6 +142,12 @@ export async function createPipelineSessionCookie(request: Request) {
 
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `${sessionCookieName}=${encrypted}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${sessionLifetimeSeconds}${secure}`;
+}
+
+async function authenticatedUserFromBearer(headers: Headers) {
+  const token = getBearerToken(headers);
+  if (!token) throw new PipelineAuthError(401, "Sign in is required to establish a Pipeline session.");
+  return verifyEntraAccessToken(token);
 }
 
 export function clearPipelineSessionCookie(request: Request) {

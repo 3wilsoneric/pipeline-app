@@ -156,7 +156,11 @@ export default function ReferralHome({
         progress?: Record<number, ReferralProgress>;
         facets?: ReferralFacets;
         file_total?: number;
-      }>(`${includeSummary ? "/api/referrals/directory" : "/api/referrals"}?${params.toString()}`, { cache: "no-store", signal });
+      }>(
+        `${includeSummary ? "/api/referrals/directory" : "/api/referrals"}?${params.toString()}`,
+        { cache: "no-store", signal },
+        { cacheTtlMs: background ? 0 : 3_000 },
+      );
       setReferrals(Array.isArray(payload.referrals) ? payload.referrals : []);
       setProgressByReferral(payload.progress ?? {});
       setReferralTotal(typeof payload.total === "number" ? payload.total : 0);
@@ -204,7 +208,7 @@ export default function ReferralHome({
     fetchPipelineJson<{ total?: number }>(`/api/referrals?${params}`, {
       cache: "no-store",
       signal: controller.signal,
-    }).then((payload) => {
+    }, { cacheTtlMs: 3_000 }).then((payload) => {
       if (typeof payload.total === "number") setWorkflowTotal(payload.total);
     }).catch(() => {
       // Keep the last known count; opening Current work retries through the normal list request.

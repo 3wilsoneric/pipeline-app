@@ -144,7 +144,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
     fetchPipelineJson<PipelineCalendarResponse>(`/api/calendar/events?${params}`, {
       cache: "no-store",
       signal: controller.signal,
-    }).then((payload) => {
+    }, { cacheTtlMs: 15_000 }).then((payload) => {
       setCache((current) => ({
         ...current,
         [requestKey]: {

@@ -562,7 +562,7 @@ async function fetchClientPage(query: string, cursor: string | null, signal: Abo
   return fetchPipelineJson<ClientDirectoryPayload>(`/api/profiles/directory?${params}`, {
     cache: "no-store",
     signal,
-  });
+  }, { cacheTtlMs: 30_000 });
 }
 
 function collectCommunities(clients: DirectoryClient[]) {

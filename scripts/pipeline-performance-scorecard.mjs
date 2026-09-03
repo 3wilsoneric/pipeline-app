@@ -62,11 +62,11 @@ let assetBytes = 0;
 let requestCount = 0;
 const useSanitizedFixtures = isLocalTarget && process.env.PIPELINE_PERF_FIXTURES !== "false";
 const runId = randomUUID().slice(0, 8);
-const seededReferralName = `McMaster QA ${runId}`;
+let seededReferralName = `McMaster QA ${runId}`;
 
 if (useSanitizedFixtures) await installSanitizedClinicalFixtures(page);
 if (isLocalTarget && process.env.PIPELINE_PERF_SEED !== "false") {
-  await seedPerformanceReferral(context.request, parsedBaseUrl.origin, seededReferralName, runId);
+  seededReferralName = await seedPerformanceReferral(context.request, parsedBaseUrl.origin, seededReferralName, runId);
 }
 
 await page.addInitScript(() => {
@@ -194,8 +194,11 @@ await measureJourney("referrals_to_clients", "navigation", async () => {
   await page.getByRole("button", { name: /Open profile for / }).first().waitFor({ state: "visible" });
 });
 await measureJourney("client_filter", "filter", async () => {
-  await activate(page.getByRole("button", { name: "Add community filter", exact: true }));
-  await page.getByLabel("Filter profiles by community", { exact: true }).waitFor({ state: "visible" });
+  const communityFilter = page.getByLabel("Filter profiles by community", { exact: true });
+  await communityFilter.waitFor({ state: "visible" });
+  const firstCommunity = await communityFilter.locator("option:not([value=''])").first().getAttribute("value");
+  if (!firstCommunity) throw new Error("The sanitized client directory did not expose a community filter option.");
+  await communityFilter.selectOption(firstCommunity);
 });
 await measureJourney("open_client_profile", "navigation", async () => {
   await activate(page.getByRole("button", { name: /Open profile for / }).first());
@@ -478,6 +481,8 @@ async function seedPerformanceReferral(api, origin, name, runId) {
   if (response.status() !== 201) {
     fail(`Could not seed the isolated McMaster referral fixture (status ${response.status()}).`);
   }
+  const payload = await response.json();
+  return payload.referral?.name || name;
 }
 
 async function afterNextPaint(page) {
