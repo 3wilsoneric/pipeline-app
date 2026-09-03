@@ -124,6 +124,22 @@ export type MyQueueSnapshot = {
   items: MyQueueItem[];
 };
 
+export type HomeWorkflowSummary = {
+  generated_at: string;
+  active_total: number;
+  unassigned_total: number;
+  overall_completion_pct: number | null;
+  ready_to_schedule: {
+    total: number;
+    items: ReferralWorklistItem[];
+  };
+  data_completion: {
+    total: number;
+    items: ReferralWorklistItem[];
+  };
+  current_work: MyQueueSnapshot;
+};
+
 export type SupervisorExceptionKind =
   | "overdue_requirement"
   | "unassigned_referral"

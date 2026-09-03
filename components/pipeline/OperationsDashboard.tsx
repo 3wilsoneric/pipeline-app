@@ -121,12 +121,7 @@ export default function OperationsDashboard({
           </div>
         </aside>
 
-        <section data-guide-target="operations-summary" aria-label="Report controls" className="flex flex-col gap-4 border-b border-[#cfd4d1] py-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="min-w-0">
-            <h1 id="pipeline-report-title" className="text-[20px] font-bold leading-tight">{selectedDefinition?.label ?? "Reports"}</h1>
-            <p className="mt-1 max-w-[760px] text-[12px] leading-5 text-[#595f5b]">{selectedDefinition?.description ?? "Loading report data."}</p>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
+        <section data-guide-target="operations-summary" aria-label="Report controls" className="flex flex-wrap items-end justify-end gap-2 py-3">
             {selectedDefinition?.filters.includes("month") ? (
               <Control label="Month">
                 <input
@@ -161,7 +156,6 @@ export default function OperationsDashboard({
             <button type="button" data-guide-target="operations-report-export" onClick={() => void exportReport()} disabled={!response || filtersChanged || exporting} className="flex h-9 items-center justify-center gap-2 border border-[#b9c6c1] bg-white px-4 text-[11px] font-semibold text-[#176f60] hover:border-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-45">
               <Download size={14} /> {exporting ? "Exporting" : "Export CSV"}
             </button>
-          </div>
         </section>
 
         {error ? (
@@ -171,11 +165,10 @@ export default function OperationsDashboard({
           </div>
         ) : null}
 
-        <article aria-labelledby="pipeline-report-title" className="min-w-0">
+        <article aria-label={`${selectedDefinition?.label ?? "Selected"} report`} className="min-w-0">
           {response ? <MetricGrid metrics={response.report.metrics} /> : null}
           <section data-guide-target="operations-report-results" className="mt-5" aria-label="Report results">
-            <div className="flex items-baseline justify-between gap-4 border-b-2 border-[#171917] pb-2">
-              <h2 className="text-[16px] font-bold">Records</h2>
+            <div className="flex justify-end">
               <span className="text-[10px] font-semibold text-[#727a75]">
                 {response ? `${response.report.row_count.toLocaleString()} total${response.report.truncated ? " · first 500 shown" : ""}` : "Loading"}
               </span>
@@ -206,7 +199,7 @@ function ReportTable({
   refreshing: boolean;
 }) {
   return (
-    <div role="region" aria-label="Scrollable report table" tabIndex={0} className={`mt-4 overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] ${refreshing ? "opacity-55" : ""}`}>
+    <div role="region" aria-label="Scrollable report table" tabIndex={0} className={`mt-2 overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] ${refreshing ? "opacity-55" : ""}`}>
       <table className="w-full min-w-[850px] border-collapse text-left">
         <thead>
           <tr className="border-b-2 border-[#171917]">

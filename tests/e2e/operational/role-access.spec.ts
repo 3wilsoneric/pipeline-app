@@ -127,8 +127,20 @@ test.describe("operational account and role boundaries", () => {
       ]);
       expect(assessorHome.status()).toBe(200);
       expect(coordinatorHome.status()).toBe(200);
-      expect(await assessorHome.json()).toEqual(expect.objectContaining({ scope: "personal" }));
-      expect(await coordinatorHome.json()).toEqual(expect.objectContaining({ scope: "team" }));
+      expect(await assessorHome.json()).toEqual(expect.objectContaining({
+        scope: "personal",
+        workflow: expect.objectContaining({
+          ready_to_schedule: expect.objectContaining({ items: expect.any(Array) }),
+          data_completion: expect.objectContaining({ items: expect.any(Array) }),
+        }),
+      }));
+      expect(await coordinatorHome.json()).toEqual(expect.objectContaining({
+        scope: "team",
+        workflow: expect.objectContaining({
+          ready_to_schedule: expect.objectContaining({ items: expect.any(Array) }),
+          data_completion: expect.objectContaining({ items: expect.any(Array) }),
+        }),
+      }));
 
       const [assessorCalendar, coordinatorCalendar] = await Promise.all([
         assessor.get("/api/calendar/events?from=2026-09-01&to=2026-09-30"),

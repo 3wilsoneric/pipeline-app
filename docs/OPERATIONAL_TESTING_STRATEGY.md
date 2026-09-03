@@ -48,6 +48,8 @@ path works or fails safely.
 | Account mimic QA | Playwright contexts and API requests with role-specific principals | Admin, assessment coordinator, reviewer, viewer, unauthorized, and worker permission boundaries. |
 | Collaboration/concurrency | `scripts/collaboration-load-smoke.mjs` plus Playwright multi-context specs | Presence leases, section versions, same-section conflicts, per-user drafts, recents isolation. |
 | HTTP load smoke | `scripts/http-load-smoke.mjs` | Core read endpoints under concurrent users with status and p95 bounds. |
+| Complete performance certification | `scripts/complete-performance-certification.mjs` | Compiled production browser metrics, navigation, guides, menus, filters, exports, API load/capacity, 20-account contention, scale, and soak evidence in one PHI-free report. |
+| Bounded soak | `scripts/http-soak-smoke.mjs` | Sustained multi-account reads, p95/p99, status classes, latency drift, throughput, generator event-loop delay, and bounded memory use for runs from 5 seconds through 48 hours. |
 | Data scale | `scripts/synthetic-scale-benchmark.mjs`, query plan audits, storage readiness | 100GB-class corpus metadata, keyset pagination, bounded response sizes, no raw binary through Next.js. |
 | Extraction quality | Golden de-identified packet fixtures and worker contracts | Page manifest, OCR routing, schema validation, confidence thresholds, human review queue, dead-letter recovery. |
 | Recovery and chaos | Failure/recovery scripts and drills | Duplicate ingest, worker retries, dead letters, backup/restore, stale drafts, packet reprocessing from immutable raw files. |
@@ -96,8 +98,8 @@ Playwright suites to build next:
 
 | Target | Baseline | Release Gate |
 | --- | --- | --- |
-| Browser users editing same referral | 2 users | 10 users, one winner for same-section contention. |
-| General API reads | 10 concurrent | 25 concurrent local, remote only with explicit flag. |
+| Browser/API identities editing same referral | 2 users | 20 users, one winner for same-section contention. |
+| General API reads | 10 concurrent | 50 concurrent local, remote only with explicit flag. |
 | Packet status polling | 10 concurrent packets | 50 polling clients with no stuck processing state. |
 | Referral creation | 5 concurrent users | Idempotent `client_mutation_id`; no duplicates from retry. |
 | Draft saves | 10 concurrent same user | One winner, expected `409` conflicts, no cross-user draft leakage. |
@@ -123,6 +125,7 @@ Do not load 100GB into CI. Test the metadata and orchestration shape instead.
 | Operator | `npm run certify:operations:operator` | Run before UI/workflow handoff. Builds and runs Playwright operator suites. |
 | Release | `npm run certify:operations` | Main local release gate. Includes quick, build, browser QA, artifacts, and supply chain. |
 | High Assurance | `npm run certify:operations:high` | 10x-importance gate. Adds high-traffic scaffolds, scale, query, storage, recovery, chaos, alerts, metrics, security, deployment, and supply-chain checks. |
+| Complete Performance | `npm run certify:performance` | Builds once, runs the McMaster browser scorecard, 50-way API capacity, 20-account contention, synthetic scale, and a 30-second local soak; writes aggregate evidence under `outputs/performance-certification`. |
 | Capacity | `npm run certify:operations:capacity` | Capacity-only gate. Static 10x capacity model plus optional HTTP capacity smoke when a base URL is explicitly configured. |
 | Load | `npm run certify:operations:load` | Run against a local or explicitly approved staging URL. Exercises HTTP and collaboration concurrency. |
 | Live | `npm run certify:operations:live` | Staging/production rehearsal only. Requires real env and explicit flags. |
@@ -146,6 +149,8 @@ Do not load 100GB into CI. Test the metadata and orchestration shape instead.
 | `tests/e2e/operational/high-traffic-capacity.scaffold.spec.ts` | Opt-in product and capacity rehearsal for generated account cohorts, role-aware work, exact operational reconciliation, UI surface smoke, bounded responses, retry idempotency, and assessor isolation. |
 | `scripts/operational-capacity-model.mjs` | Static 10x capacity model that audits repo guardrails without sending traffic. |
 | `scripts/http-capacity-smoke.mjs` | Remote-gated capacity smoke for high-concurrency read traffic against local or explicitly approved staging targets. |
+| `scripts/http-soak-smoke.mjs` | Bounded 5-second-to-48-hour soak with fixed-size histograms, phase drift checks, throughput, status, response-size, event-loop, and memory evidence. |
+| `scripts/complete-performance-certification.mjs` | One-command local performance certification and explicit PostgreSQL, clinical-backed, and live-packet evidence gates. |
 | `scripts/platform-assurance-registry.mjs` | Defines 100 one-point controls across 10 product and platform domains. |
 | `scripts/platform-assurance-certification.mjs` | Executes local 90-point or strict live 100-point profiles and writes PHI-free evidence. |
 
@@ -173,6 +178,29 @@ The high-assurance profile deliberately separates static capacity evidence from
 live load. Static checks can run on any branch. Live capacity checks require
 `PIPELINE_CAPACITY_BASE_URL`, and remote targets require the explicit remote flag
 in the certification runner.
+
+## Complete Performance Profile
+
+`npm run certify:performance` runs against isolated synthetic stores and the
+compiled standalone application. Its default local profile exercises 20 account
+identities, 50 concurrent API readers, 2,000 capacity requests, all scored UI
+journeys, and a 30-second soak. Override `PIPELINE_SOAK_SECONDS` for a longer run;
+the runner enforces a maximum of 172,800 seconds (48 hours) and retains only
+bounded histograms and aggregate status classes.
+
+The local profile does not impersonate infrastructure it cannot reach. These
+additional measurements are reported as explicit skipped evidence unless their
+configuration is present:
+
+| Evidence | Configuration |
+| --- | --- |
+| PostgreSQL read/write capacity | `PIPELINE_TEST_DATABASE_URL` |
+| Clinical-backed HTTP capacity | `PIPELINE_PERFORMANCE_CLINICAL_BASE_URL` |
+| Live packet extraction | `PIPELINE_LIVE_CERTIFICATION=true` and `PIPELINE_SAMPLE_PACKET_PATH` |
+
+Use `node scripts/complete-performance-certification.mjs --strict-external` when
+all three external measurements are mandatory. Remote checks retain their own
+explicit opt-in and safety guards.
 
 ## Pass/Fail Contract
 

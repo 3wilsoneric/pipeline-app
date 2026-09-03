@@ -10,7 +10,8 @@ if (baseUrl.hostname === "127.0.0.1") baseUrl.hostname = "localhost";
 if (!["localhost", "127.0.0.1", "::1"].includes(baseUrl.hostname) && !process.argv.includes("--allow-remote")) {
   fail("Remote collaboration checks require --allow-remote.");
 }
-const userCount = 10;
+const userCount = boundedInteger("PIPELINE_COLLABORATION_USERS", 20, 2, 100);
+const p95LimitMs = boundedInteger("PIPELINE_COLLABORATION_P95_LIMIT_MS", 500, 25, 10_000);
 const users = Array.from({ length: userCount }, (_, index) => ({
   email: `pipeline-load-user-${index + 1}@example.invalid`,
   name: `Pipeline Load User ${index + 1}`,
@@ -29,48 +30,30 @@ if (process.env.PIPELINE_COLLABORATION_REQUIRE_DESKTOP_STATE === "true" && !work
 }
 
 const now = new Date();
-const createdResponse = await request(0, "/api/referrals", {
+const createdResponses = await Promise.all(users.map((_, index) => timedRequest("referral_create", index, "/api/referrals", {
   method: "POST",
-  body: {
-    client_mutation_id: `collaboration-load-${randomUUID()}`,
-    referral: {
-      name: "Collaboration Load Record",
-      date: now.toISOString().slice(0, 10),
-      stage: "New",
-      community: "San Pablo",
-      source: "Load validation",
-      priority: "standard",
-      tags: ["collaboration-load"],
-      documentName: "",
-      documentStatus: "Missing",
-      owner: users[0].name,
-      note: "Initial",
-      createdAt: now.toISOString(),
-      dob: "",
-      phone: "",
-      email: "",
-      payer: "",
-      requirements: [],
-    },
-  },
-});
-expectStatus(createdResponse, 201, "create synthetic collaboration referral");
-const created = await createdResponse.json();
-const referral = created.referral;
+  body: syntheticReferral(index, now),
+})));
+assertStatuses(createdResponses, [201], "simultaneous synthetic referral creation");
+const createdReferrals = await Promise.all(createdResponses.map(async (response) => (await response.json()).referral));
+if (new Set(createdReferrals.map((item) => item?.id)).size !== userCount) {
+  fail(`The server did not preserve ${userCount} distinct simultaneous referral creations.`);
+}
+const referral = createdReferrals[0];
 if (!referral?.id || !referral.sectionVersions) fail("The collaboration referral did not return section versions.");
 
 const leases = users.map(() => randomUUID());
 const sections = ["identity", "intake", "documents", "assessment", "workflow", "decision"];
-const heartbeatResponses = await Promise.all(users.map((_, index) => request(index, `/api/referrals/${referral.id}/presence`, {
+const heartbeatResponses = await Promise.all(users.map((_, index) => timedRequest("presence_write", index, `/api/referrals/${referral.id}/presence`, {
   method: "POST",
   body: { lease_id: leases[index], section: sections[index % sections.length] },
 })));
 assertStatuses(heartbeatResponses, [200], "presence heartbeats");
-const presenceResponse = await request(0, `/api/referrals/${referral.id}/presence`);
+const presenceResponse = await timedRequest("presence_read", 0, `/api/referrals/${referral.id}/presence`);
 expectStatus(presenceResponse, 200, "presence list");
 const presence = await presenceResponse.json();
 if (presence.presence?.length !== userCount || new Set(presence.presence.map((item) => item.actor_id)).size !== userCount) {
-  fail("The server did not preserve ten distinct authenticated editing leases. Run it in header auth mode with the load users allowlisted.");
+  fail(`The server did not preserve ${userCount} distinct authenticated editing leases. Run it in header auth mode with the load users allowlisted.`);
 }
 
 const initialPolls = await Promise.all(users.map((_, index) => timedRequest("poll", index, `/api/referrals/${referral.id}/changes?after=${referral.version}`)));
@@ -96,7 +79,7 @@ const [identitySave, intakeSave] = await Promise.all([
 ]);
 assertStatuses([identitySave, intakeSave], [200], "disjoint section saves");
 
-const latestResponse = await request(0, `/api/referrals/${referral.id}`);
+const latestResponse = await timedRequest("referral_read", 0, `/api/referrals/${referral.id}`);
 expectStatus(latestResponse, 200, "load latest referral");
 const latest = (await latestResponse.json()).referral;
 const sameSectionResponses = await Promise.all(users.map((_, index) => timedRequest("contended_save", index, `/api/referrals/${referral.id}`, {
@@ -109,7 +92,7 @@ const sameSectionResponses = await Promise.all(users.map((_, index) => timedRequ
 })));
 const sameSectionStatuses = sameSectionResponses.map((response) => response.status);
 if (sameSectionStatuses.filter((status) => status === 200).length !== 1 || sameSectionStatuses.filter((status) => status === 409).length !== userCount - 1) {
-  fail("Same-section optimistic contention did not produce exactly one winner and nine conflicts.");
+  fail(`Same-section optimistic contention did not produce exactly one winner and ${userCount - 1} conflicts.`);
 }
 
 const changedPolls = await Promise.all(users.map((_, index) => timedRequest("poll", index, `/api/referrals/${referral.id}/changes?after=${latest.version}`)));
@@ -119,7 +102,7 @@ for (const response of changedPolls) {
   if (!payload.changed || !Number.isInteger(payload.sequence)) fail("Change polling did not expose a newer sequence after the contended save.");
 }
 
-const releaseResponses = await Promise.all(users.map((_, index) => request(index, `/api/referrals/${referral.id}/presence`, {
+const releaseResponses = await Promise.all(users.map((_, index) => timedRequest("presence_release", index, `/api/referrals/${referral.id}/presence`, {
   method: "DELETE",
   body: { lease_id: leases[index] },
 })));
@@ -135,13 +118,19 @@ const workspaceChecks = workspaceStateReady
       expected_draft_conflicts: 0,
       drafts_deleted: 0,
     };
+const timingSummary = summarizeTimings(timings);
+const slowOperations = Object.entries(timingSummary)
+  .filter(([, summary]) => summary.p95_ms > p95LimitMs)
+  .map(([operation, summary]) => ({ operation, p95_ms: summary.p95_ms }));
 
 console.log(JSON.stringify({
-  ok: true,
+  ok: slowOperations.length === 0,
   users: userCount,
   backend: databaseMode,
   database_contention_exercised: databaseMode === "postgres",
+  p95_limit_ms: p95LimitMs,
   checks: {
+    simultaneous_referrals: userCount,
     distinct_presence_leases: userCount,
     polling_requests: initialPolls.length + changedPolls.length,
     disjoint_section_saves: 2,
@@ -150,9 +139,11 @@ console.log(JSON.stringify({
     leases_released: userCount,
     workspace_state: workspaceChecks,
   },
-  timings: summarizeTimings(timings),
+  timings: timingSummary,
+  slow_operations: slowOperations,
   note: "Only route templates, status counts, and latency aggregates are emitted; record values and identities are omitted.",
 }, null, 2));
+if (slowOperations.length > 0) process.exit(1);
 
 async function exerciseWorkspaceState() {
   const draftKey = String(Date.now());
@@ -202,7 +193,7 @@ async function exerciseWorkspaceState() {
   const contendedDraftStatuses = contendedDrafts.map((response) => response.status);
   if (contendedDraftStatuses.filter((status) => status === 200).length !== 1
     || contendedDraftStatuses.filter((status) => status === 409).length !== userCount - 1) {
-    fail("Same-draft optimistic contention did not produce exactly one winner and nine conflicts.");
+    fail(`Same-draft optimistic contention did not produce exactly one winner and ${userCount - 1} conflicts.`);
   }
 
   const deletes = await Promise.all(users.map((_, index) => request(index, `/api/me/referral-drafts/${draftKey}`, {
@@ -239,6 +230,31 @@ function recoveryDraft(summary) {
     conserved: "",
     tagsInput: "",
     documents: {},
+  };
+}
+
+function syntheticReferral(index, now) {
+  return {
+    client_mutation_id: `collaboration-load-${index + 1}-${randomUUID()}`,
+    referral: {
+      name: `Collaboration Load Record ${index + 1}`,
+      date: now.toISOString().slice(0, 10),
+      stage: "New",
+      community: "San Pablo",
+      source: "Load validation",
+      priority: "standard",
+      tags: ["collaboration-load"],
+      documentName: "",
+      documentStatus: "Missing",
+      owner: users[index].name,
+      note: "Initial",
+      createdAt: now.toISOString(),
+      dob: "",
+      phone: "",
+      email: "",
+      payer: "",
+      requirements: [],
+    },
   };
 }
 
@@ -291,6 +307,11 @@ function percentile(values, value) {
 
 function rounded(value) {
   return Math.round(value * 10) / 10;
+}
+
+function boundedInteger(name, fallback, minimum, maximum) {
+  const parsed = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isInteger(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
 }
 
 function assertStatuses(responses, allowed, operation) {

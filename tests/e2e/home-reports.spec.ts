@@ -5,13 +5,58 @@ test.describe("role-scoped home and reports", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Last 24 hours" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Upcoming" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Team metrics" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     await expect(page.getByText("Team view", { exact: true })).toBeVisible();
     await expect(page.getByText("Email to decision flow", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Community snapshot", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Last 24 hours" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Current work" })).toHaveCount(0);
+  });
+
+  test("keeps the assessor home personal and omits supervisor metrics", async ({ page }) => {
+    await page.route("**/api/operations/home", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-09-03T12:00:00.000Z",
+          scope: "personal",
+          viewer: { id: "assessor-1", name: "Alex Assessor" },
+          current_work: { total: 0, items: [] },
+          workflow: {
+            generated_at: "2026-09-03T12:00:00.000Z",
+            active_total: 0,
+            unassigned_total: 0,
+            overall_completion_pct: null,
+            ready_to_schedule: { total: 0, items: [] },
+            data_completion: { total: 0, items: [] },
+            current_work: {
+              generated_at: "2026-09-03T12:00:00.000Z",
+              owner: { id: "assessor-1", name: "Alex Assessor" },
+              total: 0,
+              items: [],
+            },
+          },
+          upcoming: [],
+          unscheduled: [],
+          unscheduled_total: 0,
+          unavailable_sections: [],
+        }),
+      });
+    });
+
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Alex./ })).toBeVisible();
+    await expect(page.getByText("Your work", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Team metrics" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Ready to schedule" })).toContainText("0 assigned");
+    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toContainText("No assessments are scheduled");
+    await expect(page.getByRole("region", { name: "Data completion" })).toContainText("No active referrals");
   });
 
   test("runs a report, exposes only contextual filters, and exports the current scope", async ({ page }) => {
@@ -19,7 +64,7 @@ test.describe("role-scoped home and reports", () => {
     await page.getByRole("button", { name: "Open reports" }).click();
 
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Workspaces", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "View Workspaces report" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("complementary", { name: "Report library" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
 

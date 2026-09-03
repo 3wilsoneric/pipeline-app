@@ -118,6 +118,14 @@ function hasAssessmentTestValue(value: AssessmentToolData[AssessmentToolFieldKey
   return value !== null && value !== undefined;
 }
 
+function uniqueAlphabeticNameToken() {
+  const token = randomUUID()
+    .replaceAll("-", "")
+    .slice(0, 10)
+    .replace(/[0-9]/g, (digit) => String.fromCharCode("g".charCodeAt(0) + Number(digit)));
+  return `${token.charAt(0).toUpperCase()}${token.slice(1)}`;
+}
+
 test.describe("Referral home and packet canvas", () => {
   test.beforeEach(async ({ page }) => {
     const errors: string[] = [];
@@ -244,7 +252,7 @@ test.describe("Referral home and packet canvas", () => {
     });
     await page.reload();
 
-    const creationMonth = page.getByLabel("Filter by creation month");
+    const creationMonth = page.getByLabel("Filter by workspace month");
     await expect(creationMonth).toContainText("August 2026 (4)");
     await expect(creationMonth).toContainText("November 2025 (7)");
     await creationMonth.selectOption("2025-11");
@@ -286,8 +294,9 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("heading", { name: /Welcome( back)?, / })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Search and ask" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Upcoming" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
 
     const queueResponse = await page.request.get("/api/operations/my-queue");
@@ -395,10 +404,10 @@ test.describe("Referral home and packet canvas", () => {
       },
     });
     expect(createdResponse.ok()).toBeTruthy();
-    const created = await createdResponse.json() as { referral: { id: number } };
+    const created = await createdResponse.json() as { referral: { id: number; name: string } };
 
     await page.goto(`/?view=referrals&screen=packet&referralId=${created.referral.id}`);
-    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(existingName);
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(created.referral.name);
 
     await page.getByRole("button", { name: "Create new referral", exact: true }).click();
     await expect(page).toHaveURL(/screen=packet.*draftId=/);
@@ -717,7 +726,7 @@ test.describe("Referral home and packet canvas", () => {
     });
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { name: /Welcome( back)?, Playwright\./ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
     expect(identityRequests).toBe(1);
 
     let referralRequests = 0;
@@ -737,7 +746,7 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("keeps the last successful referral snapshot when refresh fails", async ({ page }) => {
-    const name = `Refresh recovery ${randomUUID().slice(0, 8)}`;
+    const name = `Recovery Qa${randomUUID().slice(0, 8)}`;
     const created = await page.request.post("/api/referrals", {
       data: {
         client_mutation_id: `refresh-recovery-${randomUUID()}`,
@@ -763,12 +772,13 @@ test.describe("Referral home and packet canvas", () => {
       },
     });
     expect(created.status()).toBe(201);
+    const createdPayload = await created.json() as { referral: { name: string } };
     await page.goto("/?view=referrals");
     await page.getByRole("button", { name: "Current work", exact: true }).click();
 
     const workflow = page.getByRole("region", { name: "Referral workflow tracker" });
     await expect(workflow).toBeVisible();
-    await expect(workflow.getByRole("button", { name: `Open ${name} referral workspace` })).toBeVisible();
+    await expect(workflow.getByRole("button", { name: `Open ${createdPayload.referral.name} referral workspace` })).toBeVisible();
     const rowsBefore = await workflow.getByRole("button").count();
     expect(rowsBefore).toBeGreaterThan(0);
 
@@ -782,7 +792,7 @@ test.describe("Referral home and packet canvas", () => {
 
   test("browses all uploaded files without duplicate month navigation", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^All files/ })).toBeVisible();
-    await expect(page.getByLabel("Filter by creation month")).toBeVisible();
+    await expect(page.getByLabel("Filter by workspace month")).toBeVisible();
     await expect(page.getByRole("button", { name: "June 2026", exact: true })).toHaveCount(0);
 
     await page.getByRole("button", { name: /^All files/ }).click();
@@ -942,7 +952,7 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("pages without duplicates and rejects a competing stale save", async ({ page }) => {
-    const group = `Cursor ${randomUUID().slice(0, 8)}`;
+    const group = `Cursor ${uniqueAlphabeticNameToken()}`;
     const created: Array<{ id: number; version: number }> = [];
     for (let index = 0; index < 3; index += 1) {
       const now = new Date(Date.now() + index).toISOString();
@@ -1007,7 +1017,10 @@ test.describe("Referral home and packet canvas", () => {
     const origin = new URL(page.url()).origin;
     const secondContext = await browser.newContext({ baseURL: origin });
     const secondPage = await secondContext.newPage();
-    const name = `Collaboration ${randomUUID().slice(0, 8)}`;
+    const suffix = uniqueAlphabeticNameToken();
+    const name = `Collaboration ${suffix}`;
+    const firstEditedName = `${suffix} Alpha`;
+    const currentName = `${suffix} Current`;
     try {
       const createdResponse = await page.request.post("/api/referrals", {
         data: {
@@ -1042,7 +1055,7 @@ test.describe("Referral home and packet canvas", () => {
           data: {
             if_match: base.version,
             if_match_sections: base.sectionVersions,
-            patch: { name: `${name} A` },
+            patch: { name: firstEditedName },
           },
         }),
         secondPage.request.patch(`/api/referrals/${base.id}`, {
@@ -1060,14 +1073,14 @@ test.describe("Referral home and packet canvas", () => {
       const merged = await mergedResponse.json() as {
         referral: { version: number; name: string; note: string; sectionVersions: Record<string, number> };
       };
-      expect(merged.referral).toMatchObject({ name: `${name} A`, note: "Updated in the second session" });
+      expect(merged.referral).toMatchObject({ name: firstEditedName, note: "Updated in the second session" });
 
       const sameSectionBase = merged.referral;
       const firstIdentity = await page.request.patch(`/api/referrals/${base.id}`, {
         data: {
           if_match: sameSectionBase.version,
           if_match_sections: sameSectionBase.sectionVersions,
-          patch: { name: `${name} Current` },
+          patch: { name: currentName },
         },
       });
       expect(firstIdentity.ok()).toBeTruthy();
@@ -1103,10 +1116,10 @@ test.describe("Referral home and packet canvas", () => {
         page.goto("/?view=referrals"),
         secondPage.goto("/?view=referrals"),
       ]);
-      await page.getByRole("button", { name: `Open ${name} Current referral workspace` }).click();
-      await secondPage.getByRole("button", { name: `Open ${name} Current referral workspace` }).click();
-      const localName = `${name} Local draft`;
-      const remoteName = `${name} Remote saved`;
+      await page.getByRole("button", { name: `Open ${currentName} referral workspace` }).click();
+      await secondPage.getByRole("button", { name: `Open ${currentName} referral workspace` }).click();
+      const localName = `${suffix} Local`;
+      const remoteName = `${suffix} Remote`;
       await page.getByRole("textbox", { name: "NAME", exact: true }).fill(localName);
       await secondPage.getByRole("textbox", { name: "NAME", exact: true }).fill(remoteName);
       await secondPage.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
@@ -1127,7 +1140,7 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("recovers a tab-scoped draft after refresh and then section-autosaves it", async ({ page }) => {
-    const name = `Recovery ${randomUUID().slice(0, 8)}`;
+    const name = `Recovery ${uniqueAlphabeticNameToken()}`;
     const createdResponse = await page.request.post("/api/referrals", {
       data: {
         client_mutation_id: `recovery-${randomUUID()}`,
@@ -1153,10 +1166,10 @@ test.describe("Referral home and packet canvas", () => {
       },
     });
     expect(createdResponse.ok()).toBeTruthy();
-    const created = await createdResponse.json() as { referral: { id: number } };
+    const created = await createdResponse.json() as { referral: { id: number; name: string } };
 
     await page.goto("/?view=referrals");
-    await page.getByRole("button", { name: `Open ${name} referral workspace` }).click();
+    await page.getByRole("button", { name: `Open ${created.referral.name} referral workspace` }).click();
     await expect(page.getByTestId("packet-workspace")).toBeVisible();
     await expect(page.getByRole("button", { name: "Open referrals" })).toHaveAttribute("data-active", "true");
     await expect(page.getByRole("button", { name: "Create new referral" })).not.toHaveAttribute("data-active", "true");
@@ -1215,7 +1228,7 @@ test.describe("Referral home and packet canvas", () => {
   test("keeps the chart editable with consolidated document references", async ({
     page,
   }) => {
-    const clientName = `Workflow ${randomUUID().slice(0, 8)}`;
+    const clientName = `Workflow ${uniqueAlphabeticNameToken()}`;
     const packetBytes = Buffer.from(`packet-${randomUUID()}`);
     await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
@@ -1294,10 +1307,12 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible();
     await expect(page.getByRole("dialog", { name: "Schedule assessment" })).toBeVisible();
 
-    const referralResponse = await page.request.get(`/api/referrals?q=${encodeURIComponent(clientName)}`);
+    const referralId = new URL(page.url()).searchParams.get("referralId");
+    expect(referralId).toBeTruthy();
+    const referralResponse = await page.request.get(`/api/referrals/${referralId}`);
     expect(referralResponse.ok()).toBeTruthy();
-    const referralList = await referralResponse.json() as {
-      referrals: Array<{
+    const referralPayload = await referralResponse.json() as {
+      referral: {
         clientId?: string;
         documentHash?: string;
         documentName: string;
@@ -1320,8 +1335,9 @@ test.describe("Referral home and packet canvas", () => {
         fieldSources?: Record<string, string>;
         requirements?: Array<{ type: string; evidenceDocumentName?: string }>;
         packetFields?: Array<{ field_key: string; final_value?: string; review_status: string; version: number }>;
-      }>;
+      };
     };
+    const referralList = { referrals: [referralPayload.referral] };
     expect(referralList.referrals[0]).toMatchObject({
       documentName: "face-sheet.pdf",
       documentStatus: "Uploaded",
@@ -1355,12 +1371,13 @@ test.describe("Referral home and packet canvas", () => {
 
     const pipelineClientId = referralList.referrals[0]?.clientId;
     expect(pipelineClientId).toBeTruthy();
-    const clientIdentityTitle = clientName;
+    const clientIdentityTitle = referralPayload.referral.name;
     await page.goto(`/?screen=profile&clientId=${encodeURIComponent(`pipeline:${pipelineClientId}`)}`);
     await expect(page.getByRole("heading", { name: clientIdentityTitle, exact: true })).toBeVisible();
-    await expect(page.getByText("Synthetic gender · San Pablo · Referral client", { exact: true })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Referral episodes" }).getByText(clientIdentityTitle, { exact: true })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Referral episodes" }).getByText(/^Synthetic gender · San Pablo · Received /)).toBeVisible();
+    await expect(page.getByText("Synthetic gender · San Pablo · Referral profile", { exact: true })).toBeVisible();
+    const referralHistory = page.getByRole("region", { name: "1 referral in referral history" });
+    await expect(referralHistory).toBeVisible();
+    await expect(referralHistory.getByText("Synthetic County Access", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Referral documents", exact: true })).toBeVisible();
     await expect(page.getByText("face-sheet.pdf", { exact: true })).toBeVisible();
     await expect(page.getByText("synthetic-medication-list.pdf", { exact: true })).toBeVisible();
@@ -1396,7 +1413,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(workspaceButton).toBeVisible();
     await workspaceButton.click();
     await expect(page.getByTestId("workspace-identity-title")).toHaveText(clientIdentityTitle);
-    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientName);
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientIdentityTitle);
     await expect(page.getByRole("textbox", { name: "GENDER", exact: true })).toHaveValue("Synthetic gender");
     await expect(page.getByRole("textbox", { name: "AGE", exact: true })).toHaveValue("74");
     await expect(page.getByRole("textbox", { name: "DOB", exact: true })).toHaveValue("1951-08-15");
@@ -1497,6 +1514,7 @@ test.describe("Referral home and packet canvas", () => {
       buffer: packetBytes,
     });
     await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
+    await page.getByTestId("document-checklist-toggle").click();
     await expect(page.getByRole("region", { name: "Initial referral packet" })
       .getByRole("button", { name: /first-copy\.pdf Uploaded/ })).toBeVisible();
     await expect(page.getByRole("region", { name: "Extraction review" })).toBeVisible();
@@ -1537,7 +1555,7 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("schedules, completes, signs, and recalls an assessment", async ({ page }) => {
-    const clientName = `Assessment ${randomUUID().slice(0, 8)}`;
+    const clientName = `Assessment ${uniqueAlphabeticNameToken()}`;
     await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("textbox", { name: "DOB", exact: true }).fill("06/12/1984");
@@ -1551,6 +1569,10 @@ test.describe("Referral home and packet canvas", () => {
       buffer: Buffer.from(`assessment-referral-${randomUUID()}`),
     });
     await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
+    const referralId = new URL(page.url()).searchParams.get("referralId");
+    expect(referralId).toBeTruthy();
+    await page.getByTestId("document-checklist-toggle").click();
     await expect(page.getByRole("region", { name: "Initial referral packet" })
       .getByRole("button", { name: /assessment-referral\.pdf Uploaded/ })).toBeVisible();
     const packetReview = page.getByRole("region", { name: "Extraction review" });
@@ -1607,9 +1629,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByLabel(/Date of birth/).fill("1984-06-12");
     await expect(page.getByText("All changes saved", { exact: true })).toBeVisible({ timeout: 8_000 });
 
-    const referralsBeforeSignature = await page.request.get(`/api/referrals?q=${encodeURIComponent(clientName)}`);
-    const referralBeforeSignaturePayload = await referralsBeforeSignature.json() as { referrals: Array<{ id: number }> };
-    const assessmentsBeforeSignature = await page.request.get(`/api/referrals/${referralBeforeSignaturePayload.referrals[0].id}/assessments`);
+    const assessmentsBeforeSignature = await page.request.get(`/api/referrals/${referralId}/assessments`);
     const assessmentsBeforeSignaturePayload = await assessmentsBeforeSignature.json() as { assessments: Array<PipelineAssessmentRecord> };
     const assessmentBeforeSignature = assessmentsBeforeSignaturePayload.assessments[0];
     const completeInterview = await page.request.patch(`/api/assessments/${assessmentBeforeSignature.assessment_id}`, {
@@ -1630,9 +1650,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(page.getByText("Assessment signed", { exact: true })).toBeVisible();
 
-    const referrals = await page.request.get(`/api/referrals?q=${encodeURIComponent(clientName)}`);
-    const referralPayload = await referrals.json() as { referrals: Array<{ id: number; version: number }> };
-    const history = await page.request.get(`/api/referrals/${referralPayload.referrals[0].id}/assessments`);
+    const history = await page.request.get(`/api/referrals/${referralId}/assessments`);
     expect(history.ok()).toBeTruthy();
     const historyPayload = await history.json() as { assessments: Array<{ assessment_id: string; status: string; primary_diagnosis: string; medications_at_intake: string[]; unable_to_assess_reasons: Record<string, string>; version: number; assessor_id: string | null; assessor: string | null; completed_at: string | null; signed_at: string | null; signed_by: { id: string; name: string } | null }> };
     expect(historyPayload.assessments[0]).toMatchObject({
@@ -1664,7 +1682,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(signedEdit.status()).toBe(400);
     await expect(signedEdit.json()).resolves.toMatchObject({ error: expect.stringContaining("signed") });
 
-    const workItems = await page.request.get(`/api/referrals/${referralPayload.referrals[0].id}/work-items`);
+    const workItems = await page.request.get(`/api/referrals/${referralId}/work-items`);
     expect(workItems.ok()).toBeTruthy();
     const workItemPayload = await workItems.json() as { work_items: Array<{ type: string; status: string; version: number }> };
     expect(workItemPayload.work_items).toHaveLength(11);
@@ -2130,9 +2148,10 @@ test.describe("Pipeline home", () => {
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Last 24 hours" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Upcoming" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Team metrics" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
@@ -2203,7 +2222,7 @@ test.describe("Pipeline home", () => {
       if (mode === "my_work") {
         expect(payload.referrals.every((referral) => referral.owner === "Playwright QA")).toBeTruthy();
       } else if (mode === "unassigned") {
-        expect(payload.referrals.every((referral) => referral.owner === "Unassigned")).toBeTruthy();
+        expect(payload.referrals.every((referral) => !referral.owner || referral.owner === "Unassigned")).toBeTruthy();
       } else {
         const expectedStatus = mode === "ready_to_schedule" ? "ready_to_schedule" : "assessment_scheduled";
         expect(payload.referrals.every((referral) => referral.workflowStatus === expectedStatus)).toBeTruthy();
@@ -2297,7 +2316,7 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Open search" }).click();
     await page.getByLabel("Search or ask").fill("Maldonado");
-    await expect(page.getByRole("button", { name: "Open referral for Krishna Maldonado" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open workspace for Krishna Maldonado" })).toBeVisible();
     await expect(page.getByText("1 result · checking clients", { exact: true })).toBeVisible();
     await expect(page.getByText("1 result", { exact: true })).toBeVisible({ timeout: 4_000 });
   });
@@ -2367,7 +2386,6 @@ test.describe("Pipeline home", () => {
     const recent = page.getByRole("region", { name: "Recent" });
     await expect(recent.getByText("Broken recent", { exact: true })).toHaveCount(0);
     await expect(recent.getByRole("button", { name: /Avery Example/ })).toBeVisible();
-    await expect(recent.getByText("Profile", { exact: true })).toBeVisible();
     await recent.getByRole("button", { name: /Avery Example/ }).click();
     await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
   });
@@ -2413,7 +2431,8 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     const welcomePipelinePosition = await page.locator('[data-pipeline-home="true"]').boundingBox();
 
@@ -2430,8 +2449,9 @@ test.describe("Pipeline home", () => {
     await expect(page.getByTitle("Pipeline home")).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Search and ask" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Upcoming" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
 
     const queueResponse = await page.request.get("/api/operations/my-queue");
@@ -2885,10 +2905,10 @@ test.describe("Pipeline home", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Open reports" }).click();
-    await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toBeVisible();
+    await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Report library" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "View Workspaces report" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Run report" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
     await expect(page.getByText("Work queue", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Data gaps", { exact: true })).toHaveCount(0);

@@ -246,7 +246,7 @@ export default function ClientProfileDirectory({
   return (
     <main data-guide-target="client-directory" aria-label="Client profiles" className="h-full overflow-y-auto bg-white text-[#111111]">
       <div data-testid="profiles-workspace" className="mx-auto w-full max-w-[1240px] px-4 pb-10 pt-4 sm:px-6 lg:px-8">
-        <section aria-label="Find clients" className="border-b border-[#d9dfdc] pb-3">
+        <section aria-label="Find clients" className="pb-1">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             <label className="relative min-w-0 flex-1">
               <span className="sr-only">Search clients</span>
@@ -354,7 +354,7 @@ export default function ClientProfileDirectory({
         {directoryNotice ? <DirectoryNotice>{directoryNotice}</DirectoryNotice> : null}
         {error ? <DirectoryError message={error} onRetry={() => setReloadKey((current) => current + 1)} hasPartialResults={clients.length > 0} /> : null}
 
-        <section className="border-b border-[#d9dfdc]" aria-label="Client list">
+        <section aria-label="Client list">
           <div className="hidden grid-cols-[minmax(280px,0.9fr)_minmax(360px,1.4fr)_36px] items-center gap-6 border-b border-[#d9dfdc] bg-[#fafbfa] px-5 py-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#68716d] md:grid">
             <span>Client</span>
             <span>Details</span>
@@ -377,7 +377,7 @@ export default function ClientProfileDirectory({
             <span className="text-[11px] text-[#717a76]">Showing {visibleClients.length} of {filteredClients.length}</span>
             <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)} className="flex h-10 items-center gap-2 border border-[#afb9b5] px-4 text-[11px] font-black text-[#37403c] hover:border-[#0f8b73] hover:text-[#0f8b73]"><ChevronDown size={14} /> Show more</button>
           </div>
-        ) : dataAsOf && !error ? <div className="py-4 text-right text-[10px] uppercase tracking-[0.08em] text-[#737b77]">Directory complete · Data through {formatDate(dataAsOf)}</div> : null}
+        ) : null}
       </div>
     </main>
   );

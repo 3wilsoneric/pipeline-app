@@ -45,10 +45,10 @@ check("route policy audits every API method for auth/logging/origin", apiPolicy.
 check("large listings use keyset pagination, not offset", queryPlan.includes("do not use SQL offset") && queryPlan.includes("maxPageSize = 200") && queryPlan.includes("keyset"));
 check("storage capacity checks aggregate bytes without identifiers", storageReadiness.includes("source_bytes") && storageReadiness.includes("never returns record identifiers or filenames"));
 check("operational testing strategy documents staged certification tiers", operationalDoc.includes("| Quick |") && operationalDoc.includes("| High Assurance |"));
-check("default browser smoke excludes high-assurance operational scaffolds", defaultPlaywright.includes('testIgnore: "./tests/e2e/operational/**"'));
+check("default browser smoke excludes high-assurance operational scaffolds", /testIgnore:\s*["'](?:\.\/tests\/e2e\/)?\*\*\/operational\/\*\*["']/.test(defaultPlaywright));
 check("operational Playwright uses isolated stores and header-auth role mimics", operationalPlaywright.includes("PIPELINE_AUTH_MODE: \"headers\"") && operationalPlaywright.includes("PIPELINE_E2E_REFERRAL_STORE_PATH"));
 check("synthetic account generator supports a 10x cohort", operationalActors.includes("operationalLoadActors") && operationalActors.includes("syntheticPipelineActor"));
-check("high-traffic Playwright scaffold is opt-in", highTrafficSpec.includes("PIPELINE_HIGH_ASSURANCE_E2E") && highTrafficSpec.includes("operationalLoadActors(60)"));
+check("high-traffic Playwright scaffold is opt-in", highTrafficSpec.includes("PIPELINE_HIGH_ASSURANCE_E2E") && /operationalLoadActors\((?:[6-9]\d|\d{3,})\)/.test(highTrafficSpec));
 check("certification runner has high-assurance and capacity tiers", operationalRunner.includes("high_assurance") && operationalRunner.includes("capacity"));
 check("package exposes high-assurance operational commands", Boolean(packageJson.scripts["certify:operations:high"]) && Boolean(packageJson.scripts["certify:operations:capacity"]));
 

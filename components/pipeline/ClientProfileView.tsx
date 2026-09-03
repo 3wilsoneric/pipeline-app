@@ -267,7 +267,7 @@ function ResidentProfile({
             ) : null}
 
             {hasPipelineHistory || profile.pipeline.assessments.length > 0 ? (
-              <ProfileSection title="Assessments" detail="Latest first">
+              <ProfileSection title="Assessments">
                 <ClientAssessmentSummary
                   assessments={profile.pipeline.assessments}
                   connection={profile.pipeline.connection}
@@ -497,11 +497,7 @@ function PipelineWorkSummary({
       {confirmed ? (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_270px]">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-baseline justify-between gap-2 pb-3">
-              <h3 className="text-[12px] font-black text-[#222825]">Referral records</h3>
-              <span className="text-[10px] text-[#737b77]">{formatCount(summary.referral_count, "referral")}</span>
-            </div>
-            <div role="region" className="border-y border-[#d9dfdc]" aria-label="Referral episodes">
+            <div role="region" className="border-t border-[#d9dfdc]" aria-label={`${formatCount(summary.referral_count, "referral")} in referral history`}>
               {profile.pipeline.referrals.map((referral) => (
                 <article
                   key={referral.id}
@@ -1464,7 +1460,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 
 function ProfileSection({ title, detail, children }: { title: string; detail?: string; children: React.ReactNode }) {
   return (
-    <section className="border-b border-[#d9d9d9] bg-white px-5 py-5 md:px-6">
+    <section className="bg-white px-5 py-5 md:px-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[#d9d9d9] pb-3">
         <h2 className="text-[16px] font-black">{title}</h2>
         {detail ? <span className="text-[11px] text-[#737373]">{detail}</span> : null}

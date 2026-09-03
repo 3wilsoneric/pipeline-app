@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ArrowRight, CalendarClock, RefreshCw } from "lucide-react";
+import { CalendarClock, RefreshCw } from "lucide-react";
 
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
+import type { PipelineCalendarEvent } from "@/lib/pipeline/calendar-types";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
-import type { MyQueueItem, MyQueueUrgency } from "@/lib/pipeline/operations-types";
+import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import {
   loadRecentDestinations,
@@ -91,9 +91,9 @@ export default function PipelineWelcome({
   }
 
   return (
-    <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-[#fbfcfb] text-[#202320]">
+    <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#202320]">
       <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-4 sm:px-6 lg:px-8">
-        <header className="flex min-h-[62px] flex-wrap items-end justify-between gap-3 border-b border-[#d8dedb] pb-4">
+        <header className="flex min-h-[62px] flex-wrap items-end justify-between gap-3 pb-2">
           <div>
             <div className="text-[11px] font-semibold text-[#626a65]">{formatLongDate(new Date())}</div>
             <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.035em] text-[#202320] sm:text-[32px]">
@@ -133,12 +133,13 @@ export default function PipelineWelcome({
                 Some Home sections are temporarily unavailable. Available work remains current.
               </div>
             ) : null}
+            {briefing.scope === "team" ? <TeamMetrics briefing={briefing} /> : null}
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
-              <ActivityPanel briefing={briefing} onOpenPacket={onOpenPacket} />
-              <CurrentWorkPanel briefing={briefing} onOpenPacket={onOpenPacket} />
+              <ReadyToSchedulePanel briefing={briefing} onOpenPacket={onOpenPacket} />
+              <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />
             </div>
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
-              <UpcomingPanel briefing={briefing} onOpenPacket={onOpenPacket} />
+              <DataCompletionPanel briefing={briefing} onOpenPacket={onOpenPacket} />
               <RecentPanel items={recentItems} onOpenRecent={onOpenRecent} />
             </div>
           </div>
@@ -148,34 +149,39 @@ export default function PipelineWelcome({
   );
 }
 
-function ActivityPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
+function TeamMetrics({ briefing }: { briefing: HomeBriefingSnapshot }) {
+  const metrics = [
+    ["Active referrals", briefing.workflow.active_total],
+    ["Ready to schedule", briefing.workflow.ready_to_schedule.total],
+    ["Next 7 days", briefing.upcoming.length],
+    ["Need data", briefing.workflow.data_completion.total],
+    ["Data complete", briefing.workflow.overall_completion_pct === null ? "N/A" : `${briefing.workflow.overall_completion_pct}%`],
+  ];
+
   return (
-    <section aria-label="Last 24 hours" className="min-w-0 border border-[#d8dedb] bg-white">
-      <SectionHeader
-        title="Last 24 hours"
-        detail={briefing.unavailable_sections.includes("activity")
-          ? "Unavailable"
-          : `${briefing.activity.length}${briefing.activity_truncated ? "+" : ""} ${briefing.scope === "team" ? "team actions" : "actions"}`}
-      />
-      {briefing.unavailable_sections.includes("activity") ? (
+    <section aria-label="Team metrics" className="grid grid-cols-2 gap-x-8 gap-y-4 border-t border-[#cfd7d3] bg-white px-1 py-4 sm:grid-cols-3 xl:grid-cols-5">
+      {metrics.map(([label, value]) => (
+        <div key={label}>
+          <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#68716c]">{label}</div>
+          <div className="mt-1 text-[23px] font-semibold leading-none text-[#202320]">{value}</div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function ReadyToSchedulePanel({ briefing, onOpenPacket }: BriefingPanelProps) {
+  return (
+    <section data-guide-target="my-queue" aria-label="Ready to schedule" className="min-w-0 bg-white">
+      <SectionHeader title="Ready to schedule" detail={briefing.unavailable_sections.includes("workflow") ? "Unavailable" : scopeCount(briefing, briefing.workflow.ready_to_schedule.total)} />
+      {briefing.unavailable_sections.includes("workflow") ? (
         <UnavailableLine />
-      ) : briefing.activity.length === 0 ? (
-        <EmptyLine>No recorded activity in the last 24 hours.</EmptyLine>
+      ) : briefing.workflow.ready_to_schedule.items.length === 0 ? (
+        <EmptyLine>No referrals are waiting to be scheduled.</EmptyLine>
       ) : (
-        <div className="max-h-[340px] divide-y divide-[#e5e9e7] overflow-y-auto">
-          {briefing.activity.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onOpenPacket({ id: item.referral_id, name: clientDisplayName(item.client_name, item.community), community: item.community as Referral["community"] })}
-              className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-4 px-4 py-3 text-left hover:bg-[#f5faf8] sm:px-5"
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-[13px] font-semibold text-[#202320]">{item.label}</span>
-                <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{clientDisplayName(item.client_name, item.community)} · {item.community} · {item.actor_name}</span>
-              </span>
-              <span className="pt-0.5 text-[10px] font-semibold text-[#6e746f]">{relativeTime(item.occurred_at)}</span>
-            </button>
+        <div className="divide-y divide-[#e5e9e7]">
+          {briefing.workflow.ready_to_schedule.items.map((item) => (
+            <WorkflowRow key={item.referral_id} item={item} label="Schedule assessment" showOwner={briefing.scope === "team"} onOpenPacket={onOpenPacket} />
           ))}
         </div>
       )}
@@ -183,53 +189,33 @@ function ActivityPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
   );
 }
 
-function CurrentWorkPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
-  return (
-    <section data-guide-target="my-queue" aria-label="Current work" className="min-w-0 border border-[#d8dedb] bg-white">
-      <SectionHeader title="Current work" detail={briefing.unavailable_sections.includes("current_work") ? "Unavailable" : `${briefing.current_work.total} assigned`} />
-      {briefing.unavailable_sections.includes("current_work") ? (
-        <UnavailableLine />
-      ) : briefing.current_work.items.length === 0 ? (
-        <EmptyLine>No assigned actions.</EmptyLine>
-      ) : (
-        <div className="divide-y divide-[#e5e9e7]">
-          {briefing.current_work.items.map((item) => <QueueRow key={item.id} item={item} onOpenPacket={onOpenPacket} />)}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function QueueRow({ item, onOpenPacket }: { item: MyQueueItem } & Pick<BriefingPanelProps, "onOpenPacket">) {
+function WorkflowRow({ item, label, showOwner, onOpenPacket }: { item: ReferralWorklistItem; label: string; showOwner: boolean } & Pick<BriefingPanelProps, "onOpenPacket">) {
   return (
     <button
       type="button"
       onClick={() => onOpenPacket({ id: item.referral_id, name: clientDisplayName(item.client_name, item.community), community: item.community as Referral["community"] })}
-      className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left hover:bg-[#f5faf8]"
+      className="grid min-h-[62px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 text-left hover:bg-[#f5faf8] sm:px-5"
     >
       <span className="min-w-0">
-        <span className="block truncate text-[13px] font-semibold">{clientDisplayName(item.client_name, item.community)}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.next_action}</span>
+        <span className="block truncate text-[13px] font-semibold text-[#202320]">{clientDisplayName(item.client_name, item.community)}</span>
+        <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.community}{showOwner ? ` · ${item.owner}` : ""}</span>
       </span>
-      <span className={`pt-0.5 text-[9px] font-bold uppercase tracking-[0.08em] ${urgencyColor(item.urgency)}`}>{urgencyLabel(item.urgency)}</span>
+      <span className="text-[10px] font-semibold text-[#176f60]">{label}</span>
     </button>
   );
 }
 
-function UpcomingPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
+function UpcomingAssessmentsPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
   return (
-    <section aria-label="Upcoming" className="min-w-0 border border-[#d8dedb] bg-white">
-      <SectionHeader title="Upcoming" detail={briefing.unavailable_sections.includes("upcoming") ? "Unavailable" : "Next 7 days"} icon={<CalendarClock size={15} />} />
+    <section aria-label="Upcoming assessments" className="min-w-0 bg-white">
+      <SectionHeader title="Upcoming assessments" detail={briefing.unavailable_sections.includes("upcoming") ? "Unavailable" : "Next 7 days"} icon={<CalendarClock size={15} />} />
       {briefing.unavailable_sections.includes("upcoming") ? (
         <UnavailableLine />
-      ) : briefing.upcoming.length === 0 && briefing.unscheduled.length === 0 ? (
-        <EmptyLine>No scheduled assessments or follow-ups.</EmptyLine>
+      ) : briefing.upcoming.length === 0 ? (
+        <EmptyLine>No assessments are scheduled in the next seven days.</EmptyLine>
       ) : (
         <div className="divide-y divide-[#e5e9e7]">
           {briefing.upcoming.slice(0, 6).map((event) => <ScheduleRow key={event.id} event={event} onOpenPacket={onOpenPacket} />)}
-          {briefing.unscheduled.slice(0, Math.max(0, 6 - briefing.upcoming.length)).map((item) => (
-            <UnscheduledRow key={item.referralId} item={item} onOpenPacket={onOpenPacket} />
-          ))}
         </div>
       )}
     </section>
@@ -253,26 +239,52 @@ function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } &
   );
 }
 
-function UnscheduledRow({ item, onOpenPacket }: { item: PipelineUnscheduledAssessment } & Pick<BriefingPanelProps, "onOpenPacket">) {
+function DataCompletionPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
   return (
-    <button
-      type="button"
-      onClick={() => onOpenPacket({ id: item.referralId, name: clientDisplayName(item.clientName, item.community), community: item.community as Referral["community"] })}
-      className="grid w-full grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left hover:bg-[#fff9ef] sm:px-5"
-    >
-      <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[#9a641c]">Schedule</span>
-      <span className="min-w-0">
-        <span className="block truncate text-[13px] font-semibold">{clientDisplayName(item.clientName, item.community)}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.community} · {item.owner}</span>
-      </span>
-      <ArrowRight size={14} className="text-[#9a641c]" />
-    </button>
+    <section aria-label="Data completion" className="min-w-0 bg-white">
+      <SectionHeader
+        title="Data completion"
+        detail={briefing.unavailable_sections.includes("workflow")
+          ? "Unavailable"
+          : briefing.workflow.overall_completion_pct === null
+            ? "No active referrals"
+            : `${briefing.workflow.overall_completion_pct}% across ${briefing.scope === "team" ? "active referrals" : "your referrals"}`}
+      />
+      {briefing.unavailable_sections.includes("workflow") ? (
+        <UnavailableLine />
+      ) : briefing.workflow.data_completion.items.length === 0 ? (
+        <EmptyLine>No client data gaps are currently recorded.</EmptyLine>
+      ) : (
+        <div className="divide-y divide-[#e5e9e7]">
+          {briefing.workflow.data_completion.items.map((item) => (
+            <button
+              key={item.referral_id}
+              type="button"
+              onClick={() => onOpenPacket({ id: item.referral_id, name: clientDisplayName(item.client_name, item.community), community: item.community as Referral["community"] })}
+              className="grid min-h-[68px] w-full grid-cols-[minmax(0,1fr)_110px] items-center gap-4 px-4 py-3 text-left hover:bg-[#f5faf8] sm:px-5"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-semibold text-[#202320]">{clientDisplayName(item.client_name, item.community)}</span>
+                <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">
+                  {dataGapSummary(item)}
+                  {briefing.scope === "team" && item.owner !== "Unassigned" ? ` · ${item.owner}` : ""}
+                </span>
+              </span>
+              <span className="min-w-0">
+                <span className="block text-right text-[10px] font-semibold text-[#4f5752]">{item.completion_pct}%</span>
+                <span className="mt-1 block h-1.5 overflow-hidden bg-[#e6ebe8]"><span className="block h-full bg-[#0f8b73]" style={{ width: `${Math.max(0, Math.min(100, item.completion_pct))}%` }} /></span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
 function RecentPanel({ items, onOpenRecent }: { items: PipelineRecentDestination[]; onOpenRecent: (destination: PipelineRecentDestination) => void }) {
   return (
-    <section data-guide-target="recent-work" aria-label="Recent" className="min-w-0 border border-[#d8dedb] bg-white">
+    <section data-guide-target="recent-work" aria-label="Recent" className="min-w-0 bg-white">
       <SectionHeader title="Recent" detail="Your last five" />
       {items.length === 0 ? (
         <EmptyLine>Opened referrals and profiles will appear here.</EmptyLine>
@@ -363,14 +375,6 @@ function methodLabel(value?: string) {
   return labels[value ?? ""] ?? "";
 }
 
-function urgencyLabel(value: MyQueueUrgency) {
-  return { overdue: "Overdue", blocked: "Blocked", due_soon: "Due soon", stale: "Stale", normal: "Next" }[value];
-}
-
-function urgencyColor(value: MyQueueUrgency) {
-  return value === "overdue" || value === "blocked" ? "text-[#a9473d]" : value === "due_soon" ? "text-[#9a641c]" : "text-[#176f60]";
-}
-
 function recentTitle(item: PipelineRecentDestination) {
   if (item.id === "page:referrals") return "Workspaces";
   return item.kind === "profile" || item.kind === "referral"
@@ -380,4 +384,22 @@ function recentTitle(item: PipelineRecentDestination) {
 
 function clientDisplayName(name: string, community?: string) {
   return formatClientIdentityTitle({ name, community });
+}
+
+function scopeCount(briefing: HomeBriefingSnapshot, value: number) {
+  return `${value} ${briefing.scope === "team" ? "team" : "assigned"}`;
+}
+
+function dataGapSummary(item: ReferralWorklistItem) {
+  if (item.missing_data.length > 0) {
+    return `Missing: ${item.missing_data.slice(0, 2).map(lowerFirst).join(", ")}`;
+  }
+  if (item.missing_document_count > 0) {
+    return `Missing: ${item.missing_document_count} document${item.missing_document_count === 1 ? "" : "s"}`;
+  }
+  return "Client information needs review";
+}
+
+function lowerFirst(value: string) {
+  return value ? value[0].toLocaleLowerCase() + value.slice(1) : value;
 }

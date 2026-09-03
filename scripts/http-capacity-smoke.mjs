@@ -17,9 +17,10 @@ const timeoutMs = boundedInteger("PIPELINE_CAPACITY_TIMEOUT_MS", 15_000, 1_000, 
 const p95LimitMs = boundedInteger("PIPELINE_CAPACITY_P95_LIMIT_MS", 1_500, 100, 60_000);
 const p99LimitMs = boundedInteger("PIPELINE_CAPACITY_P99_LIMIT_MS", 3_000, 100, 90_000);
 const maxBodyBytes = boundedInteger("PIPELINE_CAPACITY_MAX_BODY_BYTES", 750_000, 50_000, 5_000_000);
+const includeClinical = process.env.PIPELINE_CAPACITY_INCLUDE_CLINICAL !== "false";
 const samples = [];
 
-const missions = [
+const availableMissions = [
   { name: "health_live", path: "/api/health/live", auth: false },
   { name: "referrals", path: "/api/referrals?limit=100&active=true", auth: true },
   { name: "directory", path: "/api/referrals/directory?limit=100&workspace=all", auth: true },
@@ -28,8 +29,9 @@ const missions = [
   { name: "my_queue", path: "/api/operations/my-queue", auth: true },
   { name: "search", path: "/api/search?scope=local&q=San%20Pablo", auth: true },
   { name: "calendar", path: "/api/calendar/events?start=2026-08-01&end=2026-08-31", auth: true },
-  { name: "census", path: "/api/clinical/census", auth: true },
+  { name: "census", path: "/api/clinical/census", auth: true, clinical: true },
 ];
+const missions = availableMissions.filter((mission) => includeClinical || !mission.clinical);
 
 await Promise.all(Array.from({ length: concurrency }, (_, worker) => runWorker(worker)));
 
@@ -52,6 +54,7 @@ console.log(JSON.stringify({
   p95_limit_ms: p95LimitMs,
   p99_limit_ms: p99LimitMs,
   max_body_bytes: maxBodyBytes,
+  skipped_missions: availableMissions.filter((mission) => !missions.includes(mission)).map((mission) => mission.name),
   summaries,
   note: "Capacity smoke logs route templates, status classes, timings, and response sizes only. Response bodies and identities are discarded.",
 }, null, 2));

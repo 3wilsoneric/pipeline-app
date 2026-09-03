@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2 } from "lucide-react";
-import { startTransition, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import OperatorGuidedTours from "@/components/pipeline/training/OperatorGuidedTours";
 import {
@@ -22,18 +22,21 @@ export default function PipelineOperatorAcademy({
   initialProgress: OperatorProgressRecord;
 }) {
   const [progress, setProgress] = useState(() => normalizeOperatorProgress(initialProgress.progress, assignedRoles));
-  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const serverProgress = normalizeOperatorProgress(initialProgress.progress, assignedRoles);
     const storedProgress = readLocalProgress(progressStorageKey, assignedRoles);
     const next = initialProgress.persistence === "browser" || initialProgress.revision === 0
       ? mergeOperatorProgress(serverProgress, storedProgress, assignedRoles)
       : serverProgress;
-    startTransition(() => {
+    queueMicrotask(() => {
+      if (cancelled) return;
       setProgress(next);
-      setHydrated(true);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [assignedRoles, initialProgress, progressStorageKey]);
 
   useEffect(() => {
@@ -62,9 +65,8 @@ export default function PipelineOperatorAcademy({
   return (
     <main
       data-operator-academy="true"
-      data-training-hydrated={hydrated ? "true" : "false"}
-      aria-busy={!hydrated}
-      className={`h-full min-h-0 overflow-y-auto bg-[#f6f8f7] text-[#171a18] ${hydrated ? "" : "pointer-events-none"}`}
+      data-training-hydrated="true"
+      className="h-full min-h-0 overflow-y-auto bg-[#f6f8f7] text-[#171a18]"
     >
       <div className="mx-auto w-full max-w-[1480px] px-4 pb-12 pt-6 sm:px-6 lg:px-8 lg:pt-9">
         <header className="border-b border-[#cbd5d1] pb-5">

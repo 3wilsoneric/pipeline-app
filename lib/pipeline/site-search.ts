@@ -1,6 +1,6 @@
 import { fuzzyTokenMatches, normalizeSearchText, tokenizeSearchText } from "@/lib/pipeline/fuzzy-search";
 
-export type PipelineSiteScreen = "referrals" | "profiles" | "packet" | "operations";
+export type PipelineSiteScreen = "referrals" | "profiles" | "packet" | "calendar" | "operations";
 
 export type PipelineSiteDestination = {
   id: string;
@@ -41,6 +41,13 @@ const siteDestinations: SearchableDestination[] = [
     title: "Reports",
     detail: "Review workspace, document, assessment, and team data",
     keywords: "report reports workspace documents assessment calendar completed team workload owner performance export csv queue overdue stale blocked conflict conflicts supervisor",
+  },
+  {
+    id: "site-calendar",
+    screen: "calendar",
+    title: "Calendar",
+    detail: "Review scheduled interviews and assessments ready to schedule",
+    keywords: "calendar schedule scheduled interview interviews assessment assessments appointment appointments",
   },
 ];
 

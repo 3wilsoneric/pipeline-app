@@ -6,6 +6,11 @@ import { readFileSync } from "node:fs";
 const scorecard = readFileSync("scripts/pipeline-performance-scorecard.mjs", "utf8");
 const certificationRunner = readFileSync("scripts/mcmaster-certification-runner.mjs", "utf8");
 const standaloneLauncher = readFileSync("scripts/start-standalone.mjs", "utf8");
+const header = readFileSync("components/pipeline/PipelineHeader.tsx", "utf8");
+const completeCertification = readFileSync("scripts/complete-performance-certification.mjs", "utf8");
+const soak = readFileSync("scripts/http-soak-smoke.mjs", "utf8");
+const collaboration = readFileSync("scripts/collaboration-load-smoke.mjs", "utf8");
+const capacity = readFileSync("scripts/http-capacity-smoke.mjs", "utf8");
 
 assert.match(scorecard, /interaction_count > 0/, "INP must require at least one observed interaction.");
 assert.match(scorecard, /inp_ms !== null/, "Missing INP must fail rather than becoming zero.");
@@ -24,6 +29,19 @@ assert.match(scorecard, /warm_navigation_ms: browserFrameCertificationLimit\(goa
 assert.match(scorecard, /warm_navigation_ms: boundedInteger\("PIPELINE_PERF_WARM_NAV_MS", 100/, "Warm navigation goal must remain 100 ms.");
 assert.match(scorecard, /useful_content_ms: boundedInteger\("PIPELINE_PERF_USEFUL_CONTENT_MS", 800/, "Useful referral content must retain a sub-second goal.");
 assert.match(scorecard, /filter_tab_queue_ms: boundedInteger\("PIPELINE_PERF_FILTER_MS", 150/, "Localized interaction goal must remain 150 ms.");
+assert.match(scorecard, /overlay_interaction_ms: boundedInteger\("PIPELINE_PERF_OVERLAY_MS", 150/, "Overlay interaction goal must remain 150 ms.");
+assert.match(scorecard, /guide_interaction_ms: boundedInteger\("PIPELINE_PERF_GUIDE_MS", 150/, "Guide interaction goal must remain 150 ms.");
+assert.match(scorecard, /guideJourneys\.length >= 9/, "The guide certification must exercise the complete open, step, pause, resume, end, and close sequence.");
+assert.match(scorecard, /referrals_to_learning_center/, "Learning Center navigation must be timed.");
+assert.match(scorecard, /report_csv_export/, "Report export must be timed.");
+assert.match(scorecard, /history_back_to_operations/, "Back and forward navigation must be timed.");
+assert.match(header, /href="\/training" prefetch=\{true\}/, "The dynamic Learning Center route must be fully prefetched.");
+assert.match(completeCertification, /PIPELINE_COLLABORATION_USERS[^\n]+"20"/, "Complete certification must exercise twenty simultaneous collaboration identities.");
+assert.match(completeCertification, /scripts\/http-soak-smoke\.mjs/, "Complete certification must include a bounded soak.");
+assert.match(soak, /172_800/, "The soak runner must support a bounded 48-hour maximum.");
+assert.match(collaboration, /PIPELINE_COLLABORATION_P95_LIMIT_MS/, "Collaboration operations must enforce a p95 latency budget.");
+assert.match(collaboration, /referral_create[\s\S]+presence_write[\s\S]+presence_read[\s\S]+referral_read/, "Collaboration certification must time representative durable reads and writes.");
+assert.match(capacity, /PIPELINE_CAPACITY_INCLUDE_CLINICAL/, "Clinical capacity coverage must be explicit rather than silently omitted.");
 assert.match(certificationRunner, /await runCalibration\(firstPort \+ runCount/, "Certification must discard one host-calibration run before scoring.");
 assert.match(certificationRunner, /calibration_discarded: true/, "Certification output must disclose the discarded calibration run.");
 assert.match(certificationRunner, /runs\.every\(\(run\) => run\.ok\)/, "Every scored certification run must pass.");
@@ -34,4 +52,4 @@ assert.match(
   "Custom Next dist directories must stage browser assets where the standalone server expects them.",
 );
 
-console.log(JSON.stringify({ ok: true, checks: 22 }, null, 2));
+console.log(JSON.stringify({ ok: true, checks: 35 }, null, 2));

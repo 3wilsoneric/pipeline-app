@@ -43,6 +43,7 @@ for (let index = 0; index < runCount; index += 1) {
 }
 
 const metric = (name) => runs.map((run) => Number(run.cold?.[name] ?? 0));
+const journeyNames = [...new Set(runs.flatMap((run) => run.warm_journeys.map((journey) => journey.name)))].sort();
 const result = {
   ok: runs.every((run) => run.ok),
   calibration_discarded: true,
@@ -61,6 +62,7 @@ const result = {
     client_profile_open_ms: journeyWorst(runs, "open_client_profile"),
     client_profile_return_ms: journeyWorst(runs, "profile_to_clients"),
     localized_interaction_ms: round(Math.max(...runs.flatMap((run) => run.warm_journeys.filter((journey) => journey.kind !== "navigation").map((journey) => journey.duration_ms)))),
+    journey_worst_ms: Object.fromEntries(journeyNames.map((name) => [name, journeyWorst(runs, name)])),
     ordinary_api_p95_ms: round(Math.max(...runs.map((run) => run.api.ordinary.p95_ms))),
     heavy_api_p95_ms: round(Math.max(...runs.map((run) => run.api.heavy.p95_ms))),
   },
@@ -77,6 +79,8 @@ const result = {
     client_journeys: Object.fromEntries(run.warm_journeys
       .filter((journey) => ["referrals_to_clients", "open_client_profile", "profile_to_clients"].includes(journey.name))
       .map((journey) => [journey.name, journey.duration_ms])),
+    navigation_phases: run.navigation_phases,
+    slowest_resources: run.slowest_resources,
     ordinary_api_p95_ms: run.api.ordinary.p95_ms,
     heavy_api_p95_ms: run.api.heavy.p95_ms,
     api_errors: run.api.errors,

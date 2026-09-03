@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowRight, Search } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Check, Search } from "lucide-react";
 
 import type { ClinicalClientDirectoryItem } from "@/lib/clinical/clinical-contracts";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
@@ -9,13 +9,20 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineSiteDestination, PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { searchSiteDestinations } from "@/lib/pipeline/site-search";
 import {
+  getPipelineQuestionIntent,
+  interpretPipelineQuestion,
+  type PipelineQuestionAction,
+  type PipelineQuestionIntent,
+  type PipelineQuestionSearchMode,
+} from "@/lib/pipeline/pipeline-question-assistant";
+import {
   formatClientIdentityDetail,
   formatClientIdentityTitle,
   resolveClientCommunity,
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 
-type SuggestedSearchMode = "my_work" | "unassigned" | "ready_to_schedule" | "scheduled_assessments" | "files";
+type SuggestedSearchMode = PipelineQuestionSearchMode;
 
 type PipelineSuggestedSearch = {
   id: string;
@@ -101,15 +108,30 @@ export default function PipelineSearchPanel({
   const [error, setError] = useState("");
   const [isFocused, setIsFocused] = useState(autoFocus);
   const [searchNonce, setSearchNonce] = useState(0);
+  const [selectedQuestionIntent, setSelectedQuestionIntent] = useState<string>();
   const submitRequestedRef = useRef(false);
 
   const visibleSuggestions = suggestedSearches;
   const normalizedQuery = searchText.trim();
+  const questionInterpretation = useMemo(() => {
+    if (selectedSuggestion) return null;
+    if (selectedQuestionIntent) {
+      const selected = getPipelineQuestionIntent(selectedQuestionIntent);
+      return selected ? { kind: "answer" as const, query: normalizedQuery, intent: selected, alternatives: [] } : null;
+    }
+    return interpretPipelineQuestion(normalizedQuery);
+  }, [normalizedQuery, selectedQuestionIntent, selectedSuggestion]);
   const showSuggestions = !normalizedQuery && (!resting || isFocused) && !result && !error;
 
   useEffect(() => {
     if (selectedSuggestion) return;
     const query = searchText.trim();
+    if (questionInterpretation) {
+      setResult(null);
+      setError("");
+      setIsSearching(false);
+      return;
+    }
     if (query.length < 2) {
       setResult(null);
       setError("");
@@ -162,7 +184,7 @@ export default function PipelineSearchPanel({
       window.clearTimeout(clinicalTimeout);
       controller.abort();
     };
-  }, [searchText, searchNonce, selectedSuggestion]);
+  }, [questionInterpretation, searchText, searchNonce, selectedSuggestion]);
 
   const runSuggestedSearch = async (suggestion: PipelineSuggestedSearch) => {
     if (isSearching) return;
@@ -193,9 +215,39 @@ export default function PipelineSearchPanel({
     const query = searchText.trim();
     if (query.length < 2) return;
 
+    if (questionInterpretation) return;
     setSelectedSuggestion(undefined);
     submitRequestedRef.current = true;
     setSearchNonce((current) => current + 1);
+  };
+
+  const runSearchMode = async (mode: PipelineQuestionSearchMode, prompt: string) => {
+    if (isSearching) return;
+    setSelectedQuestionIntent(undefined);
+    setSelectedSuggestion(`question:${mode}`);
+    setIsSearching(true);
+    setError("");
+    try {
+      const payload = await fetchPipelineJson<SearchResult>(
+        `/api/search?mode=${mode}&q=${encodeURIComponent(prompt)}`,
+        { cache: "no-store" },
+      );
+      if (!("counts" in payload)) throw new Error("That search is unavailable right now.");
+      setResult(payload);
+    } catch (searchError) {
+      setResult(null);
+      setError(searchError instanceof Error ? searchError.message : "That search is unavailable right now.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const useQuestionAction = (action: PipelineQuestionAction) => {
+    if (action.type === "navigate") {
+      onOpenDestination(action.screen);
+      return;
+    }
+    void runSearchMode(action.mode, normalizedQuery);
   };
 
   return (
@@ -209,11 +261,12 @@ export default function PipelineSearchPanel({
           onChange={(event) => {
             setSearchText(event.target.value);
             setSelectedSuggestion(undefined);
+            setSelectedQuestionIntent(undefined);
             setResult(null);
             setError("");
           }}
           onFocus={() => setIsFocused(true)}
-          placeholder="Search workspaces, clients, owners, counties, or documents..."
+          placeholder="Find a client, workspace, or document, or ask how something works..."
           className={`${resting ? "h-16 text-[17px]" : "h-12 text-[15px]"} min-w-0 flex-1 bg-transparent px-3 text-[#111111] outline-none placeholder:text-[#8a8a8a]`}
         />
         <button
@@ -270,7 +323,13 @@ export default function PipelineSearchPanel({
           {error}
         </div>
       ) : null}
-      {result ? (
+      {questionInterpretation ? (
+        <QuestionResponse
+          interpretation={questionInterpretation}
+          onChoose={(intent) => setSelectedQuestionIntent(intent.id)}
+          onAction={useQuestionAction}
+        />
+      ) : result ? (
         <SearchResponse
           result={result}
           isSearching={isSearching}
@@ -280,6 +339,71 @@ export default function PipelineSearchPanel({
         />
       ) : null}
     </section>
+  );
+}
+
+function QuestionResponse({
+  interpretation,
+  onChoose,
+  onAction,
+}: {
+  interpretation: NonNullable<ReturnType<typeof interpretPipelineQuestion>>;
+  onChoose: (intent: PipelineQuestionIntent) => void;
+  onAction: (action: PipelineQuestionAction) => void;
+}) {
+  if (interpretation.kind === "clarify" || interpretation.kind === "unsupported") {
+    return (
+      <div className="border-t border-[#d9d9d9] py-5" aria-live="polite">
+        <div className="px-1 sm:px-3">
+          <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f8b73]">Pipeline</div>
+          <h2 className="mt-2 text-[18px] font-black text-[#111111]">
+            {interpretation.kind === "clarify" ? "Did you mean?" : "I couldn't match that to a Pipeline task."}
+          </h2>
+          {interpretation.kind === "unsupported" ? (
+            <p className="mt-1 max-w-[720px] text-[12px] leading-5 text-[#666666]">
+              Try one of these, or search a client, workspace, owner, county, community, or document name.
+            </p>
+          ) : null}
+        </div>
+        <div className="mt-4 divide-y divide-[#e1e1e1] border-y border-[#e1e1e1]">
+          {interpretation.options.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onChoose(option)}
+              className="group flex min-h-14 w-full items-center justify-between gap-4 border-l-[3px] border-l-transparent px-4 py-3 text-left hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-l-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none sm:px-6"
+            >
+              <span className="text-[13px] font-semibold text-[#111111]">{option.title}</span>
+              <ArrowRight size={15} className="shrink-0 text-[#0f8b73]" />
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-[#d9d9d9] px-1 py-5 sm:px-3" aria-live="polite">
+      <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f8b73]">Pipeline</div>
+      <h2 className="mt-2 text-[20px] font-black text-[#111111]">{interpretation.intent.title}</h2>
+      <p className="mt-2 max-w-[820px] text-[13px] leading-6 text-[#4f4f4f]">{interpretation.intent.answer}</p>
+      <ol className="mt-4 max-w-[820px] space-y-2">
+        {interpretation.intent.steps.map((step) => (
+          <li key={step} className="flex items-start gap-2.5 text-[12px] leading-5 text-[#333333]">
+            <Check size={14} className="mt-0.5 shrink-0 text-[#0f8b73]" />
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+      <button
+        type="button"
+        onClick={() => onAction(interpretation.intent.action)}
+        className="mt-5 inline-flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
+      >
+        {interpretation.intent.action.label}
+        <ArrowRight size={14} />
+      </button>
+    </div>
   );
 }
 

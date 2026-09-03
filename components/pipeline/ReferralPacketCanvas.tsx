@@ -1662,7 +1662,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
             ) : null}
             <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
               <div className="min-w-0 space-y-5">
-                <ChartSection title="Identity" detail="Core identifiers for this referral episode" complete={countCompleteFields(fields, ["name", "gender", "age", "dob", "ssn"])} total={5}>
+                <ChartSection title="Identity" complete={countCompleteFields(fields, ["name", "gender", "age", "dob", "ssn"])} total={5}>
                   <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 lg:grid-cols-5">
                     {(["name", "gender", "age", "dob", "ssn"] as FieldKey[]).map((key) => (
                       <EditablePacketField
@@ -1675,7 +1675,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
                   </div>
                 </ChartSection>
 
-                <ChartSection title="Routing and assignment" detail="Who owns the referral, where it came from, and where it may be placed" complete={countCompleteFields(fields, ["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"])} total={7}>
+                <ChartSection title="Routing and assignment" complete={countCompleteFields(fields, ["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"])} total={7}>
                   <div aria-label="Referral routing" className="grid overflow-hidden border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 lg:grid-cols-3">
                     {(["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"] as FieldKey[]).map((key) => (
                       key === "owner" ? (
@@ -1754,7 +1754,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
                   </div>
                 </ChartSection>
 
-                <ChartSection title="Referral summary" detail="Initial context carried into the assessor's interview" complete={countCompleteFields(fields, ["summary"])} total={1}>
+                <ChartSection title="Referral summary" complete={countCompleteFields(fields, ["summary"])} total={1}>
                   <div>
                     <StructuredNarrativeField
                       field={fields.summary}
@@ -1764,7 +1764,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
                   </div>
                 </ChartSection>
 
-                <ChartSection title="Medication profile" detail="Current meds captured before assessment; this seeds the assessment medication section" complete={countCompleteFields(fields, ["currentMedications"])} total={1}>
+                <ChartSection title="Medication profile" complete={countCompleteFields(fields, ["currentMedications"])} total={1}>
                   <MedicationProfileField
                     field={fields.currentMedications}
                     onChange={(value) => updateField("currentMedications", value)}
@@ -2014,14 +2014,13 @@ function IntakeDocumentChecklist({
 
   return (
     <section aria-label="Document checklist" className="mb-6">
-      <details data-testid="document-checklist-panel" className="group border-y border-[#d7ddd9] bg-white">
+      <details data-testid="document-checklist-panel" className="group bg-white">
         <summary
           data-testid="document-checklist-toggle"
-          className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 border-t-2 border-[#111111] px-3 py-3 outline-none transition-colors hover:bg-[#f7faf9] focus-visible:bg-[#f1f7f4] [&::-webkit-details-marker]:hidden"
+          className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 border-b border-[#d7ddd9] px-1 py-3 outline-none transition-colors hover:bg-[#f7faf9] focus-visible:bg-[#f1f7f4] [&::-webkit-details-marker]:hidden"
         >
           <div className="min-w-0">
             <h2 className="text-[14px] font-black text-[#111111]">Documents</h2>
-            <p className="mt-0.5 text-[11px] text-[#737373]">Referral packet and admission files</p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <span className={`text-[10px] font-black ${hasInitialPacket ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
@@ -2034,7 +2033,7 @@ function IntakeDocumentChecklist({
           </div>
         </summary>
 
-        <div className="border-t border-[#d7ddd9] px-3 pb-4 pt-4">
+        <div className="px-1 pb-4 pt-4">
           <InitialPacketDropzone
             file={initialPacket}
             recordedName={recordedName}
@@ -2072,24 +2071,19 @@ function IntakeDocumentChecklist({
 
 function ChartSection({
   title,
-  detail,
   complete,
   total,
   children,
 }: {
   title: string;
-  detail: string;
   complete: number;
   total: number;
   children: React.ReactNode;
 }) {
   return (
     <section data-guide-target={chartGuideTarget(title)} aria-label={`${title} chart section`}>
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-t-2 border-[#111111] pt-3">
-        <div>
-          <h2 className="text-[14px] font-black text-[#111111]">{title}</h2>
-          <p className="mt-0.5 text-[11px] text-[#737373]">{detail}</p>
-        </div>
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-t border-[#cfd6d2] pt-3">
+        <h2 className="text-[14px] font-black text-[#111111]">{title}</h2>
         <span className={`text-[11px] font-black ${complete === total ? "text-[#0f8b73]" : "text-[#737373]"}`}>
           {complete} / {total}
         </span>
@@ -2130,7 +2124,7 @@ function ChartCompletionRail({
   const percent = fieldTotal === 0 ? 0 : Math.round((fieldCount / fieldTotal) * 100);
 
   return (
-    <section aria-label="Chart completion" className="border-t-2 border-[#111111] pt-4">
+    <section aria-label="Chart completion" className="border-t border-[#cfd6d2] pt-4">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-[13px] font-black text-[#111111]">Chart completion</h2>
         <span className="text-[22px] font-black text-[#111111]">{percent}%</span>
@@ -2138,7 +2132,7 @@ function ChartCompletionRail({
       <div className="mt-3 h-1.5 overflow-hidden bg-[#e5e9e6]">
         <div className="h-full bg-[#0f8b73] transition-[width] duration-300" style={{ width: `${percent}%` }} />
       </div>
-      <dl className="mt-4 divide-y divide-[#e3e5e3] border-y border-[#e3e5e3]">
+      <dl className="mt-4 divide-y divide-[#e3e5e3]">
         <ChartStatusRow label="Chart fields" value={`${fieldCount} / ${fieldTotal}`} />
         <ChartStatusRow
           label="Assessment"
@@ -2451,7 +2445,7 @@ function DocumentGroup({
 }) {
   return (
     <section aria-label={title} className="mb-6 last:mb-0">
-      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b-2 border-[#111111] px-1 pb-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[#cfd6d2] px-1 pb-3">
         <h2 className="text-[14px] font-black text-[#111111]">{title}</h2>
         <span className="text-[10px] font-black text-[#595959]">{detail}</span>
       </div>

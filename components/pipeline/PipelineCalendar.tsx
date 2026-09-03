@@ -399,7 +399,7 @@ function CalendarHeader(props: CalendarHeaderProps) {
     props.onOwner("");
   };
   return (
-    <header className="sticky top-0 z-20 border-b border-[#d8dedb] bg-white/95 py-2 backdrop-blur">
+    <header className="sticky top-0 z-20 bg-white/95 py-2 backdrop-blur">
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <IconButton label="Previous calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, -1))}><ChevronLeft size={17} /></IconButton>
@@ -425,7 +425,7 @@ function CalendarViewSwitch({ view, onView }: { view: CalendarView; onView: (val
 
 function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void; onToggleMine: () => void }) {
   return (
-    <div data-guide-target="calendar-filters" className={`${props.showFilters ? "flex" : "hidden"} mt-2 flex-wrap items-center gap-2 border-t border-[#edf0ee] pt-2 md:flex`}>
+    <div data-guide-target="calendar-filters" className={`${props.showFilters ? "flex" : "hidden"} mt-1 flex-wrap items-center gap-2 pt-1 md:flex`}>
       <span className="shrink-0 bg-[#eaf5f1] px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#176f5e]">{props.scope === "personal" ? "My schedule" : "Team schedule"}</span>
       <CalendarFilter label="community" value={props.community} onChange={props.onCommunity} options={props.communityOptions} />
       {props.scope === "team" ? <OwnerFilter value={props.owner} onChange={props.onOwner} options={props.ownerOptions} /> : null}
@@ -501,9 +501,9 @@ function CalendarOverlays(props: CalendarOverlaysProps) {
 
 function ActionQueue({ scope, items, total, overdue, onOpen, onSchedule, onSelectEvent }: { scope: "personal" | "team"; items: PipelineUnscheduledAssessment[]; total: number; overdue: PipelineCalendarEvent[]; onOpen: (item: PipelineUnscheduledAssessment) => void; onSchedule: (item: PipelineUnscheduledAssessment) => void; onSelectEvent: (event: PipelineCalendarEvent) => void }) {
   return (
-    <section aria-label="Calendar actions" className="mt-3 border border-[#d8dedb] bg-[#f7f9f8]">
-      <div className="flex items-center justify-between border-b border-[#e3e7e5] px-3 py-2.5 sm:px-4"><div className="flex items-center gap-2"><AlertTriangle size={15} className="text-[#a16a16]" /><h2 className="text-[13px] font-extrabold text-[#252a27]">Needs attention</h2></div><span className="text-[10px] font-bold text-[#6d7470]">{total + overdue.length} item{total + overdue.length === 1 ? "" : "s"}</span></div>
-      <div className="flex gap-2 overflow-x-auto p-2.5 sm:p-3">
+    <section aria-label="Calendar actions" className="mt-3 bg-[#f7f9f8] px-3 py-3 sm:px-4">
+      <div className="flex items-center justify-between pb-2.5"><div className="flex items-center gap-2"><AlertTriangle size={15} className="text-[#a16a16]" /><h2 className="text-[13px] font-extrabold text-[#252a27]">Needs attention</h2></div><span className="text-[10px] font-bold text-[#6d7470]">{total + overdue.length} item{total + overdue.length === 1 ? "" : "s"}</span></div>
+      <div className="flex gap-2 overflow-x-auto">
         {overdue.map((event) => <button key={event.id} type="button" onClick={() => onSelectEvent(event)} className="w-[245px] shrink-0 border border-[#e4c7c2] bg-white p-3 text-left hover:border-[#a9473d]"><span className="block text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#9c3d32]">Overdue assessment</span><span className="mt-1.5 block truncate text-[13px] font-extrabold text-[#252a27]">{calendarClientName(event.clientName, event.community)}</span><span className="mt-1 block truncate text-[11px] text-[#69706c]">{event.owner} - {shortDate(event.date)}</span></button>)}
         {items.map((item) => (
           <article key={item.referralId} className="w-[265px] shrink-0 border border-[#d8dedb] bg-white p-3">

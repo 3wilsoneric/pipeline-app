@@ -506,7 +506,7 @@ export default function ReferralHome({
   );
   const activeFilterCount = referralFilterCount(filter, sort);
   const filterToolbar = (
-    <div className="border-b border-[#e7e9e8] sm:border-b-0">
+    <div>
       <button
         type="button"
         aria-expanded={filtersOpen}
@@ -660,7 +660,7 @@ export default function ReferralHome({
             </div>
           </aside>
 
-          <section className="min-w-0 border-b border-[#d9d9d9] bg-white">
+          <section className="min-w-0 bg-white">
             {filter.kind === "workflow" ? (
               <ReferralWorkflowTracker
                 referrals={visibleReferrals}
@@ -895,7 +895,7 @@ function WorkspaceArchiveNavigation({
 
   return (
     <nav aria-label="Browse workspaces by date and community">
-      <div className="px-3 text-[9px] font-black uppercase tracking-[0.14em] text-[#737373]">Browse workspaces</div>
+      <div className="px-3 text-[9px] font-black uppercase tracking-[0.14em] text-[#737373]">Browse</div>
       <button
         type="button"
         onClick={onShowRecent}

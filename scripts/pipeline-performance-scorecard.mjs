@@ -24,6 +24,8 @@ const goals = {
   useful_content_ms: boundedInteger("PIPELINE_PERF_USEFUL_CONTENT_MS", 800, 100, 20_000),
   warm_navigation_ms: boundedInteger("PIPELINE_PERF_WARM_NAV_MS", 100, 25, 10_000),
   filter_tab_queue_ms: boundedInteger("PIPELINE_PERF_FILTER_MS", 150, 25, 10_000),
+  overlay_interaction_ms: boundedInteger("PIPELINE_PERF_OVERLAY_MS", 150, 25, 10_000),
+  guide_interaction_ms: boundedInteger("PIPELINE_PERF_GUIDE_MS", 150, 25, 10_000),
   ordinary_api_p95_ms: boundedInteger("PIPELINE_PERF_API_P95_MS", 200, 25, 10_000),
   heavy_api_p95_ms: boundedInteger("PIPELINE_PERF_HEAVY_API_P95_MS", 500, 50, 20_000),
   transferred_bytes: boundedInteger("PIPELINE_PERF_TRANSFER_BYTES", 1_048_576, 100_000, 50_000_000),
@@ -42,6 +44,8 @@ const limits = {
   useful_content_ms: timingCertificationLimit(goals.useful_content_ms),
   warm_navigation_ms: browserFrameCertificationLimit(goals.warm_navigation_ms),
   filter_tab_queue_ms: timingCertificationLimit(goals.filter_tab_queue_ms),
+  overlay_interaction_ms: timingCertificationLimit(goals.overlay_interaction_ms),
+  guide_interaction_ms: timingCertificationLimit(goals.guide_interaction_ms),
   ordinary_api_p95_ms: timingCertificationLimit(goals.ordinary_api_p95_ms),
   heavy_api_p95_ms: timingCertificationLimit(goals.heavy_api_p95_ms),
   transferred_bytes: Math.ceil(goals.transferred_bytes * 1.1),
@@ -60,11 +64,13 @@ const apiResponses = new Map();
 let documentBytes = 0;
 let assetBytes = 0;
 let requestCount = 0;
+const resourceSamples = [];
 const useSanitizedFixtures = isLocalTarget && process.env.PIPELINE_PERF_FIXTURES !== "false";
 const runId = randomUUID().slice(0, 8);
 let seededReferralName = `McMaster QA ${runId}`;
 
 if (useSanitizedFixtures) await installSanitizedClinicalFixtures(page);
+if (useSanitizedFixtures) await installSanitizedTrainingFixture(page);
 if (isLocalTarget && process.env.PIPELINE_PERF_SEED !== "false") {
   seededReferralName = await seedPerformanceReferral(context.request, parsedBaseUrl.origin, seededReferralName, runId);
 }
@@ -124,6 +130,15 @@ page.on("requestfinished", async (request) => {
   const bytes = sizes ? sizes.responseBodySize + sizes.responseHeadersSize : 0;
   if (request.resourceType() === "document") documentBytes += bytes;
   else assetBytes += bytes;
+  if (Number.isFinite(duration)) {
+    resourceSamples.push({
+      route: routeTemplate(url.pathname),
+      resource_type: request.resourceType(),
+      duration_ms: round(duration),
+      bytes,
+      status: response.status(),
+    });
+  }
   if (url.pathname.startsWith("/api/")) {
     const current = apiResponses.get(request);
     if (current) current.duration_ms ??= duration;
@@ -154,6 +169,7 @@ const cold = await page.evaluate(() => {
 });
 
 const journeys = [];
+const navigationPhases = {};
 await measureJourney("referrals_to_search", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open search", exact: true }));
   await page.getByLabel("Search or ask", { exact: true }).waitFor({ state: "visible" });
@@ -226,15 +242,148 @@ await measureJourney("packet_step_change", "tab", async () => {
 });
 await measureJourney("new_referral_to_home", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Pipeline home", exact: true }));
-  await page.getByRole("region", { name: "Current work", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("region", { name: "Ready to schedule", exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("home_to_operations", "navigation", async () => {
+
+await measureJourney("profile_menu_open", "overlay", async () => {
+  await activate(page.getByRole("button", { name: /Open profile menu for / }).first());
+  await page.getByRole("dialog", { name: "Profile menu", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("profile_menu_close", "overlay", async () => {
+  await activate(page.getByRole("button", { name: /Open profile menu for / }).first());
+  await page.getByRole("dialog", { name: "Profile menu", exact: true }).waitFor({ state: "hidden" });
+});
+
+await measureJourney("guide_library_open", "guide", async () => {
+  await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
+  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("guide_walkthrough_start", "guide", async () => {
+  await activate(page.getByRole("button", { name: /^Review team referral work / }).first());
+  await page.getByRole("dialog", { name: "Review team referral work guided tutorial", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: "Review the last 24 hours", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("guide_step_advance", "guide", async () => {
+  await activate(page.getByRole("button", { name: "Continue", exact: true }));
+  await page.getByRole("heading", { name: "Open the referral inventory", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("guide_step_back", "guide", async () => {
+  await activate(page.getByRole("button", { name: "Back", exact: true }));
+  await page.getByRole("heading", { name: "Review the last 24 hours", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("guide_pause", "guide", async () => {
+  await activate(page.getByRole("button", { name: "Pause tutorial", exact: true }));
+  await page.getByRole("dialog", { name: "Review team referral work guided tutorial", exact: true }).waitFor({ state: "hidden" });
+});
+await measureJourney("guide_library_reopen", "guide", async () => {
+  await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
+  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("guide_resume", "guide", async () => {
+  await activate(page.getByRole("button", { name: /^Continue where you stopped/ }).first());
+  await page.getByRole("dialog", { name: "Review team referral work guided tutorial", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("guide_end", "guide", async () => {
+  await activate(page.getByRole("button", { name: "End tutorial", exact: true }));
+  await page.getByRole("dialog", { name: "Review team referral work guided tutorial", exact: true }).waitFor({ state: "hidden" });
+  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("guide_library_close", "guide", async () => {
+  await activate(page.getByRole("button", { name: "Close guided tutorials", exact: true }));
+  await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "hidden" });
+});
+
+await measureJourney("home_to_calendar", "navigation", async () => {
+  await activate(page.getByRole("button", { name: "Open calendar", exact: true }));
+  await page.getByRole("group", { name: "Calendar view", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("calendar_view_change", "tab", async () => {
+  const month = page.getByRole("button", { name: "month", exact: true });
+  await activate(month);
+  if (await month.getAttribute("aria-pressed") !== "true") fail("Calendar view did not change synchronously.");
+});
+await measureJourney("calendar_filter", "filter", async () => {
+  const community = page.getByLabel("Filter calendar by community", { exact: true });
+  await community.selectOption("San Pablo");
+  if (await community.inputValue() !== "San Pablo") fail("Calendar filter did not update synchronously.");
+});
+
+await measureJourney("calendar_to_operations", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open reports", exact: true }));
   await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("report_tab_change", "tab", async () => {
+  await activate(page.getByRole("button", { name: "View Documents report", exact: true }));
+  await page.getByRole("heading", { name: "Documents", exact: true }).waitFor({ state: "visible" });
+});
+await activate(page.getByRole("button", { name: "View Workspaces report", exact: true }));
+await page.getByRole("heading", { name: "Workspaces", exact: true }).waitFor({ state: "visible" });
+await page.getByLabel("Report community", { exact: true }).selectOption("San Pablo");
+await measureJourney("report_filter_apply", "filter", async () => {
+  const reportResponse = page.waitForResponse((candidate) => {
+    const url = new URL(candidate.url());
+    return candidate.request().method() === "GET"
+      && candidate.ok()
+      && url.pathname === "/api/operations/reports"
+      && url.searchParams.get("community") === "San Pablo";
+  });
+  await activate(page.getByRole("button", { name: "Apply", exact: true }));
+  await reportResponse;
+});
+await measureJourney("report_csv_export", "export", async () => {
+  const download = page.waitForEvent("download");
+  await activate(page.getByRole("button", { name: "Export CSV", exact: true }));
+  await download;
 });
 await measureJourney("operations_to_referrals", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open referrals", exact: true }));
   await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("history_back_to_operations", "navigation", async () => {
+  await page.goBack();
+  await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("history_forward_to_referrals", "navigation", async () => {
+  await page.goForward();
+  await page.getByRole("heading", { name: "Referral workspaces", exact: true }).waitFor({ state: "visible" });
+});
+
+await measureJourney("referrals_to_learning_center", "navigation", async () => {
+  const startedAt = performance.now();
+  await activate(page.getByRole("button", { name: /Open profile menu for / }).first());
+  navigationPhases.learning_profile_menu_ms = round(performance.now() - startedAt);
+  const learningCenter = page.getByRole("link", { name: /Learning Center Guided walkthroughs and common tasks/ });
+  await learningCenter.waitFor({ state: "visible" });
+  const linkStartedAt = performance.now();
+  await learningCenter.click({ noWaitAfter: true });
+  navigationPhases.learning_link_click_ms = round(performance.now() - linkStartedAt);
+  const commitStartedAt = performance.now();
+  const academy = page.locator('[data-operator-academy="true"]');
+  const hydratedAcademy = page.locator('[data-training-hydrated="true"]');
+  const workflowAction = page.getByRole("button", { name: "Open full Pipeline workflow overview", exact: true });
+  await Promise.all([
+    recordPhase(navigationPhases, "learning_url_commit_ms", commitStartedAt, page.waitForURL((url) => url.pathname === "/training")),
+    recordPhase(navigationPhases, "learning_dom_attached_ms", commitStartedAt, academy.waitFor({ state: "attached" })),
+    recordPhase(navigationPhases, "learning_main_visible_ms", commitStartedAt, academy.waitFor({ state: "visible" })),
+    recordPhase(navigationPhases, "learning_hydrated_ms", commitStartedAt, hydratedAcademy.waitFor({ state: "visible" })),
+    recordPhase(navigationPhases, "learning_action_visible_ms", commitStartedAt, workflowAction.waitFor({ state: "visible" })),
+  ]);
+});
+await measureJourney("learning_workflow_open", "overlay", async () => {
+  await activate(page.getByRole("button", { name: "Open full Pipeline workflow overview", exact: true }));
+  await page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("learning_workflow_step", "overlay", async () => {
+  await activate(page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).getByRole("button", { name: "Next step", exact: true }));
+  await page.getByRole("heading", { name: "Create the referral workspace", exact: true }).waitFor({ state: "visible" });
+});
+await measureJourney("learning_workflow_close", "overlay", async () => {
+  await activate(page.getByRole("button", { name: "Close full walkthrough", exact: true }));
+  await page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).waitFor({ state: "hidden" });
+});
+await measureJourney("learning_task_open", "overlay", async () => {
+  await activate(page.getByRole("button", { name: "Open Complete an assessment", exact: true }));
+  await page.getByRole("heading", { name: "Complete an assessment", exact: true }).waitFor({ state: "visible" });
 });
 await page.waitForLoadState("networkidle");
 await afterNextPaint(page);
@@ -266,6 +415,10 @@ const result = {
   }),
   warm_journeys: journeys.map((journey) => ({ ...journey, duration_ms: round(journey.duration_ms) })),
   api: apiSummary,
+  navigation_phases: navigationPhases,
+  slowest_resources: resourceSamples
+    .toSorted((left, right) => right.duration_ms - left.duration_ms)
+    .slice(0, 12),
   goals,
   certification_limits: limits,
   checks: {},
@@ -275,6 +428,8 @@ const result = {
 
 const navigationJourneys = result.warm_journeys.filter((journey) => journey.kind === "navigation");
 const localizedJourneys = result.warm_journeys.filter((journey) => ["filter", "queue", "tab", "input"].includes(journey.kind));
+const overlayJourneys = result.warm_journeys.filter((journey) => ["overlay", "export"].includes(journey.kind));
+const guideJourneys = result.warm_journeys.filter((journey) => journey.kind === "guide");
 result.checks = {
   ttfb: result.cold.ttfb_ms <= limits.ttfb_ms,
   fcp: result.cold.fcp_ms <= limits.fcp_ms,
@@ -285,6 +440,8 @@ result.checks = {
   transfer: result.cold.transferred_bytes <= limits.transferred_bytes,
   warm_navigation: navigationJourneys.length > 0 && navigationJourneys.every((journey) => journey.duration_ms <= limits.warm_navigation_ms),
   localized_interactions: localizedJourneys.length > 0 && localizedJourneys.every((journey) => journey.duration_ms <= limits.filter_tab_queue_ms),
+  overlay_interactions: overlayJourneys.length > 0 && overlayJourneys.every((journey) => journey.duration_ms <= limits.overlay_interaction_ms),
+  guide_interactions: guideJourneys.length >= 9 && guideJourneys.every((journey) => journey.duration_ms <= limits.guide_interaction_ms),
   ordinary_api: apiSummary.ordinary.requests > 0 && apiSummary.ordinary.p95_ms <= limits.ordinary_api_p95_ms,
   heavy_api: apiSummary.heavy.requests > 0 && apiSummary.heavy.p95_ms <= limits.heavy_api_p95_ms,
   api_errors: apiSummary.errors === 0,
@@ -305,6 +462,11 @@ async function measureJourney(name, kind, action) {
 
 async function activate(locator) {
   await locator.click();
+}
+
+async function recordPhase(target, name, startedAt, operation) {
+  await operation;
+  target[name] = round(performance.now() - startedAt);
 }
 
 function summarizeApi(samples) {
@@ -435,6 +597,43 @@ async function installSanitizedClinicalFixtures(page) {
     headers: fixtureHeaders,
     body: JSON.stringify(directory),
   }));
+}
+
+async function installSanitizedTrainingFixture(page) {
+  let revision = 0;
+  let progress = {
+    version: 2,
+    curriculumVersion: "2026.08.operator.3",
+    role: "admin",
+    completedActivityIds: [],
+    activeModuleId: "pipeline-purpose",
+    activeActivityId: "learn",
+    evidence: {},
+    confidence: {},
+    scenarioResults: {},
+    tutorialResults: {},
+  };
+  const fixtureHeaders = {
+    "cache-control": "private, no-store, max-age=0",
+    "content-type": "application/json",
+    "x-pipeline-test-fixture": "sanitized",
+  };
+  await page.route(/\/api\/training\/progress(?:\?|$)/, async (route) => {
+    if (route.request().method() === "PUT") {
+      const payload = route.request().postDataJSON();
+      if (payload.expectedRevision !== revision) {
+        await route.fulfill({ status: 409, headers: fixtureHeaders, body: JSON.stringify({ error: "revision_conflict" }) });
+        return;
+      }
+      progress = payload.progress;
+      revision += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: fixtureHeaders,
+      body: JSON.stringify({ revision, progress, updatedAt: new Date().toISOString(), persistence: "sanitized_test_only" }),
+    });
+  });
 }
 
 async function seedPerformanceReferral(api, origin, name, runId) {

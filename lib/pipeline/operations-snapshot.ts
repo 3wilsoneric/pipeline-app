@@ -24,6 +24,7 @@ import type {
   MyQueueItem,
   MyQueueSnapshot,
   MyQueueUrgency,
+  HomeWorkflowSummary,
   OperationsAssessorLoad,
   OperationsRequirementItem,
   OperationsSnapshot,
@@ -164,7 +165,56 @@ function currentReportMonth() {
 }
 
 export async function getMyQueueSnapshot(user: { id: string; name: string }): Promise<MyQueueSnapshot> {
-  const { activeWork, now, openRequirements, work } = await loadOperationalWork();
+  return buildMyQueueSnapshot(await loadOperationalWork(), user);
+}
+
+export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWorkflowSummary> {
+  const operational = await loadOperationalWork(user);
+  const requirementsByReferral = groupRequirementsByReferral(operational.openRequirements);
+  const referralsById = new Map(operational.referrals.map((referral) => [referral.id, referral]));
+  const workByReferral = new Map(operational.activeWork.map((work) => [work.referral_id, work]));
+  const activeItems = operational.activeWork.map((work) =>
+    toReferralWorklistItem(
+      work,
+      referralsById.get(work.referral_id)!,
+      requirementsByReferral.get(work.referral_id) ?? [],
+    ),
+  ).sort(compareReferralWorklistItems);
+  const readyToSchedule = activeItems.filter((item) =>
+    workByReferral.get(item.referral_id)?.workflow_status === "ready_to_schedule",
+  );
+  const dataCompletion = activeItems.filter((item) =>
+    item.missing_data.length > 0 || item.missing_document_count > 0,
+  );
+  const overallCompletion = operational.activeWork.length === 0
+    ? null
+    : Math.round(
+        operational.activeWork.reduce((total, item) => total + item.completion_pct, 0)
+        / operational.activeWork.length,
+      );
+
+  return {
+    generated_at: operational.now.toISOString(),
+    active_total: operational.activeWork.length,
+    unassigned_total: operational.activeWork.filter((item) => item.owner === "Unassigned").length,
+    overall_completion_pct: overallCompletion,
+    ready_to_schedule: {
+      total: readyToSchedule.length,
+      items: readyToSchedule.slice(0, 6),
+    },
+    data_completion: {
+      total: dataCompletion.length,
+      items: dataCompletion.slice(0, 6),
+    },
+    current_work: buildMyQueueSnapshot(operational, user),
+  };
+}
+
+function buildMyQueueSnapshot(
+  operational: Awaited<ReturnType<typeof loadOperationalWork>>,
+  user: { id: string; name: string },
+): MyQueueSnapshot {
+  const { activeWork, now, openRequirements, work } = operational;
   const ownedWork = activeWork.filter((item) => item.action_required && isAssignedToUser({
     ownerId: item.owner_id,
     owner: item.owner,
@@ -257,13 +307,7 @@ export async function getReferralWorklistReferrals(
 async function loadReferralWorklistData(user?: PipelineUser) {
   const operational = await loadOperationalWork(user);
   const referralsById = new Map(operational.referrals.map((referral) => [referral.id, referral]));
-  const requirementsByReferral = new Map<number, OperationsRequirementItem[]>();
-  for (const requirement of operational.openRequirements) {
-    requirementsByReferral.set(requirement.referral_id, [
-      ...(requirementsByReferral.get(requirement.referral_id) ?? []),
-      requirement,
-    ]);
-  }
+  const requirementsByReferral = groupRequirementsByReferral(operational.openRequirements);
 
   const worklistWork = operational.work.filter((work) =>
     work.action_required || (requirementsByReferral.get(work.referral_id) ?? []).length > 0,
@@ -273,6 +317,17 @@ async function loadReferralWorklistData(user?: PipelineUser) {
     return toReferralWorklistItem(work, referral, requirementsByReferral.get(work.referral_id) ?? []);
   }).sort(compareReferralWorklistItems);
   return { operational, allItems, referralsById };
+}
+
+function groupRequirementsByReferral(requirements: OperationsRequirementItem[]) {
+  const grouped = new Map<number, OperationsRequirementItem[]>();
+  for (const requirement of requirements) {
+    grouped.set(requirement.referral_id, [
+      ...(grouped.get(requirement.referral_id) ?? []),
+      requirement,
+    ]);
+  }
+  return grouped;
 }
 
 function matchesReferralWorklistBucket(item: ReferralWorklistItem, bucket: ReferralWorklistBucket) {
