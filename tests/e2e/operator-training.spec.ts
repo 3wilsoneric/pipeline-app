@@ -23,7 +23,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "I want to..." })).toBeVisible();
     const taskTiles = page.locator('section[aria-label="Pipeline tasks"] > div > button');
     await expect(taskTiles.first()).toHaveAccessibleName("Open Complete an assessment");
-    await expect(page.getByRole("button", { name: "Open full Pipeline walkthrough preview" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open full Pipeline workflow overview" })).toBeVisible();
 
     await page.getByRole("button", { name: "Open Complete an assessment" }).click();
     await expect(page.getByRole("heading", { name: "Complete an assessment" })).toBeVisible();
@@ -89,17 +89,25 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "I want to..." })).toBeVisible();
   });
 
-  test("previews the full referral-to-handoff presentation", async ({ page }) => {
+  test("shows the full referral-to-handoff workflow", async ({ page }) => {
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    await page.getByRole("button", { name: "Open full Pipeline walkthrough preview" }).click();
+    await page.getByRole("button", { name: "Open full Pipeline workflow overview" }).click();
 
-    const preview = page.getByRole("dialog", { name: "Full Pipeline walkthrough preview" });
+    const preview = page.getByRole("dialog", { name: "Full Pipeline walkthrough" });
     await expect(preview).toBeVisible();
+    const previewBox = await preview.boundingBox();
+    const viewport = page.viewportSize();
+    expect(previewBox).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(previewBox!.x).toBeGreaterThanOrEqual(0);
+    expect(previewBox!.y).toBeGreaterThanOrEqual(0);
+    expect(previewBox!.x + previewBox!.width).toBeLessThanOrEqual(viewport!.width);
+    expect(previewBox!.y + previewBox!.height).toBeLessThanOrEqual(viewport!.height);
     await expect(preview.getByRole("heading", { name: "Find the work that needs attention" })).toBeVisible();
-    await preview.getByRole("button", { name: "Next" }).click();
+    await preview.getByRole("button", { name: "Next step" }).click();
     await expect(preview.getByRole("heading", { name: "Create the referral workspace" })).toBeVisible();
-    await preview.getByRole("button", { name: "Close full walkthrough preview" }).click();
+    await preview.getByRole("button", { name: "Close full walkthrough" }).click();
     await expect(preview).toBeHidden();
   });
 
@@ -111,10 +119,10 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "I want to..." })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
-    await page.getByRole("button", { name: "Open full Pipeline walkthrough preview" }).click();
-    const preview = page.getByRole("dialog", { name: "Full Pipeline walkthrough preview" });
-    await expect(preview.getByRole("button", { name: "Next" })).toBeInViewport();
-    await preview.getByRole("button", { name: "Close full walkthrough preview" }).click();
+    await page.getByRole("button", { name: "Open full Pipeline workflow overview" }).click();
+    const preview = page.getByRole("dialog", { name: "Full Pipeline walkthrough" });
+    await expect(preview.getByRole("button", { name: "Next step" })).toBeInViewport();
+    await preview.getByRole("button", { name: "Close full walkthrough" }).click();
 
     await page.getByRole("button", { name: "Open Find and reopen a referral" }).click();
     await page.getByRole("button", { name: "Start guided walkthrough: Find and reopen a referral" }).click();

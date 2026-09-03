@@ -59,14 +59,14 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
           <TaskTile key={tutorial.id} rank={index + 1} tutorial={tutorial} completed={progress.tutorialResults[tutorial.id]?.status === "completed"} onOpen={() => selectTask(tutorial.id)} />
         ))}
 
-        <button type="button" aria-label="Open full Pipeline walkthrough preview" onClick={() => setPreviewOpen(true)} className="group flex min-h-[184px] flex-col justify-between border border-[#9eb4ac] bg-[#153f36] p-5 text-left text-white shadow-[0_8px_24px_rgba(21,63,54,0.12)] hover:bg-[#0f4b3e] sm:p-6">
+        <button type="button" aria-label="Open full Pipeline workflow overview" onClick={() => setPreviewOpen(true)} className="group flex min-h-[184px] flex-col justify-between border border-[#9eb4ac] bg-[#153f36] p-5 text-left text-white shadow-[0_8px_24px_rgba(21,63,54,0.12)] hover:bg-[#0f4b3e] sm:p-6">
           <div className="flex items-start justify-between gap-5">
             <span className="flex h-12 w-12 items-center justify-center border border-white/25 bg-white/10"><MonitorPlay size={24} aria-hidden="true" /></span>
-            <span className="text-[9px] font-black uppercase tracking-[0.1em] text-[#bfe5d8]">Full tour preview</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.1em] text-[#bfe5d8]">Workflow overview</span>
           </div>
           <div className="mt-8 flex items-end justify-between gap-5">
             <div>
-              <div className="text-[19px] font-black leading-6 tracking-[-0.025em]">Learn the full workflow</div>
+              <div className="text-[19px] font-black leading-6 tracking-[-0.025em]">See the full workflow</div>
               <div className="mt-1.5 max-w-[330px] text-[11px] leading-4 text-[#cae0d9]">Referral intake through assessment, Chart, and handoff.</div>
             </div>
             <ArrowRight size={18} className="shrink-0 transition-transform group-hover:translate-x-1" aria-hidden="true" />
