@@ -4,6 +4,7 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 import {
   extractImportedClientMetadata,
   formatClientIdentityTitle,
+  isPersonOnlyClientName,
 } from "../lib/pipeline/client-identity-presentation.mjs";
 
 const root = process.cwd();
@@ -57,12 +58,16 @@ const results = [
       ["Zachary Laman- LA JAIL", "Zachary Laman"],
       ["Yuri Kawaakoa- -Monterey County", "Yuri Kawaakoa"],
       ["Yvonne", "Yvonne"],
+      ["K\uFEFFhadijah Avery", "Khadijah Avery"],
     ]) {
       assert(
         formatClientIdentityTitle({ name: source }) === expected,
         `Expected imported client title '${source}' to render as '${expected}'`,
       );
     }
+    assert(!isPersonOnlyClientName("Synthetic Pre-assessment"), "Operational labels must not pass as person names");
+    assert(!isPersonOnlyClientName("K Avery"), "Initial-only identities must not pass as complete names");
+    assert(isPersonOnlyClientName("Khadijah Avery"), "A complete first and last name must pass");
   }),
   run("assessment work is limited to the assigned assessor or a supervisor", () => {
     const assigned = { id: "assessor-1", email: "assessor@example.com", name: "Assigned Assessor", roles: ["reviewer"] };

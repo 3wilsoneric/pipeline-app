@@ -4,6 +4,13 @@ import type { PipelineCommunity } from "@/lib/pipeline/community-config";
 export const pipelineDemoScenarioVersion = "pipeline-demo-v1";
 export const pipelineDemoTag = "pipeline-demo";
 
+const pipelineDemoClientNames: Record<PipelineDemoScenarioId, string> = {
+  "new-intake": "Avery Morgan",
+  "assessment-preparation": "Jordan Lee",
+  "assessment-interview": "Taylor Rivera",
+  "assessment-complex": "Casey Bennett",
+};
+
 export type PipelineDemoScenarioId =
   | "new-intake"
   | "assessment-preparation"
@@ -87,9 +94,8 @@ export function buildPipelineDemoReferral(
   now = new Date(),
 ) {
   const timestamp = now.toISOString();
-  const suffix = timestamp.replace(/[-:.TZ]/g, "").slice(0, 14);
   return {
-    name: `Synthetic ${scenario.phase} ${suffix}`,
+    name: pipelineDemoClientNames[scenario.id],
     date: timestamp.slice(0, 10),
     stage: "New" as const,
     community: scenario.community,

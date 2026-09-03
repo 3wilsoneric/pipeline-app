@@ -3,7 +3,17 @@
 import { chmod, copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { normalizeClientName } from "../lib/pipeline/client-identity-presentation.mjs";
+import {
+  isPersonOnlyClientName,
+  normalizeClientName,
+} from "../lib/pipeline/client-identity-presentation.mjs";
+
+const demoClientNames = new Map([
+  ["new-intake", "Avery Morgan"],
+  ["assessment-preparation", "Jordan Lee"],
+  ["assessment-interview", "Taylor Rivera"],
+  ["assessment-complex", "Casey Bennett"],
+]);
 
 const writeChanges = process.argv.slice(2).includes("--write");
 const root = process.cwd();
@@ -13,9 +23,14 @@ const sources = [
     file: path.resolve(root, process.env.PIPELINE_REFERRAL_STORE_PATH?.trim() || ".data/referrals.json"),
     rows: "referrals",
     normalize(row) {
+      const demoScenario = Array.isArray(row.tags)
+        ? row.tags.find((tag) => demoClientNames.has(tag))
+        : null;
       return {
         ...row,
-        name: normalizeClientName(row.name, { gender: row.gender, community: row.community }),
+        name: demoScenario
+          ? demoClientNames.get(demoScenario)
+          : normalizeClientName(row.name, { gender: row.gender, community: row.community }),
       };
     },
   },
@@ -66,8 +81,7 @@ for (const source of sources) {
       : source.key === "current_residents"
         ? row.display_name
         : row.resident_name;
-    return !value
-      || value.split(/\s+/).filter(Boolean).length !== 2
+    return !isPersonOnlyClientName(value)
       || /\d/.test(value)
       || /\s+·\s+/.test(value)
       || /\s+(?:gender|sex|community|facility)\s*[:=]/i.test(value);

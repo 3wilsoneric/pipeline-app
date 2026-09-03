@@ -5,6 +5,7 @@ import path from "node:path";
 
 import {
   formatClientIdentityTitle,
+  isPersonOnlyClientName,
   normalizeClientName,
   resolveClientGender,
 } from "../lib/pipeline/client-identity-presentation.mjs";
@@ -41,7 +42,7 @@ const workspaceTitleFailures = referrals.filter((referral) => {
 const workspaceNameFailures = referrals.filter((referral) => referral.name !== normalizeClientName(referral.name, {
   gender: referral.gender,
   community: referral.community,
-}) || !hasFirstAndLastName(referral.name)).length;
+}) || !isPersonOnlyClientName(referral.name)).length;
 const duplicateWorkspaceIds = duplicateCount(referrals.map((referral) => String(referral.id ?? "")).filter(Boolean));
 
 const residentMissing = countMissing(residents, [
@@ -56,7 +57,7 @@ const residentMissing = countMissing(residents, [
 const residentNameFailures = residents.filter((resident) => resident.display_name !== normalizeClientName(
   resident.display_name,
   { firstName: resident.first_name, lastName: resident.last_name },
-) || !hasFirstAndLastName(resident.display_name)).length;
+) || !isPersonOnlyClientName(resident.display_name)).length;
 const historyMissing = {
   resident_name: episodes.filter((episode) => !readable(episode.resident_name)).length,
   community: episodes.filter((episode) => !readable(episode.community) && !readable(episode.facility_canonical)).length,
@@ -65,7 +66,7 @@ const historyMissing = {
 const historyNameFailures = episodes.filter((episode) => episode.resident_name !== normalizeClientName(
   episode.resident_name,
   { community: episode.community || episode.facility_canonical },
-) || !hasFirstAndLastName(episode.resident_name)).length;
+) || !isPersonOnlyClientName(episode.resident_name)).length;
 
 const surfaceContracts = [
   ["components/pipeline/ClientProfileDirectory.tsx", "formatClientIdentityTitle"],
@@ -114,6 +115,10 @@ const formatterFailures = [
   normalizeClientName("Yuri Kawaakoa- -Monterey County") === "Yuri Kawaakoa",
   normalizeClientName("Jordan Sample (Jr)") === "Jordan Sample",
   normalizeClientName("Yvonne") === "Yvonne",
+  normalizeClientName("K\uFEFFhadijah Avery") === "Khadijah Avery",
+  !isPersonOnlyClientName("Synthetic Pre-assessment"),
+  !isPersonOnlyClientName("K Avery"),
+  isPersonOnlyClientName("Khadijah Avery"),
   resolveClientGender('[{"value":"Female"}]') === "Female",
 ].filter((passed) => !passed).length;
 
@@ -178,10 +183,6 @@ function countMissing(rows, fields) {
     field,
     rows.filter((row) => !readable(row?.[field])).length,
   ]));
-}
-
-function hasFirstAndLastName(value) {
-  return String(value ?? "").trim().split(/\s+/).filter(Boolean).length === 2;
 }
 
 function duplicateCount(values) {
