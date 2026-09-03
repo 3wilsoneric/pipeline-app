@@ -7,13 +7,11 @@ import {
   Check,
   ChevronRight,
   Compass,
-  MessageCircleQuestion,
   Pause,
-  Send,
   ShieldCheck,
   X,
 } from "lucide-react";
-import { startTransition, useEffect, useEffectEvent, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { startTransition, useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
 
 import { fetchCurrentPipelineUser, fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
@@ -28,7 +26,6 @@ import {
   normalizeOperatorGuideState,
   OPERATOR_GUIDE_EVENT,
   OPERATOR_GUIDE_STORAGE_KEY,
-  parseOperatorGuideCommand,
   reduceOperatorGuideState,
   type OperatorGuideEvent,
   type OperatorGuideState,
@@ -46,11 +43,6 @@ type TargetView = {
   available: boolean;
 };
 
-type GuideExchange = {
-  user: string;
-  helper: string;
-};
-
 type TargetInteraction = {
   element: HTMLElement | null;
   handler: EventListener | null;
@@ -64,16 +56,12 @@ export default function PipelineGuidedCoach() {
   const [hydrated, setHydrated] = useState(false);
   const [role, setRole] = useState<OperatorRole>("viewer");
   const [target, setTarget] = useState<TargetView>(emptyTarget);
-  const [exchange, setExchange] = useState<GuideExchange | null>(null);
-  const [command, setCommand] = useState("");
   const [routeVersion, setRouteVersion] = useState(0);
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
   const tutorial = getOperatorGuidedTutorial(state.activeTutorialId);
   const step = tutorial?.steps[state.stepIndex];
 
   function commit(event: OperatorGuideEvent) {
-    setExchange(null);
-    setCommand("");
     setState((current) => {
       const next = reduceOperatorGuideState(current, event);
       writeGuideState(next);
@@ -96,7 +84,6 @@ export default function PipelineGuidedCoach() {
       writeGuideState(next);
       return next;
     });
-    setExchange(null);
     queueProgressSync(tutorialId, { status: "started", currentStep: 0, startedAt: now, updatedAt: now });
     openGuideRoute(selected.steps[0].route);
   }
@@ -119,6 +106,7 @@ export default function PipelineGuidedCoach() {
       return;
     }
     const nextIndex = state.stepIndex + 1;
+    const nextStep = tutorial.steps[nextIndex];
     commit({ type: "next" });
     queueProgressSync(tutorial.id, {
       status: "started",
@@ -126,6 +114,23 @@ export default function PipelineGuidedCoach() {
       startedAt: state.startedAt ?? now,
       updatedAt: now,
     });
+    window.setTimeout(() => openGuideRoute(nextStep.route), 0);
+  }
+
+  function goBack() {
+    if (!tutorial || state.stepIndex === 0) return;
+    const previousStep = tutorial.steps[state.stepIndex - 1];
+    commit({ type: "previous" });
+    window.setTimeout(() => openGuideRoute(previousStep.route), 0);
+  }
+
+  function resumeTutorial() {
+    if (!tutorial || !step) {
+      commit({ type: "open-library" });
+      return;
+    }
+    commit({ type: "resume" });
+    window.setTimeout(() => openGuideRoute(step.route), 0);
   }
 
   const handleExternalGuideEvent = useEffectEvent((event: Extract<OperatorGuideEvent, { type: "open-library" | "start" }>) => {
@@ -197,51 +202,18 @@ export default function PipelineGuidedCoach() {
     };
   }, [routeVersion, state.mode, state.stepIndex, step]);
 
-  const submitCommand = (event: FormEvent) => {
-    event.preventDefault();
-    if (!step || !command.trim()) return;
-    const raw = command.trim().slice(0, 80);
-    const parsed = parseOperatorGuideCommand(raw);
-    setCommand("");
-    executeGuideCommand({ parsed, raw, step, target, advance, commit, setExchange });
-  };
-
   if (!hydrated) return null;
   const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
-  return <GuideCoachSurface state={state} role={role} tutorial={tutorial} step={step} target={target} exchange={exchange} command={command} onStart={startTutorial} onCommit={commit} onAdvance={advance} onCommandChange={setCommand} onSubmit={submitCommand} onExchange={setExchange} />;
+  return <GuideCoachSurface state={state} role={role} tutorial={tutorial} step={step} target={target} onStart={startTutorial} onCommit={commit} onAdvance={advance} onBack={goBack} onResume={resumeTutorial} />;
 }
 
-function GuideCoachSurface({ state, role, tutorial, step, target, exchange, command, onStart, onCommit, onAdvance, onCommandChange, onSubmit, onExchange }: { state: OperatorGuideState; role: OperatorRole; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; exchange: GuideExchange | null; command: string; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onCommandChange: (value: string) => void; onSubmit: (event: FormEvent) => void; onExchange: (exchange: GuideExchange) => void }) {
+function GuideCoachSurface({ state, role, tutorial, step, target, onStart, onCommit, onAdvance, onBack, onResume }: { state: OperatorGuideState; role: OperatorRole; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void }) {
   if (state.mode === "closed") return null;
-  if (state.mode === "library") return <GuideLibrary role={role} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={() => onCommit({ type: "resume" })} onClose={() => onCommit({ type: "close" })} />;
+  if (state.mode === "library") return <GuideLibrary role={role} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
   if (!tutorial || !step) return null;
-  const conversation = <GuideConversation tutorialTitle={tutorial.title} workflow={tutorial.workflow} step={step} stepIndex={state.stepIndex} stepCount={tutorial.steps.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} exchange={exchange} command={command} onCommandChange={onCommandChange} onSubmit={onSubmit} onWhy={() => onExchange({ user: "Why does this matter?", helper: step.why })} onSafety={() => onExchange({ user: "What should I avoid?", helper: step.safety })} onBack={() => onCommit({ type: "previous" })} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
+  const conversation = <GuideConversation tutorialTitle={tutorial.title} step={step} stepIndex={state.stepIndex} stepCount={tutorial.steps.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} onBack={onBack} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
   return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} step={step} /> : null}{conversation}</>;
-}
-
-function executeGuideCommand({ parsed, raw, step, target, advance, commit, setExchange }: { parsed: ReturnType<typeof parseOperatorGuideCommand>; raw: string; step: OperatorGuideStep; target: TargetView; advance: () => void; commit: (event: OperatorGuideEvent) => void; setExchange: (exchange: GuideExchange) => void }) {
-  if (parsed === "next") {
-    if (guideTargetActionRequired(step, target)) setExchange({ user: raw, helper: `Use the highlighted ${targetLabel(step.target)} control so Pipeline can verify this step. I will advance automatically.` });
-    else advance();
-    return;
-  }
-  if (parsed === "back") return commit({ type: "previous" });
-  if (parsed === "pause") return commit({ type: "close" });
-  if (parsed === "restart") return commit({ type: "restart" });
-  setExchange({ user: raw, helper: guideCommandReply(parsed, step) });
-}
-
-function guideTargetActionRequired(step: OperatorGuideStep, target: TargetView) {
-  const optionalUnavailable = step.optionalTarget && (!target.available || !guideRouteMatches(step.route));
-  return step.advance !== "confirm" && !optionalUnavailable;
-}
-
-function guideCommandReply(parsed: ReturnType<typeof parseOperatorGuideCommand>, step: OperatorGuideStep) {
-  if (parsed === "why") return step.why;
-  if (parsed === "safety") return step.safety;
-  if (parsed === "repeat") return step.instruction;
-  return "I use authored commands only. Try: why, safety, repeat, next, back, restart, or pause. Do not enter names, packet text, or other PHI.";
 }
 
 function rebindGuideInteraction(current: TargetInteraction, candidate: HTMLElement | null, step: OperatorGuideStep, onAdvance: () => void): TargetInteraction {
@@ -274,45 +246,48 @@ function targetView(candidate: HTMLElement | null): TargetView {
 
 function GuideLibrary({ role, completed, resumableTutorialId, onStart, onResume, onClose }: { role: OperatorRole; completed: readonly string[]; resumableTutorialId: string | null; onStart: (id: string) => void; onResume: () => void; onClose: () => void }) {
   const tutorials = guidedTutorialsForRole(role);
+  const fullTour = tutorials.find((tutorial) => tutorial.id === "full-pipeline");
+  const commonTasks = tutorials.filter((tutorial) => tutorial.id !== "full-pipeline");
   const resumable = getOperatorGuidedTutorial(resumableTutorialId);
   return (
-    <section role="dialog" aria-label="Guided tutorial library" className="fixed bottom-4 right-4 z-[90] flex max-h-[min(720px,calc(100dvh-2rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden border border-[#b9c7c2] bg-white shadow-[0_20px_60px_rgba(17,35,30,0.24)]">
-      <header className="flex items-start justify-between gap-4 border-b border-[#d8dfdc] bg-[#f3f7f5] px-4 py-4">
-        <div><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#0c705f]"><Compass size={13} aria-hidden="true" /> Pipeline workflow guide</div><h2 className="mt-1.5 text-[18px] font-black tracking-[-0.025em] text-[#171b19]">Practice the work by doing it</h2><p className="mt-1 text-[10px] leading-4 text-[#66716d]">Authored actions only. The guide verifies interactions but never reads values or makes a workflow decision.</p></div>
+    <section role="dialog" aria-label="Guided tutorial library" className="fixed bottom-4 right-4 z-[90] flex max-h-[min(720px,calc(100dvh-2rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden border border-[#b9c7c2] bg-white shadow-[0_20px_60px_rgba(17,35,30,0.24)]">
+      <header className="flex items-center justify-between gap-4 border-b border-[#d8dfdc] bg-[#f3f7f5] px-4 py-3.5">
+        <div><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.11em] text-[#0c705f]"><Compass size={13} aria-hidden="true" /> Pipeline guide</div><h2 className="mt-1 text-[18px] font-black tracking-[-0.025em] text-[#171b19]">Guided walkthroughs</h2></div>
         <button type="button" aria-label="Close guided tutorials" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center text-[#6c7672] hover:bg-white hover:text-[#111111]"><X size={16} /></button>
       </header>
       <div className="overflow-y-auto p-3">
         {resumable ? <button type="button" onClick={onResume} className="mb-3 flex min-h-12 w-full items-center justify-between gap-3 border border-[#83b8a8] bg-[#edf8f4] px-3 text-left"><span><span className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#0c705f]">Continue where you stopped</span><span className="mt-1 block text-[11px] font-bold text-[#25473e]">{resumable.title}</span></span><ArrowRight size={14} className="text-[#0f8b73]" /></button> : null}
+        {fullTour ? <button type="button" onClick={() => onStart(fullTour.id)} className="group mb-4 w-full border border-[#78aa9c] bg-[#0f8b73] p-4 text-left text-white hover:bg-[#0b7561]"><span className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center border border-white/40 bg-white/10"><Compass size={16} /></span><span className="min-w-0 flex-1"><span className="block text-[8px] font-black uppercase tracking-[0.09em] text-white/75">Full walkthrough</span><span className="mt-1 block text-[14px] font-black">{fullTour.title}</span><span className="mt-1.5 block text-[10px] leading-4 text-white/85">{fullTour.steps.length} steps · about {fullTour.minutes} minutes</span></span><ChevronRight size={15} className="mt-3 shrink-0 transition-transform group-hover:translate-x-0.5" /></span></button> : null}
+        <div className="mb-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#65706c]">Common tasks</div>
         <div className="space-y-2">
-          {tutorials.map((tutorial) => {
+          {commonTasks.map((tutorial) => {
             const done = completed.includes(tutorial.id);
-            return <button key={tutorial.id} type="button" onClick={() => onStart(tutorial.id)} className="group w-full border border-[#d4dcda] bg-white p-3 text-left hover:border-[#86afa3] hover:bg-[#f8fbfa]"><div className="flex items-start justify-between gap-3"><span className={`flex h-8 w-8 shrink-0 items-center justify-center border ${done ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#c2d3cd] bg-[#eff6f3] text-[#0c705f]"}`}>{done ? <Check size={15} /> : <BookOpenCheck size={15} />}</span><span className="min-w-0 flex-1"><span className="block text-[8px] font-black uppercase tracking-[0.08em] text-[#0c705f]">{tutorial.workflow}</span><span className="mt-1 block text-[12px] font-black text-[#232927]">{tutorial.title}</span><span className="mt-1 block text-[10px] leading-4 text-[#69736f]">{tutorial.summary}</span><span className="mt-2 block text-[8px] font-black uppercase tracking-[0.09em] text-[#87908c]">{tutorial.steps.length} actions · {tutorial.minutes} min{done ? " · completed" : ""}</span></span><ChevronRight size={14} className="mt-2 shrink-0 text-[#84908b] group-hover:text-[#0f8b73]" /></div></button>;
+            return <button key={tutorial.id} type="button" onClick={() => onStart(tutorial.id)} className="group w-full border border-[#d4dcda] bg-white p-3 text-left hover:border-[#86afa3] hover:bg-[#f8fbfa]"><span className="flex items-center gap-3"><span className={`flex h-8 w-8 shrink-0 items-center justify-center border ${done ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#c2d3cd] bg-[#eff6f3] text-[#0c705f]"}`}>{done ? <Check size={15} /> : <BookOpenCheck size={15} />}</span><span className="min-w-0 flex-1"><span className="block text-[12px] font-black text-[#232927]">{tutorial.title}</span><span className="mt-1 block text-[8px] font-black uppercase tracking-[0.08em] text-[#7b8581]">{tutorial.steps.length} steps · {tutorial.minutes} min{done ? " · completed" : ""}</span></span><ChevronRight size={14} className="shrink-0 text-[#84908b] group-hover:text-[#0f8b73]" /></span></button>;
           })}
         </div>
       </div>
-      <footer className="border-t border-[#d8dfdc] bg-[#fafcfb] px-4 py-3 text-[9px] font-bold leading-4 text-[#707a76]"><ShieldCheck size={13} className="mr-1.5 inline text-[#0f8b73]" />Never enter PHI in the guide. It stores progress and command categories, not chat text.</footer>
+      <footer className="border-t border-[#d8dfdc] bg-[#fafcfb] px-4 py-3 text-[9px] font-bold leading-4 text-[#707a76]"><ShieldCheck size={13} className="mr-1.5 inline text-[#0f8b73]" />Use test records while learning. The guide never reads field values.</footer>
     </section>
   );
 }
 
-function GuideConversation({ tutorialTitle, workflow, step, stepIndex, stepCount, targetAvailable, routeMatches, exchange, command, onCommandChange, onSubmit, onWhy, onSafety, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorialTitle: string; workflow: string; step: OperatorGuideStep; stepIndex: number; stepCount: number; targetAvailable: boolean; routeMatches: boolean; exchange: GuideExchange | null; command: string; onCommandChange: (value: string) => void; onSubmit: (event: FormEvent) => void; onWhy: () => void; onSafety: () => void; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
+function GuideConversation({ tutorialTitle, step, stepIndex, stepCount, targetAvailable, routeMatches, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorialTitle: string; step: OperatorGuideStep; stepIndex: number; stepCount: number; targetAvailable: boolean; routeMatches: boolean; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
   const targetReady = routeMatches && targetAvailable;
   const canConfirm = !guideActionRequiresTarget(step, targetReady);
   return (
-    <section role="dialog" aria-label={`${tutorialTitle} guided tutorial`} className="fixed bottom-0 right-0 z-[100] flex max-h-[min(680px,calc(100dvh-1rem))] w-full flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)] sm:bottom-4 sm:right-4 sm:w-[390px]">
+    <section role="dialog" aria-label={`${tutorialTitle} guided tutorial`} className="fixed bottom-0 right-0 z-[100] flex max-h-[min(560px,calc(100dvh-1rem))] w-full flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)] sm:bottom-4 sm:right-4 sm:w-[380px]">
       <header className="border-b border-[#d5ddda] bg-[#f2f6f4] px-4 py-3">
-        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.11em] text-[#0c705f]"><MessageCircleQuestion size={12} /> Deterministic workflow guide</div><h2 className="mt-1 truncate text-[13px] font-black text-[#202623]">{tutorialTitle}</h2><div className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-[#75807c]">{workflow} · {step.phase}</div></div><div className="flex items-center gap-1"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={14} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={15} /></button></div></div>
+        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-[8px] font-black uppercase tracking-[0.11em] text-[#0c705f]">Step {stepIndex + 1} of {stepCount}</div><h2 className="mt-1 truncate text-[13px] font-black text-[#202623]">{tutorialTitle}</h2></div><div className="flex items-center gap-1"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={14} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={15} /></button></div></div>
         <div className="mt-3 flex gap-1" aria-label={`Action ${stepIndex + 1} of ${stepCount}`}>{Array.from({ length: stepCount }, (_, index) => <span key={index} className={`h-1 flex-1 ${index <= stepIndex ? "bg-[#0f8b73]" : "bg-[#d7dfdc]"}`} />)}</div>
       </header>
-      <GuideConversationBody step={step} stepIndex={stepIndex} targetReady={targetReady} routeMatches={routeMatches} exchange={exchange} onOpenRoute={onOpenRoute} onWhy={onWhy} onSafety={onSafety} />
-      <form onSubmit={onSubmit} className="flex items-center gap-2 border-t border-[#d8dfdc] bg-white px-3 py-2"><label htmlFor="pipeline-guide-command" className="sr-only">Guide command</label><input id="pipeline-guide-command" value={command} maxLength={80} onChange={(event) => onCommandChange(event.target.value)} autoComplete="off" placeholder="Ask: why, safety, next, back..." className="h-9 min-w-0 flex-1 border border-[#ced8d4] px-3 text-[10px] outline-none focus:border-[#0f8b73]" /><button type="submit" aria-label="Send guide command" disabled={!command.trim()} className="flex h-9 w-9 items-center justify-center bg-[#176b78] text-white disabled:bg-[#b8c1be]"><Send size={13} /></button></form>
+      <GuideConversationBody step={step} stepIndex={stepIndex} targetReady={targetReady} routeMatches={routeMatches} onOpenRoute={onOpenRoute} />
       <GuideConversationFooter step={step} stepIndex={stepIndex} stepCount={stepCount} targetReady={targetReady} canConfirm={canConfirm} onBack={onBack} onAdvance={onAdvance} />
     </section>
   );
 }
 
-function GuideConversationBody({ step, stepIndex, targetReady, routeMatches, exchange, onOpenRoute, onWhy, onSafety }: { step: OperatorGuideStep; stepIndex: number; targetReady: boolean; routeMatches: boolean; exchange: GuideExchange | null; onOpenRoute: () => void; onWhy: () => void; onSafety: () => void }) {
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-[#f8faf9] px-4 py-4" aria-live="polite"><div className="flex items-start gap-2.5"><span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#9fc8bb] bg-[#e9f5f1] text-[#0c705f]"><Compass size={14} /></span><div className="max-w-[300px] border border-[#d3ddda] bg-white px-3 py-3"><div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">Action {stepIndex + 1} · {step.phase}</div><h3 className="mt-1 text-[14px] font-black leading-5 text-[#1d2421]">{step.title}</h3><p className="mt-2 text-[11px] leading-5 text-[#57625e]">{step.message}</p><div className="mt-3 border-l-2 border-[#0f8b73] bg-[#f0f7f4] px-3 py-2 text-[10px] font-bold leading-4 text-[#285448]"><span className="mb-1 block text-[8px] font-black uppercase tracking-[0.08em] text-[#0c705f]">Do this</span>{step.instruction}</div><div className="mt-2 border-l-2 border-[#83a99d] bg-[#f7faf9] px-3 py-2 text-[9px] leading-4 text-[#52605b]"><span className="font-black text-[#293d37]">Done when: </span>{step.completion}</div></div></div>{!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : null}{exchange ? <><div className="ml-auto mt-3 max-w-[270px] bg-[#176b78] px-3 py-2 text-[10px] font-bold leading-4 text-white">{exchange.user}</div><div className="mt-2 flex items-start gap-2.5"><span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#9fc8bb] bg-[#e9f5f1] text-[#0c705f]"><Compass size={14} /></span><div className="max-w-[300px] border border-[#d3ddda] bg-white px-3 py-2.5 text-[10px] leading-5 text-[#57625e]">{exchange.helper}</div></div></> : null}<div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={onWhy} className="h-8 border border-[#cbd5d1] bg-white px-3 text-[9px] font-black text-[#4f5a56] hover:border-[#0f8b73]">Why this matters</button><button type="button" onClick={onSafety} className="h-8 border border-[#cbd5d1] bg-white px-3 text-[9px] font-black text-[#4f5a56] hover:border-[#a16a16]">Safety boundary</button></div></div>;
+function GuideConversationBody({ step, stepIndex, targetReady, routeMatches, onOpenRoute }: { step: OperatorGuideStep; stepIndex: number; targetReady: boolean; routeMatches: boolean; onOpenRoute: () => void }) {
+  return <div className="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-4" aria-live="polite"><div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">{step.phase} · Action {stepIndex + 1}</div><h3 className="mt-1.5 text-[18px] font-black leading-6 tracking-[-0.02em] text-[#1d2421]">{step.title}</h3><p className="mt-3 border-l-2 border-[#0f8b73] bg-[#f0f7f4] px-3 py-3 text-[12px] font-bold leading-5 text-[#285448]">{step.instruction}</p><p className="mt-3 text-[10px] leading-4 text-[#5f6a66]"><span className="font-black text-[#293d37]">Done when: </span>{step.completion}</p>{step.advance === "confirm" ? <p className="mt-3 border border-[#e2d6b8] bg-[#fffaf0] px-3 py-2 text-[9px] leading-4 text-[#705924]">{step.safety}</p> : null}{!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : null}</div>;
 }
 
 function UnavailableGuideAction({ step, routeMatches, onOpenRoute }: { step: OperatorGuideStep; routeMatches: boolean; onOpenRoute: () => void }) {
@@ -326,7 +301,7 @@ function unavailableGuideMessage(step: OperatorGuideStep, routeMatches: boolean)
 }
 
 function GuideConversationFooter({ step, stepIndex, stepCount, targetReady, canConfirm, onBack, onAdvance }: { step: OperatorGuideStep; stepIndex: number; stepCount: number; targetReady: boolean; canConfirm: boolean; onBack: () => void; onAdvance: () => void }) {
-  return <footer className="flex items-center justify-between gap-2 border-t border-[#d8dfdc] bg-[#fafcfb] px-3 py-3"><button type="button" disabled={stepIndex === 0} onClick={onBack} className="flex h-9 items-center gap-1.5 px-2 text-[9px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={13} /> Back</button><span className="text-[8px] font-black uppercase tracking-[0.08em] text-[#838c89]">No PHI in guide</span>{canConfirm ? <button type="button" onClick={onAdvance} className="flex h-9 items-center gap-2 bg-[#0f8b73] px-4 text-[9px] font-black text-white">{guideAdvanceLabel(step, stepIndex, stepCount, targetReady)}<ArrowRight size={13} /></button> : <span className="flex h-9 items-center gap-2 border border-[#9fc8bb] bg-[#edf7f3] px-3 text-[9px] font-black text-[#0c705f]">Complete highlighted action <ChevronRight size={12} /></span>}</footer>;
+  return <footer className="flex items-center justify-between gap-2 border-t border-[#d8dfdc] bg-[#fafcfb] px-3 py-3"><button type="button" disabled={stepIndex === 0} onClick={onBack} className="flex h-9 items-center gap-1.5 px-2 text-[9px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={13} /> Back</button>{canConfirm ? <button type="button" onClick={onAdvance} className="flex h-9 items-center gap-2 bg-[#0f8b73] px-4 text-[9px] font-black text-white">{guideAdvanceLabel(step, stepIndex, stepCount, targetReady)}<ArrowRight size={13} /></button> : <span className="flex h-9 items-center gap-2 border border-[#9fc8bb] bg-[#edf7f3] px-3 text-[9px] font-black text-[#0c705f]">Use highlighted control <ChevronRight size={12} /></span>}</footer>;
 }
 
 function guideActionRequiresTarget(step: OperatorGuideStep, targetReady: boolean) {
@@ -334,9 +309,9 @@ function guideActionRequiresTarget(step: OperatorGuideStep, targetReady: boolean
 }
 
 function guideAdvanceLabel(step: OperatorGuideStep, stepIndex: number, stepCount: number, targetReady: boolean) {
-  if (stepIndex === stepCount - 1) return "Complete workflow";
+  if (stepIndex === stepCount - 1) return "Finish";
   if (step.optionalTarget && !targetReady) return "Acknowledge stop";
-  return "Mark action complete";
+  return "Continue";
 }
 
 function GuideSpotlight({ rect, step }: { rect: DOMRect; step: OperatorGuideStep }) {
@@ -468,10 +443,6 @@ function primaryRole(roles: readonly string[]): OperatorRole {
   if (roles.includes("assessment_coordinator")) return "assessment_coordinator";
   if (roles.includes("reviewer")) return "reviewer";
   return "viewer";
-}
-
-function targetLabel(id: string) {
-  return id.replace(/^primary-/, "").replaceAll("-", " ");
 }
 
 function guideAdvanceEvent(advance: OperatorGuideStep["advance"], target: HTMLElement) {

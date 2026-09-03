@@ -1,9 +1,8 @@
 # Pipeline Learning Center
 
-The Learning Center is Pipeline's maintained end-user training and readiness system.
-It teaches the governed referral-to-assessment workflow through role-specific instruction,
-synthetic practice, decision simulations, job aids, and supervisor-observed certification.
-It also provides deterministic guided mode over the real product interface.
+The Learning Center is Pipeline's guided product help. Its visible interface contains one
+complete site walkthrough and a short list of common task walkthroughs. Each walkthrough
+opens the correct screen, highlights the next control, and verifies the authored interaction.
 
 ## Product Contract
 
@@ -19,17 +18,15 @@ It also provides deterministic guided mode over the real product interface.
 - Guided mode is authored and versioned. It does not call an LLM, inspect field values, or
   perform save, sign, decision, export, or handoff actions.
 
-## Learning Surfaces
+## Visible Learning Center
 
 | Surface | Purpose |
 | --- | --- |
-| My Path | Four-step mastery sequence for every required role module |
-| Guided Workflows | Chat-style, action-verified job rehearsals inside the real application |
-| Demo | Entry to the isolated presenter walkthrough and full synthetic workflow environment |
-| Practice Lab | Adverse and routine decision simulations with rationale |
-| Job Aids | Current, pressure-ready workflow checklists and stop conditions |
-| Product Map | Connected ownership map from inbound referral through EHR handoff |
-| Certification | Readiness gaps, confidence, scenario results, and sign-off status |
+| Full walkthrough | End-to-end orientation across Home, Workspaces, intake, Calendar, Client Profiles, and Reports |
+| Common tasks | Short action-verified help for start of shift, intake, assessment scheduling, and reports |
+
+The detailed curriculum, scenarios, job aids, product map, demo environment, and readiness
+records remain maintained source material. They are not separate operator-facing tabs.
 
 The interactive environment contract and two-week UAT plan are maintained in
 [`docs/DEMO_ENVIRONMENT.md`](../DEMO_ENVIRONMENT.md).
@@ -42,8 +39,8 @@ The certification fails when source anchors disappear, role paths break, require
 activities drift, scenarios lose a single safe answer, or the reviewed fingerprint is stale.
 
 Run `npm run test:e2e:training` against the configured Playwright server to exercise the
-actual learner path, simulation, guided clicks/input/selection changes, human commit boundaries, job-aid search,
-product map, certification, persistence, profile-menu discovery, and narrow-screen layout.
+Learning Center, full walkthrough, common task interactions, pause/resume persistence,
+profile-menu discovery, and narrow-screen layout.
 
 Curriculum version changes are deliberate. Increment the version when a material workflow,
 permission, safety rule, or user action changes. Users retain historical completion evidence,
