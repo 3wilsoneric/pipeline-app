@@ -1,8 +1,8 @@
 import { getOperatorGuidedTutorial, operatorGuidedTutorialIds } from "@/lib/training/operator-guided-tutorials";
 
-export const OPERATOR_GUIDE_STORAGE_KEY = "pipeline-guided-coach:v2";
+export const OPERATOR_GUIDE_STORAGE_KEY = "pipeline-guided-coach:v3";
 export const OPERATOR_GUIDE_EVENT = "pipeline:guided-coach";
-export const OPERATOR_GUIDE_STATE_VERSION = 2 as const;
+export const OPERATOR_GUIDE_STATE_VERSION = 3 as const;
 
 export type OperatorGuideMode = "closed" | "library" | "active";
 

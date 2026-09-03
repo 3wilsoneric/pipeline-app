@@ -66,15 +66,13 @@ export default function PipelineOperatorAcademy({
       aria-busy={!hydrated}
       className={`h-full min-h-0 overflow-y-auto bg-[#f6f8f7] text-[#171a18] ${hydrated ? "" : "pointer-events-none"}`}
     >
-      <div className="mx-auto w-full max-w-[1360px] px-4 pb-12 pt-6 sm:px-6 lg:px-8 lg:pt-9">
+      <div className="mx-auto w-full max-w-[1480px] px-4 pb-12 pt-6 sm:px-6 lg:px-8 lg:pt-9">
         <header className="border-b border-[#cbd5d1] pb-5">
-          <h1 className="text-[30px] font-semibold tracking-[-0.04em] text-[#151917] sm:text-[36px]">Learning Center</h1>
-          <p className="mt-1.5 max-w-[680px] text-[13px] leading-5 text-[#626c68]">
-            Choose a walkthrough. Pipeline will open the right screen and highlight each action.
-          </p>
+          <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">Learning Center</div>
+          <h1 className="mt-1 text-[34px] font-semibold tracking-[-0.045em] text-[#151917] sm:text-[44px]">I want to...</h1>
         </header>
 
-        <OperatorGuidedTours progress={progress} />
+        <OperatorGuidedTours assignedRoles={assignedRoles} progress={progress} />
 
         <footer className="mt-5 flex items-center gap-2 text-[10px] leading-4 text-[#6d7773]">
           <CheckCircle2 size={14} className="shrink-0 text-[#0f8b73]" aria-hidden="true" />

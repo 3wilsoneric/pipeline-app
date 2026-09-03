@@ -204,7 +204,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
               <p className="mt-1 text-[11px] leading-5 text-[#5b6662]">Practice referral review, scheduling, interviewing, and supervisor handoff.</p>
             </div>
           </div> : null}
-          <div className={`flex items-end ${showingHandoff ? "gap-1 bg-white px-0" : "border-t border-[#d8dfdc] bg-[#edf2f0] px-3 pt-2"}`} role="tablist" aria-label="Demo Center sections">
+          <div className={`flex min-w-0 items-end overflow-x-auto ${showingHandoff ? "gap-1 bg-white px-0" : "border-t border-[#d8dfdc] bg-[#edf2f0] px-3 pt-2"}`} role="tablist" aria-label="Demo Center sections">
             <DemoTab active={view === "run"} label="Walkthrough" onClick={() => setView("run")} />
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => setView("lab")} />
             <DemoTab active={view === "handoff"} label="Meet the Client" onClick={() => setView("handoff")} />
@@ -244,10 +244,10 @@ function PresenterRun({ chapter, chapterIndex, launchingId, canWrite, onSelect, 
   const scenario = chapter.scenarioId ? getPipelineDemoScenario(chapter.scenarioId) : null;
   const disabled = Boolean(scenario && scenario.launch === "assessment" && !canWrite) || launchingId !== null;
   return (
-    <section className="mt-5 grid min-h-[520px] overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="border-b border-[#d8dfdc] bg-[#eef3f1] lg:border-b-0 lg:border-r">
+    <section className="mt-5 grid min-h-[520px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="min-w-0 border-b border-[#d8dfdc] bg-[#eef3f1] lg:border-b-0 lg:border-r">
         <div className="border-b border-[#d8dfdc] px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Assessment steps</div>
-        <nav aria-label="Demo chapters" className="flex gap-1 overflow-x-auto p-2 lg:block">{demoChapters.map((item, index) => <button key={item.number} type="button" onClick={() => onSelect(index)} className={`grid min-h-[62px] w-full min-w-[190px] grid-cols-[30px_minmax(0,1fr)] items-center gap-3 border-l-[3px] px-3 py-2 text-left lg:mb-1 lg:min-w-0 ${index === chapterIndex ? "border-l-[#0f8b73] bg-white" : "border-l-transparent hover:bg-white/70"}`}><span className={`flex h-7 w-7 items-center justify-center border text-[9px] font-black ${index < chapterIndex ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#bac8c3] bg-white text-[#58645f]"}`}>{index < chapterIndex ? <Check size={13} /> : item.number}</span><span className="text-[11px] font-black leading-4 text-[#27302c]">{item.title}</span></button>)}</nav>
+        <nav aria-label="Demo chapters" className="flex w-full min-w-0 gap-1 overflow-x-auto p-2 lg:block">{demoChapters.map((item, index) => <button key={item.number} type="button" onClick={() => onSelect(index)} className={`grid min-h-[62px] w-[190px] shrink-0 grid-cols-[30px_minmax(0,1fr)] items-center gap-3 border-l-[3px] px-3 py-2 text-left lg:mb-1 lg:w-full ${index === chapterIndex ? "border-l-[#0f8b73] bg-white" : "border-l-transparent hover:bg-white/70"}`}><span className={`flex h-7 w-7 items-center justify-center border text-[9px] font-black ${index < chapterIndex ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#bac8c3] bg-white text-[#58645f]"}`}>{index < chapterIndex ? <Check size={13} /> : item.number}</span><span className="text-[11px] font-black leading-4 text-[#27302c]">{item.title}</span></button>)}</nav>
       </aside>
       <div className="flex min-w-0 flex-col">
         <div className="flex-1 px-5 py-7 sm:px-8 lg:px-10 lg:py-8">
@@ -287,7 +287,7 @@ function ScenarioLab({ referrals, loading, launchingId, canWrite, onLaunch, onOp
 }
 
 function DemoTab({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return <button type="button" role="tab" aria-selected={active} onClick={onClick} className={`relative -mb-px flex h-11 min-w-[160px] items-center justify-center border border-b-0 px-4 text-[11px] font-black ${active ? "z-10 border-[#cbd5d1] bg-white text-[#202623]" : "border-transparent text-[#68736f] hover:bg-[#e7ecea]"}`}>{label}</button>;
+  return <button type="button" role="tab" aria-selected={active} onClick={onClick} className={`relative -mb-px flex h-11 min-w-0 flex-1 items-center justify-center border border-b-0 px-2 text-[11px] font-black sm:min-w-[160px] sm:flex-none sm:px-4 ${active ? "z-10 border-[#cbd5d1] bg-white text-[#202623]" : "border-transparent text-[#68736f] hover:bg-[#e7ecea]"}`}>{label}</button>;
 }
 
 async function loadDemoReferrals() {

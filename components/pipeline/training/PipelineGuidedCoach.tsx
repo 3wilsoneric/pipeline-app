@@ -18,7 +18,7 @@ import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
 import { PIPELINE_NAVIGATION_EVENT, pushPipelineHistory } from "@/lib/pipeline/client-navigation";
 import {
   getOperatorGuidedTutorial,
-  guidedTutorialsForRole,
+  guidedTutorialsForRoles,
   type OperatorGuideStep,
 } from "@/lib/training/operator-guided-tutorials";
 import {
@@ -54,7 +54,7 @@ const emptyTarget: TargetView = { element: null, rect: null, available: false };
 export default function PipelineGuidedCoach() {
   const [state, setState] = useState<OperatorGuideState>(() => emptyOperatorGuideState());
   const [hydrated, setHydrated] = useState(false);
-  const [role, setRole] = useState<OperatorRole>("viewer");
+  const [roles, setRoles] = useState<readonly OperatorRole[]>(["viewer"]);
   const [target, setTarget] = useState<TargetView>(emptyTarget);
   const [routeVersion, setRouteVersion] = useState(0);
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -77,7 +77,7 @@ export default function PipelineGuidedCoach() {
 
   function startTutorial(tutorialId: string) {
     const selected = getOperatorGuidedTutorial(tutorialId);
-    if (!selected || !selected.audiences.includes(role)) return;
+    if (!selected || !selected.audiences.some((role) => roles.includes(role))) return;
     const now = new Date().toISOString();
     setState((current) => {
       const next = reduceOperatorGuideState(current, { type: "start", tutorialId }, now);
@@ -145,8 +145,8 @@ export default function PipelineGuidedCoach() {
       setHydrated(true);
     });
     fetchCurrentPipelineUser()
-      .then((payload) => setRole(primaryRole(payload.user?.roles ?? [])))
-      .catch(() => setRole("viewer"));
+      .then((payload) => setRoles(normalizeRoles(payload.user?.roles ?? [])))
+      .catch(() => setRoles(["viewer"]));
   }, []);
 
   useEffect(() => {
@@ -205,12 +205,12 @@ export default function PipelineGuidedCoach() {
   if (!hydrated) return null;
   const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
-  return <GuideCoachSurface state={state} role={role} tutorial={tutorial} step={step} target={target} onStart={startTutorial} onCommit={commit} onAdvance={advance} onBack={goBack} onResume={resumeTutorial} />;
+  return <GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={target} onStart={startTutorial} onCommit={commit} onAdvance={advance} onBack={goBack} onResume={resumeTutorial} />;
 }
 
-function GuideCoachSurface({ state, role, tutorial, step, target, onStart, onCommit, onAdvance, onBack, onResume }: { state: OperatorGuideState; role: OperatorRole; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void }) {
+function GuideCoachSurface({ state, roles, tutorial, step, target, onStart, onCommit, onAdvance, onBack, onResume }: { state: OperatorGuideState; roles: readonly OperatorRole[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void }) {
   if (state.mode === "closed") return null;
-  if (state.mode === "library") return <GuideLibrary role={role} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
+  if (state.mode === "library") return <GuideLibrary roles={roles} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
   if (!tutorial || !step) return null;
   const conversation = <GuideConversation tutorialTitle={tutorial.title} step={step} stepIndex={state.stepIndex} stepCount={tutorial.steps.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} onBack={onBack} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
   return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} step={step} /> : null}{conversation}</>;
@@ -244,11 +244,15 @@ function targetView(candidate: HTMLElement | null): TargetView {
   return { element: candidate, rect, available: Boolean(candidate && rect && rect.width > 0 && rect.height > 0) };
 }
 
-function GuideLibrary({ role, completed, resumableTutorialId, onStart, onResume, onClose }: { role: OperatorRole; completed: readonly string[]; resumableTutorialId: string | null; onStart: (id: string) => void; onResume: () => void; onClose: () => void }) {
-  const tutorials = guidedTutorialsForRole(role);
-  const fullTour = tutorials.find((tutorial) => tutorial.id === "full-pipeline");
-  const commonTasks = tutorials.filter((tutorial) => tutorial.id !== "full-pipeline");
+function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume, onClose }: { roles: readonly OperatorRole[]; completed: readonly string[]; resumableTutorialId: string | null; onStart: (id: string) => void; onResume: () => void; onClose: () => void }) {
+  const tutorials = guidedTutorialsForRoles(roles);
   const resumable = getOperatorGuidedTutorial(resumableTutorialId);
+  const tutorialOrder = ["assessor-shift", "complete-assessment", "supervisor-shift", "review-chart", "create-referral", "find-workspace", "run-report"];
+  const groups = [
+    { id: "assessor", label: "Assessor workflow" },
+    { id: "supervisor", label: "Supervisor workflow" },
+    { id: "shared", label: "Common tasks" },
+  ] as const;
   return (
     <section role="dialog" aria-label="Guided tutorial library" className="fixed bottom-4 right-4 z-[90] flex max-h-[min(720px,calc(100dvh-2rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden border border-[#b9c7c2] bg-white shadow-[0_20px_60px_rgba(17,35,30,0.24)]">
       <header className="flex items-center justify-between gap-4 border-b border-[#d8dfdc] bg-[#f3f7f5] px-4 py-3.5">
@@ -257,12 +261,23 @@ function GuideLibrary({ role, completed, resumableTutorialId, onStart, onResume,
       </header>
       <div className="overflow-y-auto p-3">
         {resumable ? <button type="button" onClick={onResume} className="mb-3 flex min-h-12 w-full items-center justify-between gap-3 border border-[#83b8a8] bg-[#edf8f4] px-3 text-left"><span><span className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#0c705f]">Continue where you stopped</span><span className="mt-1 block text-[11px] font-bold text-[#25473e]">{resumable.title}</span></span><ArrowRight size={14} className="text-[#0f8b73]" /></button> : null}
-        {fullTour ? <button type="button" onClick={() => onStart(fullTour.id)} className="group mb-4 w-full border border-[#78aa9c] bg-[#0f8b73] p-4 text-left text-white hover:bg-[#0b7561]"><span className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center border border-white/40 bg-white/10"><Compass size={16} /></span><span className="min-w-0 flex-1"><span className="block text-[8px] font-black uppercase tracking-[0.09em] text-white/75">Full walkthrough</span><span className="mt-1 block text-[14px] font-black">{fullTour.title}</span><span className="mt-1.5 block text-[10px] leading-4 text-white/85">{fullTour.steps.length} steps · about {fullTour.minutes} minutes</span></span><ChevronRight size={15} className="mt-3 shrink-0 transition-transform group-hover:translate-x-0.5" /></span></button> : null}
-        <div className="mb-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#65706c]">Common tasks</div>
-        <div className="space-y-2">
-          {commonTasks.map((tutorial) => {
-            const done = completed.includes(tutorial.id);
-            return <button key={tutorial.id} type="button" onClick={() => onStart(tutorial.id)} className="group w-full border border-[#d4dcda] bg-white p-3 text-left hover:border-[#86afa3] hover:bg-[#f8fbfa]"><span className="flex items-center gap-3"><span className={`flex h-8 w-8 shrink-0 items-center justify-center border ${done ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#c2d3cd] bg-[#eff6f3] text-[#0c705f]"}`}>{done ? <Check size={15} /> : <BookOpenCheck size={15} />}</span><span className="min-w-0 flex-1"><span className="block text-[12px] font-black text-[#232927]">{tutorial.title}</span><span className="mt-1 block text-[8px] font-black uppercase tracking-[0.08em] text-[#7b8581]">{tutorial.steps.length} steps · {tutorial.minutes} min{done ? " · completed" : ""}</span></span><ChevronRight size={14} className="shrink-0 text-[#84908b] group-hover:text-[#0f8b73]" /></span></button>;
+        <div className="space-y-4">
+          {groups.map((group) => {
+            const items = tutorials
+              .filter((tutorial) => tutorial.persona === group.id)
+              .sort((left, right) => tutorialOrder.indexOf(left.id) - tutorialOrder.indexOf(right.id));
+            if (items.length === 0) return null;
+            return (
+              <section key={group.id}>
+                <h3 className="mb-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#65706c]">{group.label}</h3>
+                <div className="space-y-2">
+                  {items.map((tutorial) => {
+                    const done = completed.includes(tutorial.id);
+                    return <button key={tutorial.id} type="button" onClick={() => onStart(tutorial.id)} className="group w-full border border-[#d4dcda] bg-white p-3 text-left hover:border-[#86afa3] hover:bg-[#f8fbfa]"><span className="flex items-center gap-3"><span className={`flex h-8 w-8 shrink-0 items-center justify-center border ${done ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#c2d3cd] bg-[#eff6f3] text-[#0c705f]"}`}>{done ? <Check size={15} /> : <BookOpenCheck size={15} />}</span><span className="min-w-0 flex-1"><span className="block text-[12px] font-black text-[#232927]">{tutorial.title}</span><span className="mt-1 block text-[9px] leading-4 text-[#6d7773]">{tutorial.clickpath.join(" → ")}</span><span className="mt-1 block text-[8px] font-black uppercase tracking-[0.08em] text-[#7b8581]">{tutorial.steps.length} actions · {tutorial.minutes} min{done ? " · completed" : ""}</span></span><ChevronRight size={14} className="shrink-0 text-[#84908b] group-hover:text-[#0f8b73]" /></span></button>;
+                  })}
+                </div>
+              </section>
+            );
           })}
         </div>
       </div>
@@ -345,7 +360,7 @@ function tooltipPosition(rect: DOMRect, placement: OperatorGuideStep["placement"
 }
 
 function findVisibleGuideTarget(id: string) {
-  const candidates = [...document.querySelectorAll<HTMLElement>(`[data-guide-target="${id}"]`)];
+  const candidates = [...document.querySelectorAll<HTMLElement>(`[data-guide-target~="${id}"]`)];
   return candidates.find((element) => {
     const rect = element.getBoundingClientRect();
     const style = window.getComputedStyle(element);
@@ -443,6 +458,12 @@ function primaryRole(roles: readonly string[]): OperatorRole {
   if (roles.includes("assessment_coordinator")) return "assessment_coordinator";
   if (roles.includes("reviewer")) return "reviewer";
   return "viewer";
+}
+
+function normalizeRoles(roles: readonly string[]): readonly OperatorRole[] {
+  const allowed: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer", "viewer"];
+  const normalized = allowed.filter((role) => roles.includes(role));
+  return normalized.length > 0 ? normalized : ["viewer"];
 }
 
 function guideAdvanceEvent(advance: OperatorGuideStep["advance"], target: HTMLElement) {

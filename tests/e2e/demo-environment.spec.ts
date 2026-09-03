@@ -34,6 +34,11 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.getByRole("heading", { name: "Assessor walkthrough" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Review the referral" })).toBeVisible();
     await expect(page.getByText("Open Intake and verify name, date of birth, community, source, and owner")).toBeVisible();
+    const center = page.locator('[data-demo-center="true"]');
+    expect(await center.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    for (const tab of ["Walkthrough", "Practice cases", "Meet the Client"]) {
+      await expect(page.getByRole("tab", { name: tab })).toBeInViewport();
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 

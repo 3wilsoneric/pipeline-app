@@ -1022,7 +1022,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
           <div className="flex items-center gap-2"><h2 className="text-[18px] font-black">Assessment</h2><StatusLabel status={selected.status} /></div>
           <p className="mt-2 text-[12px] text-[#737373]">{completion.complete} of {completion.total} required areas complete · {selected.assessor || "Unassigned"}</p>
         </div>
-        <button type="button" data-guide-target="assessment-schedule-open" onClick={() => {
+        <button type="button" data-guide-target={["assessment-open", "assessment-schedule-open"].join(" ")} onClick={() => {
           setIsFocused(true);
           setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
           setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
@@ -1045,17 +1045,17 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
             {canSupervise && selected.assessor_id !== viewer?.id ? <span className="sr-only">Supervisor access</span> : null}
           </div>
         </div>
-        <span aria-live="polite" className={`hidden max-w-[280px] truncate text-[10px] lg:block ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{error || (!networkOnline ? `Offline${pendingOfflineSaves > 0 ? ` · ${pendingOfflineSaves} queued` : ""}` : pendingOfflineSaves > 0 ? `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync` : dirty ? "Saving changes..." : message || "All changes saved")}</span>
+        <span data-guide-target="assessment-save-status" aria-live="polite" className={`hidden max-w-[280px] truncate text-[10px] lg:block ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{error || (!networkOnline ? `Offline${pendingOfflineSaves > 0 ? ` · ${pendingOfflineSaves} queued` : ""}` : pendingOfflineSaves > 0 ? `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync` : dirty ? "Saving changes..." : message || "All changes saved")}</span>
         {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? (
           <button type="button" data-guide-target="assessment-schedule-open" onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button>
         ) : null}
         {!selected.signed_at && !selected.started_at && selected.scheduled_start_at && canEditClinical ? (
-          <button type="button" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] sm:px-4"><Play size={13} fill="currentColor" /><span className="hidden sm:inline">Begin assessment</span><span className="sm:hidden">Begin</span></button>
+          <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] sm:px-4"><Play size={13} fill="currentColor" /><span className="hidden sm:inline">Begin assessment</span><span className="sm:hidden">Begin</span></button>
         ) : null}
         {selected.signed_at ? (
           canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"><Plus size={14} /> Addendum</button> : <span className="text-[11px] font-black text-[#0f6f5e]">Signed</span>
         ) : selected.started_at && canEditClinical ? (
-          <button type="button" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-10 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button>
+          <button type="button" data-guide-target="assessment-sign" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-10 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button>
         ) : null}
       </header>
 
@@ -1087,7 +1087,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
             <div className="mt-2 h-1.5 bg-[#dfe5e1]"><div className="h-full bg-[#0f8b73] transition-[width]" style={{ width: `${completion.percent}%` }} /></div>
             <p className="mt-2 text-[10px] leading-4 text-[#737373]">{completion.missing.length ? `${completion.missing.length} required areas remain` : "Ready to sign"}</p>
           </div>
-          <nav aria-label="Assessment sections" className="space-y-5">
+          <nav data-guide-target="assessment-section-nav" aria-label="Assessment sections" className="space-y-5">
             {assessmentNavigationGroups.map((group) => (
               <div key={group.label}>
                 <div className="px-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#8a8a8a]">{group.label}</div>
@@ -1110,7 +1110,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
           <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
             <label htmlFor="assessment-section-mobile" className="mb-1 block text-[9px] font-black uppercase text-[#737373]">Assessment section</label>
             <div className="relative">
-              <select id="assessment-section-mobile" value={activeSection} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-10 text-[12px] font-black outline-none focus:border-[#0f8b73]">{assessmentNavigationGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.sections.map((sectionKey) => { const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey); return section ? <option key={section.key} value={section.key}>{section.label}</option> : null; })}</optgroup>)}</select>
+              <select data-guide-target="assessment-section-nav" id="assessment-section-mobile" value={activeSection} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-10 text-[12px] font-black outline-none focus:border-[#0f8b73]">{assessmentNavigationGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.sections.map((sectionKey) => { const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey); return section ? <option key={section.key} value={section.key}>{section.label}</option> : null; })}</optgroup>)}</select>
               <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
             </div>
           </div>
@@ -1206,7 +1206,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
 
             <div className="mt-7 flex items-center justify-between gap-3">
               <button type="button" onClick={() => setActiveSection(assessmentInterviewSections[Math.max(0, activeSectionIndex - 1)].key)} disabled={activeSectionIndex <= 0} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73] disabled:opacity-35"><ChevronLeft size={14} /> Previous</button>
-              <button type="button" onClick={() => setActiveSection(assessmentInterviewSections[Math.min(assessmentInterviewSections.length - 1, activeSectionIndex + 1)].key)} disabled={activeSectionIndex >= assessmentInterviewSections.length - 1} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-35">Next section <ChevronRight size={14} /></button>
+              <button type="button" data-guide-target="assessment-next-section" onClick={() => setActiveSection(assessmentInterviewSections[Math.min(assessmentInterviewSections.length - 1, activeSectionIndex + 1)].key)} disabled={activeSectionIndex >= assessmentInterviewSections.length - 1} className="flex h-10 items-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-35">Next section <ChevronRight size={14} /></button>
             </div>
 
             {selected.unmapped_fields.length > 0 ? (
@@ -1295,7 +1295,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
             </div>
             <footer className="flex items-center justify-end gap-2 border-t border-[#d9dfdb] bg-[#f8faf9] px-6 py-4">
               <button type="button" onClick={() => { setShowBeginDialog(false); setIsFocused(false); }} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]">Back to workspace</button>
-              <button type="button" onClick={() => void beginAssessment()} disabled={isBusy || !canEditClinical} className="flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-45"><Play size={13} fill="currentColor" /> {isBusy ? "Starting..." : "Begin assessment"}</button>
+              <button type="button" data-guide-target="assessment-begin-confirm" onClick={() => void beginAssessment()} disabled={isBusy || !canEditClinical} className="flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-45"><Play size={13} fill="currentColor" /> {isBusy ? "Starting..." : "Begin assessment"}</button>
             </footer>
           </section>
         </div>
@@ -1433,6 +1433,7 @@ function AssessmentField({
       ) : question.control === "textarea" ? (
         <>
           <textarea
+            data-guide-target="assessment-answer"
             id={id}
             value={stringValue}
             readOnly={readOnly}
@@ -1472,7 +1473,7 @@ function AssessmentFieldWritingGuidePanel({ field }: { field: AssessmentToolFiel
 
   return (
     <details className="mt-2 border border-[#d9dfdb] bg-[#f8faf9]">
-      <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 marker:hidden">
+      <summary data-guide-target="assessment-answer-help" className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 marker:hidden">
         <span className="flex items-center gap-2 text-[10px] font-black text-[#315e50]"><Sparkles size={12} /> Answer format</span>
         <span className="text-[9px] font-semibold text-[#7b837e]">{specification.formatLabel} · {specification.lengthGuidance}</span>
       </summary>

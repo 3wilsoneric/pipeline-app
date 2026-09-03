@@ -138,7 +138,7 @@ type WorkspaceView = WorkspaceStage | "files" | "activity";
 const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
   { page: 1, label: "Intake" },
   { page: 2, label: "Assessment" },
-  { page: 3, label: "Charts" },
+  { page: 3, label: "Chart" },
 ] as const;
 
 const historicalSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
@@ -1438,7 +1438,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
             <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">
               <span className="sr-only">Workspace stage</span>
               <select
-                data-guide-target="assessment-stage"
+                data-guide-target="assessment-stage chart-stage"
                 aria-label="Workspace stage"
                 value={typeof activePage === "number" ? activePage : 1}
                 onChange={(event) => openPage(Number(event.target.value) as WorkspaceStage)}
@@ -1452,7 +1452,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
                 <button
                   key={page}
                   type="button"
-                  data-guide-target={page === 2 ? "assessment-stage" : undefined}
+                  data-guide-target={page === 2 ? "assessment-stage" : page === 3 ? "chart-stage" : undefined}
                   onClick={() => openPage(page)}
                   aria-current={activePage === page ? "page" : undefined}
                   className={`flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-[11px] font-black transition-colors ${
@@ -1809,7 +1809,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
                 />
             </PacketPage>
           ) : activePage === 3 && !isHistoricalWorkspace ? (
-            <PacketPage id="packet-charts" title="Charts">
+            <PacketPage id="packet-charts" title="Chart">
               <AssessmentChartWorkspace referralId={loadedReferral?.id ?? referral?.id} />
             </PacketPage>
           ) : (

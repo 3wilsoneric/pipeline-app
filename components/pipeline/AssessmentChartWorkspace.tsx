@@ -106,7 +106,7 @@ export default function AssessmentChartWorkspace({ referralId }: { referralId?: 
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#d9dfdb]">
         <nav aria-label="Assessment chart views" className="flex gap-7">
           <ChartTab active={view === "complete"} icon={<FileText size={14} />} label="Complete chart" onClick={() => setView("complete")} />
-          <ChartTab active={view === "meet-client"} icon={<UserRound size={14} />} label="Meet the Client" onClick={() => setView("meet-client")} />
+          <ChartTab guideTarget="chart-meet-client-tab" active={view === "meet-client"} icon={<UserRound size={14} />} label="Meet the Client" onClick={() => setView("meet-client")} />
         </nav>
         <button type="button" onClick={() => void load()} disabled={loading || sending} className="mb-2 flex h-8 items-center gap-2 px-2 text-[10px] font-black text-[#59635e] hover:text-[#0f8b73] disabled:opacity-50">
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
@@ -155,9 +155,9 @@ function ChartStatusMessage({ error, message }: { error: string; message: string
   return <div role={error ? "alert" : "status"} className={`mt-4 border-l-2 px-4 py-3 text-[12px] ${error ? "border-[#a4473c] bg-[#fff7f5] text-[#6e342d]" : "border-[#0f8b73] bg-[#f0f8f5] text-[#285f53]"}`}>{text}</div>;
 }
 
-function ChartTab({ active, icon, label, onClick }: { active: boolean; icon: React.ReactNode; label: string; onClick: () => void }) {
+function ChartTab({ active, icon, label, onClick, guideTarget }: { active: boolean; icon: React.ReactNode; label: string; onClick: () => void; guideTarget?: string }) {
   return (
-    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={`flex h-10 items-center gap-2 border-b-2 px-1 text-[11px] font-black ${active ? "border-[#0f8b73] text-[#17211d]" : "border-transparent text-[#707975] hover:text-[#0f8b73]"}`}>
+    <button type="button" data-guide-target={guideTarget} onClick={onClick} aria-current={active ? "page" : undefined} className={`flex h-10 items-center gap-2 border-b-2 px-1 text-[11px] font-black ${active ? "border-[#0f8b73] text-[#17211d]" : "border-transparent text-[#707975] hover:text-[#0f8b73]"}`}>
       {icon}{label}
     </button>
   );
@@ -165,7 +165,7 @@ function ChartTab({ active, icon, label, onClick }: { active: boolean; icon: Rea
 
 function CompleteAssessmentChart({ report }: { report: AssessmentSummaryReport }) {
   return (
-    <article aria-label="Complete assessment chart" className="border border-[#cfd7d2] bg-white">
+    <article data-guide-target="chart-complete-record" aria-label="Complete assessment chart" className="border border-[#cfd7d2] bg-white">
       <ChartHeader report={report} title="Comprehensive Assessment Record" />
       <ChartSection title="Client and referral" items={report.identity} />
       {report.sections.map((section) => <ChartSection key={section.id} title={section.title} items={section.items} />)}
@@ -263,7 +263,7 @@ function MeetClientChart({
         <div className="bg-[#f7faf8] px-5 py-4 text-[9px] text-[#69736e] sm:px-7">Prepared from assessment {summary.preparedFromAssessmentId}, version {summary.preparedFromAssessmentVersion}.</div>
       </article>
 
-      <aside className="border border-[#cfd7d2] bg-[#f8faf9] p-5" aria-label="Email Meet the Client">
+      <aside data-guide-target="chart-email-handoff" className="border border-[#cfd7d2] bg-[#f8faf9] p-5" aria-label="Email Meet the Client">
         <div className="flex items-center gap-2"><Mail size={15} className="text-[#0f8b73]" /><h3 className="text-[12px] font-black">Email this face sheet</h3></div>
         {!email.eligible ? (
           <p className="mt-3 text-[11px] leading-5 text-[#67716c]">Email becomes available after the referral has an accepted admission decision.</p>
