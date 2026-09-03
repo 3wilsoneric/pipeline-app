@@ -55,6 +55,7 @@ test.describe("Responsive application navigation", () => {
         await expect(archive).toBeVisible();
         await expect(archive.getByRole("button", { name: "Recent" })).toBeVisible();
         await expandMonth(archive.getByRole("button", { name: /September 2026/ }));
+        await expect(archive.getByRole("button", { name: /September 2026/ })).toContainText("2,583");
         await expect(archive.getByRole("button", { name: "San Pablo" })).toBeVisible();
         await expectCommunityRowsAreAdjacent(archive);
       }
@@ -111,7 +112,7 @@ async function mockReferralDirectory(page: Page) {
           priorities: [],
           tags: [],
           months: [
-            { value: "2026-09", count: 8 },
+            { value: "2026-09", count: 2583 },
             { value: "2026-08", count: 4 },
           ],
         },

@@ -367,15 +367,15 @@ export default function ReferralHome({
   const emptyReferralState = getEmptyReferralState(filter, searchTerm);
   const resultCountLabel = filter.kind === "files"
     ? reviewIdentity
-      ? isImportLoading ? "Loading..." : `${importTotal} need${importTotal === 1 ? "s" : ""} identity review`
+      ? isImportLoading ? "Loading..." : `${formatDirectoryCount(importTotal)} need${importTotal === 1 ? "s" : ""} identity review`
       : isFileLoading
       ? "Loading..."
-      : `${fileTotal} file${fileTotal === 1 ? "" : "s"}`
+      : `${formatDirectoryCount(fileTotal)} file${fileTotal === 1 ? "" : "s"}`
     : isLoading
       ? "Loading..."
       : filter.kind === "workflow"
-        ? `${referralTotal} active referral${referralTotal === 1 ? "" : "s"}`
-      : `${referralTotal} referral${referralTotal === 1 ? "" : "s"}`;
+        ? `${formatDirectoryCount(referralTotal)} active referral${referralTotal === 1 ? "" : "s"}`
+      : `${formatDirectoryCount(referralTotal)} referral${referralTotal === 1 ? "" : "s"}`;
 
   const refreshLabel = lastRefreshedAt === null ? "" : formatRefreshAge(lastRefreshedAt);
   const sidebarCommunities = pipelineCommunities
@@ -411,7 +411,7 @@ export default function ReferralHome({
           <X size={15} />
         </button>
       ) : null}
-      <span className="hidden shrink-0 text-[10px] text-[#737373] md:inline">{resultCountLabel}</span>
+      <span className="hidden shrink-0 text-[9px] font-bold text-[#737373] md:inline">{resultCountLabel}</span>
       {filter.kind === "workflow" ? (
         <>
           {refreshLabel ? <span className="hidden shrink-0 text-[10px] text-[#595959] xl:inline">{refreshLabel}</span> : null}
@@ -448,7 +448,7 @@ export default function ReferralHome({
         className="h-10 min-w-0 border border-[#9fcfc2] bg-[#f7fbf9] px-2 text-[12px] font-black text-[#0c705f] outline-none focus:border-[#0f8b73]"
       >
         <option value="">All counties</option>
-        {facets.counties.map((county) => <option key={county.value} value={county.value}>{county.value} ({county.count})</option>)}
+        {facets.counties.map((county) => <option key={county.value} value={county.value}>{county.value} ({formatDirectoryCount(county.count)})</option>)}
       </select>
       <select
         aria-label="Filter by owner"
@@ -479,7 +479,7 @@ export default function ReferralHome({
         <option value="">All workspace months</option>
         {monthOptions.map((month) => (
           <option key={month} value={month}>
-            {formatMonthKey(month)} ({facets.months.find((entry) => entry.value === month)?.count ?? 0})
+            {formatMonthKey(month)} ({formatDirectoryCount(facets.months.find((entry) => entry.value === month)?.count ?? 0)})
           </option>
         ))}
       </select>
@@ -932,7 +932,7 @@ function WorkspaceArchiveNavigation({
               >
                 {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
                 <span className="min-w-0 flex-1 truncate text-[11px] font-black">{formatMonthKey(month.value)}</span>
-                <span className="shrink-0 text-[10px] tabular-nums text-[#737373]">{month.count}</span>
+                <span className="shrink-0 text-[9px] font-black tabular-nums text-[#595959]">{formatDirectoryCount(month.count)}</span>
               </button>
               {expanded ? (
                 <div className="ml-4 border-l border-[#dce3e0] pl-2 pt-1">
@@ -1066,7 +1066,7 @@ function WorkspaceNavItem({
       <Icon size={16} className="shrink-0 max-[479px]:hidden" />
       <span className="truncate sm:hidden">{compactLabel ?? label}</span>
       <span className="hidden truncate sm:inline">{label}</span>
-      {typeof count === "number" ? <span className="ml-auto hidden shrink-0 text-[11px] tabular-nums xl:inline">{count}</span> : null}
+      {typeof count === "number" ? <span className="ml-auto hidden shrink-0 text-[9px] font-black tabular-nums xl:inline">{formatDirectoryCount(count)}</span> : null}
     </button>
   );
 }
@@ -1177,6 +1177,12 @@ function getMonthKey(value: string) {
   const date = new Date(value.includes("T") ? value : `${value}T12:00:00`);
   if (Number.isNaN(date.getTime())) return "unknown";
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+const directoryCountFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+function formatDirectoryCount(value: number) {
+  return directoryCountFormatter.format(value);
 }
 
 function presentCommunity(value?: string | null) {
