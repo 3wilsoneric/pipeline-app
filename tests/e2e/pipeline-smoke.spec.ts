@@ -2359,7 +2359,7 @@ test.describe("Pipeline home", () => {
     const clientResult = page.getByRole("button", { name: /Avery Example/ });
     await expect(clientResult).toBeVisible();
     await clientResult.click();
-    await expect(page.getByRole("heading", { name: /^Avery Example · / })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/\?screen=profile&clientId=/);
     expect(new URL(page.url()).searchParams.has("view")).toBeFalsy();
 
@@ -2369,7 +2369,7 @@ test.describe("Pipeline home", () => {
     await expect(recent.getByRole("button", { name: /Avery Example/ })).toBeVisible();
     await expect(recent.getByText("Profile", { exact: true })).toBeVisible();
     await recent.getByRole("button", { name: /Avery Example/ }).click();
-    await expect(page.getByRole("heading", { name: /^Avery Example · / })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
   });
 
   test("searches site destinations and the enhanced client directory while typing", async ({ page }) => {
@@ -2397,14 +2397,14 @@ test.describe("Pipeline home", () => {
     await page.getByRole("button", { name: "Open search" }).click();
     const globalSearch = page.getByLabel("Search or ask");
     await globalSearch.fill("profles");
-    const profilesResult = page.getByRole("button", { name: "Open Client profiles from search" });
+    const profilesResult = page.getByRole("button", { name: "Open Clients from search" });
     await expect(profilesResult).toBeVisible();
     await profilesResult.click();
 
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
     const clientSearch = page.getByLabel("Search clients");
     await clientSearch.fill("Avery");
-    await expect(page.getByRole("button", { name: new RegExp(`^Open profile for ${client.display_name} · `) })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Open profile for ${client.display_name}` })).toBeVisible();
     await clientSearch.fill("No matching client");
     await expect(page.getByText("No clients match that search.", { exact: true })).toBeVisible();
   });
@@ -2496,19 +2496,19 @@ test.describe("Pipeline home", () => {
 
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
-    await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeLessThan(1100);
-    await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(800);
+    await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeLessThanOrEqual(1240);
+    await expect.poll(async () => (await page.getByTestId("profiles-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1000);
     const activeProfiles = page.getByRole("button", { name: "Open client profiles" });
     await expect(activeProfiles).toHaveAttribute("aria-pressed", "true");
     await expect(activeProfiles).toHaveAttribute("data-active", "true");
     await expect(activeProfiles).toHaveClass(/bg-\[#eef1ff\]/);
     await expect(activeProfiles).toHaveCSS("background-color", "rgb(238, 241, 255)");
     await expect(activeProfiles).toHaveCSS("border-color", "rgb(75, 104, 173)");
-    await expect(page.getByText("1 of 1 clients", { exact: true })).toBeVisible();
-    await expect(page.getByText(/^Avery Example · /)).toBeVisible();
+    await expect(page.getByText("1 client", { exact: true })).toBeVisible();
+    await expect(page.getByText("Avery Example", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: /Avery Example/ }).click();
-    await expect(page.getByRole("heading", { name: /^Avery Example · / })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
     await expect.poll(async () => (await page.getByTestId("profile-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1200);
     await expect(page.getByText("Current resident", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Client information", { exact: true })).toBeVisible();
@@ -2615,7 +2615,7 @@ test.describe("Pipeline home", () => {
         ...baseClient,
         canonical_client_id: "client-recent-san-pablo",
         resident_numbers: ["R-201"],
-        display_name: "Recent San Pablo",
+        display_name: "Riley Perez",
         community_names: ["A & A Health Services San Pablo"],
         current_community: "A & A Health Services San Pablo",
         current_resident: true,
@@ -2626,7 +2626,7 @@ test.describe("Pipeline home", () => {
         ...baseClient,
         canonical_client_id: "client-older-san-pablo",
         resident_numbers: ["R-202"],
-        display_name: "Older San Pablo",
+        display_name: "Oscar Martin",
         community_names: ["A & A Health Services San Pablo"],
         current_community: "A & A Health Services San Pablo",
         current_resident: true,
@@ -2637,7 +2637,7 @@ test.describe("Pipeline home", () => {
         ...baseClient,
         canonical_client_id: "client-recent-turlock",
         resident_numbers: ["R-203"],
-        display_name: "Recent Turlock",
+        display_name: "Taylor Chen",
         community_names: ["AHS Turlock OP LLC"],
         current_community: "AHS Turlock OP LLC",
         current_resident: true,
@@ -2663,28 +2663,25 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Open client profiles" }).click();
-    await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
+    await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Add admission date filter" }).click();
-    await expect(page.getByLabel("Filter profiles by admission date")).toHaveValue("last_6_months");
-    await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
-    await expect(page.getByText("Recent Turlock", { exact: true })).toBeVisible();
-    await expect(page.getByText("Older San Pablo", { exact: true })).toHaveCount(0);
+    await page.getByLabel("Filter profiles by admission date").selectOption("last_6_months");
+    await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
+    await expect(page.getByText("Taylor Chen", { exact: true })).toBeVisible();
+    await expect(page.getByText("Oscar Martin", { exact: true })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Add community filter" }).click();
     await page.getByLabel("Filter profiles by community").selectOption("A & A Health Services San Pablo");
-    await expect(page.getByText("1 of 1 matching", { exact: true })).toBeVisible();
-    await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
-    await expect(page.getByText("Recent Turlock", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("1 matching", { exact: true })).toBeVisible();
+    await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
+    await expect(page.getByText("Taylor Chen", { exact: true })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Add profile data filter" }).click();
     await page.getByLabel("Filter profiles by profile data").selectOption("complete");
-    await expect(page.getByText("Recent San Pablo", { exact: true })).toBeVisible();
+    await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Remove admitted filter" }).click();
-    await expect(page.getByText("Older San Pablo", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Clear all" }).click();
-    await expect(page.getByText("Recent Turlock", { exact: true })).toBeVisible();
+    await page.getByLabel("Filter profiles by admission date").selectOption("any");
+    await expect(page.getByText("Oscar Martin", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Reset" }).click();
+    await expect(page.getByText("Taylor Chen", { exact: true })).toBeVisible();
   });
 
   test("keeps the governed directory status while Pipeline workspace pages finish loading", async ({ page }) => {
@@ -2696,7 +2693,7 @@ test.describe("Pipeline home", () => {
     const pipelineClient = {
       ...clinicalClient,
       canonical_client_id: "pipeline:workspace-pagination-check",
-      display_name: "Pipeline Workspace Check",
+      display_name: "Morgan Lee",
       workspace_origin: "pipeline",
       pipeline_client_id: "workspace-pagination-check",
       referral_count: 1,
@@ -2731,9 +2728,9 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Open client profiles" }).click();
-    await expect(page.getByText("Pipeline Workspace Check", { exact: true })).toBeVisible();
+    await expect(page.getByText("Morgan Lee", { exact: true })).toBeVisible();
     await expect(page.getByText("The Alamo client directory is unavailable", { exact: false })).toHaveCount(0);
-    await expect(page.getByText("2 of 2 clients", { exact: true })).toBeVisible();
+    await expect(page.getByText("2 clients", { exact: true })).toBeVisible();
   });
 
   test("requires explicit human review before joining a referral to an admitted resident", async ({ page }) => {

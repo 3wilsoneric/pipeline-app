@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Private no-store thumbnails require the signed-in browser request. */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, Check, CircleAlert, ExternalLink, FileText, ImageOff, Link2, LoaderCircle, Search, UserRound, X } from "lucide-react";
+import { ArrowLeft, Check, CircleAlert, ExternalLink, FileText, ImageOff, Link2, LoaderCircle, Search, X } from "lucide-react";
 
 import type {
   ClinicalClientRecord,
@@ -188,56 +188,41 @@ function ResidentProfile({
           </div>
         ) : null}
 
-        <header className="mt-4 border-b border-[#d9d9d9] px-2 pb-5 pt-2 md:px-3">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#b8dacf] bg-[#effaf5] text-[18px] font-black text-[#0f8b73]">
-              {getInitials(identity.title)}
-            </span>
+        <header className="mt-3 border-b border-[#d9dfdc] px-2 pb-5 pt-2 md:px-3">
+          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h1 data-testid="client-identity-title" className="break-words text-[24px] font-black leading-tight sm:text-[28px] md:text-[34px]">{identity.title}</h1>
-                {profile.pipeline.connection.status !== "unlinked" ? (
-                  <span className={connectionBadgeClass(profile.pipeline.connection.status)}>
+                {!["unlinked", "pipeline_only"].includes(profile.pipeline.connection.status) ? (
+                  <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f8b73]">
                     {connectionLabel(profile.pipeline.connection.status)}
                   </span>
                 ) : null}
               </div>
               <p className="mt-2 text-[13px] text-[#595959]">
                 {presentClientGender(identity.gender)} · {identity.community} · {pipelineOnly
-                  ? profile.pipeline.summary.referral_count > 0 ? "Referral client" : "Client file workspace"
+                  ? profile.pipeline.summary.referral_count > 0 ? "Referral profile" : "Client files"
                   : client.current_resident
                   ? `Current resident${client.unit ? ` · Unit ${client.unit}` : ""}`
                   : "Prior resident"}
               </p>
             </div>
+            <div className="shrink-0 text-[10px] leading-5 text-[#737b77] sm:text-right">
+              <div className="font-black uppercase tracking-[0.08em] text-[#515a56]">Data through</div>
+              <div>{formatDate(profile.data_as_of)}</div>
+            </div>
           </div>
         </header>
 
-        <section className="mt-4 grid grid-cols-2 gap-px border-b border-[#d9d9d9] bg-[#d9d9d9] md:grid-cols-4" aria-label="Profile summary">
-          <Metric label="Profile data" value={pipelineOnly ? "Pipeline" : `${completeness.percent}%`} detail={pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral workspace" : "Client files" : `${completeness.complete} of ${completeness.total} fields available`} />
-          <Metric label={pipelineOnly ? "Referrals" : "Current stay"} value={pipelineOnly ? String(profile.pipeline.summary.referral_count) : resident?.length_of_stay_days === null || resident?.length_of_stay_days === undefined ? "Not reported" : `${resident.length_of_stay_days.toLocaleString()} days`} detail={pipelineOnly ? `${profile.pipeline.summary.active_referral_count} active` : resident?.admit_date ? `Admitted ${formatDate(resident.admit_date)}` : "Admission date not reported"} />
-          {hasPipelineHistory ? (
-            <>
-              <Metric label="Open items" value={String(profile.pipeline.summary.open_requirement_count)} detail={`${profile.pipeline.summary.blocker_count} blocking`} />
-              <Metric label="Assessments" value={String(profile.pipeline.summary.assessment_count)} detail={formatWorkflowStatus(profile.pipeline.summary.latest_assessment_status) || "None recorded"} />
-            </>
-          ) : (
-            <>
-              <Metric label="Referral history" value="None" detail="No Pipeline referral on file" />
-              <Metric label="Source documents" value={String(client.source_documents.length)} detail="Available client records" />
-            </>
-          )}
-        </section>
-
-        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(310px,0.65fr)]">
-          <div className="min-w-0 space-y-5">
+        <div className={`mt-4 ${pipelineOnly ? "" : "grid gap-8 xl:grid-cols-[minmax(0,1.35fr)_minmax(310px,0.65fr)]"}`}>
+          <div className="min-w-0 space-y-4">
             {currentFacts.length > 0 ? (
               <ProfileSection title="Current resident" detail="Current census">
                 <FactGrid facts={currentFacts} />
               </ProfileSection>
             ) : null}
 
-            <ProfileSection title="Client information" detail={pipelineOnly ? "Captured in Pipeline" : "Latest available information"}>
+            <ProfileSection title="Client information" detail={pipelineOnly ? undefined : "Latest available information"}>
               <CuratedClientRecord sections={chart.sections} />
             </ProfileSection>
 
@@ -296,8 +281,9 @@ function ResidentProfile({
             ) : null}
           </div>
 
-          <aside className="min-w-0 space-y-5">
-            {!pipelineOnly ? <ProfileSection title="Data completeness" detail={`${completeness.complete} of ${completeness.total}`}>
+          {!pipelineOnly ? (
+            <aside className="min-w-0 space-y-4">
+              <ProfileSection title="Data completeness" detail={`${completeness.complete} of ${completeness.total}`}>
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <div className="text-[30px] font-black text-[#111111]">{completeness.percent}%</div>
@@ -322,23 +308,12 @@ function ResidentProfile({
                   </div>
                 ) : null}
               </div>
-            </ProfileSection> : null}
-
-            <ProfileSection title="Record status">
-              <div className="flex gap-3">
-                <FileText size={17} className="mt-0.5 shrink-0 text-[#0f8b73]" />
-                <div className="space-y-3 text-[12px] text-[#595959]">
-                  <div><span className="font-black text-[#111111]">{pipelineOnly ? "Pipeline" : "Alamo Platform"}</span><br />{pipelineOnly ? profile.pipeline.summary.referral_count > 0 ? "Referral history" : "Client file workspace" : "Current clinical profile"}</div>
-                  <div>Updated through {formatDate(profile.data_as_of)}</div>
-                  {history.data_as_of ? (
-                    <div className="border-t border-[#d9d9d9] pt-3">
-                      Stay history updated through {formatDate(history.data_as_of)}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </ProfileSection>
-          </aside>
+              </ProfileSection>
+              {history.data_as_of ? (
+                <div className="px-5 text-[10px] leading-5 text-[#737b77]">Stay history updated through {formatDate(history.data_as_of)}</div>
+              ) : null}
+            </aside>
+          ) : null}
         </div>
       </div>
     </main>
@@ -426,11 +401,9 @@ function ClientHistorySummary({ history }: { history: UnifiedClientProfileRespon
       <div className="border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[11px] leading-5 text-[#5d4925]" role="status">
         {history.warning}
       </div>
-      <div className="mt-4 grid gap-px bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-4" aria-label="Placement history summary">
-        <HistoryMetric label="Episodes" value={history.episode_count} detail={`${history.discharged_episode_count} completed`} />
-        <HistoryMetric label="First admission" value={formatDate(history.first_admit_date)} detail="Earliest recorded episode" />
-        <HistoryMetric label="Latest admission" value={formatDate(history.latest_admit_date)} detail="Newest recorded episode" />
-        <HistoryMetric label="Data through" value={formatDate(history.data_as_of)} detail="One-time master extract" />
+      <div className="mt-4 text-[12px] leading-6 text-[#4f5753]" aria-label="Placement history summary">
+        {formatCount(history.episode_count, "placement episode")} recorded from {formatDate(history.first_admit_date)} through {formatDate(history.latest_admit_date)}.
+        <span className="ml-1 text-[#737b77]">History data through {formatDate(history.data_as_of)}.</span>
       </div>
       {history.quality_flags.length > 0 ? (
         <div className="mt-3 flex items-start gap-2 text-[11px] text-[#8a5a10]">
@@ -496,16 +469,6 @@ function ClientHistorySummary({ history }: { history: UnifiedClientProfileRespon
   );
 }
 
-function HistoryMetric({ label, value, detail }: { label: string; value: string | number; detail: string }) {
-  return (
-    <div className="bg-white px-4 py-3">
-      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#737373]">{label}</div>
-      <div className="mt-1 truncate text-[15px] font-black text-[#111111]">{value}</div>
-      <div className="mt-1 truncate text-[10px] text-[#737373]">{detail}</div>
-    </div>
-  );
-}
-
 function PipelineWorkSummary({
   profile,
   onConnectionChanged,
@@ -515,13 +478,7 @@ function PipelineWorkSummary({
 }) {
   const { connection, summary } = profile.pipeline;
   const confirmed = connection.status === "confirmed" || connection.status === "pipeline_only";
-  const noticeClass = confirmed
-    ? "border-[#b8dacf] bg-[#effaf5] text-[#315b51]"
-    : connection.status === "candidate"
-      ? "border-[#e2ca9f] bg-[#fffaf0] text-[#5d4925]"
-      : connection.status === "unavailable"
-        ? "border-[#d7bd84] bg-[#fffaf0] text-[#5d4925]"
-        : "border-[#d9d9d9] bg-[#f8f8f8] text-[#595959]";
+  const needsReview = connection.status === "candidate" || connection.status === "unavailable";
 
   return (
     <div>
@@ -529,60 +486,66 @@ function PipelineWorkSummary({
         <div className="text-[12px] leading-5 text-[#595959]" role="status">
           No referral history has been connected to this client. This is normal for clients admitted before Pipeline was used.
         </div>
-      ) : (
-        <div className={`border-l-2 px-4 py-3 text-[12px] leading-5 ${noticeClass}`} role="status">
+      ) : needsReview ? (
+        <div className="border-l-2 border-[#d7bd84] bg-[#fffaf0] px-4 py-3 text-[12px] leading-5 text-[#5d4925]" role="status">
           <div className="font-black">{connectionLabel(connection.status)}</div>
           <div className="mt-1">{connectionMessage(connection.status)}</div>
         </div>
-      )}
+      ) : null}
 
       {confirmed ? (
-        <>
-          <div className="mt-4 grid gap-px bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-4" aria-label="Referral history summary">
-            <SummaryCell label="Referrals" value={summary.referral_count} detail={`${summary.active_referral_count} active`} />
-            <SummaryCell label="Assessments" value={summary.assessment_count} detail={formatWorkflowStatus(summary.latest_assessment_status) || "None yet"} />
-            <SummaryCell label="Open items" value={summary.open_requirement_count} detail={`${summary.blocker_count} blocking`} />
-            <SummaryCell label="Documents" value={summary.document_count} detail="Linked to referrals" />
-          </div>
-          <div role="region" className="mt-5 border-y border-[#d9d9d9]" aria-label="Referral episodes">
-            {profile.pipeline.referrals.map((referral) => {
-              const identityTitle = formatClientIdentityTitle(referral);
-              return (
-                <article key={referral.id} className="grid gap-2 border-b border-[#e5e5e5] px-3 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_140px_140px] sm:items-center">
-                  <div className="min-w-0">
-                    <div className="truncate text-[12px] font-black text-[#111111]" title={identityTitle}>{identityTitle}</div>
-                    <div className="mt-1 text-[10px] text-[#737373]">{presentClientGender(referral.gender)} · {presentClientCommunity(referral.community)} · Received {formatDate(referral.date)} · {referral.source || "Source not recorded"}</div>
-                  </div>
-                  <div className="text-[10px] sm:text-right">
-                    <div className="font-black uppercase tracking-[0.07em] text-[#737373]">Stage</div>
-                    <div className="mt-1 font-semibold text-[#303633]">{referral.stage}</div>
-                  </div>
-                  <div className="text-[10px] sm:text-right">
-                    <div className="font-black uppercase tracking-[0.07em] text-[#737373]">Owner</div>
-                    <div className="mt-1 font-semibold text-[#303633]">{referral.owner || "Unassigned"}</div>
-                  </div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_270px]">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 pb-3">
+              <h3 className="text-[12px] font-black text-[#222825]">Referral records</h3>
+              <span className="text-[10px] text-[#737b77]">{formatCount(summary.referral_count, "referral")}</span>
+            </div>
+            <div role="region" className="border-y border-[#d9dfdc]" aria-label="Referral episodes">
+              {profile.pipeline.referrals.map((referral) => (
+                <article
+                  key={referral.id}
+                  className="grid gap-4 border-b border-[#e5e9e7] px-1 py-4 last:border-b-0 sm:grid-cols-[130px_minmax(0,1fr)_180px]"
+                >
+                  <ProfileDatum label="Received" value={formatDate(referral.date)} />
+                  <ProfileDatum
+                    label="Referral source"
+                    value={referral.source || "Not recorded"}
+                    detail={presentClientCommunity(referral.community)}
+                  />
+                  <ProfileDatum label="Assigned to" value={referral.owner || "Unassigned"} />
                 </article>
-              );
-            })}
+              ))}
+              {profile.pipeline.referrals.length === 0 ? (
+                <div className="px-1 py-4 text-[12px] text-[#737b77]">No referral records are available.</div>
+              ) : null}
+            </div>
           </div>
-          <div className="mt-5">
-            <div className="text-[10px] font-black uppercase text-[#737373]">Next actions</div>
+          <aside className="border-t border-[#d9dfdc] pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+            <ProfileDatum
+              label="Assessment"
+              value={formatWorkflowStatus(summary.latest_assessment_status) || "Not started"}
+              detail={formatCount(summary.assessment_count, "assessment")}
+            />
+            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.08em] text-[#69726e]">Needs attention</div>
             {summary.actions_needed.length > 0 ? (
-              <ul className="mt-3 space-y-2">
+              <ul className="mt-2 space-y-2.5">
                 {summary.actions_needed.map((action) => (
-                  <li key={action} className="flex items-start gap-2 text-[12px] text-[#404040]">
+                  <li key={action} className="flex items-start gap-2 text-[11px] leading-5 text-[#404743]">
                     <CircleAlert size={14} className="mt-0.5 shrink-0 text-[#b07b21]" />
                     <span>{action}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="mt-3 flex items-center gap-2 text-[12px] font-semibold text-[#0f8b73]">
+              <div className="mt-2 flex items-center gap-2 text-[11px] font-semibold text-[#0f8b73]">
                 <Check size={14} /> No open Pipeline actions
               </div>
             )}
-          </div>
-        </>
+            <div className="mt-5 border-t border-[#e2e6e4] pt-3 text-[10px] text-[#737b77]">
+              {formatCount(summary.document_count, "document")} attached
+            </div>
+          </aside>
+        </div>
       ) : connection.status === "unavailable" ? null : profile.resident ? (
         <IdentityLinkControls profile={profile} onConnectionChanged={onConnectionChanged} />
       ) : (
@@ -1385,14 +1348,18 @@ function referralChoice(referral: Referral): IdentityReferralChoice {
   };
 }
 
-function SummaryCell({ label, value, detail }: { label: string; value: number; detail: string }) {
+function ProfileDatum({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
-    <div className="bg-white px-4 py-3">
-      <div className="text-[9px] font-black uppercase text-[#737373]">{label}</div>
-      <div className="mt-1 text-[18px] font-black">{value}</div>
-      <div className="mt-1 truncate text-[10px] capitalize text-[#737373]">{detail}</div>
+    <div className="min-w-0">
+      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#69726e]">{label}</div>
+      <div className="mt-1 break-words text-[12px] font-semibold leading-5 text-[#222825]">{value}</div>
+      {detail ? <div className="mt-0.5 break-words text-[10px] leading-4 text-[#737b77]">{detail}</div> : null}
     </div>
   );
+}
+
+function formatCount(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function connectionLabel(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
@@ -1404,7 +1371,6 @@ function connectionLabel(status: UnifiedClientProfileResponse["pipeline"]["conne
 }
 
 function pipelineWorkDetail(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
-  if (status === "confirmed" || status === "pipeline_only") return "Referral, assessment, and follow-up";
   if (status === "candidate") return "Possible match awaiting review";
   if (status === "unavailable") return "Temporarily unavailable";
   return undefined;
@@ -1451,14 +1417,6 @@ function formatClientFactValue(value: string) {
   return trimmed;
 }
 
-function connectionBadgeClass(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
-  const common = "border px-2 py-1 text-[10px] font-black uppercase";
-  if (status === "confirmed" || status === "pipeline_only") return `${common} border-[#b8dacf] bg-[#effaf5] text-[#0f8b73]`;
-  if (status === "candidate") return `${common} border-[#e2ca9f] bg-[#fffaf0] text-[#8a5a10]`;
-  if (status === "unavailable") return `${common} border-[#d7bd84] bg-[#fffaf0] text-[#8a6118]`;
-  return `${common} border-[#d9d9d9] bg-[#f8f8f8] text-[#737373]`;
-}
-
 function getCompleteness(profile: UnifiedClientProfileResponse) {
   const total = profile.client_database.fields.length;
   const complete = profile.client_database.fields.filter((field) =>
@@ -1480,26 +1438,14 @@ function ProfileSkeleton({ onBack }: { onBack: () => void }) {
     <div aria-label="Loading admitted-client profile" aria-busy="true">
       <BackButton onClick={onBack} />
       <div className="mt-4 animate-pulse border-b border-[#d9d9d9] px-2 pb-5 pt-2 md:px-3">
-        <div className="flex items-center gap-4">
-          <div className="h-16 w-16 shrink-0 rounded-full bg-[#e7efeb]" />
-          <div className="min-w-0 flex-1">
-            <div className="h-8 w-full max-w-[360px] rounded bg-[#e8ebe9]" />
-            <div className="mt-3 h-3 w-full max-w-[220px] rounded bg-[#f0f2f1]" />
-          </div>
+        <div className="min-w-0 flex-1">
+          <div className="h-8 w-full max-w-[360px] bg-[#e8ebe9]" />
+          <div className="mt-3 h-3 w-full max-w-[220px] bg-[#f0f2f1]" />
         </div>
       </div>
-      <div className="mt-4 grid animate-pulse gap-px border-b border-[#d9d9d9] bg-[#d9d9d9] md:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="min-h-[96px] bg-white px-5 py-4">
-            <div className="h-2.5 w-24 rounded bg-[#edf0ee]" />
-            <div className="mt-3 h-6 w-24 rounded bg-[#e7eae8]" />
-            <div className="mt-2 h-2.5 w-32 rounded bg-[#f3f4f3]" />
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 grid animate-pulse gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(310px,0.65fr)]">
-        <div className="min-h-[360px] border-b border-[#d9d9d9] bg-[#fafbfa]" />
-        <div className="min-h-[360px] border-b border-[#d9d9d9] bg-[#fafbfa]" />
+      <div className="mt-4 animate-pulse space-y-4">
+        <div className="min-h-[230px] border-b border-[#d9dfdc] bg-[#fafbfa]" />
+        <div className="min-h-[190px] border-b border-[#d9dfdc] bg-[#fafbfa]" />
       </div>
     </div>
   );
@@ -1519,10 +1465,6 @@ function ProfileSection({ title, detail, children }: { title: string; detail?: s
       <div className="pt-5">{children}</div>
     </section>
   );
-}
-
-function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return <div className="min-w-0 bg-white px-3 py-4 sm:px-5"><div className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[#737373] sm:text-[10px] sm:tracking-[0.12em]">{label}</div><div className="mt-2 truncate text-[18px] font-black sm:text-[20px]">{value}</div><div className="mt-1 truncate text-[10px] text-[#737373] sm:text-[11px]">{detail}</div></div>;
 }
 
 function currentResidentFacts(resident: ClinicalResident | null, gender: string | null, identityTitle: string): ClientProfileFact[] {
@@ -1601,13 +1543,6 @@ function DataPoint({ label, value }: { label: string; value: string | number | n
   const display = typeof value === "number" ? String(value) : value?.trim() || "Not reported";
   const present = display !== "Not reported";
   return <div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#737373]">{label}</div><div className={`mt-1 break-words text-[13px] font-semibold ${present ? "text-[#111111]" : "text-[#9a6a18]"}`}>{display}</div></div>;
-}
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return <UserRound size={18} />;
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
 }
 
 function formatDate(value: string | null) {

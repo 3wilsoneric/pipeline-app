@@ -1,7 +1,17 @@
 "use client";
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CircleAlert, MapPin, Plus, RefreshCw, Search, X } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpDown,
+  CalendarDays,
+  ChevronDown,
+  CircleAlert,
+  MapPin,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
 
 import type {
   ClinicalFreshness,
@@ -10,7 +20,6 @@ import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspa
 import {
   formatClientIdentityTitle,
   presentClientCommunity,
-  presentClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 
@@ -24,9 +33,10 @@ type ClientDirectoryPayload = {
   freshness: ClinicalFreshness;
 };
 
-type FilterKey = "community" | "admitted" | "profile_data";
-type AdmissionFilter = "last_30_days" | "last_3_months" | "last_6_months" | "last_12_months" | "older_than_12_months" | "missing";
-type ProfileDataFilter = "missing_any" | "missing_unit" | "missing_admit_date" | "complete";
+type ClientScope = "all" | "current" | "pipeline";
+type AdmissionFilter = "any" | "last_30_days" | "last_3_months" | "last_6_months" | "last_12_months" | "older_than_12_months" | "missing";
+type ProfileDataFilter = "any" | "missing_any" | "missing_unit" | "missing_admit_date" | "complete";
+type SortOption = "name" | "community" | "recent_admission" | "pipeline_activity";
 type CommunityOption = { id: string; name: string };
 
 const PAGE_SIZE = 200;
@@ -58,10 +68,11 @@ export default function ClientProfileDirectory({
   const [reloadKey, setReloadKey] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(DISPLAY_INCREMENT);
   const [knownCommunities, setKnownCommunities] = useState<CommunityOption[]>([]);
-  const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
+  const [scope, setScope] = useState<ClientScope>("all");
   const [communityFilter, setCommunityFilter] = useState("");
-  const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("last_6_months");
-  const [profileDataFilter, setProfileDataFilter] = useState<ProfileDataFilter>("missing_any");
+  const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
+  const [profileDataFilter, setProfileDataFilter] = useState<ProfileDataFilter>("any");
+  const [sort, setSort] = useState<SortOption>("name");
   const loadedQuery = useRef("");
   const forceReload = useRef(false);
 
@@ -178,267 +189,194 @@ export default function ClientProfileDirectory({
     setKnownCommunities(collectCommunities(payload.clients));
   };
 
-  const filteredClients = useMemo(
-    () => clients.filter((client) => {
-      if (activeFilters.includes("community") && communityFilter && !client.community_names.includes(communityFilter)) return false;
-      if (activeFilters.includes("admitted") && !matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf)) return false;
-      if (activeFilters.includes("profile_data") && !matchesProfileDataFilter(client, profileDataFilter)) return false;
+  const filteredClients = useMemo(() => clients
+    .filter((client) => {
+      if (scope === "current" && !client.current_resident) return false;
+      if (scope === "pipeline" && client.referral_count === 0 && client.document_count === 0) return false;
+      if (communityFilter && !client.community_names.includes(communityFilter)) return false;
+      if (admissionFilter !== "any" && !matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf)) return false;
+      if (profileDataFilter !== "any" && !matchesProfileDataFilter(client, profileDataFilter)) return false;
       return true;
-    }),
-    [activeFilters, admissionFilter, clients, communityFilter, dataAsOf, profileDataFilter],
-  );
+    })
+    .sort((left, right) => compareDirectoryClients(left, right, sort)), [
+      admissionFilter,
+      clients,
+      communityFilter,
+      dataAsOf,
+      profileDataFilter,
+      scope,
+      sort,
+    ]);
   const visibleClients = filteredClients.slice(0, displayLimit);
-  const hasAppliedFilters = activeFilters.length > 0 || Boolean(query.trim());
+  const hasDirectoryFilters = scope !== "all"
+    || Boolean(communityFilter)
+    || admissionFilter !== "any"
+    || profileDataFilter !== "any";
+  const hasAppliedFilters = hasDirectoryFilters || Boolean(query.trim());
+  const hasClinicalClients = clients.some((client) => client.workspace_origin === "alamo_platform");
+  const scopeCounts = useMemo(() => ({
+    all: clients.length,
+    current: clients.filter((client) => client.current_resident).length,
+    pipeline: clients.filter((client) => client.referral_count > 0 || client.document_count > 0).length,
+  }), [clients]);
   const countLabel = isLoading && clients.length === 0
     ? "Loading clients..."
     : isCompletingRoster
-      ? `Loading ${clients.length} of ${total} clients...`
+      ? `${clients.length} of ${total} loaded`
       : hasAppliedFilters
-        ? `${visibleClients.length} of ${filteredClients.length} matching`
-        : `${visibleClients.length} of ${total} clients`;
-
-  const addFilter = (key: FilterKey) => {
-    setActiveFilters((current) => current.includes(key) ? current : [...current, key]);
-    setDisplayLimit(DISPLAY_INCREMENT);
-  };
-
-  const removeFilter = (key: FilterKey) => {
-    setActiveFilters((current) => current.filter((filter) => filter !== key));
-    if (key === "community") setCommunityFilter("");
-    setDisplayLimit(DISPLAY_INCREMENT);
-  };
+        ? `${filteredClients.length} matching`
+        : `${total} client${total === 1 ? "" : "s"}`;
+  const directoryNotice = freshness?.status === "stale"
+    ? "Live census information may be out of date. Referral records are still available while the source refreshes."
+    : freshness?.warning
+      ? "Live census information is temporarily unavailable. Referral records remain available."
+      : "";
 
   const clearFilters = () => {
-    setActiveFilters([]);
+    setScope("all");
     setCommunityFilter("");
-    setAdmissionFilter("last_6_months");
-    setProfileDataFilter("missing_any");
+    setAdmissionFilter("any");
+    setProfileDataFilter("any");
+    setSort("name");
     setDisplayLimit(DISPLAY_INCREMENT);
   };
 
   return (
     <main data-guide-target="client-directory" aria-label="Client profiles" className="h-full overflow-y-auto bg-white text-[#111111]">
-      <div data-testid="profiles-workspace" className="mx-auto w-full max-w-[1040px] px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center gap-3 pb-2">
-          <label className="relative min-w-[260px] flex-1 md:max-w-[620px]">
-            <span className="sr-only">Search clients</span>
-            <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#737373]" />
-            <input
-              aria-label="Search clients"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by client name or resident number..."
-              className="h-11 w-full border border-[#b3b3b3] bg-white pl-10 pr-3 text-[13px] outline-none placeholder:text-[#8a8a8a] focus:border-[#0f8b73]"
-            />
-          </label>
+      <div data-testid="profiles-workspace" className="mx-auto w-full max-w-[1240px] px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+        <section aria-label="Find clients" className="border-b border-[#d9dfdc] pb-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <label className="relative min-w-0 flex-1">
+              <span className="sr-only">Search clients</span>
+              <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#68716d]" />
+              <input
+                aria-label="Search clients"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Name, resident number, or community"
+                className="h-12 w-full border border-[#aeb8b4] bg-white pl-12 pr-12 text-[15px] outline-none placeholder:text-[#7d8581] focus:border-[#0f8b73] focus:ring-1 focus:ring-[#0f8b73]"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  aria-label="Clear client search"
+                  title="Clear search"
+                  onClick={() => setQuery("")}
+                  className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-[#65706b] hover:text-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#0f8b73]"
+                >
+                  <X size={17} />
+                </button>
+              ) : null}
+            </label>
 
-          <div className="ml-auto flex items-center gap-3 text-[12px] text-[#737373]">
-            <span className="min-w-[154px] text-right tabular-nums">{countLabel}</span>
+            <div className="flex min-h-10 items-center justify-between gap-3 lg:justify-end">
+              <div aria-live="polite" className="text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}</div>
+              {dataAsOf ? <div className="hidden border-l border-[#d8ddda] pl-3 text-[11px] text-[#737b77] sm:block">Data through <strong className="font-bold text-[#343c38]">{formatDate(dataAsOf)}</strong></div> : null}
+              <button
+                type="button"
+                aria-label="Refresh client directory"
+                title="Refresh client directory"
+                onClick={() => {
+                  forceReload.current = true;
+                  setReloadKey((current) => current + 1);
+                }}
+                disabled={isLoading || isCompletingRoster}
+                className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#ccd3d0] text-[#0f8b73] hover:border-[#0f8b73] hover:bg-[#f2f8f6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] disabled:cursor-wait disabled:text-[#aab1ae]"
+              >
+                <RefreshCw size={16} className={isLoading || isCompletingRoster ? "animate-spin" : ""} />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 grid min-w-0 grid-cols-3 gap-2 sm:flex sm:items-end sm:gap-5" role="tablist" aria-label="Client directory scope">
+            <ScopeButton active={scope === "all"} label="All clients" mobileLabel="All" count={scopeCounts.all} complete={directoryComplete} onClick={() => { setScope("all"); setDisplayLimit(DISPLAY_INCREMENT); }} />
+            <ScopeButton active={scope === "current"} label="Current census" mobileLabel="Census" count={scopeCounts.current} complete={directoryComplete} onClick={() => { setScope("current"); setDisplayLimit(DISPLAY_INCREMENT); }} disabled={directoryComplete && !hasClinicalClients} />
+            <ScopeButton active={scope === "pipeline"} label="Pipeline activity" mobileLabel="Pipeline" count={scopeCounts.pipeline} complete={directoryComplete} onClick={() => { setScope("pipeline"); setDisplayLimit(DISPLAY_INCREMENT); }} />
+          </div>
+        </section>
+
+        <section aria-label="Client filters" className="grid grid-cols-2 gap-2 border-b border-[#e1e5e3] py-3 lg:grid-cols-[1.15fr_1fr_1fr_0.9fr_auto]">
+          <DirectorySelect label="Community" icon={<MapPin size={14} />}>
+            <select
+              aria-label="Filter profiles by community"
+              value={communityFilter}
+              onChange={(event) => {
+                setCommunityFilter(event.target.value);
+                setDisplayLimit(DISPLAY_INCREMENT);
+              }}
+            >
+              <option value="">All communities</option>
+              {knownCommunities.map((community) => <option key={community.id} value={community.id}>{presentClientCommunity(community.name)}</option>)}
+            </select>
+          </DirectorySelect>
+          <DirectorySelect label="Admitted" icon={<CalendarDays size={14} />}>
+            <select aria-label="Filter profiles by admission date" value={admissionFilter} onChange={(event) => { setAdmissionFilter(event.target.value as AdmissionFilter); setDisplayLimit(DISPLAY_INCREMENT); }}>
+              <option value="any">Any date</option>
+              <option value="last_30_days">Last 30 days</option>
+              <option value="last_3_months">Last 3 months</option>
+              <option value="last_6_months">Last 6 months</option>
+              <option value="last_12_months">Last 12 months</option>
+              <option value="older_than_12_months">More than 12 months ago</option>
+              <option value="missing">Date unavailable</option>
+            </select>
+          </DirectorySelect>
+          <DirectorySelect label="Stay information" icon={<CircleAlert size={14} />}>
+            <select aria-label="Filter profiles by profile data" value={profileDataFilter} onChange={(event) => { setProfileDataFilter(event.target.value as ProfileDataFilter); setDisplayLimit(DISPLAY_INCREMENT); }}>
+              <option value="any">Any status</option>
+              <option value="missing_any">Missing information</option>
+              <option value="missing_unit">Unit unavailable</option>
+              <option value="missing_admit_date">Date unavailable</option>
+              <option value="complete">Complete</option>
+            </select>
+          </DirectorySelect>
+          <DirectorySelect label="Sort" icon={<ArrowUpDown size={14} />}>
+            <select aria-label="Sort clients" value={sort} onChange={(event) => { setSort(event.target.value as SortOption); setDisplayLimit(DISPLAY_INCREMENT); }}>
+              <option value="name">Name A-Z</option>
+              <option value="community">Community</option>
+              <option value="recent_admission">Recently admitted</option>
+              <option value="pipeline_activity">Most Pipeline activity</option>
+            </select>
+          </DirectorySelect>
+          {hasAppliedFilters || sort !== "name" ? (
             <button
               type="button"
-              aria-label="Refresh client directory"
-              title="Refresh client directory"
-              onClick={() => {
-                forceReload.current = true;
-                setReloadKey((current) => current + 1);
-              }}
-              disabled={isLoading || isCompletingRoster}
-              className="flex h-9 w-9 items-center justify-center border border-[#d9d9d9] text-[#0f8b73] hover:border-[#0f8b73] disabled:text-[#b3b3b3]"
+              onClick={clearFilters}
+              className="col-span-2 h-9 justify-self-end px-2 text-[11px] font-black text-[#59635e] hover:text-[#a63d2f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] lg:col-span-1 lg:h-[50px] lg:justify-self-auto lg:px-3"
             >
-              <RefreshCw size={15} className={isLoading || isCompletingRoster ? "animate-spin" : ""} />
-            </button>
-          </div>
-        </div>
-
-        <div aria-label="Profile filters" className="flex flex-wrap items-center gap-2 py-2">
-          {activeFilters.includes("community") ? (
-            <FilterControl label="Community" icon={<MapPin size={14} />} onRemove={() => removeFilter("community")}>
-              <select
-                aria-label="Filter profiles by community"
-                value={communityFilter}
-                onChange={(event) => {
-                  setCommunityFilter(event.target.value);
-                  setDisplayLimit(DISPLAY_INCREMENT);
-                }}
-                className="h-7 w-full min-w-0 bg-transparent pr-2 text-[11px] font-semibold outline-none sm:min-w-[170px]"
-              >
-                <option value="">Choose community</option>
-                {knownCommunities.map((community) => (
-                  <option key={community.id} value={community.id}>{community.name}</option>
-                ))}
-              </select>
-            </FilterControl>
-          ) : (
-            <AddFilterButton
-              label="Community"
-              icon={<MapPin size={14} />}
-              onClick={() => addFilter("community")}
-              disabled={!directoryComplete}
-            />
-          )}
-          {activeFilters.includes("admitted") ? (
-            <FilterControl label="Admitted" icon={<CalendarDays size={14} />} onRemove={() => removeFilter("admitted")}>
-              <select
-                aria-label="Filter profiles by admission date"
-                value={admissionFilter}
-                onChange={(event) => {
-                  setAdmissionFilter(event.target.value as AdmissionFilter);
-                  setDisplayLimit(DISPLAY_INCREMENT);
-                }}
-                className="h-7 w-full min-w-0 bg-transparent pr-2 text-[11px] font-semibold outline-none sm:min-w-[150px]"
-              >
-                <option value="last_30_days">Last 30 days</option>
-                <option value="last_3_months">Last 3 months</option>
-                <option value="last_6_months">Last 6 months</option>
-                <option value="last_12_months">Last 12 months</option>
-                <option value="older_than_12_months">More than 12 months ago</option>
-                <option value="missing">Admission date missing</option>
-              </select>
-            </FilterControl>
-          ) : (
-            <AddFilterButton
-              label="Admitted: last 6 months"
-              accessibleLabel="Admission date"
-              icon={<CalendarDays size={14} />}
-              onClick={() => addFilter("admitted")}
-              disabled={!directoryComplete}
-            />
-          )}
-          {activeFilters.includes("profile_data") ? (
-            <FilterControl label="Profile data" icon={<CircleAlert size={14} />} onRemove={() => removeFilter("profile_data")}>
-              <select
-                aria-label="Filter profiles by profile data"
-                value={profileDataFilter}
-                onChange={(event) => {
-                  setProfileDataFilter(event.target.value as ProfileDataFilter);
-                  setDisplayLimit(DISPLAY_INCREMENT);
-                }}
-                className="h-7 w-full min-w-0 bg-transparent pr-2 text-[11px] font-semibold outline-none sm:min-w-[155px]"
-              >
-                <option value="missing_any">Missing stay details</option>
-                <option value="missing_unit">Unit missing</option>
-                <option value="missing_admit_date">Admission date missing</option>
-                <option value="complete">Current stay complete</option>
-              </select>
-            </FilterControl>
-          ) : (
-            <AddFilterButton
-              label="Missing profile data"
-              accessibleLabel="Profile data"
-              icon={<CircleAlert size={14} />}
-              onClick={() => addFilter("profile_data")}
-              disabled={!directoryComplete}
-            />
-          )}
-          {activeFilters.length > 0 ? (
-            <button type="button" onClick={clearFilters} className="h-9 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#a63d2f]">
-              Clear all
+              Reset
             </button>
           ) : null}
-        </div>
+        </section>
 
-        {freshness?.status === "stale" || freshness?.warning ? (
-          <div className="mt-3 border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#5d4925]" role="status">
-            {freshness.warning || "The Alamo client directory is older than its target freshness window."}
-          </div>
-        ) : null}
+        {isCompletingRoster ? <div className="flex items-center gap-2 border-b border-[#e4e8e6] py-2 text-[11px] text-[#66706b]" role="status"><RefreshCw size={12} className="animate-spin text-[#0f8b73]" /> Completing the directory. Results update as records arrive.</div> : null}
+        {directoryNotice ? <DirectoryNotice>{directoryNotice}</DirectoryNotice> : null}
+        {error ? <DirectoryError message={error} onRetry={() => setReloadKey((current) => current + 1)} hasPartialResults={clients.length > 0} /> : null}
 
-        {error ? (
-          <div className="mt-4 flex items-start justify-between gap-4 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-4 py-3 text-[13px] text-[#59332d]" role="alert">
-            <div>
-              <div className="font-black">Client profiles are unavailable.</div>
-              <div className="mt-1">{error}</div>
-            </div>
-            <button type="button" onClick={() => setReloadKey((current) => current + 1)} className="shrink-0 font-black text-[#086b5b]">
-              Retry
-            </button>
-          </div>
-        ) : null}
-
-        <section className="mt-3 border-y border-[#d9d9d9]" aria-label="Client list">
-          <div className="hidden grid-cols-[minmax(220px,1fr)_minmax(180px,0.8fr)_minmax(150px,0.6fr)] gap-5 border-b border-[#d9d9d9] bg-[#fbfcfb] px-5 py-2.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#737373] md:grid">
+        <section className="border-b border-[#d9dfdc]" aria-label="Client list">
+          <div className="hidden grid-cols-[minmax(250px,1.15fr)_minmax(245px,1fr)_minmax(220px,0.85fr)_36px] items-center gap-6 border-b border-[#d9dfdc] bg-[#fafbfa] px-5 py-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#68716d] md:grid">
             <span>Client</span>
-            <span>Community</span>
-            <span className="text-right">Workspace</span>
+            <span>Current placement</span>
+            <span>Pipeline activity</span>
+            <span className="sr-only">Open</span>
           </div>
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
-          {visibleClients.map((client) => {
-            const identityTitle = formatClientIdentityTitle({
-              name: client.display_name,
-              gender: client.gender,
-              community: client.current_community || client.community_names[0],
-            });
-            return <button
-              key={client.canonical_client_id}
-              type="button"
-              aria-label={`Open profile for ${identityTitle}`}
-              onClick={() => onOpenProfile(client.canonical_client_id)}
-              className="grid w-full grid-cols-[minmax(0,1fr)] gap-5 border-b border-l-[3px] border-b-[#e5e5e5] border-l-transparent px-5 py-3.5 text-left transition-colors last:border-b-0 hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-l-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none md:grid-cols-[minmax(220px,1fr)_minmax(180px,0.8fr)_minmax(150px,0.6fr)]"
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-[15px] font-black leading-5 text-[#111111]" title={identityTitle}>{identityTitle}</span>
-                <span className="mt-1 block truncate text-[11px] leading-4 text-[#737373]">
-                  {presentClientGender(client.gender)}<span className="md:hidden"> · {presentClientCommunity(client.current_community || client.community_names[0])}</span>
-                </span>
-              </span>
-              <span className="hidden min-w-0 md:block">
-                <span className="block truncate text-[12px] font-semibold text-[#333333]">{client.current_community || client.community_names.join(" · ") || "Not reported"}</span>
-                <span className="mt-1 block truncate text-[10px] text-[#737373]">
-                  {client.workspace_origin === "pipeline"
-                    ? `${client.referral_count} referral${client.referral_count === 1 ? "" : "s"} · ${client.document_count} file${client.document_count === 1 ? "" : "s"}`
-                    : `${client.resident_numbers.length ? `Resident ${client.resident_numbers.join(" · ")}` : "Resident number not reported"}${client.document_count > 0 ? ` · ${client.document_count} file${client.document_count === 1 ? "" : "s"}` : ""}`}
-                </span>
-              </span>
-              <span className="hidden min-w-0 text-right md:block">
-                <span className="block text-[11px] text-[#595959]">
-                  {client.workspace_origin === "pipeline"
-                    ? client.referral_count > 0 ? "Referral workspace" : "Client file workspace"
-                    : client.current_resident
-                    ? client.admit_date ? `Admitted ${formatDate(client.admit_date)}` : "Current resident"
-                    : "Prior resident"}
-                </span>
-                <span className="mt-1 block truncate text-[10px] text-[#737373]">
-                  {client.workspace_origin === "pipeline"
-                    ? client.referral_count > 0
-                      ? `${client.referral_count} referral${client.referral_count === 1 ? "" : "s"}`
-                      : `${client.document_count} file${client.document_count === 1 ? "" : "s"}`
-                    : client.document_count > 0 || client.referral_count > 0
-                    ? `${client.referral_count} referral${client.referral_count === 1 ? "" : "s"} · ${client.document_count} file${client.document_count === 1 ? "" : "s"}`
-                    : client.current_resident && client.care_level
-                    ? client.care_level
-                    : `${client.episode_count} episode${client.episode_count === 1 ? "" : "s"}`}
-                </span>
-              </span>
-            </button>;
-          })}
+          {visibleClients.map((client) => <ClientDirectoryRow key={client.canonical_client_id} client={client} onOpen={() => onOpenProfile(client.canonical_client_id)} />)}
 
           {!isLoading && !error && filteredClients.length === 0 ? (
-            <div className="px-5 py-16 text-center text-[13px] text-[#737373]">
-              <div>{emptyRosterMessage(query, activeFilters)}</div>
-              {activeFilters.length > 0 ? (
-                <button type="button" onClick={clearFilters} className="mt-3 font-black text-[#0f8b73] hover:underline">Clear filters</button>
-              ) : null}
+            <div className="px-5 py-16 text-center">
+              <div className="text-[16px] font-black text-[#252c29]">{emptyRosterMessage(query, hasDirectoryFilters)}</div>
+              <p className="mx-auto mt-2 max-w-[430px] text-[12px] leading-5 text-[#6b746f]">Try a broader name, remove a filter, or refresh the directory if the client was recently added.</p>
+              {hasAppliedFilters ? <button type="button" onClick={clearFilters} className="mt-4 h-10 border border-[#0f8b73] px-4 text-[11px] font-black text-[#0f8b73] hover:bg-[#f1f8f5]">Reset directory</button> : null}
             </div>
           ) : null}
         </section>
 
         {visibleClients.length < filteredClients.length ? (
-          <div className="flex justify-center py-6">
-            <button
-              type="button"
-              onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)}
-              className="h-10 border border-[#111111] px-4 text-[12px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"
-            >
-              Load more
-            </button>
+          <div className="flex items-center justify-between py-5">
+            <span className="text-[11px] text-[#717a76]">Showing {visibleClients.length} of {filteredClients.length}</span>
+            <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)} className="flex h-10 items-center gap-2 border border-[#afb9b5] px-4 text-[11px] font-black text-[#37403c] hover:border-[#0f8b73] hover:text-[#0f8b73]"><ChevronDown size={14} /> Show more</button>
           </div>
-        ) : null}
-
-        {dataAsOf && !error ? (
-          <div className="py-4 text-right text-[10px] uppercase tracking-[0.1em] text-[#595959]">
-            Client directory · Data through {formatDate(dataAsOf)}
-          </div>
-        ) : null}
+        ) : dataAsOf && !error ? <div className="py-4 text-right text-[10px] uppercase tracking-[0.08em] text-[#737b77]">Directory complete · Data through {formatDate(dataAsOf)}</div> : null}
       </div>
     </main>
   );
@@ -470,58 +408,124 @@ function writeDirectoryCache(key: string, payload: ClientDirectoryPayload) {
   }
 }
 
-function AddFilterButton({
+function ScopeButton({
+  active,
   label,
-  accessibleLabel = label,
-  icon,
+  mobileLabel,
+  count,
+  complete,
   onClick,
-  disabled,
+  disabled = false,
 }: {
+  active: boolean;
   label: string;
-  accessibleLabel?: string;
-  icon: ReactNode;
+  mobileLabel: string;
+  count: number;
+  complete: boolean;
   onClick: () => void;
-  disabled: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
-      aria-label={`Add ${accessibleLabel.toLowerCase()} filter`}
-      title={disabled ? "Wait for the complete directory before filtering" : `Add ${accessibleLabel.toLowerCase()} filter`}
+      role="tab"
+      aria-selected={active}
+      title={disabled ? "Current census is unavailable while the clinical directory is offline" : label}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-9 items-center gap-2 border border-[#d4d4d4] bg-white px-3 text-[10px] font-black uppercase tracking-[0.06em] text-[#4d4d4d] transition-colors hover:border-[#0f8b73] hover:bg-[#f5faf8] hover:text-[#0f8b73] focus-visible:border-[#0f8b73] focus-visible:outline-none disabled:border-[#d9d9d9] disabled:text-[#595959]"
+      className={`flex h-10 min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 text-[12px] font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] disabled:cursor-not-allowed disabled:text-[#a1a7a4] sm:shrink-0 sm:justify-start sm:gap-2 ${active ? "border-[#0f8b73] text-[#0c705f]" : "border-transparent text-[#59635e] hover:border-[#a9ccc2] hover:text-[#0c705f]"}`}
     >
-      <Plus size={13} />
-      {icon}
-      <span>{label}</span>
+      <span className="sm:hidden">{mobileLabel}</span>
+      <span className="hidden sm:inline">{label}</span>
+      <span className="text-[10px] font-semibold tabular-nums text-[#7a837f]">{complete ? count : "..."}</span>
     </button>
   );
 }
 
-function FilterControl({
+function DirectorySelect({
   label,
   icon,
-  onRemove,
   children,
 }: {
   label: string;
   icon: ReactNode;
-  onRemove: () => void;
   children: ReactNode;
 }) {
   return (
-    <div className="flex h-9 w-full max-w-full items-center border border-[#b7d9d0] bg-[#f2f8f6] pl-2 text-[#0f8b73] sm:w-auto">
-      <span className="flex shrink-0 items-center gap-1.5 border-r border-[#cfe3de] pr-2 text-[9px] font-black uppercase tracking-[0.08em]">
-        {icon}
-        {label}
-      </span>
-      <span className="min-w-0 flex-1 px-2 text-[#222222]">{children}</span>
-      <button type="button" aria-label={`Remove ${label.toLowerCase()} filter`} title={`Remove ${label.toLowerCase()} filter`} onClick={onRemove} className="flex h-full w-8 shrink-0 items-center justify-center border-l border-[#cfe3de] hover:bg-[#e4f1ed]">
-        <X size={13} />
-      </button>
+    <label className="relative flex h-[50px] min-w-0 items-center border border-[#c9d0cd] bg-white text-[#27302c] focus-within:border-[#0f8b73] focus-within:ring-1 focus-within:ring-[#0f8b73]">
+      <span className="pointer-events-none absolute left-3 top-2 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.06em] text-[#66706b]">{icon}{label}</span>
+      <span className="min-w-0 flex-1 [&>select]:h-full [&>select]:w-full [&>select]:appearance-none [&>select]:bg-transparent [&>select]:pb-1 [&>select]:pl-3 [&>select]:pr-9 [&>select]:pt-5 [&>select]:text-[12px] [&>select]:font-bold [&>select]:outline-none">{children}</span>
+      <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 mt-1 -translate-y-1/2 text-[#66706b]" />
+    </label>
+  );
+}
+
+function DirectoryNotice({ children }: { children: ReactNode }) {
+  return <div role="status" className="flex items-start gap-2 border-b border-[#e2d3af] py-3 text-[12px] leading-5 text-[#684d1d]"><CircleAlert size={15} className="mt-0.5 shrink-0 text-[#9a6b17]" />{children}</div>;
+}
+
+function DirectoryError({ message, onRetry, hasPartialResults }: { message: string; onRetry: () => void; hasPartialResults: boolean }) {
+  return (
+    <div role="alert" className="flex items-start justify-between gap-4 border-b border-[#e7c8c2] py-3 text-[12px] leading-5 text-[#713e35]">
+      <div><strong>{hasPartialResults ? "Some clients could not be loaded." : "The client directory could not be loaded."}</strong> {message}</div>
+      <button type="button" onClick={onRetry} className="shrink-0 font-black text-[#0c705f] hover:underline">Retry</button>
     </div>
   );
+}
+
+function ClientDirectoryRow({ client, onOpen }: { client: DirectoryClient; onOpen: () => void }) {
+  const identityTitle = formatClientIdentityTitle({
+    name: client.display_name,
+    gender: client.gender,
+    community: client.current_community || client.community_names[0],
+  });
+  const community = presentClientCommunity(client.current_community || client.community_names[0]);
+  const identityDetail = client.current_resident
+    ? ["Current census", client.resident_numbers[0] ? `Resident ${client.resident_numbers[0]}` : null].filter(Boolean).join(" · ")
+    : client.workspace_origin === "pipeline"
+      ? "Referral record"
+      : "Client record";
+  const placementDetail = [
+    client.unit ? `Unit ${client.unit}` : null,
+    client.admit_date ? `Admitted ${formatDate(client.admit_date)}` : null,
+  ].filter(Boolean).join(" · ") || (client.current_resident ? "Current stay details unavailable" : "Not on the current census");
+  const activityTotal = client.referral_count + client.document_count;
+  const activity = activityTotal > 0
+    ? `${countNoun(client.document_count, "document")} · ${countNoun(client.referral_count, "referral")}`
+    : "No Pipeline activity";
+
+  return (
+    <button
+      type="button"
+      aria-label={`Open profile for ${identityTitle}`}
+      onClick={onOpen}
+      className="group grid w-full grid-cols-[minmax(0,1fr)_32px] items-start gap-x-3 gap-y-3 border-b border-l-[3px] border-b-[#e3e7e5] border-l-transparent px-4 py-4 text-left transition-colors last:border-b-0 hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-l-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none sm:px-5 md:grid-cols-[minmax(250px,1.15fr)_minmax(245px,1fr)_minmax(220px,0.85fr)_36px] md:items-center md:gap-6"
+    >
+      <span className="min-w-0">
+        <span className="block truncate text-[16px] font-black leading-5 text-[#151a18]" title={identityTitle}>{identityTitle}</span>
+        <span className="mt-1 block truncate text-[11px] leading-4 text-[#68716d]">{identityDetail}</span>
+      </span>
+      <span className="col-span-2 grid min-w-0 grid-cols-[92px_minmax(0,1fr)] md:col-span-1 md:col-start-2 md:row-start-1 md:block">
+        <span className="text-[9px] font-black uppercase tracking-[0.07em] text-[#78817d] md:hidden">Placement</span>
+        <span className="min-w-0">
+          <span className="block truncate text-[13px] font-bold text-[#343b38]" title={community}>{community}</span>
+          <span className="mt-1 block truncate text-[11px] text-[#747c78]">{placementDetail}</span>
+        </span>
+      </span>
+      <span className="col-span-2 grid min-w-0 grid-cols-[92px_minmax(0,1fr)] md:col-span-1 md:col-start-3 md:row-start-1 md:block">
+        <span className="text-[9px] font-black uppercase tracking-[0.07em] text-[#78817d] md:hidden">Pipeline</span>
+        <span className="min-w-0">
+          <span className={`block truncate text-[12px] font-bold ${activityTotal > 0 ? "text-[#0c705f]" : "text-[#68716d]"}`}>{activity}</span>
+          <span className="mt-1 block truncate text-[11px] text-[#747c78]">{client.care_level || (client.current_resident ? "Current client profile" : "Profile available")}</span>
+        </span>
+      </span>
+      <span className="col-start-2 row-start-1 flex h-8 w-8 items-center justify-center self-center text-[#77807c] transition-transform group-hover:translate-x-0.5 group-hover:text-[#0f8b73] md:col-start-4"><ArrowRight size={17} /></span>
+    </button>
+  );
+}
+
+function countNoun(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function RosterSkeleton() {
@@ -530,19 +534,21 @@ function RosterSkeleton() {
       {Array.from({ length: 7 }, (_, index) => (
         <div
           key={index}
-          className="grid min-h-[69px] grid-cols-[minmax(0,1fr)] items-center gap-5 border-l-[3px] border-transparent px-5 py-3.5 md:grid-cols-[minmax(220px,1fr)_minmax(180px,0.8fr)_minmax(150px,0.6fr)]"
+          className="grid min-h-[88px] grid-cols-[minmax(0,1fr)_32px] items-center gap-3 border-l-[3px] border-transparent px-4 py-4 sm:px-5 md:grid-cols-[minmax(250px,1.15fr)_minmax(245px,1fr)_minmax(220px,0.85fr)_36px] md:gap-6"
         >
           <div className="animate-pulse">
-            <div className="h-4 w-2/5 rounded bg-[#e8ebe9]" />
-            <div className="mt-2 h-2.5 w-3/5 rounded bg-[#f1f2f1] md:hidden" />
+            <div className="h-4 w-2/5 bg-[#e8ebe9]" />
+            <div className="mt-2 h-2.5 w-3/5 bg-[#f1f2f1]" />
           </div>
           <div className="hidden animate-pulse md:block">
-            <div className="h-3 w-1/2 rounded bg-[#edf0ee]" />
-            <div className="mt-2 h-2.5 w-1/3 rounded bg-[#f4f5f4]" />
+            <div className="h-3 w-1/2 bg-[#edf0ee]" />
+            <div className="mt-2 h-2.5 w-2/3 bg-[#f4f5f4]" />
           </div>
-          <div className="hidden animate-pulse justify-self-end md:block">
-            <div className="h-3 w-28 rounded bg-[#edf0ee]" />
+          <div className="hidden animate-pulse md:block">
+            <div className="h-3 w-2/3 bg-[#edf0ee]" />
+            <div className="mt-2 h-2.5 w-1/2 bg-[#f4f5f4]" />
           </div>
+          <div className="h-8 w-8 animate-pulse bg-[#f1f3f2]" />
         </div>
       ))}
     </div>
@@ -595,6 +601,24 @@ function matchesProfileDataFilter(client: DirectoryClient, filter: ProfileDataFi
   return missingUnit || missingAdmitDate;
 }
 
+function compareDirectoryClients(left: DirectoryClient, right: DirectoryClient, sort: SortOption) {
+  const byName = left.display_name.localeCompare(right.display_name, "en", { sensitivity: "base" });
+  if (sort === "community") {
+    const leftCommunity = presentClientCommunity(left.current_community || left.community_names[0]);
+    const rightCommunity = presentClientCommunity(right.current_community || right.community_names[0]);
+    return leftCommunity.localeCompare(rightCommunity, "en", { sensitivity: "base" }) || byName;
+  }
+  if (sort === "recent_admission") {
+    return (right.admit_date ?? "").localeCompare(left.admit_date ?? "") || byName;
+  }
+  if (sort === "pipeline_activity") {
+    const leftActivity = left.referral_count + left.document_count;
+    const rightActivity = right.referral_count + right.document_count;
+    return rightActivity - leftActivity || byName;
+  }
+  return byName;
+}
+
 function monthsBefore(value: string, months: number) {
   const [year, month, day] = value.split("-").map(Number);
   const monthIndex = year * 12 + month - 1 - months;
@@ -615,10 +639,10 @@ function isIsoDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-function emptyRosterMessage(query: string, filters: FilterKey[]) {
-  if (query.trim() && filters.length > 0) return "No clients match that search and those filters.";
+function emptyRosterMessage(query: string, hasDirectoryFilters: boolean) {
+  if (query.trim() && hasDirectoryFilters) return "No clients match that search and those filters.";
   if (query.trim()) return "No clients match that search.";
-  if (filters.length > 0) return "No clients match these filters.";
+  if (hasDirectoryFilters) return "No clients match these filters.";
   return "The client directory is empty.";
 }
 
