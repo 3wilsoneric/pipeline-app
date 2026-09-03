@@ -22,13 +22,14 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
     await expect(page.getByRole("heading", { name: "I want to..." })).toBeVisible();
     const taskTiles = page.locator('section[aria-label="Pipeline tasks"] > div > button');
-    await expect(taskTiles.first()).toHaveAccessibleName("Open Complete an assessment");
+    await expect(taskTiles.first()).toHaveAccessibleName("Open Finish an assessment");
     await expect(page.getByRole("button", { name: "Open full Pipeline walkthrough" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Open Complete an assessment" }).click();
-    await expect(page.getByRole("heading", { name: "Complete an assessment" })).toBeVisible();
-    await expect(page.getByLabel("Clickpath: Workspaces, then Referral, then Assessment, then Begin, then Sections, then Sign")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Start guided walkthrough: Complete an assessment" })).toBeVisible();
+    await page.getByRole("button", { name: "Open Finish an assessment" }).click();
+    await expect(page.getByRole("heading", { name: "Finish an assessment" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What you’ll do" })).toBeVisible();
+    await expect(page.getByText("Open Assessment", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start guided walkthrough: Finish an assessment" })).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });
 
@@ -37,18 +38,18 @@ test.describe("Pipeline Learning Center", () => {
     await mockTrainingProgress(page);
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    await page.getByRole("button", { name: "Open Find my assigned work" }).click();
-    await page.getByRole("button", { name: "Start guided walkthrough: Find my assigned work" }).click();
+    await page.getByRole("button", { name: "Open Check my work" }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Check my work" }).click();
 
-    await expect(page.getByRole("dialog", { name: /Review assigned assessment work guided tutorial/ })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Review your assigned work" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /Check my work guided tutorial/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Check your queue" })).toBeVisible();
     await expect(page.locator('[data-guide-target="my-queue"]')).toBeVisible();
     await page.getByRole("button", { name: "Continue" }).click();
 
     await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
     await page.getByLabel("Open referrals").click();
     await expect(page).toHaveURL(/view=referrals/);
-    await expect(page.getByRole("heading", { name: "Show current work" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Select Current work" })).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });
 
@@ -56,8 +57,8 @@ test.describe("Pipeline Learning Center", () => {
     await mockTrainingProgress(page);
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    await page.getByRole("button", { name: "Open Find and reopen a referral" }).click();
-    await page.getByRole("button", { name: "Start guided walkthrough: Find and reopen a referral" }).click();
+    await page.getByRole("button", { name: "Open Find a referral" }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Find a referral" }).click();
 
     await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
     await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
@@ -70,8 +71,8 @@ test.describe("Pipeline Learning Center", () => {
     await mockTrainingProgress(page);
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    await page.getByRole("button", { name: "Open Find and reopen a referral" }).click();
-    await page.getByRole("button", { name: "Start guided walkthrough: Find and reopen a referral" }).click();
+    await page.getByRole("button", { name: "Open Find a referral" }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Find a referral" }).click();
     await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
     await page.getByRole("button", { name: "Pause tutorial" }).click();
 
@@ -86,9 +87,9 @@ test.describe("Pipeline Learning Center", () => {
     await mockTrainingProgress(page);
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    await page.getByRole("button", { name: "Open Find and reopen a referral" }).click();
-    await page.getByRole("button", { name: "Start guided walkthrough: Find and reopen a referral" }).click();
-    await expect(page.getByRole("dialog", { name: /Find and reopen a referral guided tutorial/ })).toBeVisible();
+    await page.getByRole("button", { name: "Open Find a referral" }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Find a referral" }).click();
+    await expect(page.getByRole("dialog", { name: /Find a referral guided tutorial/ })).toBeVisible();
 
     await page.reload();
     await expect(page.getByRole("dialog", { name: /guided tutorial/ })).toHaveCount(0);
@@ -142,9 +143,9 @@ test.describe("Pipeline Learning Center", () => {
     await expect(preview.getByRole("button", { name: "Next" })).toBeInViewport();
     await preview.getByRole("button", { name: "Close full walkthrough" }).click();
 
-    await page.getByRole("button", { name: "Open Find and reopen a referral" }).click();
-    await page.getByRole("button", { name: "Start guided walkthrough: Find and reopen a referral" }).click();
-    await expect(page.getByRole("dialog", { name: /Find and reopen a referral guided tutorial/ })).toBeVisible();
+    await page.getByRole("button", { name: "Open Find a referral" }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Find a referral" }).click();
+    await expect(page.getByRole("dialog", { name: /Find a referral guided tutorial/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Skip step" })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });

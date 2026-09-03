@@ -34,6 +34,51 @@ export type OperatorGuidedTutorial = {
   steps: readonly OperatorGuideStep[];
 };
 
+const simpleStepTitles: Readonly<Record<string, string>> = {
+  "chart-find": "Find the referral",
+  "chart-complete": "Check the chart",
+  "chart-email": "Check the email",
+  "assessor-review-queue": "Check your queue",
+  "assessor-current-work": "Select Current work",
+  "assessor-find-referral": "Search for the referral",
+  "assessor-open-referral": "Open the workspace",
+  "assessment-find": "Find the referral",
+  "assessment-stage": "Open Assessment",
+  "assessment-open": "Open the assessment",
+  "assessment-begin": "Select Begin assessment",
+  "assessment-begin-confirm": "Check the details",
+  "assessment-section": "Choose a section",
+  "assessment-answer": "Enter an answer",
+  "assessment-help": "Open Answer Help",
+  "assessment-next": "Open the next section",
+  "assessment-save": "Check saved",
+  "assessment-sign": "Review before signing",
+  "supervisor-home": "Check the team queue",
+  "supervisor-workspaces": "Open Workspaces",
+  "supervisor-scope": "Select Current work",
+  "supervisor-open-calendar": "Open Calendar",
+  "supervisor-calendar-view": "Pick a calendar view",
+  "supervisor-calendar-filter": "Filter the calendar",
+  "supervisor-reports": "Open Reports",
+  "referral-new": "Select New referral",
+  "referral-packet": "Upload the packet",
+  "referral-routing": "Assign the referral",
+  "referral-medications": "Add medication information",
+  "referral-create": "Review before creating",
+  "referral-schedule-open": "Select Schedule",
+  "referral-schedule-fields": "Add appointment details",
+  "referral-schedule-save": "Review before scheduling",
+  "report-period": "Select a month",
+  "report-results": "Check the results",
+  "report-export": "Review before exporting",
+  "find-search": "Search referrals",
+  "find-open-result": "Open the referral",
+};
+
+export function operatorGuideStepTitle(step: OperatorGuideStep) {
+  return simpleStepTitles[step.id] ?? step.title;
+}
+
 const allRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer", "viewer"];
 const writeRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer"];
 const assessorRoles: readonly OperatorRole[] = ["admin", "reviewer"];
@@ -42,7 +87,7 @@ const supervisorRoles: readonly OperatorRole[] = ["admin", "assessment_coordinat
 export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   tutorial({
     id: "review-chart",
-    title: "Review the assessment Chart",
+    title: "Review a chart",
     workflow: "Supervisor",
     summary: "Review the signed assessment record and check Meet the Client handoff readiness.",
     outcome: "Verify that both Chart views come from the completed assessment and are ready for authorized use.",
@@ -62,7 +107,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   }),
   tutorial({
     id: "assessor-shift",
-    title: "Review assigned assessment work",
+    title: "Check my work",
     workflow: "Assessor",
     summary: "Find assigned work, check today’s schedule, and open the referral that needs action.",
     outcome: "Leave Home with the correct assigned referral open and a clear next action.",
@@ -82,7 +127,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   }),
   tutorial({
     id: "complete-assessment",
-    title: "Complete an assessment",
+    title: "Finish an assessment",
     workflow: "Assessor",
     summary: "Open the assigned assessment, complete each section, review progress, and stop at signature.",
     outcome: "Complete a defensible assessment and understand the final signing boundary.",
@@ -108,7 +153,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   }),
   tutorial({
     id: "supervisor-shift",
-    title: "Review team referral work",
+    title: "Check team work",
     workflow: "Supervisor",
     summary: "Review team exceptions, current referral work, and upcoming assessment coverage.",
     outcome: "Identify unowned, blocked, overdue, or unscheduled work and assign a next action.",
@@ -129,7 +174,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   }),
   tutorial({
     id: "create-referral",
-    title: "Create and schedule a referral",
+    title: "Create a referral",
     workflow: "Intake",
     summary: "Attach the packet, verify intake facts, assign the referral, and prepare its assessment schedule.",
     outcome: "Prepare one source-backed referral and understand both creation and scheduling boundaries.",
@@ -153,7 +198,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   }),
   tutorial({
     id: "run-report",
-    title: "Run and export a report",
+    title: "Run a report",
     workflow: "Reports",
     summary: "Choose the operational question, set its scope, inspect the rows, and stop at CSV export.",
     outcome: "Produce a reproducible report without losing period, scope, or row-level context.",
@@ -172,7 +217,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   }),
   tutorial({
     id: "find-workspace",
-    title: "Find and reopen a referral",
+    title: "Find a referral",
     workflow: "Workspaces",
     summary: "Choose current work or the full workspace list, search the shared inventory, and open the existing referral episode.",
     outcome: "Return to the correct referral without creating a duplicate or losing its stage context.",

@@ -19,6 +19,7 @@ import { PIPELINE_NAVIGATION_EVENT, pushPipelineHistory } from "@/lib/pipeline/c
 import {
   getOperatorGuidedTutorial,
   guidedTutorialsForRoles,
+  operatorGuideStepTitle,
   type OperatorGuideStep,
 } from "@/lib/training/operator-guided-tutorials";
 import {
@@ -279,7 +280,7 @@ function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume
                 <div className="space-y-2">
                   {items.map((tutorial) => {
                     const done = completed.includes(tutorial.id);
-                    return <button key={tutorial.id} type="button" onClick={() => onStart(tutorial.id)} className="group w-full border border-[#d4dcda] bg-white p-3 text-left hover:border-[#86afa3] hover:bg-[#f8fbfa]"><span className="flex items-center gap-3"><span className={`flex h-8 w-8 shrink-0 items-center justify-center border ${done ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#c2d3cd] bg-[#eff6f3] text-[#0c705f]"}`}>{done ? <Check size={15} /> : <BookOpenCheck size={15} />}</span><span className="min-w-0 flex-1"><span className="block text-[12px] font-black text-[#232927]">{tutorial.title}</span><span className="mt-1 block text-[9px] leading-4 text-[#6d7773]">{tutorial.clickpath.join(" → ")}</span><span className="mt-1 block text-[8px] font-black uppercase tracking-[0.08em] text-[#7b8581]">{tutorial.steps.length} steps · {tutorial.minutes} min{done ? " · completed" : ""}</span></span><ChevronRight size={14} className="shrink-0 text-[#84908b] group-hover:text-[#0f8b73]" /></span></button>;
+                    return <button key={tutorial.id} type="button" onClick={() => onStart(tutorial.id)} className="group w-full border border-[#d4dcda] bg-white p-4 text-left hover:border-[#86afa3] hover:bg-[#f8fbfa]"><span className="flex items-center gap-3"><span className={`flex h-10 w-10 shrink-0 items-center justify-center border ${done ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#c2d3cd] bg-[#eff6f3] text-[#0c705f]"}`}>{done ? <Check size={17} /> : <BookOpenCheck size={17} />}</span><span className="min-w-0 flex-1"><span className="block text-[15px] font-black leading-5 text-[#232927]">{tutorial.title}</span><span className="mt-1.5 block text-[11px] font-bold text-[#7b8581]">{tutorial.steps.length} steps · {tutorial.minutes} min{done ? " · Done" : ""}</span></span><ChevronRight size={17} className="shrink-0 text-[#84908b] group-hover:text-[#0f8b73]" /></span></button>;
                   })}
                 </div>
               </section>
@@ -287,7 +288,7 @@ function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume
           })}
         </div>
       </div>
-      <footer className="border-t border-[#d8dfdc] bg-[#fafcfb] px-4 py-3 text-[9px] font-bold leading-4 text-[#707a76]"><ShieldCheck size={13} className="mr-1.5 inline text-[#0f8b73]" />Use test records while learning. The guide never reads field values.</footer>
+      <footer className="border-t border-[#d8dfdc] bg-[#fafcfb] px-4 py-3 text-[11px] font-bold leading-5 text-[#707a76]"><ShieldCheck size={14} className="mr-1.5 inline text-[#0f8b73]" />Use test records. The guide never reads what you type.</footer>
     </section>
   );
 }
@@ -296,9 +297,9 @@ function GuideConversation({ tutorialTitle, step, stepIndex, stepCount, targetAv
   const targetReady = routeMatches && targetAvailable;
   const canConfirm = step.advance === "confirm";
   return (
-    <section role="dialog" aria-label={`${tutorialTitle} guided tutorial`} data-testid="guided-coach-panel" className={`fixed bottom-0 right-0 z-[100] flex max-h-[min(560px,calc(100dvh-1rem))] w-full flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)] sm:bottom-4 sm:w-[380px] ${panelSide === "left" ? "sm:left-4 sm:right-auto" : "sm:right-4"}`}>
+    <section role="dialog" aria-label={`${tutorialTitle} guided tutorial`} data-testid="guided-coach-panel" className={`fixed bottom-0 right-0 z-[100] flex max-h-[min(590px,calc(100dvh-1rem))] w-full flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)] sm:bottom-4 sm:w-[410px] ${panelSide === "left" ? "sm:left-4 sm:right-auto" : "sm:right-4"}`}>
       <header className="border-b border-[#d5ddda] bg-[#f2f6f4] px-4 py-3">
-        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-[8px] font-black uppercase tracking-[0.11em] text-[#0c705f]">Step {stepIndex + 1} of {stepCount}</div><h2 className="mt-1 truncate text-[13px] font-black text-[#202623]">{tutorialTitle}</h2></div><div className="flex items-center gap-1"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={14} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={15} /></button></div></div>
+        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0c705f]">Step {stepIndex + 1} of {stepCount}</div><h2 className="mt-1 truncate text-[15px] font-black text-[#202623]">{tutorialTitle}</h2></div><div className="flex items-center gap-1"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={16} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={17} /></button></div></div>
         <div className="mt-3 flex gap-1" aria-label={`Step ${stepIndex + 1} of ${stepCount}`}>{Array.from({ length: stepCount }, (_, index) => <span key={index} className={`h-1 flex-1 ${index <= stepIndex ? "bg-[#0f8b73]" : "bg-[#d7dfdc]"}`} />)}</div>
       </header>
       <GuideConversationBody step={step} targetReady={targetReady} routeMatches={routeMatches} onOpenRoute={onOpenRoute} />
@@ -308,11 +309,32 @@ function GuideConversation({ tutorialTitle, step, stepIndex, stepCount, targetAv
 }
 
 function GuideConversationBody({ step, targetReady, routeMatches, onOpenRoute }: { step: OperatorGuideStep; targetReady: boolean; routeMatches: boolean; onOpenRoute: () => void }) {
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-4" aria-live="polite"><div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">{step.phase}</div><h3 className="mt-1.5 text-[18px] font-black leading-6 tracking-[-0.02em] text-[#1d2421]">{step.title}</h3><p className="mt-3 border-l-2 border-[#0f8b73] pl-3 text-[12px] font-bold leading-5 text-[#285448]">{step.instruction}</p><p className="mt-3 text-[10px] leading-4 text-[#5f6a66]"><span className="font-black text-[#293d37]">Done when: </span>{step.completion}</p>{step.advance === "confirm" ? <p className="mt-3 border-t border-[#e3e8e6] pt-3 text-[9px] leading-4 text-[#705924]">{step.safety}</p> : null}{!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : null}</div>;
+  const safety = guideSafetyText(step);
+  return <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-5" aria-live="polite"><div className="text-[11px] font-black uppercase tracking-[0.08em] text-[#0c705f]">{step.phase}</div><h3 className="mt-2 text-[24px] font-black leading-7 tracking-[-0.025em] text-[#1d2421]">{operatorGuideStepTitle(step)}</h3><div className="mt-5 border-l-[3px] border-[#0f8b73] pl-4"><div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#557069]">Do this</div><p className="mt-1 text-[17px] font-bold leading-6 text-[#244b40]">{guideActionText(step)}</p></div><p className="mt-5 text-[13px] font-semibold leading-5 text-[#5f6a66]">{guideCompletionText(step)}</p>{safety ? <p className="mt-4 border-t border-[#e3e8e6] pt-4 text-[12px] font-bold leading-5 text-[#705924]">{safety}</p> : null}{!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : null}</div>;
+}
+
+function guideActionText(step: OperatorGuideStep) {
+  if (step.advance === "target-input") return "Type in the highlighted field.";
+  if (step.advance === "target-change") return "Change the highlighted selection.";
+  if (step.advance === "target-click") return "Select the highlighted control.";
+  return "Review the highlighted area.";
+}
+
+function guideCompletionText(step: OperatorGuideStep) {
+  return step.advance === "confirm"
+    ? "Select Continue when you’re ready."
+    : "The guide moves on automatically.";
+}
+
+function guideSafetyText(step: OperatorGuideStep) {
+  if (step.advance !== "confirm") return null;
+  return /stop|sign|submit|send|export|create/i.test(operatorGuideStepTitle(step))
+    ? "The guide will not submit this action for you."
+    : null;
 }
 
 function UnavailableGuideAction({ step, routeMatches, onOpenRoute }: { step: OperatorGuideStep; routeMatches: boolean; onOpenRoute: () => void }) {
-  return <div className="mt-3 border-t border-[#e3e8e6] pt-3 text-[10px] leading-4 text-[#6e561f]">{unavailableGuideMessage(step, routeMatches)}{!routeMatches ? <button type="button" onClick={onOpenRoute} className="mt-2 flex h-8 items-center gap-2 border border-[#9c8145] px-3 text-[9px] font-black uppercase tracking-[0.06em] text-[#6e561f] hover:bg-[#fffaf0]">Open page <ArrowRight size={12} /></button> : null}</div>;
+  return <div className="mt-4 border-t border-[#e3e8e6] pt-4 text-[13px] font-medium leading-5 text-[#6e561f]">{unavailableGuideMessage(step, routeMatches)}{!routeMatches ? <button type="button" onClick={onOpenRoute} className="mt-3 flex h-10 items-center gap-2 border border-[#9c8145] px-4 text-[11px] font-black uppercase tracking-[0.05em] text-[#6e561f] hover:bg-[#fffaf0]">Open page <ArrowRight size={14} /></button> : null}</div>;
 }
 
 function unavailableGuideMessage(step: OperatorGuideStep, routeMatches: boolean) {
@@ -322,7 +344,7 @@ function unavailableGuideMessage(step: OperatorGuideStep, routeMatches: boolean)
 }
 
 function GuideConversationFooter({ stepIndex, stepCount, canConfirm, onBack, onAdvance }: { stepIndex: number; stepCount: number; canConfirm: boolean; onBack: () => void; onAdvance: () => void }) {
-  return <footer className="flex items-center justify-between gap-2 border-t border-[#d8dfdc] bg-[#fafcfb] px-3 py-3"><button type="button" disabled={stepIndex === 0} onClick={onBack} className="flex h-9 items-center gap-1.5 px-2 text-[9px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={13} /> Back</button><div className="flex items-center gap-1.5"><button type="button" onClick={onAdvance} className="h-9 px-2 text-[9px] font-black text-[#66716d] hover:text-[#111111]">{stepIndex === stepCount - 1 ? "Skip and finish" : "Skip step"}</button>{canConfirm ? <button type="button" onClick={onAdvance} className="flex h-9 items-center gap-2 bg-[#0f8b73] px-4 text-[9px] font-black text-white">{guideAdvanceLabel(stepIndex, stepCount)}<ArrowRight size={13} /></button> : <span className="flex h-9 items-center gap-1.5 px-2 text-[9px] font-black text-[#0c705f]">Use control <ChevronRight size={12} /></span>}</div></footer>;
+  return <footer className="flex items-center justify-between gap-2 border-t border-[#d8dfdc] bg-[#fafcfb] px-4 py-3"><button type="button" disabled={stepIndex === 0} onClick={onBack} className="flex h-10 items-center gap-1.5 px-2 text-[12px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={15} /> Back</button><div className="flex items-center gap-2"><button type="button" onClick={onAdvance} className="h-10 px-2 text-[12px] font-black text-[#66716d] hover:text-[#111111]">{stepIndex === stepCount - 1 ? "Skip and finish" : "Skip step"}</button>{canConfirm ? <button type="button" onClick={onAdvance} className="flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[12px] font-black text-white">{guideAdvanceLabel(stepIndex, stepCount)}<ArrowRight size={15} /></button> : <span className="flex h-10 items-center gap-1.5 px-2 text-[12px] font-black text-[#0c705f]">Use highlight <ChevronRight size={14} /></span>}</div></footer>;
 }
 
 function guideAdvanceLabel(stepIndex: number, stepCount: number) {
