@@ -70,7 +70,7 @@ const historyNameFailures = episodes.filter((episode) => episode.resident_name !
 
 const surfaceContracts = [
   ["components/pipeline/ClientProfileDirectory.tsx", "formatClientIdentityTitle"],
-  ["components/pipeline/ClientProfileView.tsx", 'data-testid="client-identity-title"'],
+  ["components/pipeline/ClientMedicalChart.tsx", 'data-testid="client-identity-title"'],
   ["components/pipeline/ClientProfileView.tsx", 'aria-label="Referral episodes"'],
   ["components/pipeline/ReferralPacketCanvas.tsx", 'data-testid="workspace-identity-title"'],
   ["components/pipeline/ReferralWorklist.tsx", "formatClientIdentityTitle"],

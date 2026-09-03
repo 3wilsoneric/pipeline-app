@@ -2487,6 +2487,8 @@ test.describe("Pipeline home", () => {
       client: { enrichment: Record<string, unknown> };
     };
     profile.client.enrichment.prior_placements = '["Sanitized hospital","Sanitized residential program"]';
+    profile.client.enrichment.active_medications_json = '["Sanitized medication 10 mg daily"]';
+    profile.client.enrichment.active_allergies_json = '["Sanitized allergy"]';
     const thumbnail = createCanvas(320, 200);
     const thumbnailContext = thumbnail.getContext("2d");
     thumbnailContext.fillStyle = "#f2f8f6";
@@ -2534,12 +2536,22 @@ test.describe("Pipeline home", () => {
     await page.getByRole("button", { name: /Avery Example/ }).click();
     await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
     await expect.poll(async () => (await page.getByTestId("profile-workspace").boundingBox())?.width ?? 0).toBeGreaterThan(1200);
-    await expect(page.getByText("Current resident", { exact: true }).first()).toBeVisible();
+    const medicalChart = page.getByRole("article", { name: "Client medical chart" });
+    await expect(medicalChart).toBeVisible();
+    await expect(medicalChart.getByRole("heading", { name: "Client medical chart", exact: true })).toBeVisible();
+    await expect(medicalChart.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    await expect(medicalChart.getByText("Clinical priorities", { exact: true })).toBeVisible();
+    await expect(medicalChart.getByText("Sanitized diagnosis", { exact: true })).toBeVisible();
+    await expect(medicalChart.getByText("Allergies", { exact: true })).toBeVisible();
+    await expect(medicalChart.getByText("Sanitized allergy", { exact: true })).toBeVisible();
+    await expect(medicalChart.getByText("Medications on record", { exact: true })).toBeVisible();
+    await expect(medicalChart.getByText("Sanitized medication 10 mg daily", { exact: true })).toBeVisible();
+    await expect(medicalChart.getByText("209 days", { exact: true })).toBeVisible();
     await expect(page.getByText("Client information", { exact: true })).toBeVisible();
-    await expect(page.getByText("Personal details", { exact: true })).toBeVisible();
     await expect(page.getByText("Admission and placement", { exact: true })).toBeVisible();
     await expect(page.getByText("Clinical overview", { exact: true })).toBeVisible();
     await expect(page.getByText("Legal and support", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Record quality", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Assessments", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Source documents", exact: true })).toBeVisible();
@@ -2564,6 +2576,13 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Admission and placement", { exact: true })).toBeVisible();
     await expect(page.getByText("Sanitized hospital · Sanitized residential program", { exact: true })).toBeVisible();
     await expect(page.getByText('["Sanitized hospital","Sanitized residential program"]', { exact: true })).toHaveCount(0);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(medicalChart).toBeVisible();
+    await expect(medicalChart.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    await expect
+      .poll(async () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
+      .toBeLessThanOrEqual(1);
   });
 
   test("recovers a client profile after a temporary server failure", async ({ page }) => {

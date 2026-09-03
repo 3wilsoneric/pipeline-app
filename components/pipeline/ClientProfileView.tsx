@@ -11,7 +11,6 @@ import type {
   ClinicalClientFact,
   ClinicalClientFactEvidenceResponse,
   ClinicalClientSourceDocument,
-  ClinicalResident,
 } from "@/lib/clinical/clinical-contracts";
 import {
   hasReadableClinicalValue,
@@ -22,11 +21,14 @@ import type { ClientHistoryProjection } from "@/lib/pipeline/client-history-cont
 import {
   buildClientEpisodeSummaries,
   buildClientProfileSections,
-  formatProfileDate,
   type ClientEpisodeSummary,
   type ClientProfileFact,
   type ClientProfileSection,
 } from "@/lib/pipeline/client-profile-presentation";
+import {
+  buildClientMedicalChart,
+  removePromotedClientProfileFacts,
+} from "@/lib/pipeline/client-medical-chart";
 import {
   formatClientIdentityDetail,
   formatClientIdentityTitle,
@@ -41,6 +43,7 @@ import type {
   UnifiedProfileLinkSuggestion,
 } from "@/lib/pipeline/unified-profile-contracts";
 import ClientAssessmentSummary from "@/components/pipeline/ClientAssessmentSummary";
+import ClientMedicalChart from "@/components/pipeline/ClientMedicalChart";
 
 export default function ClientProfileView({
   residentKey,
@@ -170,12 +173,24 @@ function ResidentProfile({
         payor: resident.payor,
       } : {}),
     };
+    const sections = buildClientProfileSections(record);
     return {
-      sections: buildClientProfileSections(record),
+      sections,
+      detailSections: removePromotedClientProfileFacts(sections),
       episodes: buildClientEpisodeSummaries(client.resident_episode_history),
     };
   }, [client, identity.gender, identity.title, resident]);
-  const currentFacts = useMemo(() => currentResidentFacts(resident, identity.gender, identity.title), [identity.gender, identity.title, resident]);
+  const medicalChart = buildClientMedicalChart(
+    {
+      name: identity.title,
+      gender: identity.gender,
+      community: identity.community || "Not documented",
+    },
+    resident,
+    chart.sections,
+    profile.pipeline.assessments,
+    clientRecordStatus(client.current_resident, pipelineOnly, profile.pipeline.summary.referral_count),
+  );
   const hasPipelineHistory = ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status);
 
   return (
@@ -189,131 +204,77 @@ function ResidentProfile({
           </div>
         ) : null}
 
-        <header className="mt-3 border-b border-[#d9dfdc] px-2 pb-5 pt-2 md:px-3">
-          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h1 data-testid="client-identity-title" className="break-words text-[24px] font-black leading-tight sm:text-[28px] md:text-[34px]">{identity.title}</h1>
-                {!["unlinked", "pipeline_only"].includes(profile.pipeline.connection.status) ? (
-                  <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0f8b73]">
-                    {connectionLabel(profile.pipeline.connection.status)}
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-2 text-[13px] text-[#595959]">
-                {formatClientIdentityDetail(identity.gender, identity.community, pipelineOnly
-                  ? profile.pipeline.summary.referral_count > 0 ? "Referral profile" : "Client files"
-                  : client.current_resident
-                  ? `Current resident${client.unit ? ` · Unit ${client.unit}` : ""}`
-                  : "Prior resident")}
-              </p>
-            </div>
-            <div className="shrink-0 text-[10px] leading-5 text-[#737b77] sm:text-right">
-              <div className="font-black uppercase tracking-[0.08em] text-[#515a56]">Data through</div>
-              <div>{formatDate(profile.data_as_of)}</div>
-            </div>
-          </div>
-        </header>
+        <div className="mt-3">
+          <ClientMedicalChart
+            chart={medicalChart}
+            dataAsOf={profile.data_as_of}
+            sourceLabel={pipelineOnly ? "Pipeline record" : client.current_resident ? "Current census" : "Longitudinal record"}
+          />
+        </div>
 
-        <div className={`mt-4 ${pipelineOnly ? "" : "grid gap-8 xl:grid-cols-[minmax(0,1.35fr)_minmax(310px,0.65fr)]"}`}>
-          <div className="min-w-0 space-y-4">
-            {currentFacts.length > 0 ? (
-              <ProfileSection title="Current resident" detail="Current census">
-                <FactGrid facts={currentFacts} />
-              </ProfileSection>
-            ) : null}
-
-            <ProfileSection title="Client information" detail={pipelineOnly ? undefined : "Latest available information"}>
-              <CuratedClientRecord sections={chart.sections} />
+        <div className="mt-5 min-w-0 space-y-5">
+          {hasPipelineHistory || profile.pipeline.assessments.length > 0 ? (
+            <ProfileSection title="Assessments">
+              <ClientAssessmentSummary
+                assessments={profile.pipeline.assessments}
+                connection={profile.pipeline.connection}
+              />
             </ProfileSection>
+          ) : null}
 
-            {client.facts.length > 0 ? (
-              <ProfileSection title="Packet facts" detail="Source-backed extraction">
-                <ClientFactReview
-                  canonicalClientId={client.canonical_client_id}
-                  facts={client.facts}
-                  documents={client.source_documents}
-                />
-              </ProfileSection>
-            ) : null}
-
-            {client.source_documents.length > 0 ? (
-              <ProfileSection title="Source documents" detail={`${client.source_documents.length} available`}>
-                <ClientDocumentSearch
-                  canonicalClientId={client.canonical_client_id}
-                  documents={client.source_documents}
-                />
-                <ClinicalSourceDocumentGallery
-                  canonicalClientId={client.canonical_client_id}
-                  documents={client.source_documents}
-                />
-              </ProfileSection>
-            ) : null}
-
-            {!pipelineOnly ? (
-              <ProfileSection title="Stay history">
-                <GovernedEpisodeHistory episodes={chart.episodes} />
-              </ProfileSection>
-            ) : null}
-
-            <ProfileSection title="Referral history" detail={pipelineWorkDetail(profile.pipeline.connection.status)}>
-              <PipelineWorkSummary profile={profile} onConnectionChanged={onConnectionChanged} />
-            </ProfileSection>
-
-            {profile.pipeline.documents.length > 0 || ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status) ? (
-              <ProfileSection title="Referral documents" detail={`${profile.pipeline.documents.length} available`}>
-                <ClientDocumentGallery documents={profile.pipeline.documents} />
-              </ProfileSection>
-            ) : null}
-
-            {hasPipelineHistory || profile.pipeline.assessments.length > 0 ? (
-              <ProfileSection title="Assessments">
-                <ClientAssessmentSummary
-                  assessments={profile.pipeline.assessments}
-                  connection={profile.pipeline.connection}
-                />
-              </ProfileSection>
-            ) : null}
-
-            {client.resident_episode_history.length === 0 && history.status === "available" ? (
-              <ProfileSection title="Placement trajectory" detail="Legacy exact resident-number history; newest episode first">
-                <ClientHistorySummary history={history} />
-              </ProfileSection>
-            ) : null}
-          </div>
+          <ProfileSection title="Client information" detail="Additional clinical and support detail">
+            <CuratedClientRecord sections={chart.detailSections} />
+          </ProfileSection>
 
           {!pipelineOnly ? (
-            <aside className="min-w-0 space-y-4">
-              <ProfileSection title="Data completeness" detail={`${completeness.complete} of ${completeness.total}`}>
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <div className="text-[30px] font-black text-[#111111]">{completeness.percent}%</div>
-                  <div className="mt-1 text-[11px] text-[#737373]">Profile fields available</div>
-                </div>
-                <div className="text-right text-[10px] font-black uppercase text-[#737373]">
-                  {completeness.total - completeness.complete} missing
-                </div>
-              </div>
-              <div className="mt-4 h-2 bg-[#e8eeeb]"><div className="h-full bg-[#0f8b73]" style={{ width: `${completeness.percent}%` }} /></div>
-              <div className="mt-5 space-y-3">
-                {completeness.total - completeness.complete > 0 ? (
-                  <div className="flex items-start gap-2 text-[12px] text-[#6d5428]">
-                    <CircleAlert size={15} className="mt-0.5 shrink-0 text-[#b07b21]" />
-                    <span>{completeness.total - completeness.complete} tracked fields are not available in the current record.</span>
-                  </div>
-                ) : null}
-                {completeness.complete === completeness.total ? (
-                  <div className="flex items-start gap-2 text-[12px] text-[#356759]">
-                    <Check size={15} className="mt-0.5 shrink-0 text-[#0f8b73]" />
-                    <span>All tracked profile fields are available.</span>
-                  </div>
-                ) : null}
-              </div>
-              </ProfileSection>
-              {history.data_as_of ? (
-                <div className="px-5 text-[10px] leading-5 text-[#737b77]">Stay history updated through {formatDate(history.data_as_of)}</div>
-              ) : null}
-            </aside>
+            <ProfileSection title="Stay history">
+              <GovernedEpisodeHistory episodes={chart.episodes} />
+            </ProfileSection>
+          ) : null}
+
+          {client.resident_episode_history.length === 0 && history.status === "available" ? (
+            <ProfileSection title="Placement trajectory" detail="Exact resident-number history; newest episode first">
+              <ClientHistorySummary history={history} />
+            </ProfileSection>
+          ) : null}
+
+          <ProfileSection title="Referral history" detail={pipelineWorkDetail(profile.pipeline.connection.status)}>
+            <PipelineWorkSummary profile={profile} onConnectionChanged={onConnectionChanged} />
+          </ProfileSection>
+
+          {client.facts.length > 0 ? (
+            <ProfileSection title="Source-backed information" detail="Extracted packet facts">
+              <ClientFactReview
+                canonicalClientId={client.canonical_client_id}
+                facts={client.facts}
+                documents={client.source_documents}
+              />
+            </ProfileSection>
+          ) : null}
+
+          {client.source_documents.length > 0 ? (
+            <ProfileSection title="Source documents" detail={`${client.source_documents.length} available`}>
+              <ClientDocumentSearch
+                canonicalClientId={client.canonical_client_id}
+                documents={client.source_documents}
+              />
+              <ClinicalSourceDocumentGallery
+                canonicalClientId={client.canonical_client_id}
+                documents={client.source_documents}
+              />
+            </ProfileSection>
+          ) : null}
+
+          {profile.pipeline.documents.length > 0 || ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status) ? (
+            <ProfileSection title="Referral documents" detail={`${profile.pipeline.documents.length} available`}>
+              <ClientDocumentGallery documents={profile.pipeline.documents} />
+            </ProfileSection>
+          ) : null}
+
+          {!pipelineOnly ? (
+            <ProfileSection title="Record quality" detail={`${completeness.complete} of ${completeness.total} tracked fields`}>
+              <RecordQualitySummary completeness={completeness} historyDataAsOf={history.data_as_of} />
+            </ProfileSection>
           ) : null}
         </div>
       </div>
@@ -342,13 +303,13 @@ function CuratedClientRecord({ sections }: { sections: ClientProfileSection[] })
   }
 
   return (
-    <div className="grid gap-x-10 gap-y-8 lg:grid-cols-2">
+    <div className="border-y border-[#d9dfdc]">
       {sections.map((section) => (
-        <section key={section.key}>
-          <h3 className="border-b border-[#d9d9d9] pb-2 text-[11px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">
+        <section key={section.key} className="grid border-b border-[#d9dfdc] last:border-b-0 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <h3 className="bg-[#f2f6f4] px-4 py-4 text-[10px] font-black uppercase tracking-[0.08em] text-[#244b41] lg:px-5">
             {section.label}
           </h3>
-          <FactGrid facts={section.facts} className="mt-4" />
+          <FactGrid facts={section.facts} className="px-4 py-4 lg:px-6" />
         </section>
       ))}
     </div>
@@ -361,7 +322,7 @@ function GovernedEpisodeHistory({ episodes }: { episodes: ClientEpisodeSummary[]
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" aria-label="Referral episodes">
       {episodes.map((episode, index) => episode.facts.length > 0 ? (
           <details key={episode.key} open={index === 0} className="border-b border-[#d9d9d9]">
             <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 py-3">
@@ -1373,6 +1334,12 @@ function connectionLabel(status: UnifiedClientProfileResponse["pipeline"]["conne
   return "No referral history";
 }
 
+function clientRecordStatus(currentResident: boolean, pipelineOnly: boolean, referralCount: number) {
+  if (currentResident) return "Current resident";
+  if (!pipelineOnly) return "Prior resident";
+  return referralCount > 0 ? "Referral record" : "Client file record";
+}
+
 function pipelineWorkDetail(status: UnifiedClientProfileResponse["pipeline"]["connection"]["status"]) {
   if (status === "candidate") return "Possible match awaiting review";
   if (status === "unavailable") return "Temporarily unavailable";
@@ -1460,33 +1427,14 @@ function BackButton({ onClick }: { onClick: () => void }) {
 
 function ProfileSection({ title, detail, children }: { title: string; detail?: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white px-5 py-5 md:px-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[#d9d9d9] pb-3">
-        <h2 className="text-[16px] font-black">{title}</h2>
+    <section className="border border-[#cfd7d2] bg-white px-5 py-5 md:px-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-[#d9dfdc] pb-3">
+        <h2 className="text-[15px] font-black tracking-[-0.01em]">{title}</h2>
         {detail ? <span className="text-[11px] text-[#737373]">{detail}</span> : null}
       </div>
       <div className="pt-5">{children}</div>
     </section>
   );
-}
-
-function currentResidentFacts(resident: ClinicalResident | null, gender: string | null, identityTitle: string): ClientProfileFact[] {
-  if (!resident) return [];
-  return [
-    fact("Full name", identityTitle),
-    fact("Gender", gender),
-    fact("Resident number", resident.resident_number),
-    fact("Date of birth", formatProfileDate(resident.date_of_birth)),
-    fact("Age", resident.age),
-    fact("Community", resident.community_name),
-    fact("Unit", resident.unit),
-    fact("Admission date", formatProfileDate(resident.admit_date)),
-    fact("Care level", resident.care_level),
-    fact("Payor", resident.payor),
-    fact("Primary diagnosis", resident.primary_diagnosis),
-    fact("Physician", resident.physician),
-    fact("Diet", resident.diet),
-  ].filter((value): value is ClientProfileFact => Boolean(value));
 }
 
 function profileIdentity(profile: UnifiedClientProfileResponse) {
@@ -1525,11 +1473,6 @@ function profileIdentity(profile: UnifiedClientProfileResponse) {
   };
 }
 
-function fact(label: string, value: string | number | null | undefined): ClientProfileFact | null {
-  const display = typeof value === "number" ? String(value) : value?.trim();
-  return display ? { label, value: display } : null;
-}
-
 function FactGrid({ facts, className = "" }: { facts: ClientProfileFact[]; className?: string }) {
   return (
     <div className={`grid gap-x-7 gap-y-5 sm:grid-cols-2 2xl:grid-cols-3 ${className}`}>
@@ -1546,6 +1489,31 @@ function DataPoint({ label, value }: { label: string; value: string | number | n
   const display = typeof value === "number" ? String(value) : value?.trim() || "Not reported";
   const present = display !== "Not reported";
   return <div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#737373]">{label}</div><div className={`mt-1 break-words text-[13px] font-semibold ${present ? "text-[#111111]" : "text-[#9a6a18]"}`}>{display}</div></div>;
+}
+
+function RecordQualitySummary({
+  completeness,
+  historyDataAsOf,
+}: {
+  completeness: ReturnType<typeof getCompleteness>;
+  historyDataAsOf: string | null;
+}) {
+  const missing = completeness.total - completeness.complete;
+  return (
+    <div className="grid items-center gap-5 md:grid-cols-[140px_minmax(0,1fr)_minmax(220px,auto)]">
+      <div>
+        <div className="text-[24px] font-black text-[#111111]">{completeness.percent}%</div>
+        <div className="mt-1 text-[10px] text-[#737373]">Fields available</div>
+      </div>
+      <div>
+        <div className="h-2 bg-[#e8eeeb]"><div className="h-full bg-[#0f8b73]" style={{ width: `${completeness.percent}%` }} /></div>
+        <div className="mt-2 text-[10px] text-[#737373]">{missing > 0 ? `${missing} tracked fields are not available.` : "All tracked profile fields are available."}</div>
+      </div>
+      <div className="text-[10px] leading-5 text-[#737b77] md:text-right">
+        {historyDataAsOf ? `Stay history updated through ${formatDate(historyDataAsOf)}` : "Profile quality reflects the latest available record."}
+      </div>
+    </div>
+  );
 }
 
 function formatDate(value: string | null) {
