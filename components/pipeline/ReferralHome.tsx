@@ -657,10 +657,6 @@ export default function ReferralHome({
                 expandedMonth={expandedMonth}
                 onExpandedMonthChange={setExpandedMonth}
                 onFilterChange={setFilter}
-                onShowRecent={() => {
-                  setSort("updated_desc");
-                  setFilter({ kind: "all" });
-                }}
               />
             </div>
           </aside>
@@ -867,11 +863,6 @@ export default function ReferralHome({
             setFilter(nextFilter);
             if (dismiss) setBrowseOpen(false);
           }}
-          onShowRecent={() => {
-            setSort("updated_desc");
-            setFilter({ kind: "all" });
-            setBrowseOpen(false);
-          }}
         />
       ) : null}
     </main>
@@ -885,7 +876,6 @@ function WorkspaceArchiveNavigation({
   expandedMonth,
   onExpandedMonthChange,
   onFilterChange,
-  onShowRecent,
 }: {
   months: ReferralFacets["months"];
   communities: Array<{ name: string; count: number }>;
@@ -893,23 +883,13 @@ function WorkspaceArchiveNavigation({
   expandedMonth: string;
   onExpandedMonthChange: (month: string) => void;
   onFilterChange: (filter: ReferralFilter, dismiss?: boolean) => void;
-  onShowRecent: () => void;
 }) {
   const selectedMonth = referralFilterMonth(filter);
   const selectedCommunity = referralFilterCommunity(filter);
 
   return (
     <nav aria-label="Browse workspaces by date and community">
-      <div className="px-3 text-[9px] font-black uppercase tracking-[0.14em] text-[#737373]">Browse</div>
-      <button
-        type="button"
-        onClick={onShowRecent}
-        className="mt-2 flex h-10 w-full items-center gap-2 border border-transparent px-3 text-left text-[12px] font-black text-[#303638] hover:border-[#e0e5e2] hover:bg-[#f8faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
-      >
-        <RefreshCw size={14} className="shrink-0 text-[#0c705f]" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate">Recent</span>
-      </button>
-      <div className="mt-2 border-t border-[#e2e6e4] pt-2">
+      <div>
         {months.length === 0 ? (
           <div className="px-3 py-4 text-[11px] leading-5 text-[#737373]">Dated workspaces will appear here.</div>
         ) : months.map((month) => {
@@ -979,7 +959,6 @@ function WorkspaceBrowseDialog({
   expandedMonth,
   onExpandedMonthChange,
   onFilterChange,
-  onShowRecent,
   onClose,
 }: {
   months: ReferralFacets["months"];
@@ -988,7 +967,6 @@ function WorkspaceBrowseDialog({
   expandedMonth: string;
   onExpandedMonthChange: (month: string) => void;
   onFilterChange: (filter: ReferralFilter, dismiss?: boolean) => void;
-  onShowRecent: () => void;
   onClose: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -1027,7 +1005,6 @@ function WorkspaceBrowseDialog({
             expandedMonth={expandedMonth}
             onExpandedMonthChange={onExpandedMonthChange}
             onFilterChange={onFilterChange}
-            onShowRecent={onShowRecent}
           />
         </div>
       </section>

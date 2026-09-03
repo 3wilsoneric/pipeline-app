@@ -53,7 +53,7 @@ test.describe("Responsive application navigation", () => {
       } else {
         const archive = page.getByRole("navigation", { name: "Browse workspaces by date and community" });
         await expect(archive).toBeVisible();
-        await expect(archive.getByRole("button", { name: "Recent" })).toBeVisible();
+        await expect(archive.getByRole("button", { name: "Recent" })).toHaveCount(0);
         await expandMonth(archive.getByRole("button", { name: /September 2026/ }));
         await expect(archive.getByRole("button", { name: /September 2026/ })).toContainText("2,583");
         await expect(archive.getByRole("button", { name: "San Pablo" })).toBeVisible();
