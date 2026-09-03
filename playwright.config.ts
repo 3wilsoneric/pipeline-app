@@ -52,10 +52,14 @@ export default defineConfig({
       PORT: port,
       PIPELINE_AUTH_MODE: "mock",
       PIPELINE_ALLOW_PRODUCTION_MOCK_AUTH: "true",
+      PIPELINE_ENTRA_SESSION_SECRET: process.env.PIPELINE_ENTRA_SESSION_SECRET
+        ?? "playwright-only-admin-god-mode-secret-2026",
       PIPELINE_EXTRACTION_BACKEND: "mock",
       PIPELINE_ALLOW_PRODUCTION_MOCK_EXTRACTION: "true",
       PIPELINE_MOCK_USER_EMAIL: "playwright@pipeline.local",
       PIPELINE_MOCK_USER_NAME: "Playwright QA",
+      PIPELINE_MOCK_USER_ROLES: process.env.PIPELINE_MOCK_USER_ROLES
+        ?? "admin,assessment_coordinator,reviewer,viewer",
       PIPELINE_ACADEMY_OWNER_EMAILS: "playwright@pipeline.local",
       PIPELINE_ADMIN_EMAILS: "playwright@pipeline.local",
       PIPELINE_ALLOWED_EMAILS: "playwright@pipeline.local",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { clearAssessorSessionCookie } from "@/lib/auth/assessor-session";
 import {
   clearPipelineSessionCookie,
   createPipelineSessionCookie,
@@ -22,7 +23,10 @@ export async function POST(request: Request) {
 
     try {
       const cookie = await createPipelineSessionCookie(request, auth.user);
-      return NextResponse.json({ ok: true }, { headers: { ...noStoreHeaders, "Set-Cookie": cookie } });
+      const response = NextResponse.json({ ok: true }, { headers: noStoreHeaders });
+      response.headers.append("Set-Cookie", cookie);
+      response.headers.append("Set-Cookie", clearAssessorSessionCookie(request));
+      return response;
     } catch (error) {
       const message = error instanceof Error && error.message.includes("not configured")
         ? "Pipeline sign-in is not configured."
@@ -36,9 +40,9 @@ export async function DELETE(request: Request) {
   return withApiLogging(request, "/api/auth/session", () => {
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
-    return NextResponse.json(
-      { ok: true },
-      { headers: { ...noStoreHeaders, "Set-Cookie": clearPipelineSessionCookie(request) } },
-    );
+    const response = NextResponse.json({ ok: true }, { headers: noStoreHeaders });
+    response.headers.append("Set-Cookie", clearPipelineSessionCookie(request));
+    response.headers.append("Set-Cookie", clearAssessorSessionCookie(request));
+    return response;
   });
 }

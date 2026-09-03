@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
   createAssessment,
@@ -95,7 +96,7 @@ export async function POST(
           field_provenance: seed.field_provenance,
           unmapped_fields: seed.unmapped_fields,
         },
-        { id: auth.user.id, name: auth.user.name },
+        pipelineAuditActor(auth.user),
         validated.value.client_mutation_id,
       );
       if (!result.ok) {

@@ -28,6 +28,9 @@ const authenticatedBaseMethods = new Set([
   "app/api/auth/session/route.ts#POST",
   "app/api/note-lab/session/route.ts#GET",
   "app/api/note-lab/session/route.ts#POST",
+  "app/api/auth/assessor-session/route.ts#GET",
+  "app/api/auth/assessor-session/route.ts#POST",
+  "app/api/auth/assessor-session/route.ts#DELETE",
 ]);
 const governedReadMutations = new Set([
   "app/api/operations/reports/route.ts#POST",
@@ -186,7 +189,7 @@ function resolvedFunctionText(statement, source, declarations) {
 }
 
 function pipelineRoles(body) {
-  const match = body.match(/requirePipelineUser\(\s*request\s*,\s*\[([\s\S]*?)\]\s*\)/);
+  const match = body.match(/requirePipelineUser\(\s*request\s*,\s*\[([\s\S]*?)\]\s*(?:,\s*\{[\s\S]*?\})?\s*\)/);
   if (!match) return [];
   return [...match[1].matchAll(/"(admin|assessment_coordinator|reviewer|viewer)"/g)].map((item) => item[1]);
 }

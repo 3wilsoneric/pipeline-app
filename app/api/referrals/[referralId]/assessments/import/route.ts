@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
   importAssessmentExtraction,
@@ -69,7 +70,7 @@ export async function POST(
         fields: validated.value.fields,
         context: validated.value.context,
         defaults,
-        actor: { id: auth.user.id, name: auth.user.name },
+        actor: pipelineAuditActor(auth.user),
         mutationId: validated.value.client_mutation_id,
       });
       if (!result) return jsonError("Assessment not found.", 404);

@@ -34,8 +34,56 @@ const workspacePresentation = loadTypeScriptModule(root, "lib/pipeline/workspace
 const assessmentCalendar = loadTypeScriptModule(root, "lib/pipeline/assessment-calendar.ts");
 const assessmentAccess = loadTypeScriptModule(root, "lib/assessment/assessment-access.ts");
 const assessmentLifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
+const assessorSessionPolicy = loadTypeScriptModule(root, "lib/auth/assessor-session-policy.ts");
 
 const results = [
+  run("God mode keeps the selected account identity while retaining administrator authority", () => {
+    const administrator = {
+      id: "admin-1",
+      email: "admin@example.com",
+      name: "Admin Operator",
+      roles: ["admin", "assessment_coordinator", "reviewer", "viewer"],
+      accessScope: "pipeline",
+    };
+    const member = {
+      principal_id: "provisional:allo:test-assessor",
+      display_name: "Test Assessor",
+      email: null,
+      roles: ["reviewer", "viewer"],
+      active: true,
+      last_seen_at: null,
+      identity_status: "provisional",
+      source_system: "allo_canvas_owner_export",
+      source_identity: "test-assessor",
+      merged_into_principal_id: null,
+    };
+    assert(assessorSessionPolicy.isEligibleGodModeTarget(member, administrator.id), "An active imported account should be available");
+    assert(assessorSessionPolicy.isEligibleGodModeTarget({ ...member, principal_id: "linked-user", identity_status: "entra_linked" }, administrator.id), "An active linked account should be available");
+    assert(!assessorSessionPolicy.isEligibleGodModeTarget({ ...member, active: false }, administrator.id), "An inactive account must be rejected");
+    assert(!assessorSessionPolicy.isEligibleGodModeTarget({ ...member, principal_id: administrator.id }, administrator.id), "An administrator cannot select their own account");
+
+    const delegation = {
+      sessionId: "session-1",
+      initiatedBy: { id: administrator.id, email: administrator.email, name: administrator.name },
+      target: { id: member.principal_id, email: "", name: member.display_name, roles: member.roles, identityStatus: "provisional" },
+      reason: "Administrator God mode",
+      startedAt: "2026-09-03T10:00:00.000Z",
+      expiresAt: "2026-09-03T18:00:00.000Z",
+    };
+    const effective = assessorSessionPolicy.delegatedUserFromSession(administrator, delegation);
+    assert(effective?.id === member.principal_id, "The imported assignment principal must remain the effective identity");
+    assert(effective?.name === member.display_name, "The assessor name must remain clean in the product UI");
+    assert(effective?.roles.join(",") === "admin,assessment_coordinator,reviewer,viewer", "God mode must retain complete administrator authority");
+    assert(effective?.email === "", "The selected account email must remain its own identity alias");
+    const actor = assessorSessionPolicy.pipelineAuditActor(effective);
+    assert(actor.id === member.principal_id, "Writes must retain the effective assessor principal");
+    assert(actor.name.includes(member.display_name) && actor.name.includes(administrator.name), "Write attribution must retain both identities");
+    assert(actor.email === administrator.email, "Upload provenance must retain the authenticated administrator email");
+    const accountable = assessorSessionPolicy.pipelineAccountableActor(effective);
+    assert(accountable.id === administrator.id && accountable.name === administrator.name, "Signatures and external actions must retain the administrator identity");
+    assert(assessorSessionPolicy.delegatedUserFromSession({ ...administrator, roles: ["reviewer"] }, delegation) === null, "Only an administrator may activate the delegation");
+    assert(assessorSessionPolicy.delegatedUserFromSession({ ...administrator, id: "admin-2" }, delegation) === null, "A session must remain bound to the initiating administrator");
+  }),
   run("imported client identity keeps county metadata out of the person name", () => {
     const importedName = "Xin Quan Lin - - San Francisco";
     assert(

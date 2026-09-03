@@ -10,6 +10,7 @@ import {
   type AssessmentScheduleCommand,
 } from "@/lib/assessment/assessment-lifecycle-validation";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -41,7 +42,7 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     return saveAssessmentSchedule(
       assessmentId,
       command.value,
-      { id: auth.user.id, name: auth.user.name },
+      pipelineAuditActor(auth.user),
       isAssessmentSupervisor(auth.user),
     );
   });

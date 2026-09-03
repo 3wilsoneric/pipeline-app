@@ -1,5 +1,6 @@
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
   patchReferral,
@@ -76,7 +77,7 @@ export async function DELETE(
     if (!Number.isInteger(expectedVersion) || Number(expectedVersion) < 1) {
       return jsonError("if_match must be a positive version number.");
     }
-    const result = await softDeleteReferral(id, { id: auth.user.id, name: auth.user.name }, expectedVersion);
+    const result = await softDeleteReferral(id, pipelineAuditActor(auth.user), expectedVersion);
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok) {
       return Response.json({
@@ -228,7 +229,7 @@ async function applyReferralPatch(input: ApplyReferralPatchInput): Promise<Respo
       input.id,
       input.patch,
       input.expectedVersion,
-      { id: input.user.id, name: input.user.name },
+      pipelineAuditActor(input.user),
       input.expectedSectionVersions,
       input.ownerChanged ? { auditAction: "referral_reassigned", auditReason: input.handoffReason } : undefined,
     );

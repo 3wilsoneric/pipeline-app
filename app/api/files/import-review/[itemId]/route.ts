@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { reviewClientFileImportItem } from "@/lib/pipeline/client-file-import-store";
@@ -32,7 +33,7 @@ export async function PATCH(
       if_match: Number(ifMatch),
       target_client_id: target,
       referral_id: referralId,
-    }, auth.user);
+    }, { ...auth.user, ...pipelineAuditActor(auth.user) });
     if (result.status === "ok") return Response.json({ item: result.item }, { headers: privateHeaders() });
     if (result.status === "conflict") return Response.json({ error: "This item changed in another session.", item: result.item }, { status: 409, headers: privateHeaders() });
     if (result.status === "not_found") return error("Import item not found.", 404);

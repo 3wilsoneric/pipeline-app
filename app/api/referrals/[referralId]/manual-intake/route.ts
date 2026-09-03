@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -38,18 +39,19 @@ export async function POST(
     if (reason.length < 10) return jsonError("Explain why intake is proceeding without extraction in at least 10 characters.");
     if (reason.length > 1_000) return jsonError("reason must be 1,000 characters or fewer.");
 
+    const accountableActor = pipelineAccountableActor(auth.user);
     const authorization: ManualIntakeAuthorization = {
       mode: "manual_chart",
       reason,
-      authorizedBy: auth.user.id,
-      authorizedByName: auth.user.name,
+      authorizedBy: accountableActor.id,
+      authorizedByName: accountableActor.name,
       authorizedAt: new Date().toISOString(),
     };
     const result = await patchReferral(
       referralId,
       { manualIntakeAuthorization: authorization },
       Number(body.value.if_match),
-      { id: auth.user.id, name: auth.user.name },
+      accountableActor,
       { documents: Number(body.value.if_match_section) },
       { auditAction: "manual_intake_authorized", auditReason: reason },
     );

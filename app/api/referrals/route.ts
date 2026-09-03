@@ -1,5 +1,6 @@
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
   createReferral,
@@ -151,7 +152,7 @@ export async function POST(request: Request) {
       const result = await createReferral(
         referral,
         body.value.client_mutation_id,
-        { id: auth.user.id, name: auth.user.name },
+        pipelineAuditActor(auth.user),
       );
 
       recordWorkspaceMaterialization(result.referral, result.idempotentReplay);

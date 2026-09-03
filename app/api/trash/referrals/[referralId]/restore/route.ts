@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -29,7 +30,7 @@ export async function POST(
     if (!Number.isInteger(expectedVersion) || Number(expectedVersion) < 1) {
       return jsonError("if_match must be a positive version number.");
     }
-    const result = await restoreReferral(id, { id: auth.user.id, name: auth.user.name }, expectedVersion);
+    const result = await restoreReferral(id, pipelineAuditActor(auth.user), expectedVersion);
     if (!result) return jsonError("Deleted referral not found.", 404);
     if (!result.ok) {
       return Response.json({ error: "This trash record changed. Refresh before restoring it.", conflict: true }, { status: 409 });

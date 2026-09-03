@@ -5,6 +5,7 @@ import {
   validateCreateUploadUrlRequest,
 } from "@/lib/extraction/contracts";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { requireExtractionBackend } from "@/lib/extraction/backend-config";
 import { createPacketUpload, extractionErrorResponse } from "@/lib/extraction/extraction-service";
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
     if (!access.ok) return access.response;
 
     try {
-      return Response.json(await createPacketUpload(validation.value, auth.user), {
+      return Response.json(await createPacketUpload(validation.value, pipelineAuditActor(auth.user)), {
         headers: { "Cache-Control": "private, no-store, max-age=0" },
       });
     } catch (error) {

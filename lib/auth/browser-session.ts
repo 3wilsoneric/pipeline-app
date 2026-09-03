@@ -20,6 +20,21 @@ export type PipelineSessionUser = {
   email: string;
   name: string;
   roles: string[];
+  assessorSessionRecoveryRequired?: boolean;
+  delegation?: {
+    sessionId: string;
+    initiatedBy: { id: string; email: string; name: string };
+    target: {
+      id: string;
+      email: string;
+      name: string;
+      roles: string[];
+      identityStatus: "entra_linked" | "provisional" | "merged";
+    };
+    reason: string;
+    startedAt: string;
+    expiresAt: string;
+  };
 };
 
 export type PipelineSessionProbe = {

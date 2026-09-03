@@ -2,6 +2,7 @@ import { getAssessment, patchAssessment, requireAssessmentStore } from "@/lib/as
 import { canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { validateAssessmentLifecycleCommand } from "@/lib/assessment/assessment-lifecycle-validation";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -39,7 +40,7 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     const result = await patchAssessment(
       assessmentId,
       { mark_started: true },
-      { id: auth.user.id, name: auth.user.name },
+      pipelineAuditActor(auth.user),
       { expectedVersion: command.value.if_match, mutationId: command.value.client_mutation_id },
     );
     if (!result) return jsonError("Assessment not found.", 404);

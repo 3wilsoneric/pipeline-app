@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { ClinicalDataError, clinicalDataErrorResponse } from "@/lib/clinical/clinical-data";
 import { jsonError } from "@/lib/extraction/contracts";
@@ -40,7 +41,7 @@ export async function POST(
         return Response.json(reconciliation, { headers: privateHeaders() });
       }
 
-      const actor = { id: auth.user.id, name: auth.user.name };
+      const actor = pipelineAuditActor(auth.user);
       const linkResult = await createResidentLink({
         pipeline_client_id: referral.clientId,
         display_name: referral.name,

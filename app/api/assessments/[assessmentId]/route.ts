@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
   getAssessment,
@@ -74,7 +75,7 @@ export async function PATCH(
           canonical_client_id: identity.canonicalClientId,
           resident_key: identity.residentKey ?? validated.value.patch.resident_key,
         },
-        { id: auth.user.id, name: auth.user.name },
+        pipelineAuditActor(auth.user),
         {
           expectedVersion: validated.value.if_match,
           section: validated.value.section,

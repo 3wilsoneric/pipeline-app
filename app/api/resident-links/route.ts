@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
   ClinicalDataError,
@@ -126,7 +127,7 @@ export async function POST(request: Request) {
             ?? validated.value.resident_number
             ?? clinical.resident.resident_id,
         },
-        { id: auth.user.id, name: auth.user.name },
+        pipelineAuditActor(auth.user),
         validated.value.client_mutation_id,
       );
       return Response.json(result, { status: 201, headers: privateHeaders() });

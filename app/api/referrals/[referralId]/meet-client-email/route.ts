@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { listAssessments, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { buildMeetClientSummary } from "@/lib/assessment/assessment-summary";
@@ -55,13 +56,14 @@ export async function POST(
     if (!attachmentContext.ok) return attachmentContext.response;
 
     const deliveryId = randomUUID();
+    const accountableActor = pipelineAccountableActor(auth.user);
     const audit = buildDeliveryAudit({
       mutationId: prepared.mutationId,
       deliveryId,
       referralId,
       assessment,
       decisionId: contextResult.decisionId,
-      actor: auth.user,
+      actor: accountableActor,
       recipients: prepared.recipients,
       attachmentCount: attachmentContext.attachments.length,
       attachmentBytes: attachmentContext.inventory.totalBytes,
@@ -73,7 +75,7 @@ export async function POST(
       audit,
       recipients: prepared.recipients,
       summary: buildMeetClientSummary(assessment, snapshot.referral),
-      preparedBy: auth.user.name,
+      preparedBy: accountableActor.name,
       deliveryId,
       attachments: attachmentContext.attachments,
     });

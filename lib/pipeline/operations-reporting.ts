@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { getAssessmentCompletionReport } from "@/lib/assessment/assessment-store";
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
@@ -184,6 +185,7 @@ export async function recordOperationsReportExport(
   response: OperationsReportResponse,
 ) {
   if (!getPipelineDatabaseReadiness().ready) return;
+  const actor = pipelineAuditActor(user);
   const sql = getPipelineSql();
   await sql`
     insert into pipeline.audit_events (
@@ -192,8 +194,8 @@ export async function recordOperationsReportExport(
       'operations_report',
       ${`${response.filters.report_id}:${response.filters.month}`},
       'operations_report_exported',
-      ${user.id},
-      ${user.name},
+      ${actor.id},
+      ${actor.name},
       ${[] as string[]},
       ${sql.json({
         report_id: response.filters.report_id,

@@ -1,5 +1,6 @@
 import "server-only";
 
+import provisionalMemberManifest from "@/config/provisional-workspace-members.json";
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import { getReferralStoreReadiness } from "@/lib/pipeline/referral-store";
@@ -33,8 +34,10 @@ type WorkspaceMemberRow = {
 const localMembers = new Map<string, WorkspaceMember>();
 
 export async function touchWorkspaceMember(user: PipelineUser) {
+  if (user.delegation) return getActiveWorkspaceMember(user.id);
   const member = memberFromUser(user);
   if (getReferralStoreReadiness().mode !== "postgres") {
+    ensureLocalProvisionalMembers();
     localMembers.set(member.principal_id, member);
     return member;
   }
@@ -65,6 +68,7 @@ export async function touchWorkspaceMember(user: PipelineUser) {
 export async function listWorkspaceMembers(currentUser?: PipelineUser) {
   if (currentUser) await touchWorkspaceMember(currentUser);
   if (getReferralStoreReadiness().mode !== "postgres") {
+    ensureLocalProvisionalMembers();
     return [...localMembers.values()]
       .filter((member) => member.active)
       .sort(compareMembers);
@@ -89,6 +93,7 @@ export async function getActiveWorkspaceMember(principalId: string) {
   const normalized = principalId.trim();
   if (!normalized) return null;
   if (getReferralStoreReadiness().mode !== "postgres") {
+    ensureLocalProvisionalMembers();
     const member = localMembers.get(normalized);
     return member?.active ? member : null;
   }
@@ -148,4 +153,22 @@ function mapMember(row: WorkspaceMemberRow): WorkspaceMember {
 
 function compareMembers(left: WorkspaceMember, right: WorkspaceMember) {
   return left.display_name.localeCompare(right.display_name) || left.principal_id.localeCompare(right.principal_id);
+}
+
+function ensureLocalProvisionalMembers() {
+  for (const member of provisionalMemberManifest.members) {
+    if (localMembers.has(member.principal_id)) continue;
+    localMembers.set(member.principal_id, {
+      principal_id: member.principal_id,
+      display_name: member.display_name,
+      email: null,
+      roles: member.roles,
+      active: true,
+      last_seen_at: null,
+      identity_status: "provisional",
+      source_system: provisionalMemberManifest.source_system,
+      source_identity: member.source_identity,
+      merged_into_principal_id: null,
+    });
+  }
 }

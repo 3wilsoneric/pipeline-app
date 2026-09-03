@@ -5,6 +5,7 @@ import {
   validateCompleteUploadRequest,
 } from "@/lib/extraction/contracts";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { requireExtractionBackend } from "@/lib/extraction/backend-config";
 import { completePacketUpload, extractionErrorResponse } from "@/lib/extraction/extraction-service";
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     await reconcileUploadedDocumentRequirements(
       access.referral.id,
       result.documents ?? [],
-      { id: auth.user.id, name: auth.user.name },
+      pipelineAuditActor(auth.user),
     );
 
     return Response.json(result, {

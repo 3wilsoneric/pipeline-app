@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -60,7 +61,7 @@ export async function PATCH(
     const result = await reviewResidentLink(
       linkId,
       validated.value,
-      { id: auth.user.id, name: auth.user.name },
+      pipelineAuditActor(auth.user),
       validated.value.if_match,
     );
     if (!result) return jsonError("Resident link not found.", 404);

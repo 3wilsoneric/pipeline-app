@@ -77,6 +77,7 @@ const serverBoundaryFiles = [
   "lib/observability/api-logging.ts",
   "lib/reliability/request-governor.ts",
   "lib/auth/pipeline-auth.ts",
+  "lib/auth/assessor-session.ts",
 ];
 const missingServerOnly = serverBoundaryFiles.filter((file) => !read(path.join(root, file)).includes('import "server-only"'));
 check("privileged adapters are marked server-only", missingServerOnly.length === 0, missingServerOnly);
@@ -88,10 +89,77 @@ check("API responses are centrally private and non-cacheable", apiLogging.includ
 
 const nextConfig = read(path.join(root, "next.config.ts"));
 check("framework disclosure is disabled", nextConfig.includes("poweredByHeader: false"));
+const pipelineAuth = read(path.join(root, "lib/auth/pipeline-auth.ts"));
 const authSession = read(path.join(root, "app/api/auth/session/route.ts"));
 check("session mutations require same-origin requests", authSession.includes("requireSameOriginMutation(request)"));
+const assessorSession = read(path.join(root, "lib/auth/assessor-session.ts"));
+const assessorSessionRoute = read(path.join(root, "app/api/auth/assessor-session/route.ts"));
+const assessorSessionPolicy = read(path.join(root, "lib/auth/assessor-session-policy.ts"));
+check("God mode uses an encrypted full-session HttpOnly strict cookie",
+  assessorSession.includes("new EncryptJWT")
+  && assessorSession.includes("jwtDecrypt")
+  && assessorSession.includes("8 * 60 * 60")
+  && assessorSession.includes("HttpOnly; SameSite=Strict")
+  && assessorSession.includes("setJti(delegation.sessionId)"));
+check("God mode remains bound to the initiating administrator",
+  assessorSession.includes("delegation.initiatedBy.id !== authenticatedUser.id")
+  && assessorSession.includes('authenticatedUser.roles.includes("admin")'));
+check("invalid or expired God mode tokens fail closed instead of restoring administrator authority",
+  pipelineAuth.includes("if (!delegation) return authFailure(403")
+  && pipelineAuth.includes("if (!user) return authFailure(403"));
+check("God mode can select any other active non-merged Pipeline account",
+  assessorSessionRoute.includes("isEligibleGodModeTarget(member, auth.user.id)")
+  && assessorSessionPolicy.includes("member.principal_id !== administratorId")
+  && assessorSessionPolicy.includes('member.identity_status !== "merged"'));
+check("God mode retains administrator authority in the selected account context",
+  assessorSessionPolicy.includes('const godModeRoles: PipelineRole[] = ["admin", "assessment_coordinator", "reviewer", "viewer"]'));
+check("God mode mutations are same-origin and do not call Entra or invitation APIs",
+  assessorSessionRoute.includes("requireSameOriginMutation(request)")
+  && !/graph\.microsoft|invite|invitation|entra/i.test(assessorSessionRoute));
+check("session rotation and sign-out exit God mode",
+  authSession.includes("clearAssessorSessionCookie(request)"));
+const assessmentSignRoute = read(path.join(root, "app/api/assessments/[assessmentId]/sign/route.ts"));
+const assessmentAddendumRoute = read(path.join(root, "app/api/assessments/[assessmentId]/addenda/route.ts"));
+const ehrHandoffRoute = read(path.join(root, "app/api/referrals/[referralId]/ehr-handoff/route.ts"));
+check("God mode signatures and external handoffs retain the initiating administrator identity",
+  [assessmentSignRoute, assessmentAddendumRoute, ehrHandoffRoute]
+    .every((source) => source.includes("pipelineAccountableActor")));
+const delegatedWriteRoutes = [
+  "app/api/assessments/[assessmentId]/addenda/route.ts",
+  "app/api/assessments/[assessmentId]/route.ts",
+  "app/api/assessments/[assessmentId]/schedule/route.ts",
+  "app/api/assessments/[assessmentId]/sign/route.ts",
+  "app/api/assessments/[assessmentId]/start/route.ts",
+  "app/api/files/import-review/[itemId]/route.ts",
+  "app/api/packets/[packetId]/fields/[fieldKey]/retry/route.ts",
+  "app/api/packets/[packetId]/fields/[fieldKey]/review/route.ts",
+  "app/api/referrals/[referralId]/assessments/import/route.ts",
+  "app/api/referrals/[referralId]/assessments/route.ts",
+  "app/api/referrals/[referralId]/assessments/sync-packet/route.ts",
+  "app/api/referrals/[referralId]/census-reconciliation/route.ts",
+  "app/api/referrals/[referralId]/decision/route.ts",
+  "app/api/referrals/[referralId]/ehr-handoff/route.ts",
+  "app/api/referrals/[referralId]/manual-intake/route.ts",
+  "app/api/referrals/[referralId]/meet-client-email/route.ts",
+  "app/api/referrals/[referralId]/recommendation/route.ts",
+  "app/api/referrals/[referralId]/route.ts",
+  "app/api/referrals/[referralId]/transition/route.ts",
+  "app/api/referrals/[referralId]/work-items/[workItemId]/route.ts",
+  "app/api/referrals/route.ts",
+  "app/api/resident-links/[linkId]/route.ts",
+  "app/api/resident-links/route.ts",
+  "app/api/trash/referrals/[referralId]/restore/route.ts",
+  "app/api/uploads/complete/route.ts",
+  "app/api/uploads/create-url/route.ts",
+];
+const missingDelegatedAttribution = delegatedWriteRoutes.filter((file) => {
+  const source = read(path.join(root, file));
+  return !source.includes("pipelineAuditActor") && !source.includes("pipelineAccountableActor");
+});
+check("God mode referral and assessment writes preserve administrator attribution",
+  missingDelegatedAttribution.length === 0,
+  missingDelegatedAttribution);
 const proxy = read(path.join(root, "proxy.ts"));
-const pipelineAuth = read(path.join(root, "lib/auth/pipeline-auth.ts"));
 check("note-lab-only identities are blocked from Pipeline pages and APIs",
   proxy.includes("canAccessPipeline(auth.user)")
   && proxy.includes('toPipelinePath("/note-lab/practice")')

@@ -2,9 +2,31 @@ import "server-only";
 
 import { EncryptJWT, createRemoteJWKSet, jwtDecrypt, jwtVerify } from "jose";
 
+import { hasAssessorSession, readAssessorSession } from "@/lib/auth/assessor-session";
+import { delegatedUserFromSession } from "@/lib/auth/assessor-session-policy";
+
 export type PipelineRole = "admin" | "assessment_coordinator" | "reviewer" | "viewer";
 
 export type PipelineAccessScope = "pipeline" | "note_lab";
+
+export type PipelineDelegation = {
+  sessionId: string;
+  initiatedBy: {
+    id: string;
+    email: string;
+    name: string;
+  };
+  target: {
+    id: string;
+    email: string;
+    name: string;
+    roles: PipelineRole[];
+    identityStatus: "entra_linked" | "provisional" | "merged";
+  };
+  reason: string;
+  startedAt: string;
+  expiresAt: string;
+};
 
 export type PipelineUser = {
   id: string;
@@ -13,6 +35,7 @@ export type PipelineUser = {
   roles: PipelineRole[];
   accessScope: PipelineAccessScope;
   entraAppRoleAssigned?: boolean;
+  delegation?: PipelineDelegation;
 };
 
 type ParsedHeaderUser = Omit<PipelineUser, "roles" | "accessScope"> & {
@@ -72,9 +95,40 @@ export function requirePipelineUser(
 ): PipelineAuthResult | Promise<PipelineAuthResult> {
   const auth = requireAuthenticatedUser(request);
   if (auth instanceof Promise) {
-    return auth.then((result) => result.ok ? authorizePipelineUser(result.user, allowedRoles) : result);
+    return auth.then((result) => authorizeEffectivePipelineUser(request, result, allowedRoles));
   }
-  return auth.ok ? authorizePipelineUser(auth.user, allowedRoles) : auth;
+  return authorizeEffectivePipelineUser(request, auth, allowedRoles);
+}
+
+function authorizeEffectivePipelineUser(
+  request: Request,
+  auth: PipelineAuthResult,
+  allowedRoles: PipelineRole[],
+): PipelineAuthResult | Promise<PipelineAuthResult> {
+  if (!auth.ok) return auth;
+  const baseAuthorization = authorizePipelineUser(auth.user, rolePriority);
+  if (!baseAuthorization.ok) return baseAuthorization;
+  if (!hasAssessorSession(request)) return authorizePipelineUser(auth.user, allowedRoles);
+  return readAssessorSession(request, auth.user).then((delegation) => {
+    if (!delegation) return authFailure(403, "God mode is invalid or expired. Exit God mode before continuing.");
+    const user = delegatedUserFromSession(auth.user, delegation);
+    if (!user) return authFailure(403, "God mode is no longer permitted for this account.");
+    return authorizeResolvedPipelineUser(user, allowedRoles);
+  });
+}
+
+function authorizeResolvedPipelineUser(
+  user: PipelineUser,
+  allowedRoles: PipelineRole[],
+) {
+  if (!canAccessPipeline(user)) return authFailure(403, "Pipeline access is not assigned.");
+  if (!allowedRoles.some((role) => user.roles.includes(role))) return authFailure(403, "Insufficient role");
+  return { ok: true as const, user };
+}
+
+export async function getEffectivePipelineUser(request: Request, authenticatedUser: PipelineUser) {
+  const delegation = await readAssessorSession(request, authenticatedUser);
+  return delegation ? delegatedUserFromSession(authenticatedUser, delegation) ?? authenticatedUser : authenticatedUser;
 }
 
 export function requireAuthenticatedUser(

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { assessmentAssigneeForReferral, canWorkAssessment } from "@/lib/assessment/assessment-access";
 import {
@@ -91,7 +92,7 @@ export async function POST(
           match_confidence: averageConfidence(fields),
         },
         defaults: seed.data,
-        actor: { id: auth.user.id, name: auth.user.name },
+        actor: pipelineAuditActor(auth.user),
         mutationId,
       });
       if (!result) return jsonError("Assessment not found.", 404);

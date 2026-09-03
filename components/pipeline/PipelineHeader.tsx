@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CircleHelp, GraduationCap, LogOut, Trash2, UserRound } from "lucide-react";
 
+import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
 import { fetchCurrentPipelineUser, type PipelineCurrentUser } from "@/lib/auth/authenticated-fetch";
@@ -68,6 +69,7 @@ export default function PipelineHeader() {
   }, [isProfileMenuOpen]);
 
   const signedInName = user?.name || (auth.account ? getAccountDisplayName(auth.account) : "Eric Wilson");
+  const profileAppearance = getProfileAppearance(user);
   const trashActive = activeSearchParams.get("screen") === "trash";
   const isWelcomeSurface = homeMode === "welcome"
     && pathname === "/"
@@ -144,6 +146,7 @@ export default function PipelineHeader() {
       </div>
 
       <div className="relative z-10 ml-auto flex items-center">
+        <ActiveAssessorSessionPill user={user} />
         {!hideGlobalGuide ? (
           <button
             type="button"
@@ -162,11 +165,11 @@ export default function PipelineHeader() {
             aria-label={`Open profile menu for ${signedInName}`}
             aria-expanded={isProfileMenuOpen}
             aria-haspopup="dialog"
-            title={user ? `${user.name} · ${user.email}` : signedInName}
+            title={profileAppearance.title || signedInName}
             data-profile-scope="signed-in-user"
             data-guide-target="profile-menu"
             onClick={() => setIsProfileMenuOpen((open) => !open)}
-            className="flex h-12 max-w-[190px] shrink-0 items-center gap-2 rounded-md border border-transparent px-3 text-[#595959] outline-none transition-colors hover:bg-[#f7faf9] hover:text-[#111111] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 aria-expanded:border-[#b8dacf] aria-expanded:bg-[#effaf5] max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0"
+            className={profileAppearance.buttonClass}
           >
             <UserRound size={18} strokeWidth={1.8} className="shrink-0 text-[#0f8b73]" />
             <span className="hidden truncate text-[12px] font-black uppercase tracking-[0.1em] xl:inline">{signedInName}</span>
@@ -185,9 +188,10 @@ export default function PipelineHeader() {
                 </span>
                 <div className="min-w-0">
                   <div className="truncate text-[13px] font-black text-[#111111]">{signedInName}</div>
-                  <div className="mt-1 truncate text-[11px] text-[#737373]">{user?.email ?? "Signed in to Pipeline"}</div>
+                  <div className="mt-1 truncate text-[11px] text-[#737373]">{profileAppearance.detail}</div>
                 </div>
               </div>
+              <AssessorSessionMenuAction user={user} closeProfileMenu={() => setIsProfileMenuOpen(false)} />
               <ProfileLearningLink active={pathname === "/training"} onSelect={() => setIsProfileMenuOpen(false)} />
               {user?.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role)) ? (
                 <button
@@ -231,6 +235,29 @@ function normalizePathname(pathname: string | null) {
 
 function searchParamsText(searchParams: { toString(): string } | null) {
   return searchParams ? searchParams.toString() : "";
+}
+
+function getProfileAppearance(user: PipelineCurrentUser | null) {
+  const baseClass = "flex h-12 max-w-[190px] shrink-0 items-center gap-2 rounded-md border px-3 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0";
+  if (user?.delegation) {
+    return {
+      buttonClass: `${baseClass} border-[#d6a354] bg-[#fff8ed] text-[#6f470b] hover:bg-[#ffefcf] focus-visible:ring-[#a66b12]`,
+      detail: `God mode · Administrator: ${user.delegation.initiatedBy.name}`,
+      title: `God mode: ${user.delegation.target.name} · Administrator ${user.delegation.initiatedBy.name}`,
+    };
+  }
+  if (user?.assessorSessionRecoveryRequired) {
+    return {
+      buttonClass: `${baseClass} border-[#d6a354] bg-[#fff8ed] text-[#6f470b] hover:bg-[#ffefcf] focus-visible:ring-[#a66b12]`,
+      detail: "God mode account context is invalid",
+      title: "Exit the invalid God mode state",
+    };
+  }
+  return {
+    buttonClass: `${baseClass} border-transparent text-[#595959] hover:bg-[#f7faf9] hover:text-[#111111] focus-visible:ring-[#0f8b73] aria-expanded:border-[#b8dacf] aria-expanded:bg-[#effaf5]`,
+    detail: user?.email ?? "Signed in to Pipeline",
+    title: user ? `${user.name} · ${user.email}` : "",
+  };
 }
 
 function ProfileLearningLink({ active, onSelect }: { active: boolean; onSelect: () => void }) {

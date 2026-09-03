@@ -6,6 +6,7 @@ import {
   validateReviewFieldRequest,
 } from "@/lib/extraction/contracts";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { requireExtractionBackend } from "@/lib/extraction/backend-config";
 import { extractionErrorResponse, reviewPacketField } from "@/lib/extraction/extraction-service";
@@ -39,7 +40,7 @@ export async function POST(
 
     let result;
     try {
-      result = await reviewPacketField(packetId, decodedFieldKey, validation.value, auth.user);
+      result = await reviewPacketField(packetId, decodedFieldKey, validation.value, pipelineAuditActor(auth.user));
     } catch (error) {
       return extractionErrorResponse(error);
     }

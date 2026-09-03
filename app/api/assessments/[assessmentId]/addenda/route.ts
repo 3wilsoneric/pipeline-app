@@ -1,6 +1,7 @@
 import { addAssessmentAddendum, getAssessment, requireAssessmentStore } from "@/lib/assessment/assessment-store";
 import { validateAssessmentAddendumCommand } from "@/lib/assessment/assessment-lifecycle-validation";
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -34,7 +35,7 @@ export async function POST(request: Request, context: { params: Promise<{ assess
       assessmentId,
       command.value.note,
       command.value.reason_code,
-      { id: auth.user.id, name: auth.user.name },
+      pipelineAccountableActor(auth.user),
       command.value.if_match,
     );
     if (!result) return jsonError("Assessment not found.", 404);

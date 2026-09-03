@@ -1,4 +1,5 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
@@ -51,7 +52,7 @@ export async function POST(
       action,
       Number(body.value.if_match),
       Number(body.value.if_match_section),
-      { id: auth.user.id, name: auth.user.name },
+      pipelineAccountableActor(auth.user),
       typeof body.value.failure_reason === "string" ? body.value.failure_reason : "",
     );
     if (!result) return jsonError("Referral not found.", 404);

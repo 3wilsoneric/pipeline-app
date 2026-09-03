@@ -1,6 +1,7 @@
 import { after } from "next/server";
 
-import { canAccessPipeline, requireAuthenticatedUser } from "@/lib/auth/pipeline-auth";
+import { hasAssessorSession } from "@/lib/auth/assessor-session";
+import { canAccessPipeline, getEffectivePipelineUser, requireAuthenticatedUser } from "@/lib/auth/pipeline-auth";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
 
@@ -11,14 +12,19 @@ export async function GET(request: Request) {
     if (canAccessPipeline(auth.user)) {
       after(() => touchWorkspaceMember(auth.user).catch(() => undefined));
     }
+    const user = canAccessPipeline(auth.user)
+      ? await getEffectivePipelineUser(request, auth.user)
+      : auth.user;
 
     return Response.json(
       {
         user: {
-          id: auth.user.id,
-          email: auth.user.email,
-          name: auth.user.name,
-          roles: auth.user.roles,
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          roles: user.roles,
+          delegation: user.delegation,
+          assessorSessionRecoveryRequired: hasAssessorSession(request) && !user.delegation,
         },
       },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } },
