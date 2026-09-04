@@ -143,6 +143,14 @@ type AssessmentRemoteChange = {
   conflicts: AssessmentFieldConflict[];
 };
 
+type AssessmentPermissions = {
+  canSupervise: boolean;
+  canCreateClinical: boolean;
+  canEditClinical: boolean;
+  canCreateAssignedAssessment: boolean;
+  canAddAddendum: boolean;
+};
+
 export default function AssessmentWorkspace({ referralId, trainingAssessmentMode, assignedAssessorId, packetEvidenceVersion, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -179,14 +187,15 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
   const focusedAssessmentIdRef = useRef("");
   const packetSyncKeysRef = useRef(new Set<string>());
   const dirty = dirtySections.size > 0;
-  const offlinePrincipal = trainingAssessmentMode ? "" : viewer?.id ?? viewer?.email ?? "";
+  const offlinePrincipal = assessmentOfflinePrincipal(viewer, trainingAssessmentMode);
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
-  const canSupervise = Boolean(trainingAssessmentMode || viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator"));
-  const canCreateClinical = Boolean(trainingAssessmentMode || viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator" || role === "reviewer"));
-  const canEditClinical = Boolean(trainingAssessmentMode || (viewer && selected && (selected.assessor_id === viewer.id || canSupervise)));
-  const canCreateAssignedAssessment = Boolean(viewer && canCreateClinical && (assignedAssessorId === viewer.id || canSupervise));
-  const canAddAddendum = Boolean(trainingAssessmentMode || (viewer && (selected?.signed_by?.id === viewer.id || canSupervise)));
+  const {
+    canSupervise,
+    canEditClinical,
+    canCreateAssignedAssessment,
+    canAddAddendum,
+  } = assessmentPermissions({ viewer, selected, trainingAssessmentMode, assignedAssessorId });
   const coverage = useMemo(() => getAssessmentInterviewCoverage(draft), [draft]);
   const completion = useMemo(() => getAssessmentCompletionSummary(draft), [draft]);
   const pendingFields = useMemo(() => getPendingFields(selected), [selected]);
@@ -448,7 +457,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
     setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
     setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
     setShowAddendum(false);
-    if (!trainingAssessmentMode) void loadRecoveryDraft(selected, data);
+    loadAssessmentRecoveryDraft(trainingAssessmentMode, selected, data, loadRecoveryDraft);
   }, [loadRecoveryDraft, offlinePrincipal, selected, trainingAssessmentMode]);
 
   useEffect(() => {
@@ -621,7 +630,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
 
   const saveSectionNow = useCallback(async (section: AssessmentToolSection) => {
     const current = selectedRef.current;
-    if (!current || !dirtySectionsRef.current.has(section)) return;
+    if (!canSaveAssessmentSection(current, dirtySectionsRef.current, section)) return;
     if (remoteChangeRef.current?.conflicts.some((conflict) => conflict.section === section)) {
       throw new Error(`Resolve the ${sectionLabels[section]} conflict before saving.`);
     }
@@ -858,7 +867,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
 
   const saveSchedule = async () => {
     const current = selectedRef.current;
-    if (!current || !scheduleStart) return;
+    if (!hasAssessmentScheduleInput(current, scheduleStart)) return;
     const start = new Date(scheduleStart);
     if (Number.isNaN(start.getTime())) {
       setError("Choose a valid assessment date and time.");
@@ -873,8 +882,8 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
           scheduled_start_at: start.toISOString(),
           scheduled_duration_minutes: Number(scheduleDuration),
           scheduled_method: scheduleMethod,
-          scheduled_location: scheduleLocation.trim() || null,
-          schedule_status: current.schedule_status === "scheduled" || current.schedule_status === "rescheduled" ? "rescheduled" : "scheduled",
+          scheduled_location: nullableTrimmedText(scheduleLocation),
+          schedule_status: nextAssessmentScheduleStatus(current.schedule_status),
         });
         upsertAssessment(updated, true);
         setMessage("Practice appointment saved locally");
@@ -890,7 +899,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
             if_match: current.version,
             client_mutation_id: mutationId("assessment-schedule"),
             schedule: {
-              status: current.schedule_status === "scheduled" || current.schedule_status === "rescheduled" ? "rescheduled" : "scheduled",
+              status: nextAssessmentScheduleStatus(current.schedule_status),
               start_at: start.toISOString(),
               duration_minutes: Number(scheduleDuration),
               method: scheduleMethod,
@@ -1076,7 +1085,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
     };
   }, [activeSection, referralId, selected?.assessment_id, trainingAssessmentMode]);
 
-  if (!referralId && !trainingAssessmentMode) {
+  if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
     return (
       <AssessmentEmpty
         title="Save the referral before starting the assessment"
@@ -1130,7 +1139,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
             {canSupervise && selected.assessor_id !== viewer?.id ? <span className="sr-only">Supervisor access</span> : null}
           </div>
         </div>
-        <span data-guide-target="assessment-save-status" aria-live="polite" className={`hidden max-w-[280px] truncate text-[10px] lg:block ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{error || (trainingAssessmentMode ? (dirty ? "Saving practice changes..." : message || "Practice changes saved locally") : !networkOnline ? `Offline${pendingOfflineSaves > 0 ? ` · ${pendingOfflineSaves} queued` : ""}` : pendingOfflineSaves > 0 ? `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync` : dirty ? "Saving changes..." : message || "All changes saved")}</span>
+        <span data-guide-target="assessment-save-status" aria-live="polite" className={`hidden max-w-[280px] truncate text-[10px] lg:block ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
         {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? (
           <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button>
         ) : null}
@@ -1144,11 +1153,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
         ) : null}
       </header>
 
-      {trainingAssessmentMode ? (
-        <div className="shrink-0 border-b border-[#b9d8cd] bg-[#f1f8f5] px-5 py-2 text-[10px] font-semibold text-[#315e50]">
-          Training case · synthetic client · changes stay in this guide
-        </div>
-      ) : null}
+      <TrainingAssessmentBanner mode={trainingAssessmentMode} />
 
       {showAddendum ? (
         <div className="shrink-0 border-b border-[#d9dfdb] bg-[#f8faf9] px-4 py-4">
@@ -1689,6 +1694,137 @@ function assessmentFromConflict(payload: unknown) {
   return typeof candidate.assessment_id === "string" && Number.isSafeInteger(candidate.version)
     ? assessment as PipelineAssessmentRecord
     : null;
+}
+
+function assessmentOfflinePrincipal(
+  viewer: PipelineCurrentUser | null,
+  trainingAssessmentMode?: TrainingAssessmentMode,
+) {
+  if (trainingAssessmentMode) return "";
+  return viewer?.id ?? viewer?.email ?? "";
+}
+
+function assessmentPermissions({
+  viewer,
+  selected,
+  trainingAssessmentMode,
+  assignedAssessorId,
+}: {
+  viewer: PipelineCurrentUser | null;
+  selected: PipelineAssessmentRecord | null;
+  trainingAssessmentMode?: TrainingAssessmentMode;
+  assignedAssessorId?: string;
+}): AssessmentPermissions {
+  if (trainingAssessmentMode) {
+    return {
+      canSupervise: true,
+      canCreateClinical: true,
+      canEditClinical: true,
+      canCreateAssignedAssessment: Boolean(viewer),
+      canAddAddendum: true,
+    };
+  }
+
+  const canSupervise = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator"));
+  const canCreateClinical = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator" || role === "reviewer"));
+  return {
+    canSupervise,
+    canCreateClinical,
+    canEditClinical: Boolean(viewer && selected && (selected.assessor_id === viewer.id || canSupervise)),
+    canCreateAssignedAssessment: Boolean(viewer && canCreateClinical && (assignedAssessorId === viewer.id || canSupervise)),
+    canAddAddendum: Boolean(viewer && (selected?.signed_by?.id === viewer.id || canSupervise)),
+  };
+}
+
+function loadAssessmentRecoveryDraft(
+  trainingAssessmentMode: TrainingAssessmentMode | undefined,
+  assessment: PipelineAssessmentRecord,
+  data: AssessmentToolData,
+  loadRecoveryDraft: (assessment: PipelineAssessmentRecord, data: AssessmentToolData) => Promise<void>,
+) {
+  if (!trainingAssessmentMode) void loadRecoveryDraft(assessment, data);
+}
+
+function canSaveAssessmentSection(
+  assessment: PipelineAssessmentRecord | null,
+  dirtySections: ReadonlySet<AssessmentToolSection>,
+  section: AssessmentToolSection,
+): assessment is PipelineAssessmentRecord {
+  return Boolean(assessment && dirtySections.has(section));
+}
+
+function hasAssessmentScheduleInput(
+  assessment: PipelineAssessmentRecord | null,
+  scheduleStart: string,
+): assessment is PipelineAssessmentRecord {
+  return Boolean(assessment && scheduleStart);
+}
+
+function nextAssessmentScheduleStatus(
+  status: PipelineAssessmentRecord["schedule_status"],
+): "scheduled" | "rescheduled" {
+  return status === "scheduled" || status === "rescheduled" ? "rescheduled" : "scheduled";
+}
+
+function nullableTrimmedText(value: string) {
+  return value.trim() || null;
+}
+
+function assessmentRequiresSavedReferral(
+  referralId: number | undefined,
+  trainingAssessmentMode?: TrainingAssessmentMode,
+) {
+  return Boolean(!referralId && !trainingAssessmentMode);
+}
+
+function assessmentSaveStatus({
+  error,
+  trainingAssessmentMode,
+  dirty,
+  message,
+  networkOnline,
+  pendingOfflineSaves,
+}: {
+  error: string;
+  trainingAssessmentMode?: TrainingAssessmentMode;
+  dirty: boolean;
+  message: string;
+  networkOnline: boolean;
+  pendingOfflineSaves: number;
+}) {
+  if (error) return error;
+  if (trainingAssessmentMode) return trainingAssessmentSaveStatus(dirty, message);
+  return persistedAssessmentSaveStatus({ dirty, message, networkOnline, pendingOfflineSaves });
+}
+
+function trainingAssessmentSaveStatus(dirty: boolean, message: string) {
+  return dirty ? "Saving practice changes..." : message || "Practice changes saved locally";
+}
+
+function persistedAssessmentSaveStatus({
+  dirty,
+  message,
+  networkOnline,
+  pendingOfflineSaves,
+}: {
+  dirty: boolean;
+  message: string;
+  networkOnline: boolean;
+  pendingOfflineSaves: number;
+}) {
+  if (!networkOnline) return `Offline${pendingOfflineSaves > 0 ? ` · ${pendingOfflineSaves} queued` : ""}`;
+  if (pendingOfflineSaves > 0) return `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync`;
+  if (dirty) return "Saving changes...";
+  return message || "All changes saved";
+}
+
+function TrainingAssessmentBanner({ mode }: { mode?: TrainingAssessmentMode }) {
+  if (!mode) return null;
+  return (
+    <div className="shrink-0 border-b border-[#b9d8cd] bg-[#f1f8f5] px-5 py-2 text-[10px] font-semibold text-[#315e50]">
+      Training case · synthetic client · changes stay in this guide
+    </div>
+  );
 }
 
 function updateTrainingAssessment(
