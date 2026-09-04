@@ -175,7 +175,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "I want to..." })).toBeVisible();
   });
 
-  test("runs one referral through scheduling, assessment, and decision even when steps are skipped", async ({ page }) => {
+  test("presents the workflow concepts before starting the real guided tour", async ({ page }) => {
     await mockTrainingProgress(page);
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto(trainingUrl);
@@ -193,31 +193,20 @@ test.describe("Pipeline Learning Center", () => {
     expect(previewBox!.y).toBeGreaterThanOrEqual(0);
     expect(previewBox!.x + previewBox!.width).toBeLessThanOrEqual(viewport!.width);
     expect(previewBox!.y + previewBox!.height).toBeLessThanOrEqual(viewport!.height);
-    await expect(preview.getByRole("heading", { name: "Referral to decision" })).toBeVisible();
-    await expect(preview.getByRole("heading", { name: "Start with one assigned referral" })).toBeVisible();
-    await expect(preview.getByText("Taylor Rivera", { exact: true })).toBeVisible();
-
-    await preview.getByRole("button", { name: "Continue" }).click();
-    await expect(preview.getByRole("heading", { name: "Schedule the interview" })).toBeVisible();
-    await preview.getByRole("button", { name: "Continue" }).click();
-    await expect(preview.getByRole("alert")).toContainText("Add a date, time, method");
+    await expect(preview.getByRole("heading", { name: "How Pipeline moves a referral" })).toBeVisible();
+    await expect(preview.getByRole("heading", { name: "One referral, one workspace" })).toBeVisible();
 
     for (const heading of [
-      "Verify before you begin",
-      "Document the assessment",
-      "Submit the assessor recommendation",
-      "Record the supervisor decision",
-      "The record moved as one workflow",
+      "The packet starts the record",
+      "Scheduling creates the plan",
+      "The interview is the assessment",
+      "Completion creates the chart",
+      "Review closes the referral loop",
     ]) {
-      await preview.getByRole("button", { name: "Skip and simulate" }).click();
+      await preview.getByRole("button", { name: "Next concept" }).click();
       await expect(preview.getByRole("heading", { name: heading })).toBeVisible();
     }
-
-    const summary = preview.getByTestId("workflow-complete-summary");
-    await expect(summary).toContainText("Appointment scheduled");
-    await expect(summary).toContainText("Assessment completed");
-    await expect(summary).toContainText("Recommend admission");
-    await expect(summary).toContainText("Accepted");
+    await expect(preview.getByText(/guided tour opens the real Pipeline controls/)).toBeVisible();
     await preview.getByRole("button", { name: "Start guided tour" }).click();
     await expect(preview).toBeHidden();
     const coach = page.getByRole("dialog", { name: "Full Pipeline walkthrough guided tutorial" });
@@ -240,7 +229,7 @@ test.describe("Pipeline Learning Center", () => {
 
     await page.getByRole("button", { name: "Open full Pipeline walkthrough" }).click();
     const preview = page.getByRole("dialog", { name: "Full Pipeline walkthrough" });
-    await expect(preview.getByRole("button", { name: "Continue" })).toBeInViewport();
+    await expect(preview.getByRole("button", { name: "Next concept" })).toBeInViewport();
     await preview.getByRole("button", { name: "Close full walkthrough" }).click();
 
     await page.getByRole("button", { name: "Open Find a referral" }).click();
