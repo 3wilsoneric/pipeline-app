@@ -86,12 +86,7 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
 
       {previewOpen ? (
         <FullWorkflowWalkthroughPreview
-          tutorials={tutorials}
           onClose={() => setPreviewOpen(false)}
-          onStart={() => {
-            setPreviewOpen(false);
-            dispatchOperatorGuide({ type: "start-sequence", tutorialIds: tutorials.map((tutorial) => tutorial.id) });
-          }}
         />
       ) : null}
     </section>
