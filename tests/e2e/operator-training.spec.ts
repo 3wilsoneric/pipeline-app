@@ -324,6 +324,8 @@ test.describe("Pipeline Learning Center", () => {
     await page.getByRole("button", { name: "Open Create a referral" }).click();
     await page.getByRole("button", { name: "Start guided walkthrough: Create a referral" }).click();
 
+    await expect(page.getByRole("heading", { name: "Select New referral" })).toBeVisible();
+    await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
     await page.getByLabel("Create new referral").click();
     await expect(page).toHaveURL(/view=referrals&screen=packet/);
 

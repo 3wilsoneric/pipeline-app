@@ -196,11 +196,11 @@ await measureJourney("referral_community_filter", "filter", async () => {
   await page.getByRole("button", { name: `Open ${seededReferralName} referral workspace`, exact: true }).waitFor({ state: "visible" });
 });
 await page.getByLabel("Filter workspaces by community").selectOption("");
-await measureJourney("referrals_to_home_summary", "queue", async () => {
+await measureJourney("referrals_to_home_current_work", "queue", async () => {
   await activate(page.getByRole("button", { name: "Pipeline home", exact: true }));
-  await page.getByRole("region", { name: "Workflow summary", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("region", { name: "Current work", exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("home_summary_to_all_workspaces", "queue", async () => {
+await measureJourney("home_current_work_to_all_workspaces", "queue", async () => {
   await activate(page.getByRole("button", { name: "Open referrals", exact: true }));
   await page.getByLabel("Referral worklist", { exact: true }).waitFor({ state: "visible" });
 });
@@ -242,7 +242,7 @@ await measureJourney("packet_step_change", "tab", async () => {
 });
 await measureJourney("new_referral_to_home", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Pipeline home", exact: true }));
-  await page.getByRole("region", { name: "Ready to schedule", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("region", { name: "Current work", exact: true }).waitFor({ state: "visible" });
 });
 
 await measureJourney("profile_menu_open", "overlay", async () => {
@@ -259,21 +259,21 @@ await measureJourney("guide_library_open", "guide", async () => {
   await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_walkthrough_start", "guide", async () => {
-  await activate(page.getByRole("button", { name: /^Review team referral work / }).first());
-  await page.getByRole("dialog", { name: "Review team referral work guided tutorial", exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("heading", { name: "Review the last 24 hours", exact: true }).waitFor({ state: "visible" });
+  await activate(page.getByRole("button", { name: /^Check team work / }).first());
+  await page.getByRole("dialog", { name: "Check team work guided tutorial", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: "Check the team queue", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_step_advance", "guide", async () => {
   await activate(page.getByRole("button", { name: "Continue", exact: true }));
-  await page.getByRole("heading", { name: "Open the referral inventory", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: "Open Workspaces", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_step_back", "guide", async () => {
   await activate(page.getByRole("button", { name: "Back", exact: true }));
-  await page.getByRole("heading", { name: "Review the last 24 hours", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: "Check the team queue", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_pause", "guide", async () => {
   await activate(page.getByRole("button", { name: "Pause tutorial", exact: true }));
-  await page.getByRole("dialog", { name: "Review team referral work guided tutorial", exact: true }).waitFor({ state: "hidden" });
+  await page.getByRole("dialog", { name: "Check team work guided tutorial", exact: true }).waitFor({ state: "hidden" });
 });
 await measureJourney("guide_library_reopen", "guide", async () => {
   await activate(page.getByRole("button", { name: "Open guided tutorials", exact: true }));
@@ -281,11 +281,11 @@ await measureJourney("guide_library_reopen", "guide", async () => {
 });
 await measureJourney("guide_resume", "guide", async () => {
   await activate(page.getByRole("button", { name: /^Continue where you stopped/ }).first());
-  await page.getByRole("dialog", { name: "Review team referral work guided tutorial", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("dialog", { name: "Check team work guided tutorial", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_end", "guide", async () => {
   await activate(page.getByRole("button", { name: "End tutorial", exact: true }));
-  await page.getByRole("dialog", { name: "Review team referral work guided tutorial", exact: true }).waitFor({ state: "hidden" });
+  await page.getByRole("dialog", { name: "Check team work guided tutorial", exact: true }).waitFor({ state: "hidden" });
   await page.getByRole("dialog", { name: "Guided tutorial library", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("guide_library_close", "guide", async () => {
@@ -314,10 +314,10 @@ await measureJourney("calendar_to_operations", "navigation", async () => {
 });
 await measureJourney("report_tab_change", "tab", async () => {
   await activate(page.getByRole("button", { name: "View Documents report", exact: true }));
-  await page.getByRole("heading", { name: "Documents", exact: true }).waitFor({ state: "visible" });
+  await waitForReport(page, "Documents");
 });
 await activate(page.getByRole("button", { name: "View Workspaces report", exact: true }));
-await page.getByRole("heading", { name: "Workspaces", exact: true }).waitFor({ state: "visible" });
+await waitForReport(page, "Workspaces");
 await page.getByLabel("Report community", { exact: true }).selectOption("San Pablo");
 await measureJourney("report_filter_apply", "filter", async () => {
   const reportResponse = page.waitForResponse((candidate) => {
@@ -374,16 +374,16 @@ await measureJourney("learning_workflow_open", "overlay", async () => {
   await page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("learning_workflow_step", "overlay", async () => {
-  await activate(page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).getByRole("button", { name: "Next", exact: true }));
-  await page.getByRole("heading", { name: "Create the referral workspace", exact: true }).waitFor({ state: "visible" });
+  await activate(page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).getByRole("button", { name: "Next concept", exact: true }));
+  await page.getByRole("heading", { name: "The packet starts the record", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("learning_workflow_close", "overlay", async () => {
   await activate(page.getByRole("button", { name: "Close full walkthrough", exact: true }));
   await page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).waitFor({ state: "hidden" });
 });
 await measureJourney("learning_task_open", "overlay", async () => {
-  await activate(page.getByRole("button", { name: "Open Complete an assessment", exact: true }));
-  await page.getByRole("heading", { name: "Complete an assessment", exact: true }).waitFor({ state: "visible" });
+  await activate(page.getByRole("button", { name: "Open Finish an assessment", exact: true }));
+  await page.getByRole("heading", { name: "Finish an assessment", exact: true }).waitFor({ state: "visible" });
 });
 await page.waitForLoadState("networkidle");
 await afterNextPaint(page);
@@ -462,6 +462,16 @@ async function measureJourney(name, kind, action) {
 
 async function activate(locator) {
   await locator.click();
+}
+
+async function waitForReport(targetPage, label) {
+  await targetPage.waitForFunction((expectedLabel) => {
+    const reportReady = [...document.querySelectorAll("article")]
+      .some((article) => article.getAttribute("aria-label") === `${expectedLabel} report`);
+    const controlsReady = [...document.querySelectorAll('section[aria-label="Report controls"] button')]
+      .some((button) => button.textContent?.trim() === "Apply");
+    return reportReady && controlsReady;
+  }, label);
 }
 
 async function recordPhase(target, name, startedAt, operation) {
