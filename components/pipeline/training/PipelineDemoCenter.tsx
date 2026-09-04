@@ -37,7 +37,15 @@ type DemoActor = {
 };
 
 type DemoReferralSummary = Pick<Referral, "id" | "name" | "community" | "tags" | "createdAt">;
-type DemoView = "run" | "lab" | "handoff";
+type DemoView = "presentation" | "journey" | "lab" | "handoff";
+
+type PresentationSlide = {
+  number: number;
+  title: string;
+  summary: string;
+  points: readonly string[];
+  flow?: readonly string[];
+};
 
 type DemoChapter = {
   number: number;
@@ -45,25 +53,61 @@ type DemoChapter = {
   instruction: string;
   actions: readonly string[];
   completeWhen: string;
-  scenarioId: PipelineDemoScenarioId;
+  scenarioId?: PipelineDemoScenarioId;
   guide?: { tutorialId: string; stepId: string };
+  destination?: DemoView;
 };
+
+const presentationSlides: readonly PresentationSlide[] = [
+  {
+    number: 1,
+    title: "One referral, one record",
+    summary: "Pipeline keeps the packet, intake, assessment, decision, Chart, and handoff connected.",
+    points: ["The referral workspace is the source record", "Each role sees the work it needs", "Files and activity stay attached to the referral"],
+    flow: ["Email + packet", "Intake", "Assessment", "Decision", "Chart + handoff"],
+  },
+  {
+    number: 2,
+    title: "Intake",
+    summary: "Create the referral from the source packet before assessment work begins.",
+    points: ["Attach the packet first", "Verify identity, source, community, and owner", "Carry supplied medication information forward for assessment verification"],
+  },
+  {
+    number: 3,
+    title: "Assessment",
+    summary: "Schedule the interview, begin it under the assigned assessor, and complete all 12 sections.",
+    points: ["Inherited intake facts remain visible", "Conditional questions appear only when relevant", "Autosave protects the draft; signature remains a deliberate action"],
+  },
+  {
+    number: 4,
+    title: "Supervisor review",
+    summary: "Review the evidence, unresolved conflicts, completeness, and recommendation before the decision.",
+    points: ["Prioritize exceptions and overdue work", "Return unclear documentation for correction", "Record the admission decision in the referral workspace"],
+  },
+  {
+    number: 5,
+    title: "Accepted referral",
+    summary: "Use the signed assessment to prepare the Chart and the receiving-community handoff.",
+    points: ["Review the complete Chart", "Send Meet the Client with the approved admission files", "Prepare the accepted record for EHR entry"],
+  },
+] as const;
 
 const demoChapters: readonly DemoChapter[] = [
   {
     number: 1,
-    title: "Review the referral",
-    instruction: "Confirm that the assigned referral is ready for assessment work.",
-    actions: ["Open Intake and verify name, date of birth, community, source, and owner", "Review the packet status and missing documents", "Record missing or conflicting information instead of guessing"],
-    completeWhen: "Identity, source, ownership, and packet status are clear.",
-    scenarioId: "assessment-preparation",
+    title: "Create the referral",
+    instruction: "Start with the referral packet and create the intake record.",
+    actions: ["Attach the source packet", "Verify client and referral information", "Set the community, owner, and medication context"],
+    completeWhen: "The referral has a source packet, verified intake facts, and an owner.",
+    scenarioId: "new-intake",
+    guide: { tutorialId: "create-referral", stepId: "referral-packet" },
   },
   {
     number: 2,
-    title: "Check medication information",
-    instruction: "Review the medication information carried from intake before the interview.",
-    actions: ["Compare the medication list with the source packet", "Verify name, dose, route, schedule, and source when available", "Leave unverified details clearly marked for follow-up"],
-    completeWhen: "Medication facts and unresolved questions are distinguishable.",
+    title: "Review the intake",
+    instruction: "Confirm that the assigned referral is ready for assessment work.",
+    actions: ["Verify identity, community, source, and owner", "Review packet status and missing documents", "Separate supplied medication facts from unresolved questions"],
+    completeWhen: "Identity, ownership, packet status, and follow-up needs are clear.",
     scenarioId: "assessment-preparation",
   },
   {
@@ -86,16 +130,24 @@ const demoChapters: readonly DemoChapter[] = [
   },
   {
     number: 5,
-    title: "Prepare for supervisor review",
-    instruction: "Resolve what you can and make every remaining uncertainty visible.",
-    actions: ["Attribute conflicting statements to the client, collateral source, or record", "State what is unknown and what follow-up is needed", "Review the assessment for missing required fields before handoff"],
-    completeWhen: "A supervisor can understand the evidence, conflicts, and next action without asking what the note means.",
+    title: "Review and decide",
+    instruction: "A supervisor reviews the completed assessment and records the decision.",
+    actions: ["Review evidence, conflicts, and missing information", "Return unclear or incomplete work for correction", "Record the admission decision and next action"],
+    completeWhen: "The decision and any required follow-up are clear in the referral workspace.",
     scenarioId: "assessment-complex",
+  },
+  {
+    number: 6,
+    title: "Prepare the handoff",
+    instruction: "For an accepted referral, review the receiving-community information and approved files.",
+    actions: ["Review the complete Chart", "Check the Meet the Client summary", "Confirm the admission packet attachments before sending"],
+    completeWhen: "The receiving team has the approved summary and admission files.",
+    destination: "handoff",
   },
 ] as const;
 
 export default function PipelineDemoCenter({ actor, environment }: { actor: DemoActor; environment: PipelineDemoEnvironment }) {
-  const [view, setView] = useState<DemoView>("run");
+  const [view, setView] = useState<DemoView>("presentation");
   const [chapterIndex, setChapterIndex] = useState(0);
   const [referrals, setReferrals] = useState<DemoReferralSummary[]>([]);
   const [loadingCases, setLoadingCases] = useState(true);
@@ -122,6 +174,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
     activatePipelineDemoSession();
     setError("");
     if (scenario.launch === "new_referral") {
+      if (guide) stageOperatorGuideForNavigation(guide.tutorialId, guide.stepId);
       window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&demoScenario=${scenario.id}`));
       return;
     }
@@ -205,12 +258,13 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
                 <span className="inline-flex items-center gap-2 border border-[#9fc6b9] bg-[#eaf5f1] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.11em] text-[#0b6d5b]"><FlaskConical size={12} /> Synthetic data</span>
                 <span className={`border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.09em] ${environment.writable ? "border-[#bdd4cc] bg-[#f3f8f6] text-[#42665b]" : "border-[#dfca97] bg-[#fff8e8] text-[#825a10]"}`}>{environment.label}</span>
               </div>
-              <h1 className="mt-2 text-[24px] font-semibold tracking-[-0.035em]">Assessor walkthrough</h1>
-              <p className="mt-1 text-[11px] leading-5 text-[#5b6662]">Practice referral review, scheduling, interviewing, and supervisor handoff.</p>
+              <h1 className="mt-2 text-[24px] font-semibold tracking-[-0.035em]">Pipeline training</h1>
+              <p className="mt-1 text-[11px] leading-5 text-[#5b6662]">Presentation, referral walkthrough, and synthetic practice records.</p>
             </div>
           </div> : null}
           <div className={`flex min-w-0 items-end overflow-x-auto ${showingHandoff ? "gap-1 bg-white px-0" : "border-t border-[#d8dfdc] bg-[#edf2f0] px-3 pt-2"}`} role="tablist" aria-label="Demo Center sections">
-            <DemoTab active={view === "run"} label="Walkthrough" onClick={() => setView("run")} />
+            <DemoTab active={view === "presentation"} label="Presentation" onClick={() => setView("presentation")} />
+            <DemoTab active={view === "journey"} label="Referral journey" onClick={() => setView("journey")} />
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => setView("lab")} />
             <DemoTab active={view === "handoff"} label="Meet the Client" onClick={() => setView("handoff")} />
           </div>
@@ -219,14 +273,23 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
         {error ? <div role="alert" className="mt-4 border-l-4 border-[#b95649] bg-[#fff2ef] px-4 py-3 text-[11px] font-bold text-[#8c3d33]">{error}</div> : null}
         {!environment.writable ? <div className="mt-4 border border-[#dfca97] bg-[#fff9e9] px-4 py-3 text-[11px] leading-5 text-[#765817]"><strong>Synthetic writes are locked.</strong> {environment.reason}</div> : null}
 
-        {view === "run" ? (
-          <PresenterRun
+        {view === "presentation" ? (
+          <PresentationDeck onStartJourney={() => setView("journey")} />
+        ) : view === "journey" ? (
+          <ReferralJourney
             chapter={chapter}
             chapterIndex={chapterIndex}
             launchingId={launchingId}
             canWrite={canWrite}
             onSelect={setChapterIndex}
-            onLaunch={(selected) => void launchScenario(getPipelineDemoScenario(selected.scenarioId)!, selected.guide)}
+            onLaunch={(selected) => {
+              if (selected.destination) {
+                setView(selected.destination);
+                return;
+              }
+              const scenario = selected.scenarioId ? getPipelineDemoScenario(selected.scenarioId) : null;
+              if (scenario) void launchScenario(scenario, selected.guide);
+            }}
           />
         ) : view === "lab" ? (
           <ScenarioLab
@@ -245,14 +308,51 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
   );
 }
 
-function PresenterRun({ chapter, chapterIndex, launchingId, canWrite, onSelect, onLaunch }: { chapter: DemoChapter; chapterIndex: number; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onSelect: (index: number) => void; onLaunch: (chapter: DemoChapter) => void }) {
+function PresentationDeck({ onStartJourney }: { onStartJourney: () => void }) {
+  const [slideIndex, setSlideIndex] = useState(0);
+  const slide = presentationSlides[slideIndex] ?? presentationSlides[0];
+  const isLast = slideIndex === presentationSlides.length - 1;
+
+  return (
+    <section className="mt-5 grid min-h-[540px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[230px_minmax(0,1fr)]">
+      <aside className="border-b border-[#d8dfdc] bg-[#eef3f1] p-3 lg:border-b-0 lg:border-r lg:p-4">
+        <div className="px-2 py-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Presentation</div>
+        <nav aria-label="Presentation slides" className="mt-1 flex gap-1 overflow-x-auto lg:block">
+          {presentationSlides.map((item, index) => (
+            <button key={item.number} type="button" onClick={() => setSlideIndex(index)} aria-current={index === slideIndex ? "step" : undefined} className={`grid min-h-[56px] w-[176px] shrink-0 grid-cols-[24px_minmax(0,1fr)] items-center gap-2 border-l-2 px-3 text-left lg:mb-1 lg:w-full ${index === slideIndex ? "border-[#0f8b73] bg-white text-[#20302b]" : "border-transparent text-[#63706b] hover:bg-white/70"}`}>
+              <span className="text-[9px] font-black tabular-nums">{String(item.number).padStart(2, "0")}</span>
+              <span className="text-[11px] font-black leading-4">{item.title}</span>
+            </button>
+          ))}
+        </nav>
+      </aside>
+      <div className="flex min-w-0 flex-col">
+        <article aria-label={`Presentation slide ${slide.number}`} className="flex flex-1 flex-col px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
+          <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#0c705f]">{slide.number} / {presentationSlides.length}</div>
+          <h2 className="mt-3 max-w-[900px] text-[30px] font-semibold leading-9 tracking-[-0.035em] text-[#1c2421] sm:text-[38px] sm:leading-[44px]">{slide.title}</h2>
+          <p className="mt-4 max-w-[820px] text-[16px] font-medium leading-7 text-[#58645f]">{slide.summary}</p>
+          {slide.flow ? <div className="mt-8 grid gap-px overflow-hidden border border-[#cbd5d1] bg-[#cbd5d1] sm:grid-cols-5">{slide.flow.map((item, index) => <div key={item} className="flex min-h-[82px] items-center gap-3 bg-[#f7faf9] px-4"><span className="flex h-7 w-7 shrink-0 items-center justify-center bg-[#dceee8] text-[9px] font-black text-[#0c705f]">{index + 1}</span><span className="text-[11px] font-black leading-4 text-[#34413c]">{item}</span></div>)}</div> : null}
+          <div className="mt-8 max-w-[920px] border-y border-[#d9dfdc]">
+            {slide.points.map((point, index) => <div key={point} className="grid grid-cols-[30px_minmax(0,1fr)] items-center border-b border-[#e1e5e3] py-4 last:border-b-0"><span className="text-[10px] font-black text-[#0c705f]">{index + 1}</span><span className="text-[13px] font-bold leading-5 text-[#39423e]">{point}</span></div>)}
+          </div>
+        </article>
+        <footer className="flex items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-4 sm:px-8">
+          <button type="button" disabled={slideIndex === 0} onClick={() => setSlideIndex((current) => Math.max(0, current - 1))} className="inline-flex h-10 items-center gap-2 px-2 text-[10px] font-black text-[#5d6863] disabled:invisible"><ArrowLeft size={13} /> Previous</button>
+          {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b]">Open referral journey <ArrowRight size={13} /></button> : <button type="button" onClick={() => setSlideIndex((current) => Math.min(presentationSlides.length - 1, current + 1))} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[10px] font-black text-white">Next <ArrowRight size={13} /></button>}
+        </footer>
+      </div>
+    </section>
+  );
+}
+
+function ReferralJourney({ chapter, chapterIndex, launchingId, canWrite, onSelect, onLaunch }: { chapter: DemoChapter; chapterIndex: number; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onSelect: (index: number) => void; onLaunch: (chapter: DemoChapter) => void }) {
   const scenario = chapter.scenarioId ? getPipelineDemoScenario(chapter.scenarioId) : null;
   const disabled = Boolean(scenario && scenario.launch === "assessment" && !canWrite) || launchingId !== null;
   return (
     <section className="mt-5 grid min-h-[520px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="min-w-0 border-b border-[#d8dfdc] bg-[#eef3f1] lg:border-b-0 lg:border-r">
-        <div className="border-b border-[#d8dfdc] px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Assessment steps</div>
-        <nav aria-label="Demo chapters" className="flex w-full min-w-0 gap-1 overflow-x-auto p-2 lg:block">{demoChapters.map((item, index) => <button key={item.number} type="button" onClick={() => onSelect(index)} className={`grid min-h-[62px] w-[190px] shrink-0 grid-cols-[30px_minmax(0,1fr)] items-center gap-3 border-l-[3px] px-3 py-2 text-left lg:mb-1 lg:w-full ${index === chapterIndex ? "border-l-[#0f8b73] bg-white" : "border-l-transparent hover:bg-white/70"}`}><span className={`flex h-7 w-7 items-center justify-center border text-[9px] font-black ${index < chapterIndex ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#bac8c3] bg-white text-[#58645f]"}`}>{index < chapterIndex ? <Check size={13} /> : item.number}</span><span className="text-[11px] font-black leading-4 text-[#27302c]">{item.title}</span></button>)}</nav>
+        <div className="border-b border-[#d8dfdc] px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Referral journey</div>
+        <nav aria-label="Referral journey stages" className="flex w-full min-w-0 gap-1 overflow-x-auto p-2 lg:block">{demoChapters.map((item, index) => <button key={item.number} type="button" onClick={() => onSelect(index)} className={`grid min-h-[62px] w-[190px] shrink-0 grid-cols-[30px_minmax(0,1fr)] items-center gap-3 border-l-[3px] px-3 py-2 text-left lg:mb-1 lg:w-full ${index === chapterIndex ? "border-l-[#0f8b73] bg-white" : "border-l-transparent hover:bg-white/70"}`}><span className={`flex h-7 w-7 items-center justify-center border text-[9px] font-black ${index < chapterIndex ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#bac8c3] bg-white text-[#58645f]"}`}>{index < chapterIndex ? <Check size={13} /> : item.number}</span><span className="text-[11px] font-black leading-4 text-[#27302c]">{item.title}</span></button>)}</nav>
       </aside>
       <div className="flex min-w-0 flex-col">
         <div className="flex-1 px-5 py-7 sm:px-8 lg:px-10 lg:py-8">
@@ -267,7 +367,7 @@ function PresenterRun({ chapter, chapterIndex, launchingId, canWrite, onSelect, 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-4 sm:px-8">
           <button type="button" disabled={chapterIndex === 0} onClick={() => onSelect(Math.max(0, chapterIndex - 1))} className="inline-flex h-10 items-center gap-2 border border-[#cbd5d1] px-4 text-[10px] font-black disabled:invisible"><ArrowLeft size={13} /> Previous</button>
           <div className="flex gap-2">
-            <button type="button" disabled={disabled} onClick={() => onLaunch(chapter)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b] disabled:bg-[#aeb9b5]"><Play size={13} />{launchingId === chapter.scenarioId ? "Preparing..." : chapter.guide ? "Open guided practice" : "Open practice record"}</button>
+            <button type="button" disabled={disabled} onClick={() => onLaunch(chapter)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b] disabled:bg-[#aeb9b5]"><Play size={13} />{launchingId === chapter.scenarioId ? "Preparing..." : chapter.destination === "handoff" ? "Open handoff preview" : chapter.guide ? "Open guided practice" : "Open practice record"}</button>
             {chapterIndex < demoChapters.length - 1 ? <button type="button" onClick={() => onSelect(chapterIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-4 text-[10px] font-black text-white">Next <ArrowRight size={13} /></button> : null}
           </div>
         </footer>
