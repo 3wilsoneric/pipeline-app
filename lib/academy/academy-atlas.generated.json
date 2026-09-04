@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ca0ed064d45c9770",
-  "fingerprint": "ca0ed064d45c9770894e5190f695c08e57a63bd3d3e37fe4cc0941696893f42f",
+  "generatedAt": "source-fingerprint:d8db4517898c889d",
+  "fingerprint": "d8db4517898c889d64f4b9d635fd43f51f52ee8bf7acda84cd435cfff7b7d7a6",
   "totals": {
-    "files": 798,
-    "lines": 268912,
-    "coveredFiles": 798
+    "files": 799,
+    "lines": 269169,
+    "coveredFiles": 799
   },
   "entries": [
     {
@@ -1674,7 +1674,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1707,
+      "lines": 1792,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -1938,7 +1938,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 345,
+      "lines": 353,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2034,7 +2034,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3306,
+      "lines": 3310,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2250,7 +2250,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 603,
+      "lines": 602,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -6602,6 +6602,18 @@
       ]
     },
     {
+      "path": "lib/training/mock-assessment.ts",
+      "subsystem": "Repository configuration",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 75,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/training/operator-guided-tour-state.ts",
       "subsystem": "Repository configuration",
       "kind": "typescript-module",
@@ -6619,7 +6631,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 377,
+      "lines": 378,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9379,7 +9391,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 334,
+      "lines": 417,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9643,7 +9655,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 71,
+      "lines": 73,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
