@@ -91,6 +91,8 @@ test.describe("Pipeline Learning Center", () => {
     const coach = page.getByTestId("guided-coach-panel");
     const upload = page.getByRole("group", { name: "Upload initial referral document" });
     await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
+    await expect(coach).not.toContainText("This step is on another Pipeline page.");
+    await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
     await expect(upload).toBeVisible();
     await expect(upload.getByRole("button", { name: "Choose file" })).toBeVisible();
     await expectGuideDoesNotCoverTarget(coach, upload);
@@ -170,12 +172,14 @@ test.describe("Pipeline Learning Center", () => {
 
   test("combines every visible task guide into the full walkthrough", async ({ page }) => {
     await mockTrainingProgress(page);
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    await page.getByRole("button", { name: "Open full Pipeline walkthrough" }).click();
-
     const preview = page.getByRole("dialog", { name: "Full Pipeline walkthrough" });
-    await expect(preview).toBeVisible();
+    await expect(async () => {
+      await page.getByRole("button", { name: "Open full Pipeline walkthrough" }).click();
+      await expect(preview).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 5_000 });
     const previewBox = await preview.boundingBox();
     const viewport = page.viewportSize();
     expect(previewBox).not.toBeNull();
@@ -194,6 +198,21 @@ test.describe("Pipeline Learning Center", () => {
     await expect(coach).toBeVisible();
     await expect(coach.getByText("Full tour · Module 1 of 7", { exact: true })).toBeVisible();
     await expect(coach.getByRole("heading", { name: "Select New referral" })).toBeVisible();
+
+    const visitedModules = new Set<string>();
+    for (let action = 0; action < 60 && await coach.isVisible(); action += 1) {
+      const moduleLabel = await coach.getByText(/Full tour · Module \d+ of 7/).textContent();
+      if (moduleLabel) visitedModules.add(moduleLabel.trim());
+      const previous = await coach.textContent();
+      await coach.getByRole("button", { name: /^Skip/ }).click();
+      if (action < 59 && await coach.isVisible()) {
+        await expect.poll(() => coach.textContent()).not.toBe(previous);
+      }
+    }
+
+    expect([...visitedModules]).toContain("Full tour · Module 3 of 7");
+    expect([...visitedModules]).toContain("Full tour · Module 7 of 7");
+    await expect(coach).toBeHidden();
   });
 
   test("keeps the Learning Center and guide usable at a narrow viewport", async ({ page }) => {

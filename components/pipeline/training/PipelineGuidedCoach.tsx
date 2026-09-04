@@ -61,7 +61,7 @@ export default function PipelineGuidedCoach() {
   const [hydrated, setHydrated] = useState(false);
   const [roles, setRoles] = useState<readonly OperatorRole[]>(["viewer"]);
   const [target, setTarget] = useState<TargetView>(emptyTarget);
-  const [routeVersion, setRouteVersion] = useState(0);
+  const [locationKey, setLocationKey] = useState("");
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
   const tutorial = getOperatorGuidedTutorial(state.activeTutorialId);
   const step = tutorial?.steps[state.stepIndex];
@@ -175,6 +175,7 @@ export default function PipelineGuidedCoach() {
         : { ...stored, mode: "closed" as const };
       writeGuideState(next);
       setState(next);
+      setLocationKey(currentGuideLocationKey());
       setHydrated(true);
     });
     fetchCurrentPipelineUser()
@@ -193,7 +194,7 @@ export default function PipelineGuidedCoach() {
   }, []);
 
   useEffect(() => {
-    const changed = () => setRouteVersion((value) => value + 1);
+    const changed = () => setLocationKey(currentGuideLocationKey());
     window.addEventListener(PIPELINE_NAVIGATION_EVENT, changed);
     window.addEventListener("popstate", changed);
     return () => {
@@ -233,19 +234,19 @@ export default function PipelineGuidedCoach() {
       window.removeEventListener("scroll", scheduleMeasure, true);
       detachGuideInteraction(interaction);
     };
-  }, [routeVersion, state.mode, state.stepIndex, step]);
+  }, [locationKey, state.mode, state.stepIndex, step]);
 
   if (!hydrated) return null;
   const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
-  return <GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={target} onStart={startTutorial} onCommit={commit} onAdvance={advance} onBack={goBack} onResume={resumeTutorial} />;
+  return <GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={target} locationKey={locationKey} onStart={startTutorial} onCommit={commit} onAdvance={advance} onBack={goBack} onResume={resumeTutorial} />;
 }
 
-function GuideCoachSurface({ state, roles, tutorial, step, target, onStart, onCommit, onAdvance, onBack, onResume }: { state: OperatorGuideState; roles: readonly OperatorRole[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void }) {
+function GuideCoachSurface({ state, roles, tutorial, step, target, locationKey, onStart, onCommit, onAdvance, onBack, onResume }: { state: OperatorGuideState; roles: readonly OperatorRole[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; locationKey: string; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void }) {
   if (state.mode === "closed") return null;
   if (state.mode === "library") return <GuideLibrary roles={roles} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
   if (!tutorial || !step) return null;
-  const conversation = <GuideConversation tutorial={tutorial} step={step} stepIndex={state.stepIndex} sequenceIndex={state.sequenceIndex} sequenceCount={state.sequenceTutorialIds.length} targetAvailable={target.available} targetRect={target.rect} routeMatches={guideRouteMatches(step.route)} onBack={onBack} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
+  const conversation = <GuideConversation tutorial={tutorial} step={step} stepIndex={state.stepIndex} sequenceIndex={state.sequenceIndex} sequenceCount={state.sequenceTutorialIds.length} targetAvailable={target.available} targetRect={target.rect} routeMatches={guideRouteMatches(step.route, locationKey)} onBack={onBack} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
   return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} /> : null}{conversation}</>;
 }
 
@@ -414,7 +415,7 @@ function guidePanelLayout(rect: DOMRect | null, preferred: OperatorGuidePlacemen
   if (!rect) {
     return {
       left: viewportWidth - width - margin,
-      top: viewportHeight - estimatedHeight - margin,
+      bottom: margin,
       width,
       maxHeight: fullHeight,
     };
@@ -428,10 +429,11 @@ function guidePanelLayout(rect: DOMRect | null, preferred: OperatorGuidePlacemen
   };
   const centeredX = clamp(rect.left + rect.width / 2 - width / 2, margin, viewportWidth - width - margin);
   const sideTop = clamp(rect.top, margin, viewportHeight - estimatedHeight - margin);
+  const sideMaxHeight = Math.max(1, viewportHeight - sideTop - margin);
   const minimumVerticalSpace = Math.min(220, Math.max(120, viewportHeight * 0.3));
   const candidates: Record<Exclude<OperatorGuidePlacement, "auto">, CSSProperties | null> = {
-    right: space.right >= width ? { left: rect.right + gap, top: sideTop, width, maxHeight: fullHeight } : null,
-    left: space.left >= width ? { left: rect.left - gap - width, top: sideTop, width, maxHeight: fullHeight } : null,
+    right: space.right >= width ? { left: rect.right + gap, top: sideTop, width, maxHeight: sideMaxHeight } : null,
+    left: space.left >= width ? { left: rect.left - gap - width, top: sideTop, width, maxHeight: sideMaxHeight } : null,
     bottom: space.bottom >= minimumVerticalSpace ? { left: centeredX, top: rect.bottom + gap, width, maxHeight: space.bottom } : null,
     top: space.top >= minimumVerticalSpace ? { left: centeredX, bottom: viewportHeight - rect.top + gap, width, maxHeight: space.top } : null,
   };
@@ -465,13 +467,19 @@ function findVisibleGuideTarget(id: string) {
   }) ?? null;
 }
 
-function guideRouteMatches(route: string) {
-  if (typeof window === "undefined") return false;
-  const currentPath = fromPipelinePath(window.location.pathname);
+function guideRouteMatches(route: string, locationKey = currentGuideLocationKey()) {
+  if (typeof window === "undefined" || !locationKey) return false;
+  const current = new URL(locationKey, window.location.origin);
   const expected = new URL(route, window.location.origin);
+  const currentPath = fromPipelinePath(current.pathname);
   if (currentPath !== expected.pathname) return false;
-  const currentParams = new URLSearchParams(window.location.search);
+  const currentParams = current.searchParams;
   return [...expected.searchParams.entries()].every(([key, value]) => currentParams.get(key) === value);
+}
+
+function currentGuideLocationKey() {
+  if (typeof window === "undefined") return "";
+  return `${window.location.pathname}${window.location.search}`;
 }
 
 function openGuideRoute(route: string) {
