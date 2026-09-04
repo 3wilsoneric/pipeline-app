@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  LoaderCircle,
   Play,
   Plus,
   RefreshCw,
@@ -22,7 +23,6 @@ import {
   PipelineApiError,
   type PipelineCurrentUser,
 } from "@/lib/auth/authenticated-fetch";
-import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
 import type {
   AssessmentListResponse,
@@ -1094,7 +1094,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
   }
 
   if (isLoading) {
-    return <div className="flex min-h-56 items-center justify-center bg-white"><PipelineArcadeLoader label="Loading assessment history" /></div>;
+    return <div className="flex min-h-56 items-center justify-center gap-2 text-[12px] text-[#737373]"><LoaderCircle className="animate-spin" size={16} /> Loading assessment history...</div>;
   }
 
   if (!selected) {

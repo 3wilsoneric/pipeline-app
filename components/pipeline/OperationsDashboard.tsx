@@ -14,7 +14,6 @@ import type {
 } from "@/lib/pipeline/operations-report-types";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 
 export default function OperationsDashboard({
   onOpenPacket,
@@ -266,8 +265,8 @@ function MetricGrid({ metrics }: { metrics: OperationsReportMetric[] }) {
 
 function ReportSkeleton() {
   return (
-    <div className="flex min-h-64 items-center justify-center bg-white px-5 py-12">
-      <PipelineArcadeLoader label="Loading report" />
+    <div aria-label="Loading report" aria-busy="true" className="animate-pulse divide-y divide-[#e8ebe9]">
+      {Array.from({ length: 6 }, (_, index) => <div key={index} className="h-11 bg-white px-4 py-3"><div className="h-3 w-1/3 bg-[#edf0ee]" /></div>)}
     </div>
   );
 }

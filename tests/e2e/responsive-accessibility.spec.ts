@@ -46,7 +46,7 @@ test.describe("Responsive and accessible application shell", () => {
     const loadingRoster = page.getByRole("status", { name: "Loading clients" });
     await expect(loadingRoster).toBeVisible();
     await expect(loadingRoster).toHaveAttribute("aria-busy", "true");
-    await expect(loadingRoster.locator(".pipeline-retro-segment")).toHaveCount(12);
+    await expect(loadingRoster.locator(".pipeline-directory-loader__segment")).toHaveCount(8);
     await expect(page.getByLabel("Filter profiles by community")).toBeVisible();
     await expect(page.getByLabel("Filter profiles by admission date")).toBeVisible();
     await expect(page.getByLabel("Filter profiles by profile data")).toBeVisible();

@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileText, Mail, Paperclip, RefreshCw, Send, UserRound } from "lucide-react";
+import { FileText, LoaderCircle, Mail, Paperclip, RefreshCw, Send, UserRound } from "lucide-react";
 
-import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import type {
   AssessmentSummaryItem,
   AssessmentSummaryReport,
@@ -144,7 +143,7 @@ function chartUnavailableState(
   load: () => Promise<void>,
 ) {
   if (!referralId) return <EmptyState text="Save the referral before opening its assessment records." />;
-  if (loading && !payload) return <div className="flex min-h-56 items-center justify-center bg-white"><PipelineArcadeLoader label="Loading assessment records" /></div>;
+  if (loading && !payload) return <div className="flex min-h-56 items-center justify-center gap-2 text-[12px] text-[#66706b]"><LoaderCircle size={16} className="animate-spin" /> Loading assessment records...</div>;
   if (!payload) return <EmptyState text={error || "The assessment records are unavailable."} onRetry={() => void load()} />;
   if (!payload.report) return <EmptyState text="Complete and sign the assessment to generate the client charts." onRetry={() => void load()} />;
   return null;

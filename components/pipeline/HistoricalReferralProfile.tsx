@@ -8,7 +8,6 @@ import type { HistoricalProfileResponse } from "@/lib/pipeline/historical-profil
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { getWorkspaceCounty } from "@/lib/pipeline/workspace-presentation";
 import { formatClientIdentityTitle, resolveClientCommunity, resolveClientGender } from "@/lib/pipeline/client-identity-presentation.mjs";
-import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 
 export default function HistoricalReferralProfile({ referral }: { referral: Referral }) {
   const [profile, setProfile] = useState<HistoricalProfileResponse | null>(null);
@@ -74,7 +73,7 @@ function HistoricalProfileStatus({ profile, error }: { profile: HistoricalProfil
     return <section role="alert" className="border-l-2 border-[#a9473d] bg-[#fff5f3] px-4 py-3 text-[11px] font-semibold text-[#7c3229]">{error}</section>;
   }
   if (!profile) {
-    return <section className="flex min-h-56 items-center justify-center border border-[#d7ddd9] bg-white px-4 py-8"><PipelineArcadeLoader label="Organizing linked source material" /></section>;
+    return <section role="status" className="border border-[#d7ddd9] px-4 py-8 text-center text-[11px] font-semibold text-[#737373]">Organizing linked source material...</section>;
   }
   return null;
 }
