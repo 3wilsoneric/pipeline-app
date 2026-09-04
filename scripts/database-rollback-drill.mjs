@@ -85,7 +85,7 @@ try {
           and check_clause like '%zoom%'
       ) as zoom_method,
       exists(select 1 from pipeline.schema_migrations where migration_id='0016_zoom_assessment_method') as zoom_method_history,
-      to_regclass('pipeline.referrals_workspace_received_idx') is not null as received_month_index,
+      to_regclass('pipeline.referrals_workspace_received_idx') is null as legacy_received_month_index_removed,
       exists(select 1 from pipeline.schema_migrations where migration_id='0017_referral_received_month') as received_month_history,
       exists(
         select 1 from information_schema.check_constraints
@@ -157,7 +157,7 @@ try {
       && before[0].assessor_workflow_history
       && before[0].zoom_method
       && before[0].zoom_method_history
-      && before[0].received_month_index
+      && before[0].legacy_received_month_index_removed
       && before[0].received_month_history
       && before[0].academy_progress_kind
       && before[0].academy_progress_history
@@ -516,7 +516,7 @@ try {
           and check_clause like '%zoom%'
       ) as zoom_method,
       exists(select 1 from pipeline.schema_migrations where migration_id='0016_zoom_assessment_method') as zoom_method_history,
-      to_regclass('pipeline.referrals_workspace_received_idx') is not null as received_month_index,
+      to_regclass('pipeline.referrals_workspace_received_idx') is null as legacy_received_month_index_removed,
       exists(select 1 from pipeline.schema_migrations where migration_id='0017_referral_received_month') as received_month_history,
       exists(
         select 1 from information_schema.check_constraints
@@ -590,7 +590,7 @@ try {
       && after[0].assessor_workflow_history
       && after[0].zoom_method
       && after[0].zoom_method_history
-      && after[0].received_month_index
+      && after[0].legacy_received_month_index_removed
       && after[0].received_month_history
       && after[0].academy_progress_kind
       && after[0].academy_progress_history
