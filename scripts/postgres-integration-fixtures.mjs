@@ -151,11 +151,7 @@ try {
       `;
       checks.push({
         name: "synthetic graph is queryable",
-        ok: Number(rows[0].people) === 1 && Number(rows[0].referrals) === 1
-          && Number(rows[0].documents) === 1 && Number(rows[0].pages) === 2 && Number(rows[0].presence) === 1
-          && Number(rows[0].historical_documents) === 1 && Number(rows[0].unmatched_imports) === 1
-          && Number(rows[0].workspace_state) === 3 && Number(rows[0].assessment_drafts) === 1 && Number(rows[0].home_dashboard_layouts) === 1
-          && Number(rows[0].workspace_members) === 1 && Number(rows[0].provisional_members) === 1,
+        ok: syntheticGraphIsQueryable(rows[0]),
       });
       throw rollbackSentinel;
     });
@@ -189,6 +185,24 @@ function databaseOptions(max) {
     prepare: false,
     onnotice: () => undefined,
   };
+}
+
+function syntheticGraphIsQueryable(row) {
+  const expectedCounts = {
+    people: 1,
+    referrals: 1,
+    documents: 1,
+    pages: 2,
+    presence: 1,
+    historical_documents: 1,
+    unmatched_imports: 1,
+    workspace_state: 3,
+    assessment_drafts: 1,
+    home_dashboard_layouts: 1,
+    workspace_members: 1,
+    provisional_members: 1,
+  };
+  return Object.entries(expectedCounts).every(([key, expected]) => Number(row[key]) === expected);
 }
 
 function fail(message) {
