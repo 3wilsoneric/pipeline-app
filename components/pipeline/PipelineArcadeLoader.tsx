@@ -1,52 +1,60 @@
+import type { CSSProperties } from "react";
+
 type PipelineArcadeLoaderProps = {
   label?: string;
   compact?: boolean;
   decorative?: boolean;
+  className?: string;
 };
+
+const retroSegments = [
+  "#e92f70",
+  "#f0444f",
+  "#f36a35",
+  "#f58a2f",
+  "#f7ab32",
+  "#f5cd3b",
+  "#e5e64b",
+  "#c8eb55",
+  "#a9e75b",
+  "#8edc64",
+  "#72cf72",
+  "#54bd7e",
+] as const;
 
 export default function PipelineArcadeLoader({
   label = "Loading workspaces",
   compact = false,
   decorative = false,
+  className = "",
 }: PipelineArcadeLoaderProps) {
+  const displayLabel = `${label.replace(/[.\s]+$/u, "").toUpperCase()}...`;
+
   return (
     <span
       role={decorative ? undefined : "status"}
       aria-label={decorative ? undefined : label}
       aria-busy={decorative ? undefined : "true"}
       aria-hidden={decorative ? "true" : undefined}
-      className={`inline-flex items-center gap-2 ${compact ? "" : "flex-col"}`}
+      data-testid="pipeline-retro-loader"
+      data-compact={compact ? "true" : "false"}
+      className={`pipeline-retro-loader${compact ? " pipeline-retro-loader--compact" : ""}${className ? ` ${className}` : ""}`}
     >
-      <span
-        aria-hidden="true"
-        className="inline-flex h-7 items-center gap-1 border border-[#314139] bg-[#111713] px-2 shadow-[inset_0_0_0_1px_#050806]"
-      >
-        <span className="grid h-4 w-4 grid-cols-4 grid-rows-4 gap-px motion-safe:animate-pulse">
-          {arcadePixels.map((active, index) => (
+      {!compact ? <span className="pipeline-retro-label" aria-hidden="true">{displayLabel}</span> : null}
+      <span className="pipeline-retro-shell" aria-hidden="true">
+        <span className="pipeline-retro-track">
+          {retroSegments.map((color, index) => (
             <span
-              key={index}
-              className={active ? "bg-[#b8f238] shadow-[0_0_4px_rgba(184,242,56,0.65)]" : "bg-transparent"}
+              key={color}
+              className="pipeline-retro-segment"
+              style={{
+                "--pipeline-retro-color": color,
+                "--pipeline-retro-index": index,
+              } as CSSProperties}
             />
           ))}
         </span>
-        {[0, 1, 2].map((dot) => (
-          <span
-            key={dot}
-            className="h-1.5 w-1.5 bg-[#7dd8bd] motion-safe:animate-bounce"
-            style={{ animationDelay: `${dot * 120}ms` }}
-          />
-        ))}
       </span>
-      {!compact ? (
-        <span className="text-[9px] font-black uppercase tracking-[0.16em] text-[#52605a]">{label}</span>
-      ) : null}
     </span>
   );
 }
-
-const arcadePixels = [
-  false, true, true, false,
-  true, true, true, true,
-  true, false, false, true,
-  false, true, true, false,
-];

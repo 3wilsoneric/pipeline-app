@@ -24,6 +24,7 @@ import {
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 
 type DirectoryClient = ClientWorkspaceDirectoryItem;
 
@@ -527,23 +528,8 @@ function countNoun(count: number, noun: string) {
 
 function RosterSkeleton() {
   return (
-    <div role="status" aria-label="Loading clients" aria-busy="true" className="divide-y divide-[#e5e5e5]">
-      {Array.from({ length: 7 }, (_, index) => (
-        <div
-          key={index}
-          className="grid min-h-[80px] grid-cols-[minmax(0,1fr)_32px] items-center gap-3 border-l-[3px] border-transparent px-4 py-4 sm:px-5 md:grid-cols-[minmax(280px,0.9fr)_minmax(360px,1.4fr)_36px] md:gap-6"
-        >
-          <div className="animate-pulse">
-            <div className="h-4 w-2/5 bg-[#e8ebe9]" />
-            <div className="mt-2 h-2.5 w-3/5 bg-[#f1f2f1]" />
-          </div>
-          <div className="hidden animate-pulse md:block">
-            <div className="h-3 w-2/3 bg-[#edf0ee]" />
-            <div className="mt-2 h-2.5 w-1/2 bg-[#f4f5f4]" />
-          </div>
-          <div className="h-8 w-8 animate-pulse bg-[#f1f3f2]" />
-        </div>
-      ))}
+    <div className="flex min-h-[360px] items-center justify-center bg-white px-5 py-12">
+      <PipelineArcadeLoader label="Loading clients" />
     </div>
   );
 }

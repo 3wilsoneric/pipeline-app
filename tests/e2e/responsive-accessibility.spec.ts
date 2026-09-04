@@ -38,9 +38,15 @@ test.describe("Responsive and accessible application shell", () => {
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
 
+    await page.route("**/api/profiles/directory**", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
     await page.getByRole("button", { name: "Open client profiles" }).click();
     const loadingRoster = page.getByRole("status", { name: "Loading clients" });
-    if (await loadingRoster.count()) await expect(loadingRoster).toHaveAttribute("aria-busy", "true");
+    await expect(loadingRoster).toBeVisible();
+    await expect(loadingRoster).toHaveAttribute("aria-busy", "true");
+    await expect(loadingRoster.locator(".pipeline-retro-segment")).toHaveCount(12);
     await expect(page.getByLabel("Filter profiles by community")).toBeVisible();
     await expect(page.getByLabel("Filter profiles by admission date")).toBeVisible();
     await expect(page.getByLabel("Filter profiles by profile data")).toBeVisible();

@@ -17,6 +17,7 @@ import {
   humanizeClinicalField,
 } from "@/lib/clinical/clinical-value-presentation";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import type { ClientHistoryProjection } from "@/lib/pipeline/client-history-contracts";
 import {
   buildClientEpisodeSummaries,
@@ -871,7 +872,7 @@ function factEvidenceStatusLabel(status: "accepted" | "needs_review" | "candidat
 }
 
 function LoadingLine({ label }: { label: string }) {
-  return <div className="flex items-center gap-2 py-4 text-[11px] text-[#595959]"><LoaderCircle size={14} className="animate-spin text-[#0f8b73]" /> {label}</div>;
+  return <div role="status" aria-label={label} aria-busy="true" className="flex items-center gap-3 py-4 text-[11px] text-[#595959]"><PipelineArcadeLoader label={label} compact decorative /> {label}</div>;
 }
 
 function InlineError({ children }: { children: ReactNode }) {

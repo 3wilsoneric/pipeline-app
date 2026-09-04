@@ -21,6 +21,7 @@ import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview
 import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 import HistoricalReferralProfile from "@/components/pipeline/HistoricalReferralProfile";
+import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 import type { AssessmentListResponse } from "@/lib/assessment/assessment-records";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
@@ -1554,9 +1555,7 @@ export default function ReferralPacketCanvas({
     <div ref={canvasRef} data-guide-target="packet-workspace" className="relative h-full overflow-y-auto bg-white text-[#111111]">
       {draftRecoveryLoading ? (
         <div className="absolute inset-0 z-50 flex items-start justify-center bg-white/85 pt-24" role="status" aria-live="polite">
-          <div className="border-l-2 border-[#0f8b73] bg-white px-4 py-3 text-[12px] font-black text-[#174f43] shadow-sm">
-            Restoring saved work...
-          </div>
+          <PipelineArcadeLoader label="Restoring saved work" decorative />
         </div>
       ) : null}
       <div

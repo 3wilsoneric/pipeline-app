@@ -1,4 +1,5 @@
 import AuthenticationBrand, { MicrosoftMark } from "@/components/auth/AuthenticationBrand";
+import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 
 export default function AuthenticationProgress({
   label = "Signing you in",
@@ -23,12 +24,11 @@ export default function AuthenticationProgress({
           <h1 className="mt-2 text-[29px] font-black leading-tight sm:text-[32px]">{label}</h1>
           <p className="mt-3 text-[14px] leading-6 text-[#595959]">{detail}</p>
 
-          <div className="mt-7 flex min-h-14 items-center gap-4 rounded-sm border border-[#dce4e1] bg-[#f8faf9] px-4 py-3">
-            <span className="relative flex h-7 w-7 shrink-0 items-center justify-center" aria-hidden="true">
-              <span className="absolute inset-0 animate-spin rounded-full border-2 border-[#c9d9d3] border-t-[#0f8b73]" />
-              <span className="h-2 w-2 rounded-full bg-[#0f8b73]" />
-            </span>
-            <div className="min-w-0 flex-1">
+          <div className="mt-7 border border-[#dce4e1] bg-white px-4 py-5">
+            <div className="flex justify-center">
+              <PipelineArcadeLoader label="Verifying access" decorative />
+            </div>
+            <div className="mt-5 text-center">
               <div className="flex items-center gap-2 text-[12px] font-black text-[#242424]">
                 <MicrosoftMark size={14} />
                 Microsoft Entra ID
