@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:edfa449d7830b6a7",
-  "fingerprint": "edfa449d7830b6a78efaa9be83385223aafc94ff4d05d5f134ebc520a1ad83ad",
+  "generatedAt": "source-fingerprint:15e81243d5a44c05",
+  "fingerprint": "15e81243d5a44c05f89f162acd6e43c627cf1840fc37d5d691f6c4ee7eafff2a",
   "totals": {
     "files": 792,
-    "lines": 268117,
+    "lines": 268155,
     "coveredFiles": 792
   },
   "entries": [
@@ -9259,7 +9259,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 549,
+      "lines": 567,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -9403,7 +9403,7 @@
       "kind": "typescript-module",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 175,
+      "lines": 195,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
