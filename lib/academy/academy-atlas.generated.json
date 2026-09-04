@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:c1ebb9419d8f74c0",
-  "fingerprint": "c1ebb9419d8f74c09d24ecc54df4d3da2523f6550ded0837b74e5a8d857b9d77",
+  "generatedAt": "source-fingerprint:845835ef3f85b1d3",
+  "fingerprint": "845835ef3f85b1d3f4b5bb8d275530fe9d89fe6de199c6b3cd97b60cd6bab988",
   "totals": {
     "files": 799,
-    "lines": 269325,
+    "lines": 269440,
     "coveredFiles": 799
   },
   "entries": [
@@ -182,7 +182,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 19,
+      "lines": 10,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -1482,7 +1482,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 138,
+      "lines": 253,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1662,7 +1662,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 336,
+      "lines": 337,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1722,7 +1722,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 653,
+      "lines": 639,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1734,7 +1734,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1273,
+      "lines": 1274,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1770,7 +1770,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 300,
+      "lines": 301,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1806,7 +1806,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 319,
+      "lines": 320,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1866,7 +1866,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 53,
+      "lines": 61,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2034,7 +2034,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3310,
+      "lines": 3309,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -9235,7 +9235,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 514,
+      "lines": 513,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9439,7 +9439,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 163,
+      "lines": 169,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -9499,7 +9499,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 82,
+      "lines": 87,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -9655,7 +9655,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 71,
+      "lines": 73,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
