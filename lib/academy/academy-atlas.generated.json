@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:c231d62210352a81",
-  "fingerprint": "c231d62210352a819965cbd8ccf2b56605b485e347255ca822812af73ae59a60",
+  "generatedAt": "source-fingerprint:ca0ed064d45c9770",
+  "fingerprint": "ca0ed064d45c9770894e5190f695c08e57a63bd3d3e37fe4cc0941696893f42f",
   "totals": {
-    "files": 792,
-    "lines": 268163,
-    "coveredFiles": 792
+    "files": 798,
+    "lines": 268912,
+    "coveredFiles": 798
   },
   "entries": [
     {
@@ -713,6 +713,18 @@
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "app/api/me/home-layout/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 80,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
       ]
     },
     {
@@ -1765,6 +1777,18 @@
       ]
     },
     {
+      "path": "components/pipeline/HomeModuleDashboard.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 335,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -1950,7 +1974,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 292,
+      "lines": 347,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2262,7 +2286,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 31,
+      "lines": 32,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -2557,6 +2581,18 @@
       ]
     },
     {
+      "path": "database/migrations/0025_home_dashboard_layout.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 24,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -2786,6 +2822,18 @@
     },
     {
       "path": "database/rollbacks/0024_workspace_month_provenance.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 18,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0025_home_dashboard_layout.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
       "runtime": "postgres",
@@ -4915,7 +4963,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 115,
+      "lines": 117,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -5854,6 +5902,30 @@
       ]
     },
     {
+      "path": "lib/pipeline/home-dashboard-layout-client.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 55,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/pipeline/home-dashboard-layout.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 40,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/home-state.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
@@ -6379,7 +6451,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 461,
+      "lines": 463,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -7183,7 +7255,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 1926,
+      "lines": 1953,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7195,7 +7267,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 207,
+      "lines": 208,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7783,7 +7855,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 404,
+      "lines": 409,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -7807,7 +7879,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 586,
+      "lines": 631,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8503,7 +8575,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 188,
+      "lines": 212,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9187,7 +9259,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 263,
+      "lines": 298,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
