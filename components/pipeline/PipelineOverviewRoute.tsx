@@ -38,7 +38,7 @@ type PipelineScreen = "home" | "referrals" | "packet" | "calendar" | "profiles" 
 type ReferralSelection = { id: number; name?: string; gender?: string; community?: Referral["community"] };
 
 export default function PipelineOverviewRoute() {
-  const { searchTerm, setSearchTerm, searchOpen, setSearchOpen, homeMode } = usePipelineShell();
+  const { searchTerm, setSearchTerm, searchOpen, setSearchOpen } = usePipelineShell();
   const searchParams = useSearchParams();
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
@@ -166,7 +166,6 @@ export default function PipelineOverviewRoute() {
     return (
       <PipelineWelcome
         canAccessReports={reportAccess === true}
-        initialMode={homeMode}
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenRecent={openRecent}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}

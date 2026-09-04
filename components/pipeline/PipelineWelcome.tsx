@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { CalendarClock, RefreshCw } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
@@ -34,16 +34,13 @@ export default function PipelineWelcome({
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
   onResumeDraft: (draftKey: `new-${string}`) => void;
   canAccessReports?: boolean;
-  initialMode?: "welcome" | "workspace";
 }) {
   const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(null);
   const [recentItems, setRecentItems] = useState<PipelineRecentDestination[]>([]);
   const [error, setError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
   const { searchOpen } = usePipelineShell();
 
   const loadBriefing = useCallback(async (signal?: AbortSignal) => {
-    setRefreshing(true);
     try {
       const payload = await fetchPipelineJson<HomeBriefingSnapshot>("/api/operations/home", {
         cache: "no-store",
@@ -55,19 +52,18 @@ export default function PipelineWelcome({
       if (!signal?.aborted) {
         setError(loadError instanceof Error ? loadError.message : "Home is unavailable right now.");
       }
-    } finally {
-      if (!signal?.aborted) setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadBriefing(controller.signal);
+    const initialLoad = window.setTimeout(() => void loadBriefing(controller.signal), 0);
     const refreshOnFocus = () => void loadBriefing();
     const interval = window.setInterval(() => void loadBriefing(), 60_000);
     window.addEventListener("focus", refreshOnFocus);
     return () => {
       controller.abort();
+      window.clearTimeout(initialLoad);
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshOnFocus);
     };
@@ -100,31 +96,7 @@ export default function PipelineWelcome({
 
   return (
     <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
-      <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-4 sm:px-6 lg:px-8">
-        <header className="flex min-h-[62px] flex-wrap items-end justify-between gap-3 pb-2">
-          <div>
-            <div className="text-[11px] font-semibold text-[#626a65]">{formatLongDate(new Date())}</div>
-            <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.035em] text-[#202320] sm:text-[32px]">
-              {briefing ? `${daypart()}, ${firstName(briefing.viewer.name)}.` : "Home"}
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            {briefing ? (
-              <span className="text-[11px] font-semibold text-[#626a65]">
-                {briefing.scope === "team" ? "Team view" : "Your work"}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              aria-label="Refresh home"
-              title="Refresh home"
-              onClick={() => void loadBriefing()}
-              className="flex h-8 w-8 items-center justify-center border border-[#b9c6c1] bg-white text-[#176f60] hover:border-[#0f8b73]"
-            >
-              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-            </button>
-          </div>
-        </header>
+      <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-2 sm:px-6 lg:px-8">
 
         {error ? (
           <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
@@ -133,11 +105,11 @@ export default function PipelineWelcome({
           </div>
         ) : null}
 
-        <ReferralDraftResumeList onResume={onResumeDraft} className="mt-4" />
+        <ReferralDraftResumeList onResume={onResumeDraft} className="mt-2" />
 
         {!briefing && !error ? <HomeSkeleton /> : null}
         {briefing ? (
-          <div className="mt-4 space-y-4">
+          <div className="mt-2 space-y-4">
             {briefing.unavailable_sections.length > 0 ? (
               <div role="status" className="border-l-2 border-[#b77b27] bg-[#fff8eb] px-4 py-2.5 text-[11px] text-[#73501f]">
                 Some Home sections are temporarily unavailable. Available work remains current.
@@ -244,22 +216,6 @@ function HomeSkeleton() {
       </div>
     </div>
   );
-}
-
-function firstName(value: string) {
-  const naturalOrder = value.includes(",") ? value.split(",").slice(1).join(",").trim() : value.trim();
-  return naturalOrder.split(/\s+/).find(Boolean) ?? value;
-}
-
-function daypart() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
-
-function formatLongDate(value: Date) {
-  return value.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 }
 
 function relativeTime(value: string) {

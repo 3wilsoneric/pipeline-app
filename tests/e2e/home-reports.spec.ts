@@ -4,13 +4,13 @@ test.describe("role-scoped home and reports", () => {
   test("presents the operational briefing without dashboard clutter", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
-    await expect(page.getByText("Team view", { exact: true })).toBeVisible();
+    await expect(page.getByText("Team view", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Email to decision flow", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Community snapshot", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Last 24 hours" })).toHaveCount(0);
@@ -59,9 +59,9 @@ test.describe("role-scoped home and reports", () => {
 
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Alex./ })).toBeVisible();
-    await expect(page.getByText("Your work", { exact: true })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Current work" })).toContainText("0 assigned");
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toHaveCount(0);
+    await expect(page.getByText("Your work", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Current work" })).toContainText("0 active referrals");
     await expect(page.getByRole("region", { name: "Current work" })).toContainText("No active referral work");
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toContainText("No assessments are scheduled");
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
