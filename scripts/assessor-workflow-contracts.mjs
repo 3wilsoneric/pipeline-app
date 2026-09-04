@@ -7,6 +7,7 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 const root = process.cwd();
 const read = (file) => readFileSync(file, "utf8");
 const workflow = loadTypeScriptModule(root, "lib/pipeline/workflow-status.ts");
+const referralFlow = loadTypeScriptModule(root, "lib/pipeline/referral-flow.ts");
 const lifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
 const records = loadTypeScriptModule(root, "lib/pipeline/workflow-records.ts");
 const assessmentSeed = loadTypeScriptModule(root, "lib/assessment/assessment-seed.ts");
@@ -56,6 +57,21 @@ check("signed assessments remain signed even when historical recommendations exi
   recommendation: { recommendationId: "rec-1" },
 }) === "assessment_signed");
 check("final decision closes to accepted", workflow.resolveReferralWorkflowStatus(referral, { decision: { outcome: "accepted" } }) === "accepted");
+check("active referral statuses map to one operational flow state", [
+  ["intake_unassigned", "assignment"],
+  ["intake_documents_needed", "intake"],
+  ["profile_incomplete", "intake"],
+  ["ready_to_schedule", "ready_to_schedule"],
+  ["assessment_scheduled", "scheduled"],
+  ["assessment_in_progress", "assessment"],
+  ["waiting_for_information", "assessment"],
+  ["assessment_ready_to_sign", "review"],
+  ["assessment_signed", "review"],
+  ["recommendation_submitted", "review"],
+  ["decision_pending", "review"],
+].every(([status, state]) => referralFlow.referralFlowStateForStatus(status) === state));
+check("terminal referral statuses stay out of current work", ["accepted", "declined", "closed"]
+  .every((status) => referralFlow.referralFlowStateForStatus(status) === "complete"));
 
 const seededAssessment = assessmentSeed.buildAssessmentSeedFromReferral({
   ...referral,

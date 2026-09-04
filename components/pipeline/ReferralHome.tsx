@@ -38,7 +38,10 @@ import {
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import FilePreviewDialog from "@/components/pipeline/ReferralFilePreviewDialog";
-import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
+import ReferralWorkflowTracker, {
+  ReferralFlowTabs,
+  type ReferralFlowFilter,
+} from "@/components/pipeline/ReferralWorkflowTracker";
 import ReferralWorklist from "@/components/pipeline/ReferralWorklist";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
 
@@ -116,6 +119,7 @@ export default function ReferralHome({
   const [importTotal, setImportTotal] = useState(0);
   const [reviewItem, setReviewItem] = useState<ClientFileImportReviewItem | null>(null);
   const [filter, setFilter] = useState<ReferralFilter>({ kind: "all" });
+  const [flowFilter, setFlowFilter] = useState<ReferralFlowFilter>("all");
   const [sort, setSort] = useState<ReferralSort>("updated_desc");
   const [workflowTotal, setWorkflowTotal] = useState(0);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
@@ -599,7 +603,7 @@ export default function ReferralHome({
             {filter.kind === "files"
               ? fileFilterToolbar
               : filter.kind === "workflow"
-                ? <div aria-hidden="true" className="h-14 sm:h-[104px] xl:h-14" />
+                ? <ReferralFlowTabs referrals={visibleReferrals} value={flowFilter} onChange={setFlowFilter} />
                 : filterToolbar}
           </div>
           {loadError && filter.kind !== "files" ? (
@@ -676,6 +680,7 @@ export default function ReferralHome({
               <ReferralWorkflowTracker
                 referrals={visibleReferrals}
                 progressByReferral={progressByReferral}
+                flowFilter={flowFilter}
                 loading={isLoading}
                 onOpenPacket={onOpenPacket}
               />
