@@ -2,8 +2,7 @@ import type { AdmissionRequirement, Referral } from "./referral-types";
 import { isUnassignedOwner } from "./referral-ownership";
 import type { WorkflowContext } from "./workflow-records";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
-import { hasManualIntakeAuthorization } from "./referral-workflow";
-import { hasInitialDocument } from "./workflow-status";
+import { hasInitialDocument, hasManualIntakeAuthorization } from "./workflow-status";
 
 export type ReferralProgressPhase = "pre" | "assessment";
 export type ReferralProgressItemStatus = "complete" | "missing" | "attention";

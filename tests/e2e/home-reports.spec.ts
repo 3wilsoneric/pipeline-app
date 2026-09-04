@@ -5,16 +5,15 @@ test.describe("role-scoped home and reports", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Workflow summary" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
     await expect(page.getByText("Team view", { exact: true })).toBeVisible();
     await expect(page.getByText("Email to decision flow", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Community snapshot", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Last 24 hours" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Current work" })).toHaveCount(0);
   });
 
   test("keeps the assessor home personal and omits supervisor metrics", async ({ page }) => {
@@ -40,6 +39,7 @@ test.describe("role-scoped home and reports", () => {
               assessment: 0,
               review: 0,
             },
+            active_items: [],
             ready_to_schedule: { total: 0, items: [] },
             data_completion: { total: 0, items: [] },
             current_work: {
@@ -61,10 +61,10 @@ test.describe("role-scoped home and reports", () => {
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Alex./ })).toBeVisible();
     await expect(page.getByText("Your work", { exact: true })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Workflow summary" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Ready to schedule" })).toContainText("0 assigned");
+    await expect(page.getByRole("region", { name: "Current work" })).toContainText("0 assigned");
+    await expect(page.getByRole("region", { name: "Current work" })).toContainText("No active referral work");
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toContainText("No assessments are scheduled");
-    await expect(page.getByRole("region", { name: "Data completion" })).toContainText("No active referrals");
+    await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
   });
 
   test("runs a report, exposes only contextual filters, and exports the current scope", async ({ page }) => {

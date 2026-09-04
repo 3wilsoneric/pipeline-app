@@ -57,6 +57,7 @@ function emptyWorkflowSummary(user: PipelineUser): HomeWorkflowSummary {
       assessment: 0,
       review: 0,
     },
+    active_items: [],
     ready_to_schedule: { total: 0, items: [] },
     data_completion: { total: 0, items: [] },
     current_work: {

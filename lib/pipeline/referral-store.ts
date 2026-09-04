@@ -40,7 +40,10 @@ import {
   isReferralStage,
   type ReferralStage,
 } from "@/lib/pipeline/referral-workflow";
-import { resolveReferralWorkflowStatus } from "@/lib/pipeline/workflow-status";
+import {
+  resolveReferralWorkflowStatus,
+  resolveReferralWorkflowStatusAfterReferralChange,
+} from "@/lib/pipeline/workflow-status";
 import {
   isRecordedWorkspaceCommunity,
   presentWorkspaceNote,
@@ -745,20 +748,17 @@ async function patchLocalReferral(
   const nextRequirements = assignmentChanged
     ? synchronizeRequirementAssignment(safePatch.requirements ?? current.requirements, nextOwner, now)
     : safePatch.requirements ?? current.requirements;
-  const nextAssigned = hasAssignedOwner(nextOwner);
   const statusCandidate = { ...current, ...safePatch, ...nextOwner, requirements: nextRequirements } as Referral;
-  const nextWorkflowStatus = assignmentChanged && !nextAssigned
-    ? "intake_unassigned"
-    : safePatch.workflowStatus
-      ? safePatch.workflowStatus
-    : current.workflowStatus === "intake_unassigned" && nextAssigned
-      ? resolveReferralWorkflowStatus(statusCandidate)
-      : current.workflowStatus ?? resolveReferralWorkflowStatus(statusCandidate);
+  const nextWorkflowStatus = resolveReferralWorkflowStatusAfterReferralChange(
+    current,
+    statusCandidate,
+    safePatch.workflowStatus,
+  );
+  const workflowStatusChanged = nextWorkflowStatus !== current.workflowStatus;
   const touchedSections = getReferralPatchSections({
     ...safePatch,
     ...(assignmentChanged
       ? {
-          workflowStatus: nextWorkflowStatus,
           requirements: nextRequirements,
         }
       : {}),
@@ -796,22 +796,26 @@ async function patchLocalReferral(
 
   assertPacketIsUnique(patch.documentHash, current.id);
 
+  const internallyTouchedSections = workflowStatusChanged
+    ? [...new Set([...touchedSections, "workflow" as const])]
+    : touchedSections;
+
   const next = normalizeReferral({
     ...current,
     ...safePatch,
     ...nextOwner,
     requirements: nextRequirements,
     workflowStatus: nextWorkflowStatus,
-    assignedAt: assignmentChanged ? nextAssigned ? now : undefined : current.assignedAt,
+    assignedAt: assignmentChanged ? hasAssignedOwner(nextOwner) ? now : undefined : current.assignedAt,
     assignmentDueAt: assignmentChanged
-      ? nextAssigned ? safePatch.assignmentDueAt ?? assignmentDueAt(now) : undefined
+      ? hasAssignedOwner(nextOwner) ? safePatch.assignmentDueAt ?? assignmentDueAt(now) : undefined
       : safePatch.assignmentDueAt ?? current.assignmentDueAt,
     assignmentVersion: (current.assignmentVersion ?? 1) + (assignmentChanged ? 1 : 0),
     id: current.id,
     version: (current.version ?? 1) + 1,
     sectionVersions: incrementReferralSections(
       normalizeReferralSectionVersions(current.sectionVersions),
-      touchedSections,
+      internallyTouchedSections,
     ),
     updatedBy: actor,
     updatedAt: now,
@@ -1617,12 +1621,6 @@ async function patchPostgresReferral(
       if (duplicate[0]) throw new DuplicateReferralPacketError(Number(duplicate[0].referral_id));
     }
 
-    const changedFields = Array.from(new Set([
-      ...Object.keys(safePatch),
-      ...(assignmentChanged
-        ? ["assignedAt", "assignmentDueAt", "assignmentVersion", "requirements", "workflowStatus"]
-        : []),
-    ]));
     const nextAssigned = hasAssignedOwner(nextOwner);
     const nextAssignedAt = assignmentChanged
       ? nextAssigned ? now : undefined
@@ -1638,14 +1636,20 @@ async function patchPostgresReferral(
       ownerId: nextOwner.ownerId,
       requirements: nextRequirements,
     } as Referral;
-    const nextWorkflowStatus = assignmentChanged && !nextAssigned
-      ? "intake_unassigned"
-      : safePatch.workflowStatus
-        ? safePatch.workflowStatus
-      : current.workflowStatus === "intake_unassigned" && nextAssigned
-        ? resolveReferralWorkflowStatus(statusCandidate)
-        : current.workflowStatus ?? resolveReferralWorkflowStatus(statusCandidate);
-    const internallyTouchedSections = assignmentChanged
+    const nextWorkflowStatus = resolveReferralWorkflowStatusAfterReferralChange(
+      current,
+      statusCandidate,
+      safePatch.workflowStatus,
+    );
+    const workflowStatusChanged = nextWorkflowStatus !== current.workflowStatus;
+    const changedFields = Array.from(new Set([
+      ...Object.keys(safePatch),
+      ...(assignmentChanged
+        ? ["assignedAt", "assignmentDueAt", "assignmentVersion", "requirements"]
+        : []),
+      ...(workflowStatusChanged ? ["workflowStatus"] : []),
+    ]));
+    const internallyTouchedSections = assignmentChanged || workflowStatusChanged
       ? [...new Set([...touchedSections, "workflow" as const])]
       : touchedSections;
     const nextSectionVersions = incrementReferralSections(currentSectionVersions, internallyTouchedSections);

@@ -116,6 +116,7 @@ export default function ReferralHome({
   const [sort, setSort] = useState<ReferralSort>("updated_desc");
   const summaryQuery = useRef<string | null>(null);
   const successfulReferralRequest = useRef("");
+  const referralRevision = useRef<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [previewFile, setPreviewFile] = useState<ReferralFile | null>(null);
@@ -123,12 +124,12 @@ export default function ReferralHome({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedMonth, setExpandedMonth] = useState("");
 
-  const loadReferrals = useCallback(async (signal?: AbortSignal) => {
+  const loadReferrals = useCallback(async (signal?: AbortSignal, silent = false) => {
     if (filter.kind === "files") {
       setIsLoading(false);
       return;
     }
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     setLoadError("");
     let requestKey = "";
     try {
@@ -154,6 +155,7 @@ export default function ReferralHome({
       setProgressByReferral(payload.progress ?? {});
       setReferralTotal(typeof payload.total === "number" ? payload.total : 0);
       setReferralNextCursor(payload.next_cursor);
+      if (typeof payload.revision === "number") referralRevision.current = payload.revision;
       if (includeSummary) {
         setFacets(payload.facets ?? emptyFacets);
         setAllFileTotal(typeof payload.file_total === "number" ? payload.file_total : 0);
@@ -170,7 +172,7 @@ export default function ReferralHome({
       }
       setLoadError(error instanceof Error ? error.message : "Referral workspaces could not be loaded.");
     } finally {
-      if (!signal?.aborted) {
+      if (!signal?.aborted && !silent) {
         setIsLoading(false);
       }
     }
@@ -181,6 +183,43 @@ export default function ReferralHome({
     void loadReferrals(controller.signal);
     return () => controller.abort();
   }, [loadReferrals]);
+
+  useEffect(() => {
+    if (filter.kind === "files") return;
+    let cancelled = false;
+    let checking = false;
+
+    const checkForChanges = async () => {
+      const after = referralRevision.current;
+      if (cancelled || checking || after === null) return;
+      checking = true;
+      try {
+        const payload = await fetchPipelineJson<{ changed: boolean; sequence: number }>(
+          `/api/referrals/changes?after=${after}`,
+          { cache: "no-store" },
+        );
+        if (cancelled) return;
+        referralRevision.current = payload.sequence;
+        if (payload.changed) {
+          summaryQuery.current = null;
+          await loadReferrals(undefined, true);
+        }
+      } catch {
+        // The next revision check retries without disturbing the current directory.
+      } finally {
+        checking = false;
+      }
+    };
+
+    const refreshOnFocus = () => void checkForChanges();
+    const interval = window.setInterval(checkForChanges, 10_000);
+    window.addEventListener("focus", refreshOnFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshOnFocus);
+    };
+  }, [filter.kind, loadReferrals]);
 
   useEffect(() => {
     setReferralPage((current) => current === 0 ? current : 0);

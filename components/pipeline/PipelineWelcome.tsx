@@ -10,7 +10,6 @@ import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent } from "@/lib/pipeline/calendar-types";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
-import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import {
   loadRecentDestinations,
@@ -144,54 +143,15 @@ export default function PipelineWelcome({
                 Some Home sections are temporarily unavailable. Available work remains current.
               </div>
             ) : null}
-            <ReferralWorkflowTracker briefing={briefing} />
-            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
-              <ReadyToSchedulePanel briefing={briefing} onOpenPacket={onOpenPacket} />
+            <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} />
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
               <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />
-            </div>
-            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
-              <DataCompletionPanel briefing={briefing} onOpenPacket={onOpenPacket} />
               <RecentPanel items={recentItems} onOpenRecent={onOpenRecent} />
             </div>
           </div>
         ) : null}
       </div>
     </main>
-  );
-}
-
-function ReadyToSchedulePanel({ briefing, onOpenPacket }: BriefingPanelProps) {
-  return (
-    <section data-guide-target="my-queue" aria-label="Ready to schedule" className="min-w-0 bg-white">
-      <SectionHeader title="Ready to schedule" detail={briefing.unavailable_sections.includes("workflow") ? "Unavailable" : scopeCount(briefing, briefing.workflow.ready_to_schedule.total)} />
-      {briefing.unavailable_sections.includes("workflow") ? (
-        <UnavailableLine />
-      ) : briefing.workflow.ready_to_schedule.items.length === 0 ? (
-        <EmptyLine>No referrals are waiting to be scheduled.</EmptyLine>
-      ) : (
-        <div className="divide-y divide-[#e5e9e7]">
-          {briefing.workflow.ready_to_schedule.items.map((item) => (
-            <WorkflowRow key={item.referral_id} item={item} label="Schedule assessment" showOwner={briefing.scope === "team"} onOpenPacket={onOpenPacket} />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function WorkflowRow({ item, label, showOwner, onOpenPacket }: { item: ReferralWorklistItem; label: string; showOwner: boolean } & Pick<BriefingPanelProps, "onOpenPacket">) {
-  return (
-    <button
-      type="button"
-      onClick={() => onOpenPacket({ id: item.referral_id, name: clientDisplayName(item.client_name, item.community), community: item.community as Referral["community"] })}
-      className="grid min-h-[62px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 text-left hover:bg-[#f5faf8] sm:px-5"
-    >
-      <span className="min-w-0">
-        <span className="block truncate text-[13px] font-semibold text-[#202320]">{clientDisplayName(item.client_name, item.community)}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.community}{showOwner ? ` · ${item.owner}` : ""}</span>
-      </span>
-      <span className="text-[10px] font-semibold text-[#176f60]">{label}</span>
-    </button>
   );
 }
 
@@ -226,49 +186,6 @@ function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } &
       </span>
       <span className="text-[10px] text-[#6e746f]">{methodLabel(event.method)}</span>
     </button>
-  );
-}
-
-function DataCompletionPanel({ briefing, onOpenPacket }: BriefingPanelProps) {
-  return (
-    <section aria-label="Data completion" className="min-w-0 bg-white">
-      <SectionHeader
-        title="Data completion"
-        detail={briefing.unavailable_sections.includes("workflow")
-          ? "Unavailable"
-          : briefing.workflow.overall_completion_pct === null
-            ? "No active referrals"
-            : `${briefing.workflow.overall_completion_pct}% across ${briefing.scope === "team" ? "active referrals" : "your referrals"}`}
-      />
-      {briefing.unavailable_sections.includes("workflow") ? (
-        <UnavailableLine />
-      ) : briefing.workflow.data_completion.items.length === 0 ? (
-        <EmptyLine>No client data gaps are currently recorded.</EmptyLine>
-      ) : (
-        <div className="divide-y divide-[#e5e9e7]">
-          {briefing.workflow.data_completion.items.map((item) => (
-            <button
-              key={item.referral_id}
-              type="button"
-              onClick={() => onOpenPacket({ id: item.referral_id, name: clientDisplayName(item.client_name, item.community), community: item.community as Referral["community"] })}
-              className="grid min-h-[68px] w-full grid-cols-[minmax(0,1fr)_110px] items-center gap-4 px-4 py-3 text-left hover:bg-[#f5faf8] sm:px-5"
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-[13px] font-semibold text-[#202320]">{clientDisplayName(item.client_name, item.community)}</span>
-                <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">
-                  {dataGapSummary(item)}
-                  {briefing.scope === "team" && item.owner !== "Unassigned" ? ` · ${item.owner}` : ""}
-                </span>
-              </span>
-              <span className="min-w-0">
-                <span className="block text-right text-[10px] font-semibold text-[#4f5752]">{item.completion_pct}%</span>
-                <span className="mt-1 block h-1.5 overflow-hidden bg-[#e6ebe8]"><span className="block h-full bg-[#0f8b73]" style={{ width: `${Math.max(0, Math.min(100, item.completion_pct))}%` }} /></span>
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -319,9 +236,12 @@ function UnavailableLine() {
 
 function HomeSkeleton() {
   return (
-    <div aria-label="Loading home" aria-busy="true" className="mt-4 grid animate-pulse gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
-      <div className="h-[250px] border border-[#e1e5e3] bg-white" />
-      <div className="h-[250px] border border-[#e1e5e3] bg-white" />
+    <div aria-label="Loading home" aria-busy="true" className="mt-4 animate-pulse space-y-4">
+      <div className="h-[210px] border-y border-[#e1e5e3] bg-white" />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+        <div className="h-[190px] border-y border-[#e1e5e3] bg-white" />
+        <div className="h-[190px] border-y border-[#e1e5e3] bg-white" />
+      </div>
     </div>
   );
 }
@@ -374,22 +294,4 @@ function recentTitle(item: PipelineRecentDestination) {
 
 function clientDisplayName(name: string, community?: string) {
   return formatClientIdentityTitle({ name, community });
-}
-
-function scopeCount(briefing: HomeBriefingSnapshot, value: number) {
-  return `${value} ${briefing.scope === "team" ? "team" : "assigned"}`;
-}
-
-function dataGapSummary(item: ReferralWorklistItem) {
-  if (item.missing_data.length > 0) {
-    return `Missing: ${item.missing_data.slice(0, 2).map(lowerFirst).join(", ")}`;
-  }
-  if (item.missing_document_count > 0) {
-    return `Missing: ${item.missing_document_count} document${item.missing_document_count === 1 ? "" : "s"}`;
-  }
-  return "Client information needs review";
-}
-
-function lowerFirst(value: string) {
-  return value ? value[0].toLocaleLowerCase() + value.slice(1) : value;
 }

@@ -211,6 +211,7 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
     unassigned_total: operational.activeWork.filter((item) => item.owner === "Unassigned").length,
     overall_completion_pct: overallCompletion,
     flow_counts: flowCounts,
+    active_items: activeItems,
     ready_to_schedule: {
       total: readyToSchedule.length,
       items: readyToSchedule.slice(0, 6),
@@ -592,7 +593,12 @@ function toWorkItem(
       !(context?.assessmentComplete ?? referral.assessment?.completedAt) &&
       assessmentTime.getTime() <= now.getTime() + 72 * 36e5,
   );
-  const workflowStatus = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
+  const normalizedOwner = normalizeOwnerName(referral.owner);
+  const storedWorkflowStatus = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
+  const workflowStatus = !["accepted", "declined", "closed"].includes(storedWorkflowStatus)
+    && (normalizedOwner === "Unassigned" || !referral.ownerId?.trim())
+      ? "intake_unassigned"
+      : storedWorkflowStatus;
   const assignmentDeadlineApplies = [
     "intake_unassigned",
     "intake_documents_needed",
@@ -612,7 +618,7 @@ function toWorkItem(
     stage: referral.stage,
     workflow_status: workflowStatus,
     owner_id: referral.ownerId,
-    owner: normalizeOwnerName(referral.owner),
+    owner: normalizedOwner,
     priority: referral.priority,
     blocker_count: progress.blockers.length,
     blockers: progress.blockers,
@@ -767,6 +773,7 @@ function toReferralWorklistItem(
     client_name: work.client_name,
     community: referral.community,
     stage: work.stage,
+    workflow_status: work.workflow_status,
     owner: work.owner,
     priority: work.priority,
     categories,

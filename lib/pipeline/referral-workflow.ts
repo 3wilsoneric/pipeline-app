@@ -2,7 +2,7 @@ import type { ReferralWorkflowStatus } from "@/lib/reliability/referral-operatin
 import { isUnassignedOwner } from "./referral-ownership";
 import type { Referral } from "./referral-types";
 import { isRequirementComplete, type WorkflowContext } from "./workflow-records";
-import { hasInitialDocument } from "./workflow-status";
+import { hasInitialDocument, hasManualIntakeAuthorization } from "./workflow-status";
 
 export type ReferralStage =
   | "New"
@@ -234,14 +234,6 @@ function isPacketReviewed(referral: Referral) {
   return hasManualIntakeAuthorization(referral)
     || referral.packetStatus === "reviewed"
     || referral.packetReadiness?.ready === true;
-}
-
-export function hasManualIntakeAuthorization(referral: Referral) {
-  const authorization = referral.manualIntakeAuthorization;
-  return authorization?.mode === "manual_chart"
-    && hasValue(authorization.reason)
-    && hasValue(authorization.authorizedBy)
-    && hasValue(authorization.authorizedAt);
 }
 
 function isAssessmentComplete(referral: Referral, context: WorkflowContext) {

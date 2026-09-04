@@ -8,6 +8,19 @@ import type {
   ReferralWorkflowStatus,
 } from "@/lib/pipeline/referral-types";
 
+const referralManagedWorkflowStatuses = new Set<ReferralWorkflowStatus>([
+  "intake_unassigned",
+  "intake_documents_needed",
+  "profile_incomplete",
+  "ready_to_schedule",
+]);
+
+const terminalWorkflowStatuses = new Set<ReferralWorkflowStatus>([
+  "accepted",
+  "declined",
+  "closed",
+]);
+
 export type WorkflowEvidence = {
   assessment?: PipelineAssessmentRecord | null;
   recommendation?: AssessmentRecommendation | null;
@@ -58,9 +71,33 @@ export function resolveReferralWorkflowStatus(
     return "assessment_in_progress";
   }
 
-  if (!hasInitialDocument(referral)) return "intake_documents_needed";
+  if (!hasInitialDocument(referral) && !hasManualIntakeAuthorization(referral)) {
+    return "intake_documents_needed";
+  }
   if (!profileIsReady(referral)) return "profile_incomplete";
   return "ready_to_schedule";
+}
+
+/**
+ * Recalculate states that are derived entirely from referral intake data while
+ * preserving assessment and terminal states owned by their lifecycle stores.
+ */
+export function resolveReferralWorkflowStatusAfterReferralChange(
+  current: Referral,
+  candidate: Referral,
+  requestedStatus?: ReferralWorkflowStatus,
+): ReferralWorkflowStatus {
+  if (requestedStatus) return requestedStatus;
+
+  const currentStatus = current.workflowStatus;
+  if (currentStatus && terminalWorkflowStatuses.has(currentStatus)) return currentStatus;
+  if (candidate.stage === "Accepted / Admitted" || candidate.stage === "Declined") {
+    return resolveReferralWorkflowStatus(candidate);
+  }
+  if (!currentStatus || referralManagedWorkflowStatuses.has(currentStatus)) {
+    return resolveReferralWorkflowStatus(candidate);
+  }
+  return currentStatus;
 }
 
 function hasRequestedBlockingInformation(referral: Referral) {
@@ -74,6 +111,14 @@ function hasRequestedBlockingInformation(referral: Referral) {
 export function hasInitialDocument(referral: Referral) {
   return referral.documentStatus !== "Missing"
     || Boolean(referral.packetId?.trim());
+}
+
+export function hasManualIntakeAuthorization(referral: Referral) {
+  const authorization = referral.manualIntakeAuthorization;
+  return authorization?.mode === "manual_chart"
+    && isPresent(authorization.reason)
+    && isPresent(authorization.authorizedBy)
+    && isPresent(authorization.authorizedAt);
 }
 
 export function profileIsReady(referral: Referral) {
@@ -95,4 +140,8 @@ function isCanonicalProfileValue(value: string | undefined, extraPlaceholders: s
     "n/a",
     ...extraPlaceholders,
   ].includes(normalized));
+}
+
+function isPresent(value: string | undefined) {
+  return Boolean(value?.trim());
 }

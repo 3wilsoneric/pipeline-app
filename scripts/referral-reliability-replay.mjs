@@ -367,8 +367,10 @@ function checkAuthGuardrails() {
 
 function authIdentityEndpointIsSafe(source) {
   return source.includes("requireAuthenticatedUser")
-    && source.includes("canAccessPipeline(auth.user)")
-    && source.includes("roles: auth.user.roles");
+    && source.includes("if (canAccessPipeline(auth.user))")
+    && source.includes("const user = canAccessPipeline(auth.user)")
+    && source.includes(": auth.user")
+    && source.includes("roles: user.roles");
 }
 
 function checkProfileResilience() {
@@ -392,9 +394,10 @@ function checkProfileResilience() {
     "Profiles must represent unavailable Pipeline work separately from the governed Alamo client record",
   );
   assert(
-    profileView.includes('connection.status === "unavailable" ? null') &&
-      profileView.includes('return "Referral history unavailable"'),
-    "Unavailable Pipeline work must be visible without exposing unusable identity-link actions",
+    profileView.includes('connection.status === "candidate" ? (') &&
+      profileView.includes("<IdentityReviewControls") &&
+      !profileView.includes('connection.status === "unavailable" ?'),
+    "Identity-link controls must appear only for actionable candidates, never unavailable Pipeline work",
   );
 }
 

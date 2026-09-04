@@ -46,7 +46,32 @@ const assessment = {
 check("unassigned referrals enter the assignment queue", workflow.resolveReferralWorkflowStatus({ ...referral, owner: "Unassigned", ownerId: undefined }) === "intake_unassigned");
 check("assigned referrals without initial evidence request documents", workflow.resolveReferralWorkflowStatus({ ...referral, documentStatus: "Missing", documentName: "", packetId: "" }) === "intake_documents_needed");
 check("a reserved filename is not proof of an uploaded document", !workflow.hasInitialDocument({ ...referral, documentStatus: "Missing", packetId: "" }));
+check("manual intake authorization satisfies the initial evidence gate", workflow.resolveReferralWorkflowStatus({
+  ...referral,
+  documentStatus: "Missing",
+  documentName: "",
+  packetId: "",
+  manualIntakeAuthorization: {
+    mode: "manual_chart",
+    reason: "Source documents are temporarily unavailable.",
+    authorizedBy: "supervisor-1",
+    authorizedByName: "Supervisor",
+    authorizedAt: "2026-08-23T12:00:00.000Z",
+  },
+}) === "ready_to_schedule");
 check("complete intake becomes ready to schedule", workflow.resolveReferralWorkflowStatus(referral) === "ready_to_schedule");
+check("intake edits recalculate a stale intake status", workflow.resolveReferralWorkflowStatusAfterReferralChange(
+  { ...referral, workflowStatus: "profile_incomplete" },
+  { ...referral, workflowStatus: "profile_incomplete" },
+) === "ready_to_schedule");
+check("referral edits cannot regress an assessment lifecycle status", workflow.resolveReferralWorkflowStatusAfterReferralChange(
+  { ...referral, workflowStatus: "assessment_in_progress" },
+  { ...referral, workflowStatus: "assessment_in_progress", dob: "" },
+) === "assessment_in_progress");
+check("referral edits cannot reopen a terminal referral", workflow.resolveReferralWorkflowStatusAfterReferralChange(
+  { ...referral, workflowStatus: "accepted", stage: "Accepted / Admitted" },
+  { ...referral, workflowStatus: "accepted", stage: "Accepted / Admitted", owner: "Unassigned", ownerId: undefined },
+) === "accepted");
 check("explicit schedule drives calendar workflow state", workflow.resolveReferralWorkflowStatus(referral, { assessment: { ...assessment, schedule_status: "scheduled" } }) === "assessment_scheduled");
 check("started assessment is in progress", workflow.resolveReferralWorkflowStatus(referral, { assessment: { ...assessment, schedule_status: "scheduled", started_at: "2026-08-23T15:00:00.000Z" } }) === "assessment_in_progress");
 check("an unstarted draft with complete fields remains ready to schedule", workflow.resolveReferralWorkflowStatus(referral, { assessment: { ...assessment, resident_number: "71", resident_name: "Workflow Fixture", date_of_birth: "1980-01-02", community: "San Pablo", assessment_date: "2026-08-23", assessor: "Assigned Assessor", primary_diagnosis: "Fixture", adl_needs: "Fixture", behavioral_history: "Fixture", medications_at_intake: ["Fixture"] } }) === "ready_to_schedule");
@@ -174,6 +199,8 @@ check("addenda require an expected version", !lifecycle.validateAssessmentAddend
 check("not-applicable requirements satisfy gates only through an explicit reasoned status", records.isRequirementComplete("not_applicable"));
 
 const referralStore = read("lib/pipeline/referral-store.ts");
+const referralChangesRoute = read("app/api/referrals/changes/route.ts");
+const referralHome = read("components/pipeline/ReferralHome.tsx");
 const assessmentStore = read("lib/assessment/assessment-store.ts");
 const assessmentAccess = read("lib/assessment/assessment-access.ts");
 const assessmentCreateRoute = read("app/api/referrals/[referralId]/assessments/route.ts");
@@ -206,6 +233,13 @@ const referralPacketCanvas = read("components/pipeline/ReferralPacketCanvas.tsx"
 check("referral assignment propagates to open assessments", referralStore.includes("syncLocalOpenAssessmentAssignment") && referralStore.includes("syncPostgresOpenAssessmentAssignment"));
 check("recommendations survive the referral store boundary", referralStore.includes('"assessmentRecommendation"'));
 check("explicit workflow status updates are persisted in both referral stores", referralStore.match(/safePatch\.workflowStatus/g)?.length >= 2);
+check(
+  "the workspace directory refreshes from a lightweight referral revision",
+  referralChangesRoute.includes("getReferralStoreRevision")
+    && referralChangesRoute.includes("requirePipelineUser")
+    && referralHome.includes("/api/referrals/changes?after=")
+    && referralHome.includes("window.setInterval(checkForChanges, 10_000)"),
+);
 check("signed assessments are immutable and use append-only addenda", assessmentStore.includes("This assessment is signed") && assessmentStore.includes("addAssessmentAddendum") && migration.includes("assessment_addenda"));
 check("creating or importing an assessment does not start its performance clock", assessmentStore.match(/started_at: null,/g)?.length >= 2 && assessmentStore.includes("started_at: current?.started_at ?? null"));
 check("assessment assignment is preserved while supervisors can cover unassigned work", assessmentAccess.includes("assessmentAssigneeForReferral") && assessmentAccess.includes("referral.ownerId") && assessmentAccess.includes("isAssessmentSupervisor(user)"));

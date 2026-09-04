@@ -66,6 +66,7 @@ export type ReferralWorklistItem = {
   client_name: string;
   community: PipelineCommunity;
   stage: ReferralStage;
+  workflow_status: ReferralWorkflowStatus;
   owner: string;
   priority: string;
   categories: Exclude<ReferralWorklistBucket, "all_actionable">[];
@@ -131,6 +132,7 @@ export type HomeWorkflowSummary = {
   unassigned_total: number;
   overall_completion_pct: number | null;
   flow_counts: Record<ActiveReferralFlowState, number>;
+  active_items: ReferralWorklistItem[];
   ready_to_schedule: {
     total: number;
     items: ReferralWorklistItem[];
