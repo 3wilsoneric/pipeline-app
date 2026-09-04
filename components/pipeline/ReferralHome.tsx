@@ -29,8 +29,7 @@ import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
 import type { ReferralFacets } from "@/lib/pipeline/referral-store";
-import type { ReferralSort } from "@/lib/pipeline/referral-sort";
-import { isInternalWorkspaceTag, isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
+import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
 import {
   formatClientIdentityDetail,
   formatClientIdentityTitle,
@@ -59,8 +58,7 @@ type ReferralFilter =
   | { kind: "county"; value: string }
   | { kind: "month"; value: string }
   | { kind: "owner"; value: string }
-  | { kind: "priority"; value: Referral["priority"] }
-  | { kind: "tag"; value: string };
+  | { kind: "priority"; value: Referral["priority"] };
 
 const emptyFacets: ReferralFacets = {
   communities: [],
@@ -128,7 +126,6 @@ export default function ReferralHome({
   const [importTotal, setImportTotal] = useState(0);
   const [reviewItem, setReviewItem] = useState<ClientFileImportReviewItem | null>(null);
   const [filter, setFilter] = useState<ReferralFilter>({ kind: "all" });
-  const [sort, setSort] = useState<ReferralSort>("updated_desc");
   const summaryQuery = useRef<string | null>(null);
   const successfulReferralRequest = useRef("");
   const referralRevision = useRef<number | null>(null);
@@ -164,7 +161,7 @@ export default function ReferralHome({
     setLoadError("");
     let requestKey = "";
     try {
-      const params = buildReferralParams(filter, requestSearchTerm, sort, referralCursors[referralPage]);
+      const params = buildReferralParams(filter, requestSearchTerm, referralCursors[referralPage]);
       requestKey = params.toString();
       const normalizedSearch = requestSearchTerm.trim();
       const summaryKey = `all:${normalizedSearch}`;
@@ -207,7 +204,7 @@ export default function ReferralHome({
         setIsLoading(false);
       }
     }
-  }, [filter, referralCursors, referralPage, requestSearchTerm, sort]);
+  }, [filter, referralCursors, referralPage, requestSearchTerm]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -255,7 +252,7 @@ export default function ReferralHome({
   useEffect(() => {
     setReferralPage((current) => current === 0 ? current : 0);
     setReferralCursors((current) => current.length === 1 && current[0] === "" ? current : [""]);
-  }, [filter, requestSearchTerm, sort]);
+  }, [filter, requestSearchTerm]);
 
   useEffect(() => {
     if (filter.kind !== "files" || reviewIdentity) return;
@@ -335,10 +332,6 @@ export default function ReferralHome({
     [files, ownerOptions],
   );
   const fileMonthOptions = useMemo(() => recentMonthKeys(48), []);
-  const tagOptions = useMemo(
-    () => facets.tags.map((entry) => entry.value).filter((tag) => !isInternalWorkspaceTag(tag)),
-    [facets.tags],
-  );
   const activeMonth = referralFilterMonth(filter);
   const activeCommunity = referralFilterCommunity(filter);
 
@@ -449,46 +442,9 @@ export default function ReferralHome({
         <option value="high">High</option>
         <option value="standard">Standard</option>
       </select>
-      <select
-        aria-label="Filter by workspace month"
-        value={activeMonth}
-        onChange={(event) => setFilter(referralFilterWithMonth(filter, event.target.value))}
-        className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]"
-      >
-        <option value="">All workspace months</option>
-        {monthOptions.map((month) => (
-          <option key={month} value={month}>
-            {formatMonthKey(month)} ({formatDirectoryCount(facets.months.find((entry) => entry.value === month)?.count ?? 0)})
-          </option>
-        ))}
-      </select>
-      {tagOptions.length > 0 ? (
-        <select
-          aria-label="Filter by tag"
-          value={filter.kind === "tag" ? filter.value : ""}
-          onChange={(event) => setFilter(event.target.value ? { kind: "tag", value: event.target.value } : { kind: "all" })}
-          className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]"
-        >
-          <option value="">All tags</option>
-          {tagOptions.map((tag) => <option key={tag} value={tag}>#{tag}</option>)}
-        </select>
-      ) : null}
-      <select
-        aria-label="Sort workspaces"
-        value={sort}
-        onChange={(event) => setSort(event.target.value as ReferralSort)}
-        className="h-10 min-w-0 border border-[#88b8aa] bg-white px-2 text-[12px] font-black text-[#0c705f] outline-none focus:border-[#0f8b73]"
-      >
-        <option value="updated_desc">Recently updated</option>
-        <option value="created_desc">Newest created</option>
-        <option value="created_asc">Oldest created</option>
-        <option value="owner_asc">Owner A-Z</option>
-        <option value="community_asc">Community A-Z</option>
-        <option value="client_asc">Client A-Z</option>
-      </select>
     </>
   );
-  const activeFilterCount = referralFilterCount(filter, sort);
+  const activeFilterCount = referralFilterCount(filter);
   const filterToolbar = (
     <div>
       <button
@@ -508,7 +464,7 @@ export default function ReferralHome({
           {renderReferralFilterControls()}
         </div>
       ) : null}
-      <div className="hidden gap-2 px-2 py-2 sm:grid sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="hidden gap-2 px-2 py-2 sm:grid sm:grid-cols-2 lg:grid-cols-4">
         {renderReferralFilterControls()}
       </div>
     </div>
@@ -628,7 +584,7 @@ export default function ReferralHome({
                 label="All workspaces"
                 compactLabel="All"
                 count={allPacketTotal}
-                active={filter.kind === "all" || ["community", "monthCommunity", "county", "month", "owner", "priority", "tag"].includes(filter.kind)}
+                active={filter.kind === "all" || ["community", "monthCommunity", "county", "month", "owner", "priority"].includes(filter.kind)}
                 onClick={() => setFilter({ kind: "all" })}
               />
               <WorkspaceNavItem
@@ -1213,12 +1169,6 @@ function referralFilterCommunity(filter: ReferralFilter) {
   return "";
 }
 
-function referralFilterWithMonth(filter: ReferralFilter, month: string): ReferralFilter {
-  const community = referralFilterCommunity(filter);
-  if (!month) return community ? { kind: "community", value: community } : { kind: "all" };
-  return community ? { kind: "monthCommunity", month, community } : { kind: "month", value: month };
-}
-
 function referralFilterWithCommunity(filter: ReferralFilter, community: string): ReferralFilter {
   const month = referralFilterMonth(filter);
   if (!community) return month ? { kind: "month", value: month } : { kind: "all" };
@@ -1234,11 +1184,10 @@ function referralScopeLabel(filter: ReferralFilter) {
   return "Browse by month and community";
 }
 
-function referralFilterCount(filter: ReferralFilter, sort: ReferralSort) {
-  const scopeCount = filter.kind === "monthCommunity"
+function referralFilterCount(filter: ReferralFilter) {
+  return filter.kind === "monthCommunity"
     ? 2
     : ["all", "files"].includes(filter.kind) ? 0 : 1;
-  return scopeCount + (sort === "updated_desc" ? 0 : 1);
 }
 
 function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {
@@ -1285,12 +1234,6 @@ function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {
       detail: "Choose another priority or show all workspaces.",
     };
   }
-  if (filter.kind === "tag") {
-    return {
-      title: `No workspaces tagged #${filter.value}`,
-      detail: "Choose another tag or show all workspaces.",
-    };
-  }
   return {
     title: "No workspaces yet",
     detail: "Create a referral workspace from an initial face sheet or referral packet to get started.",
@@ -1327,10 +1270,9 @@ function calendarMonthBounds(month: string) {
 function buildReferralParams(
   filter: ReferralFilter,
   searchTerm: string,
-  sort: ReferralSort,
   cursor?: string,
 ) {
-  const params = new URLSearchParams({ limit: String(workspacePageSize), sort });
+  const params = new URLSearchParams({ limit: String(workspacePageSize), sort: "updated_desc" });
   const query = searchTerm.trim();
   if (query) {
     params.set("q", query);
@@ -1347,7 +1289,6 @@ function buildReferralParams(
   if (filter.kind === "month") params.set("month", filter.value);
   if (filter.kind === "owner") params.set("owner", filter.value);
   if (filter.kind === "priority") params.set("priority", filter.value);
-  if (filter.kind === "tag") params.set("tag", filter.value);
   if (filter.kind !== "files") params.set("workspace", "all");
   return params;
 }

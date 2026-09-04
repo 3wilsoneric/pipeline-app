@@ -348,7 +348,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(activity.getByRole("tab", { name: /Team/ })).toHaveCount(0);
   });
 
-  test("filters and sorts the complete workspace directory", async ({ page }) => {
+  test("keeps only useful filters in the complete workspace directory", async ({ page }) => {
     let requestedMonth = "";
     let requestedCommunity = "";
     let requestedSort = "";
@@ -383,18 +383,15 @@ test.describe("Referral home and packet canvas", () => {
     });
     await page.reload();
 
-    const creationMonth = page.getByLabel("Filter by workspace month");
-    await expect(creationMonth).toContainText("August 2026 (4)");
-    await expect(creationMonth).toContainText("November 2025 (7)");
-    await creationMonth.selectOption("2025-11");
-    await expect.poll(() => requestedMonth).toBe("2025-11");
-    await expect(creationMonth).toHaveValue("2025-11");
+    await expect(page.getByLabel("Filter by workspace month")).toHaveCount(0);
+    await expect(page.getByLabel("Filter by tag")).toHaveCount(0);
+    await expect(page.getByLabel("Sort workspaces")).toHaveCount(0);
+    await expect.poll(() => requestedSort).toBe("updated_desc");
 
+    await page.getByRole("button", { name: /November 2025/ }).click();
+    await expect.poll(() => requestedMonth).toBe("2025-11");
     await page.getByLabel("Filter workspaces by community").selectOption("San Pablo");
     await expect.poll(() => requestedCommunity).toBe("San Pablo");
-    await page.getByLabel("Sort workspaces").selectOption("owner_asc");
-    await expect.poll(() => requestedSort).toBe("owner_asc");
-    await expect(page.getByLabel("Sort workspaces")).toHaveValue("owner_asc");
   });
 
   test("opens a new referral and returns through the Pipeline header", async ({ page }) => {
@@ -914,7 +911,7 @@ test.describe("Referral home and packet canvas", () => {
 
   test("browses all uploaded files without duplicate month navigation", async ({ page }) => {
     await expect(page.getByRole("button", { name: /^All files/ })).toBeVisible();
-    await expect(page.getByLabel("Filter by workspace month")).toBeVisible();
+    await expect(page.getByLabel("Filter by workspace month")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "June 2026", exact: true })).toHaveCount(0);
 
     await page.getByRole("button", { name: /^All files/ }).click();
