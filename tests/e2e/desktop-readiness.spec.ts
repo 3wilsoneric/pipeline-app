@@ -310,11 +310,12 @@ test.describe("desktop feature enabled", () => {
     expect(current).toBeTruthy();
 
     const token = Date.now().toString(36);
+    const clientName = `Morgan ${token.replace(/\d/g, (digit) => String.fromCharCode(97 + Number(digit)))}`;
     const createdResponse = await page.request.post("/api/referrals", {
       data: {
         client_mutation_id: `offline-referral-${token}`,
         referral: {
-          name: `Offline assessment ${token}`,
+          name: clientName,
           date: "2026-08-25",
           stage: "New",
           community: "San Pablo",
@@ -360,7 +361,7 @@ test.describe("desktop feature enabled", () => {
       data: {
         client_mutation_id: `offline-assessment-${token}`,
         data: {
-          resident_name: `Offline assessment ${token}`,
+          resident_name: clientName,
           date_of_birth: "1980-01-01",
           community: "San Pablo",
           assessment_date: "2026-08-25",
@@ -371,7 +372,7 @@ test.describe("desktop feature enabled", () => {
     });
     const assessmentPayload = await assessmentResponse.json();
     expect(assessmentResponse.status(), JSON.stringify(assessmentPayload)).toBe(201);
-    const scheduledStart = new Date(Date.UTC(2031, 0, 1, 0, referralId)).toISOString();
+    const scheduledStart = new Date(Date.UTC(2031, 0, 1 + referralId)).toISOString();
     const scheduleResponse = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/schedule`, {
       data: {
         if_match: assessmentPayload.assessment.version,
@@ -390,10 +391,7 @@ test.describe("desktop feature enabled", () => {
 
     await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment`);
     const assessmentDialog = page.getByRole("dialog", { name: "Assessment interview" });
-    const openAssessment = page.getByRole("button", { name: "Open assessment", exact: true });
-    await expect(assessmentDialog.or(openAssessment)).toBeVisible();
-    if (await openAssessment.isVisible()) await openAssessment.click();
-    await expect(assessmentDialog).toBeVisible();
+    await expect(assessmentDialog).toBeVisible({ timeout: 15_000 });
     const beginDialog = page.getByRole("dialog", { name: "Begin assessment" });
     await expect(beginDialog).toBeVisible();
     const begin = beginDialog.getByRole("button", { name: "Begin assessment", exact: true });
@@ -454,7 +452,7 @@ test.describe("desktop feature enabled", () => {
     await context.setOffline(true);
     try {
       await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "Offline Assessment assessment", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: new RegExp(`^${clientName} assessment$`, "i") })).toBeVisible();
       await expect(page.getByRole("textbox", { name: "Current location *", exact: true })).toHaveValue(offlineValue);
       const duration = page.getByRole("textbox", { name: "Time at current location" });
       await duration.fill(coldStartValue);
