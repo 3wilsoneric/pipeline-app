@@ -43,10 +43,13 @@ import ReferralWorklist from "@/components/pipeline/ReferralWorklist";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
 import ReferralWorkspaceGallery from "@/components/pipeline/ReferralWorkspaceGallery";
 import WorkspaceActivityFeed from "@/components/pipeline/WorkspaceActivityFeed";
+import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 
 type WorkspaceSection = "workspaces" | "activity";
 type WorkspaceLayout = "list" | "gallery";
 const workspaceLayoutStorageKey = "pipeline:workspace-layout";
+const workspacePageSize = 50;
+const workspaceSearchSettleMs = 180;
 
 type ReferralFilter =
   | { kind: "all" }
@@ -135,6 +138,12 @@ export default function ReferralHome({
   const [browseOpen, setBrowseOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedMonth, setExpandedMonth] = useState("");
+  const [requestSearchTerm, setRequestSearchTerm] = useState(searchTerm);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setRequestSearchTerm(searchTerm), workspaceSearchSettleMs);
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(workspaceLayoutStorageKey);
@@ -155,9 +164,9 @@ export default function ReferralHome({
     setLoadError("");
     let requestKey = "";
     try {
-      const params = buildReferralParams(filter, searchTerm, sort, referralCursors[referralPage]);
+      const params = buildReferralParams(filter, requestSearchTerm, sort, referralCursors[referralPage]);
       requestKey = params.toString();
-      const normalizedSearch = searchTerm.trim();
+      const normalizedSearch = requestSearchTerm.trim();
       const summaryKey = `all:${normalizedSearch}`;
       const includeSummary = referralPage === 0 && summaryQuery.current !== summaryKey;
       const payload = await fetchPipelineJson<{
@@ -198,7 +207,7 @@ export default function ReferralHome({
         setIsLoading(false);
       }
     }
-  }, [filter, referralCursors, referralPage, searchTerm, sort]);
+  }, [filter, referralCursors, referralPage, requestSearchTerm, sort]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -246,7 +255,7 @@ export default function ReferralHome({
   useEffect(() => {
     setReferralPage((current) => current === 0 ? current : 0);
     setReferralCursors((current) => current.length === 1 && current[0] === "" ? current : [""]);
-  }, [filter, searchTerm, sort]);
+  }, [filter, requestSearchTerm, sort]);
 
   useEffect(() => {
     if (filter.kind !== "files" || reviewIdentity) return;
@@ -254,7 +263,7 @@ export default function ReferralHome({
     let cancelled = false;
     const params = new URLSearchParams({
       limit: "100",
-      q: searchTerm,
+      q: requestSearchTerm,
       identity_status: "linked",
     });
     if (fileCursors[filePage]) params.set("cursor", fileCursors[filePage]);
@@ -287,13 +296,13 @@ export default function ReferralHome({
     return () => {
       cancelled = true;
     };
-  }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, fileSource, filter.kind, reviewIdentity, searchTerm]);
+  }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, fileSource, filter.kind, requestSearchTerm, reviewIdentity]);
 
   useEffect(() => {
     if (filter.kind !== "files" || !reviewIdentity) return;
     let cancelled = false;
     setImportItems(null);
-    const params = new URLSearchParams({ status: "unmatched", limit: "100", q: searchTerm });
+    const params = new URLSearchParams({ status: "unmatched", limit: "100", q: requestSearchTerm });
     fetchPipelineJson<{ items?: ClientFileImportReviewItem[]; total?: number }>(`/api/files/import-review?${params}`, { cache: "no-store" })
       .then((payload) => {
         if (cancelled) return;
@@ -307,13 +316,13 @@ export default function ReferralHome({
         }
       });
     return () => { cancelled = true; };
-  }, [filter.kind, reviewIdentity, searchTerm]);
+  }, [filter.kind, requestSearchTerm, reviewIdentity]);
 
   useEffect(() => {
     setFilePage(0);
     setFileCursors([""]);
     setFiles(null);
-  }, [fileCategory, fileCommunity, fileMonth, fileOwner, fileSource, filter.kind, reviewIdentity, searchTerm]);
+  }, [fileCategory, fileCommunity, fileMonth, fileOwner, fileSource, filter.kind, requestSearchTerm, reviewIdentity]);
 
   const monthOptions = useMemo(() => facets.months.map((entry) => entry.value), [facets.months]);
   const ownerOptions = useMemo(() => facets.owners.map((entry) => entry.value), [facets.owners]);
@@ -348,6 +357,9 @@ export default function ReferralHome({
   const visibleFiles = files ?? [];
   const visibleImportItems = importItems ?? [];
   const isImportLoading = filter.kind === "files" && reviewIdentity && importItems === null;
+  const isSearchSettling = requestSearchTerm !== searchTerm;
+  const workspaceLoading = isLoading || isSearchSettling;
+  const loadingLabel = directoryLoadingLabel(filter);
 
   const visibleReferrals = filter.kind === "files" ? [] : referrals;
   const emptyReferralState = getEmptyReferralState(filter, searchTerm);
@@ -357,7 +369,7 @@ export default function ReferralHome({
       : isFileLoading
       ? "Loading..."
       : `${formatDirectoryCount(fileTotal)} file${fileTotal === 1 ? "" : "s"}`
-    : isLoading
+    : workspaceLoading
       ? "Loading..."
       : `${formatDirectoryCount(referralTotal)} referral${referralTotal === 1 ? "" : "s"}`;
   const sidebarCommunities = pipelineCommunities
@@ -389,7 +401,11 @@ export default function ReferralHome({
           <X size={15} />
         </button>
       ) : null}
-      <span className="hidden shrink-0 text-[9px] font-bold text-[#737373] md:inline">{resultCountLabel}</span>
+      <span className="hidden shrink-0 text-[9px] font-bold text-[#737373] md:inline">
+        {resultCountLabel === "Loading..." ? (
+          <PipelineArcadeLoader label={loadingLabel} compact decorative={visibleReferrals.length === 0} />
+        ) : resultCountLabel}
+      </span>
     </div>
   );
 
@@ -776,7 +792,7 @@ export default function ReferralHome({
                 ) : (
                   <ReferralWorklist referrals={visibleReferrals} onOpenPacket={onOpenPacket} progressByReferral={progressByReferral} />
                 )}
-                {referralTotal > 100 ? (
+                {hasReferralPagination(referralPage, referralNextCursor) ? (
                   <div className="flex items-center justify-between border-t border-[#d9d9d9] px-5 py-3">
                     <button
                       type="button"
@@ -805,14 +821,16 @@ export default function ReferralHome({
             ) : (
               <div className="px-5 py-16 text-center">
                 <div className="text-[15px] font-black text-[#111111]">
-                  {isLoading ? "Loading workspaces" : emptyReferralState.title}
+                  {workspaceLoading ? (
+                    <PipelineArcadeLoader label="Loading workspaces" />
+                  ) : emptyReferralState.title}
                 </div>
-                {!isLoading ? (
+                {!workspaceLoading ? (
                   <p className="mx-auto mt-2 max-w-[420px] text-[12px] leading-5 text-[#737373]">
                     {emptyReferralState.detail}
                   </p>
                 ) : null}
-                {!isLoading && filter.kind !== "all" ? (
+                {!workspaceLoading && filter.kind !== "all" ? (
                   <button
                     type="button"
                     onClick={() => setFilter({ kind: "all" })}
@@ -1312,7 +1330,7 @@ function buildReferralParams(
   sort: ReferralSort,
   cursor?: string,
 ) {
-  const params = new URLSearchParams({ limit: "100", sort });
+  const params = new URLSearchParams({ limit: String(workspacePageSize), sort });
   const query = searchTerm.trim();
   if (query) {
     params.set("q", query);
@@ -1332,4 +1350,12 @@ function buildReferralParams(
   if (filter.kind === "tag") params.set("tag", filter.value);
   if (filter.kind !== "files") params.set("workspace", "all");
   return params;
+}
+
+function directoryLoadingLabel(filter: ReferralFilter) {
+  return filter.kind === "files" ? "Loading files" : "Loading workspaces";
+}
+
+function hasReferralPagination(page: number, nextCursor?: string) {
+  return page > 0 || Boolean(nextCursor);
 }

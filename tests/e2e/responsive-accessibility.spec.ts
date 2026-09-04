@@ -11,7 +11,8 @@ test.describe("Responsive and accessible application shell", () => {
   test("keeps home and referral navigation usable without page overflow", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { name: /^Good (?:morning|afternoon|evening), .+\.$/ })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);

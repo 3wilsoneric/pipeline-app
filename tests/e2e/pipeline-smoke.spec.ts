@@ -218,7 +218,9 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("adds gallery and scoped activity views without replacing the workspace workflow", async ({ page }) => {
+    let workspacePageSize = "";
     await page.route(/\/api\/referrals(?:\/directory)?\?/, async (route) => {
+      workspacePageSize = new URL(route.request().url()).searchParams.get("limit") ?? "";
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -257,6 +259,8 @@ test.describe("Referral home and packet canvas", () => {
     const galleryToggle = page.getByRole("button", { name: "Show workspaces as a gallery" });
     await expect(listToggle).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("region", { name: "Referral worklist" })).toBeVisible();
+    await expect(page.locator('[data-testid="workspace-chart-thumbnail"]:visible')).toBeVisible();
+    expect(workspacePageSize).toBe("50");
 
     await galleryToggle.click();
     await expect(galleryToggle).toHaveAttribute("aria-pressed", "true");
