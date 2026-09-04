@@ -23,10 +23,10 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
       <details open className="group/workflow">
-        <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 px-1 py-1 text-[#202320] outline-none hover:bg-[#f7faf8] focus-visible:bg-[#eef6f3] [&::-webkit-details-marker]:hidden">
-          <span className="flex min-w-0 items-center gap-2 text-[12px] font-semibold">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-1 py-1 text-[#202320] outline-none hover:bg-[#f7faf8] focus-visible:bg-[#eef6f3] [&::-webkit-details-marker]:hidden">
+          <span className="flex min-w-0 items-center gap-2.5 text-[14px] font-bold">
             <ChevronDown
-              size={15}
+              size={17}
               aria-hidden="true"
               className="shrink-0 text-[#176f60] transition-transform duration-200 group-open/workflow:rotate-180"
             />
@@ -43,14 +43,14 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
             No active referral work.
           </div>
         ) : (
-          <div className="grid grid-flow-col auto-cols-[minmax(220px,1fr)] items-start gap-4 overflow-x-auto pb-2 pt-1 md:auto-cols-[minmax(230px,1fr)] xl:grid-flow-row xl:grid-cols-6 xl:overflow-visible">
+          <div className="grid grid-flow-col auto-cols-[minmax(230px,1fr)] items-start gap-4 overflow-x-auto pb-3 pt-1 md:auto-cols-[minmax(240px,1fr)] xl:grid-flow-row xl:grid-cols-6 xl:overflow-visible">
             {activeReferralFlowStates.map((state) => {
               const stageItems = items.filter((item) => referralFlowStateForStatus(item.workflow_status) === state.key);
               return (
                 <div key={state.key} className="min-w-0">
-                  <div className="flex h-8 items-center justify-between gap-3 px-1">
-                    <h3 className={`truncate text-[10px] font-bold uppercase tracking-[0.08em] ${stageTone(state.key)}`}>{state.label}</h3>
-                    <strong className="text-[11px] font-bold tabular-nums text-[#202320]">{counts[state.key]}</strong>
+                  <div className="flex h-9 items-center justify-between gap-3 px-1">
+                    <h3 className={`truncate text-[11px] font-extrabold uppercase ${stageTone(state.key)}`}>{state.label}</h3>
+                    <strong className="text-[12px] font-extrabold tabular-nums text-[#202320]">{counts[state.key]}</strong>
                   </div>
                   {stageItems.length > 0 ? (
                     <div className="space-y-2">
@@ -58,6 +58,7 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
                         <WorkflowCard
                           key={item.referral_id}
                           item={item}
+                          state={state.key}
                           showOwner={briefing.scope === "team"}
                           onOpenPacket={onOpenPacket}
                         />
@@ -74,8 +75,9 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
   );
 }
 
-function WorkflowCard({ item, showOwner, onOpenPacket }: {
+function WorkflowCard({ item, state, showOwner, onOpenPacket }: {
   item: ReferralWorklistItem;
+  state: (typeof activeReferralFlowStates)[number]["key"];
   showOwner: boolean;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
 }) {
@@ -88,14 +90,14 @@ function WorkflowCard({ item, showOwner, onOpenPacket }: {
       type="button"
       aria-label={`Open ${clientName}`}
       onClick={() => onOpenPacket({ id: item.referral_id, name: clientName, community: item.community as Referral["community"] })}
-      className={`group w-full border bg-white px-3 py-3 text-left outline-none transition-colors hover:border-[#0f8b73] hover:bg-[#f7fbf9] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${attention ? "border-[#d8b36c]" : "border-[#dfe3e1]"}`}
+      className={`group min-h-[116px] w-full border border-l-[3px] border-[#dce3df] bg-white px-3.5 py-3.5 text-left shadow-[0_3px_12px_rgba(32,35,32,0.045)] outline-none transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[#0f8b73] hover:shadow-[0_7px_18px_rgba(32,35,32,0.08)] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${cardAccent(state)}`}
     >
       <span className="flex items-start justify-between gap-2">
-        <span className="min-w-0 truncate text-[12px] font-semibold text-[#202320]">{clientName}</span>
-        <ArrowRight size={13} className="mt-0.5 shrink-0 text-[#8a908c] group-hover:text-[#0f8b73]" aria-hidden="true" />
+        <span className="min-w-0 truncate text-[14px] font-bold text-[#202320]">{clientName}</span>
+        <ArrowRight size={15} className="mt-0.5 shrink-0 text-[#7b837e] group-hover:text-[#0f8b73]" aria-hidden="true" />
       </span>
-      <span className="mt-1 block line-clamp-2 min-h-8 text-[10px] leading-4 text-[#626a65]">{item.next_action}</span>
-      <span className="mt-2 flex min-w-0 items-center justify-between gap-2 text-[9px] font-semibold text-[#717873]">
+      <span className="mt-1.5 block line-clamp-2 min-h-9 text-[11px] font-medium leading-[18px] text-[#5f6762]">{item.next_action}</span>
+      <span className="mt-2.5 flex min-w-0 items-center justify-between gap-2 text-[10px] font-bold text-[#69716c]">
         <span className="truncate">{item.community}{owner ? ` · ${owner}` : ""}</span>
         <span className={attention ? "shrink-0 text-[#936116]" : "shrink-0"}>{formatWorkAge(item.age_hours)}</span>
       </span>
@@ -114,4 +116,11 @@ function stageTone(state: (typeof activeReferralFlowStates)[number]["key"]) {
   if (state === "ready_to_schedule" || state === "scheduled") return "text-[#936116]";
   if (state === "assessment") return "text-[#4866ad]";
   return "text-[#5d6661]";
+}
+
+function cardAccent(state: (typeof activeReferralFlowStates)[number]["key"]) {
+  if (state === "assignment" || state === "intake") return "border-l-[#0f8b73]";
+  if (state === "ready_to_schedule" || state === "scheduled") return "border-l-[#b77b27]";
+  if (state === "assessment") return "border-l-[#4866ad]";
+  return "border-l-[#69716c]";
 }

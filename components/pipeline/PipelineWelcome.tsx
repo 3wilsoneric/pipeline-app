@@ -149,14 +149,14 @@ function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } &
     <button
       type="button"
       onClick={() => onOpenPacket({ id: event.referralId, name: clientDisplayName(event.clientName, event.community), community: event.community as Referral["community"] })}
-      className="grid w-full grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left hover:bg-[#f5faf8] sm:px-5"
+      className="grid min-h-14 w-full grid-cols-[108px_minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5faf8] sm:px-4"
     >
-      <span className="text-[10px] font-semibold text-[#176f60]">{formatScheduleDate(event)}</span>
+      <span className="text-[11px] font-bold text-[#176f60]">{formatScheduleDate(event)}</span>
       <span className="min-w-0">
-        <span className="block truncate text-[13px] font-semibold">{clientDisplayName(event.clientName, event.community)}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{event.title} · {event.community}</span>
+        <span className="block truncate text-[14px] font-bold">{clientDisplayName(event.clientName, event.community)}</span>
+        <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{event.title} · {event.community}</span>
       </span>
-      <span className="text-[10px] text-[#6e746f]">{methodLabel(event.method)}</span>
+      <span className="text-[11px] font-semibold text-[#69716c]">{methodLabel(event.method)}</span>
     </button>
   );
 }
@@ -170,12 +170,12 @@ function RecentPanel({ items, onOpenRecent }: { items: PipelineRecentDestination
       ) : (
         <div className="divide-y divide-[#e5e9e7]">
           {items.slice(0, 5).map((item) => (
-            <button key={item.id} type="button" onClick={() => onOpenRecent(item)} className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left hover:bg-[#f5f7fb]">
+            <button key={item.id} type="button" onClick={() => onOpenRecent(item)} className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5f7fb] sm:px-4">
               <span className="min-w-0">
-                <span className="block truncate text-[13px] font-semibold">{recentTitle(item)}</span>
-                <span className="mt-0.5 block truncate text-[11px] text-[#6e746f]">{item.detail}</span>
+                <span className="block truncate text-[14px] font-bold">{recentTitle(item)}</span>
+                <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{item.detail}</span>
               </span>
-              <span className="pt-0.5 text-[10px] text-[#6e746f]">{relativeTime(item.visitedAt)}</span>
+              <span className="text-[11px] font-semibold text-[#69716c]">{relativeTime(item.visitedAt)}</span>
             </button>
           ))}
         </div>
@@ -191,15 +191,15 @@ type BriefingPanelProps = {
 
 function SectionHeader({ title, detail, icon }: { title: string; detail: string; icon?: ReactNode }) {
   return (
-    <div className="flex h-11 items-center justify-between gap-3 border-b border-[#d8dedb] px-4 sm:px-5">
-      <h2 className="flex items-center gap-2 text-[13px] font-semibold">{icon}{title}</h2>
-      <span className="text-[10px] font-semibold text-[#626a65]">{detail}</span>
+    <div className="flex h-12 items-center justify-between gap-3 px-1">
+      <h2 className="flex items-center gap-2.5 text-[15px] font-bold">{icon}{title}</h2>
+      <span className="text-[11px] font-bold text-[#626a65]">{detail}</span>
     </div>
   );
 }
 
 function EmptyLine({ children }: { children: ReactNode }) {
-  return <div className="px-5 py-10 text-center text-[12px] text-[#626a65]">{children}</div>;
+  return <div className="border border-[#e0e5e2] px-5 py-10 text-center text-[13px] font-medium text-[#626a65]">{children}</div>;
 }
 
 function UnavailableLine() {
@@ -208,14 +208,56 @@ function UnavailableLine() {
 
 function HomeSkeleton() {
   return (
-    <div aria-label="Loading home" aria-busy="true" className="mt-4 animate-pulse space-y-4">
-      <div className="h-[210px] border-y border-[#e1e5e3] bg-white" />
+    <div aria-label="Loading home" aria-busy="true" className="mt-2 animate-pulse space-y-5" aria-live="polite">
+      <div aria-hidden="true">
+        <div className="flex h-12 items-center gap-3">
+          <SkeletonBlock className="h-4 w-4" />
+          <SkeletonBlock className="h-4 w-36" />
+        </div>
+        <div className="grid grid-flow-col auto-cols-[minmax(230px,1fr)] gap-4 overflow-hidden pb-3 xl:grid-flow-row xl:grid-cols-6">
+          {Array.from({ length: 6 }, (_, index) => (
+            <div key={index} className="min-w-0">
+              <div className="flex h-9 items-center justify-between px-1">
+                <SkeletonBlock className="h-3 w-20" />
+                <SkeletonBlock className="h-3 w-3" />
+              </div>
+              {index < 2 ? (
+                <div className="min-h-[116px] border border-l-[3px] border-[#e1e6e3] bg-white px-3.5 py-3.5">
+                  <SkeletonBlock className="h-4 w-3/4" />
+                  <SkeletonBlock className="mt-3 h-3 w-1/2" />
+                  <SkeletonBlock className="mt-8 h-3 w-full" />
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
-        <div className="h-[190px] border-y border-[#e1e5e3] bg-white" />
-        <div className="h-[190px] border-y border-[#e1e5e3] bg-white" />
+        <PanelSkeleton />
+        <PanelSkeleton />
       </div>
     </div>
   );
+}
+
+function PanelSkeleton() {
+  return (
+    <div aria-hidden="true">
+      <div className="flex h-12 items-center justify-between px-1">
+        <SkeletonBlock className="h-4 w-36" />
+        <SkeletonBlock className="h-3 w-16" />
+      </div>
+      <div className="space-y-4 border border-[#e1e6e3] px-4 py-5">
+        <SkeletonBlock className="h-4 w-2/3" />
+        <SkeletonBlock className="h-3 w-5/6" />
+        <SkeletonBlock className="h-3 w-1/2" />
+      </div>
+    </div>
+  );
+}
+
+function SkeletonBlock({ className }: { className: string }) {
+  return <div className={`bg-[#e9eeeb] ${className}`} />;
 }
 
 function relativeTime(value: string) {
