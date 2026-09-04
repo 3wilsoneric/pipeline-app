@@ -28,8 +28,13 @@ test.describe("Stable visual surfaces", () => {
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
     await expect(page.getByTestId("profiles-workspace").getByRole("status")).toContainText(
-      "The Alamo client directory is unavailable",
+      "Live census information is temporarily unavailable",
     );
+    const dataAsOf = page.getByTestId("profiles-workspace").locator("div", { hasText: /^Data through/ });
+    await expect(dataAsOf).toHaveCount(1);
+    await dataAsOf.locator("strong").evaluate((node) => {
+      node.textContent = "Sep 4, 2026";
+    });
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-profiles.png", screenshotOptions());
   });
