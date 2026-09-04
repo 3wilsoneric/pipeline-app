@@ -28,7 +28,7 @@ test.describe("Stable visual surfaces", () => {
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
     await expect(page.getByTestId("profiles-workspace").getByRole("status")).toContainText(
-      "The Alamo client directory is unavailable",
+      "Live census information is temporarily unavailable. Referral records remain available.",
     );
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-profiles.png", screenshotOptions());
