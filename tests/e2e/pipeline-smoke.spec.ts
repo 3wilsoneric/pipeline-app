@@ -156,7 +156,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(pipelinePosition?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(searchPosition?.x ?? 0);
     await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
     await expect(page.getByLabel("Select referral packet")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Current work", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Current work", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "All workspaces", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
     await expect(
@@ -748,7 +748,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Pipeline returned an unreadable response.", { exact: true })).toHaveCount(0);
   });
 
-  test("keeps the last successful referral snapshot when refresh fails", async ({ page }) => {
+  test("shows a newly created referral in the workspace directory", async ({ page }) => {
     const name = `Recovery Qa${randomUUID().slice(0, 8)}`;
     const created = await page.request.post("/api/referrals", {
       data: {
@@ -777,42 +777,8 @@ test.describe("Referral home and packet canvas", () => {
     expect(created.status()).toBe(201);
     const createdPayload = await created.json() as { referral: { name: string } };
     await page.goto("/?view=referrals");
-    await page.getByRole("button", { name: "Current work", exact: true }).click();
-
-    const workflow = page.getByRole("region", { name: "Referral workflow tracker" });
-    await expect(workflow).toBeVisible();
-    await expect(workflow.getByRole("button", { name: `Open ${createdPayload.referral.name} referral workspace` })).toBeVisible();
-    const rowsBefore = await workflow.getByRole("button").count();
-    expect(rowsBefore).toBeGreaterThan(0);
-
-    await page.route(/\/api\/referrals\/directory\?/, async (route) => {
-      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Referral refresh unavailable." }) });
-    });
-    await page.getByRole("button", { name: "Refresh referral workflow" }).click();
-    await expect(page.getByText("Referral refresh unavailable.", { exact: true })).toBeVisible();
-    await expect.poll(() => workflow.getByRole("button").count()).toBe(rowsBefore);
-  });
-
-  test("filters current work by canonical referral state", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await mockReferralFlowDirectory(page);
-    await page.goto("/?view=referrals");
-    await expect(page.getByText("7 referrals", { exact: true })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: "Current work", exact: true }).click();
-
-    const states = page.getByRole("tablist", { name: "Current work states" });
-    const workflow = page.getByRole("region", { name: "Referral workflow tracker" });
-    await expect(states.getByRole("tab", { name: "All active 6", exact: true })).toBeVisible();
-    await expect(workflow.getByRole("button")).toHaveCount(6);
-    await expect(workflow.getByRole("button", { name: "Open Closed Example referral workspace" })).toHaveCount(0);
-
-    await states.getByRole("tab", { name: "Scheduled 1", exact: true }).click();
-    await expect(workflow.getByRole("button")).toHaveCount(1);
-    await expect(workflow.getByRole("button", { name: "Open Scheduled Example referral workspace" })).toBeVisible();
-
-    await states.getByRole("tab", { name: "Review 1", exact: true }).click();
-    await expect(workflow.getByRole("button")).toHaveCount(1);
-    await expect(workflow.getByRole("button", { name: "Open Review Example referral workspace" })).toBeVisible();
+    const workspaces = page.getByRole("region", { name: "Referral worklist" });
+    await expect(workspaces.getByRole("button", { name: `Open ${createdPayload.referral.name} referral workspace` })).toBeVisible();
   });
 
   test("browses all uploaded files without duplicate month navigation", async ({ page }) => {
@@ -2162,60 +2128,6 @@ test.describe("Referral home and packet canvas", () => {
   });
 });
 
-async function mockReferralFlowDirectory(page: import("@playwright/test").Page) {
-  const statuses = [
-    ["Assignment Example", "intake_unassigned"],
-    ["Intake Example", "profile_incomplete"],
-    ["Ready Example", "ready_to_schedule"],
-    ["Scheduled Example", "assessment_scheduled"],
-    ["Assessment Example", "assessment_in_progress"],
-    ["Review Example", "assessment_ready_to_sign"],
-    ["Closed Example", "accepted"],
-  ] as const;
-  const referrals = statuses.map(([name, workflowStatus], index) => ({
-    id: 9_000 + index,
-    name,
-    date: "2026-09-01",
-    stage: workflowStatus === "accepted" ? "Accepted / Admitted" : "Assessment",
-    community: "San Pablo",
-    county: "Contra Costa County",
-    source: "Workflow contract",
-    priority: "standard",
-    tags: [],
-    documentName: "packet.pdf",
-    documentStatus: "Uploaded",
-    owner: workflowStatus === "intake_unassigned" ? "Unassigned" : "Playwright QA",
-    note: "",
-    createdAt: "2026-09-01T12:00:00.000Z",
-    updatedAt: `2026-09-0${Math.min(index + 1, 7)}T12:00:00.000Z`,
-    workflowStatus,
-  }));
-  const progress = Object.fromEntries(referrals.map((referral, index) => [referral.id, {
-    overall: { complete: index + 1, total: 10, percent: (index + 1) * 10 },
-    blockers: [],
-  }]));
-
-  await page.route(/\/api\/referrals(?:\/directory|\/changes)?(?:\?|$)/, async (route) => {
-    if (route.request().url().includes("/changes")) {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ changed: false, sequence: 1 }) });
-      return;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        referrals,
-        total: referrals.length,
-        revision: 1,
-        next_cursor: null,
-        progress,
-        file_total: 0,
-        facets: { communities: [], counties: [], stages: [], owners: [], priorities: [], tags: [], months: [] },
-      }),
-    });
-  });
-}
-
 test.describe("Pipeline home", () => {
   test("keeps the home surface calm and search-focused", async ({ page }) => {
     const errors: string[] = [];
@@ -2229,7 +2141,7 @@ test.describe("Pipeline home", () => {
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Team metrics" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Workflow summary" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();

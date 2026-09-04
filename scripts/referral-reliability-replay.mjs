@@ -420,6 +420,7 @@ function checkWorkflowGuardrails() {
   const operatingModel = readText("lib/reliability/referral-operating-model.ts");
   const workflow = readText("lib/pipeline/referral-workflow.ts");
   const referralHome = readText("components/pipeline/ReferralHome.tsx");
+  const pipelineWelcome = readText("components/pipeline/PipelineWelcome.tsx");
 
   for (const expected of [
     "getReferralWorkflowBlockers",
@@ -442,9 +443,9 @@ function checkWorkflowGuardrails() {
 
   assert(
     referralHome.includes("buildReferralParams") &&
-      referralHome.includes("ReferralWorkflowTracker") &&
-      referralHome.includes("ReferralWorklist"),
-    "ReferralHome should use server-side filtering and shared workflow display guardrails",
+      referralHome.includes("ReferralWorklist") &&
+      pipelineWelcome.includes("ReferralWorkflowTracker"),
+    "Workspace search and the Home workflow summary should use their shared display guardrails",
   );
   assert(
     workflow.includes("matchesSearchText"),

@@ -196,12 +196,12 @@ await measureJourney("referral_community_filter", "filter", async () => {
   await page.getByRole("button", { name: `Open ${seededReferralName} referral workspace`, exact: true }).waitFor({ state: "visible" });
 });
 await page.getByLabel("Filter workspaces by community").selectOption("");
-await measureJourney("referrals_to_current_work", "queue", async () => {
-  await activate(page.getByRole("button", { name: "Current work", exact: true }));
-  await page.getByRole("region", { name: "Referral workflow tracker", exact: true }).waitFor({ state: "visible" });
+await measureJourney("referrals_to_home_summary", "queue", async () => {
+  await activate(page.getByRole("button", { name: "Pipeline home", exact: true }));
+  await page.getByRole("region", { name: "Workflow summary", exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("current_work_to_all_workspaces", "queue", async () => {
-  await activate(page.getByRole("button", { name: "All workspaces", exact: true }));
+await measureJourney("home_summary_to_all_workspaces", "queue", async () => {
+  await activate(page.getByRole("button", { name: "Open referrals", exact: true }));
   await page.getByLabel("Referral worklist", { exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("referrals_to_clients", "navigation", async () => {

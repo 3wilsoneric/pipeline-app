@@ -4,6 +4,11 @@ import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getClinicalDataReadiness } from "@/lib/clinical/clinical-data";
 import { getExtractionBackendReadiness } from "@/lib/extraction/backend-config";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
+import {
+  activeReferralFlowStates,
+  referralFlowStateForStatus,
+  type ActiveReferralFlowState,
+} from "@/lib/pipeline/referral-flow";
 import { isAssignedToUser, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { referralWorklistBuckets } from "@/lib/pipeline/referral-worklist-filter";
@@ -192,12 +197,20 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
         operational.activeWork.reduce((total, item) => total + item.completion_pct, 0)
         / operational.activeWork.length,
       );
+  const flowCounts = Object.fromEntries(
+    activeReferralFlowStates.map(({ key }) => [key, 0]),
+  ) as Record<ActiveReferralFlowState, number>;
+  for (const item of operational.activeWork) {
+    const flowState = referralFlowStateForStatus(item.workflow_status);
+    if (flowState !== "complete") flowCounts[flowState] += 1;
+  }
 
   return {
     generated_at: operational.now.toISOString(),
     active_total: operational.activeWork.length,
     unassigned_total: operational.activeWork.filter((item) => item.owner === "Unassigned").length,
     overall_completion_pct: overallCompletion,
+    flow_counts: flowCounts,
     ready_to_schedule: {
       total: readyToSchedule.length,
       items: readyToSchedule.slice(0, 6),

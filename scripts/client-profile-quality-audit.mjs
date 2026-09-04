@@ -74,7 +74,6 @@ const surfaceContracts = [
   ["components/pipeline/ClientProfileView.tsx", 'aria-label="Referral episodes"'],
   ["components/pipeline/ReferralPacketCanvas.tsx", 'data-testid="workspace-identity-title"'],
   ["components/pipeline/ReferralWorklist.tsx", "formatClientIdentityTitle"],
-  ["components/pipeline/ReferralWorkflowTracker.tsx", "formatClientIdentityTitle"],
   ["components/pipeline/PipelineSearchPanel.tsx", "formatClientIdentityTitle"],
   ["components/pipeline/PipelineWelcome.tsx", "clientDisplayName"],
   ["components/pipeline/PipelineCalendar.tsx", "calendarClientName"],

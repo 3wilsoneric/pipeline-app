@@ -2,6 +2,7 @@ import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { PipelineCommunity } from "@/lib/pipeline/community-config";
 import type { ReferralWorkflowStatus, RequirementType } from "@/lib/pipeline/referral-types";
 import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
+import type { ActiveReferralFlowState } from "@/lib/pipeline/referral-flow";
 
 export type OperationsWorkItem = {
   referral_id: number;
@@ -129,6 +130,7 @@ export type HomeWorkflowSummary = {
   active_total: number;
   unassigned_total: number;
   overall_completion_pct: number | null;
+  flow_counts: Record<ActiveReferralFlowState, number>;
   ready_to_schedule: {
     total: number;
     items: ReferralWorklistItem[];

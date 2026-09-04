@@ -141,7 +141,7 @@ export const assuranceDomains = [
       control("WF-05", "Assessment completion, signature, and recommendation are ordered", "operational_browser", ["tests/e2e/operational/golden-thread.spec.ts", "scripts/workflow-stateful-fuzz.mjs"]),
       control("WF-06", "Supervisor decision remains separate from assessor recommendation", "operational_browser", "tests/e2e/operational/golden-thread.spec.ts"),
       control("WF-07", "Accepted referral reaches an idempotent EHR handoff", "operational_browser", "tests/e2e/operational/golden-thread.spec.ts"),
-      control("WF-08", "Community, month, current work, and all-work views reconcile", "core_browser", "tests/e2e/production-readiness.spec.ts"),
+      control("WF-08", "Community, month, Home workflow summary, and all-work views reconcile", "core_browser", "tests/e2e/production-readiness.spec.ts"),
       control("WF-09", "Closed referrals remain reopenable as durable workspaces", "core_browser", "tests/e2e/pipeline-smoke.spec.ts"),
       liveControl("WF-10", "A real packet completes the deployed intake-to-review seam", "live_packet", "scripts/sample-packet-extraction-smoke.mjs"),
     ],

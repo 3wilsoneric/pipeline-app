@@ -61,7 +61,7 @@ test.describe("Responsive application navigation", () => {
       }
 
       const contentTopBeforeViewChange = await page.getByTestId("workspace-content-grid").evaluate((element) => element.getBoundingClientRect().top);
-      await page.getByRole("button", { name: "Current work", exact: true }).click();
+      await page.getByRole("button", { name: /^All files/ }).click();
       await expect.poll(async () => page.getByTestId("workspace-content-grid").evaluate((element) => element.getBoundingClientRect().top))
         .toBeCloseTo(contentTopBeforeViewChange, 0);
 

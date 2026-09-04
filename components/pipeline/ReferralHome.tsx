@@ -14,7 +14,6 @@ import {
   Check,
   Eye,
   Link2,
-  ListChecks,
   RefreshCw,
   Search,
   SlidersHorizontal,
@@ -38,15 +37,10 @@ import {
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import FilePreviewDialog from "@/components/pipeline/ReferralFilePreviewDialog";
-import ReferralWorkflowTracker, {
-  ReferralFlowTabs,
-  type ReferralFlowFilter,
-} from "@/components/pipeline/ReferralWorkflowTracker";
 import ReferralWorklist from "@/components/pipeline/ReferralWorklist";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
 
 type ReferralFilter =
-  | { kind: "workflow" }
   | { kind: "all" }
   | { kind: "files" }
   | { kind: "community"; value: string }
@@ -119,13 +113,7 @@ export default function ReferralHome({
   const [importTotal, setImportTotal] = useState(0);
   const [reviewItem, setReviewItem] = useState<ClientFileImportReviewItem | null>(null);
   const [filter, setFilter] = useState<ReferralFilter>({ kind: "all" });
-  const [flowFilter, setFlowFilter] = useState<ReferralFlowFilter>("all");
   const [sort, setSort] = useState<ReferralSort>("updated_desc");
-  const [workflowTotal, setWorkflowTotal] = useState(0);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const workflowRefreshInFlight = useRef(false);
-  const referralRevision = useRef(0);
   const summaryQuery = useRef<string | null>(null);
   const successfulReferralRequest = useRef("");
   const [isLoading, setIsLoading] = useState(true);
@@ -135,27 +123,20 @@ export default function ReferralHome({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedMonth, setExpandedMonth] = useState("");
 
-  const loadReferrals = useCallback(async (signal?: AbortSignal, background = false) => {
+  const loadReferrals = useCallback(async (signal?: AbortSignal) => {
     if (filter.kind === "files") {
       setIsLoading(false);
       return;
     }
-    if (background && workflowRefreshInFlight.current) return;
-    if (background) {
-      workflowRefreshInFlight.current = true;
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
+    setIsLoading(true);
     setLoadError("");
     let requestKey = "";
     try {
       const params = buildReferralParams(filter, searchTerm, sort, referralCursors[referralPage]);
       requestKey = params.toString();
       const normalizedSearch = searchTerm.trim();
-      const workspaceScope = filter.kind === "workflow" ? "active" : "all";
-      const summaryKey = `${workspaceScope}:${normalizedSearch}`;
-      const includeSummary = referralPage === 0 && (background || summaryQuery.current !== summaryKey);
+      const summaryKey = `all:${normalizedSearch}`;
+      const includeSummary = referralPage === 0 && summaryQuery.current !== summaryKey;
       const payload = await fetchPipelineJson<{
         referrals?: Referral[];
         total?: number;
@@ -167,24 +148,17 @@ export default function ReferralHome({
       }>(
         `${includeSummary ? "/api/referrals/directory" : "/api/referrals"}?${params.toString()}`,
         { cache: "no-store", signal },
-        { cacheTtlMs: background ? 0 : 3_000 },
+        { cacheTtlMs: 3_000 },
       );
       setReferrals(Array.isArray(payload.referrals) ? payload.referrals : []);
       setProgressByReferral(payload.progress ?? {});
       setReferralTotal(typeof payload.total === "number" ? payload.total : 0);
-      if (Number.isSafeInteger(payload.revision) && Number(payload.revision) >= 0) {
-        referralRevision.current = Number(payload.revision);
-      }
-      if (filter.kind === "workflow") {
-        setWorkflowTotal(typeof payload.total === "number" ? payload.total : 0);
-      }
       setReferralNextCursor(payload.next_cursor);
       if (includeSummary) {
         setFacets(payload.facets ?? emptyFacets);
         setAllFileTotal(typeof payload.file_total === "number" ? payload.file_total : 0);
         summaryQuery.current = summaryKey;
       }
-      setLastRefreshedAt(Date.now());
       successfulReferralRequest.current = requestKey;
     } catch (error) {
       if (signal?.aborted) return;
@@ -196,10 +170,8 @@ export default function ReferralHome({
       }
       setLoadError(error instanceof Error ? error.message : "Referral workspaces could not be loaded.");
     } finally {
-      if (background) workflowRefreshInFlight.current = false;
       if (!signal?.aborted) {
         setIsLoading(false);
-        setIsRefreshing(false);
       }
     }
   }, [filter, referralCursors, referralPage, searchTerm, sort]);
@@ -211,63 +183,9 @@ export default function ReferralHome({
   }, [loadReferrals]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const params = new URLSearchParams({ active: "true", limit: "1", sort: "updated_desc" });
-    fetchPipelineJson<{ total?: number }>(`/api/referrals?${params}`, {
-      cache: "no-store",
-      signal: controller.signal,
-    }, { cacheTtlMs: 3_000 }).then((payload) => {
-      if (typeof payload.total === "number") setWorkflowTotal(payload.total);
-    }).catch(() => {
-      // Keep the last known count; opening Current work retries through the normal list request.
-    });
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    if (filter.kind !== "workflow") return;
-    let controller: AbortController | null = null;
-    const refresh = async () => {
-      if (document.visibilityState !== "visible") return;
-      controller?.abort();
-      controller = new AbortController();
-      try {
-        const payload = await fetchPipelineJson<{ changed?: boolean; sequence?: number }>(
-          `/api/referrals/changes?after=${referralRevision.current}`,
-          { cache: "no-store", signal: controller.signal },
-        );
-        if (Number.isSafeInteger(payload.sequence) && Number(payload.sequence) >= 0) {
-          referralRevision.current = Number(payload.sequence);
-        }
-        if (payload.changed) await loadReferrals(controller.signal, true);
-        else setLastRefreshedAt(Date.now());
-      } catch {
-        // The last successful list remains visible; the next heartbeat retries.
-      }
-    };
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") void refresh();
-    };
-    const interval = window.setInterval(() => void refresh(), 3000);
-    const refreshOnFocus = () => void refresh();
-    window.addEventListener("focus", refreshOnFocus);
-    document.addEventListener("visibilitychange", refreshWhenVisible);
-    return () => {
-      window.clearInterval(interval);
-      controller?.abort();
-      window.removeEventListener("focus", refreshOnFocus);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
-    };
-  }, [filter.kind, loadReferrals]);
-
-  useEffect(() => {
     setReferralPage((current) => current === 0 ? current : 0);
     setReferralCursors((current) => current.length === 1 && current[0] === "" ? current : [""]);
   }, [filter, searchTerm, sort]);
-
-  useEffect(() => {
-    if (searchTerm.trim() && filter.kind === "workflow") setFilter({ kind: "all" });
-  }, [filter.kind, searchTerm]);
 
   useEffect(() => {
     if (filter.kind !== "files" || reviewIdentity) return;
@@ -362,8 +280,8 @@ export default function ReferralHome({
     setExpandedMonth((current) => monthOptions.includes(current) ? current : monthOptions[0] ?? "");
   }, [activeMonth, monthOptions]);
   const allPacketTotal = useMemo(
-    () => facets.communities.reduce((total, entry) => total + entry.count, 0),
-    [facets.communities],
+    () => facets.months.reduce((total, entry) => total + entry.count, 0),
+    [facets.months],
   );
   const isFileLoading = filter.kind === "files" && files === null;
   const visibleFiles = files ?? [];
@@ -380,11 +298,7 @@ export default function ReferralHome({
       : `${formatDirectoryCount(fileTotal)} file${fileTotal === 1 ? "" : "s"}`
     : isLoading
       ? "Loading..."
-      : filter.kind === "workflow"
-        ? `${formatDirectoryCount(referralTotal)} active referral${referralTotal === 1 ? "" : "s"}`
       : `${formatDirectoryCount(referralTotal)} referral${referralTotal === 1 ? "" : "s"}`;
-
-  const refreshLabel = lastRefreshedAt === null ? "" : formatRefreshAge(lastRefreshedAt);
   const sidebarCommunities = pipelineCommunities
     .filter((community) => isRecordedWorkspaceCommunity(community))
     .map((community) => ({
@@ -400,11 +314,7 @@ export default function ReferralHome({
         type="search"
         aria-label={filter.kind === "files" ? "Search all uploaded files" : "Search all workspaces"}
         value={searchTerm}
-        onChange={(event) => {
-          const value = event.target.value;
-          onSearchTermChange(value);
-          if (value.trim() && filter.kind === "workflow") setFilter({ kind: "all" });
-        }}
+        onChange={(event) => onSearchTermChange(event.target.value)}
         placeholder={filter.kind === "files" ? "Search files by name, client, community, owner, or type" : "Search all workspaces by client, community, county, owner, or source"}
         className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111111] outline-none placeholder:text-[#8a8a8a]"
       />
@@ -419,21 +329,6 @@ export default function ReferralHome({
         </button>
       ) : null}
       <span className="hidden shrink-0 text-[9px] font-bold text-[#737373] md:inline">{resultCountLabel}</span>
-      {filter.kind === "workflow" ? (
-        <>
-          {refreshLabel ? <span className="hidden shrink-0 text-[10px] text-[#595959] xl:inline">{refreshLabel}</span> : null}
-          <button
-            type="button"
-            aria-label="Refresh referral workflow"
-            title="Refresh"
-            onClick={() => void loadReferrals(undefined, true)}
-            disabled={isLoading || isRefreshing}
-            className="flex h-8 w-8 shrink-0 items-center justify-center text-[#0c705f] hover:bg-[#effaf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:text-[#b3b3b3]"
-          >
-            <RefreshCw size={14} className={isLoading || isRefreshing ? "animate-spin" : ""} />
-          </button>
-        </>
-      ) : null}
     </div>
   );
 
@@ -602,9 +497,7 @@ export default function ReferralHome({
           <div className="min-h-14">
             {filter.kind === "files"
               ? fileFilterToolbar
-              : filter.kind === "workflow"
-                ? <ReferralFlowTabs referrals={visibleReferrals} value={flowFilter} onChange={setFlowFilter} />
-                : filterToolbar}
+              : filterToolbar}
           </div>
           {loadError && filter.kind !== "files" ? (
             <div className="mb-3 flex items-center justify-between gap-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-4 py-3 text-[12px] font-semibold text-[#59332d]" role="alert">
@@ -618,18 +511,9 @@ export default function ReferralHome({
         <div data-testid="workspace-content-grid" className="grid gap-3 xl:grid-cols-[220px_minmax(0,1fr)] xl:gap-5">
           <aside aria-label="Workspace navigation" className="min-w-0 bg-white pt-0 xl:sticky xl:top-0 xl:self-start">
             <nav
-              data-guide-target="workspace-views"
               aria-label="Workspace views"
-              className="grid grid-cols-3 gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0"
+              className="grid grid-cols-2 gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0"
             >
-              <WorkspaceNavItem
-                icon={ListChecks}
-                label="Current work"
-                compactLabel="Work"
-                count={workflowTotal}
-                active={filter.kind === "workflow"}
-                onClick={() => setFilter({ kind: "workflow" })}
-              />
               <WorkspaceNavItem
                 icon={FolderOpen}
                 label="All workspaces"
@@ -676,15 +560,7 @@ export default function ReferralHome({
           </aside>
 
           <section className="min-w-0 bg-white">
-            {filter.kind === "workflow" ? (
-              <ReferralWorkflowTracker
-                referrals={visibleReferrals}
-                progressByReferral={progressByReferral}
-                flowFilter={flowFilter}
-                loading={isLoading}
-                onOpenPacket={onOpenPacket}
-              />
-            ) : filter.kind === "files" ? (
+            {filter.kind === "files" ? (
               reviewIdentity ? (
                 visibleImportItems.length > 0 ? (
                   <div className="divide-y divide-[#d9d9d9]">
@@ -1244,7 +1120,7 @@ function referralScopeLabel(filter: ReferralFilter) {
 function referralFilterCount(filter: ReferralFilter, sort: ReferralSort) {
   const scopeCount = filter.kind === "monthCommunity"
     ? 2
-    : ["all", "workflow", "files"].includes(filter.kind) ? 0 : 1;
+    : ["all", "files"].includes(filter.kind) ? 0 : 1;
   return scopeCount + (sort === "updated_desc" ? 0 : 1);
 }
 
@@ -1298,13 +1174,6 @@ function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {
       detail: "Choose another tag or show all workspaces.",
     };
   }
-  if (filter.kind === "workflow") {
-    return {
-      title: "No active workspaces",
-      detail: "New referral workspaces remain here while intake or assessment work is active.",
-    };
-  }
-
   return {
     title: "No workspaces yet",
     detail: "Create a referral workspace from an initial face sheet or referral packet to get started.",
@@ -1362,14 +1231,6 @@ function buildReferralParams(
   if (filter.kind === "owner") params.set("owner", filter.value);
   if (filter.kind === "priority") params.set("priority", filter.value);
   if (filter.kind === "tag") params.set("tag", filter.value);
-  if (filter.kind === "workflow" && !query) params.set("active", "true");
-  else if (filter.kind !== "files") params.set("workspace", "all");
+  if (filter.kind !== "files") params.set("workspace", "all");
   return params;
-}
-
-function formatRefreshAge(value: number) {
-  const seconds = Math.max(0, Math.floor((Date.now() - value) / 1000));
-  if (seconds < 10) return "updated now";
-  if (seconds < 60) return `updated ${seconds}s ago`;
-  return `updated ${Math.floor(seconds / 60)}m ago`;
 }

@@ -5,6 +5,7 @@ import { CalendarClock, RefreshCw } from "lucide-react";
 
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
+import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent } from "@/lib/pipeline/calendar-types";
@@ -84,7 +85,7 @@ export default function PipelineWelcome({
 
   if (searchOpen) {
     return (
-      <main className="h-full overflow-y-auto bg-white px-5 py-4 text-[#111111] md:px-8">
+      <main className="h-full overflow-y-auto bg-white px-5 py-4 text-[#111111] outline-none md:px-8">
         <div className="mx-auto w-full max-w-[1280px]">
           <PipelineSearchPanel
             autoFocus
@@ -99,7 +100,7 @@ export default function PipelineWelcome({
   }
 
   return (
-    <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#202320]">
+    <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
       <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-4 sm:px-6 lg:px-8">
         <header className="flex min-h-[62px] flex-wrap items-end justify-between gap-3 pb-2">
           <div>
@@ -143,7 +144,7 @@ export default function PipelineWelcome({
                 Some Home sections are temporarily unavailable. Available work remains current.
               </div>
             ) : null}
-            {briefing.scope === "team" ? <TeamMetrics briefing={briefing} /> : null}
+            <ReferralWorkflowTracker briefing={briefing} />
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
               <ReadyToSchedulePanel briefing={briefing} onOpenPacket={onOpenPacket} />
               <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />
@@ -156,27 +157,6 @@ export default function PipelineWelcome({
         ) : null}
       </div>
     </main>
-  );
-}
-
-function TeamMetrics({ briefing }: { briefing: HomeBriefingSnapshot }) {
-  const metrics = [
-    ["Active referrals", briefing.workflow.active_total],
-    ["Ready to schedule", briefing.workflow.ready_to_schedule.total],
-    ["Next 7 days", briefing.upcoming.length],
-    ["Need data", briefing.workflow.data_completion.total],
-    ["Data complete", briefing.workflow.overall_completion_pct === null ? "N/A" : `${briefing.workflow.overall_completion_pct}%`],
-  ];
-
-  return (
-    <section aria-label="Team metrics" className="grid grid-cols-2 gap-x-8 gap-y-4 border-t border-[#cfd7d3] bg-white px-1 py-4 sm:grid-cols-3 xl:grid-cols-5">
-      {metrics.map(([label, value]) => (
-        <div key={label}>
-          <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#68716c]">{label}</div>
-          <div className="mt-1 text-[23px] font-semibold leading-none text-[#202320]">{value}</div>
-        </div>
-      ))}
-    </section>
   );
 }
 

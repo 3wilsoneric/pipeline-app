@@ -5,7 +5,7 @@ test.describe("role-scoped home and reports", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Team metrics" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Workflow summary" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
@@ -32,6 +32,14 @@ test.describe("role-scoped home and reports", () => {
             active_total: 0,
             unassigned_total: 0,
             overall_completion_pct: null,
+            flow_counts: {
+              assignment: 0,
+              intake: 0,
+              ready_to_schedule: 0,
+              scheduled: 0,
+              assessment: 0,
+              review: 0,
+            },
             ready_to_schedule: { total: 0, items: [] },
             data_completion: { total: 0, items: [] },
             current_work: {
@@ -53,7 +61,7 @@ test.describe("role-scoped home and reports", () => {
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Alex./ })).toBeVisible();
     await expect(page.getByText("Your work", { exact: true })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Team metrics" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Workflow summary" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toContainText("0 assigned");
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toContainText("No assessments are scheduled");
     await expect(page.getByRole("region", { name: "Data completion" })).toContainText("No active referrals");

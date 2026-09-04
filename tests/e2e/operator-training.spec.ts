@@ -58,7 +58,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
     await page.getByLabel("Open referrals").click();
     await expect(page).toHaveURL(/view=referrals/);
-    await expect(page.getByRole("heading", { name: "Select Current work" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Search for the referral" })).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });
 
@@ -73,7 +73,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
     await page.getByRole("button", { name: "Skip step" }).click();
     await expect(page).toHaveURL(/view=referrals/);
-    await expect(page.getByRole("heading", { name: "Choose Current work or All" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Search referrals" })).toBeVisible();
   });
 
   test("guides referral intake without covering the upload control", async ({ page }) => {

@@ -49,6 +49,14 @@ function emptyWorkflowSummary(user: PipelineUser): HomeWorkflowSummary {
     active_total: 0,
     unassigned_total: 0,
     overall_completion_pct: null,
+    flow_counts: {
+      assignment: 0,
+      intake: 0,
+      ready_to_schedule: 0,
+      scheduled: 0,
+      assessment: 0,
+      review: 0,
+    },
     ready_to_schedule: { total: 0, items: [] },
     data_completion: { total: 0, items: [] },
     current_work: {
