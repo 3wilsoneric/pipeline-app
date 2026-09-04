@@ -73,7 +73,7 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
         ))}
       </div>
 
-      {previewOpen ? <FullWorkflowWalkthroughPreview onClose={() => setPreviewOpen(false)} /> : null}
+      {previewOpen ? <FullWorkflowWalkthroughPreview tutorials={tutorials} onClose={() => setPreviewOpen(false)} /> : null}
     </section>
   );
 }

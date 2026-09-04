@@ -108,7 +108,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "I want to..." })).toBeVisible();
   });
 
-  test("shows the full referral-to-handoff workflow", async ({ page }) => {
+  test("combines every visible task guide into the full walkthrough", async ({ page }) => {
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
     await page.getByRole("button", { name: "Open full Pipeline walkthrough" }).click();
@@ -123,9 +123,17 @@ test.describe("Pipeline Learning Center", () => {
     expect(previewBox!.y).toBeGreaterThanOrEqual(0);
     expect(previewBox!.x + previewBox!.width).toBeLessThanOrEqual(viewport!.width);
     expect(previewBox!.y + previewBox!.height).toBeLessThanOrEqual(viewport!.height);
-    await expect(preview.getByRole("heading", { name: "Check what needs attention" })).toBeVisible();
-    await preview.getByRole("button", { name: "Next" }).click();
+    await expect(preview.getByRole("heading", { name: "How Pipeline work moves" })).toBeVisible();
+    await expect(preview.getByText("Task guides").locator("..").getByText("7", { exact: true })).toBeVisible();
+    await preview.getByRole("button", { name: "Start" }).click();
+    await expect(preview.getByRole("heading", { name: "Finish an assessment" })).toBeVisible();
+    await expect(preview.getByText("Find the referral", { exact: true })).toBeVisible();
+    await expect(preview.getByText("Review before signing", { exact: true })).toBeVisible();
+
+    await preview.getByRole("button", { name: "Create a referral" }).click();
     await expect(preview.getByRole("heading", { name: "Create a referral" })).toBeVisible();
+    await expect(preview.getByText("Upload the packet", { exact: true })).toBeVisible();
+    await expect(preview.getByText("Assign the referral", { exact: true })).toBeVisible();
     await preview.getByRole("button", { name: "Close full walkthrough" }).click();
     await expect(preview).toBeHidden();
   });
@@ -140,7 +148,7 @@ test.describe("Pipeline Learning Center", () => {
 
     await page.getByRole("button", { name: "Open full Pipeline walkthrough" }).click();
     const preview = page.getByRole("dialog", { name: "Full Pipeline walkthrough" });
-    await expect(preview.getByRole("button", { name: "Next" })).toBeInViewport();
+    await expect(preview.getByRole("button", { name: "Start" })).toBeInViewport();
     await preview.getByRole("button", { name: "Close full walkthrough" }).click();
 
     await page.getByRole("button", { name: "Open Find a referral" }).click();
