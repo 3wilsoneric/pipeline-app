@@ -129,6 +129,10 @@ type ReferralSaveSnapshot = {
   pendingDocuments: Record<string, File>;
 };
 
+type InitialPacketSelectionResult =
+  | { accepted: false; error?: string }
+  | { accepted: true; file: File };
+
 type RemoteFieldConflict = {
   key: DirtyDraftKey;
   label: string;
@@ -873,23 +877,26 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
     setDirtyKeys(nextDirtyKeys);
   };
 
-  const selectInitialPacket = (file: File | undefined) => {
-    if (!file) return;
-
-    const contentType = getPacketContentType(file);
-    if (!(allowedUploadContentTypes as readonly string[]).includes(contentType)) {
-      setSaveError("Upload a PDF, JPEG, PNG, TIFF, or HEIC referral packet.");
-      return;
-    }
-    if (file.size > maxUploadFileBytes) {
-      setSaveError("The initial packet must be 100 MB or smaller.");
-      return;
+  const selectInitialPacket = (file: File | undefined): InitialPacketSelectionResult => {
+    const selection = validateInitialPacketSelection(file);
+    if (!selection.accepted) {
+      setSaveError(selection.error ?? "");
+      return selection;
     }
 
-    initialPacketRef.current = file;
-    setInitialPacket(file);
+    initialPacketRef.current = selection.file;
+    setInitialPacket(selection.file);
     markDirty("initialPacket");
     setSaveError("");
+    setSavedAt("Unsaved changes");
+    return selection;
+  };
+
+  const clearInitialPacket = () => {
+    initialPacketRef.current = null;
+    setInitialPacket(null);
+    setSaveError("");
+    markDirty("initialPacket");
     setSavedAt("Unsaved changes");
   };
 
@@ -1747,11 +1754,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
                 }
               }}
               onInitialPacketSelect={selectInitialPacket}
-              onInitialPacketClear={() => {
-                setInitialPacket(null);
-                markDirty("initialPacket");
-                setSavedAt("Unsaved changes");
-              }}
+              onInitialPacketClear={clearInitialPacket}
               onAttach={attachDocument}
             />
             {referralContextPacketFields.length ? (
@@ -2108,7 +2111,7 @@ function IntakeDocumentChecklist({
   referral: Referral | null;
   uploadingDocumentIds: Set<string>;
   onInitialPacketCategoryChange: (category: InitialDocumentCategory) => void;
-  onInitialPacketSelect: (file: File | undefined) => void;
+  onInitialPacketSelect: (file: File | undefined) => InitialPacketSelectionResult;
   onInitialPacketClear: () => void;
   onAttach: (requirementId: string, file: File) => void;
 }) {
@@ -2117,10 +2120,16 @@ function IntakeDocumentChecklist({
     getRequirementReviewValue(item, documents[item.id], referral)
   )).length;
   const hasInitialPacket = Boolean(initialPacket || (recordedName && recordedStatus !== "Missing"));
+  const [documentsOpen, setDocumentsOpen] = useState(!hasInitialPacket);
 
   return (
     <section aria-label="Document checklist" className="mb-6">
-      <details data-testid="document-checklist-panel" className="group bg-white">
+      <details
+        data-testid="document-checklist-panel"
+        open={documentsOpen}
+        onToggle={(event) => setDocumentsOpen(event.currentTarget.open)}
+        className="group bg-white"
+      >
         <summary
           data-testid="document-checklist-toggle"
           className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 border-b border-[#d7ddd9] px-1 py-3 outline-none transition-colors hover:bg-[#f7faf9] focus-visible:bg-[#f1f7f4] [&::-webkit-details-marker]:hidden"
@@ -2301,12 +2310,35 @@ function InitialPacketDropzone({
   message?: string;
   category: InitialDocumentCategory;
   onCategoryChange: (category: InitialDocumentCategory) => void;
-  onSelect: (file: File | undefined) => void;
+  onSelect: (file: File | undefined) => InitialPacketSelectionResult;
   onClear: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropzoneRef = useRef<HTMLDivElement>(null);
+  const dragDepthRef = useRef(0);
+  const [dragActive, setDragActive] = useState(false);
+  const [selectionError, setSelectionError] = useState("");
   const displayName = file?.name || recordedName;
-  const hasRecordedPacket = Boolean(recordedName && recordedStatus !== "Missing");
+  const presentation = initialPacketDropzonePresentation({ file, recordedName, recordedStatus, dragActive });
+
+  const acceptFile = (candidate: File | undefined, fileCount = candidate ? 1 : 0) => {
+    if (fileCount > 1) {
+      setSelectionError("Choose one initial referral document at a time.");
+      return;
+    }
+    const result = onSelect(candidate);
+    if (!result.accepted) {
+      setSelectionError(result.error ?? "");
+      return;
+    }
+    setSelectionError("");
+    dropzoneRef.current?.dispatchEvent(new CustomEvent("pipeline:guide-complete", { bubbles: true }));
+  };
+
+  const resetDragState = () => {
+    dragDepthRef.current = 0;
+    setDragActive(false);
+  };
 
   return (
     <section data-guide-target="initial-packet" aria-label="Initial referral packet" className="mb-5 border-b border-[#d9d9d9] pb-5">
@@ -2330,57 +2362,83 @@ function InitialPacketDropzone({
       </div>
 
       <div
+        ref={dropzoneRef}
         data-guide-target="initial-packet-upload"
-        onDragOver={(event) => event.preventDefault()}
+        role="group"
+        aria-label="Upload initial referral document"
+        aria-describedby="initial-packet-help initial-packet-status"
+        onDragEnter={(event) => {
+          event.preventDefault();
+          dragDepthRef.current += 1;
+          setDragActive(true);
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDragLeave={(event) => {
+          event.preventDefault();
+          dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+          if (dragDepthRef.current === 0) setDragActive(false);
+        }}
         onDrop={(event) => {
           event.preventDefault();
-          onSelect(event.dataTransfer.files?.[0]);
+          resetDragState();
+          acceptFile(event.dataTransfer.files?.[0], event.dataTransfer.files?.length ?? 0);
         }}
-        className={`flex min-h-20 items-center gap-3 border border-dashed px-3 py-3 transition-colors ${
-          displayName
-            ? "border-[#8fc7b7] bg-[#effaf5]"
-            : "border-[#c6ba59] bg-[#fffde8] hover:bg-[#fffbd5]"
-        }`}
+        className={`flex min-h-[126px] flex-col justify-center gap-4 border-2 border-dashed px-4 py-4 transition-colors sm:flex-row sm:items-center sm:px-5 ${presentation.className}`}
       >
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${displayName ? "bg-white text-[#0f8b73]" : "bg-[#fff7bd] text-[#6f641b]"}`}>
-          {displayName ? <FileText size={19} /> : <UploadCloud size={20} />}
+        <span className={`flex h-11 w-11 shrink-0 items-center justify-center ${presentation.iconClassName}`}>
+          {displayName ? <FileText size={25} /> : <UploadCloud size={26} />}
         </span>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="min-w-0 flex-1 text-left"
-        >
-          <span className="block truncate text-[13px] font-black text-[#111111]">
-            {displayName || "Drop the initial packet here or browse"}
-          </span>
-          <span className="mt-0.5 block text-[11px] text-[#595959]">
-            {file
-              ? `${formatFileSize(file.size)} · Ready to upload`
-              : hasRecordedPacket
-                ? `${recordedStatus} · Choose another file to replace it`
-                : "Add a face sheet or referral packet now or after the workspace is created."}
-          </span>
-        </button>
-        {file ? (
+        <div className="min-w-0 flex-1 text-center sm:text-left">
+          <div className="truncate text-[15px] font-black text-[#111111]">
+            {presentation.title}
+          </div>
+          <div id="initial-packet-status" aria-live="polite" className="mt-1 text-[11px] leading-5 text-[#595959]">
+            {presentation.status}
+          </div>
+          <div id="initial-packet-help" className="mt-0.5 text-[10px] font-semibold text-[#737373]">PDF, JPEG, PNG, TIFF, or HEIC · 100 MB maximum</div>
+        </div>
+        <div className="flex shrink-0 items-center justify-center gap-2">
           <button
             type="button"
-            onClick={onClear}
-            aria-label="Remove selected initial packet"
-            title="Remove selected packet"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#b8dacf] bg-white text-[#595959] hover:text-[#a04436]"
+            onClick={() => inputRef.current?.click()}
+            className="flex h-10 items-center justify-center gap-2 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
           >
-            <X size={16} />
+            <UploadCloud size={15} aria-hidden="true" />
+            {presentation.actionLabel}
           </button>
-        ) : null}
+          {file ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClear();
+                setSelectionError("");
+                if (inputRef.current) inputRef.current.value = "";
+              }}
+              aria-label="Remove selected initial referral document"
+              title="Remove selected document"
+              className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#b8dacf] bg-white text-[#595959] hover:border-[#a04436] hover:text-[#a04436]"
+            >
+              <X size={16} />
+            </button>
+          ) : null}
+        </div>
         <input
           ref={inputRef}
           data-testid="initial-packet-input"
           type="file"
           accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.heic"
-          className="hidden"
-          onChange={(event) => onSelect(event.target.files?.[0])}
+          aria-label="Choose initial referral document"
+          className="sr-only"
+          onChange={(event) => {
+            acceptFile(event.target.files?.[0], event.target.files?.length ?? 0);
+            event.target.value = "";
+          }}
         />
       </div>
+      {selectionError ? <p role="alert" className="mt-2 text-[11px] font-semibold leading-5 text-[#a4473c]">{selectionError}</p> : null}
       {message ? <p className="mt-2 text-[11px] leading-5 text-[#737373]">{message}</p> : null}
     </section>
   );
@@ -3151,6 +3209,65 @@ function normalizeTags(value: string) {
         .filter(Boolean),
     ),
   ).slice(0, 12);
+}
+
+function validateInitialPacketSelection(file: File | undefined): InitialPacketSelectionResult {
+  if (!file) return { accepted: false };
+  const contentType = getPacketContentType(file);
+  if (!(allowedUploadContentTypes as readonly string[]).includes(contentType)) {
+    return { accepted: false, error: "Upload a PDF, JPEG, PNG, TIFF, or HEIC referral document." };
+  }
+  if (file.size > maxUploadFileBytes) {
+    return { accepted: false, error: "The initial referral document must be 100 MB or smaller." };
+  }
+  return { accepted: true, file };
+}
+
+function initialPacketDropzonePresentation({
+  file,
+  recordedName,
+  recordedStatus,
+  dragActive,
+}: {
+  file: File | null;
+  recordedName?: string;
+  recordedStatus?: Referral["documentStatus"];
+  dragActive: boolean;
+}) {
+  if (dragActive) {
+    return {
+      title: "Release to add the document",
+      status: "Face sheet or referral packet",
+      actionLabel: "Choose file",
+      className: "border-[#0f8b73] bg-[#e6f7f1]",
+      iconClassName: "text-[#6f641b]",
+    };
+  }
+  if (file) {
+    return {
+      title: file.name,
+      status: `${formatFileSize(file.size)} · Ready to upload`,
+      actionLabel: "Replace file",
+      className: "border-[#8fc7b7] bg-[#f4fbf8]",
+      iconClassName: "text-[#0f8b73]",
+    };
+  }
+  if (recordedName && recordedStatus !== "Missing") {
+    return {
+      title: recordedName,
+      status: `${recordedStatus} · Choose another file to replace it`,
+      actionLabel: "Replace file",
+      className: "border-[#8fc7b7] bg-[#f4fbf8]",
+      iconClassName: "text-[#0f8b73]",
+    };
+  }
+  return {
+    title: "Drop the referral document here",
+    status: "Face sheet or referral packet",
+    actionLabel: "Choose file",
+    className: "border-[#aaa25f] bg-[#fffdf0] hover:border-[#817932] hover:bg-[#fffbe2]",
+    iconClassName: "text-[#6f641b]",
+  };
 }
 
 function formatFileSize(bytes: number) {

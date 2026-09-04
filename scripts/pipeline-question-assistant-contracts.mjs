@@ -73,4 +73,11 @@ check("returned intents expose no internal matching vocabulary", () => {
   assert.equal("keywords" in result.intent, false);
 });
 
+check("report help is absent when the signed-in role cannot access reports", () => {
+  const result = assistant.interpretPipelineQuestion("Where are the reports?", { includeReports: false });
+  const options = result?.kind === "answer" ? [result.intent, ...result.alternatives] : result?.options ?? [];
+  assert.equal(options.some((option) => option.id === "use-reports"), false);
+  assert.equal(assistant.getPipelineQuestionIntent("use-reports", { includeReports: false }), null);
+});
+
 console.log(`\n${checks.length} deterministic question-assistant checks passed.`);

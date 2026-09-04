@@ -51,11 +51,15 @@ const siteDestinations: SearchableDestination[] = [
   },
 ];
 
-export function searchSiteDestinations(value: string): PipelineSiteDestination[] {
+export function searchSiteDestinations(
+  value: string,
+  options: { includeReports?: boolean } = {},
+): PipelineSiteDestination[] {
   const queryTokens = tokenizeSearchText(value);
   if (queryTokens.length === 0) return [];
 
   return siteDestinations
+    .filter((destination) => options.includeReports !== false || destination.screen !== "operations")
     .map((destination) => ({
       destination,
       score: scoreDestination(destination, queryTokens),

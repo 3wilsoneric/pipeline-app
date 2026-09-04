@@ -76,6 +76,57 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "Choose Current work or All" })).toBeVisible();
   });
 
+  test("guides referral intake without covering the upload control", async ({ page }) => {
+    const errors = watchBrowserErrors(page);
+    await mockTrainingProgress(page);
+    await page.goto(trainingUrl);
+    await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
+    await page.getByRole("button", { name: "Open Create a referral" }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Create a referral" }).click();
+
+    await expect(page.getByRole("heading", { name: "Select New referral" })).toBeVisible();
+    await page.getByLabel("Create new referral").click();
+    await expect(page).toHaveURL(/view=referrals&screen=packet/);
+
+    const coach = page.getByTestId("guided-coach-panel");
+    const upload = page.getByRole("group", { name: "Upload initial referral document" });
+    await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
+    await expect(upload).toBeVisible();
+    await expect(upload.getByRole("button", { name: "Choose file" })).toBeVisible();
+    await expectGuideDoesNotCoverTarget(coach, upload);
+
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    await upload.getByRole("button", { name: "Choose file" }).click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({
+      name: "training-notes.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("Not an accepted referral document"),
+    });
+    await expect(page.getByRole("alert").filter({ hasText: "Upload a PDF, JPEG, PNG, TIFF, or HEIC referral document." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
+
+    await dropTrainingPdf(upload, "training-referral.pdf");
+    await expect(page.getByRole("alert").filter({ hasText: "Upload a PDF" })).toHaveCount(0);
+    await expect(upload.getByText("training-referral.pdf", { exact: true })).toBeVisible();
+    await expect(upload.getByText(/Ready to upload/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Verify identity" })).toBeVisible();
+    await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="intake-identity"]'));
+
+    await page.getByRole("button", { name: "Skip step" }).click();
+    await expect(page.getByRole("heading", { name: "Assign the referral" })).toBeVisible();
+    await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="intake-routing"]'));
+    await page.getByRole("button", { name: "Skip step" }).click();
+    await expect(page.getByRole("heading", { name: "Add medication information" })).toBeVisible();
+    await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="intake-medications"]'));
+    await page.getByRole("button", { name: "Skip step" }).click();
+    await expect(page.getByRole("heading", { name: "Review before creating" })).toBeVisible();
+    await expectGuideDoesNotCoverTarget(coach, page.locator('[data-guide-target~="create-workspace"]'));
+    await page.getByRole("button", { name: "Skip and finish" }).click();
+    await expect(coach).toBeHidden();
+    await expect.poll(() => errors).toEqual([]);
+  });
+
   test("persists and resumes a paused walkthrough", async ({ page }) => {
     await mockTrainingProgress(page);
     await page.goto(trainingUrl);
@@ -164,6 +215,27 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("button", { name: "Skip step" })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
+
+  test("keeps the referral upload guide clear at a narrow viewport", async ({ page }) => {
+    const errors = watchBrowserErrors(page);
+    await mockTrainingProgress(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(trainingUrl);
+    await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
+    await page.getByRole("button", { name: "Open Create a referral" }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Create a referral" }).click();
+
+    await page.getByLabel("Create new referral").click();
+    await expect(page).toHaveURL(/view=referrals&screen=packet/);
+
+    const coach = page.getByTestId("guided-coach-panel");
+    const upload = page.getByRole("group", { name: "Upload initial referral document" });
+    await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
+    await expectGuideDoesNotCoverTarget(coach, upload);
+    await expect(upload.getByRole("button", { name: "Choose file" })).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await expect.poll(() => errors).toEqual([]);
+  });
 });
 
 function watchBrowserErrors(page: import("@playwright/test").Page) {
@@ -173,6 +245,35 @@ function watchBrowserErrors(page: import("@playwright/test").Page) {
   });
   page.on("pageerror", (error) => errors.push(error.message));
   return errors;
+}
+
+async function expectGuideDoesNotCoverTarget(
+  coach: import("@playwright/test").Locator,
+  target: import("@playwright/test").Locator,
+) {
+  await expect(coach).toBeVisible();
+  await expect(target).toBeVisible();
+  await expect.poll(async () => {
+    const [coachBox, targetBox] = await Promise.all([coach.boundingBox(), target.boundingBox()]);
+    if (!coachBox || !targetBox) return false;
+    const overlapWidth = Math.max(0, Math.min(coachBox.x + coachBox.width, targetBox.x + targetBox.width) - Math.max(coachBox.x, targetBox.x));
+    const overlapHeight = Math.max(0, Math.min(coachBox.y + coachBox.height, targetBox.y + targetBox.height) - Math.max(coachBox.y, targetBox.y));
+    return overlapWidth * overlapHeight === 0;
+  }).toBe(true);
+}
+
+async function dropTrainingPdf(target: import("@playwright/test").Locator, name: string) {
+  await target.evaluate((element, fileName) => {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(
+      new File(["%PDF-1.4\n% Pipeline training fixture\n"], fileName, {
+        type: "application/pdf",
+      }),
+    );
+    element.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer }));
+    element.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer }));
+    element.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
+  }, name);
 }
 
 async function mockTrainingProgress(page: import("@playwright/test").Page) {

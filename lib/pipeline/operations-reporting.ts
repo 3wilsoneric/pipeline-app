@@ -17,6 +17,7 @@ import {
   type OperationsReportRow,
 } from "@/lib/pipeline/operations-report-types";
 import { getSupervisorExceptionSnapshot } from "@/lib/pipeline/operations-snapshot";
+import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { listReferralFacets, listReferrals } from "@/lib/pipeline/referral-store";
 import { isClosedReferralStage } from "@/lib/pipeline/referral-workflow";
@@ -138,10 +139,9 @@ const documentRequirementTypes = new Set([
 ]);
 
 export function getOperationsReportCatalog(user: PipelineUser) {
-  const supervisor = user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
+  if (!canAccessOperationsReports(user.roles)) return [];
   return reportCatalog.filter((definition) => (
     visibleReportIds.has(definition.id)
-    && (!definition.supervisor_only || supervisor)
   ));
 }
 
@@ -150,10 +150,10 @@ export async function getOperationsReport(
   filters: OperationsReportFilters,
   options: { export?: boolean } = {},
 ): Promise<OperationsReportResponse> {
+  if (!canAccessOperationsReports(user.roles)) throw new ReportAccessError();
   const catalog = getOperationsReportCatalog(user);
   const definition = reportCatalog.find((item) => item.id === filters.report_id);
-  const supervisor = user.roles.some((role) => role === "admin" || role === "assessment_coordinator");
-  if (!definition || (definition.supervisor_only && !supervisor)) throw new ReportAccessError();
+  if (!definition) throw new ReportAccessError();
 
   const [facets, completeReport] = await Promise.all([
     listReferralFacets("", scopeReferralListOptions(user, {
@@ -184,6 +184,7 @@ export async function recordOperationsReportExport(
   user: PipelineUser,
   response: OperationsReportResponse,
 ) {
+  if (!canAccessOperationsReports(user.roles)) throw new ReportAccessError();
   if (!getPipelineDatabaseReadiness().ready) return;
   const actor = pipelineAuditActor(user);
   const sql = getPipelineSql();

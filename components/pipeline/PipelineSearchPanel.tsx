@@ -90,6 +90,7 @@ export default function PipelineSearchPanel({
   onOpenPacket,
   onOpenProfile,
   onOpenDestination,
+  canAccessReports = false,
   autoFocus = false,
   resting = false,
   className = "",
@@ -97,6 +98,7 @@ export default function PipelineSearchPanel({
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onOpenDestination: (screen: PipelineSiteScreen) => void;
+  canAccessReports?: boolean;
   autoFocus?: boolean;
   resting?: boolean;
   className?: string;
@@ -116,11 +118,11 @@ export default function PipelineSearchPanel({
   const questionInterpretation = useMemo(() => {
     if (selectedSuggestion) return null;
     if (selectedQuestionIntent) {
-      const selected = getPipelineQuestionIntent(selectedQuestionIntent);
+      const selected = getPipelineQuestionIntent(selectedQuestionIntent, { includeReports: canAccessReports });
       return selected ? { kind: "answer" as const, query: normalizedQuery, intent: selected, alternatives: [] } : null;
     }
-    return interpretPipelineQuestion(normalizedQuery);
-  }, [normalizedQuery, selectedQuestionIntent, selectedSuggestion]);
+    return interpretPipelineQuestion(normalizedQuery, { includeReports: canAccessReports });
+  }, [canAccessReports, normalizedQuery, selectedQuestionIntent, selectedSuggestion]);
   const showSuggestions = !normalizedQuery && (!resting || isFocused) && !result && !error;
 
   useEffect(() => {
@@ -140,7 +142,7 @@ export default function PipelineSearchPanel({
     }
 
     const controller = new AbortController();
-    const immediateDestinations = searchSiteDestinations(query);
+    const immediateDestinations = searchSiteDestinations(query, { includeReports: canAccessReports });
     if (immediateDestinations.length > 0) {
       setResult(emptySearchResult(query, immediateDestinations));
     }
@@ -184,7 +186,7 @@ export default function PipelineSearchPanel({
       window.clearTimeout(clinicalTimeout);
       controller.abort();
     };
-  }, [questionInterpretation, searchText, searchNonce, selectedSuggestion]);
+  }, [canAccessReports, questionInterpretation, searchText, searchNonce, selectedSuggestion]);
 
   const runSuggestedSearch = async (suggestion: PipelineSuggestedSearch) => {
     if (isSearching) return;
@@ -244,6 +246,7 @@ export default function PipelineSearchPanel({
 
   const useQuestionAction = (action: PipelineQuestionAction) => {
     if (action.type === "navigate") {
+      if (action.screen === "operations" && !canAccessReports) return;
       onOpenDestination(action.screen);
       return;
     }

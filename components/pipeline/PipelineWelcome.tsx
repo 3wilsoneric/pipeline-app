@@ -26,12 +26,14 @@ export default function PipelineWelcome({
   onOpenProfile,
   onOpenSearchDestination,
   onResumeDraft,
+  canAccessReports = false,
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenRecent: (destination: PipelineRecentDestination) => void;
   onOpenProfile: (residentKey: string) => void;
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
   onResumeDraft: (draftKey: `new-${string}`) => void;
+  canAccessReports?: boolean;
   initialMode?: "welcome" | "workspace";
 }) {
   const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(null);
@@ -72,11 +74,13 @@ export default function PipelineWelcome({
   }, [loadBriefing]);
 
   useEffect(() => {
-    const refreshRecent = () => setRecentItems(loadRecentDestinations());
+    const refreshRecent = () => setRecentItems(
+      loadRecentDestinations().filter((item) => item.screen !== "operations" || canAccessReports),
+    );
     refreshRecent();
     void refreshRecentDestinations().then(refreshRecent).catch(() => undefined);
     return subscribeToRecentDestinations(refreshRecent);
-  }, []);
+  }, [canAccessReports]);
 
   if (searchOpen) {
     return (
@@ -84,6 +88,7 @@ export default function PipelineWelcome({
         <div className="mx-auto w-full max-w-[1280px]">
           <PipelineSearchPanel
             autoFocus
+            canAccessReports={canAccessReports}
             onOpenPacket={onOpenPacket}
             onOpenProfile={onOpenProfile}
             onOpenDestination={onOpenSearchDestination}

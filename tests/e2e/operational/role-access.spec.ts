@@ -2,6 +2,7 @@ import { expect, request, test } from "@playwright/test";
 
 import {
   actorApiContext,
+  actorPage,
   operationalMutationId,
   pipelineActors,
   requireOperationalBaseURL,
@@ -115,7 +116,7 @@ test.describe("operational account and role boundaries", () => {
     }
   });
 
-  test("scopes home briefings, calendars, and reports to the signed-in role", async ({ baseURL }) => {
+  test("scopes home and calendars while reserving reports for supervisors", async ({ baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const assessor = await actorApiContext("assessorA", url);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
@@ -152,19 +153,45 @@ test.describe("operational account and role boundaries", () => {
       expect(await coordinatorCalendar.json()).toEqual(expect.objectContaining({ scope: "team" }));
 
       const assessorReports = await assessor.get("/api/operations/reports?report_id=active_referrals&month=2026-09");
-      expect(assessorReports.status()).toBe(200);
-      const assessorReportBody = await assessorReports.json();
-      expect(assessorReportBody.catalog).not.toEqual(expect.arrayContaining([
-        expect.objectContaining({ id: "supervisor_exceptions" }),
-      ]));
+      expect(assessorReports.status()).toBe(403);
 
-      const assessorExceptions = await assessor.get("/api/operations/reports?report_id=supervisor_exceptions&month=2026-09");
-      expect(assessorExceptions.status()).toBe(403);
+      const assessorExport = await assessor.post("/api/operations/reports", {
+        data: { report_id: "workspace_inventory", month: "2026-09", community: "", owner: "" },
+      });
+      expect(assessorExport.status()).toBe(403);
+
+      const coordinatorReport = await coordinator.get("/api/operations/reports?report_id=workspace_inventory&month=2026-09");
+      expect(coordinatorReport.status()).toBe(200);
 
       const coordinatorExceptions = await coordinator.get("/api/operations/reports?report_id=supervisor_exceptions&month=2026-09");
       expect(coordinatorExceptions.status()).toBe(200);
     } finally {
       await Promise.all([assessor.dispose(), coordinator.dispose()]);
+    }
+  });
+
+  test("hides reports and rejects the direct report route for assessors", async ({ browser, baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const assessor = await actorPage(browser, "assessorA", url);
+    const coordinator = await actorPage(browser, "assessmentCoordinator", url);
+    let assessorReportRequests = 0;
+    assessor.page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/operations/reports") assessorReportRequests += 1;
+    });
+
+    try {
+      await assessor.page.goto("/");
+      await expect(assessor.page.getByRole("button", { name: "Open reports" })).toHaveCount(0);
+
+      await assessor.page.goto("/?screen=operations");
+      await expect.poll(() => new URL(assessor.page.url()).searchParams.get("screen")).toBeNull();
+      await expect(assessor.page.getByRole("main", { name: "Reports" })).toHaveCount(0);
+      expect(assessorReportRequests).toBe(0);
+
+      await coordinator.page.goto("/");
+      await expect(coordinator.page.getByRole("button", { name: "Open reports" })).toBeVisible();
+    } finally {
+      await Promise.all([assessor.context.close(), coordinator.context.close()]);
     }
   });
 });

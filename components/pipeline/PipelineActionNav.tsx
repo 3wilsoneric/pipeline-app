@@ -9,12 +9,14 @@ export default function PipelineActionNav({
   active = null,
   searchOpen = false,
   showSearch = true,
+  showReports = false,
   onOpenSearch,
   onNavigate,
 }: {
   active?: PipelineNavTarget;
   searchOpen?: boolean;
   showSearch?: boolean;
+  showReports?: boolean;
   onOpenSearch: () => void;
   onNavigate: (target: Exclude<PipelineNavTarget, null>) => void;
 }) {
@@ -116,32 +118,34 @@ export default function PipelineActionNav({
             Clients
           </span>
         </button>
-        <button
-          type="button"
-          aria-label="Open reports"
-          data-guide-target="primary-reports"
-          aria-current={active === "operations" ? "page" : undefined}
-          data-active={active === "operations" ? "true" : undefined}
-          title="Reports"
-          onClick={() => {
-            recordRecentDestination({
-              id: "page:operations",
-              kind: "page",
-              screen: "operations",
-              title: "Reports",
-              detail: "Referral and assessment reports",
-            });
-            onNavigate("operations");
-          }}
-          className={`${navItem} ${destinationSize} text-[#59652d] ${
-            active === "operations"
-              ? "border-[#7d8b3f] bg-[#f4f6e8] shadow-[0_4px_14px_rgba(125,139,63,0.14)]"
-              : "border-transparent bg-transparent hover:border-[#7d8b3f] hover:bg-[#f4f6e8] hover:shadow-[0_4px_14px_rgba(125,139,63,0.14)]"
-          }`}
-        >
-          <BarChart3 size={20} className="shrink-0" />
-          <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>Reports</span>
-        </button>
+        {showReports ? (
+          <button
+            type="button"
+            aria-label="Open reports"
+            data-guide-target="primary-reports"
+            aria-current={active === "operations" ? "page" : undefined}
+            data-active={active === "operations" ? "true" : undefined}
+            title="Reports"
+            onClick={() => {
+              recordRecentDestination({
+                id: "page:operations",
+                kind: "page",
+                screen: "operations",
+                title: "Reports",
+                detail: "Referral and assessment reports",
+              });
+              onNavigate("operations");
+            }}
+            className={`${navItem} ${destinationSize} text-[#59652d] ${
+              active === "operations"
+                ? "border-[#7d8b3f] bg-[#f4f6e8] shadow-[0_4px_14px_rgba(125,139,63,0.14)]"
+                : "border-transparent bg-transparent hover:border-[#7d8b3f] hover:bg-[#f4f6e8] hover:shadow-[0_4px_14px_rgba(125,139,63,0.14)]"
+            }`}
+          >
+            <BarChart3 size={20} className="shrink-0" />
+            <span className={`${labelClass} whitespace-nowrap text-[12px] font-black uppercase tracking-[0.08em]`}>Reports</span>
+          </button>
+        ) : null}
       </nav>
       <button
         type="button"

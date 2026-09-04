@@ -44,6 +44,10 @@ type SearchableIntent = PipelineQuestionIntent & {
   keywords: string[];
 };
 
+type PipelineQuestionOptions = {
+  includeReports?: boolean;
+};
+
 const questionOpeners = /^(?:how|where|what|when|who|why|which|can|could|should|help|i need|i want|im trying|i am trying)\b/i;
 const workflowVocabulary = new Set([
   "assessment",
@@ -241,7 +245,10 @@ const fallbackIntents = ["create-referral", "find-my-work", "begin-assessment"]
   .map((id) => intents.find((candidate) => candidate.id === id))
   .filter((candidate): candidate is SearchableIntent => Boolean(candidate));
 
-export function interpretPipelineQuestion(value: string): PipelineQuestionInterpretation | null {
+export function interpretPipelineQuestion(
+  value: string,
+  options: PipelineQuestionOptions = {},
+): PipelineQuestionInterpretation | null {
   const query = value.trim();
   const normalized = normalizeSearchText(query);
   if (!normalized) return null;
@@ -252,7 +259,7 @@ export function interpretPipelineQuestion(value: string): PipelineQuestionInterp
   if (!looksLikeQuestion) return null;
 
   const contentTokens = tokens.filter((token) => !ignoredQuestionWords.has(token));
-  const scored = intents
+  const scored = availableIntents(options)
     .map((candidate) => scoreIntent(candidate, normalized, contentTokens))
     .filter((candidate) => candidate.score > 0)
     .sort((left, right) => right.score - left.score || left.intent.title.localeCompare(right.intent.title));
@@ -283,9 +290,18 @@ export function interpretPipelineQuestion(value: string): PipelineQuestionInterp
   };
 }
 
-export function getPipelineQuestionIntent(id: string): PipelineQuestionIntent | null {
-  const found = intents.find((candidate) => candidate.id === id);
+export function getPipelineQuestionIntent(
+  id: string,
+  options: PipelineQuestionOptions = {},
+): PipelineQuestionIntent | null {
+  const found = availableIntents(options).find((candidate) => candidate.id === id);
   return found ? publicIntent(found) : null;
+}
+
+function availableIntents(options: PipelineQuestionOptions) {
+  return options.includeReports === false
+    ? intents.filter((candidate) => candidate.id !== "use-reports")
+    : intents;
 }
 
 function intent(value: SearchableIntent): SearchableIntent {

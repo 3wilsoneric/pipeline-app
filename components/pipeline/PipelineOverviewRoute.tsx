@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 
 import ClientProfileDirectory from "@/components/pipeline/ClientProfileDirectory";
@@ -13,6 +13,7 @@ import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
 import ReferralHome from "@/components/pipeline/ReferralHome";
 import ReferralPacketCanvas from "@/components/pipeline/ReferralPacketCanvas";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
+import { fetchCurrentPipelineUser } from "@/lib/auth/authenticated-fetch";
 import {
   recordRecentDestination,
   touchRecentDestination,
@@ -26,6 +27,7 @@ import {
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
+import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import {
   pushPipelineHistory,
   replacePipelineHistory,
@@ -47,15 +49,38 @@ export default function PipelineOverviewRoute() {
     ? getNewReferralDraftKey(activeSearchParams)
     : undefined;
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
+  const [reportAccess, setReportAccess] = useState<boolean | null>(null);
   const selectedReferral = routeReferral && referralDetails?.id === routeReferral.id
     ? referralDetails
     : routeReferral;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCurrentPipelineUser()
+      .then(({ user }) => {
+        if (!cancelled) setReportAccess(canAccessOperationsReports(user.roles));
+      })
+      .catch(() => {
+        if (!cancelled) setReportAccess(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (screen !== "operations" || reportAccess !== false) return;
+    const params = new URLSearchParams(activeSearchParams.toString());
+    params.delete("screen");
+    replacePipelineHistory(params.size ? `/?${params.toString()}` : "/");
+  }, [activeSearchParams, reportAccess, screen]);
 
   const navigate = (
     nextScreen: PipelineScreen,
     referral?: ReferralSelection,
     clientId?: string,
   ) => {
+    if (nextScreen === "operations" && reportAccess !== true) return;
     setSearchOpen(false);
     const params = new URLSearchParams(activeSearchParams.toString());
     if (nextScreen === "referrals") {
@@ -124,6 +149,7 @@ export default function PipelineOverviewRoute() {
   const globalSearchPanel = searchOpen ? (
     <PipelineSearchPanel
       autoFocus
+      canAccessReports={reportAccess === true}
       onOpenPacket={(referral) => {
         setSearchOpen(false);
         navigate("packet", referral);
@@ -139,6 +165,7 @@ export default function PipelineOverviewRoute() {
   if (screen === "home") {
     return (
       <PipelineWelcome
+        canAccessReports={reportAccess === true}
         initialMode={homeMode}
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenRecent={openRecent}
@@ -176,11 +203,11 @@ export default function PipelineOverviewRoute() {
       />
     );
   } else if (screen === "operations") {
-    page = (
+    page = reportAccess === true ? (
       <OperationsDashboard
         onOpenPacket={(referral) => navigate("packet", referral)}
       />
-    );
+    ) : null;
   } else if (screen === "calendar") {
     page = <PipelineCalendar onOpenPacket={(referral) => navigate("packet", referral)} />;
   } else if (screen === "trash") {

@@ -13,13 +13,14 @@ import {
   recordOperationsReportExport,
   ReportAccessError,
 } from "@/lib/pipeline/operations-reporting";
+import { operationsReportRoles } from "@/lib/pipeline/report-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   return withApiLogging(request, "/api/operations/reports", async () => {
-    const auth = await requirePipelineUser(request);
+    const auth = await requirePipelineUser(request, [...operationsReportRoles]);
     if (!auth.ok) return auth.response;
     const readiness = requireReferralStore();
     if (!readiness.ok) return readiness.response;
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return withApiLogging(request, "/api/operations/reports", async () => {
-    const auth = await requirePipelineUser(request);
+    const auth = await requirePipelineUser(request, [...operationsReportRoles]);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;

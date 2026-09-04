@@ -12,6 +12,7 @@ import {
 } from "@/lib/pipeline/referral-store";
 import { getReferralWorklistReferrals } from "@/lib/pipeline/operations-snapshot";
 import type { ReferralWorklistBucket } from "@/lib/pipeline/operations-types";
+import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { searchSiteDestinations } from "@/lib/pipeline/site-search";
 import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { listPipelineClientWorkspaces } from "@/lib/pipeline/client-workspace-store";
@@ -206,7 +207,9 @@ async function searchLocal(query: string, user: Parameters<typeof scopeReferralL
     referrals: referrals.referrals,
     files: files.files,
     clients: pipelineClients.clients,
-    destinations: searchSiteDestinations(query),
+    destinations: searchSiteDestinations(query, {
+      includeReports: canAccessOperationsReports(user.roles),
+    }),
     counts: {
       referrals: referrals.total,
       files: files.total,

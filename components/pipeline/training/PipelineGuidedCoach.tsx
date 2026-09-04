@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
 
 import { fetchCurrentPipelineUser, fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
@@ -22,6 +22,7 @@ import {
   operatorGuideChapterAtStep,
   operatorGuideStepTitle,
   type OperatorGuidedTutorial,
+  type OperatorGuidePlacement,
   type OperatorGuideStep,
 } from "@/lib/training/operator-guided-tutorials";
 import {
@@ -49,7 +50,7 @@ type TargetView = {
 type TargetInteraction = {
   element: HTMLElement | null;
   handler: EventListener | null;
-  event: "click" | "input" | "change" | null;
+  event: "click" | "input" | "change" | "pipeline:guide-complete" | null;
 };
 
 const emptyTarget: TargetView = { element: null, rect: null, available: false };
@@ -244,7 +245,7 @@ function GuideCoachSurface({ state, roles, tutorial, step, target, onStart, onCo
   if (state.mode === "closed") return null;
   if (state.mode === "library") return <GuideLibrary roles={roles} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
   if (!tutorial || !step) return null;
-  const conversation = <GuideConversation tutorial={tutorial} step={step} stepIndex={state.stepIndex} sequenceIndex={state.sequenceIndex} sequenceCount={state.sequenceTutorialIds.length} targetAvailable={target.available} routeMatches={guideRouteMatches(step.route)} panelSide={guidePanelSide(target.rect)} onBack={onBack} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
+  const conversation = <GuideConversation tutorial={tutorial} step={step} stepIndex={state.stepIndex} sequenceIndex={state.sequenceIndex} sequenceCount={state.sequenceTutorialIds.length} targetAvailable={target.available} targetRect={target.rect} routeMatches={guideRouteMatches(step.route)} onBack={onBack} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
   return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} /> : null}{conversation}</>;
 }
 
@@ -257,7 +258,7 @@ function findPreviousGuideStep(state: OperatorGuideState, tutorial: OperatorGuid
 function rebindGuideInteraction(current: TargetInteraction, candidate: HTMLElement | null, step: OperatorGuideStep, onAdvance: () => void): TargetInteraction {
   if (candidate === current.element) return current;
   detachGuideInteraction(current);
-  const event = candidate ? guideAdvanceEvent(step.advance, candidate) : null;
+  const event = candidate ? guideAdvanceEvent(step, candidate) : null;
   if (!candidate || !event) return { element: candidate, handler: null, event };
   const handler = () => window.setTimeout(onAdvance, 0);
   candidate.addEventListener(event, handler);
@@ -272,8 +273,21 @@ function detachGuideInteraction(interaction: TargetInteraction) {
 
 function scrollGuideTargetIntoView(candidate: HTMLElement | null, alreadyScrolled: boolean) {
   if (!candidate || alreadyScrolled) return alreadyScrolled;
-  if (isMostlyVisible(candidate.getBoundingClientRect())) return false;
-  candidate.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
+  const rect = candidate.getBoundingClientRect();
+  if (!isMostlyVisible(rect)) {
+    candidate.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
+    return true;
+  }
+
+  const sideRoom = Math.max(rect.left, window.innerWidth - rect.right);
+  const verticalRoom = Math.max(rect.top - 82, window.innerHeight - rect.bottom);
+  if (sideRoom < 446 && verticalRoom < 240) {
+    candidate.scrollIntoView({
+      behavior: "auto",
+      block: rect.top < window.innerHeight / 2 ? "start" : "end",
+      inline: "nearest",
+    });
+  }
   return true;
 }
 
@@ -324,14 +338,15 @@ function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume
   );
 }
 
-function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceCount, targetAvailable, routeMatches, panelSide, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorial: OperatorGuidedTutorial; step: OperatorGuideStep; stepIndex: number; sequenceIndex: number; sequenceCount: number; targetAvailable: boolean; routeMatches: boolean; panelSide: "left" | "right"; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
+function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceCount, targetAvailable, targetRect, routeMatches, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorial: OperatorGuidedTutorial; step: OperatorGuideStep; stepIndex: number; sequenceIndex: number; sequenceCount: number; targetAvailable: boolean; targetRect: DOMRect | null; routeMatches: boolean; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
   const targetReady = routeMatches && targetAvailable;
   const canConfirm = step.advance === "confirm";
   const chapter = operatorGuideChapterAtStep(tutorial, stepIndex);
   const chapterStep = chapter ? stepIndex - chapter.startStepIndex + 1 : stepIndex + 1;
   const isFullWorkflow = sequenceCount > 1;
+  const panelStyle = guidePanelLayout(targetRect, step.placement ?? "auto");
   return (
-    <section role="dialog" aria-label={`${isFullWorkflow ? "Full Pipeline walkthrough" : tutorial.title} guided tutorial`} data-testid="guided-coach-panel" className={`fixed bottom-0 right-0 z-[100] flex max-h-[min(640px,calc(100dvh-1rem))] w-full flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)] sm:bottom-4 sm:w-[430px] ${panelSide === "left" ? "sm:left-4 sm:right-auto" : "sm:right-4"}`}>
+    <section role="dialog" aria-label={`${isFullWorkflow ? "Full Pipeline walkthrough" : tutorial.title} guided tutorial`} data-testid="guided-coach-panel" style={panelStyle} className="fixed z-[100] flex flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)]">
       <header className="border-b border-[#d5ddda] bg-[#f2f6f4] px-4 py-3">
         <div className="flex items-start justify-between gap-3"><div className="min-w-0">{isFullWorkflow ? <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">Full tour · Module {sequenceIndex + 1} of {sequenceCount}</div> : null}<h2 className="mt-1 truncate text-[16px] font-black text-[#202623]">{tutorial.title}</h2><div className="mt-1 text-[10px] font-bold text-[#6d7773]">{chapter?.title ?? step.phase} · Action {chapterStep} of {chapter?.steps.length ?? tutorial.steps.length}</div></div><div className="flex items-center gap-1"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={16} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={17} /></button></div></div>
         <div className="mt-3 flex gap-1" aria-label={`Action ${stepIndex + 1} of ${tutorial.steps.length}`}>{Array.from({ length: tutorial.steps.length }, (_, index) => <span key={index} className={`h-1 flex-1 ${index <= stepIndex ? "bg-[#0f8b73]" : "bg-[#d7dfdc]"}`} />)}</div>
@@ -387,11 +402,58 @@ function GuideSpotlight({ rect }: { rect: DOMRect }) {
   );
 }
 
-function guidePanelSide(rect: DOMRect | null): "left" | "right" {
-  if (!rect || window.innerWidth < 640) return "right";
-  const panelLeft = window.innerWidth - 396;
-  const panelTop = Math.max(16, window.innerHeight - 576);
-  return rect.right > panelLeft - 12 && rect.bottom > panelTop - 12 ? "left" : "right";
+function guidePanelLayout(rect: DOMRect | null, preferred: OperatorGuidePlacement): CSSProperties {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const margin = viewportWidth < 640 ? 8 : 16;
+  const gap = viewportWidth < 640 ? 10 : 16;
+  const width = Math.min(430, viewportWidth - margin * 2);
+  const fullHeight = Math.max(1, viewportHeight - margin * 2);
+  const estimatedHeight = Math.min(520, fullHeight);
+
+  if (!rect) {
+    return {
+      left: viewportWidth - width - margin,
+      top: viewportHeight - estimatedHeight - margin,
+      width,
+      maxHeight: fullHeight,
+    };
+  }
+
+  const space = {
+    top: rect.top - gap - margin,
+    right: viewportWidth - rect.right - gap - margin,
+    bottom: viewportHeight - rect.bottom - gap - margin,
+    left: rect.left - gap - margin,
+  };
+  const centeredX = clamp(rect.left + rect.width / 2 - width / 2, margin, viewportWidth - width - margin);
+  const sideTop = clamp(rect.top, margin, viewportHeight - estimatedHeight - margin);
+  const minimumVerticalSpace = Math.min(220, Math.max(120, viewportHeight * 0.3));
+  const candidates: Record<Exclude<OperatorGuidePlacement, "auto">, CSSProperties | null> = {
+    right: space.right >= width ? { left: rect.right + gap, top: sideTop, width, maxHeight: fullHeight } : null,
+    left: space.left >= width ? { left: rect.left - gap - width, top: sideTop, width, maxHeight: fullHeight } : null,
+    bottom: space.bottom >= minimumVerticalSpace ? { left: centeredX, top: rect.bottom + gap, width, maxHeight: space.bottom } : null,
+    top: space.top >= minimumVerticalSpace ? { left: centeredX, bottom: viewportHeight - rect.top + gap, width, maxHeight: space.top } : null,
+  };
+  const automaticOrder: readonly Exclude<OperatorGuidePlacement, "auto">[] = viewportWidth < 640
+    ? (space.bottom >= space.top ? ["bottom", "top", "right", "left"] : ["top", "bottom", "right", "left"])
+    : ["right", "left", "bottom", "top"];
+  const requestedOrder = preferred === "auto"
+    ? automaticOrder
+    : [preferred, ...automaticOrder.filter((placement) => placement !== preferred)];
+  for (const placement of requestedOrder) {
+    const candidate = candidates[placement];
+    if (candidate) return candidate;
+  }
+
+  if (space.bottom >= space.top) {
+    return { left: centeredX, top: rect.bottom + gap, width, maxHeight: Math.max(1, space.bottom) };
+  }
+  return { left: centeredX, bottom: viewportHeight - rect.top + gap, width, maxHeight: Math.max(1, space.top) };
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(Math.max(value, minimum), Math.max(minimum, maximum));
 }
 
 function findVisibleGuideTarget(id: string) {
@@ -520,10 +582,11 @@ function normalizeRoles(roles: readonly string[]): readonly OperatorRole[] {
   return normalized.length > 0 ? normalized : ["viewer"];
 }
 
-function guideAdvanceEvent(advance: OperatorGuideStep["advance"], target: HTMLElement) {
-  if (advance === "target-input") return "input" as const;
-  if (advance === "target-change") return "change" as const;
-  if (advance === "target-click") return target instanceof HTMLSelectElement ? "change" as const : "click" as const;
+function guideAdvanceEvent(step: OperatorGuideStep, target: HTMLElement) {
+  if (step.target === "initial-packet-upload") return "pipeline:guide-complete" as const;
+  if (step.advance === "target-input") return "input" as const;
+  if (step.advance === "target-change") return "change" as const;
+  if (step.advance === "target-click") return target instanceof HTMLSelectElement ? "change" as const : "click" as const;
   return null;
 }
 

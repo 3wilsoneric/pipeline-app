@@ -106,14 +106,16 @@ const typoSearch = siteSearch.searchSiteDestinations("profles");
 const queueSearch = siteSearch.searchSiteDestinations("overdue queue");
 const unrelatedSearch = siteSearch.searchSiteDestinations("zzyzx");
 const clientNameSearch = siteSearch.searchSiteDestinations("Maldonado");
+const assessorReportSearch = siteSearch.searchSiteDestinations("reports", { includeReports: false });
 check(
   "site search resolves aliases and one-character typos without guessing unrelated terms or names",
   profileSearch[0]?.screen === "profiles"
     && typoSearch[0]?.screen === "profiles"
     && queueSearch[0]?.screen === "operations"
     && unrelatedSearch.length === 0
-    && clientNameSearch.length === 0,
-  5,
+    && clientNameSearch.length === 0
+    && assessorReportSearch.every((result) => result.screen !== "operations"),
+  6,
 );
 
 const failed = checks.filter((item) => !item.ok);

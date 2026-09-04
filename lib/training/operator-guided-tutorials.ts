@@ -208,24 +208,20 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
     id: "create-referral",
     title: "Create a referral",
     workflow: "Intake",
-    summary: "Attach the packet, verify intake facts, assign the referral, and prepare its assessment schedule.",
-    outcome: "Prepare one source-backed referral and understand both creation and scheduling boundaries.",
-    minutes: 10,
+    summary: "Attach the packet, verify intake facts, assign the referral, and stop at the creation check.",
+    outcome: "Prepare one source-backed referral and understand the creation boundary.",
+    minutes: 7,
     persona: "shared",
-    clickpath: ["New referral", "Packet", "Identity", "Assignment", "Create", "Assessment", "Schedule"],
+    clickpath: ["New referral", "Packet", "Identity", "Assignment", "Create"],
     audiences: writeRoles,
-    moduleIds: ["inbound-triage", "create-referral", "medication-intake", "upload-packet", "schedule-assessment"],
+    moduleIds: ["inbound-triage", "create-referral", "medication-intake", "upload-packet"],
     steps: [
       step("referral-new", "/", "primary-new-referral", "Start", "Open New referral", "New referral opens one unsaved intake draft for the packet, referral facts, routing, and medication context.", "Select New referral in the highlighted navigation.", "An unsaved referral draft is open.", "One entry point preserves source history and ownership from the beginning.", "Search for an existing referral before creating a real record.", "target-click", "bottom"),
-      step("referral-packet", "/?view=referrals&screen=packet", "initial-packet-upload", "Packet", "Attach the source packet", "The initial packet anchors proposed extraction and manually entered information to source evidence.", "Expand the document area and select an authorized training packet.", "The selected filename appears in the document area.", "Source-first intake makes later verification and correction explainable.", "Verify the workspace and use only training material while learning.", "target-change", "left", true),
+      step("referral-packet", "/?view=referrals&screen=packet", "initial-packet-upload", "Packet", "Attach the source packet", "The initial packet anchors proposed extraction and manually entered information to source evidence.", "Drop one authorized training document here, or select Choose file.", "The selected filename and Ready to upload appear in the document area.", "Source-first intake makes later verification and correction explainable.", "Verify the workspace and use only training material while learning.", "target-change", "bottom"),
       step("referral-identity", "/?view=referrals&screen=packet", "intake-identity", "Identity", "Verify identity", "Identity fields establish who the referral belongs to and must be compared with the packet before creation.", "Enter or correct one training identity field, then leave the field.", "The draft shows the source-backed identity value.", "Accurate identity protects assessment history, reporting, and EHR matching.", "A proposed extraction is not verified until a person compares it with the source.", "target-input", "top"),
       step("referral-routing", "/?view=referrals&screen=packet", "intake-routing", "Assignment", "Set routing and ownership", "Community, received date, source, contact, and assignee determine where the referral belongs and who moves it forward.", "Change one training routing or assignment field.", "The draft has an accountable destination and owner.", "Explicit ownership prevents referrals from disappearing between people or communities.", "Do not make an unexplained reassignment or use another person’s identity.", "target-change", "top"),
       step("referral-medications", "/?view=referrals&screen=packet", "intake-medications", "Medications", "Carry supplied medication context", "Medication information received at intake carries into assessment for verification rather than becoming a reconciled list.", "Enter or correct training medication context, then leave the field.", "Medication context is visible for later assessor review.", "Carry-forward reduces re-entry while preserving where the information came from.", "Intake medication text is not clinically verified, reconciled, or prescribed.", "target-input", "top"),
       step("referral-create", "/?view=referrals&screen=packet", "create-workspace", "Create", "Stop at Create workspace", "Creating stores the referral, exposes it to authorized workflows, and can begin asynchronous packet processing.", "Perform the duplicate, identity, source, owner, and packet check. Finish this checkpoint without creating training data.", "The draft is deliberately created by you or left unsaved for correction.", "An explicit creation boundary keeps incomplete drafts out of operational queues.", "The guide never clicks Create workspace for you.", "confirm", "left", true),
-      step("referral-assessment", "/?view=referrals&screen=packet", "assessment-stage", "Assessment", "Open Assessment", "The Assessment stage owns scheduling and the interview record for the same referral episode.", "Select Assessment in the highlighted stage navigation when the workspace exists.", "The assessment area is visible.", "The linked stage prevents detached assessment and calendar records.", "If no saved workspace exists, acknowledge the stop rather than creating test data.", "target-click", "bottom", true),
-      step("referral-schedule-open", "/?view=referrals&screen=packet", "assessment-schedule-open", "Schedule", "Open assessment scheduling", "Schedule or Reschedule opens the referral-linked date, duration, method, and location fields.", "Select the highlighted Schedule or Reschedule control when available.", "The schedule dialog is open.", "A linked schedule appears in the correct assessor and supervisor calendar scopes.", "If unavailable, resolve ownership or readiness instead of creating a side-channel event.", "target-click", "left", true),
-      step("referral-schedule-fields", "/?view=referrals&screen=packet", "assessment-schedule-fields", "Schedule", "Set the appointment details", "The schedule needs a usable date, duration, meeting method, and location or approved Zoom information when remote.", "Change one training scheduling field and review the remaining fields.", "The draft schedule reflects the intended appointment.", "Complete details make the event actionable for the assessor.", "The guide detects a change but never reads dates, links, or meeting information.", "target-change", "left", true),
-      step("referral-schedule-save", "/?view=referrals&screen=packet", "assessment-schedule-save", "Schedule", "Stop at schedule submission", "Submitting creates or updates accountable calendar work for the assigned assessor and supervisor scope.", "Verify referral, assessor, date, duration, method, and location. Finish the guide; submit authorized work yourself.", "The schedule is deliberately submitted by you or left unchanged for correction.", "A human submission preserves accountability for timing and meeting details.", "The guide never clicks Schedule assessment or Save new time.", "confirm", "left", true),
     ],
   }),
   tutorial({
@@ -235,9 +231,9 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
     summary: "Choose the operational question, set its scope, inspect the rows, and stop at CSV export.",
     outcome: "Produce a reproducible report without losing period, scope, or row-level context.",
     minutes: 5,
-    persona: "shared",
+    persona: "supervisor",
     clickpath: ["Reports", "Choose report", "Set period", "Review rows", "CSV"],
-    audiences: allRoles,
+    audiences: supervisorRoles,
     moduleIds: ["dashboard-meaning", "filter-report-export"],
     steps: [
       step("report-open", "/", "primary-reports", "Reports", "Open Reports", "Reports contains governed operational lists and exports for referral, assessment, document, and workload questions.", "Select Reports in the highlighted navigation.", "The report runner is open.", "One report surface keeps operational questions reproducible.", "Opening Reports is read-only and does not create an export.", "target-click", "bottom"),
@@ -268,9 +264,9 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
 ];
 
 export const operatorGuideVerifiedActionTargets: Readonly<Record<Exclude<OperatorGuideAdvance, "confirm">, readonly string[]>> = {
-  "target-click": ["primary-workspaces", "primary-calendar", "primary-new-referral", "primary-reports", "workspace-views", "calendar-view", "workspace-results", "assessment-stage", "assessment-open", "assessment-begin", "assessment-section-nav", "assessment-answer-help", "assessment-next-section", "assessment-schedule-open", "chart-stage", "chart-meet-client-tab", "operations-report-select"],
+  "target-click": ["primary-workspaces", "primary-calendar", "primary-new-referral", "primary-reports", "workspace-views", "calendar-view", "workspace-results", "assessment-stage", "assessment-open", "assessment-begin", "assessment-section-nav", "assessment-answer-help", "assessment-next-section", "chart-stage", "chart-meet-client-tab", "operations-report-select"],
   "target-input": ["workspace-search", "intake-identity", "intake-medications", "assessment-answer"],
-  "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "operations-report-month"],
+  "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "operations-report-month"],
 };
 
 export const operatorGuidedTutorialIds = operatorGuidedTutorials.map((tutorial) => tutorial.id);
@@ -302,9 +298,6 @@ export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
   "assessment-next-section": "components/pipeline/AssessmentWorkspace.tsx",
   "assessment-save-status": "components/pipeline/AssessmentWorkspace.tsx",
   "assessment-sign": "components/pipeline/AssessmentWorkspace.tsx",
-  "assessment-schedule-open": "components/pipeline/AssessmentWorkspace.tsx",
-  "assessment-schedule-fields": "components/pipeline/AssessmentWorkspace.tsx",
-  "assessment-schedule-save": "components/pipeline/AssessmentWorkspace.tsx",
   "chart-stage": "components/pipeline/ReferralPacketCanvas.tsx",
   "chart-complete-record": "components/pipeline/AssessmentChartWorkspace.tsx",
   "chart-meet-client-tab": "components/pipeline/AssessmentChartWorkspace.tsx",

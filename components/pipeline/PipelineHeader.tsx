@@ -14,6 +14,7 @@ import { getAccountDisplayName } from "@/lib/auth/entra-client";
 import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/client-navigation";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
+import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
 
 export default function PipelineHeader() {
@@ -27,6 +28,7 @@ export default function PipelineHeader() {
   const auth = usePipelineAuth();
   const { homeMode, searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
+  const canAccessReports = canAccessOperationsReports(user?.roles ?? []);
 
   useEffect(() => {
     router.prefetch(toPipelinePath("/training"));
@@ -78,6 +80,7 @@ export default function PipelineHeader() {
   const hideGlobalGuide = pathname === "/note-lab" || pathname.startsWith("/note-lab/");
 
   const navigateTo = (target: "home" | Exclude<PipelineNavTarget, null> | "operations" | "trash") => {
+    if (target === "operations" && !canAccessReports) return;
     setSearchOpen(false);
     setHomeMode("workspace");
     const destination = target === "referrals"
@@ -139,6 +142,7 @@ export default function PipelineHeader() {
             active={activeNav}
             searchOpen={searchOpen}
             showSearch={pathname === "/"}
+            showReports={canAccessReports}
             onOpenSearch={() => setSearchOpen((current) => !current)}
             onNavigate={navigateTo}
           />
