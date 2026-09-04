@@ -32,12 +32,10 @@ test.describe("role-scoped home and reports", () => {
             unassigned_total: 0,
             overall_completion_pct: null,
             flow_counts: {
-              assignment: 0,
-              intake: 0,
               ready_to_schedule: 0,
               scheduled: 0,
               assessment: 0,
-              review: 0,
+              complete_chart: 0,
             },
             active_items: [],
             ready_to_schedule: { total: 0, items: [] },

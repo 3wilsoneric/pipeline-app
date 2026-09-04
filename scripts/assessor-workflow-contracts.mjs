@@ -83,17 +83,17 @@ check("signed assessments remain signed even when historical recommendations exi
 }) === "assessment_signed");
 check("final decision closes to accepted", workflow.resolveReferralWorkflowStatus(referral, { decision: { outcome: "accepted" } }) === "accepted");
 check("active referral statuses map to one operational flow state", [
-  ["intake_unassigned", "assignment"],
-  ["intake_documents_needed", "intake"],
-  ["profile_incomplete", "intake"],
+  ["intake_unassigned", "ready_to_schedule"],
+  ["intake_documents_needed", "ready_to_schedule"],
+  ["profile_incomplete", "ready_to_schedule"],
   ["ready_to_schedule", "ready_to_schedule"],
   ["assessment_scheduled", "scheduled"],
   ["assessment_in_progress", "assessment"],
   ["waiting_for_information", "assessment"],
-  ["assessment_ready_to_sign", "review"],
-  ["assessment_signed", "review"],
-  ["recommendation_submitted", "review"],
-  ["decision_pending", "review"],
+  ["assessment_ready_to_sign", "complete_chart"],
+  ["assessment_signed", "complete_chart"],
+  ["recommendation_submitted", "complete_chart"],
+  ["decision_pending", "complete_chart"],
 ].every(([status, state]) => referralFlow.referralFlowStateForStatus(status) === state));
 check("terminal referral statuses stay out of current work", ["accepted", "declined", "closed"]
   .every((status) => referralFlow.referralFlowStateForStatus(status) === "complete"));

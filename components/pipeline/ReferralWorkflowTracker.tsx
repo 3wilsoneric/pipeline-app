@@ -11,12 +11,10 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
 }) {
   const counts = briefing.workflow.flow_counts ?? {
-    assignment: 0,
-    intake: 0,
     ready_to_schedule: 0,
     scheduled: 0,
     assessment: 0,
-    review: 0,
+    complete_chart: 0,
   };
   const items = briefing.workflow.active_items ?? [];
   const unavailable = briefing.unavailable_sections.includes("workflow");
@@ -43,14 +41,14 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
             No active referral work.
           </div>
         ) : (
-          <div className="grid grid-flow-col auto-cols-[minmax(230px,1fr)] items-start gap-4 overflow-x-auto pb-3 pt-1 md:auto-cols-[minmax(240px,1fr)] xl:grid-flow-row xl:grid-cols-6 xl:overflow-visible">
+          <div className="grid snap-x grid-flow-col auto-cols-[minmax(260px,1fr)] items-start gap-5 overflow-x-auto pb-3 pt-2 lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible">
             {activeReferralFlowStates.map((state) => {
               const stageItems = items.filter((item) => referralFlowStateForStatus(item.workflow_status) === state.key);
               return (
-                <div key={state.key} className="min-w-0">
-                  <div className="flex h-9 items-center justify-between gap-3 px-1">
-                    <h3 className={`truncate text-[11px] font-extrabold uppercase ${stageTone(state.key)}`}>{state.label}</h3>
-                    <strong className="text-[12px] font-extrabold tabular-nums text-[#202320]">{counts[state.key]}</strong>
+                <div key={state.key} className="min-w-0 snap-start">
+                  <div className={`mb-2 flex min-h-10 items-center justify-between gap-3 border-t-2 px-1 pt-2 ${columnRule(state.key)}`}>
+                    <h3 className={`truncate text-[12px] font-extrabold uppercase ${stageTone(state.key)}`}>{state.label}</h3>
+                    <strong className="text-[12px] font-extrabold tabular-nums text-[#4f5752]">{counts[state.key]}</strong>
                   </div>
                   {stageItems.length > 0 ? (
                     <div className="space-y-2">
@@ -90,7 +88,7 @@ function WorkflowCard({ item, state, showOwner, onOpenPacket }: {
       type="button"
       aria-label={`Open ${clientName}`}
       onClick={() => onOpenPacket({ id: item.referral_id, name: clientName, community: item.community as Referral["community"] })}
-      className={`group min-h-[116px] w-full border border-l-[3px] border-[#dce3df] bg-white px-3.5 py-3.5 text-left shadow-[0_3px_12px_rgba(32,35,32,0.045)] outline-none transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[#0f8b73] hover:shadow-[0_7px_18px_rgba(32,35,32,0.08)] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${cardAccent(state)}`}
+      className={`group min-h-[108px] w-full border border-l-[3px] border-[#dce3df] bg-white px-4 py-3.5 text-left shadow-[0_2px_9px_rgba(32,35,32,0.04)] outline-none transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[#0f8b73] hover:shadow-[0_6px_16px_rgba(32,35,32,0.07)] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${cardAccent(state)}`}
     >
       <span className="flex items-start justify-between gap-2">
         <span className="min-w-0 truncate text-[14px] font-bold text-[#202320]">{clientName}</span>
@@ -112,15 +110,22 @@ function formatWorkAge(hours: number) {
 }
 
 function stageTone(state: (typeof activeReferralFlowStates)[number]["key"]) {
-  if (state === "assignment" || state === "intake") return "text-[#176f60]";
-  if (state === "ready_to_schedule" || state === "scheduled") return "text-[#936116]";
+  if (state === "ready_to_schedule") return "text-[#176f60]";
+  if (state === "scheduled") return "text-[#936116]";
   if (state === "assessment") return "text-[#4866ad]";
-  return "text-[#5d6661]";
+  return "text-[#657044]";
 }
 
 function cardAccent(state: (typeof activeReferralFlowStates)[number]["key"]) {
-  if (state === "assignment" || state === "intake") return "border-l-[#0f8b73]";
-  if (state === "ready_to_schedule" || state === "scheduled") return "border-l-[#b77b27]";
+  if (state === "ready_to_schedule") return "border-l-[#0f8b73]";
+  if (state === "scheduled") return "border-l-[#b77b27]";
   if (state === "assessment") return "border-l-[#4866ad]";
-  return "border-l-[#69716c]";
+  return "border-l-[#78844d]";
+}
+
+function columnRule(state: (typeof activeReferralFlowStates)[number]["key"]) {
+  if (state === "ready_to_schedule") return "border-t-[#0f8b73]";
+  if (state === "scheduled") return "border-t-[#b77b27]";
+  if (state === "assessment") return "border-t-[#4866ad]";
+  return "border-t-[#78844d]";
 }

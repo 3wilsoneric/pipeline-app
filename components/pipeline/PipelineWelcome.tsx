@@ -214,8 +214,8 @@ function HomeSkeleton() {
           <SkeletonBlock className="h-4 w-4" />
           <SkeletonBlock className="h-4 w-36" />
         </div>
-        <div className="grid grid-flow-col auto-cols-[minmax(230px,1fr)] gap-4 overflow-hidden pb-3 xl:grid-flow-row xl:grid-cols-6">
-          {Array.from({ length: 6 }, (_, index) => (
+        <div className="grid grid-flow-col auto-cols-[minmax(260px,1fr)] gap-5 overflow-hidden pb-3 lg:grid-flow-row lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
             <div key={index} className="min-w-0">
               <div className="flex h-9 items-center justify-between px-1">
                 <SkeletonBlock className="h-3 w-20" />
