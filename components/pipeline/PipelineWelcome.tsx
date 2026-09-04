@@ -6,6 +6,7 @@ import { ArrowRight, CalendarClock } from "lucide-react";
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
+import { SinceLastVisitActivity } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent } from "@/lib/pipeline/calendar-types";
@@ -124,6 +125,7 @@ export default function PipelineWelcome({
                 </div>
               ) : null}
               <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} />
+              <SinceLastVisitActivity viewerId={briefing.viewer.id} onOpenPacket={onOpenPacket} />
               <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
                 <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />
                 <RecentPanel items={recentItems} onOpenRecent={onOpenRecent} />

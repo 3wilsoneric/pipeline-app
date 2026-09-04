@@ -246,6 +246,7 @@ export default function PipelineOverviewRoute() {
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onResumeDraft={resumeReferralDraft}
+        canViewTeam={Boolean(reportAccess)}
       />
     );
   }

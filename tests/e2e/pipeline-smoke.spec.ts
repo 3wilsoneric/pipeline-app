@@ -217,6 +217,133 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
   });
 
+  test("adds gallery and scoped activity views without replacing the workspace workflow", async ({ page }) => {
+    await page.route(/\/api\/referrals(?:\/directory)?\?/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          referrals: [{
+            id: 424242,
+            name: "Activity Test Client",
+            date: "2026-09-04",
+            stage: "Assessment",
+            workflowStatus: "assessment_in_progress",
+            workspaceStatus: "active",
+            community: "San Pablo",
+            county: "Los Angeles County",
+            source: "County referral",
+            priority: "high",
+            documentName: "activity-test.pdf",
+            documentStatus: "Reviewed",
+            ownerId: "assessor-1",
+            owner: "Alex Assessor",
+            note: "",
+            requirements: [],
+            createdAt: "2026-09-04T14:00:00.000Z",
+            updatedAt: "2026-09-04T15:30:00.000Z",
+          }],
+          total: 1,
+          revision: 1,
+          progress: {},
+          facets: { communities: [], counties: [], stages: [], owners: [], priorities: [], tags: [], months: [] },
+          file_total: 1,
+        }),
+      });
+    });
+    await page.reload();
+
+    const listToggle = page.getByRole("button", { name: "Show workspaces as a list" });
+    const galleryToggle = page.getByRole("button", { name: "Show workspaces as a gallery" });
+    await expect(listToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("region", { name: "Referral worklist" })).toBeVisible();
+
+    await galleryToggle.click();
+    await expect(galleryToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("region", { name: "Workspace gallery" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Referral worklist" })).toHaveCount(0);
+
+    await page.reload();
+    await expect(page.getByRole("region", { name: "Workspace gallery" })).toBeVisible();
+    await expect(galleryToggle).toHaveAttribute("aria-pressed", "true");
+
+    const activityPayload = {
+      generated_at: "2026-09-04T16:00:00.000Z",
+      scope: "attention",
+      can_view_team: true,
+      items: [{
+        event_id: "activity-regression-1",
+        action: "referral_updated",
+        actor_id: "coordinator-1",
+        actor_name: "Case Coordinator",
+        created_at: "2026-09-04T15:30:00.000Z",
+        workspace: {
+          referral_id: 424242,
+          client_name: "Activity Test Client",
+          community: "San Pablo",
+          owner_id: "assessor-1",
+          owner: "Alex Assessor",
+          workflow_status: "assessment_in_progress",
+          priority: "high",
+          workspace_status: "active",
+        },
+        attention: { level: "attention", label: "High priority" },
+      }],
+    };
+    await page.route("**/api/operations/activity?**", async (route) => {
+      const scope = new URL(route.request().url()).searchParams.get("scope") ?? "attention";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ...activityPayload, scope }),
+      });
+    });
+
+    await page.getByRole("tab", { name: "Activity", exact: true }).click();
+    const activity = page.getByRole("region", { name: "Workspace activity" });
+    await expect(activity).toBeVisible();
+    await expect(activity.getByText("Operational changes only. Clinical field values are never shown here.")).toBeVisible();
+    await expect(activity.getByRole("tab", { name: /Needs attention/ })).toHaveAttribute("aria-selected", "true");
+    await expect(activity.getByRole("tab", { name: /Mine/ })).toBeVisible();
+    await expect(activity.getByRole("tab", { name: /Team/ })).toBeVisible();
+
+    const mineRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url());
+      return url.pathname === "/api/operations/activity" && url.searchParams.get("scope") === "mine";
+    });
+    await activity.getByRole("tab", { name: /Mine/ }).click();
+    await mineRequest;
+    await expect(activity.getByRole("tab", { name: /Mine/ })).toHaveAttribute("aria-selected", "true");
+
+    await activity.getByRole("button", { name: /Case Coordinator updated Activity Test Client/ }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424242");
+  });
+
+  test("keeps team activity out of the assessor workspace view", async ({ page }) => {
+    await page.route("**/api/auth/me", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: "assessor-1",
+            email: "assessor@pipeline.local",
+            name: "Alex Assessor",
+            roles: ["reviewer"],
+            delegation: null,
+            assessorSessionRecoveryRequired: false,
+          },
+        }),
+      });
+    });
+    await page.reload();
+    await page.getByRole("tab", { name: "Activity", exact: true }).click();
+    const activity = page.getByRole("region", { name: "Workspace activity" });
+    await expect(activity.getByRole("tab", { name: /Needs attention/ })).toBeVisible();
+    await expect(activity.getByRole("tab", { name: /Mine/ })).toBeVisible();
+    await expect(activity.getByRole("tab", { name: /Team/ })).toHaveCount(0);
+  });
+
   test("filters and sorts the complete workspace directory", async ({ page }) => {
     let requestedMonth = "";
     let requestedCommunity = "";

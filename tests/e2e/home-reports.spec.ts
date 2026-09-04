@@ -6,6 +6,7 @@ test.describe("role-scoped home and reports", () => {
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
@@ -14,6 +15,50 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByText("Email to decision flow", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Community snapshot", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Last 24 hours" })).toHaveCount(0);
+  });
+
+  test("summarizes new activity on assigned workspaces and opens the existing workspace", async ({ page }) => {
+    await page.route("**/api/operations/activity?**", async (route) => {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get("scope")).toBe("mine");
+      expect(Date.parse(url.searchParams.get("since") ?? "")).not.toBeNaN();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-09-04T16:00:00.000Z",
+          scope: "mine",
+          can_view_team: true,
+          items: [{
+            event_id: "home-activity-1",
+            action: "assessment_scheduled",
+            actor_id: "coordinator-1",
+            actor_name: "Case Coordinator",
+            created_at: "2026-09-04T15:30:00.000Z",
+            workspace: {
+              referral_id: 424243,
+              client_name: "Home Activity Client",
+              community: "San Pablo",
+              owner_id: "playwright",
+              owner: "Playwright QA",
+              workflow_status: "assessment_scheduled",
+              priority: "standard",
+              workspace_status: "active",
+            },
+            attention: null,
+          }],
+        }),
+      });
+    });
+
+    await page.goto("/");
+    const summary = page.getByRole("region", { name: "Since your last visit" });
+    await expect(summary).toContainText("Home Activity Client");
+    await expect(summary).toContainText("scheduled the assessment for");
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("pipeline:last-activity-visit:")))).toBe(true);
+
+    await summary.getByRole("button", { name: /Home Activity Client/ }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424243");
   });
 
   test("keeps the assessor home personal and omits supervisor metrics", async ({ page }) => {

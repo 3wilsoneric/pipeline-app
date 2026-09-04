@@ -13,7 +13,9 @@ import {
   FolderOpen,
   Check,
   Eye,
+  LayoutGrid,
   Link2,
+  List,
   RefreshCw,
   Search,
   SlidersHorizontal,
@@ -39,6 +41,12 @@ import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import FilePreviewDialog from "@/components/pipeline/ReferralFilePreviewDialog";
 import ReferralWorklist from "@/components/pipeline/ReferralWorklist";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
+import ReferralWorkspaceGallery from "@/components/pipeline/ReferralWorkspaceGallery";
+import WorkspaceActivityFeed from "@/components/pipeline/WorkspaceActivityFeed";
+
+type WorkspaceSection = "workspaces" | "activity";
+type WorkspaceLayout = "list" | "gallery";
+const workspaceLayoutStorageKey = "pipeline:workspace-layout";
 
 type ReferralFilter =
   | { kind: "all" }
@@ -83,13 +91,17 @@ export default function ReferralHome({
   onOpenPacket,
   onOpenProfile,
   onResumeDraft,
+  canViewTeam = false,
 }: {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onResumeDraft: (draftKey: `new-${string}`) => void;
+  canViewTeam?: boolean;
 }) {
+  const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>("workspaces");
+  const [workspaceLayout, setWorkspaceLayout] = useState<WorkspaceLayout>("list");
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [progressByReferral, setProgressByReferral] = useState<Record<number, ReferralProgress>>({});
   const [referralTotal, setReferralTotal] = useState(0);
@@ -123,6 +135,16 @@ export default function ReferralHome({
   const [browseOpen, setBrowseOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedMonth, setExpandedMonth] = useState("");
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(workspaceLayoutStorageKey);
+    if (saved === "list" || saved === "gallery") setWorkspaceLayout(saved);
+  }, []);
+
+  const selectWorkspaceLayout = (layout: WorkspaceLayout) => {
+    setWorkspaceLayout(layout);
+    window.localStorage.setItem(workspaceLayoutStorageKey, layout);
+  };
 
   const loadReferrals = useCallback(async (signal?: AbortSignal, silent = false) => {
     if (filter.kind === "files") {
@@ -531,6 +553,38 @@ export default function ReferralHome({
       <div className="w-full px-4 pb-8 pt-0 sm:px-5 md:px-6 lg:px-8 xl:px-10">
         <h1 className="sr-only">Referral workspaces</h1>
         <ReferralDraftResumeList onResume={onResumeDraft} className="mb-3 mt-3" />
+        <div className="mb-3 flex min-h-12 flex-wrap items-end justify-between gap-3 border-b border-[#cfd7d3]">
+          <div role="tablist" aria-label="Workspace directory sections" className="flex self-stretch">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={workspaceSection === "workspaces"}
+              onClick={() => setWorkspaceSection("workspaces")}
+              className={`border-b-[3px] px-3 text-[11px] font-black uppercase tracking-[0.08em] ${workspaceSection === "workspaces" ? "border-[#0f8b73] text-[#0c705f]" : "border-transparent text-[#68716c] hover:text-[#202723]"}`}
+            >
+              Workspaces <span className="ml-1 text-[9px] tabular-nums text-[#7a837f]">{formatDirectoryCount(allPacketTotal)}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={workspaceSection === "activity"}
+              onClick={() => setWorkspaceSection("activity")}
+              className={`border-b-[3px] px-3 text-[11px] font-black uppercase tracking-[0.08em] ${workspaceSection === "activity" ? "border-[#0f8b73] text-[#0c705f]" : "border-transparent text-[#68716c] hover:text-[#202723]"}`}
+            >
+              Activity
+            </button>
+          </div>
+          {workspaceSection === "workspaces" && filter.kind !== "files" ? (
+            <div role="group" aria-label="Workspace layout" className="mb-2 flex border border-[#cfd7d3] bg-white p-0.5">
+              <button type="button" aria-label="Show workspaces as a list" aria-pressed={workspaceLayout === "list"} onClick={() => selectWorkspaceLayout("list")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${workspaceLayout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={13} />List</button>
+              <button type="button" aria-label="Show workspaces as a gallery" aria-pressed={workspaceLayout === "gallery"} onClick={() => selectWorkspaceLayout("gallery")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${workspaceLayout === "gallery" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={13} />Gallery</button>
+            </div>
+          ) : null}
+        </div>
+        {workspaceSection === "activity" ? (
+          <WorkspaceActivityFeed canViewTeam={canViewTeam} onOpenPacket={onOpenPacket} />
+        ) : (
+        <>
         <div className="min-w-0">
           {workspaceSearch}
           <div className="min-h-14">
@@ -717,7 +771,11 @@ export default function ReferralHome({
               )
             ) : visibleReferrals.length > 0 ? (
               <>
-                <ReferralWorklist referrals={visibleReferrals} onOpenPacket={onOpenPacket} progressByReferral={progressByReferral} />
+                {workspaceLayout === "gallery" ? (
+                  <ReferralWorkspaceGallery referrals={visibleReferrals} onOpenPacket={onOpenPacket} progressByReferral={progressByReferral} />
+                ) : (
+                  <ReferralWorklist referrals={visibleReferrals} onOpenPacket={onOpenPacket} progressByReferral={progressByReferral} />
+                )}
                 {referralTotal > 100 ? (
                   <div className="flex items-center justify-between border-t border-[#d9d9d9] px-5 py-3">
                     <button
@@ -767,6 +825,8 @@ export default function ReferralHome({
             )}
           </section>
         </div>
+        </>
+        )}
       </div>
       {previewFile ? <FilePreviewDialog key={previewFile.id} file={previewFile} onClose={() => setPreviewFile(null)} /> : null}
       {reviewItem ? (
