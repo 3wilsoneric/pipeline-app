@@ -30,6 +30,7 @@ export type ProductDemoActor = {
 };
 
 export type ProductDemoCase = {
+  scenarioVersion: string;
   sequence: number;
   community: (typeof productDemoCommunities)[number];
   targetStage: (typeof productDemoStages)[number];
@@ -70,10 +71,24 @@ const personaPlan: ReadonlyArray<{
   { persona: "executive_viewer", role: "viewer", count: 15, indexStart: 5_000 },
 ];
 
-export function createProductDemoScenario(anchor = new Date()): ProductDemoScenario {
+const syntheticGivenNames = [
+  "Avery", "Blake", "Cameron", "Devin", "Emery",
+  "Finley", "Hayden", "Jordan", "Morgan", "Riley",
+] as const;
+
+const syntheticFamilyNames = [
+  "Carter", "Brooks", "Dalton", "Ellis", "Foster",
+  "Gray", "Harper", "Kelley", "Nolan", "Parker",
+] as const;
+
+export function createProductDemoScenario(
+  anchor = new Date(),
+  version = productDemoScenarioVersion,
+  actorIndexOffset = 0,
+): ProductDemoScenario {
   const actors = personaPlan.flatMap(({ persona, role, count, indexStart }) => (
     Array.from({ length: count }, (_, index) => ({
-      actor: syntheticPipelineActor(role, indexStart + index),
+      actor: syntheticPipelineActor(role, indexStart + actorIndexOffset + index),
       persona,
     }))
   ));
@@ -93,6 +108,7 @@ export function createProductDemoScenario(anchor = new Date()): ProductDemoScena
     if (!creator || !assessor) throw new Error("The product demo actor plan is incomplete.");
 
     return {
+      scenarioVersion: version,
       sequence: index + 1,
       community: productDemoCommunities[index % productDemoCommunities.length],
       targetStage,
@@ -115,7 +131,7 @@ export function createProductDemoScenario(anchor = new Date()): ProductDemoScena
   });
 
   return {
-    version: productDemoScenarioVersion,
+    version,
     nonPhi: true,
     actors,
     operationsLeads,
@@ -128,9 +144,13 @@ export function createProductDemoScenario(anchor = new Date()): ProductDemoScena
 }
 
 export function productDemoCaseInput(item: ProductDemoCase) {
+  const index = item.sequence - 1;
   const number = String(item.sequence).padStart(3, "0");
+  const givenName = syntheticGivenNames[index % syntheticGivenNames.length];
+  const familyName = syntheticFamilyNames[Math.floor(index / syntheticGivenNames.length) % syntheticFamilyNames.length];
+  if (!givenName || !familyName) throw new Error(`Missing synthetic client name for case ${item.sequence}.`);
   return {
-    name: `Synthetic Referral ${number}`,
+    name: `${givenName} ${familyName}`,
     date: item.receivedDate,
     stage: "New",
     community: item.community,
@@ -139,7 +159,7 @@ export function productDemoCaseInput(item: ProductDemoCase) {
     priority: item.priority,
     tags: [
       "product-demo",
-      productDemoScenarioVersion,
+      item.scenarioVersion,
       item.community.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     ],
     documentName: item.documentStatus === "Missing" ? "packet-pending.pdf" : `synthetic-packet-${number}.pdf`,

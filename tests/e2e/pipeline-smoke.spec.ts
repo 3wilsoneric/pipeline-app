@@ -448,11 +448,9 @@ test.describe("Referral home and packet canvas", () => {
     await expect(documentChecklist).toBeVisible();
     const documentPanel = page.getByTestId("document-checklist-panel");
     const documentToggle = page.getByTestId("document-checklist-toggle");
-    await expect(documentPanel).not.toHaveAttribute("open", "");
-    await expect(page.getByRole("region", { name: "Initial referral packet" })).toBeHidden();
-    await expect(page.getByRole("region", { name: "Identity chart section" })).toBeVisible();
-    await documentToggle.click();
     await expect(documentPanel).toHaveAttribute("open", "");
+    await expect(page.getByRole("region", { name: "Initial referral packet" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Identity chart section" })).toBeVisible();
     await expect(documentChecklist.getByRole("button", { name: /drop document or browse$/ })).toHaveCount(8);
     await expect(page.getByRole("complementary", { name: "Chart completion" })).toBeVisible();
     const documentChecklistBox = await documentChecklist.boundingBox();
@@ -460,7 +458,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(documentChecklistBox).not.toBeNull();
     expect(identityBox).not.toBeNull();
     expect((documentChecklistBox?.y ?? 0) + (documentChecklistBox?.height ?? 0)).toBeLessThanOrEqual(identityBox?.y ?? 0);
-    await expect(page.getByText("Add a face sheet or referral packet now or after the workspace is created.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Choose file", exact: true })).toBeVisible();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("textbox", { name: "DOB", exact: true }).fill("06/12/1984");
     await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
@@ -500,7 +498,8 @@ test.describe("Referral home and packet canvas", () => {
     expect(payload.referral.tags).toEqual(expect.arrayContaining(["packet-import", "needs-review"]));
 
     await page.reload();
-    await page.getByTestId("document-checklist-toggle").click();
+    if (await documentPanel.getAttribute("open") === null) await documentToggle.click();
+    await expect(documentPanel).toHaveAttribute("open", "");
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(payload.referral.name);
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toHaveValue("Referral chart created from the initial document.");
@@ -1394,7 +1393,6 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("textbox", { name: "Tags", exact: true }).fill("Urgent Review, county-intake");
     await page.getByRole("button", { name: "yes", exact: true }).click();
 
-    await page.getByTestId("document-checklist-toggle").click();
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "face-sheet.pdf",
       mimeType: "application/pdf",
@@ -1661,9 +1659,9 @@ test.describe("Referral home and packet canvas", () => {
       buffer: packetBytes,
     });
     await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
-    await page.getByTestId("document-checklist-toggle").click();
-    await expect(page.getByRole("region", { name: "Initial referral packet" })
-      .getByRole("button", { name: /first-copy\.pdf Uploaded/ })).toBeVisible();
+    const initialPacket = page.getByRole("region", { name: "Initial referral packet" });
+    await expect(initialPacket.getByText("first-copy.pdf", { exact: true })).toBeVisible();
+    await expect(initialPacket.getByText(/Uploaded · Choose another file to replace it/)).toBeVisible();
     await expect(page.getByRole("region", { name: "Extraction review" })).toBeVisible();
 
     await page.goto("/?view=referrals&screen=packet");

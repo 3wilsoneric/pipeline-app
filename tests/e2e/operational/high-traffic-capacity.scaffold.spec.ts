@@ -28,6 +28,7 @@ import {
   createProductDemoScenario,
   productDemoCaseInput,
   productDemoCommunities,
+  productDemoScenarioVersion,
   productDemoStages,
   type ProductDemoActor,
   type ProductDemoCase,
@@ -91,7 +92,11 @@ test.describe("high-assurance 10x traffic scaffold", () => {
 
   test("rehearses a 100-user product day from intake through active assessment work", async ({ baseURL, browser }, testInfo) => {
     const url = requireOperationalBaseURL(baseURL);
-    const scenario = createProductDemoScenario();
+    const scenario = createProductDemoScenario(
+      new Date(),
+      `${productDemoScenarioVersion}-worker-${testInfo.workerIndex}-repeat-${testInfo.repeatEachIndex}-retry-${testInfo.retry}`,
+      (testInfo.workerIndex * 10 + testInfo.repeatEachIndex * 3 + testInfo.retry) * 10_000,
+    );
     const contexts = await Promise.all(scenario.actors.map(({ actor }) => (
       request.newContext({
         baseURL: url,
@@ -188,7 +193,13 @@ test.describe("high-assurance 10x traffic scaffold", () => {
         expect(response.bytes, response.routePath).toBeLessThan(750_000);
       }
 
-      const reconciliation = await reconcileProductDemo(admin, scenario.cases, scenario.months, dashboardBaseline);
+      const reconciliation = await reconcileProductDemo(
+        admin,
+        scenario.version,
+        scenario.cases,
+        scenario.months,
+        dashboardBaseline,
+      );
       const queueTotals = await runWithConcurrency(scenario.assessors, 20, async (actor) => {
         const response = await requiredContext(contextByActor, actor.id).get("/api/operations/my-queue");
         expect(response.status()).toBe(200);
@@ -204,7 +215,8 @@ test.describe("high-assurance 10x traffic scaffold", () => {
         url,
         requiredActor(scenario.operationsLeads, 0),
         testInfo,
-        reconciliation.active_total,
+        reconciliation.referral_total,
+        productDemoCaseInput(requiredCase(scenario.cases, scenario.cases.length - 1)).name,
       );
       await testInfo.attach("100-user-product-demo-summary", {
         body: Buffer.from(JSON.stringify({
@@ -336,7 +348,8 @@ async function verifyProductDemoSurfaces(
   baseURL: string,
   actor: PipelineActor,
   testInfo: TestInfo,
-  expectedActiveTotal: number,
+  expectedMinimumTotal: number,
+  expectedClientName: string,
 ) {
   const context = await browser.newContext({
     baseURL,
@@ -367,12 +380,15 @@ async function verifyProductDemoSurfaces(
         await expect(page.getByLabel("Loading home")).toHaveCount(0, { timeout: 15_000 });
       } else if (surface.name === "referrals") {
         await expect(page.getByRole("button", {
-          name: "Open Synthetic Referral 001 referral workspace",
-        })).toBeVisible({ timeout: 15_000 });
+          name: `Open ${expectedClientName} referral workspace`,
+        }).first()).toBeVisible({ timeout: 15_000 });
       } else {
         const results = page.getByRole("region", { name: "Report results" });
         await expect(results).toBeVisible({ timeout: 15_000 });
-        await expect(results).toContainText(`${expectedActiveTotal} rows`);
+        const totalLabel = results.getByText(/^\d+ total$/).first();
+        await expect(totalLabel).toBeVisible();
+        const total = Number((await totalLabel.textContent())?.match(/^\d+/)?.[0] ?? Number.NaN);
+        expect(total).toBeGreaterThanOrEqual(expectedMinimumTotal);
       }
       await expect(page.getByText("Application error", { exact: false })).toHaveCount(0);
       const horizontallyBounded = await page.evaluate(() => (
@@ -448,11 +464,13 @@ function productDemoReportRoutes(actor: ProductDemoActor, months: string[]) {
 
 async function reconcileProductDemo(
   admin: APIRequestContext,
+  scenarioVersion: string,
   cases: ProductDemoCase[],
   months: string[],
   dashboardBaseline: DashboardSnapshot,
 ) {
-  const listResponse = await admin.get("/api/referrals?limit=200&tag=product-demo&projection=summary");
+  const tag = encodeURIComponent(scenarioVersion);
+  const listResponse = await admin.get(`/api/referrals?limit=200&tag=${tag}&projection=summary`);
   expect(listResponse.status()).toBe(200);
   const list = asRecord(await listResponse.json());
   const referrals = Array.isArray(list.referrals) ? list.referrals.map(asRecord) : [];
@@ -472,7 +490,7 @@ async function reconcileProductDemo(
   }
 
   for (const month of months) {
-    const response = await admin.get(`/api/referrals?limit=200&tag=product-demo&month=${month}&projection=summary`);
+    const response = await admin.get(`/api/referrals?limit=200&tag=${tag}&month=${month}&projection=summary`);
     expect(response.status(), month).toBe(200);
     const body = asRecord(await response.json());
     expect(Number(body.total), month).toBe(cases.filter((item) => item.month === month).length);

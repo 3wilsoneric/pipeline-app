@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("core Pipeline surfaces render and navigate", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
 
   await page.getByRole("button", { name: "Open referrals" }).click();
   await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
