@@ -143,14 +143,6 @@ type AssessmentRemoteChange = {
   conflicts: AssessmentFieldConflict[];
 };
 
-type AssessmentPermissions = {
-  canSupervise: boolean;
-  canCreateClinical: boolean;
-  canEditClinical: boolean;
-  canCreateAssignedAssessment: boolean;
-  canAddAddendum: boolean;
-};
-
 export default function AssessmentWorkspace({ referralId, trainingAssessmentMode, assignedAssessorId, packetEvidenceVersion, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -187,15 +179,14 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
   const focusedAssessmentIdRef = useRef("");
   const packetSyncKeysRef = useRef(new Set<string>());
   const dirty = dirtySections.size > 0;
-  const offlinePrincipal = assessmentOfflinePrincipal(viewer, trainingAssessmentMode);
+  const offlinePrincipal = assessmentOfflinePrincipal(trainingAssessmentMode, viewer);
 
   const selected = assessments.find((assessment) => assessment.assessment_id === selectedId) ?? null;
-  const {
-    canSupervise,
-    canEditClinical,
-    canCreateAssignedAssessment,
-    canAddAddendum,
-  } = assessmentPermissions({ viewer, selected, trainingAssessmentMode, assignedAssessorId });
+  const canSupervise = canSuperviseAssessment(trainingAssessmentMode, viewer);
+  const canCreateClinical = canCreateAssessment(trainingAssessmentMode, viewer);
+  const canEditClinical = canEditAssessment(trainingAssessmentMode, viewer, selected, canSupervise);
+  const canCreateAssignedAssessment = Boolean(viewer && canCreateClinical && (assignedAssessorId === viewer.id || canSupervise));
+  const canAddAddendum = canAddAssessmentAddendum(trainingAssessmentMode, viewer, selected, canSupervise);
   const coverage = useMemo(() => getAssessmentInterviewCoverage(draft), [draft]);
   const completion = useMemo(() => getAssessmentCompletionSummary(draft), [draft]);
   const pendingFields = useMemo(() => getPendingFields(selected), [selected]);
@@ -457,7 +448,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
     setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
     setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
     setShowAddendum(false);
-    loadAssessmentRecoveryDraft(trainingAssessmentMode, selected, data, loadRecoveryDraft);
+    loadRecoveryDraftForLiveAssessment(trainingAssessmentMode, loadRecoveryDraft, selected, data);
   }, [loadRecoveryDraft, offlinePrincipal, selected, trainingAssessmentMode]);
 
   useEffect(() => {
@@ -631,7 +622,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
   const saveSectionNow = useCallback(async (section: AssessmentToolSection) => {
     const current = selectedRef.current;
     if (!canSaveAssessmentSection(current, dirtySectionsRef.current, section)) return;
-    if (remoteChangeRef.current?.conflicts.some((conflict) => conflict.section === section)) {
+    if (hasSectionConflict(remoteChangeRef.current, section)) {
       throw new Error(`Resolve the ${sectionLabels[section]} conflict before saving.`);
     }
 
@@ -688,7 +679,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
       setError("");
       if (nextDirty.size === 0) void clearRecoveryDraft(saved.assessment_id);
     } catch (saveError) {
-      if (saveError instanceof PipelineApiError && saveError.status === 0 && offlinePrincipal) {
+      if (isOfflineAssessmentSave(saveError, offlinePrincipal)) {
         await queueOfflineAssessmentMutation(offlinePrincipal, {
           dedupeKey: `${current.assessment_id}:${section}`,
           url: `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
@@ -1697,52 +1688,62 @@ function assessmentFromConflict(payload: unknown) {
 }
 
 function assessmentOfflinePrincipal(
+  trainingAssessmentMode: TrainingAssessmentMode | undefined,
   viewer: PipelineCurrentUser | null,
-  trainingAssessmentMode?: TrainingAssessmentMode,
 ) {
   if (trainingAssessmentMode) return "";
   return viewer?.id ?? viewer?.email ?? "";
 }
 
-function assessmentPermissions({
-  viewer,
-  selected,
-  trainingAssessmentMode,
-  assignedAssessorId,
-}: {
-  viewer: PipelineCurrentUser | null;
-  selected: PipelineAssessmentRecord | null;
-  trainingAssessmentMode?: TrainingAssessmentMode;
-  assignedAssessorId?: string;
-}): AssessmentPermissions {
-  if (trainingAssessmentMode) {
-    return {
-      canSupervise: true,
-      canCreateClinical: true,
-      canEditClinical: true,
-      canCreateAssignedAssessment: Boolean(viewer),
-      canAddAddendum: true,
-    };
-  }
-
-  const canSupervise = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator"));
-  const canCreateClinical = Boolean(viewer?.roles.some((role) => role === "admin" || role === "assessment_coordinator" || role === "reviewer"));
-  return {
-    canSupervise,
-    canCreateClinical,
-    canEditClinical: Boolean(viewer && selected && (selected.assessor_id === viewer.id || canSupervise)),
-    canCreateAssignedAssessment: Boolean(viewer && canCreateClinical && (assignedAssessorId === viewer.id || canSupervise)),
-    canAddAddendum: Boolean(viewer && (selected?.signed_by?.id === viewer.id || canSupervise)),
-  };
+function viewerHasAnyRole(viewer: PipelineCurrentUser | null, roles: readonly string[]) {
+  return Boolean(viewer?.roles.some((role) => roles.includes(role)));
 }
 
-function loadAssessmentRecoveryDraft(
+function canSuperviseAssessment(
   trainingAssessmentMode: TrainingAssessmentMode | undefined,
-  assessment: PipelineAssessmentRecord,
-  data: AssessmentToolData,
-  loadRecoveryDraft: (assessment: PipelineAssessmentRecord, data: AssessmentToolData) => Promise<void>,
+  viewer: PipelineCurrentUser | null,
 ) {
-  if (!trainingAssessmentMode) void loadRecoveryDraft(assessment, data);
+  if (trainingAssessmentMode) return true;
+  return viewerHasAnyRole(viewer, ["admin", "assessment_coordinator"]);
+}
+
+function canCreateAssessment(
+  trainingAssessmentMode: TrainingAssessmentMode | undefined,
+  viewer: PipelineCurrentUser | null,
+) {
+  if (trainingAssessmentMode) return true;
+  return viewerHasAnyRole(viewer, ["admin", "assessment_coordinator", "reviewer"]);
+}
+
+function canEditAssessment(
+  trainingAssessmentMode: TrainingAssessmentMode | undefined,
+  viewer: PipelineCurrentUser | null,
+  selected: PipelineAssessmentRecord | null,
+  canSupervise: boolean,
+) {
+  if (trainingAssessmentMode) return true;
+  if (!viewer || !selected) return false;
+  return selected.assessor_id === viewer.id || canSupervise;
+}
+
+function canAddAssessmentAddendum(
+  trainingAssessmentMode: TrainingAssessmentMode | undefined,
+  viewer: PipelineCurrentUser | null,
+  selected: PipelineAssessmentRecord | null,
+  canSupervise: boolean,
+) {
+  if (trainingAssessmentMode) return true;
+  if (!viewer) return false;
+  return selected?.signed_by?.id === viewer.id || canSupervise;
+}
+
+function loadRecoveryDraftForLiveAssessment(
+  trainingAssessmentMode: TrainingAssessmentMode | undefined,
+  loadRecoveryDraft: (assessment: PipelineAssessmentRecord, currentData: AssessmentToolData) => Promise<void>,
+  assessment: PipelineAssessmentRecord,
+  currentData: AssessmentToolData,
+) {
+  if (!trainingAssessmentMode) void loadRecoveryDraft(assessment, currentData);
 }
 
 function canSaveAssessmentSection(
@@ -1753,6 +1754,17 @@ function canSaveAssessmentSection(
   return Boolean(assessment && dirtySections.has(section));
 }
 
+function hasSectionConflict(
+  remoteChange: AssessmentRemoteChange | null,
+  section: AssessmentToolSection,
+) {
+  return Boolean(remoteChange?.conflicts.some((conflict) => conflict.section === section));
+}
+
+function isOfflineAssessmentSave(error: unknown, offlinePrincipal: string): error is PipelineApiError {
+  return error instanceof PipelineApiError && error.status === 0 && Boolean(offlinePrincipal);
+}
+
 function hasAssessmentScheduleInput(
   assessment: PipelineAssessmentRecord | null,
   scheduleStart: string,
@@ -1760,10 +1772,10 @@ function hasAssessmentScheduleInput(
   return Boolean(assessment && scheduleStart);
 }
 
-function nextAssessmentScheduleStatus(
-  status: PipelineAssessmentRecord["schedule_status"],
-): "scheduled" | "rescheduled" {
-  return status === "scheduled" || status === "rescheduled" ? "rescheduled" : "scheduled";
+function nextAssessmentScheduleStatus(status: PipelineAssessmentRecord["schedule_status"]) {
+  if (status === "scheduled") return "rescheduled" as const;
+  if (status === "rescheduled") return "rescheduled" as const;
+  return "scheduled" as const;
 }
 
 function nullableTrimmedText(value: string) {
@@ -1786,7 +1798,7 @@ function assessmentSaveStatus({
   pendingOfflineSaves,
 }: {
   error: string;
-  trainingAssessmentMode?: TrainingAssessmentMode;
+  trainingAssessmentMode: TrainingAssessmentMode | undefined;
   dirty: boolean;
   message: string;
   networkOnline: boolean;
@@ -1794,26 +1806,24 @@ function assessmentSaveStatus({
 }) {
   if (error) return error;
   if (trainingAssessmentMode) return trainingAssessmentSaveStatus(dirty, message);
-  return persistedAssessmentSaveStatus({ dirty, message, networkOnline, pendingOfflineSaves });
+  return liveAssessmentSaveStatus(dirty, message, networkOnline, pendingOfflineSaves);
 }
 
 function trainingAssessmentSaveStatus(dirty: boolean, message: string) {
-  return dirty ? "Saving practice changes..." : message || "Practice changes saved locally";
+  if (dirty) return "Saving practice changes...";
+  return message || "Practice changes saved locally";
 }
 
-function persistedAssessmentSaveStatus({
-  dirty,
-  message,
-  networkOnline,
-  pendingOfflineSaves,
-}: {
-  dirty: boolean;
-  message: string;
-  networkOnline: boolean;
-  pendingOfflineSaves: number;
-}) {
+function liveAssessmentSaveStatus(
+  dirty: boolean,
+  message: string,
+  networkOnline: boolean,
+  pendingOfflineSaves: number,
+) {
   if (!networkOnline) return `Offline${pendingOfflineSaves > 0 ? ` · ${pendingOfflineSaves} queued` : ""}`;
-  if (pendingOfflineSaves > 0) return `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync`;
+  if (pendingOfflineSaves > 0) {
+    return `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync`;
+  }
   if (dirty) return "Saving changes...";
   return message || "All changes saved";
 }

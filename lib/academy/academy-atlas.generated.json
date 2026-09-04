@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:6ab4ca339cd311ef",
-  "fingerprint": "6ab4ca339cd311ef66d9493a09f93285a2a6ad4672f216b5d347fdb107f7e8aa",
+  "generatedAt": "source-fingerprint:b4acd0503f9ea4d0",
+  "fingerprint": "b4acd0503f9ea4d0908337f166a734062f14a1767fd7c61781c3b9d5473f6bd0",
   "totals": {
     "files": 799,
-    "lines": 269303,
+    "lines": 269315,
     "coveredFiles": 799
   },
   "entries": [
@@ -1674,7 +1674,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1928,
+      "lines": 1938,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -9655,7 +9655,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 71,
+      "lines": 73,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
