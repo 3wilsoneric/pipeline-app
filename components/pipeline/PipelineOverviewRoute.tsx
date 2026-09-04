@@ -26,6 +26,7 @@ import {
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
+import type { TrainingAssessmentMode } from "@/lib/training/mock-assessment";
 import {
   pushPipelineHistory,
   replacePipelineHistory,
@@ -83,6 +84,7 @@ export default function PipelineOverviewRoute() {
     setSearchOpen(false);
     const params = new URLSearchParams(activeSearchParams.toString());
     params.delete("work");
+    params.delete("trainingAssessment");
     if (nextScreen === "referrals") {
       params.set("view", "referrals");
       params.delete("screen");
@@ -182,6 +184,7 @@ export default function PipelineOverviewRoute() {
         referral={selectedReferral}
         newDraftKey={newReferralDraftKey}
         initialWorkspaceStage={getInitialWorkspaceStage(activeSearchParams)}
+        trainingAssessmentMode={getTrainingAssessmentMode(activeSearchParams)}
         onWorkspaceStageChange={(stage) => {
           const params = new URLSearchParams(activeSearchParams.toString());
           if (stage === "intake") params.delete("workspaceStage");
@@ -257,6 +260,11 @@ function getInitialWorkspaceStage(params: URLSearchParams) {
   const stage = params.get("workspaceStage");
   if (stage === "assessment" || stage === "chart") return stage;
   return "intake";
+}
+
+function getTrainingAssessmentMode(params: URLSearchParams): TrainingAssessmentMode | undefined {
+  const mode = params.get("trainingAssessment");
+  return mode === "schedule" || mode === "interview" ? mode : undefined;
 }
 
 function getScreenFromParams(params: URLSearchParams): PipelineScreen {

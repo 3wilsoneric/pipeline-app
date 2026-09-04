@@ -64,6 +64,7 @@ import {
   type PacketFieldsResponse,
   type ReviewFieldResponse,
 } from "@/lib/extraction/contracts";
+import type { TrainingAssessmentMode } from "@/lib/training/mock-assessment";
 import {
   createMutationId,
   getPacketContentType,
@@ -105,6 +106,7 @@ type ReferralPacketCanvasProps = {
   };
   newDraftKey?: `new-${string}`;
   initialWorkspaceStage?: WorkspaceStageName;
+  trainingAssessmentMode?: TrainingAssessmentMode;
   onReferralSaved?: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onReferralDeleted?: () => void;
   onWorkspaceStageChange?: (stage: WorkspaceStageName) => void;
@@ -263,6 +265,7 @@ export default function ReferralPacketCanvas({
   referral,
   newDraftKey,
   initialWorkspaceStage = "intake",
+  trainingAssessmentMode,
   onReferralSaved,
   onReferralDeleted,
   onWorkspaceStageChange,
@@ -1927,6 +1930,7 @@ export default function ReferralPacketCanvas({
             <PacketPage id="packet-page-2" title="Assessment">
                 <AssessmentWorkspace
                   referralId={loadedReferral?.id ?? referral?.id}
+                  trainingAssessmentMode={trainingAssessmentMode}
                   assignedAssessorId={loadedReferral?.ownerId}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}

@@ -81,7 +81,7 @@ export default function PipelineGuidedCoach() {
 
   function startTutorial(tutorialId: string, requestedStepIndex = 0) {
     const selected = getOperatorGuidedTutorial(tutorialId);
-    if (!selected || !selected.audiences.some((role) => roles.includes(role))) return;
+    if (!selected) return;
     const stepIndex = Math.min(selected.steps.length - 1, Math.max(0, requestedStepIndex));
     const now = new Date().toISOString();
     setState((current) => {
@@ -94,8 +94,7 @@ export default function PipelineGuidedCoach() {
   }
 
   function startTutorialSequence(requestedIds: readonly string[]) {
-    const allowed = new Set(guidedTutorialsForRoles(roles).map((item) => item.id));
-    const tutorialIds = [...new Set(requestedIds)].filter((id) => allowed.has(id));
+    const tutorialIds = [...new Set(requestedIds)].filter((id) => Boolean(getOperatorGuidedTutorial(id)));
     const first = getOperatorGuidedTutorial(tutorialIds[0]);
     if (!first) return;
     const now = new Date().toISOString();

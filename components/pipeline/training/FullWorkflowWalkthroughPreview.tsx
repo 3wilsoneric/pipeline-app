@@ -216,7 +216,7 @@ export default function FullWorkflowWalkthroughPreview({
                     {[
                       ["Look", "The tour opens the page where each part of the work belongs."],
                       ["Follow", "A spotlight and short instruction identify the next useful action."],
-                      ["Move on", "Skip any step when you only need orientation. Nothing is submitted for you."],
+                      ["Move on", "Skip any step when you only need orientation. Pipeline never submits, signs, sends, schedules, or exports on your behalf."],
                     ].map(([title, detail], index) => (
                       <li key={title} className="grid gap-2 border-b border-[#e0e6e3] py-5 sm:grid-cols-[42px_180px_minmax(0,1fr)] sm:items-start sm:gap-5">
                         <span className="text-[11px] font-black tabular-nums text-[#0f7c68]">{String(index + 1).padStart(2, "0")}</span>

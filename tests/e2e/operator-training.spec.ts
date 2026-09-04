@@ -42,6 +42,8 @@ test.describe("Pipeline Learning Center", () => {
     }
     await page.getByRole("navigation", { name: "Finish an assessment chapters" }).getByRole("button", { name: /^02 Open/ }).click();
     await page.getByRole("button", { name: "Open guided tooltip for Open Assessment" }).click();
+    await expect(page).toHaveURL(/trainingAssessment=interview/);
+    await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /Finish an assessment guided tutorial/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Open Assessment" })).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
@@ -64,6 +66,76 @@ test.describe("Pipeline Learning Center", () => {
     await page.getByLabel("Open referrals").click();
     await expect(page).toHaveURL(/view=referrals/);
     await expect(page.getByRole("heading", { name: "Search for the referral" })).toBeVisible();
+    await expect.poll(() => errors).toEqual([]);
+  });
+
+  test("renders assessment training inside the real interview workspace without live writes", async ({ page }) => {
+    const errors = watchBrowserErrors(page);
+    const assessmentWrites: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() !== "GET" && /\/api\/(?:assessments|referrals\/[^/]+\/assessments)/.test(request.url())) {
+        assessmentWrites.push(`${request.method()} ${new URL(request.url()).pathname}`);
+      }
+    });
+
+    await page.goto(trainingAssessmentUrl("interview"));
+    const assessment = page.getByRole("dialog", { name: "Assessment interview" });
+    await expect(assessment).toBeVisible();
+    await expect(assessment.getByText("Taylor Rivera assessment", { exact: true })).toBeVisible();
+    await expect(assessment.getByText("Training case · synthetic client · changes stay in this guide", { exact: true })).toBeVisible();
+    await expect(assessment.getByRole("button", { name: /Clinical/ })).toBeVisible();
+    await expect(assessment.getByRole("button", { name: /Review/ })).toBeVisible();
+
+    await assessment.getByRole("button", { name: /Clinical/ }).click();
+    const currentSymptoms = assessment.getByLabel("Current symptoms");
+    await expect(currentSymptoms).toBeEditable();
+    await currentSymptoms.fill("Synthetic interview answer for autosave verification.");
+    await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible({ timeout: 5_000 });
+
+    expect(assessmentWrites).toEqual([]);
+    await expect.poll(() => errors).toEqual([]);
+  });
+
+  test("moves the assessment tooltip into its literal mock assessment", async ({ page }) => {
+    await mockTrainingProgress(page);
+    await page.goto(trainingUrl);
+    await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
+    await page.getByRole("button", { name: "Open Finish an assessment" }).click();
+    await page.getByRole("button", { name: "Start guided walkthrough: Finish an assessment" }).click();
+
+    const coach = page.getByRole("dialog", { name: "Finish an assessment guided tutorial" });
+    await expect(coach.getByRole("heading", { name: "Find the referral" })).toBeVisible();
+    await coach.getByRole("button", { name: "Skip step" }).click();
+    await expect(coach.getByRole("heading", { name: "Open the referral" })).toBeVisible();
+    await coach.getByRole("button", { name: "Skip step" }).click();
+    await expect(coach.getByRole("heading", { name: "Open Assessment" })).toBeVisible();
+    await coach.getByRole("button", { name: "Continue" }).click();
+
+    await expect(page).toHaveURL(/trainingAssessment=interview/);
+    const assessment = page.getByRole("dialog", { name: "Assessment interview" });
+    await expect(assessment).toBeVisible();
+    await expect(assessment.getByText("Taylor Rivera assessment", { exact: true })).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Client & referral" })).toBeVisible();
+    await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
+  });
+
+  test("uses the real scheduling and begin checkpoints for assessment training", async ({ page }) => {
+    const errors = watchBrowserErrors(page);
+    await page.goto(trainingAssessmentUrl("schedule"));
+
+    const schedule = page.getByRole("dialog", { name: "Schedule assessment" });
+    await expect(schedule).toBeVisible();
+    await schedule.getByLabel("Assessment date and time").fill(futureLocalDateTime());
+    await schedule.getByLabel("Assessment method").selectOption("zoom");
+    await schedule.getByLabel("Assessment location or link").fill("https://example.invalid/pipeline-training");
+    await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+
+    const begin = page.getByRole("dialog", { name: "Begin assessment" });
+    await expect(begin).toBeVisible();
+    await expect(begin.getByText("Zoom", { exact: true })).toBeVisible();
+    await begin.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await expect(begin).toBeHidden();
+    await expect(page.getByRole("dialog", { name: "Assessment interview" }).getByLabel("Resident name")).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });
 
@@ -210,7 +282,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(preview.getByRole("heading", { name: "From concepts to the real workflow" })).toBeVisible();
     await expect(preview.getByRole("heading", { name: "Follow the workflow where it happens." })).toBeVisible();
     await expect(preview.getByText(/guided tour now opens the real Pipeline pages/)).toBeVisible();
-    await expect(preview.getByText(/Nothing is submitted for you/)).toBeVisible();
+    await expect(preview.getByText(/never submits, signs, sends, schedules, or exports on your behalf/)).toBeVisible();
     await preview.getByRole("button", { name: "Start guided tour" }).click();
     await expect(preview).toBeHidden();
     const coach = page.getByRole("dialog", { name: "Full Pipeline walkthrough guided tutorial" });
@@ -330,4 +402,15 @@ async function mockTrainingProgress(page: import("@playwright/test").Page) {
       body: JSON.stringify({ revision, progress, updatedAt: new Date().toISOString(), persistence: "browser" }),
     });
   });
+}
+
+function trainingAssessmentUrl(mode: "schedule" | "interview") {
+  const route = `/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=${mode}`;
+  return trainingUrl.startsWith("http") ? new URL(route, trainingUrl).toString() : route;
+}
+
+function futureLocalDateTime() {
+  const future = new Date(Date.now() + 24 * 60 * 60 * 1_000);
+  const local = new Date(future.getTime() - future.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
 }
