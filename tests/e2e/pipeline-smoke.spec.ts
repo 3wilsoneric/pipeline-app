@@ -9,7 +9,7 @@ import {
   type AssessmentToolData,
   type AssessmentToolFieldKey,
 } from "../../lib/assessment/assessment-tool-schema";
-import { assessmentInterviewQuestions } from "../../lib/assessment/assessment-interview-schema";
+import { assessmentInterviewQuestions, assessmentInterviewSections } from "../../lib/assessment/assessment-interview-schema";
 import type { PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
 
 const clinicalFixture = JSON.parse(
@@ -1542,12 +1542,14 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Face Sheet", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "02 Assessment" }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("workspaceStage")).toBe("assessment");
     await expect(page.getByText("Save the referral before starting the assessment", { exact: true })).toBeVisible();
 
     await expect(page.getByRole("button", { name: "03 Decision" })).toHaveCount(0);
   });
 
   test("schedules, completes, signs, and recalls an assessment", async ({ page }) => {
+    test.setTimeout(60_000);
     const clientName = `Assessment ${uniqueAlphabeticNameToken()}`;
     await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
@@ -1561,18 +1563,34 @@ test.describe("Referral home and packet canvas", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from(`assessment-referral-${randomUUID()}`),
     });
-    await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
+    await page.getByRole("button", { name: /^(Save and continue to assessment|Start assessment)$/ }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
     const referralId = new URL(page.url()).searchParams.get("referralId");
     expect(referralId).toBeTruthy();
-    await page.getByTestId("document-checklist-toggle").click();
-    await expect(page.getByRole("region", { name: "Initial referral packet" })
-      .getByRole("button", { name: /assessment-referral\.pdf Uploaded/ })).toBeVisible();
-    const packetReview = page.getByRole("region", { name: "Extraction review" });
-    await expect(packetReview).toBeVisible();
-    await page.getByRole("button", { name: "02 Assessment" }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("workspaceStage")).toBe("assessment");
+    await expect(page.getByRole("button", { name: "02 Assessment" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("button", { name: "Schedule assessment" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("button", { name: "02 Assessment" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("button", { name: "Schedule assessment" })).toBeVisible();
     await page.getByRole("button", { name: "01 Intake" }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("workspaceStage")).toBeNull();
+    const savedDocumentChecklist = page.getByTestId("document-checklist-panel");
+    if ((await savedDocumentChecklist.getAttribute("open")) === null) {
+      await page.getByTestId("document-checklist-toggle").click();
+    }
+    await expect(page.getByRole("region", { name: "Initial referral packet" })
+      .getByRole("group", { name: "Upload initial referral document" })).toContainText("assessment-referral.pdf", { timeout: 15_000 });
+    const packetReview = page.getByRole("region", { name: "Extraction review" });
+    await expect(packetReview).toBeVisible();
+    await page.getByRole("button", { name: "Start assessment", exact: true }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("workspaceStage")).toBe("assessment");
+    await expect(page.getByRole("button", { name: "02 Assessment" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("button", { name: "Schedule assessment" })).toBeVisible();
+    await page.waitForTimeout(750);
+    await expect(page.getByRole("button", { name: "02 Assessment" })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("button", { name: "01 Intake" }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("workspaceStage")).toBeNull();
     await packetReview.getByRole("button", { name: "Review fields", exact: true }).click();
     const bulkPacketConfirm = packetReview.getByRole("button", { name: /^Confirm \d+ high-confidence values$/ });
     if (await bulkPacketConfirm.count()) {
@@ -1598,6 +1616,11 @@ test.describe("Referral home and packet canvas", () => {
     const beginDialog = page.getByRole("dialog", { name: "Begin assessment" });
     await expect(beginDialog).toBeVisible();
     await beginDialog.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    const assessmentSectionNav = assessmentInterview.getByRole("navigation", { name: "Assessment sections" });
+    await expect(assessmentSectionNav.getByRole("button")).toHaveCount(assessmentInterviewSections.length);
+    for (const section of assessmentInterviewSections) {
+      await expect(assessmentSectionNav.getByRole("button").filter({ hasText: section.label })).toHaveCount(1);
+    }
     await assessmentInterview.getByRole("button", { name: /^History/ }).click();
     await assessmentInterview.getByLabel("Prior placements", { exact: true }).fill("Client reports one prior placement; dates and discharge reason are not yet verified.");
     await assessmentInterview.getByText("Answer format", { exact: true }).first().click();

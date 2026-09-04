@@ -51,6 +51,9 @@ const simpleStepTitles: Readonly<Record<string, string>> = {
   "assessment-find": "Find the referral",
   "assessment-stage": "Open Assessment",
   "assessment-open": "Open the assessment",
+  "assessment-schedule-open": "Open scheduling",
+  "assessment-schedule-fields": "Set the appointment",
+  "assessment-schedule-save": "Save the schedule",
   "assessment-begin": "Select Begin assessment",
   "assessment-begin-confirm": "Check the details",
   "assessment-section": "Choose a section",
@@ -78,6 +81,7 @@ const simpleStepTitles: Readonly<Record<string, string>> = {
   "report-export": "Review before exporting",
   "find-search": "Search referrals",
   "find-open-result": "Open the referral",
+  "find-verify-record": "Verify the record",
 };
 
 export function operatorGuideStepTitle(step: OperatorGuideStep) {
@@ -113,6 +117,25 @@ const allRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "r
 const writeRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer"];
 const assessorRoles: readonly OperatorRole[] = ["admin", "reviewer"];
 const supervisorRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator"];
+
+const assessmentWorkspaceRoute = "/?view=referrals&screen=packet&workspaceStage=assessment";
+
+const assessmentSectionGuideSteps: readonly OperatorGuideStep[] = [
+  step("assessment-section-identity", assessmentWorkspaceRoute, "assessment-section-identity", "Sections", "Client & referral", "Confirm the inherited client and referral facts before documenting the interview.", "Select Client & referral and compare the inherited values with the source packet.", "The correct referral identity and source context are visible.", "The assessment must stay attached to the correct intake episode.", "Inherited values still require verification; correct them in Intake when the source is wrong.", "confirm", "right"),
+  step("assessment-section-placement", assessmentWorkspaceRoute, "assessment-section-prior-placement", "Sections", "Placement", "Record the current setting and the placement history that affects transition planning.", "Select Placement and review the current location, prior setting, and placement trajectory.", "Current and prior placement information are distinguishable.", "Placement context helps reviewers understand transition needs and prior breakdowns.", "Attribute supplied history and leave unsupported dates or details unknown.", "target-click", "right"),
+  step("assessment-section-history", assessmentWorkspaceRoute, "assessment-section-history", "Sections", "History", "Capture hospitalization, crisis, and failed-placement history with dates and sources when known.", "Select History and document the relevant timeline without merging conflicting accounts.", "Hospital, crisis, and placement events have a clear timeframe and source.", "A readable timeline supports risk review without turning old events into current status.", "Do not copy historical statements forward as current facts without verification.", "target-click", "right"),
+  step("assessment-answer", assessmentWorkspaceRoute, "assessment-answer", "Sections", "Enter a supported answer", "Narrative answers should state the finding, source, timeframe, and relevant detail.", "Enter a short synthetic answer in the highlighted field.", "The field contains a source-backed training answer and autosave begins.", "Specific documentation can be reviewed and converted into the downstream Chart.", "The guide detects input but never reads or stores the answer value.", "target-input", "top", true),
+  step("assessment-help", assessmentWorkspaceRoute, "assessment-answer-help", "Sections", "Use Answer Help when needed", "Answer Help appears only where a narrative benefits from field-specific structure or an example.", "Open Answer Help on a narrative field when it is available.", "The note structure and example are visible.", "Targeted help supports consistent documentation without adding clutter to self-evident questions.", "Use the example as structure only; never copy facts that were not assessed.", "target-click", "top", true),
+  step("assessment-section-clinical", assessmentWorkspaceRoute, "assessment-section-clinical", "Sections", "Clinical", "Document diagnoses, current symptoms, cognition, and the person’s presentation during the assessment.", "Select Clinical and separate current observation from client report and supplied records.", "Current presentation and historical diagnosis information are clearly separated.", "This distinction keeps the clinical summary accurate and reviewable.", "Do not validate, dismiss, or invent symptom content.", "target-click", "right"),
+  step("assessment-section-function", assessmentWorkspaceRoute, "assessment-section-function", "Sections", "Function", "Capture what the person does independently and where prompting, equipment, or hands-on support is needed.", "Select Function and answer each conditional follow-up that appears.", "ADLs, mobility, communication, and participation have usable support details.", "Specific functional information becomes an actionable care handoff.", "Do not infer independence from diagnosis or setting alone.", "target-click", "right"),
+  step("assessment-section-medication", assessmentWorkspaceRoute, "assessment-section-medication", "Sections", "Medication", "Verify the medication context carried from intake and document adherence, refusals, routes, and PRN patterns.", "Select Medication and distinguish supplied medication information from what was verified in the assessment.", "Medication facts, source, and unresolved discrepancies are clear.", "The handoff needs usable medication context without misrepresenting intake text as reconciliation.", "This assessment does not prescribe or independently reconcile medications.", "target-click", "right"),
+  step("assessment-section-substance", assessmentWorkspaceRoute, "assessment-section-substance-use", "Sections", "Substance use", "Document history, current use, frequency, impact, treatment, and the person’s own account.", "Select Substance use and complete the follow-ups that match the reported history.", "Use pattern, recency, impact, and source are understandable.", "A structured account avoids collapsing past and current use into one label.", "Use neutral language and preserve differences between client and collateral reports.", "target-click", "right"),
+  step("assessment-section-behavior", assessmentWorkspaceRoute, "assessment-section-behavior-safety", "Sections", "Behavior & safety", "Assess current and historical behavior, triggers, self-harm, assaults, elopement, and perceptual experiences.", "Select Behavior & safety and document recency, frequency, trigger, response, and outcome where relevant.", "Each positive safety history has enough context for review and planning.", "Specific behavior patterns are more actionable than broad risk labels.", "Escalate immediate safety concerns through policy; do not rely on form completion alone.", "target-click", "right"),
+  step("assessment-section-physical", assessmentWorkspaceRoute, "assessment-section-physical-health", "Sections", "Physical health", "Record health concerns, skin integrity, continence support, diet, and equipment needs.", "Select Physical health and complete conditional support details when an answer is Yes.", "Health needs and the exact level of support are visible.", "Receiving staff need concrete support information rather than a diagnosis list alone.", "Record observed or attributed facts and escalate urgent medical concerns separately.", "target-click", "right"),
+  step("assessment-section-legal", assessmentWorkspaceRoute, "assessment-section-legal", "Sections", "Legal", "Capture conserved status, forensic history, court requirements, and supervision obligations.", "Select Legal and verify the status and source documents before completing conditional details.", "Current legal status is separated from historical involvement.", "Accurate legal context protects placement decisions and required follow-up.", "Do not infer legal status from placement type or an old record.", "target-click", "right"),
+  step("assessment-section-support", assessmentWorkspaceRoute, "assessment-section-support-goals", "Sections", "Support & goals", "Document relationships, stable-living history, preferences, and the person’s stated goals.", "Select Support & goals and preserve the person’s own priorities alongside collateral information.", "Supports, preferences, and placement goals are clear and attributed.", "The final recommendation should reflect the person, not only risks and deficits.", "Do not promise a placement or outcome that has not been approved.", "target-click", "right"),
+  step("assessment-section-review", assessmentWorkspaceRoute, "assessment-section-review", "Sections", "Review", "Use the final section for relevant information and placement questions that do not belong elsewhere.", "Select Review, resolve required gaps, and remove duplicated or unsupported narrative.", "The assessment is complete, concise, and ready for a final save check.", "A deliberate final review catches missing evidence before signature locks the record.", "Unknown information should stay visible as unknown rather than being filled by assumption.", "target-click", "right"),
+];
 
 export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
   tutorial({
@@ -155,29 +178,45 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
     ],
   }),
   tutorial({
+    id: "start-assessment",
+    title: "Schedule an assessment",
+    workflow: "Assessor",
+    summary: "Open the assigned referral, schedule the interview, and begin the assessment.",
+    outcome: "Start the correct assessment under the assigned assessor with a visible appointment record.",
+    minutes: 7,
+    persona: "assessor",
+    clickpath: ["Workspaces", "Referral", "Assessment", "Schedule", "Begin"],
+    audiences: assessorRoles,
+    moduleIds: ["assessment-start", "calendar-coordination"],
+    steps: [
+      step("assessment-schedule-find", "/?view=referrals", "workspace-search", "Find", "Find the assigned referral", "Scheduling begins from the existing referral so the appointment stays connected to its source packet, owner, and community.", "Enter a synthetic client or referral search term.", "The intended workspace is visible in the results.", "A deliberate lookup prevents duplicate assessments and wrong-record scheduling.", "Verify identity and assignment before opening the workspace.", "target-input", "bottom"),
+      step("assessment-schedule-open-referral", "/?view=referrals", "workspace-results", "Find", "Open the referral", "The referral workspace is the governed entry point for its assessment and calendar events.", "Select the correct synthetic workspace.", "The referral workspace is open.", "One connected workspace preserves ownership and schedule history.", "Only schedule work assigned to you or authorized by a supervisor.", "target-click", "top"),
+      step("assessment-schedule-stage", "/?view=referrals&screen=packet", "assessment-stage", "Assessment", "Open Assessment", "Assessment contains the appointment, interview, autosave, completion, and signature controls for this referral.", "Select Assessment in the workspace stage navigation.", "The assessment area is visible.", "The assessment remains connected to verified intake information.", "Resolve identity, assignment, or packet-readiness issues before scheduling.", "target-click", "bottom"),
+      step("assessment-schedule-open", assessmentWorkspaceRoute, "assessment-schedule-open", "Schedule", "Open scheduling", "Scheduling creates or opens the one assessment record for this referral and presents its appointment fields.", "Select Schedule assessment when needed. Once the scheduling form is open, continue the guide.", "The scheduling form is open.", "A single assessment record prevents detached appointments and duplicate interviews.", "If the control is unavailable, verify assignment and permissions instead of bypassing them.", "confirm", "left"),
+      step("assessment-schedule-fields", assessmentWorkspaceRoute, "assessment-schedule-fields", "Schedule", "Set the appointment", "Record the date, time, duration, method, and Zoom link or location that the assessor will use.", "Set the synthetic date and time in the highlighted field, then complete the remaining appointment details before saving.", "The form has a usable date, time, duration, method, and location or link.", "Complete appointment details make the event actionable in the assessor’s calendar.", "Confirm time zone and never place unnecessary clinical detail in calendar fields.", "target-change", "left"),
+      step("assessment-schedule-save", assessmentWorkspaceRoute, "assessment-schedule-save", "Schedule", "Save the schedule", "Saving creates the assessment appointment event and keeps it scoped to the assigned assessor.", "Review the synthetic appointment, select Schedule assessment yourself, then continue the guide.", "The scheduling dialog closes and Begin assessment is available.", "The calendar and referral now share the same appointment source.", "The guide never schedules or reschedules an appointment on your behalf.", "confirm", "left"),
+      step("assessment-begin", assessmentWorkspaceRoute, "assessment-begin", "Begin", "Select Begin assessment", "Beginning changes scheduled work into an active, accountable assessment under the signed-in assessor.", "Select Begin assessment when the interview is actually starting.", "The begin confirmation is visible.", "A separate checkpoint prevents accidental starts.", "Do not begin early merely to clear the schedule queue.", "target-click", "left"),
+      step("assessment-begin-confirm", assessmentWorkspaceRoute, "assessment-begin-confirm", "Begin", "Confirm the start", "The final confirmation records the assessment start and enables clinical entry.", "Verify the synthetic client, assessor, appointment, and method, select Begin assessment yourself, then finish the guide.", "The interview form is active and section navigation is available.", "A deliberate start establishes who is accountable for the clinical documentation.", "The guide never begins an assessment or verifies readiness on your behalf.", "confirm", "left"),
+    ],
+  }),
+  tutorial({
     id: "complete-assessment",
     title: "Finish an assessment",
     workflow: "Assessor",
-    summary: "Open the assigned assessment, complete each section, review progress, and stop at signature.",
+    summary: "Open the active assessment, work through all 12 sections, verify autosave, and stop at signature.",
     outcome: "Complete a defensible assessment and understand the final signing boundary.",
-    minutes: 10,
+    minutes: 20,
     persona: "assessor",
-    clickpath: ["Workspaces", "Referral", "Assessment", "Begin", "Sections", "Sign"],
+    clickpath: ["Workspaces", "Referral", "Assessment", "12 sections", "Save", "Sign"],
     audiences: assessorRoles,
     moduleIds: ["assessment-start", "assessment-demographics", "assessment-questionnaire", "assessment-complete-sign"],
     steps: [
       step("assessment-find", "/?view=referrals", "workspace-search", "Find", "Find the assigned referral", "Begin from the existing assigned referral so the assessment remains connected to the correct source packet and history.", "Enter a training client or referral search term.", "The matching workspace results are visible.", "A deliberate lookup reduces wrong-record and duplicate-assessment risk.", "A matching name is not enough; verify the referral episode before opening it.", "target-input", "bottom"),
       step("assessment-open-referral", "/?view=referrals", "workspace-results", "Find", "Open the referral", "The workspace is the governed entry point for assessment work and preserves ownership, source files, and activity.", "Select the correct training workspace.", "The referral workspace is open.", "Starting from the workspace preserves one continuous admissions record.", "Only open records assigned to you or required for authorized work.", "target-click", "top"),
-      step("assessment-stage", "/?view=referrals&screen=packet", "assessment-stage", "Open", "Select Assessment", "The Assessment stage contains scheduling status, the interview form, section progress, autosave state, and signing control.", "Select Assessment in the highlighted stage navigation.", "The assessment area is visible.", "One assessment surface keeps intake data and assessor answers distinct but connected.", "Do not use the Chart as a substitute for completing the source assessment.", "target-click", "bottom"),
-      step("assessment-open", "/?view=referrals&screen=packet", "assessment-open", "Open", "Open the assigned assessment", "Open assessment enters the selected assessment without creating a second assessment or detached note.", "Select Open assessment when the highlighted control is available.", "The focused assessment workspace is open.", "The selected assessment remains tied to the assigned referral and assessor.", "If the control is unavailable, resolve assignment or scheduling instead of bypassing it.", "target-click", "left", true),
-      step("assessment-begin", "/?view=referrals&screen=packet", "assessment-begin", "Begin", "Review the begin checkpoint", "Beginning changes scheduled work into an active accountable interview under the signed-in assessor.", "Select Begin assessment to review the scheduled details.", "The Begin assessment confirmation is visible.", "A separate checkpoint prevents accidental starts and confirms the correct person and schedule.", "Do not confirm until identity, assignment, and readiness are verified.", "target-click", "left", true),
-      step("assessment-begin-confirm", "/?view=referrals&screen=packet", "assessment-begin-confirm", "Begin", "Confirm only when ready", "The confirmation records the assessment start and enables clinical entry for the assigned assessor.", "Verify client, assessor, date, method, and readiness, then continue the guide without submitting a training record.", "You know what must be true before beginning.", "A human confirmation preserves accountability for the start of clinical documentation.", "The guide never confirms Begin, Sign, Schedule, Export, or Handoff for you.", "confirm", "left", true),
-      step("assessment-section", "/?view=referrals&screen=packet", "assessment-section-nav", "Document", "Choose an assessment section", "Section navigation moves directly to the domain being documented while preserving one assessment draft.", "Select a section in the highlighted assessment navigation.", "The selected section appears in the form.", "Section navigation supports interruption and return without disconnected notes.", "Complete required questions from interview or attributed source evidence; do not guess.", "target-click", "right", true),
-      step("assessment-answer", "/?view=referrals&screen=packet", "assessment-answer", "Document", "Enter a supported answer", "Structured and narrative answers should reflect the interview, direct observation, or an explicitly attributed source.", "Enter a short training answer in the highlighted field.", "The field shows the entered answer and autosave can begin.", "Specific, attributed documentation supports review and downstream chart generation.", "The guide detects input but never reads or stores the answer value.", "target-input", "top", true),
-      step("assessment-help", "/?view=referrals&screen=packet", "assessment-answer-help", "Document", "Use Answer Help when needed", "Answer Help appears on narrative questions where structure or neutral wording benefits from a field-specific example.", "Open the highlighted Answer Help panel.", "The note structure and example are visible.", "Targeted help improves consistency without adding boilerplate to every question.", "Use the example as structure only; never copy facts that were not assessed.", "target-click", "top", true),
-      step("assessment-next", "/?view=referrals&screen=packet", "assessment-next-section", "Review", "Continue through each section", "Next section moves through the required assessment domains while the section count shows what remains.", "Select Next section after reviewing the current section.", "The next assessment section appears.", "An ordered review reduces missed required domains before signature.", "A section transition does not prove answers are complete or clinically supported.", "target-click", "top", true),
-      step("assessment-save", "/?view=referrals&screen=packet", "assessment-save-status", "Review", "Confirm autosave status", "The save indicator distinguishes a saved draft from work that is pending or failed to persist.", "Confirm that the highlighted save status shows the expected saved state before leaving.", "The assessment draft has a visible saved state.", "Visible persistence status protects work during interruptions and handoffs.", "Do not leave or sign while save failure or unresolved conflicts are visible.", "confirm", "left", true),
-      step("assessment-sign", "/?view=referrals&screen=packet", "assessment-sign", "Sign", "Stop at assessment signature", "Signing locks the completed assessment as an accountable clinical artifact and enables downstream review and Chart generation.", "Resolve required gaps and review the complete assessment. Finish this guide; sign authorized work yourself only when ready.", "The assessment is deliberately signed by you or left unsigned for correction.", "Signature is a clinical accountability boundary and must remain a deliberate human action.", "The guide never clicks Sign assessment or records a signature for you.", "confirm", "left", true),
+      step("assessment-stage", "/?view=referrals&screen=packet", "assessment-stage", "Open", "Select Assessment", "The Assessment stage contains the interview, section progress, autosave state, and signing control.", "Select Assessment in the highlighted stage navigation.", "The assessment area is visible.", "One assessment surface keeps intake data and assessor answers distinct but connected.", "Schedule and begin the assessment first when it is not already in progress.", "target-click", "bottom"),
+      ...assessmentSectionGuideSteps,
+      step("assessment-save", assessmentWorkspaceRoute, "assessment-save-status", "Save and sign", "Confirm autosave status", "The save indicator distinguishes a saved draft from work that is pending or failed to persist.", "Confirm that the highlighted save status shows All changes saved before leaving or signing.", "The assessment draft has a visible saved state.", "Visible persistence status protects work during interruptions and handoffs.", "Do not leave or sign while save failure, queued changes, or unresolved conflicts are visible.", "confirm", "left"),
+      step("assessment-sign", assessmentWorkspaceRoute, "assessment-sign", "Save and sign", "Stop at assessment signature", "Signing locks the completed assessment as an accountable clinical artifact and enables supervisor review and Chart generation.", "Resolve required gaps and review the complete assessment. Finish this guide; sign authorized work yourself only when ready.", "The assessment is deliberately signed by you or left unsigned for correction.", "Signature is a clinical accountability boundary and must remain a deliberate human action.", "The guide never clicks Sign assessment or records a signature for you.", "confirm", "left", true),
     ],
   }),
   tutorial({
@@ -254,14 +293,15 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
       step("find-open-workspaces", "/", "primary-workspaces", "Workspaces", "Open Workspaces", "Workspaces is the shared referral inventory across communities and months.", "Select Workspaces in the highlighted navigation.", "The workspace directory is open.", "The shared directory is the reliable return path after interruption.", "Opening Workspaces is read-only.", "target-click", "bottom"),
       step("find-search", "/?view=referrals", "workspace-search", "Search", "Search the shared inventory", "Search by approved client, community, county, source, or owner information rather than scanning from memory.", "Enter a training search term in the highlighted field.", "The visible result list narrows.", "Search is the first protection against duplicate work.", "Treat matching names as candidates until identity and episode are verified.", "target-input", "bottom"),
       step("find-open-result", "/?view=referrals", "workspace-results", "Open", "Open the existing referral", "The result opens the connected referral episode at its available workflow stage with files and activity intact.", "Select the intended training referral from the highlighted results.", "The existing referral workspace opens.", "Reopening the existing record preserves one source of truth.", "Only open a record required for authorized work and verify identity before editing.", "target-click", "top"),
+      step("find-verify-record", "/?view=referrals&screen=packet", "intake-identity", "Verify", "Verify the referral episode", "Confirm the client identity, source, received date, and community before continuing work in the opened workspace.", "Compare the visible intake facts with the referral episode you intended to open, then acknowledge this checkpoint.", "The client and referral episode match the work you intended to continue.", "A final identity check prevents a matching name from becoming a wrong-record edit.", "Stop and return to search if any identity or episode detail does not match.", "confirm", "top"),
     ],
   }),
 ];
 
 export const operatorGuideVerifiedActionTargets: Readonly<Record<Exclude<OperatorGuideAdvance, "confirm">, readonly string[]>> = {
-  "target-click": ["primary-workspaces", "primary-calendar", "primary-new-referral", "primary-reports", "calendar-view", "workspace-results", "assessment-stage", "assessment-open", "assessment-begin", "assessment-section-nav", "assessment-answer-help", "assessment-next-section", "chart-stage", "chart-meet-client-tab", "operations-report-select"],
+  "target-click": ["primary-workspaces", "primary-calendar", "primary-new-referral", "primary-reports", "calendar-view", "workspace-results", "assessment-stage", "assessment-open", "assessment-schedule-open", "assessment-schedule-save", "assessment-begin", "assessment-begin-confirm", "assessment-section-prior-placement", "assessment-section-history", "assessment-answer-help", "assessment-section-clinical", "assessment-section-function", "assessment-section-medication", "assessment-section-substance-use", "assessment-section-behavior-safety", "assessment-section-physical-health", "assessment-section-legal", "assessment-section-support-goals", "assessment-section-review", "chart-stage", "chart-meet-client-tab", "operations-report-select"],
   "target-input": ["workspace-search", "intake-identity", "intake-medications", "assessment-answer"],
-  "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "operations-report-month"],
+  "target-change": ["calendar-filters", "initial-packet-upload", "intake-routing", "assessment-schedule-fields", "operations-report-month"],
 };
 
 export const operatorGuidedTutorialIds = operatorGuidedTutorials.map((tutorial) => tutorial.id);
@@ -283,13 +323,25 @@ export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
   "intake-medications": "components/pipeline/ReferralPacketCanvas.tsx",
   "create-workspace": "components/pipeline/ReferralPacketCanvas.tsx",
   "assessment-stage": "components/pipeline/ReferralPacketCanvas.tsx",
-  "assessment-open": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-schedule-open": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-schedule-fields": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-schedule-save": "components/pipeline/AssessmentWorkspace.tsx",
   "assessment-begin": "components/pipeline/AssessmentWorkspace.tsx",
   "assessment-begin-confirm": "components/pipeline/AssessmentWorkspace.tsx",
-  "assessment-section-nav": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-identity": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-prior-placement": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-history": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-clinical": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-function": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-medication": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-substance-use": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-behavior-safety": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-physical-health": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-legal": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-support-goals": "components/pipeline/AssessmentWorkspace.tsx",
+  "assessment-section-review": "components/pipeline/AssessmentWorkspace.tsx",
   "assessment-answer": "components/pipeline/AssessmentWorkspace.tsx",
   "assessment-answer-help": "components/pipeline/AssessmentWorkspace.tsx",
-  "assessment-next-section": "components/pipeline/AssessmentWorkspace.tsx",
   "assessment-save-status": "components/pipeline/AssessmentWorkspace.tsx",
   "assessment-sign": "components/pipeline/AssessmentWorkspace.tsx",
   "chart-stage": "components/pipeline/ReferralPacketCanvas.tsx",

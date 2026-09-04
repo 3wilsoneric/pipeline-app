@@ -104,9 +104,10 @@ type ReferralPacketCanvasProps = {
     community?: string;
   };
   newDraftKey?: `new-${string}`;
-  initialWorkspaceStage?: "intake" | "assessment";
+  initialWorkspaceStage?: WorkspaceStageName;
   onReferralSaved?: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onReferralDeleted?: () => void;
+  onWorkspaceStageChange?: (stage: WorkspaceStageName) => void;
 };
 
 type DirtyDraftKey = ReferralCanvasDirtyKey;
@@ -154,6 +155,7 @@ type ExtractionReviewConflict = {
 
 type WorkspaceStage = 1 | 2 | 3;
 type WorkspaceView = WorkspaceStage | "files" | "activity";
+type WorkspaceStageName = "intake" | "assessment" | "chart";
 
 const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
   { page: 1, label: "Intake" },
@@ -257,7 +259,14 @@ const attachments: Requirement[] = [
   { id: "face-sheet", label: "Face Sheet", type: "face_sheet" },
 ];
 
-export default function ReferralPacketCanvas({ referral, newDraftKey, initialWorkspaceStage = "intake", onReferralSaved, onReferralDeleted }: ReferralPacketCanvasProps = {}) {
+export default function ReferralPacketCanvas({
+  referral,
+  newDraftKey,
+  initialWorkspaceStage = "intake",
+  onReferralSaved,
+  onReferralDeleted,
+  onWorkspaceStageChange,
+}: ReferralPacketCanvasProps = {}) {
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
     name: { ...initialFields.name, value: referral?.name ?? "" },
@@ -313,13 +322,12 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
   const isSavingRef = useRef(isSaving);
   const draftRevisionRef = useRef(0);
   const creationMutationIdRef = useRef(newReferralCreationMutationId(newDraftKey));
-  const saveDraftRef = useRef<() => Promise<void>>(async () => undefined);
+  const saveDraftRef = useRef<() => Promise<Referral | null>>(async () => null);
   const materializationAttemptRef = useRef<{ revision: number; attempts: number }>({ revision: -1, attempts: 0 });
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
   useWorkspaceStageRouting(referral?.id, newDraftKey, initialWorkspaceStage, setActivePage);
   const defaultOwnerRef = useRef<{ principalId: string; displayName: string } | null>(null);
   const handoffReasonRef = useRef("");
-  const assessmentRoutingReferralRef = useRef<number | null>(null);
 
   useEffect(() => {
     loadedReferralRef.current = loadedReferral;
@@ -364,13 +372,10 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
   useEffect(() => {
     const referralId = referral?.id;
     if (!referralId) {
-      assessmentRoutingReferralRef.current = null;
-      setActivePage(1);
+      setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
       return;
     }
-    if (!shouldRouteAssessment(loadedReferral, referralId, assessmentRoutingReferralRef.current)) return;
-    assessmentRoutingReferralRef.current = referralId;
-    setActivePage(1);
+    if (!loadedReferral || loadedReferral.id !== referralId || loadedReferral.workspaceStatus === "historical") return;
     setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
     let cancelled = false;
     fetchPipelineJson<AssessmentListResponse>(`/api/referrals/${referralId}/assessments`, { cache: "no-store" })
@@ -387,10 +392,9 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
           startedAt: assessment.started_at,
           signedAt: assessment.signed_at,
         });
-        if (!assessment.signed_at && (assessment.scheduled_start_at || assessment.started_at)) setActivePage(2);
       })
       .catch(() => {
-        // Intake remains usable if assessment routing cannot be resolved.
+        // Workspace navigation remains usable if the assessment summary cannot be loaded.
       });
     return () => {
       cancelled = true;
@@ -901,7 +905,9 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
   };
 
   const openPage = (page: WorkspaceView) => {
-    setActivePage(normalizeWorkspaceView(page, loadedReferralRef.current?.workspaceStatus));
+    const nextPage = normalizeWorkspaceView(page, loadedReferralRef.current?.workspaceStatus);
+    setActivePage(nextPage);
+    if (typeof nextPage === "number") onWorkspaceStageChange?.(workspaceStageName(nextPage));
     requestAnimationFrame(() => {
       canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -1155,15 +1161,15 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
     setSavedAt(referralSaveStatus(remainingDirtyKeys.size, Boolean(snapshot.initialPacket)));
   };
 
-  const saveDraft = async () => {
+  const saveDraft = async (): Promise<Referral | null> => {
     setSaveError("");
     if (uploadingDocumentIds.size > 0) {
       setSaveError("Wait for the selected documents to finish uploading before saving again.");
-      return;
+      return null;
     }
     if (remoteChange?.conflicts.length) {
       setSaveError("Resolve the remote field changes before saving.");
-      return;
+      return null;
     }
     setIsSaving(true);
     isSavingRef.current = true;
@@ -1207,6 +1213,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
         savedReferral = await uploadAndLinkSupportingDocument(savedReferral, requirementId, file);
       }
       await finishReferralSave(savedReferral, snapshot);
+      return savedReferral;
     } catch (error) {
       let latestConflict: Referral | null = null;
       if (error instanceof PipelineApiError && error.status === 409) {
@@ -1215,6 +1222,7 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
       }
       if (!latestConflict && savedReferral) setLoadedReferral(savedReferral);
       setSaveError(error instanceof Error ? error.message : "Could not save this referral workspace.");
+      return null;
     } finally {
       isSavingRef.current = false;
       setIsSaving(false);
@@ -1222,6 +1230,17 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
   };
 
   saveDraftRef.current = saveDraft;
+
+  const continueToAssessment = async () => {
+    const hasPendingChanges = dirtyKeysRef.current.size > 0
+      || Object.keys(pendingDocumentsRef.current).length > 0
+      || Boolean(initialPacketRef.current);
+    if (!loadedReferralRef.current || hasPendingChanges) {
+      const savedReferral = await saveDraft();
+      if (!savedReferral) return;
+    }
+    openPage(2);
+  };
 
   useEffect(() => {
     const hasMeaningfulWork = dirtyKeys.size > 0
@@ -1885,9 +1904,14 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
                 <ChartCompletionRail
                   fieldCount={fieldCount}
                   fieldTotal={visibleChartFieldKeys.length}
-                  referral={loadedReferral}
                   assessmentSummary={assessmentSummary}
-                  onOpenStep={openPage}
+                  continuing={isSaving}
+                  blocked={uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length)}
+                  needsSave={!loadedReferral
+                    || dirtyKeys.size > 0
+                    || Object.keys(pendingDocuments).length > 0
+                    || Boolean(initialPacket)}
+                  onContinue={() => void continueToAssessment()}
                 />
               </aside>
             </div>
@@ -1940,14 +1964,22 @@ export default function ReferralPacketCanvas({ referral, newDraftKey, initialWor
   );
 }
 
-function workspacePageForStage(stage: "intake" | "assessment"): WorkspaceStage {
-  return stage === "assessment" ? 2 : 1;
+function workspacePageForStage(stage: WorkspaceStageName): WorkspaceStage {
+  if (stage === "assessment") return 2;
+  if (stage === "chart") return 3;
+  return 1;
+}
+
+function workspaceStageName(stage: WorkspaceStage): WorkspaceStageName {
+  if (stage === 2) return "assessment";
+  if (stage === 3) return "chart";
+  return "intake";
 }
 
 function useWorkspaceStageRouting(
   referralId: number | undefined,
   draftKey: ReferralPacketCanvasProps["newDraftKey"],
-  stage: "intake" | "assessment",
+  stage: WorkspaceStageName,
   setActivePage: (page: WorkspaceView) => void,
 ) {
   const routedWorkspaceRef = useRef("");
@@ -1959,23 +1991,10 @@ function useWorkspaceStageRouting(
   }, [draftKey, referralId, setActivePage, stage]);
 }
 
-function shouldRouteAssessment(
-  referral: Referral | null,
-  referralId: number,
-  routedReferralId: number | null,
-) {
-  return Boolean(
-    referral
-    && referral.id === referralId
-    && referral.workspaceStatus !== "historical"
-    && routedReferralId !== referralId,
-  );
-}
-
 function workspaceRouteKey(
   referralId: number | undefined,
   draftKey: ReferralPacketCanvasProps["newDraftKey"],
-  stage: "intake" | "assessment",
+  stage: WorkspaceStageName,
 ) {
   return `${referralId ?? draftKey ?? "new"}:${stage}`;
 }
@@ -2218,13 +2237,14 @@ function chartGuideTarget(title: string) {
 function ChartCompletionRail({
   fieldCount,
   fieldTotal,
-  referral,
   assessmentSummary,
-  onOpenStep,
+  continuing,
+  blocked,
+  needsSave,
+  onContinue,
 }: {
   fieldCount: number;
   fieldTotal: number;
-  referral: Referral | null;
   assessmentSummary: {
     captured: number;
     total: number;
@@ -2234,7 +2254,10 @@ function ChartCompletionRail({
     startedAt?: string | null;
     signedAt?: string | null;
   };
-  onOpenStep: (page: WorkspaceView) => void;
+  continuing: boolean;
+  blocked: boolean;
+  needsSave: boolean;
+  onContinue: () => void;
 }) {
   const percent = fieldTotal === 0 ? 0 : Math.round((fieldCount / fieldTotal) * 100);
 
@@ -2257,12 +2280,17 @@ function ChartCompletionRail({
       </dl>
       <button
         type="button"
-        onClick={() => onOpenStep(2)}
-        disabled={!referral}
-        title={referral ? undefined : "Save the intake before starting the assessment"}
+        onClick={onContinue}
+        disabled={continuing || blocked}
         className="mt-4 flex h-10 w-full items-center justify-center bg-[#111111] px-4 text-[11px] font-black text-white transition-colors hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d2d2d2]"
       >
-        {!referral ? "Save intake to continue" : assessmentSummary.assessmentId ? "Continue assessment" : "Start assessment"}
+        {continuing
+          ? "Saving intake..."
+          : needsSave
+            ? "Save and continue to assessment"
+            : assessmentSummary.assessmentId
+              ? "Continue assessment"
+              : "Start assessment"}
       </button>
     </section>
   );

@@ -43,6 +43,7 @@ export default function PipelineOverviewRoute() {
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const screen = getScreenFromParams(activeSearchParams);
+  const currentWorkOpen = screen === "home" && activeSearchParams.get("work") === "current";
   const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
   const routeReferral = screen === "packet" ? getReferralFromParams(activeSearchParams) : undefined;
   const newReferralDraftKey = screen === "packet" && !routeReferral
@@ -83,6 +84,7 @@ export default function PipelineOverviewRoute() {
     if (nextScreen === "operations" && reportAccess !== true) return;
     setSearchOpen(false);
     const params = new URLSearchParams(activeSearchParams.toString());
+    params.delete("work");
     if (nextScreen === "referrals") {
       params.set("view", "referrals");
       params.delete("screen");
@@ -142,8 +144,22 @@ export default function PipelineOverviewRoute() {
     params.set("draftId", draftKey.slice(4));
     params.delete("referralId");
     params.delete("clientId");
+    params.delete("work");
     pushPipelineHistory(`/?${params.toString()}`);
     setReferralDetails(undefined);
+  };
+
+  const openCurrentWork = () => {
+    setSearchOpen(false);
+    const params = new URLSearchParams(activeSearchParams.toString());
+    params.set("work", "current");
+    pushPipelineHistory(`/?${params.toString()}`);
+  };
+
+  const closeCurrentWork = () => {
+    const params = new URLSearchParams(activeSearchParams.toString());
+    params.delete("work");
+    replacePipelineHistory(params.size ? `/?${params.toString()}` : "/");
   };
 
   const globalSearchPanel = searchOpen ? (
@@ -171,6 +187,9 @@ export default function PipelineOverviewRoute() {
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
         onResumeDraft={resumeReferralDraft}
+        currentWorkOpen={currentWorkOpen}
+        onOpenCurrentWork={openCurrentWork}
+        onCloseCurrentWork={closeCurrentWork}
       />
     );
   }
@@ -182,6 +201,12 @@ export default function PipelineOverviewRoute() {
         referral={selectedReferral}
         newDraftKey={newReferralDraftKey}
         initialWorkspaceStage={getInitialWorkspaceStage(activeSearchParams)}
+        onWorkspaceStageChange={(stage) => {
+          const params = new URLSearchParams(activeSearchParams.toString());
+          if (stage === "intake") params.delete("workspaceStage");
+          else params.set("workspaceStage", stage);
+          replacePipelineHistory(`/?${params.toString()}`);
+        }}
         onReferralSaved={(savedReferral) => {
           setReferralDetails(savedReferral);
           const params = new URLSearchParams(activeSearchParams.toString());
@@ -247,7 +272,9 @@ function searchParamsText(searchParams: { toString(): string } | null) {
 }
 
 function getInitialWorkspaceStage(params: URLSearchParams) {
-  return params.get("workspaceStage") === "assessment" ? "assessment" : "intake";
+  const stage = params.get("workspaceStage");
+  if (stage === "assessment" || stage === "chart") return stage;
+  return "intake";
 }
 
 function getScreenFromParams(params: URLSearchParams): PipelineScreen {

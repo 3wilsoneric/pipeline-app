@@ -36,6 +36,11 @@ test.describe("Pipeline Learning Center", () => {
       .getByRole("button", { name: /^02 Open/ })
       .click();
     await expect(page.getByRole("heading", { name: "Open Assessment" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Finish an assessment chapters" }).getByRole("button", { name: /^03 Sections/ }).click();
+    for (const section of ["Client & referral", "Placement", "History", "Clinical", "Function", "Medication", "Substance use", "Behavior & safety", "Physical health", "Legal", "Support & goals", "Review"]) {
+      await expect(page.getByRole("heading", { name: section, exact: true })).toBeVisible();
+    }
+    await page.getByRole("navigation", { name: "Finish an assessment chapters" }).getByRole("button", { name: /^02 Open/ }).click();
     await page.getByRole("button", { name: "Open guided tooltip for Open Assessment" }).click();
     await expect(page.getByRole("dialog", { name: /Finish an assessment guided tutorial/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Open Assessment" })).toBeVisible();
@@ -191,17 +196,18 @@ test.describe("Pipeline Learning Center", () => {
     await expect(preview.getByRole("heading", { name: "Follow the work in Pipeline." })).toBeVisible();
     await expect(preview.getByText("Work in the real interface", { exact: true })).toBeVisible();
     await expect(preview.getByText("Create a referral", { exact: true })).toBeVisible();
+    await expect(preview.getByText("Schedule an assessment", { exact: true })).toBeVisible();
     await expect(preview.getByText("Finish an assessment", { exact: true })).toBeVisible();
     await preview.getByRole("button", { name: "Start guided tour" }).click();
     await expect(preview).toBeHidden();
     const coach = page.getByRole("dialog", { name: "Full Pipeline walkthrough guided tutorial" });
     await expect(coach).toBeVisible();
-    await expect(coach.getByText("Full tour · Module 1 of 7", { exact: true })).toBeVisible();
+    await expect(coach.getByText("Full tour · Module 1 of 8", { exact: true })).toBeVisible();
     await expect(coach.getByRole("heading", { name: "Select New referral" })).toBeVisible();
 
     const visitedModules = new Set<string>();
     for (let action = 0; action < 60 && await coach.isVisible(); action += 1) {
-      const moduleLabel = await coach.getByText(/Full tour · Module \d+ of 7/).textContent();
+      const moduleLabel = await coach.getByText(/Full tour · Module \d+ of 8/).textContent();
       if (moduleLabel) visitedModules.add(moduleLabel.trim());
       const previous = await coach.textContent();
       await coach.getByRole("button", { name: /^Skip/ }).click();
@@ -210,8 +216,8 @@ test.describe("Pipeline Learning Center", () => {
       }
     }
 
-    expect([...visitedModules]).toContain("Full tour · Module 3 of 7");
-    expect([...visitedModules]).toContain("Full tour · Module 7 of 7");
+    expect([...visitedModules]).toContain("Full tour · Module 3 of 8");
+    expect([...visitedModules]).toContain("Full tour · Module 8 of 8");
     await expect(coach).toBeHidden();
   });
 

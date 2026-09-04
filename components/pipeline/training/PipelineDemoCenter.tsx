@@ -24,6 +24,7 @@ import {
 } from "@/lib/demo/demo-scenarios";
 import { activatePipelineDemoSession } from "@/lib/demo/demo-session";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
+import { stageOperatorGuideForNavigation } from "@/lib/training/operator-guided-tour-state";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import MeetClientHandoffDemo from "@/components/pipeline/training/MeetClientHandoffDemo";
@@ -45,6 +46,7 @@ type DemoChapter = {
   actions: readonly string[];
   completeWhen: string;
   scenarioId: PipelineDemoScenarioId;
+  guide?: { tutorialId: string; stepId: string };
 };
 
 const demoChapters: readonly DemoChapter[] = [
@@ -71,6 +73,7 @@ const demoChapters: readonly DemoChapter[] = [
     actions: ["Open Assessment and select Schedule", "Choose Zoom or the correct interview method", "Save and confirm the scheduled time on the referral"],
     completeWhen: "The assessment has an assessor, time, and interview method.",
     scenarioId: "assessment-preparation",
+    guide: { tutorialId: "start-assessment", stepId: "assessment-schedule-fields" },
   },
   {
     number: 4,
@@ -79,6 +82,7 @@ const demoChapters: readonly DemoChapter[] = [
     actions: ["Move through each section in order", "Answer conditional follow-up questions when they appear", "Use Answer format only when you need help structuring a narrative"],
     completeWhen: "Required sections are complete and autosave shows no pending changes.",
     scenarioId: "assessment-interview",
+    guide: { tutorialId: "complete-assessment", stepId: "assessment-section-identity" },
   },
   {
     number: 5,
@@ -114,7 +118,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
     });
   }, []);
 
-  const launchScenario = async (scenario: PipelineDemoScenario) => {
+  const launchScenario = async (scenario: PipelineDemoScenario, guide?: DemoChapter["guide"]) => {
     activatePipelineDemoSession();
     setError("");
     if (scenario.launch === "new_referral") {
@@ -155,7 +159,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
               if_match: assessment.version,
               client_mutation_id: demoMutationId(`schedule-${scenario.id}`),
               schedule: {
-                start_at: nextDemoStartTime(),
+                start_at: nextDemoStartTime(referralResult.referral.id),
                 duration_minutes: 60,
                 method: "zoom",
                 location: "Synthetic Zoom room - no live meeting link",
@@ -178,6 +182,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
         assessment = started.assessment;
       }
       void assessment;
+      if (guide) stageOperatorGuideForNavigation(guide.tutorialId, guide.stepId);
       window.location.assign(demoReferralRoute(referralResult.referral.id));
     } catch (launchError) {
       setError(launchError instanceof Error ? launchError.message : "The synthetic demo case could not be created.");
@@ -221,7 +226,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
             launchingId={launchingId}
             canWrite={canWrite}
             onSelect={setChapterIndex}
-            onLaunch={(selected) => void launchScenario(getPipelineDemoScenario(selected.scenarioId)!)}
+            onLaunch={(selected) => void launchScenario(getPipelineDemoScenario(selected.scenarioId)!, selected.guide)}
           />
         ) : view === "lab" ? (
           <ScenarioLab
@@ -262,7 +267,7 @@ function PresenterRun({ chapter, chapterIndex, launchingId, canWrite, onSelect, 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-4 sm:px-8">
           <button type="button" disabled={chapterIndex === 0} onClick={() => onSelect(Math.max(0, chapterIndex - 1))} className="inline-flex h-10 items-center gap-2 border border-[#cbd5d1] px-4 text-[10px] font-black disabled:invisible"><ArrowLeft size={13} /> Previous</button>
           <div className="flex gap-2">
-            <button type="button" disabled={disabled} onClick={() => onLaunch(chapter)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b] disabled:bg-[#aeb9b5]"><Play size={13} />{launchingId === chapter.scenarioId ? "Preparing..." : "Open practice record"}</button>
+            <button type="button" disabled={disabled} onClick={() => onLaunch(chapter)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b] disabled:bg-[#aeb9b5]"><Play size={13} />{launchingId === chapter.scenarioId ? "Preparing..." : chapter.guide ? "Open guided practice" : "Open practice record"}</button>
             {chapterIndex < demoChapters.length - 1 ? <button type="button" onClick={() => onSelect(chapterIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-4 text-[10px] font-black text-white">Next <ArrowRight size={13} /></button> : null}
           </div>
         </footer>
@@ -309,8 +314,9 @@ function demoMutationId(prefix: string) {
   return `demo-${prefix}-${crypto.randomUUID()}`;
 }
 
-function nextDemoStartTime() {
+function nextDemoStartTime(referralId: number) {
   const date = new Date();
-  date.setMinutes(date.getMinutes() + 15, 0, 0);
+  const slot = Math.abs(referralId) % 720;
+  date.setMinutes(date.getMinutes() + 15 + slot * 120, 0, 0);
   return date.toISOString();
 }

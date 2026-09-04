@@ -60,9 +60,83 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toHaveCount(0);
     await expect(page.getByText("Your work", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Current work" })).toContainText("0 active referrals");
-    await expect(page.getByRole("region", { name: "Current work" })).toContainText("No active referral work");
+    await expect(page.getByRole("dialog", { name: "Current work" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Open current work" }).click();
+    await expect(page).toHaveURL(/work=current/);
+    await expect(page.getByRole("dialog", { name: "Current work" })).toContainText("No active referral work");
+    await page.getByRole("button", { name: "Close current work" }).click();
+    await expect(page).not.toHaveURL(/work=current/);
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toContainText("No assessments are scheduled");
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
+  });
+
+  test("opens current work as a URL-backed focus view and returns to it from a referral", async ({ page }) => {
+    await page.route("**/api/operations/home", async (route) => {
+      const item = {
+        referral_id: 424242,
+        client_name: "Morgan Test",
+        community: "San Pablo",
+        stage: "Pre-Admission Packet",
+        workflow_status: "ready_to_schedule",
+        owner: "Alex Assessor",
+        priority: "standard",
+        categories: ["ready_to_schedule"],
+        primary_category: "ready_to_schedule",
+        next_action: "Schedule the assessment",
+        blockers: [],
+        missing_data: [],
+        urgency: "normal",
+        due_at: null,
+        last_activity_at: "2026-09-03T12:00:00.000Z",
+        age_hours: 2,
+        completion_pct: 40,
+        missing_document_count: 0,
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-09-03T12:00:00.000Z",
+          scope: "personal",
+          viewer: { id: "assessor-1", name: "Alex Assessor" },
+          current_work: { total: 1, items: [] },
+          workflow: {
+            generated_at: "2026-09-03T12:00:00.000Z",
+            active_total: 1,
+            unassigned_total: 0,
+            overall_completion_pct: 40,
+            flow_counts: { ready_to_schedule: 1, scheduled: 0, assessment: 0, complete_chart: 0 },
+            active_items: [item],
+            ready_to_schedule: { total: 1, items: [item] },
+            data_completion: { total: 0, items: [] },
+            current_work: {
+              generated_at: "2026-09-03T12:00:00.000Z",
+              owner: { id: "assessor-1", name: "Alex Assessor" },
+              total: 1,
+              items: [],
+            },
+          },
+          upcoming: [],
+          unscheduled: [],
+          unscheduled_total: 0,
+          unavailable_sections: [],
+        }),
+      });
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open current work" }).click();
+    await expect(page).toHaveURL(/work=current/);
+    await expect(page.getByRole("dialog", { name: "Current work" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Open Morgan Test" }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424242");
+
+    await page.goBack();
+    await expect(page.getByRole("dialog", { name: "Current work" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page).not.toHaveURL(/work=current/);
+    await expect(page.getByRole("dialog", { name: "Current work" })).toHaveCount(0);
   });
 
   test("runs a report, exposes only contextual filters, and exports the current scope", async ({ page }) => {

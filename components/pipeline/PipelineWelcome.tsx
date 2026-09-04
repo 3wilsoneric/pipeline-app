@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { CalendarClock } from "lucide-react";
+import { ArrowRight, CalendarClock } from "lucide-react";
 
+import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
-import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent } from "@/lib/pipeline/calendar-types";
@@ -18,6 +18,7 @@ import {
   type PipelineRecentDestination,
 } from "@/lib/pipeline/recent-destinations";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { activeReferralFlowStates } from "@/lib/pipeline/referral-flow";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 
 export default function PipelineWelcome({
@@ -26,6 +27,9 @@ export default function PipelineWelcome({
   onOpenProfile,
   onOpenSearchDestination,
   onResumeDraft,
+  currentWorkOpen,
+  onOpenCurrentWork,
+  onCloseCurrentWork,
   canAccessReports = false,
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
@@ -33,6 +37,9 @@ export default function PipelineWelcome({
   onOpenProfile: (residentKey: string) => void;
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
   onResumeDraft: (draftKey: `new-${string}`) => void;
+  currentWorkOpen: boolean;
+  onOpenCurrentWork: () => void;
+  onCloseCurrentWork: () => void;
   canAccessReports?: boolean;
 }) {
   const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(null);
@@ -95,35 +102,87 @@ export default function PipelineWelcome({
   }
 
   return (
-    <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
-      <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-2 sm:px-6 lg:px-8">
+    <>
+      <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
+        <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-2 sm:px-6 lg:px-8">
 
-        {error ? (
-          <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
-            <span>{error}</span>
-            <button type="button" onClick={() => void loadBriefing()} className="font-semibold underline underline-offset-2">Retry</button>
-          </div>
-        ) : null}
-
-        <ReferralDraftResumeList onResume={onResumeDraft} className="mt-2" />
-
-        {!briefing && !error ? <HomeSkeleton /> : null}
-        {briefing ? (
-          <div className="mt-2 space-y-4">
-            {briefing.unavailable_sections.length > 0 ? (
-              <div role="status" className="border-l-2 border-[#b77b27] bg-[#fff8eb] px-4 py-2.5 text-[11px] text-[#73501f]">
-                Some Home sections are temporarily unavailable. Available work remains current.
-              </div>
-            ) : null}
-            <ReferralWorkflowTracker briefing={briefing} onOpenPacket={onOpenPacket} />
-            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
-              <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />
-              <RecentPanel items={recentItems} onOpenRecent={onOpenRecent} />
+          {error ? (
+            <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-2 border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
+              <span>{error}</span>
+              <button type="button" onClick={() => void loadBriefing()} className="font-semibold underline underline-offset-2">Retry</button>
             </div>
-          </div>
+          ) : null}
+
+          <ReferralDraftResumeList onResume={onResumeDraft} className="mt-2" />
+
+          {!briefing && !error ? <HomeSkeleton /> : null}
+          {briefing ? (
+            <div className="mt-2 space-y-4">
+              {briefing.unavailable_sections.length > 0 ? (
+                <div role="status" className="border-l-2 border-[#b77b27] bg-[#fff8eb] px-4 py-2.5 text-[11px] text-[#73501f]">
+                  Some Home sections are temporarily unavailable. Available work remains current.
+                </div>
+              ) : null}
+              <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} />
+              <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+                <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />
+                <RecentPanel items={recentItems} onOpenRecent={onOpenRecent} />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </main>
+      {briefing && currentWorkOpen ? (
+        <CurrentWorkOverlay briefing={briefing} onClose={onCloseCurrentWork} onOpenPacket={onOpenPacket} />
+      ) : null}
+    </>
+  );
+}
+
+function CurrentWorkSummary({ briefing, onOpen }: { briefing: HomeBriefingSnapshot; onOpen: () => void }) {
+  const counts = briefing.workflow.flow_counts ?? {
+    ready_to_schedule: 0,
+    scheduled: 0,
+    assessment: 0,
+    complete_chart: 0,
+  };
+  const unavailable = briefing.unavailable_sections.includes("workflow");
+  const activeLabel = unavailable
+    ? "Temporarily unavailable"
+    : `${briefing.workflow.active_total.toLocaleString()} active ${briefing.workflow.active_total === 1 ? "referral" : "referrals"}`;
+
+  return (
+    <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
+      <button
+        type="button"
+        aria-label="Open current work"
+        onClick={onOpen}
+        className="group w-full border-y border-[#dfe4e1] text-left outline-none transition-colors hover:bg-[#f6faf8] focus-visible:bg-[#eef7f3] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
+      >
+        <span className="flex min-h-14 items-center justify-between gap-4 px-2 sm:px-3">
+          <span className="min-w-0">
+            <span className="block text-[15px] font-black text-[#111111]">Current work</span>
+            <span className="mt-0.5 block text-[11px] font-semibold text-[#68706b]">
+              {activeLabel}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2 text-[11px] font-black uppercase text-[#176f60]">
+            Open
+            <ArrowRight size={16} strokeWidth={1.8} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </span>
+        {!unavailable ? (
+          <span className="grid grid-cols-2 border-t border-[#e7ebe8] sm:grid-cols-4">
+            {activeReferralFlowStates.map((state) => (
+              <span key={state.key} className="flex min-h-12 items-center justify-between gap-3 border-[#e7ebe8] px-3 even:border-l sm:border-l sm:first:border-l-0">
+                <span className="truncate text-[10px] font-extrabold uppercase text-[#68706b]">{state.label}</span>
+                <strong className="text-[14px] font-black tabular-nums text-[#202320]">{counts[state.key].toLocaleString()}</strong>
+              </span>
+            ))}
+          </span>
         ) : null}
-      </div>
-    </main>
+      </button>
+    </section>
   );
 }
 
@@ -210,24 +269,18 @@ function HomeSkeleton() {
   return (
     <div aria-label="Loading home" aria-busy="true" className="mt-2 animate-pulse space-y-5" aria-live="polite">
       <div aria-hidden="true">
-        <div className="flex h-12 items-center gap-3">
-          <SkeletonBlock className="h-4 w-4" />
-          <SkeletonBlock className="h-4 w-36" />
+        <div className="flex h-14 items-center justify-between border-y border-[#e1e6e3] px-3">
+          <span>
+            <SkeletonBlock className="h-4 w-28" />
+            <SkeletonBlock className="mt-2 h-3 w-20" />
+          </span>
+          <SkeletonBlock className="h-3 w-14" />
         </div>
-        <div className="grid grid-flow-col auto-cols-[minmax(260px,1fr)] gap-5 overflow-hidden pb-3 lg:grid-flow-row lg:grid-cols-4">
+        <div className="grid grid-cols-2 border-b border-[#e1e6e3] sm:grid-cols-4">
           {Array.from({ length: 4 }, (_, index) => (
-            <div key={index} className="min-w-0">
-              <div className="flex h-9 items-center justify-between px-1">
-                <SkeletonBlock className="h-3 w-20" />
-                <SkeletonBlock className="h-3 w-3" />
-              </div>
-              {index < 2 ? (
-                <div className="min-h-[116px] border border-l-[3px] border-[#e1e6e3] bg-white px-3.5 py-3.5">
-                  <SkeletonBlock className="h-4 w-3/4" />
-                  <SkeletonBlock className="mt-3 h-3 w-1/2" />
-                  <SkeletonBlock className="mt-8 h-3 w-full" />
-                </div>
-              ) : null}
+            <div key={index} className="flex h-12 items-center justify-between border-l border-[#e1e6e3] px-3 first:border-l-0">
+              <SkeletonBlock className="h-3 w-20" />
+              <SkeletonBlock className="h-4 w-4" />
             </div>
           ))}
         </div>

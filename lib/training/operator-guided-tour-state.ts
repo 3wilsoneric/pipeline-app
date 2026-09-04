@@ -2,6 +2,7 @@ import { getOperatorGuidedTutorial, operatorGuidedTutorialIds } from "@/lib/trai
 
 export const OPERATOR_GUIDE_STORAGE_KEY = "pipeline-guided-coach:v4";
 export const OPERATOR_GUIDE_EVENT = "pipeline:guided-coach";
+export const OPERATOR_GUIDE_NAVIGATION_RESUME_KEY = "pipeline-guided-coach:navigation-resume:v1";
 export const OPERATOR_GUIDE_STATE_VERSION = 4 as const;
 
 export type OperatorGuideMode = "closed" | "library" | "active";
@@ -187,6 +188,23 @@ export function parseOperatorGuideCommand(value: string): OperatorGuideCommand {
 export function dispatchOperatorGuide(event: Extract<OperatorGuideEvent, { type: "open-library" | "start" | "start-sequence" }>) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(OPERATOR_GUIDE_EVENT, { detail: event }));
+}
+
+export function stageOperatorGuideForNavigation(tutorialId: string, stepId?: string) {
+  if (typeof window === "undefined") return false;
+  const tutorial = getOperatorGuidedTutorial(tutorialId);
+  if (!tutorial) return false;
+  const requestedStep = stepId ? tutorial.steps.findIndex((step) => step.id === stepId) : 0;
+  const stepIndex = requestedStep >= 0 ? requestedStep : 0;
+  try {
+    const current = normalizeOperatorGuideState(JSON.parse(window.localStorage.getItem(OPERATOR_GUIDE_STORAGE_KEY) ?? "null"));
+    const next = reduceOperatorGuideState(current, { type: "start", tutorialId, stepIndex });
+    window.localStorage.setItem(OPERATOR_GUIDE_STORAGE_KEY, JSON.stringify(next));
+    window.sessionStorage.setItem(OPERATOR_GUIDE_NAVIGATION_RESUME_KEY, "true");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function uniqueStrings(value: unknown) {

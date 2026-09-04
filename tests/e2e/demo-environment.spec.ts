@@ -12,7 +12,7 @@ test.describe("Pipeline Demo Environment", () => {
     const scenario = page.getByRole("article").filter({
       has: page.getByRole("heading", { name: "Assessment interview" }),
     });
-    await scenario.getByRole("button", { name: "Start" }).click();
+    await scenario.getByRole("button", { name: /^(Start|New attempt)$/ }).click();
 
     await expect(page).toHaveURL(/screen=packet.*workspaceStage=assessment/);
     await expect(page.locator('[data-pipeline-demo-banner="true"]')).toBeVisible();
@@ -25,6 +25,24 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(interview.getByRole("textbox", { name: "Current symptoms" })).toBeEditable();
     await interview.getByText("Answer format", { exact: true }).first().click();
     await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
+    await expect.poll(() => errors).toEqual([]);
+  });
+
+  test("opens the interview walkthrough on all real assessment sections", async ({ page }) => {
+    const errors = watchBrowserErrors(page);
+    await page.goto("/training/demo");
+    await page.getByRole("navigation", { name: "Demo chapters" }).getByRole("button", { name: /Complete the interview/ }).click();
+    await page.getByRole("button", { name: "Open guided practice" }).click();
+
+    await expect(page).toHaveURL(/screen=packet.*workspaceStage=assessment/);
+    const coach = page.getByRole("dialog", { name: "Finish an assessment guided tutorial" });
+    await expect(coach).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Client & referral" })).toBeVisible();
+    const interview = page.getByRole("dialog", { name: "Assessment interview" });
+    await expect(interview.getByRole("navigation", { name: "Assessment sections" })).toBeVisible();
+    for (const section of ["Client & referral", "Placement", "History", "Clinical", "Function", "Medication", "Substance use", "Behavior & safety", "Physical health", "Legal", "Support & goals", "Review"]) {
+      await expect(interview.getByRole("button", { name: new RegExp(`^${escapeRegExp(section)} \\d+/\\d+$`) })).toBeVisible();
+    }
     await expect.poll(() => errors).toEqual([]);
   });
 
@@ -74,4 +92,8 @@ function watchBrowserErrors(page: import("@playwright/test").Page) {
   });
   page.on("pageerror", (error) => errors.push(error.message));
   return errors;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

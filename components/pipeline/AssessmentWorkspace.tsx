@@ -109,6 +109,23 @@ const assessmentNavigationGroups: ReadonlyArray<{
   { label: "Plan and review", sections: ["social_support", "provenance_qc"] },
 ];
 
+const assessmentSectionGuideTargets: Readonly<Record<AssessmentToolSection, string>> = {
+  identity: "assessment-section-identity",
+  prior_placement: "assessment-section-prior-placement",
+  prior_history: "assessment-section-history",
+  diagnosis_clinical: "assessment-section-clinical",
+  functional_adl: "assessment-section-function",
+  medication: "assessment-section-medication",
+  substance_use: "assessment-section-substance-use",
+  behavioral_risk: "assessment-section-behavior-safety",
+  physical_health: "assessment-section-physical-health",
+  legal_conservatorship: "assessment-section-legal",
+  social_support: "assessment-section-support-goals",
+  provenance_qc: "assessment-section-review",
+};
+
+const assessmentSectionGuideTargetList = Object.values(assessmentSectionGuideTargets).join(" ");
+
 type AssessmentFieldConflict = {
   field: AssessmentToolFieldKey;
   localValue: AssessmentToolData[AssessmentToolFieldKey];
@@ -505,6 +522,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
       upsertAssessment(payload.assessment, true);
       setMessage("Assessment draft created");
       setActiveSection("identity");
+      setIsFocused(true);
       setShowScheduleDialog(true);
       setShowBeginDialog(false);
     } catch (createError) {
@@ -1047,7 +1065,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
         </div>
         <span data-guide-target="assessment-save-status" aria-live="polite" className={`hidden max-w-[280px] truncate text-[10px] lg:block ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{error || (!networkOnline ? `Offline${pendingOfflineSaves > 0 ? ` · ${pendingOfflineSaves} queued` : ""}` : pendingOfflineSaves > 0 ? `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync` : dirty ? "Saving changes..." : message || "All changes saved")}</span>
         {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? (
-          <button type="button" data-guide-target="assessment-schedule-open" onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button>
+          <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button>
         ) : null}
         {!selected.signed_at && !selected.started_at && selected.scheduled_start_at && canEditClinical ? (
           <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] sm:px-4"><Play size={13} fill="currentColor" /><span className="hidden sm:inline">Begin assessment</span><span className="sm:hidden">Begin</span></button>
@@ -1098,7 +1116,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
                     const questions = getAssessmentInterviewQuestions(section.key, draft);
                     const filled = questions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length;
                     const active = activeSection === section.key;
-                    return <button key={section.key} type="button" onClick={() => setActiveSection(section.key)} aria-current={active ? "step" : undefined} className={`flex w-full items-center justify-between gap-3 border-l-2 px-3 py-2.5 text-left text-[11px] font-black transition-colors ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#595959] hover:bg-white hover:text-[#0f8b73]"}`}><span>{section.label}</span><span className="text-[9px] font-semibold opacity-65">{filled}/{questions.length}</span></button>;
+                    return <button key={section.key} type="button" data-guide-target={`assessment-section-nav ${assessmentSectionGuideTargets[section.key]}`} onClick={() => setActiveSection(section.key)} aria-current={active ? "step" : undefined} className={`flex w-full items-center justify-between gap-3 border-l-2 px-3 py-2.5 text-left text-[11px] font-black transition-colors ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-transparent text-[#595959] hover:bg-white hover:text-[#0f8b73]"}`}><span>{section.label}</span><span className="text-[9px] font-semibold opacity-65">{filled}/{questions.length}</span></button>;
                   })}
                 </div>
               </div>
@@ -1110,7 +1128,7 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
           <div className="border-b border-[#d9dfdb] px-4 py-3 lg:hidden">
             <label htmlFor="assessment-section-mobile" className="mb-1 block text-[9px] font-black uppercase text-[#737373]">Assessment section</label>
             <div className="relative">
-              <select data-guide-target="assessment-section-nav" id="assessment-section-mobile" value={activeSection} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-10 text-[12px] font-black outline-none focus:border-[#0f8b73]">{assessmentNavigationGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.sections.map((sectionKey) => { const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey); return section ? <option key={section.key} value={section.key}>{section.label}</option> : null; })}</optgroup>)}</select>
+              <select data-guide-target={`assessment-section-nav ${assessmentSectionGuideTargetList}`} id="assessment-section-mobile" value={activeSection} onChange={(event) => setActiveSection(event.target.value as AssessmentToolSection)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-10 text-[12px] font-black outline-none focus:border-[#0f8b73]">{assessmentNavigationGroups.map((group) => <optgroup key={group.label} label={group.label}>{group.sections.map((sectionKey) => { const section = assessmentInterviewSections.find((candidate) => candidate.key === sectionKey); return section ? <option key={section.key} value={section.key}>{section.label}</option> : null; })}</optgroup>)}</select>
               <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
             </div>
           </div>
@@ -1256,10 +1274,10 @@ export default function AssessmentWorkspace({ referralId, assignedAssessorId, pa
               <button type="button" onClick={() => { setShowScheduleDialog(false); setIsFocused(false); }} aria-label="Close schedule" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
             </header>
 
-            <div data-guide-target="assessment-schedule-fields" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+            <div data-guide-target="assessment-schedule-open" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
               {selected.scheduled_start_at ? <div className="mb-5 border-l-2 border-[#0f8b73] bg-[#f4f8f6] px-4 py-3 text-[11px] text-[#315e50]">Currently scheduled for <strong>{new Date(selected.scheduled_start_at).toLocaleString()}</strong>.</div> : null}
               <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px]">
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Date and time</span><input aria-label="Assessment date and time" type="datetime-local" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
+                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Date and time</span><input data-guide-target="assessment-schedule-fields" aria-label="Assessment date and time" type="datetime-local" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
                 <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Duration</span><span className="relative mt-1 block"><select aria-label="Assessment duration" value={scheduleDuration} onChange={(event) => setScheduleDuration(event.target.value)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120">2 hours</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">

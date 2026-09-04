@@ -29,6 +29,7 @@ import {
   emptyOperatorGuideState,
   normalizeOperatorGuideState,
   OPERATOR_GUIDE_EVENT,
+  OPERATOR_GUIDE_NAVIGATION_RESUME_KEY,
   OPERATOR_GUIDE_STORAGE_KEY,
   reduceOperatorGuideState,
   type OperatorGuideEvent,
@@ -54,8 +55,6 @@ type TargetInteraction = {
 };
 
 const emptyTarget: TargetView = { element: null, rect: null, available: false };
-const OPERATOR_GUIDE_NAVIGATION_RESUME_KEY = "pipeline-guided-coach:navigation-resume:v1";
-
 export default function PipelineGuidedCoach() {
   const [state, setState] = useState<OperatorGuideState>(() => emptyOperatorGuideState());
   const [hydrated, setHydrated] = useState(false);
@@ -300,7 +299,7 @@ function targetView(candidate: HTMLElement | null): TargetView {
 function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume, onClose }: { roles: readonly OperatorRole[]; completed: readonly string[]; resumableTutorialId: string | null; onStart: (id: string) => void; onResume: () => void; onClose: () => void }) {
   const tutorials = guidedTutorialsForRoles(roles);
   const resumable = getOperatorGuidedTutorial(resumableTutorialId);
-  const tutorialOrder = ["assessor-shift", "complete-assessment", "supervisor-shift", "review-chart", "create-referral", "find-workspace", "run-report"];
+  const tutorialOrder = ["assessor-shift", "start-assessment", "complete-assessment", "supervisor-shift", "review-chart", "create-referral", "find-workspace", "run-report"];
   const groups = [
     { id: "assessor", label: "Assessor workflow" },
     { id: "supervisor", label: "Supervisor workflow" },

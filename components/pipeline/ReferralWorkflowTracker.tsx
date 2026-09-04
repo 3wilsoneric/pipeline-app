@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
@@ -18,37 +21,46 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
   };
   const items = briefing.workflow.active_items ?? [];
   const unavailable = briefing.unavailable_sections.includes("workflow");
-  return (
-    <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
-      <details open className="group/workflow">
-        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-1 py-1 text-[#202320] outline-none hover:bg-[#f7faf8] focus-visible:bg-[#eef6f3] [&::-webkit-details-marker]:hidden">
-          <span className="flex min-w-0 items-center gap-2.5 text-[14px] font-bold">
-            <ChevronDown
-              size={17}
-              aria-hidden="true"
-              className="shrink-0 text-[#176f60] transition-transform duration-200 group-open/workflow:rotate-180"
-            />
-            {unavailable ? "Referral work unavailable" : `${briefing.workflow.active_total} active ${briefing.workflow.active_total === 1 ? "referral" : "referrals"}`}
-          </span>
-        </summary>
+  const [mobileStage, setMobileStage] = useState<(typeof activeReferralFlowStates)[number]["key"]>("ready_to_schedule");
 
-        {unavailable ? (
-          <div className="px-4 py-7 text-center text-[12px] text-[#8a5a10]">
-            Temporarily unavailable. Refresh to try again.
-          </div>
-        ) : items.length === 0 ? (
-          <div className="px-4 py-7 text-center text-[12px] text-[#626a65]">
-            No active referral work.
-          </div>
-        ) : (
-          <div className="grid snap-x grid-flow-col auto-cols-[minmax(260px,1fr)] items-start gap-5 overflow-x-auto pb-3 pt-2 lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible">
+  const selectMobileStage = (stage: (typeof activeReferralFlowStates)[number]["key"]) => {
+    setMobileStage(stage);
+  };
+
+  return (
+    <section aria-label="Current work board" className="bg-white">
+      {unavailable ? (
+        <div className="px-4 py-12 text-center text-[13px] font-medium text-[#8a5a10]">
+          Current work is temporarily unavailable. Close this view and try again.
+        </div>
+      ) : items.length === 0 ? (
+        <div className="flex min-h-[240px] items-center justify-center border border-[#dfe4e1] px-4 py-12 text-center text-[13px] font-semibold text-[#626a65]">
+          No active referral work.
+        </div>
+      ) : (
+        <>
+          <label className="relative mb-4 block lg:hidden">
+            <span className="sr-only">Current work stage</span>
+            <select
+              aria-label="Current work stage"
+              value={mobileStage}
+              onChange={(event) => selectMobileStage(event.target.value as (typeof activeReferralFlowStates)[number]["key"])}
+              className="h-12 w-full appearance-none border border-[#bcc5c0] bg-white px-4 pr-11 text-[14px] font-bold text-[#202320] outline-none focus:border-[#0f8b73] focus:ring-1 focus:ring-[#0f8b73]"
+            >
+              {activeReferralFlowStates.map((state) => (
+                <option key={state.key} value={state.key}>{state.label} ({counts[state.key]})</option>
+              ))}
+            </select>
+            <ChevronDown size={18} aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#176f60]" />
+          </label>
+          <div data-current-work-board className="grid items-start gap-5 lg:grid-cols-4">
             {activeReferralFlowStates.map((state) => {
               const stageItems = items.filter((item) => referralFlowStateForStatus(item.workflow_status) === state.key);
               return (
-                <div key={state.key} className="min-w-0 snap-start">
+                <div key={state.key} className={`${mobileStage === state.key ? "block" : "hidden"} min-w-0 lg:block`}>
                   <div className={`mb-2 flex min-h-10 items-center justify-between gap-3 border-t-2 px-1 pt-2 ${columnRule(state.key)}`}>
-                    <h3 className={`truncate text-[12px] font-extrabold uppercase ${stageTone(state.key)}`}>{state.label}</h3>
-                    <strong className="text-[12px] font-extrabold tabular-nums text-[#4f5752]">{counts[state.key]}</strong>
+                    <h2 className={`truncate text-[12px] font-extrabold uppercase ${stageTone(state.key)}`}>{state.label}</h2>
+                    <strong className="text-[12px] font-extrabold tabular-nums text-[#4f5752]">{counts[state.key].toLocaleString()}</strong>
                   </div>
                   {stageItems.length > 0 ? (
                     <div className="space-y-2">
@@ -62,13 +74,17 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
                         />
                       ))}
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="border border-[#e1e6e3] px-4 py-8 text-center text-[11px] font-medium text-[#7b837e]">
+                      {state.emptyLabel}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
-        )}
-      </details>
+        </>
+      )}
     </section>
   );
 }
