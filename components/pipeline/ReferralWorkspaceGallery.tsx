@@ -73,7 +73,7 @@ function WorkspaceCard({
             <span className="flex h-9 w-9 items-center justify-center border border-[#cbd8d3] bg-white text-[#527268]"><History size={16} /></span>
             <span>
               <strong className="block text-[18px] font-black tabular-nums text-[#202823]">{referral.sourceMaterialCount ?? 0}</strong>
-              <span className="block text-[9px] font-bold uppercase tracking-[0.08em] text-[#6d7772]">Imported source materials</span>
+              <span className="block text-[9px] font-bold uppercase tracking-[0.08em] text-[#6d7772]">Source trail</span>
             </span>
           </span>
         ) : (
@@ -81,11 +81,11 @@ function WorkspaceCard({
             <span className="mt-5 flex items-end justify-between gap-4">
               <span>
                 <strong className="block text-[24px] font-black leading-none tabular-nums text-[#17211d]">{percent}%</strong>
-                <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.08em] text-[#6d7772]">Data capture</span>
+                <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.08em] text-[#6d7772]">Chart readiness</span>
               </span>
               <span className="text-right text-[9px] font-bold leading-4 text-[#6d7772]">
-                {progress ? `${progress.overall.complete}/${progress.overall.total} complete` : "Progress pending"}<br />
-                {extracted > 0 ? `${reviewed}/${extracted} extracted reviewed` : "No extracted values"}
+                {progress ? `${progress.overall.complete}/${progress.overall.total} fields ready` : "Readiness pending"}<br />
+                {extracted > 0 ? `${reviewed}/${extracted} source values checked` : "No source values yet"}
               </span>
             </span>
             <span className="mt-3 block h-2 bg-[#dfe7e3]">

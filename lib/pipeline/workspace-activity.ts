@@ -85,6 +85,7 @@ async function listPostgresWorkspaceActivity(
   user: PipelineUser,
   options: Required<Pick<WorkspaceActivityOptions, "scope" | "limit">> & Pick<WorkspaceActivityOptions, "cursor" | "since">,
 ): Promise<Pick<WorkspaceActivityResponse, "items" | "next_cursor">> {
+  if (options.scope === "assigned") return listPostgresAssignedReferrals(user, options);
   const sql = getPipelineSql();
   const cursor = decodeKeysetCursor(options.cursor);
   const aliases = normalizedOwnerAliases(user);
@@ -151,6 +152,61 @@ async function listPostgresWorkspaceActivity(
   };
 }
 
+async function listPostgresAssignedReferrals(
+  user: PipelineUser,
+  options: Required<Pick<WorkspaceActivityOptions, "limit">> & Pick<WorkspaceActivityOptions, "cursor" | "since">,
+): Promise<Pick<WorkspaceActivityResponse, "items" | "next_cursor">> {
+  const sql = getPipelineSql();
+  const cursor = decodeKeysetCursor(options.cursor);
+  const aliases = normalizedOwnerAliases(user);
+  const rows = await sql<WorkspaceActivityRow[]>`
+    with assigned_referrals as (
+      select concat('assignment-', referral.referral_id, '-', referral.assignment_version) as audit_event_id,
+        'referral_assigned'::text as action,
+        coalesce(assignment_event.actor_id, referral.owner_id) as actor_id,
+        coalesce(nullif(trim(assignment_event.actor_name), ''), nullif(trim(referral.owner_name), ''), 'Pipeline user') as actor_name,
+        referral.assigned_at as created_at,
+        referral.referral_id, person.display_name, referral.community,
+        referral.owner_id, referral.owner_name, referral.workflow_status,
+        referral.priority, referral.workspace_status
+      from pipeline.referrals referral
+      join pipeline.people person on person.person_id = referral.person_id
+      left join lateral (
+        select event.actor_id, event.actor_name
+        from pipeline.audit_events event
+        where event.entity_type = 'referral'
+          and event.entity_id = referral.referral_id::text
+          and event.action in ('referral_created', 'referral_assigned', 'referral_reassigned')
+        order by event.created_at desc, event.audit_event_id desc
+        limit 1
+      ) assignment_event on true
+      where referral.deleted_at is null
+        and referral.workspace_status = 'active'
+        and referral.assigned_at is not null
+        and (
+          referral.owner_id = ${user.id}
+          or (referral.owner_id is null and lower(trim(coalesce(referral.owner_name, ''))) = any(${aliases}::text[]))
+        )
+        and (${options.since ?? null}::timestamptz is null or referral.assigned_at >= ${options.since ?? null}::timestamptz)
+    )
+    select * from assigned_referrals
+    where (
+      ${cursor?.timestamp ?? null}::timestamptz is null
+      or (created_at, audit_event_id) < (${cursor?.timestamp ?? null}::timestamptz, ${cursor?.key ?? null}::text)
+    )
+    order by created_at desc, audit_event_id desc
+    limit ${options.limit + 1}
+  `;
+  const page = rows.slice(0, options.limit);
+  const last = page.at(-1);
+  return {
+    items: page.map(mapPostgresActivityRow),
+    next_cursor: rows.length > options.limit && last
+      ? encodeKeysetCursor({ timestamp: toIso(last.created_at), key: last.audit_event_id })
+      : undefined,
+  };
+}
+
 async function listLocalWorkspaceActivity(
   user: PipelineUser,
   options: Required<Pick<WorkspaceActivityOptions, "scope" | "limit">> & Pick<WorkspaceActivityOptions, "cursor" | "since">,
@@ -160,7 +216,7 @@ async function listLocalWorkspaceActivity(
     sort: "updated_desc",
     workspaceStatus: "active",
     includeTotal: false,
-    ...(options.scope === "mine" || !canAccessOperationsReports(user.roles)
+    ...(options.scope === "mine" || options.scope === "assigned" || !canAccessOperationsReports(user.roles)
       ? { assignedOwnerId: user.id, assignedOwnerNames: normalizedOwnerAliases(user) }
       : {}),
   };
@@ -168,7 +224,7 @@ async function listLocalWorkspaceActivity(
   const cursor = decodeKeysetCursor(options.cursor);
   const sinceTime = options.since ? Date.parse(options.since) : null;
   const items = result.referrals
-    .flatMap(localActivityItems)
+    .flatMap((referral) => options.scope === "assigned" ? localAssignmentItems(referral) : localActivityItems(referral))
     .filter((item) => options.scope !== "attention" || item.attention)
     .filter((item) => sinceTime === null || Date.parse(item.created_at) >= sinceTime)
     .sort(compareActivityItems)
@@ -181,6 +237,20 @@ async function listLocalWorkspaceActivity(
       ? encodeKeysetCursor({ timestamp: last.created_at, key: last.event_id })
       : undefined,
   };
+}
+
+function localAssignmentItems(referral: Referral): WorkspaceActivityItem[] {
+  if (!referral.assignedAt) return [];
+  const workspace = workspaceFromReferral(referral);
+  return [{
+    event_id: `assignment-${referral.id}-${referral.assignmentVersion ?? 1}`,
+    action: "referral_assigned",
+    actor_id: referral.ownerId ?? null,
+    actor_name: normalizeOwnerName(referral.owner),
+    created_at: referral.assignedAt,
+    workspace,
+    attention: activityAttention({ ...workspace, packetStatus: referral.packetStatus }),
+  }];
 }
 
 function localActivityItems(referral: Referral): WorkspaceActivityItem[] {

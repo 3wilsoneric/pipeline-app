@@ -302,7 +302,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("tab", { name: "Activity", exact: true }).click();
     const activity = page.getByRole("region", { name: "Workspace activity" });
     await expect(activity).toBeVisible();
-    await expect(activity.getByText("Operational changes only. Clinical field values are never shown here.")).toBeVisible();
+    await expect(activity.getByText("Assignments, schedules, stages, and decisions—never clinical field content.")).toBeVisible();
     await expect(activity.getByRole("tab", { name: /Needs attention/ })).toHaveAttribute("aria-selected", "true");
     await expect(activity.getByRole("tab", { name: /Mine/ })).toBeVisible();
     await expect(activity.getByRole("tab", { name: /Team/ })).toBeVisible();
@@ -421,10 +421,10 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("heading", { name: /Welcome( back)?, / })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Search and ask" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
 
     const queueResponse = await page.request.get("/api/operations/my-queue");
     expect(queueResponse.ok()).toBeTruthy();
@@ -856,7 +856,7 @@ test.describe("Referral home and packet canvas", () => {
     });
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
     expect(identityRequests).toBe(1);
 
     let referralRequests = 0;
@@ -2290,12 +2290,14 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Workflow summary" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Workflow summary" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
     await expect(page.getByRole("img", { name: "Alamo Platform" })).toBeVisible();
@@ -2464,7 +2466,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("1 result", { exact: true })).toBeVisible({ timeout: 4_000 });
   });
 
-  test("opens a canonical client from search and restores it from Recents", async ({ page }) => {
+  test("opens a canonical client from search without adding a Home recents panel", async ({ page }) => {
     const client = (clinicalFixture.clients as {
       clients: Array<{
         canonical_client_id: string;
@@ -2526,11 +2528,10 @@ test.describe("Pipeline home", () => {
     expect(new URL(page.url()).searchParams.has("view")).toBeFalsy();
 
     await page.getByRole("button", { name: "Pipeline home" }).click();
-    const recent = page.getByRole("region", { name: "Recent" });
-    await expect(recent.getByText("Broken recent", { exact: true })).toHaveCount(0);
-    await expect(recent.getByRole("button", { name: /Avery Example/ })).toBeVisible();
-    await recent.getByRole("button", { name: /Avery Example/ }).click();
-    await expect(page.getByRole("heading", { name: "Avery Example", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
+    await expect(page.getByText("Broken recent", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
   });
 
   test("searches site destinations and the enhanced client directory while typing", async ({ page }) => {
@@ -2573,10 +2574,12 @@ test.describe("Pipeline home", () => {
   test("returns to the same operational home workspace", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
     const welcomePipelinePosition = await page.locator('[data-pipeline-home="true"]').boundingBox();
 
     await page.getByRole("button", { name: "Open referrals" }).click();
@@ -2592,10 +2595,10 @@ test.describe("Pipeline home", () => {
     await expect(page.getByTitle("Pipeline home")).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Search and ask" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Ready to schedule" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Data completion" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
 
     const queueResponse = await page.request.get("/api/operations/my-queue");
     expect(queueResponse.ok()).toBeTruthy();
@@ -2618,7 +2621,7 @@ test.describe("Pipeline home", () => {
 
     await page.evaluate(() => window.sessionStorage.clear());
     await page.reload();
-    await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
   });
 
   test("opens the Alamo enhanced client directory and governed profile", async ({ page }) => {

@@ -16,8 +16,6 @@ import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchCurrentPipelineUser } from "@/lib/auth/authenticated-fetch";
 import {
   recordRecentDestination,
-  touchRecentDestination,
-  type PipelineRecentDestination,
 } from "@/lib/pipeline/recent-destinations";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import {
@@ -120,22 +118,6 @@ export default function PipelineOverviewRoute() {
     setReferralDetails(referral);
   };
 
-  const openRecent = (destination: PipelineRecentDestination) => {
-    touchRecentDestination(destination.id);
-    if (destination.kind === "profile") {
-      navigate("profile", undefined, destination.clientId);
-      return;
-    }
-    if (destination.kind === "referral") {
-      navigate("packet", {
-        id: destination.referralId,
-        community: destination.community as Referral["community"],
-      });
-      return;
-    }
-    navigate(destination.screen === "packet" ? "packet" : destination.screen);
-  };
-
   const resumeReferralDraft = (draftKey: `new-${string}`) => {
     setSearchOpen(false);
     const params = new URLSearchParams(activeSearchParams.toString());
@@ -183,7 +165,6 @@ export default function PipelineOverviewRoute() {
       <PipelineWelcome
         canAccessReports={reportAccess === true}
         onOpenPacket={(referral) => navigate("packet", referral)}
-        onOpenRecent={openRecent}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
         onResumeDraft={resumeReferralDraft}

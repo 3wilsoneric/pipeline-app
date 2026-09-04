@@ -8,7 +8,7 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Since your last visit" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Upcoming assessments" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Recent" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
     await expect(page.getByText("Team view", { exact: true })).toHaveCount(0);
@@ -17,21 +17,22 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("region", { name: "Last 24 hours" })).toHaveCount(0);
   });
 
-  test("summarizes new activity on assigned workspaces and opens the existing workspace", async ({ page }) => {
+  test("summarizes referrals assigned since the last visit and opens the existing workspace", async ({ page }) => {
     await page.route("**/api/operations/activity?**", async (route) => {
       const url = new URL(route.request().url());
-      expect(url.searchParams.get("scope")).toBe("mine");
+      expect(url.searchParams.get("scope")).toBe("assigned");
+      expect(url.searchParams.get("limit")).toBe("6");
       expect(Date.parse(url.searchParams.get("since") ?? "")).not.toBeNaN();
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           generated_at: "2026-09-04T16:00:00.000Z",
-          scope: "mine",
+          scope: "assigned",
           can_view_team: true,
           items: [{
             event_id: "home-activity-1",
-            action: "assessment_scheduled",
+            action: "referral_assigned",
             actor_id: "coordinator-1",
             actor_name: "Case Coordinator",
             created_at: "2026-09-04T15:30:00.000Z",
@@ -54,11 +55,61 @@ test.describe("role-scoped home and reports", () => {
     await page.goto("/");
     const summary = page.getByRole("region", { name: "Since your last visit" });
     await expect(summary).toContainText("Home Activity Client");
-    await expect(summary).toContainText("scheduled the assessment for");
+    await expect(summary).toContainText("New assignments");
+    await expect(summary.getByRole("button", { name: /Home Activity Client/ })).toContainText("Assigned");
     await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("pipeline:last-activity-visit:")))).toBe(true);
 
     await summary.getByRole("button", { name: /Home Activity Client/ }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424243");
+  });
+
+  test("returns only current personal assignments from the assignment feed", async ({ page }) => {
+    const createdAt = new Date().toISOString();
+    const created = await page.request.post("/api/referrals", {
+      data: {
+        client_mutation_id: `home-assignment-${Date.now()}`,
+        referral: {
+          name: `New Assignment ${Date.now()}`,
+          date: createdAt.slice(0, 10),
+          stage: "New",
+          community: "San Pablo",
+          source: "Home assignment feed test",
+          priority: "standard",
+          tags: [],
+          documentName: "",
+          documentStatus: "Missing",
+          owner: "Playwright QA",
+          note: "",
+          createdAt,
+          dob: "",
+          phone: "",
+          email: "",
+          payer: "",
+          requirements: [],
+        },
+      },
+    });
+    const createdPayload = await created.json() as { referral: { id: number; ownerId?: string } };
+    expect(created.status(), JSON.stringify(createdPayload)).toBe(201);
+
+    const since = new Date(Date.parse(createdAt) - 60_000).toISOString();
+    const response = await page.request.get(`/api/operations/activity?scope=assigned&limit=20&since=${encodeURIComponent(since)}`);
+    const payload = await response.json() as {
+      scope: string;
+      items: Array<{ action: string; workspace: { referral_id: number; owner_id: string | null } }>;
+    };
+    expect(response.ok(), JSON.stringify(payload)).toBeTruthy();
+    expect(payload.scope).toBe("assigned");
+    expect(payload.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        action: "referral_assigned",
+        workspace: expect.objectContaining({
+          referral_id: createdPayload.referral.id,
+          owner_id: createdPayload.referral.ownerId,
+        }),
+      }),
+    ]));
+    expect(payload.items.every((item) => item.action === "referral_assigned")).toBeTruthy();
   });
 
   test("keeps the assessor home personal and omits supervisor metrics", async ({ page }) => {

@@ -1,6 +1,6 @@
 import type { Priority, ReferralWorkflowStatus, WorkspaceStatus } from "@/lib/pipeline/referral-types";
 
-export const workspaceActivityScopes = ["attention", "mine", "team"] as const;
+export const workspaceActivityScopes = ["attention", "mine", "assigned", "team"] as const;
 
 export type WorkspaceActivityScope = (typeof workspaceActivityScopes)[number];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, ArrowRight, Clock3, RefreshCw, UserRound, UsersRound } from "lucide-react";
+import { Activity, AlertTriangle, ArrowRight, RefreshCw, UserPlus, UserRound, UsersRound } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -66,7 +66,7 @@ export default function WorkspaceActivityFeed({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#cfd7d3] pb-3">
         <div>
           <h2 className="text-[18px] font-black text-[#17211d]">Workspace activity</h2>
-          <p className="mt-1 text-[11px] font-medium text-[#68716c]">Operational changes only. Clinical field values are never shown here.</p>
+          <p className="mt-1 text-[11px] font-medium text-[#68716c]">Assignments, schedules, stages, and decisions—never clinical field content.</p>
         </div>
         <button type="button" onClick={() => void load()} disabled={loading} className="flex h-9 items-center gap-2 px-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#0c705f] hover:bg-[#eff8f5] disabled:opacity-50">
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
@@ -74,9 +74,9 @@ export default function WorkspaceActivityFeed({
       </div>
 
       <div role="tablist" aria-label="Activity scope" className="mt-3 flex flex-wrap gap-2">
-        <ScopeButton active={scope === "attention"} onClick={() => setScope("attention")} icon={<AlertTriangle size={14} />} label="Needs attention" detail="Actionable workspaces" />
-        <ScopeButton active={scope === "mine"} onClick={() => setScope("mine")} icon={<UserRound size={14} />} label="Mine" detail="Assigned to you" />
-        {canViewTeam ? <ScopeButton active={scope === "team"} onClick={() => setScope("team")} icon={<UsersRound size={14} />} label="Team" detail="Supervisor view" /> : null}
+        <ScopeButton active={scope === "attention"} onClick={() => setScope("attention")} icon={<AlertTriangle size={14} />} label="Needs attention" detail="Urgent, blocked, decision-ready" />
+        <ScopeButton active={scope === "mine"} onClick={() => setScope("mine")} icon={<UserRound size={14} />} label="Mine" detail="Movement on your referrals" />
+        {canViewTeam ? <ScopeButton active={scope === "team"} onClick={() => setScope("team")} icon={<UsersRound size={14} />} label="Team" detail="Across active workspaces" /> : null}
       </div>
 
       {error ? (
@@ -120,7 +120,7 @@ export default function WorkspaceActivityFeed({
   );
 }
 
-export function SinceLastVisitActivity({
+export function SinceLastVisitAssignments({
   viewerId,
   onOpenPacket,
 }: {
@@ -136,7 +136,7 @@ export function SinceLastVisitActivity({
     const fallback = new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString();
     const stored = window.localStorage.getItem(storageKey);
     const since = stored && Number.isFinite(Date.parse(stored)) ? stored : fallback;
-    const params = new URLSearchParams({ scope: "mine", limit: "5", since });
+    const params = new URLSearchParams({ scope: "assigned", limit: "6", since });
     fetchPipelineJson<WorkspaceActivityResponse>(`/api/operations/activity?${params}`, {
       cache: "no-store",
       signal: controller.signal,
@@ -153,26 +153,26 @@ export function SinceLastVisitActivity({
   }, [viewerId]);
 
   return (
-    <section aria-label="Since your last visit" className="min-w-0 border-y border-[#dfe5e2] bg-[#fbfcfb]">
-      <div className="flex min-h-11 items-center justify-between gap-3 px-3 sm:px-4">
-        <h2 className="flex items-center gap-2 text-[13px] font-black text-[#202723]"><Clock3 size={14} className="text-[#0f8b73]" />Since your last visit</h2>
-        <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#6d7571]">Your assigned workspaces</span>
+    <section aria-label="Since your last visit" className="min-w-0 bg-white">
+      <div className="flex h-12 items-center justify-between gap-3 px-1">
+        <h2 className="flex items-center gap-2.5 text-[15px] font-bold text-[#202723]"><UserPlus size={15} className="text-[#0f8b73]" />New assignments</h2>
+        <span className="text-[11px] font-bold text-[#626a65]">Since your last visit</span>
       </div>
       {unavailable ? (
-        <p className="border-t border-[#e7ebe9] px-4 py-3 text-[11px] text-[#8a5a10]">Recent activity is temporarily unavailable.</p>
+        <p className="border border-[#ead5ad] bg-[#fffaf0] px-5 py-10 text-center text-[12px] text-[#8a5a10]">New assignments could not be checked. Your current queue is still available above.</p>
       ) : items === null ? (
-        <div className="h-12 animate-pulse border-t border-[#e7ebe9] bg-[#f3f6f4]" aria-label="Loading recent activity" />
+        <div className="h-28 animate-pulse border border-[#e1e6e3] bg-[#f3f6f4]" aria-label="Checking new referral assignments" />
       ) : items.length === 0 ? (
-        <p className="border-t border-[#e7ebe9] px-4 py-3 text-[11px] text-[#68716c]">No new activity on your assigned workspaces.</p>
+        <p className="border border-[#e0e5e2] px-5 py-10 text-center text-[13px] font-medium text-[#626a65]">No referrals were assigned since your last visit.</p>
       ) : (
-        <div className="grid border-t border-[#e7ebe9] md:grid-cols-2 xl:grid-cols-3">
-          {items.slice(0, 3).map((item) => (
-            <button key={item.event_id} type="button" onClick={() => openActivityItem(item, onOpenPacket)} className="group flex min-w-0 items-center justify-between gap-3 border-b border-[#e7ebe9] px-4 py-3 text-left hover:bg-[#f1f8f5] md:border-r xl:border-b-0">
+        <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
+          {items.slice(0, 6).map((item) => (
+            <button key={item.event_id} type="button" onClick={() => openActivityItem(item, onOpenPacket)} className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f1f8f5] sm:px-4">
               <span className="min-w-0">
-                <span className="block truncate text-[11px] font-black text-[#202723]">{item.workspace.client_name}</span>
-                <span className="mt-1 block truncate text-[9px] text-[#68716c]">{activityVerb(item.action)} · {relativeTime(item.created_at)}</span>
+                <span className="block truncate text-[14px] font-bold text-[#202723]">{item.workspace.client_name}</span>
+                <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{item.workspace.community}</span>
               </span>
-              <ArrowRight size={14} className="shrink-0 text-[#0f8b73] transition-transform group-hover:translate-x-0.5" />
+              <span className="flex shrink-0 items-center gap-2 text-[10px] font-bold text-[#176f60]">Assigned {relativeTime(item.created_at)}<ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" /></span>
             </button>
           ))}
         </div>
@@ -323,7 +323,7 @@ function activityVerb(action: string) {
     ehr_handoff_updated: "updated the EHR handoff for",
     extraction_confirmed: "confirmed extracted assessment data for",
   };
-  return labels[action] ?? `${action.replaceAll("_", " ")} on`;
+  return labels[action] ?? "updated";
 }
 
 function relativeTime(value: string) {
@@ -345,7 +345,7 @@ function dayKey(value: string) {
 
 function dayLabel(value: string) {
   const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "Recent";
+  if (!Number.isFinite(date.getTime())) return "Earlier";
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
@@ -359,15 +359,17 @@ function lastVisitStorageKey(viewerId: string) {
 }
 
 function emptyTitle(scope: WorkspaceActivityScope) {
-  if (scope === "attention") return "No workspaces need attention";
-  if (scope === "mine") return "No recent activity on your workspaces";
-  return "No recent team activity";
+  if (scope === "attention") return "No exceptions need action";
+  if (scope === "mine") return "No updates on your referrals";
+  if (scope === "assigned") return "No new assignments";
+  return "No team updates in this view";
 }
 
 function emptyDetail(scope: WorkspaceActivityScope) {
-  if (scope === "attention") return "High-priority, blocked, incomplete, and decision-ready workspaces will appear here.";
-  if (scope === "mine") return "Updates to workspaces assigned to you will appear here.";
-  return "Updates across active team workspaces will appear here.";
+  if (scope === "attention") return "Urgent, blocked, incomplete, and decision-ready workspaces surface here.";
+  if (scope === "mine") return "Assignment, scheduling, stage, and decision changes on your referrals surface here.";
+  if (scope === "assigned") return "New referrals assigned to you surface here.";
+  return "Assignment, scheduling, stage, and decision changes across active team workspaces surface here.";
 }
 
 function ActivitySkeleton() {

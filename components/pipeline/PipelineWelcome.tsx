@@ -6,25 +6,18 @@ import { ArrowRight, CalendarClock } from "lucide-react";
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
-import { SinceLastVisitActivity } from "@/components/pipeline/WorkspaceActivityFeed";
+import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent } from "@/lib/pipeline/calendar-types";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
-import {
-  loadRecentDestinations,
-  refreshRecentDestinations,
-  subscribeToRecentDestinations,
-  type PipelineRecentDestination,
-} from "@/lib/pipeline/recent-destinations";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { activeReferralFlowStates } from "@/lib/pipeline/referral-flow";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 
 export default function PipelineWelcome({
   onOpenPacket,
-  onOpenRecent,
   onOpenProfile,
   onOpenSearchDestination,
   onResumeDraft,
@@ -34,7 +27,6 @@ export default function PipelineWelcome({
   canAccessReports = false,
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
-  onOpenRecent: (destination: PipelineRecentDestination) => void;
   onOpenProfile: (residentKey: string) => void;
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
   onResumeDraft: (draftKey: `new-${string}`) => void;
@@ -44,7 +36,6 @@ export default function PipelineWelcome({
   canAccessReports?: boolean;
 }) {
   const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(null);
-  const [recentItems, setRecentItems] = useState<PipelineRecentDestination[]>([]);
   const [error, setError] = useState("");
   const { searchOpen } = usePipelineShell();
 
@@ -76,15 +67,6 @@ export default function PipelineWelcome({
       window.removeEventListener("focus", refreshOnFocus);
     };
   }, [loadBriefing]);
-
-  useEffect(() => {
-    const refreshRecent = () => setRecentItems(
-      loadRecentDestinations().filter((item) => item.screen !== "operations" || canAccessReports),
-    );
-    refreshRecent();
-    void refreshRecentDestinations().then(refreshRecent).catch(() => undefined);
-    return subscribeToRecentDestinations(refreshRecent);
-  }, [canAccessReports]);
 
   if (searchOpen) {
     return (
@@ -121,14 +103,13 @@ export default function PipelineWelcome({
             <div className="mt-2 space-y-4">
               {briefing.unavailable_sections.length > 0 ? (
                 <div role="status" className="border-l-2 border-[#b77b27] bg-[#fff8eb] px-4 py-2.5 text-[11px] text-[#73501f]">
-                  Some Home sections are temporarily unavailable. Available work remains current.
+                  A few live counts could not be refreshed. Open records remain available.
                 </div>
               ) : null}
               <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} />
-              <SinceLastVisitActivity viewerId={briefing.viewer.id} onOpenPacket={onOpenPacket} />
-              <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+              <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+                <SinceLastVisitAssignments viewerId={briefing.viewer.id} onOpenPacket={onOpenPacket} />
                 <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />
-                <RecentPanel items={recentItems} onOpenRecent={onOpenRecent} />
               </div>
             </div>
           ) : null}
@@ -151,7 +132,7 @@ function CurrentWorkSummary({ briefing, onOpen }: { briefing: HomeBriefingSnapsh
   const unavailable = briefing.unavailable_sections.includes("workflow");
   const activeLabel = unavailable
     ? "Temporarily unavailable"
-    : `${briefing.workflow.active_total.toLocaleString()} active ${briefing.workflow.active_total === 1 ? "referral" : "referrals"}`;
+    : `${briefing.workflow.active_total.toLocaleString()} active ${briefing.workflow.active_total === 1 ? "referral" : "referrals"} · intake through decision`;
 
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
@@ -163,13 +144,13 @@ function CurrentWorkSummary({ briefing, onOpen }: { briefing: HomeBriefingSnapsh
       >
         <span className="flex min-h-14 items-center justify-between gap-4 px-2 sm:px-3">
           <span className="min-w-0">
-            <span className="block text-[15px] font-black text-[#111111]">Current work</span>
+            <span className="block text-[15px] font-black text-[#111111]">Active referrals</span>
             <span className="mt-0.5 block text-[11px] font-semibold text-[#68706b]">
               {activeLabel}
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-2 text-[11px] font-black uppercase text-[#176f60]">
-            Open
+            Open worklist
             <ArrowRight size={16} strokeWidth={1.8} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5" />
           </span>
         </span>
@@ -195,7 +176,7 @@ function UpcomingAssessmentsPanel({ briefing, onOpenPacket }: BriefingPanelProps
       {briefing.unavailable_sections.includes("upcoming") ? (
         <UnavailableLine />
       ) : briefing.upcoming.length === 0 ? (
-        <EmptyLine>No assessments are scheduled in the next seven days.</EmptyLine>
+        <EmptyLine>The next seven days are clear. No assessments are scheduled.</EmptyLine>
       ) : (
         <div className="divide-y divide-[#e5e9e7]">
           {briefing.upcoming.slice(0, 6).map((event) => <ScheduleRow key={event.id} event={event} onOpenPacket={onOpenPacket} />)}
@@ -219,29 +200,6 @@ function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } &
       </span>
       <span className="text-[11px] font-semibold text-[#69716c]">{methodLabel(event.method)}</span>
     </button>
-  );
-}
-
-function RecentPanel({ items, onOpenRecent }: { items: PipelineRecentDestination[]; onOpenRecent: (destination: PipelineRecentDestination) => void }) {
-  return (
-    <section data-guide-target="recent-work" aria-label="Recent" className="min-w-0 bg-white">
-      <SectionHeader title="Recent" detail="Your last five" />
-      {items.length === 0 ? (
-        <EmptyLine>Opened referrals and profiles will appear here.</EmptyLine>
-      ) : (
-        <div className="divide-y divide-[#e5e9e7]">
-          {items.slice(0, 5).map((item) => (
-            <button key={item.id} type="button" onClick={() => onOpenRecent(item)} className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5f7fb] sm:px-4">
-              <span className="min-w-0">
-                <span className="block truncate text-[14px] font-bold">{recentTitle(item)}</span>
-                <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{item.detail}</span>
-              </span>
-              <span className="text-[11px] font-semibold text-[#69716c]">{relativeTime(item.visitedAt)}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -315,16 +273,6 @@ function SkeletonBlock({ className }: { className: string }) {
   return <div className={`bg-[#e9eeeb] ${className}`} />;
 }
 
-function relativeTime(value: string) {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return "Recently";
-  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
-  if (minutes < 1) return "Now";
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
-}
-
 function formatScheduleDate(event: PipelineCalendarEvent) {
   const date = new Date(event.startsAt ?? `${event.date}T12:00:00`);
   if (!Number.isFinite(date.getTime())) return event.date;
@@ -336,13 +284,6 @@ function formatScheduleDate(event: PipelineCalendarEvent) {
 function methodLabel(value?: string) {
   const labels: Record<string, string> = { in_person: "In person", phone: "Phone", zoom: "Zoom", video: "Zoom", record_review: "Record review" };
   return labels[value ?? ""] ?? "";
-}
-
-function recentTitle(item: PipelineRecentDestination) {
-  if (item.id === "page:referrals") return "Workspaces";
-  return item.kind === "profile" || item.kind === "referral"
-    ? clientDisplayName(item.title, item.kind === "referral" ? item.community : undefined)
-    : item.title;
 }
 
 function clientDisplayName(name: string, community?: string) {
