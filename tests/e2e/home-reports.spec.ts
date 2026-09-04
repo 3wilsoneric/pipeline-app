@@ -17,6 +17,41 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("region", { name: "Last 24 hours" })).toHaveCount(0);
   });
 
+  test("customizes, reorders, locks, and restores the user's Home modules", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
+    await page.getByRole("button", { name: "Customize home" }).click();
+
+    const library = page.getByRole("dialog", { name: "Home module library" });
+    await expect(library).toBeVisible();
+    const schedulingCard = library.locator("article").filter({ hasText: "Assessments to schedule" });
+    await schedulingCard.getByRole("button", { name: "Add" }).click();
+    await library.getByRole("button", { name: "Done" }).click();
+
+    await expect(page.getByRole("region", { name: "Assessments to schedule" })).toBeVisible();
+    await page.getByRole("button", { name: "Remove Upcoming assessments from Home" }).click();
+    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Drag Assessments to schedule" }).dragTo(
+      page.locator('[data-home-module="current-work"]'),
+    );
+    await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
+      elements.map((element) => element.getAttribute("data-home-module"))
+    ))).toEqual(["scheduling-queue", "current-work", "new-assignments"]);
+
+    await page.getByRole("button", { name: "Lock layout" }).click();
+    await expect(page.getByRole("button", { name: "Customize home" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Drag / })).toHaveCount(0);
+
+    await page.reload();
+    await expect(page.getByRole("region", { name: "Assessments to schedule" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Upcoming assessments" })).toHaveCount(0);
+    await expect.poll(async () => page.locator("[data-home-module]").evaluateAll((elements) => (
+      elements.map((element) => element.getAttribute("data-home-module"))
+    ))).toEqual(["scheduling-queue", "current-work", "new-assignments"]);
+  });
+
   test("summarizes referrals assigned since the last visit and opens the existing workspace", async ({ page }) => {
     await page.route("**/api/operations/activity?**", async (route) => {
       const url = new URL(route.request().url());

@@ -35,8 +35,35 @@ const assessmentCalendar = loadTypeScriptModule(root, "lib/pipeline/assessment-c
 const assessmentAccess = loadTypeScriptModule(root, "lib/assessment/assessment-access.ts");
 const assessmentLifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
 const assessorSessionPolicy = loadTypeScriptModule(root, "lib/auth/assessor-session-policy.ts");
+const homeDashboardLayout = loadTypeScriptModule(root, "lib/pipeline/home-dashboard-layout.ts");
 
 const results = [
+  run("Home dashboard layouts preserve valid module order and reject malformed customization state", () => {
+    const defaults = homeDashboardLayout.defaultPipelineHomeDashboardLayout();
+    assert(defaults.locked === true, "The default Home must be locked against accidental edits");
+    assert(
+      defaults.module_ids.join(",") === "current-work,new-assignments,upcoming-assessments",
+      "The default Home must preserve the existing operational workflow",
+    );
+
+    const customized = homeDashboardLayout.parsePipelineHomeDashboardLayout({
+      schema: 1,
+      module_ids: ["scheduling-queue", "current-work"],
+      locked: false,
+    });
+    assert(
+      customized?.module_ids.join(",") === "scheduling-queue,current-work" && customized.locked === false,
+      "A valid customized order must round-trip without changing module meaning",
+    );
+    assert(
+      homeDashboardLayout.parsePipelineHomeDashboardLayout({ schema: 1, module_ids: ["current-work", "current-work"], locked: true }) === null,
+      "Duplicate modules must be rejected",
+    );
+    assert(
+      homeDashboardLayout.parsePipelineHomeDashboardLayout({ schema: 1, module_ids: ["invented-module"], locked: true }) === null,
+      "Unknown modules must be rejected",
+    );
+  }),
   run("God mode keeps the selected account identity while retaining administrator authority", () => {
     const administrator = {
       id: "admin-1",

@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ArrowRight, CalendarClock } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarPlus } from "lucide-react";
 
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
+import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
 import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import type { PipelineCalendarEvent } from "@/lib/pipeline/calendar-types";
+import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
+import type { PipelineHomeModuleId } from "@/lib/pipeline/home-dashboard-layout";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -106,11 +108,15 @@ export default function PipelineWelcome({
                   A few live counts could not be refreshed. Open records remain available.
                 </div>
               ) : null}
-              <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} />
-              <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-                <SinceLastVisitAssignments viewerId={briefing.viewer.id} onOpenPacket={onOpenPacket} />
-                <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />
-              </div>
+              <HomeModuleDashboard
+                viewerId={briefing.viewer.id}
+                modules={{
+                  "current-work": <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} />,
+                  "new-assignments": <SinceLastVisitAssignments viewerId={briefing.viewer.id} onOpenPacket={onOpenPacket} />,
+                  "upcoming-assessments": <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />,
+                  "scheduling-queue": <SchedulingQueuePanel briefing={briefing} onOpenPacket={onOpenPacket} />,
+                } satisfies Record<PipelineHomeModuleId, ReactNode>}
+              />
             </div>
           ) : null}
         </div>
@@ -183,6 +189,49 @@ function UpcomingAssessmentsPanel({ briefing, onOpenPacket }: BriefingPanelProps
         </div>
       )}
     </section>
+  );
+}
+
+function SchedulingQueuePanel({ briefing, onOpenPacket }: BriefingPanelProps) {
+  const unavailable = briefing.unavailable_sections.includes("upcoming");
+  return (
+    <section aria-label="Assessments to schedule" className="min-w-0 bg-white">
+      <SectionHeader
+        title="Assessments to schedule"
+        detail={unavailable ? "Unavailable" : `${briefing.unscheduled_total.toLocaleString()} waiting`}
+        icon={<CalendarPlus size={15} />}
+      />
+      {unavailable ? (
+        <UnavailableLine />
+      ) : briefing.unscheduled.length === 0 ? (
+        <EmptyLine>No assessment-ready referrals are waiting to be scheduled.</EmptyLine>
+      ) : (
+        <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
+          {briefing.unscheduled.slice(0, 6).map((item) => (
+            <UnscheduledAssessmentRow key={`${item.referralId}-${item.assessmentId ?? "referral"}`} item={item} onOpenPacket={onOpenPacket} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function UnscheduledAssessmentRow({ item, onOpenPacket }: { item: PipelineUnscheduledAssessment } & Pick<BriefingPanelProps, "onOpenPacket">) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenPacket({ id: item.referralId, name: clientDisplayName(item.clientName, item.community), community: item.community as Referral["community"] })}
+      className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5faf8] sm:px-4"
+    >
+      <span className="min-w-0">
+        <span className="block truncate text-[14px] font-bold">{clientDisplayName(item.clientName, item.community)}</span>
+        <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{item.community} · {item.owner || "Unassigned"}</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-2 text-[10px] font-bold text-[#176f60]">
+        {unscheduledActionLabel(item.nextAction)}
+        <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+      </span>
+    </button>
   );
 }
 
@@ -284,6 +333,12 @@ function formatScheduleDate(event: PipelineCalendarEvent) {
 function methodLabel(value?: string) {
   const labels: Record<string, string> = { in_person: "In person", phone: "Phone", zoom: "Zoom", video: "Zoom", record_review: "Record review" };
   return labels[value ?? ""] ?? "";
+}
+
+function unscheduledActionLabel(action: PipelineUnscheduledAssessment["nextAction"]) {
+  if (action === "assign") return "Assign owner";
+  if (action === "complete_intake") return "Complete intake";
+  return "Schedule";
 }
 
 function clientDisplayName(name: string, community?: string) {

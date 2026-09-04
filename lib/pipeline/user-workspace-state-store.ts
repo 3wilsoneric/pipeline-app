@@ -12,7 +12,8 @@ export type UserWorkspaceStateKind =
   | "referral_draft"
   | "assessment_draft"
   | "academy_progress"
-  | "operator_training_progress";
+  | "operator_training_progress"
+  | "home_dashboard_layout";
 
 export type UserWorkspaceState<T = unknown> = {
   principal_id: string;
@@ -433,6 +434,7 @@ const workspaceStateKinds = new Set<UserWorkspaceStateKind>([
   "assessment_draft",
   "academy_progress",
   "operator_training_progress",
+  "home_dashboard_layout",
 ]);
 
 function isWorkspaceStateKind(value: unknown): value is UserWorkspaceStateKind {

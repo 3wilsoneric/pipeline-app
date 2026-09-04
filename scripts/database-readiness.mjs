@@ -29,6 +29,7 @@ const notePracticeLabMigration = read("database/migrations/0021_note_practice_la
 const noteLabPatternSelectionsMigration = read("database/migrations/0022_note_lab_pattern_selections.sql");
 const noteLabFieldReviewsMigration = read("database/migrations/0023_note_lab_field_reviews.sql");
 const workspaceMonthMigration = read("database/migrations/0024_workspace_month_provenance.sql");
+const homeDashboardLayoutMigration = read("database/migrations/0025_home_dashboard_layout.sql");
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
 const canonicalClientVerifier = read("scripts/verify-database-migration-0007.mjs");
 const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
@@ -63,6 +64,7 @@ const notePracticeLabRollback = read("database/rollbacks/0021_note_practice_lab.
 const noteLabPatternSelectionsRollback = read("database/rollbacks/0022_note_lab_pattern_selections.sql");
 const noteLabFieldReviewsRollback = read("database/rollbacks/0023_note_lab_field_reviews.sql");
 const workspaceMonthRollback = read("database/rollbacks/0024_workspace_month_provenance.sql");
+const homeDashboardLayoutRollback = read("database/rollbacks/0025_home_dashboard_layout.sql");
 const rollbackDrill = read("scripts/database-rollback-drill.mjs");
 const productionSeed = read("scripts/seed-production-reference-data.mjs");
 const pilotReset = read("scripts/pilot-reset.mjs");
@@ -328,6 +330,8 @@ check("note lab field reviews are coded, text-free, and reviewer scoped", noteLa
 check("note lab field review rollback is scoped to migration 0023", noteLabFieldReviewsRollback.includes("note_lab_field_reviews") && noteLabFieldReviewsRollback.includes("0023_note_lab_field_reviews") && !noteLabFieldReviewsRollback.includes("drop schema"));
 check("workspace month is first-class, provenance-backed, and indexed", workspaceMonthMigration.includes("workspace_month") && workspaceMonthMigration.includes("workspace_month_basis") && workspaceMonthMigration.includes("source_project_name") && workspaceMonthMigration.includes("referrals_workspace_month_idx") && workspaceMonthMigration.includes("0024_workspace_month_provenance"));
 check("workspace-month rollback restores the prior received-date index", workspaceMonthRollback.includes("referrals_workspace_received_idx") && workspaceMonthRollback.includes("0024_workspace_month_provenance") && !workspaceMonthRollback.includes("drop schema"));
+check("Home dashboard layouts are an explicit per-user workspace state", homeDashboardLayoutMigration.includes("home_dashboard_layout") && homeDashboardLayoutMigration.includes("user_workspace_state_state_kind_check") && homeDashboardLayoutMigration.includes("0025_home_dashboard_layout"));
+check("Home dashboard layout rollback is scoped to migration 0025", homeDashboardLayoutRollback.includes("state_kind = 'home_dashboard_layout'") && homeDashboardLayoutRollback.includes("0025_home_dashboard_layout") && !homeDashboardLayoutRollback.includes("drop schema"));
 check(
   "rollback scripts delegate transaction ownership to the drill or operator",
   ![
@@ -351,12 +355,13 @@ check(
     noteLabPatternSelectionsRollback,
     noteLabFieldReviewsRollback,
     workspaceMonthRollback,
+    homeDashboardLayoutRollback,
   ].some((rollback) => /^\s*(begin|commit)\s*;/im.test(rollback)),
 );
-check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("workspaceCountyRollback") && rollbackDrill.includes("assessorWorkflowRollback") && rollbackDrill.includes("zoomAssessmentMethodRollback") && rollbackDrill.includes("referralReceivedMonthRollback") && rollbackDrill.includes("academyProgressRollback") && rollbackDrill.includes("operatorTrainingProgressRollback") && rollbackDrill.includes("alloCanvasContentRollback") && rollbackDrill.includes("notePracticeLabRollback") && rollbackDrill.includes("noteLabPatternSelectionsRollback") && rollbackDrill.includes("noteLabFieldReviewsRollback") && rollbackDrill.includes("workspaceMonthRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
+check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("workspaceCountyRollback") && rollbackDrill.includes("assessorWorkflowRollback") && rollbackDrill.includes("zoomAssessmentMethodRollback") && rollbackDrill.includes("referralReceivedMonthRollback") && rollbackDrill.includes("academyProgressRollback") && rollbackDrill.includes("operatorTrainingProgressRollback") && rollbackDrill.includes("alloCanvasContentRollback") && rollbackDrill.includes("notePracticeLabRollback") && rollbackDrill.includes("noteLabPatternSelectionsRollback") && rollbackDrill.includes("noteLabFieldReviewsRollback") && rollbackDrill.includes("workspaceMonthRollback") && rollbackDrill.includes("homeDashboardLayoutRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
 check("production seed creates reference rows only", productionSeed.includes("synthetic_client_rows: 0") && !productionSeed.includes("insert into pipeline.people") && !productionSeed.includes("insert into pipeline.referrals"));
-check("production seed requires the latest migration", productionSeed.includes("0024_workspace_month_provenance") && productionSeed.includes("migrations.length !== 24"));
-check("live database smoke requires the latest migration", liveSmoke.includes("0024_workspace_month_provenance") && liveSmoke.includes("migrations.length === 24") && liveSmoke.includes("pipeline.client_update_outbox"));
+check("production seed requires the latest migration", productionSeed.includes("0025_home_dashboard_layout") && productionSeed.includes("migrations.length !== 25"));
+check("live database smoke requires the latest migration", liveSmoke.includes("0025_home_dashboard_layout") && liveSmoke.includes("migrations.length === 25") && liveSmoke.includes("pipeline.client_update_outbox"));
 check("restore verification includes workspace state", restoreVerify.includes("pipeline.user_workspace_state"));
 check("account-state purge is dry-run-first and identity-redacted", workspacePurge.includes('mode: execute ? "execute" : "dry_run"') && workspacePurge.includes("principal_configured: true"));
 check(
@@ -394,7 +399,7 @@ const configuration = Object.fromEntries(
 
 console.log(JSON.stringify({
   ok: failed.length === 0,
-  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance", "0014_workspace_county", "0015_assessor_workflow", "0016_zoom_assessment_method", "0017_referral_received_month", "0018_academy_progress", "0019_operator_training_progress", "0020_allo_canvas_content", "0021_note_practice_lab", "0022_note_lab_pattern_selections", "0023_note_lab_field_reviews", "0024_workspace_month_provenance"],
+  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance", "0014_workspace_county", "0015_assessor_workflow", "0016_zoom_assessment_method", "0017_referral_received_month", "0018_academy_progress", "0019_operator_training_progress", "0020_allo_canvas_content", "0021_note_practice_lab", "0022_note_lab_pattern_selections", "0023_note_lab_field_reviews", "0024_workspace_month_provenance", "0025_home_dashboard_layout"],
   checks,
   configuration_present: configuration,
   note: "Configuration reports presence only; values are never printed.",

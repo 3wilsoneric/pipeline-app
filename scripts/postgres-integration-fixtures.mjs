@@ -18,15 +18,24 @@ try {
     await sql.begin(async (tx) => {
       const migrations = await tx`
         select migration_id from pipeline.schema_migrations
-        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration','0010_provisional_workspace_members','0011_historical_material_workspaces','0012_referral_trash','0013_search_performance','0014_workspace_county','0015_assessor_workflow','0016_zoom_assessment_method','0017_referral_received_month','0018_academy_progress','0019_operator_training_progress','0020_allo_canvas_content','0021_note_practice_lab','0022_note_lab_pattern_selections','0023_note_lab_field_reviews','0024_workspace_month_provenance')
+        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration','0010_provisional_workspace_members','0011_historical_material_workspaces','0012_referral_trash','0013_search_performance','0014_workspace_county','0015_assessor_workflow','0016_zoom_assessment_method','0017_referral_received_month','0018_academy_progress','0019_operator_training_progress','0020_allo_canvas_content','0021_note_practice_lab','0022_note_lab_pattern_selections','0023_note_lab_field_reviews','0024_workspace_month_provenance','0025_home_dashboard_layout')
       `;
-      checks.push({ name: "all migrations applied", ok: migrations.length === 24 });
+      checks.push({ name: "all migrations applied", ok: migrations.length === 25 });
       await tx`
         insert into pipeline.user_workspace_state (
           principal_id, state_kind, state_key, payload, expires_at
         ) values (
           'fixture-user', 'recent_destination', 'page:referrals',
           ${tx.json({ id: "page:referrals", kind: "page", screen: "referrals", title: "Referrals", detail: "Synthetic", visitedAt: new Date(0).toISOString() })},
+          now() + interval '1 day'
+        )
+      `;
+      await tx`
+        insert into pipeline.user_workspace_state (
+          principal_id, state_kind, state_key, payload, expires_at
+        ) values (
+          'fixture-user', 'home_dashboard_layout', 'default',
+          ${tx.json({ schema: 1, module_ids: ["current-work", "upcoming-assessments"], locked: true })},
           now() + interval '1 day'
         )
       `;
@@ -136,6 +145,7 @@ try {
           (select count(*) from pipeline.editing_presence where actor_id = 'fixture-user') as presence
           ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user') as workspace_state
           ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user' and state_kind = 'assessment_draft') as assessment_drafts
+          ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user' and state_kind = 'home_dashboard_layout') as home_dashboard_layouts
           ,(select count(*) from pipeline.workspace_members where principal_id = 'fixture-user' and active and identity_status = 'entra_linked') as workspace_members
           ,(select count(*) from pipeline.workspace_members where principal_id = 'provisional:fixture:assessor' and active and identity_status = 'provisional' and email is null and last_seen_at is null) as provisional_members
       `;
@@ -144,7 +154,7 @@ try {
         ok: Number(rows[0].people) === 1 && Number(rows[0].referrals) === 1
           && Number(rows[0].documents) === 1 && Number(rows[0].pages) === 2 && Number(rows[0].presence) === 1
           && Number(rows[0].historical_documents) === 1 && Number(rows[0].unmatched_imports) === 1
-          && Number(rows[0].workspace_state) === 2 && Number(rows[0].assessment_drafts) === 1
+          && Number(rows[0].workspace_state) === 3 && Number(rows[0].assessment_drafts) === 1 && Number(rows[0].home_dashboard_layouts) === 1
           && Number(rows[0].workspace_members) === 1 && Number(rows[0].provisional_members) === 1,
       });
       throw rollbackSentinel;
