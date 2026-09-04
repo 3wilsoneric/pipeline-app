@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:15e81243d5a44c05",
-  "fingerprint": "15e81243d5a44c05f89f162acd6e43c627cf1840fc37d5d691f6c4ee7eafff2a",
+  "generatedAt": "source-fingerprint:c231d62210352a81",
+  "fingerprint": "c231d62210352a819965cbd8ccf2b56605b485e347255ca822812af73ae59a60",
   "totals": {
     "files": 792,
-    "lines": 268155,
+    "lines": 268163,
     "coveredFiles": 792
   },
   "entries": [
@@ -74,7 +74,7 @@
       "kind": "repository-file",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 264,
+      "lines": 269,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -1998,7 +1998,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1303,
+      "lines": 1308,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -9331,7 +9331,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 3081,
+      "lines": 3079,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

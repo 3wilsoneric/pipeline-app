@@ -534,7 +534,7 @@ export default function ReferralHome({
               onClick={() => setWorkspaceSection("workspaces")}
               className={`border-b-[3px] px-3 text-[11px] font-black uppercase tracking-[0.08em] ${workspaceSection === "workspaces" ? "border-[#0f8b73] text-[#0c705f]" : "border-transparent text-[#68716c] hover:text-[#202723]"}`}
             >
-              Workspaces <span className="ml-1 text-[9px] tabular-nums text-[#7a837f]">{formatDirectoryCount(allPacketTotal)}</span>
+              Workspaces <span className="ml-1 text-[9px] tabular-nums text-[#68716c]">{formatDirectoryCount(allPacketTotal)}</span>
             </button>
             <button
               type="button"
@@ -546,10 +546,15 @@ export default function ReferralHome({
               Activity
             </button>
           </div>
-          {workspaceSection === "workspaces" && filter.kind !== "files" ? (
-            <div role="group" aria-label="Workspace layout" className="mb-2 flex border border-[#cfd7d3] bg-white p-0.5">
-              <button type="button" aria-label="Show workspaces as a list" aria-pressed={workspaceLayout === "list"} onClick={() => selectWorkspaceLayout("list")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${workspaceLayout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={13} />List</button>
-              <button type="button" aria-label="Show workspaces as a gallery" aria-pressed={workspaceLayout === "gallery"} onClick={() => selectWorkspaceLayout("gallery")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${workspaceLayout === "gallery" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={13} />Gallery</button>
+          {workspaceSection === "workspaces" ? (
+            <div
+              role="group"
+              aria-label="Workspace layout"
+              aria-hidden={filter.kind === "files"}
+              className={`mb-2 flex border border-[#cfd7d3] bg-white p-0.5 ${filter.kind === "files" ? "invisible" : ""}`}
+            >
+              <button type="button" disabled={filter.kind === "files"} aria-label="Show workspaces as a list" aria-pressed={workspaceLayout === "list"} onClick={() => selectWorkspaceLayout("list")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${workspaceLayout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={13} />List</button>
+              <button type="button" disabled={filter.kind === "files"} aria-label="Show workspaces as a gallery" aria-pressed={workspaceLayout === "gallery"} onClick={() => selectWorkspaceLayout("gallery")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${workspaceLayout === "gallery" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={13} />Gallery</button>
             </div>
           ) : null}
         </div>
@@ -559,7 +564,7 @@ export default function ReferralHome({
         <>
         <div className="min-w-0">
           {workspaceSearch}
-          <div className="min-h-14">
+          <div className="min-h-14 sm:min-h-[104px] lg:min-h-14">
             {filter.kind === "files"
               ? fileFilterToolbar
               : filterToolbar}
