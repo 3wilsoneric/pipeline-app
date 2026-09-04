@@ -206,7 +206,11 @@ test.describe("Pipeline Learning Center", () => {
       await preview.getByRole("button", { name: "Next concept" }).click();
       await expect(preview.getByRole("heading", { name: heading })).toBeVisible();
     }
-    await expect(preview.getByText(/guided tour opens the real Pipeline controls/)).toBeVisible();
+    await preview.getByRole("button", { name: "Continue" }).click();
+    await expect(preview.getByRole("heading", { name: "From concepts to the real workflow" })).toBeVisible();
+    await expect(preview.getByRole("heading", { name: "Follow the workflow where it happens." })).toBeVisible();
+    await expect(preview.getByText(/guided tour now opens the real Pipeline pages/)).toBeVisible();
+    await expect(preview.getByText(/Nothing is submitted for you/)).toBeVisible();
     await preview.getByRole("button", { name: "Start guided tour" }).click();
     await expect(preview).toBeHidden();
     const coach = page.getByRole("dialog", { name: "Full Pipeline walkthrough guided tutorial" });

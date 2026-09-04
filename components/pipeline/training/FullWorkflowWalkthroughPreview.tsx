@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileUp,
+  MousePointerClick,
   ShieldCheck,
   UserCheck,
   X,
@@ -126,6 +127,7 @@ export default function FullWorkflowWalkthroughPreview({
 }) {
   const mounted = useSyncExternalStore(subscribeToClient, getClientSnapshot, getServerSnapshot);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [showTransition, setShowTransition] = useState(false);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -151,8 +153,8 @@ export default function FullWorkflowWalkthroughPreview({
       <section role="dialog" aria-modal="true" aria-label="Full Pipeline walkthrough" className="flex h-dvh min-h-0 flex-col bg-white text-[#1d2421]">
         <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-[#d5ddda] px-4 py-3 sm:px-7">
           <div className="min-w-0">
-            <div className="text-[10px] font-black uppercase text-[#0f7c68]">Workflow concepts</div>
-            <h2 className="mt-1 truncate text-[20px] font-black sm:text-[24px]">How Pipeline moves a referral</h2>
+            <div className="text-[10px] font-black uppercase text-[#0f7c68]">{showTransition ? "Concepts complete" : "Workflow concepts"}</div>
+            <h2 className="mt-1 truncate text-[20px] font-black sm:text-[24px]">{showTransition ? "From concepts to the real workflow" : "How Pipeline moves a referral"}</h2>
           </div>
           <button type="button" aria-label="Close full walkthrough" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center border border-[#cbd5d1] text-[#56615c] hover:border-[#0f8b73] hover:text-[#0f7c68]">
             <X size={19} aria-hidden="true" />
@@ -172,7 +174,10 @@ export default function FullWorkflowWalkthroughPreview({
                         type="button"
                         aria-current={active ? "step" : undefined}
                         aria-label={`Show concept ${index + 1}: ${item.label}`}
-                        onClick={() => setActiveIndex(index)}
+                        onClick={() => {
+                          setActiveIndex(index);
+                          setShowTransition(false);
+                        }}
                         className={`flex min-h-12 w-full items-center justify-center gap-2 border-l-2 px-2 text-[10px] font-black sm:px-3 lg:min-h-14 lg:justify-start lg:text-[12px] ${active ? "border-[#0f8b73] bg-[#eaf5f1] text-[#0c705f]" : "border-transparent text-[#66716d] hover:bg-white hover:text-[#1f2824]"}`}
                       >
                         <Icon size={16} className="hidden shrink-0 sm:block" aria-hidden="true" />
@@ -185,52 +190,94 @@ export default function FullWorkflowWalkthroughPreview({
             </nav>
 
             <main className="min-w-0 px-5 py-8 sm:px-10 sm:py-12 lg:px-16 lg:py-14 xl:px-20">
-              <div className="mx-auto max-w-[940px]">
-                <div className="flex h-14 w-14 items-center justify-center bg-[#eaf5f1] text-[#0f7c68]">
-                  <ConceptIcon size={26} aria-hidden="true" />
-                </div>
-                <div className="mt-7 text-[10px] font-black uppercase text-[#0f7c68]">Concept {activeIndex + 1} of {concepts.length}</div>
-                <h3 className="mt-2 max-w-[760px] text-[32px] font-black leading-[38px] sm:text-[44px] sm:leading-[50px]">{concept.title}</h3>
-                <p className="mt-4 max-w-[760px] text-[16px] font-medium leading-7 text-[#5e6a65] sm:text-[18px]">{concept.summary}</p>
-
-                <dl className="mt-8 grid gap-5 border-y border-[#d7dfdc] py-6 sm:grid-cols-2 sm:gap-8">
-                  <div>
-                    <dt className="text-[10px] font-black uppercase text-[#65716c]">Who owns it</dt>
-                    <dd className="mt-2 text-[14px] font-bold leading-6 text-[#26302c]">{concept.owner}</dd>
+              {showTransition ? (
+                <div className="mx-auto max-w-[940px]">
+                  <div className="flex h-14 w-14 items-center justify-center bg-[#eaf5f1] text-[#0f7c68]">
+                    <MousePointerClick size={26} aria-hidden="true" />
                   </div>
-                  <div>
-                    <dt className="text-[10px] font-black uppercase text-[#65716c]">System rule</dt>
-                    <dd className="mt-2 text-[14px] font-bold leading-6 text-[#26302c]">{concept.rule}</dd>
-                  </div>
-                </dl>
-
-                <ol className="mt-3">
-                  {concept.points.map((point, index) => (
-                    <li key={point.title} className="grid gap-2 border-b border-[#e0e6e3] py-5 sm:grid-cols-[42px_180px_minmax(0,1fr)] sm:items-start sm:gap-5">
-                      <span className="text-[11px] font-black tabular-nums text-[#0f7c68]">{String(index + 1).padStart(2, "0")}</span>
-                      <strong className="text-[15px] font-black leading-5 text-[#28312d]">{point.title}</strong>
-                      <span className="text-[14px] font-medium leading-6 text-[#66716d]">{point.detail}</span>
-                    </li>
-                  ))}
-                </ol>
-
-                {finalConcept ? (
-                  <p className="mt-7 border-l-2 border-[#0f8b73] pl-4 text-[14px] font-bold leading-6 text-[#31574d]">
-                    Next, the guided tour opens the real Pipeline controls and highlights exactly where to click. It never creates, signs, or sends a record for you.
+                  <div className="mt-7 text-[10px] font-black uppercase text-[#0f7c68]">Up next</div>
+                  <h3 className="mt-2 max-w-[760px] text-[32px] font-black leading-[38px] sm:text-[44px] sm:leading-[50px]">Follow the workflow where it happens.</h3>
+                  <p className="mt-4 max-w-[790px] text-[16px] font-medium leading-7 text-[#5e6a65] sm:text-[18px]">
+                    You have the operating model. The guided tour now opens the real Pipeline pages and points to the controls that move a referral forward.
                   </p>
-                ) : null}
-              </div>
+
+                  <div className="mt-9 grid gap-7 border-y border-[#d7dfdc] py-7 sm:grid-cols-2 sm:gap-10">
+                    <section aria-labelledby="bridge-carries-forward">
+                      <h4 id="bridge-carries-forward" className="text-[11px] font-black uppercase text-[#0f7c68]">What carries forward</h4>
+                      <p className="mt-3 text-[16px] font-black leading-6 text-[#26302c]">One workspace. One accountable assessor. Source-backed information.</p>
+                    </section>
+                    <section aria-labelledby="bridge-changes-now">
+                      <h4 id="bridge-changes-now" className="text-[11px] font-black uppercase text-[#0f7c68]">What changes now</h4>
+                      <p className="mt-3 text-[16px] font-black leading-6 text-[#26302c]">You will move through live screens while the spotlight shows the next control.</p>
+                    </section>
+                  </div>
+
+                  <ol className="mt-3">
+                    {[
+                      ["Look", "The tour opens the page where each part of the work belongs."],
+                      ["Follow", "A spotlight and short instruction identify the next useful action."],
+                      ["Move on", "Skip any step when you only need orientation. Nothing is submitted for you."],
+                    ].map(([title, detail], index) => (
+                      <li key={title} className="grid gap-2 border-b border-[#e0e6e3] py-5 sm:grid-cols-[42px_180px_minmax(0,1fr)] sm:items-start sm:gap-5">
+                        <span className="text-[11px] font-black tabular-nums text-[#0f7c68]">{String(index + 1).padStart(2, "0")}</span>
+                        <strong className="text-[15px] font-black leading-5 text-[#28312d]">{title}</strong>
+                        <span className="text-[14px] font-medium leading-6 text-[#66716d]">{detail}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ) : (
+                <div className="mx-auto max-w-[940px]">
+                  <div className="flex h-14 w-14 items-center justify-center bg-[#eaf5f1] text-[#0f7c68]">
+                    <ConceptIcon size={26} aria-hidden="true" />
+                  </div>
+                  <div className="mt-7 text-[10px] font-black uppercase text-[#0f7c68]">Concept {activeIndex + 1} of {concepts.length}</div>
+                  <h3 className="mt-2 max-w-[760px] text-[32px] font-black leading-[38px] sm:text-[44px] sm:leading-[50px]">{concept.title}</h3>
+                  <p className="mt-4 max-w-[760px] text-[16px] font-medium leading-7 text-[#5e6a65] sm:text-[18px]">{concept.summary}</p>
+
+                  <dl className="mt-8 grid gap-5 border-y border-[#d7dfdc] py-6 sm:grid-cols-2 sm:gap-8">
+                    <div>
+                      <dt className="text-[10px] font-black uppercase text-[#65716c]">Who owns it</dt>
+                      <dd className="mt-2 text-[14px] font-bold leading-6 text-[#26302c]">{concept.owner}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] font-black uppercase text-[#65716c]">System rule</dt>
+                      <dd className="mt-2 text-[14px] font-bold leading-6 text-[#26302c]">{concept.rule}</dd>
+                    </div>
+                  </dl>
+
+                  <ol className="mt-3">
+                    {concept.points.map((point, index) => (
+                      <li key={point.title} className="grid gap-2 border-b border-[#e0e6e3] py-5 sm:grid-cols-[42px_180px_minmax(0,1fr)] sm:items-start sm:gap-5">
+                        <span className="text-[11px] font-black tabular-nums text-[#0f7c68]">{String(index + 1).padStart(2, "0")}</span>
+                        <strong className="text-[15px] font-black leading-5 text-[#28312d]">{point.title}</strong>
+                        <span className="text-[14px] font-medium leading-6 text-[#66716d]">{point.detail}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
             </main>
           </div>
         </div>
 
         <footer className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-t border-[#cfd8d4] bg-white px-4 py-3 sm:px-7">
-          <button type="button" disabled={activeIndex === 0} onClick={() => setActiveIndex((current) => Math.max(0, current - 1))} className="flex h-11 items-center gap-2 px-2 text-[12px] font-black text-[#5e6964] disabled:invisible">
+          <button type="button" disabled={!showTransition && activeIndex === 0} onClick={() => {
+            if (showTransition) {
+              setShowTransition(false);
+              return;
+            }
+            setActiveIndex((current) => Math.max(0, current - 1));
+          }} className="flex h-11 items-center gap-2 px-2 text-[12px] font-black text-[#5e6964] disabled:invisible">
             <ArrowLeft size={15} aria-hidden="true" /> Back
           </button>
-          {finalConcept ? (
+          {showTransition ? (
             <button type="button" onClick={onStartGuide ?? onClose} className="flex h-11 items-center gap-2 bg-[#0f8b73] px-5 text-[12px] font-black text-white hover:bg-[#0b715e]">
               {onStartGuide ? "Start guided tour" : "Finish"} <ArrowRight size={15} aria-hidden="true" />
+            </button>
+          ) : finalConcept ? (
+            <button type="button" onClick={() => setShowTransition(true)} className="flex h-11 items-center gap-2 bg-[#0f8b73] px-5 text-[12px] font-black text-white hover:bg-[#0b715e]">
+              Continue <ArrowRight size={15} aria-hidden="true" />
             </button>
           ) : (
             <button type="button" onClick={() => setActiveIndex((current) => Math.min(concepts.length - 1, current + 1))} className="flex h-11 items-center gap-2 bg-[#0f8b73] px-5 text-[12px] font-black text-white hover:bg-[#0b715e]">
