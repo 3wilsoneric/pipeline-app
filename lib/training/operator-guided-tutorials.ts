@@ -34,6 +34,13 @@ export type OperatorGuidedTutorial = {
   steps: readonly OperatorGuideStep[];
 };
 
+export type OperatorGuideChapter = {
+  id: string;
+  title: string;
+  startStepIndex: number;
+  steps: readonly OperatorGuideStep[];
+};
+
 const simpleStepTitles: Readonly<Record<string, string>> = {
   "chart-find": "Find the referral",
   "chart-complete": "Check the chart",
@@ -77,6 +84,31 @@ const simpleStepTitles: Readonly<Record<string, string>> = {
 
 export function operatorGuideStepTitle(step: OperatorGuideStep) {
   return simpleStepTitles[step.id] ?? step.title;
+}
+
+export function operatorGuideChapters(tutorial: OperatorGuidedTutorial): readonly OperatorGuideChapter[] {
+  const chapters: OperatorGuideChapter[] = [];
+  for (const [stepIndex, step] of tutorial.steps.entries()) {
+    const current = chapters.at(-1);
+    if (current?.title === step.phase) {
+      current.steps = [...current.steps, step];
+      continue;
+    }
+    chapters.push({
+      id: `${tutorial.id}:${step.phase.toLowerCase().replace(/[^a-z0-9]+/g, "-")}:${stepIndex}`,
+      title: step.phase,
+      startStepIndex: stepIndex,
+      steps: [step],
+    });
+  }
+  return chapters;
+}
+
+export function operatorGuideChapterAtStep(tutorial: OperatorGuidedTutorial, stepIndex: number) {
+  return operatorGuideChapters(tutorial).find((chapter) => (
+    stepIndex >= chapter.startStepIndex
+    && stepIndex < chapter.startStepIndex + chapter.steps.length
+  ));
 }
 
 const allRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer", "viewer"];

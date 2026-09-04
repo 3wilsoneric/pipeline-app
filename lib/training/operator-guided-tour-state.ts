@@ -1,8 +1,8 @@
 import { getOperatorGuidedTutorial, operatorGuidedTutorialIds } from "@/lib/training/operator-guided-tutorials";
 
-export const OPERATOR_GUIDE_STORAGE_KEY = "pipeline-guided-coach:v3";
+export const OPERATOR_GUIDE_STORAGE_KEY = "pipeline-guided-coach:v4";
 export const OPERATOR_GUIDE_EVENT = "pipeline:guided-coach";
-export const OPERATOR_GUIDE_STATE_VERSION = 3 as const;
+export const OPERATOR_GUIDE_STATE_VERSION = 4 as const;
 
 export type OperatorGuideMode = "closed" | "library" | "active";
 
@@ -11,6 +11,8 @@ export type OperatorGuideState = {
   mode: OperatorGuideMode;
   activeTutorialId: string | null;
   stepIndex: number;
+  sequenceTutorialIds: string[];
+  sequenceIndex: number;
   completedTutorialIds: string[];
   startedAt: string | null;
   updatedAt: string;
@@ -18,7 +20,8 @@ export type OperatorGuideState = {
 
 export type OperatorGuideEvent =
   | { type: "open-library" }
-  | { type: "start"; tutorialId: string }
+  | { type: "start"; tutorialId: string; stepIndex?: number }
+  | { type: "start-sequence"; tutorialIds: string[] }
   | { type: "resume" }
   | { type: "close" }
   | { type: "next" }
@@ -35,6 +38,8 @@ export function emptyOperatorGuideState(): OperatorGuideState {
     mode: "closed",
     activeTutorialId: null,
     stepIndex: 0,
+    sequenceTutorialIds: [],
+    sequenceIndex: 0,
     completedTutorialIds: [],
     startedAt: null,
     updatedAt: new Date(0).toISOString(),
@@ -46,11 +51,15 @@ export function normalizeOperatorGuideState(value: unknown): OperatorGuideState 
   const tutorial = getOperatorGuidedTutorial(stringOrNull(value.activeTutorialId));
   const stepIndex = normalizedStepIndex(value.stepIndex, tutorial?.steps.length ?? 0);
   const mode = normalizedGuideMode(value.mode);
+  const sequenceTutorialIds = validTutorialIds(value.sequenceTutorialIds);
+  const sequenceIndex = tutorial ? sequenceTutorialIds.indexOf(tutorial.id) : -1;
   return {
     version: OPERATOR_GUIDE_STATE_VERSION,
     mode: mode === "active" && !tutorial ? "closed" : mode,
     activeTutorialId: tutorial?.id ?? null,
     stepIndex,
+    sequenceTutorialIds: sequenceIndex >= 0 ? sequenceTutorialIds : [],
+    sequenceIndex: Math.max(0, sequenceIndex),
     completedTutorialIds: uniqueStrings(value.completedTutorialIds).filter((id) => operatorGuidedTutorialIds.includes(id)),
     startedAt: validTimestamp(value.startedAt),
     updatedAt: validTimestamp(value.updatedAt) ?? new Date(0).toISOString(),
@@ -63,18 +72,10 @@ export function reduceOperatorGuideState(current: OperatorGuideState, event: Ope
   if (immediate) return immediate;
   const tutorial = getOperatorGuidedTutorial(state.activeTutorialId);
   if (!tutorial) return state;
-  if (event.type === "previous") return { ...state, stepIndex: Math.max(0, state.stepIndex - 1), updatedAt: now };
+  if (event.type === "previous") return previousGuideState(state, now);
   if (event.type === "restart") return { ...state, mode: "active", stepIndex: 0, startedAt: now, updatedAt: now };
   if (event.type === "next") return { ...state, stepIndex: Math.min(tutorial.steps.length - 1, state.stepIndex + 1), updatedAt: now };
-  if (event.type === "finish") return {
-    ...state,
-    mode: "library",
-    activeTutorialId: null,
-    stepIndex: 0,
-    completedTutorialIds: [...new Set([...state.completedTutorialIds, tutorial.id])],
-    startedAt: null,
-    updatedAt: now,
-  };
+  if (event.type === "finish") return finishGuideState(state, tutorial.id, now);
   return state;
 }
 
@@ -82,12 +83,80 @@ function reduceImmediateGuideEvent(state: OperatorGuideState, event: OperatorGui
   if (event.type === "open-library") return { ...state, mode: "library", updatedAt: now };
   if (event.type === "start") {
     const tutorial = getOperatorGuidedTutorial(event.tutorialId);
-    return tutorial ? { ...state, mode: "active", activeTutorialId: tutorial.id, stepIndex: 0, startedAt: now, updatedAt: now } : state;
+    return tutorial ? {
+      ...state,
+      mode: "active",
+      activeTutorialId: tutorial.id,
+      stepIndex: normalizedStepIndex(event.stepIndex, tutorial.steps.length),
+      sequenceTutorialIds: [],
+      sequenceIndex: 0,
+      startedAt: now,
+      updatedAt: now,
+    } : state;
   }
+  if (event.type === "start-sequence") return startGuideSequence(state, event.tutorialIds, now);
   if (event.type === "resume") return { ...state, mode: state.activeTutorialId ? "active" : "library", updatedAt: now };
   if (event.type === "close") return { ...state, mode: "closed", updatedAt: now };
-  if (event.type === "end") return { ...state, mode: "library", activeTutorialId: null, stepIndex: 0, startedAt: null, updatedAt: now };
+  if (event.type === "end") return { ...state, mode: "library", activeTutorialId: null, stepIndex: 0, sequenceTutorialIds: [], sequenceIndex: 0, startedAt: null, updatedAt: now };
   return null;
+}
+
+function startGuideSequence(state: OperatorGuideState, requestedIds: readonly string[], now: string): OperatorGuideState {
+  const tutorialIds = validTutorialIds(requestedIds);
+  const first = getOperatorGuidedTutorial(tutorialIds[0]);
+  if (!first) return state;
+  return {
+    ...state,
+    mode: "active",
+    activeTutorialId: first.id,
+    stepIndex: 0,
+    sequenceTutorialIds: tutorialIds,
+    sequenceIndex: 0,
+    startedAt: now,
+    updatedAt: now,
+  };
+}
+
+function previousGuideState(state: OperatorGuideState, now: string): OperatorGuideState {
+  if (state.stepIndex > 0) return { ...state, stepIndex: state.stepIndex - 1, updatedAt: now };
+  const previousTutorialId = state.sequenceTutorialIds[state.sequenceIndex - 1];
+  const previousTutorial = getOperatorGuidedTutorial(previousTutorialId);
+  if (!previousTutorial) return state;
+  return {
+    ...state,
+    activeTutorialId: previousTutorial.id,
+    sequenceIndex: state.sequenceIndex - 1,
+    stepIndex: previousTutorial.steps.length - 1,
+    updatedAt: now,
+  };
+}
+
+function finishGuideState(state: OperatorGuideState, completedTutorialId: string, now: string): OperatorGuideState {
+  const completedTutorialIds = [...new Set([...state.completedTutorialIds, completedTutorialId])];
+  const nextTutorialId = state.sequenceTutorialIds[state.sequenceIndex + 1];
+  const nextTutorial = getOperatorGuidedTutorial(nextTutorialId);
+  if (nextTutorial) {
+    return {
+      ...state,
+      activeTutorialId: nextTutorial.id,
+      stepIndex: 0,
+      sequenceIndex: state.sequenceIndex + 1,
+      completedTutorialIds,
+      startedAt: now,
+      updatedAt: now,
+    };
+  }
+  return {
+    ...state,
+    mode: "library",
+    activeTutorialId: null,
+    stepIndex: 0,
+    sequenceTutorialIds: [],
+    sequenceIndex: 0,
+    completedTutorialIds,
+    startedAt: null,
+    updatedAt: now,
+  };
 }
 
 function normalizedStepIndex(value: unknown, stepCount: number) {
@@ -115,13 +184,17 @@ export function parseOperatorGuideCommand(value: string): OperatorGuideCommand {
   return "unknown";
 }
 
-export function dispatchOperatorGuide(event: Extract<OperatorGuideEvent, { type: "open-library" | "start" }>) {
+export function dispatchOperatorGuide(event: Extract<OperatorGuideEvent, { type: "open-library" | "start" | "start-sequence" }>) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(OPERATOR_GUIDE_EVENT, { detail: event }));
 }
 
 function uniqueStrings(value: unknown) {
   return Array.isArray(value) ? [...new Set(value.filter((item): item is string => typeof item === "string"))] : [];
+}
+
+function validTutorialIds(value: unknown) {
+  return uniqueStrings(value).filter((id) => operatorGuidedTutorialIds.includes(id));
 }
 
 function validTimestamp(value: unknown) {
