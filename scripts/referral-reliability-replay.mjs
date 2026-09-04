@@ -422,7 +422,7 @@ function checkCommunityLabels() {
 function checkWorkflowGuardrails() {
   const operatingModel = readText("lib/reliability/referral-operating-model.ts");
   const workflow = readText("lib/pipeline/referral-workflow.ts");
-  const referralHome = readText("components/pipeline/ReferralHome.tsx");
+  const pipelineSearch = readText("components/pipeline/PipelineSearchPanel.tsx");
   const pipelineWelcome = readText("components/pipeline/PipelineWelcome.tsx");
 
   for (const expected of [
@@ -445,10 +445,11 @@ function checkWorkflowGuardrails() {
   }
 
   assert(
-    referralHome.includes("buildReferralParams") &&
-      referralHome.includes("ReferralWorklist") &&
-      pipelineWelcome.includes("ReferralWorkflowTracker"),
-    "Workspace search and the Home workflow summary should use their shared display guardrails",
+    pipelineSearch.includes("formatClientIdentityTitle") &&
+      pipelineSearch.includes("formatClientIdentityDetail") &&
+      pipelineWelcome.includes("formatClientIdentityTitle") &&
+      pipelineWelcome.includes("activeReferralFlowStates"),
+    "Workspace search and Home should use shared client-identity and active-workflow guardrails",
   );
   assert(
     workflow.includes("matchesSearchText"),

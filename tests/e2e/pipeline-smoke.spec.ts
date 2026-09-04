@@ -876,7 +876,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Pipeline returned an unreadable response.", { exact: true })).toHaveCount(0);
   });
 
-  test("shows a newly created referral in the workspace directory", async ({ page }) => {
+  test("keeps the last successful referral snapshot when refresh fails", async ({ page }) => {
     const name = `Recovery Qa${randomUUID().slice(0, 8)}`;
     const created = await page.request.post("/api/referrals", {
       data: {
@@ -906,7 +906,33 @@ test.describe("Referral home and packet canvas", () => {
     const createdPayload = await created.json() as { referral: { name: string } };
     await page.goto("/?view=referrals");
     const workspaces = page.getByRole("region", { name: "Referral worklist" });
-    await expect(workspaces.getByRole("button", { name: `Open ${createdPayload.referral.name} referral workspace` })).toBeVisible();
+    const createdWorkspace = workspaces.getByRole("button", { name: `Open ${createdPayload.referral.name} referral workspace` });
+    await expect(createdWorkspace).toBeVisible();
+
+    let failedRefreshRequests = 0;
+    await page.route(/\/api\/referrals\/changes\?/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ changed: true, sequence: 2 }),
+      });
+    });
+    await page.route(/\/api\/referrals\/directory\?/, async (route) => {
+      failedRefreshRequests += 1;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Referral refresh unavailable." }),
+      });
+    });
+
+    // Let the short-lived successful GET cache expire so this exercises the
+    // network failure path rather than returning the cached directory.
+    await page.waitForTimeout(3_100);
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect.poll(() => failedRefreshRequests).toBeGreaterThanOrEqual(2);
+    await expect(page.getByText("Referral refresh unavailable.", { exact: true })).toBeVisible();
+    await expect(createdWorkspace).toBeVisible();
   });
 
   test("browses all uploaded files without duplicate month navigation", async ({ page }) => {

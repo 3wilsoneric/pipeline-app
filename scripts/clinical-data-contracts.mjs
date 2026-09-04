@@ -181,7 +181,10 @@ const results = await Promise.all([
     assert(rosterRoute.includes("toClinicalResidentDirectoryResult"), "The active roster must keep its approved list projection");
     assert(!rosterRoute.includes("canViewClinicalDetails"), "Directory requests must not expose full resident clinical detail by role");
     assert(profileView.includes("/api/profiles/"), "Profile detail must come from the governed unified-profile endpoint");
-    assert(profileView.includes("Packet facts"), "Profile detail must expose readable source-backed facts");
+    assert(
+      profileView.includes("Source evidence") && profileView.includes("factEvidencePath"),
+      "Profile detail must expose readable source-backed facts",
+    );
     assert(profileView.includes("Search text inside these documents"), "Profile detail must expose client-scoped document search");
     assert(!profileView.includes("/api/clinical/residents/"), "Browser profile code must not bypass the reviewed Pipeline identity join");
     const unifiedProfile = read("lib/pipeline/unified-profile.ts");
