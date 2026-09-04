@@ -75,6 +75,10 @@ import {
   buildTrainingAssessment,
   type TrainingAssessmentMode,
 } from "@/lib/training/mock-assessment";
+import {
+  assessmentPracticeSectionGuidance,
+  getAssessmentPracticeReview,
+} from "@/lib/training/assessment-practice";
 
 type AssessmentWorkspaceProps = {
   referralId?: number;
@@ -201,6 +205,10 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
   const activeSectionIndex = assessmentInterviewSections.findIndex((section) => section.key === activeSection);
   const activeSectionCaptured = sectionQuestions.filter((question) => hasAssessmentInterviewValue(draft[question.field])).length;
   const nextUnansweredQuestion = sectionQuestions.find((question) => !hasAssessmentInterviewValue(draft[question.field]));
+  const practiceReview = useMemo(
+    () => trainingAssessmentMode ? getAssessmentPracticeReview(draft) : null,
+    [draft, trainingAssessmentMode],
+  );
 
   const upsertAssessment = useCallback((assessment: PipelineAssessmentRecord, select = false) => {
     setAssessments((current) => [assessment, ...current.filter((item) => item.assessment_id !== assessment.assessment_id)]);
@@ -1250,10 +1258,12 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
                 <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Section {activeSectionIndex + 1} of {assessmentInterviewSections.length}</div>
                 <h3 className="mt-1 text-[22px] font-black">{sectionDefinition.label}</h3>
                 <p className="mt-1 text-[12px] leading-5 text-[#737373]">{sectionDefinition.description}</p>
+                {trainingAssessmentMode ? <p className="mt-2 max-w-[760px] border-l-2 border-[#0f8b73] pl-3 text-[11px] font-semibold leading-5 text-[#315e50]"><span className="font-black">Practice focus:</span> {assessmentPracticeSectionGuidance[activeSection]}</p> : null}
                 <p className={`mt-3 text-[11px] font-semibold ${selected.started_at ? "text-[#315e50]" : "text-[#9a6115]"}`}>{!selected.started_at ? "Preview mode · open Interview setup when you are ready to begin entering answers." : nextUnansweredQuestion ? `Next: ${assessmentInterviewFieldLabel(nextUnansweredQuestion.field)}` : "This section is complete. Continue when ready."}</p>
               </div>
               <div className="text-right"><div className="text-[18px] font-black">{activeSectionCaptured}/{sectionQuestions.length}</div><div className="text-[9px] font-black uppercase text-[#8a8a8a]">captured here</div></div>
             </div>
+            {trainingAssessmentMode && activeSection === "provenance_qc" && practiceReview ? <PracticeAssessmentReview review={practiceReview} /> : null}
             <div className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
           {sectionGroups.map((group) => (
             <div key={group.label} className="grid gap-4 py-5 lg:grid-cols-[190px_minmax(0,1fr)]">
@@ -1313,9 +1323,9 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
           </div>
         </main>
 
-        <aside className="hidden w-[270px] shrink-0 overflow-y-auto border-l border-[#d9dfdb] bg-[#fbfcfb] px-5 py-5 xl:block">
-          <h3 className="text-[12px] font-black">Interview guide</h3>
-          <p className="mt-1 text-[10px] leading-4 text-[#737373]">Answers save automatically. Conditional questions appear only when relevant.</p>
+        <aside className="hidden w-[290px] shrink-0 overflow-y-auto border-l border-[#d9dfdb] bg-[#fbfcfb] px-5 py-5 xl:block">
+          <h3 className="text-[12px] font-black">{trainingAssessmentMode ? "Practice guide" : "Interview guide"}</h3>
+          <p className="mt-1 text-[10px] leading-4 text-[#737373]">{trainingAssessmentMode ? assessmentPracticeSectionGuidance[activeSection] : "Answers save automatically. Conditional questions appear only when relevant."}</p>
           <div className="mt-5 border-y border-[#d9dfdb] py-4">
             <div className="flex items-end justify-between"><span className="text-[9px] font-black uppercase text-[#737373]">Overall progress</span><strong className="text-[20px]">{completion.percent}%</strong></div>
             <div className="mt-2 h-1.5 bg-[#dfe5e1]"><div className="h-full bg-[#0f8b73]" style={{ width: `${completion.percent}%` }} /></div>
@@ -1551,6 +1561,46 @@ function AssessmentField({
       )}
       {question.help ? <p className="mt-1.5 text-[10px] leading-4 text-[#737373]">{question.help}</p> : null}
     </div>
+  );
+}
+
+function PracticeAssessmentReview({ review }: { review: ReturnType<typeof getAssessmentPracticeReview> }) {
+  const sections = [
+    { label: "Required answers missing", items: review.missingRequired },
+    { label: "Follow-ups still open", items: review.openConditionalDetails },
+    { label: "Conflicting information", items: review.conflicts },
+    { label: "Awaiting confirmation", items: review.awaitingConfirmation },
+  ];
+
+  return (
+    <section aria-label="Practice assessment review" className="mb-7 border-y border-[#cfd8d4] py-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Final check</div>
+          <h4 className="mt-1 text-[17px] font-black">Review what still needs attention</h4>
+        </div>
+        <div className="text-[10px] font-bold text-[#52605a]">{review.sectionsReady.length} of {assessmentInterviewSections.length} sections ready</div>
+      </div>
+      <div className="mt-4 grid gap-x-7 gap-y-5 md:grid-cols-2">
+        {sections.map((section) => (
+          <div key={section.label}>
+            <div className="flex items-center justify-between gap-3 border-b border-[#e0e5e2] pb-2">
+              <h5 className="text-[10px] font-black uppercase text-[#505a55]">{section.label}</h5>
+              <span className="text-[10px] font-black tabular-nums text-[#0f7c68]">{section.items.length}</span>
+            </div>
+            {section.items.length > 0 ? (
+              <ul className="mt-2 space-y-2 text-[11px] leading-5 text-[#59645f]">
+                {section.items.slice(0, 5).map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            ) : <p className="mt-2 text-[11px] font-semibold text-[#0f6f5d]">Clear</p>}
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 border-t border-[#e0e5e2] pt-4">
+        <div className="text-[10px] font-black uppercase text-[#505a55]">Sections ready</div>
+        <p className="mt-2 text-[11px] leading-5 text-[#59645f]">{review.sectionsReady.join(" · ") || "None yet"}</p>
+      </div>
+    </section>
   );
 }
 
@@ -1832,7 +1882,7 @@ function TrainingAssessmentBanner({ mode }: { mode?: TrainingAssessmentMode }) {
   if (!mode) return null;
   return (
     <div className="shrink-0 border-b border-[#b9d8cd] bg-[#f1f8f5] px-5 py-2 text-[10px] font-semibold text-[#315e50]">
-      Training case · synthetic client · changes stay in this guide
+      Practice case · Taylor Rivera · synthetic · changes stay in this guide
     </div>
   );
 }

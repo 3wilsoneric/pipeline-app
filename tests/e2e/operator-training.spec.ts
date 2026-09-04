@@ -82,15 +82,26 @@ test.describe("Pipeline Learning Center", () => {
     const assessment = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(assessment).toBeVisible();
     await expect(assessment.getByText("Taylor Rivera assessment", { exact: true })).toBeVisible();
-    await expect(assessment.getByText("Training case · synthetic client · changes stay in this guide", { exact: true })).toBeVisible();
-    await expect(assessment.getByRole("button", { name: /Clinical/ })).toBeVisible();
-    await expect(assessment.getByRole("button", { name: /Review/ })).toBeVisible();
+    await expect(assessment.getByText("Practice case · Taylor Rivera · synthetic · changes stay in this guide", { exact: true })).toBeVisible();
+    const assessmentSections = assessment.getByRole("navigation", { name: "Assessment sections" });
+    await expect(assessmentSections.getByRole("button", { name: /Clinical/ })).toBeVisible();
+    await expect(assessmentSections.getByRole("button", { name: /Review/ })).toBeVisible();
 
-    await assessment.getByRole("button", { name: /Clinical/ }).click();
+    await assessmentSections.getByRole("button", { name: /Clinical/ }).click();
     const currentSymptoms = assessment.getByLabel("Current symptoms");
     await expect(currentSymptoms).toBeEditable();
     await currentSymptoms.fill("Synthetic interview answer for autosave verification.");
     await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible({ timeout: 5_000 });
+
+    await assessmentSections.getByRole("button", { name: /Medication/ }).click();
+    await expect(assessment.getByLabel("Medication refused")).toBeVisible();
+    await assessmentSections.getByRole("button", { name: /Review/ }).click();
+    const review = assessment.getByRole("region", { name: "Practice assessment review" });
+    await expect(review).toBeVisible();
+    await expect(review.getByText("Required answers missing", { exact: true })).toBeVisible();
+    await expect(review.getByText("Follow-ups still open", { exact: true })).toBeVisible();
+    await expect(review.getByText("Conflicting information", { exact: true })).toBeVisible();
+    await expect(review.getByText("Awaiting confirmation", { exact: true })).toBeVisible();
 
     expect(assessmentWrites).toEqual([]);
     await expect.poll(() => errors).toEqual([]);
@@ -271,7 +282,7 @@ test.describe("Pipeline Learning Center", () => {
     for (const heading of [
       "The packet starts the record",
       "Scheduling creates the plan",
-      "The interview is the assessment",
+      "Complete the assessment in the interview",
       "Completion creates the chart",
       "Review closes the referral loop",
     ]) {

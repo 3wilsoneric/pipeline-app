@@ -16,6 +16,8 @@ import {
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
+import { assessmentPracticeRules } from "@/lib/training/assessment-practice";
+
 type WorkflowConcept = {
   id: string;
   label: string;
@@ -73,16 +75,12 @@ const concepts: readonly WorkflowConcept[] = [
   {
     id: "assessment",
     label: "Assessment",
-    title: "The interview is the assessment",
-    summary: "The questionnaire is the assessor's working chart, not a second copy of intake or a separate notes document.",
+    title: "Complete the assessment in the interview",
+    summary: "Use the questionnaire to verify what carried forward, ask the direct questions, and document only what the interview and named sources support.",
     owner: "Assigned assessor; supervisors retain authorized access",
-    rule: "Intake context carries forward for verification, while interview answers stay distinct and autosave by section.",
+    rule: "Every opened follow-up must be answered or left visibly awaiting confirmation before signature.",
     icon: ClipboardCheck,
-    points: [
-      { title: "Return without losing work", detail: "The draft can be completed across several sessions with visible save status and recovery." },
-      { title: "Answer only what applies", detail: "Conditional questions reveal the detail needed for each Yes, No, or support-level answer." },
-      { title: "Preserve uncertainty", detail: "Unknown, conflicting, and missing information remains visible instead of being guessed." },
-    ],
+    points: assessmentPracticeRules,
   },
   {
     id: "complete",
