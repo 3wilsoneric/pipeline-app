@@ -371,13 +371,14 @@ test.describe("desktop feature enabled", () => {
     });
     const assessmentPayload = await assessmentResponse.json();
     expect(assessmentResponse.status(), JSON.stringify(assessmentPayload)).toBe(201);
+    const scheduledStart = new Date(Date.UTC(2031, 0, 1, 0, referralId)).toISOString();
     const scheduleResponse = await page.request.post(`/api/assessments/${assessmentPayload.assessment.assessment_id}/schedule`, {
       data: {
         if_match: assessmentPayload.assessment.version,
         client_mutation_id: `offline-schedule-${token}`,
         schedule: {
           status: "scheduled",
-          start_at: "2026-08-26T16:00:00.000Z",
+          start_at: scheduledStart,
           duration_minutes: 60,
           method: "in_person",
           location: "San Pablo",
@@ -387,7 +388,7 @@ test.describe("desktop feature enabled", () => {
     const schedulePayload = await scheduleResponse.json();
     expect(scheduleResponse.ok(), JSON.stringify(schedulePayload)).toBeTruthy();
 
-    await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}`);
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment`);
     const assessmentDialog = page.getByRole("dialog", { name: "Assessment interview" });
     const openAssessment = page.getByRole("button", { name: "Open assessment", exact: true });
     await expect(assessmentDialog.or(openAssessment)).toBeVisible();
