@@ -39,6 +39,13 @@ const taskPriority = [
   "run-report",
 ] as const;
 
+const fullWorkflowTutorialIds = [
+  "create-referral",
+  "start-assessment",
+  "complete-assessment",
+  "review-chart",
+] as const;
+
 const taskPresentation: Readonly<Record<string, { description: string; icon: ReactNode }>> = {
   "complete-assessment": { description: "Answer, review, and sign.", icon: <ClipboardCheck size={26} aria-hidden="true" /> },
   "start-assessment": { description: "Schedule it and begin.", icon: <CalendarPlus size={26} aria-hidden="true" /> },
@@ -55,6 +62,8 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
   const [previewOpen, setPreviewOpen] = useState(false);
   const tutorials = guidedTutorialsForRoles(assignedRoles).slice().sort((left, right) => priorityOf(left.id) - priorityOf(right.id));
   const selected = tutorials.find((tutorial) => tutorial.id === selectedId) ?? null;
+  const availableTutorialIds = new Set(tutorials.map((tutorial) => tutorial.id));
+  const guidedWorkflowIds = fullWorkflowTutorialIds.filter((id) => availableTutorialIds.has(id));
 
   function selectTask(id: string | null) {
     setSelectedId(id);
@@ -87,6 +96,10 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
       {previewOpen ? (
         <FullWorkflowWalkthroughPreview
           onClose={() => setPreviewOpen(false)}
+          onStartGuide={guidedWorkflowIds.length > 0 ? () => {
+            setPreviewOpen(false);
+            dispatchOperatorGuide({ type: "start-sequence", tutorialIds: guidedWorkflowIds });
+          } : undefined}
         />
       ) : null}
     </section>

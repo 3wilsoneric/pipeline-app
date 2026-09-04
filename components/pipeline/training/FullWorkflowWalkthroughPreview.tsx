@@ -75,8 +75,10 @@ const getServerSnapshot = () => false;
 
 export default function FullWorkflowWalkthroughPreview({
   onClose,
+  onStartGuide,
 }: {
   onClose: () => void;
+  onStartGuide?: () => void;
 }) {
   const mounted = useSyncExternalStore(subscribeToClient, getClientSnapshot, getServerSnapshot);
   const [workflow, setWorkflow] = useState<WalkthroughState>(emptyState);
@@ -207,8 +209,9 @@ export default function FullWorkflowWalkthroughPreview({
               <button type="button" onClick={() => { setWorkflow(emptyState()); setError(""); }} className="flex h-11 items-center gap-2 px-3 text-[12px] font-black text-[#5e6964] hover:text-[#0f7c68]">
                 <RotateCcw size={15} aria-hidden="true" /> Run again
               </button>
-              <button type="button" onClick={onClose} className="flex h-11 items-center gap-2 bg-[#0f8b73] px-5 text-[12px] font-black text-white hover:bg-[#0b715e]">
-                Finish <Check size={15} aria-hidden="true" />
+              <button type="button" onClick={onStartGuide ?? onClose} className="flex h-11 items-center gap-2 bg-[#0f8b73] px-5 text-[12px] font-black text-white hover:bg-[#0b715e]">
+                {onStartGuide ? "Start guided tour" : "Finish"}
+                {onStartGuide ? <ArrowRight size={15} aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}
               </button>
             </div>
           ) : (

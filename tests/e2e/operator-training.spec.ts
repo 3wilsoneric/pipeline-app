@@ -218,8 +218,16 @@ test.describe("Pipeline Learning Center", () => {
     await expect(summary).toContainText("Assessment completed");
     await expect(summary).toContainText("Recommend admission");
     await expect(summary).toContainText("Accepted");
-    await preview.getByRole("button", { name: "Finish" }).click();
+    await preview.getByRole("button", { name: "Start guided tour" }).click();
     await expect(preview).toBeHidden();
+    const coach = page.getByRole("dialog", { name: "Full Pipeline walkthrough guided tutorial" });
+    await expect(coach).toBeVisible();
+    await expect(coach.getByText("Full tour · Module 1 of 4")).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Select New referral" })).toBeVisible();
+    await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
+    await coach.getByRole("button", { name: "Skip step" }).click();
+    await expect(page).toHaveURL(/view=referrals&screen=packet/);
+    await expect(coach.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
   });
 
   test("keeps the Learning Center and guide usable at a narrow viewport", async ({ page }) => {
