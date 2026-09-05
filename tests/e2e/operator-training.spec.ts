@@ -36,8 +36,13 @@ test.describe("Pipeline Learning Center", () => {
       .getByRole("button", { name: /^02 Open/ })
       .click();
     await expect(page.getByRole("heading", { name: "Open Assessment" })).toBeVisible();
-    await page.getByRole("navigation", { name: "Finish an assessment chapters" }).getByRole("button", { name: /^03 Sections/ }).click();
-    for (const section of ["Client & referral", "Placement", "History", "Clinical", "Function", "Medication", "Substance use", "Behavior & safety", "Physical health", "Legal", "Support & goals", "Review"]) {
+    const assessmentSections = ["Client & referral", "Placement", "History", "Clinical", "Function", "Medication", "Substance use", "Behavior & safety", "Physical health", "Legal", "Support & goals", "Review"];
+    for (const [index, section] of assessmentSections.entries()) {
+      const chapterNumber = String(index + 3).padStart(2, "0");
+      await page
+        .getByRole("navigation", { name: "Finish an assessment chapters" })
+        .getByRole("button", { name: new RegExp(`^${chapterNumber} Section ${index + 1} of 12`) })
+        .click();
       await expect(page.getByRole("heading", { name: section, exact: true })).toBeVisible();
     }
     await page.getByRole("navigation", { name: "Finish an assessment chapters" }).getByRole("button", { name: /^02 Open/ }).click();
