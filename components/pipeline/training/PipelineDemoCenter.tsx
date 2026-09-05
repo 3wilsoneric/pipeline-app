@@ -3,14 +3,13 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   ClipboardCheck,
   ExternalLink,
   FlaskConical,
   Play,
   RefreshCcw,
 } from "lucide-react";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineDemoEnvironment } from "@/lib/demo/demo-environment";
@@ -55,6 +54,7 @@ type DemoChapter = {
   completeWhen: string;
   scenarioId?: PipelineDemoScenarioId;
   guide?: { tutorialId: string; stepId: string };
+  workspaceStage?: "intake" | "assessment";
   destination?: DemoView;
 };
 
@@ -109,6 +109,7 @@ const demoChapters: readonly DemoChapter[] = [
     actions: ["Verify identity, community, source, and owner", "Review packet status and missing documents", "Separate supplied medication facts from unresolved questions"],
     completeWhen: "Identity, ownership, packet status, and follow-up needs are clear.",
     scenarioId: "assessment-preparation",
+    workspaceStage: "intake",
   },
   {
     number: 3,
@@ -130,10 +131,10 @@ const demoChapters: readonly DemoChapter[] = [
   },
   {
     number: 5,
-    title: "Review and decide",
-    instruction: "A supervisor reviews the completed assessment and records the decision.",
-    actions: ["Review evidence, conflicts, and missing information", "Return unclear or incomplete work for correction", "Record the admission decision and next action"],
-    completeWhen: "The decision and any required follow-up are clear in the referral workspace.",
+    title: "Review for decision",
+    instruction: "A supervisor reviews the completed assessment before the admission decision.",
+    actions: ["Review evidence, conflicts, and missing information", "Return unclear or incomplete work for correction", "Confirm the recommendation and open requirements"],
+    completeWhen: "The assessment is ready for an authorized admission decision.",
     scenarioId: "assessment-complex",
   },
   {
@@ -147,6 +148,7 @@ const demoChapters: readonly DemoChapter[] = [
 ] as const;
 
 export default function PipelineDemoCenter({ actor, environment }: { actor: DemoActor; environment: PipelineDemoEnvironment }) {
+  const scrollContainerRef = useRef<HTMLElement>(null);
   const [view, setView] = useState<DemoView>("presentation");
   const [chapterIndex, setChapterIndex] = useState(0);
   const [referrals, setReferrals] = useState<DemoReferralSummary[]>([]);
@@ -156,6 +158,11 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
   const canWrite = environment.writable && actor.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role));
   const chapter = demoChapters[chapterIndex] ?? demoChapters[0];
   const showingHandoff = view === "handoff";
+
+  const selectView = (nextView: DemoView) => {
+    setView(nextView);
+    window.requestAnimationFrame(() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: "auto" }));
+  };
 
   useEffect(() => {
     activatePipelineDemoSession();
@@ -170,14 +177,14 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
     });
   }, []);
 
-  const launchScenario = async (scenario: PipelineDemoScenario, guide?: DemoChapter["guide"]) => {
+  const launchScenario = async (
+    scenario: PipelineDemoScenario,
+    guide?: DemoChapter["guide"],
+    workspaceStage: DemoChapter["workspaceStage"] = "assessment",
+  ) => {
     activatePipelineDemoSession();
     setError("");
-    if (scenario.launch === "new_referral") {
-      if (guide) stageOperatorGuideForNavigation(guide.tutorialId, guide.stepId);
-      window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&demoScenario=${scenario.id}`));
-      return;
-    }
+    if (navigateWithoutDemoRecord(scenario, guide)) return;
     if (!canWrite) {
       setError(environment.writable ? "Your demo account needs assessor, coordinator, or admin access to create practice records." : environment.reason);
       return;
@@ -235,8 +242,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
         assessment = started.assessment;
       }
       void assessment;
-      if (guide) stageOperatorGuideForNavigation(guide.tutorialId, guide.stepId);
-      window.location.assign(demoReferralRoute(referralResult.referral.id));
+      window.location.assign(demoReferralRoute(referralResult.referral.id, workspaceStage));
     } catch (launchError) {
       setError(launchError instanceof Error ? launchError.message : "The synthetic demo case could not be created.");
       setLaunchingId(null);
@@ -245,11 +251,13 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
 
   const openExisting = (referral: DemoReferralSummary) => {
     activatePipelineDemoSession();
-    window.location.assign(demoReferralRoute(referral.id));
+    const scenario = pipelineDemoScenarios.find((item) => referral.tags?.includes(item.id));
+    const workspaceStage = scenario?.launch === "new_referral" ? "intake" : "assessment";
+    window.location.assign(demoReferralRoute(referral.id, workspaceStage));
   };
 
   return (
-    <main data-demo-center="true" className={`h-full min-h-0 overflow-y-auto text-[#171a18] ${showingHandoff ? "bg-white" : "bg-[#f4f7f5]"}`}>
+    <main ref={scrollContainerRef} data-demo-center="true" className={`h-full min-h-0 overflow-y-auto text-[#171a18] ${showingHandoff ? "bg-white" : "bg-[#f4f7f5]"}`}>
       <div className={`mx-auto w-full pb-14 ${showingHandoff ? "max-w-[1320px] px-4 pt-3 sm:px-6 lg:px-8" : "max-w-[1540px] px-4 pt-5 sm:px-6 lg:px-8 lg:pt-7"}`}>
         <header className={showingHandoff ? "border-b border-[#dfe4e1] bg-white" : "border border-[#c8d3cf] bg-white"}>
           {!showingHandoff ? <div className="px-5 py-4 sm:px-7">
@@ -259,14 +267,13 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
                 <span className={`border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.09em] ${environment.writable ? "border-[#bdd4cc] bg-[#f3f8f6] text-[#42665b]" : "border-[#dfca97] bg-[#fff8e8] text-[#825a10]"}`}>{environment.label}</span>
               </div>
               <h1 className="mt-2 text-[24px] font-semibold tracking-[-0.035em]">Pipeline training</h1>
-              <p className="mt-1 text-[11px] leading-5 text-[#5b6662]">Presentation, referral walkthrough, and synthetic practice records.</p>
             </div>
           </div> : null}
           <div className={`flex min-w-0 items-end overflow-x-auto ${showingHandoff ? "gap-1 bg-white px-0" : "border-t border-[#d8dfdc] bg-[#edf2f0] px-3 pt-2"}`} role="tablist" aria-label="Demo Center sections">
-            <DemoTab active={view === "presentation"} label="Presentation" onClick={() => setView("presentation")} />
-            <DemoTab active={view === "journey"} label="Referral journey" onClick={() => setView("journey")} />
-            <DemoTab active={view === "lab"} label="Practice cases" onClick={() => setView("lab")} />
-            <DemoTab active={view === "handoff"} label="Meet the Client" onClick={() => setView("handoff")} />
+            <DemoTab active={view === "presentation"} label="Presentation" onClick={() => selectView("presentation")} />
+            <DemoTab active={view === "journey"} label="Referral journey" onClick={() => selectView("journey")} />
+            <DemoTab active={view === "lab"} label="Practice cases" onClick={() => selectView("lab")} />
+            <DemoTab active={view === "handoff"} label="Meet the Client" onClick={() => selectView("handoff")} />
           </div>
         </header>
 
@@ -274,7 +281,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
         {!environment.writable ? <div className="mt-4 border border-[#dfca97] bg-[#fff9e9] px-4 py-3 text-[11px] leading-5 text-[#765817]"><strong>Synthetic writes are locked.</strong> {environment.reason}</div> : null}
 
         {view === "presentation" ? (
-          <PresentationDeck onStartJourney={() => setView("journey")} />
+          <PresentationDeck onStartJourney={() => selectView("journey")} />
         ) : view === "journey" ? (
           <ReferralJourney
             chapter={chapter}
@@ -284,11 +291,11 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
             onSelect={setChapterIndex}
             onLaunch={(selected) => {
               if (selected.destination) {
-                setView(selected.destination);
+                selectView(selected.destination);
                 return;
               }
               const scenario = selected.scenarioId ? getPipelineDemoScenario(selected.scenarioId) : null;
-              if (scenario) void launchScenario(scenario, selected.guide);
+              if (scenario) void launchScenario(scenario, selected.guide, selected.workspaceStage);
             }}
           />
         ) : view === "lab" ? (
@@ -316,8 +323,7 @@ function PresentationDeck({ onStartJourney }: { onStartJourney: () => void }) {
   return (
     <section className="mt-5 grid min-h-[540px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[230px_minmax(0,1fr)]">
       <aside className="border-b border-[#d8dfdc] bg-[#eef3f1] p-3 lg:border-b-0 lg:border-r lg:p-4">
-        <div className="px-2 py-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Presentation</div>
-        <nav aria-label="Presentation slides" className="mt-1 flex gap-1 overflow-x-auto lg:block">
+        <nav aria-label="Presentation slides" className="flex gap-1 overflow-x-auto lg:block">
           {presentationSlides.map((item, index) => (
             <button key={item.number} type="button" onClick={() => setSlideIndex(index)} aria-current={index === slideIndex ? "step" : undefined} className={`grid min-h-[56px] w-[176px] shrink-0 grid-cols-[24px_minmax(0,1fr)] items-center gap-2 border-l-2 px-3 text-left lg:mb-1 lg:w-full ${index === slideIndex ? "border-[#0f8b73] bg-white text-[#20302b]" : "border-transparent text-[#63706b] hover:bg-white/70"}`}>
               <span className="text-[9px] font-black tabular-nums">{String(item.number).padStart(2, "0")}</span>
@@ -347,12 +353,11 @@ function PresentationDeck({ onStartJourney }: { onStartJourney: () => void }) {
 
 function ReferralJourney({ chapter, chapterIndex, launchingId, canWrite, onSelect, onLaunch }: { chapter: DemoChapter; chapterIndex: number; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onSelect: (index: number) => void; onLaunch: (chapter: DemoChapter) => void }) {
   const scenario = chapter.scenarioId ? getPipelineDemoScenario(chapter.scenarioId) : null;
-  const disabled = Boolean(scenario && scenario.launch === "assessment" && !canWrite) || launchingId !== null;
+  const disabled = Boolean(scenario && scenario.launch === "assessment" && !chapter.guide && !canWrite) || launchingId !== null;
   return (
     <section className="mt-5 grid min-h-[520px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="min-w-0 border-b border-[#d8dfdc] bg-[#eef3f1] lg:border-b-0 lg:border-r">
-        <div className="border-b border-[#d8dfdc] px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Referral journey</div>
-        <nav aria-label="Referral journey stages" className="flex w-full min-w-0 gap-1 overflow-x-auto p-2 lg:block">{demoChapters.map((item, index) => <button key={item.number} type="button" onClick={() => onSelect(index)} className={`grid min-h-[62px] w-[190px] shrink-0 grid-cols-[30px_minmax(0,1fr)] items-center gap-3 border-l-[3px] px-3 py-2 text-left lg:mb-1 lg:w-full ${index === chapterIndex ? "border-l-[#0f8b73] bg-white" : "border-l-transparent hover:bg-white/70"}`}><span className={`flex h-7 w-7 items-center justify-center border text-[9px] font-black ${index < chapterIndex ? "border-[#0f8b73] bg-[#0f8b73] text-white" : "border-[#bac8c3] bg-white text-[#58645f]"}`}>{index < chapterIndex ? <Check size={13} /> : item.number}</span><span className="text-[11px] font-black leading-4 text-[#27302c]">{item.title}</span></button>)}</nav>
+        <nav aria-label="Referral journey stages" className="flex w-full min-w-0 gap-1 overflow-x-auto p-2 lg:block">{demoChapters.map((item, index) => <button key={item.number} type="button" onClick={() => onSelect(index)} aria-current={index === chapterIndex ? "step" : undefined} className={`grid min-h-[62px] w-[190px] shrink-0 grid-cols-[30px_minmax(0,1fr)] items-center gap-3 border-l-[3px] px-3 py-2 text-left lg:mb-1 lg:w-full ${index === chapterIndex ? "border-l-[#0f8b73] bg-white" : "border-l-transparent hover:bg-white/70"}`}><span className={`flex h-7 w-7 items-center justify-center border text-[9px] font-black ${index === chapterIndex ? "border-[#0f8b73] bg-[#e4f3ee] text-[#0c705f]" : "border-[#bac8c3] bg-white text-[#58645f]"}`}>{item.number}</span><span className="text-[11px] font-black leading-4 text-[#27302c]">{item.title}</span></button>)}</nav>
       </aside>
       <div className="flex min-w-0 flex-col">
         <div className="flex-1 px-5 py-7 sm:px-8 lg:px-10 lg:py-8">
@@ -379,7 +384,6 @@ function ReferralJourney({ chapter, chapterIndex, launchingId, canWrite, onSelec
 function ScenarioLab({ referrals, loading, launchingId, canWrite, onLaunch, onOpen }: { referrals: DemoReferralSummary[]; loading: boolean; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onLaunch: (scenario: PipelineDemoScenario) => void; onOpen: (referral: DemoReferralSummary) => void }) {
   return (
     <section className="mt-5 border border-[#cbd5d1] bg-white">
-      <header className="border-b border-[#d8dfdc] px-5 py-4 sm:px-7"><h2 className="text-[20px] font-semibold tracking-[-0.025em]">Practice cases</h2><p className="mt-1 text-[10px] leading-5 text-[#65706c]">Each attempt creates a new synthetic record.</p></header>
       <div className="grid gap-px bg-[#d8dfdc] md:grid-cols-2 xl:grid-cols-4">
         {pipelineDemoScenarios.map((scenario) => {
           const existing = latestScenarioReferral(referrals, scenario.id);
@@ -406,8 +410,23 @@ function latestScenarioReferral(referrals: DemoReferralSummary[], scenarioId: Pi
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
 }
 
-function demoReferralRoute(referralId: number) {
-  return toPipelinePath(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=assessment&demo=1`);
+function demoReferralRoute(referralId: number, workspaceStage: DemoChapter["workspaceStage"] = "assessment") {
+  return toPipelinePath(`/?view=referrals&screen=packet&referralId=${referralId}&workspaceStage=${workspaceStage}&demo=1`);
+}
+
+function navigateWithoutDemoRecord(scenario: PipelineDemoScenario, guide?: DemoChapter["guide"]) {
+  if (scenario.launch === "new_referral") {
+    if (guide) stageOperatorGuideForNavigation(guide.tutorialId, guide.stepId);
+    window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&demoScenario=${scenario.id}`));
+    return true;
+  }
+  if (!guide) return false;
+
+  stageOperatorGuideForNavigation(guide.tutorialId, guide.stepId);
+  const trainingAssessment = scenario.assessmentState === "unscheduled" ? "schedule" : "interview";
+  const assessmentSection = trainingAssessment === "interview" ? "&assessmentSection=identity" : "";
+  window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=${trainingAssessment}${assessmentSection}&demo=1`));
+  return true;
 }
 
 function demoMutationId(prefix: string) {

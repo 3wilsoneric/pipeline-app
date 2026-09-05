@@ -77,9 +77,8 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
       <button type="button" aria-label="Open full Pipeline walkthrough" onClick={() => setPreviewOpen(true)} className="group grid min-h-[210px] w-full gap-7 border border-[#a9c2b9] bg-[#e8f3ef] p-6 text-left hover:border-[#5f9585] sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:p-9">
         <div>
           <span className="flex h-14 w-14 items-center justify-center border border-[#9bbab0] bg-white text-[#0f7c68]"><MonitorPlay size={27} aria-hidden="true" /></span>
-          <div className="mt-7 text-[11px] font-black uppercase tracking-[0.08em] text-[#0f7c68]">Start here</div>
-          <h2 className="mt-2 text-[30px] font-black leading-9 tracking-normal text-[#18372f] sm:text-[38px] sm:leading-[42px]">Learn the full workflow</h2>
-          <p className="mt-3 text-[16px] font-medium leading-6 text-[#4e6860]">Referral to handoff.</p>
+          <h2 className="mt-7 text-[30px] font-black leading-9 tracking-normal text-[#18372f] sm:text-[38px] sm:leading-[42px]">Full referral workflow</h2>
+          <p className="mt-3 text-[16px] font-medium leading-6 text-[#4e6860]">Create a referral, complete the assessment, review the Chart, and prepare the handoff.</p>
         </div>
         <div className="flex items-center gap-4 border-t border-[#bcd0c9] pt-5 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
           <span className="text-[15px] font-black text-[#315a4f]">Open walkthrough</span>
@@ -108,7 +107,6 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
 
 function TaskTile({ rank, tutorial, completed, onOpen }: { rank: number; tutorial: OperatorGuidedTutorial; completed: boolean; onOpen: () => void }) {
   const presentation = taskPresentation[tutorial.id] ?? { description: tutorial.summary, icon: <ClipboardCheck size={24} aria-hidden="true" /> };
-  const chapters = operatorGuideChapters(tutorial);
   return (
     <button type="button" aria-label={`Open ${tutorial.title}`} onClick={onOpen} className="group flex min-h-[190px] flex-col justify-between border border-[#ccd6d2] bg-white p-5 text-left hover:border-[#7da99b] hover:bg-[#fbfdfc] sm:p-6">
       <div className="flex items-start justify-between gap-5">
@@ -121,7 +119,7 @@ function TaskTile({ rank, tutorial, completed, onOpen }: { rank: number; tutoria
         <div>
           <h2 className="text-[23px] font-black leading-7 tracking-normal text-[#222825]">{tutorial.title}</h2>
           <p className="mt-2 max-w-[330px] text-[15px] font-medium leading-5 text-[#69736f]">{presentation.description}</p>
-          <div className="mt-4 text-[11px] font-bold text-[#7d8783]">{chapters.length} chapters · {tutorial.steps.length} actions · {tutorial.minutes} min{completed ? " · Done" : ""}</div>
+          <div className="mt-4 text-[11px] font-bold text-[#7d8783]">{tutorial.steps.length} steps · {tutorial.minutes} min{completed ? " · Done" : ""}</div>
         </div>
         <ArrowRight size={18} className="shrink-0 text-[#0f7c68] transition-transform group-hover:translate-x-1" aria-hidden="true" />
       </div>
@@ -145,8 +143,7 @@ function ExpandedTask({ tutorial, progress, onBack }: { tutorial: OperatorGuided
         </button>
         <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div className="max-w-[780px]">
-            <div className="text-[9px] font-black uppercase tracking-[0.11em] text-[#0f7c68]">{tutorial.workflow}</div>
-            <h2 className="mt-2 text-[30px] font-black leading-9 tracking-normal text-[#19201d] sm:text-[38px] sm:leading-[42px]">{tutorial.title}</h2>
+            <h2 className="text-[30px] font-black leading-9 tracking-normal text-[#19201d] sm:text-[38px] sm:leading-[42px]">{tutorial.title}</h2>
             <p className="mt-3 max-w-[680px] text-[17px] font-medium leading-6 text-[#606b67]">{tutorial.summary}</p>
           </div>
           <button type="button" aria-label={`Start guided walkthrough: ${tutorial.title}`} onClick={() => dispatchOperatorGuide({ type: "start", tutorialId: tutorial.id })} className="flex h-12 items-center justify-center gap-3 bg-[#0f8b73] px-6 text-[11px] font-black text-white hover:bg-[#0b715e]">
@@ -179,9 +176,8 @@ function ExpandedTask({ tutorial, progress, onBack }: { tutorial: OperatorGuided
         <section className="min-w-0 p-5 sm:p-7 lg:px-10 lg:py-8" aria-labelledby={`chapter-${activeChapter.id}`}>
           <div className="flex flex-col gap-5 border-b border-[#d9dfdc] pb-6 sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-[700px]">
-              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#0f7c68]">Chapter {activeChapterIndex + 1} of {chapters.length}</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#0f7c68]">{activeChapterIndex + 1} of {chapters.length}</div>
               <h3 id={`chapter-${activeChapter.id}`} className="mt-2 text-[30px] font-black leading-9 text-[#1d2421]">{activeChapter.title}</h3>
-              <p className="mt-3 text-[14px] font-medium leading-6 text-[#65706b]">{activeChapter.steps[0].message}</p>
             </div>
             <button
               type="button"
@@ -202,11 +198,6 @@ function ExpandedTask({ tutorial, progress, onBack }: { tutorial: OperatorGuided
               />
             ))}
           </ol>
-
-          <div className="mt-7 border-l-2 border-[#0f8b73] pl-4">
-            <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0f7c68]">Module outcome</div>
-            <p className="mt-1 text-[13px] font-bold leading-5 text-[#43504a]">{tutorial.outcome}</p>
-          </div>
         </section>
       </div>
     </section>
@@ -221,10 +212,10 @@ function ChapterLesson({ step, number, onGuide }: { step: OperatorGuideStep; num
         <div className="min-w-0">
           <h4 className="text-[18px] font-black leading-6 text-[#28302c]">{operatorGuideStepTitle(step)}</h4>
           <p className="mt-2 text-[14px] font-semibold leading-5 text-[#4f5c56]">{step.instruction}</p>
-          <p className="mt-2 text-[12px] font-medium leading-5 text-[#78827e]"><span className="font-black text-[#5d6863]">Done when:</span> {step.completion}</p>
+          <p className="mt-2 text-[12px] font-medium leading-5 text-[#78827e]"><span className="font-black text-[#5d6863]">Check:</span> {step.completion}</p>
           <details className="mt-3 text-[12px] leading-5 text-[#68736e]">
-            <summary className="cursor-pointer font-black text-[#52605a] hover:text-[#0f7c68]">Why this matters</summary>
-            <p className="mt-2">{step.why}</p>
+            <summary className="cursor-pointer font-black text-[#52605a] hover:text-[#0f7c68]">Notes</summary>
+            <p className="mt-2">{step.message}</p>
             <p className="mt-2 font-semibold text-[#765f29]">{step.safety}</p>
           </details>
         </div>

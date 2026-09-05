@@ -27,6 +27,7 @@ import {
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import type { TrainingAssessmentMode } from "@/lib/training/mock-assessment";
+import { assessmentToolSections, type AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import {
   pushPipelineHistory,
   replacePipelineHistory,
@@ -85,6 +86,7 @@ export default function PipelineOverviewRoute() {
     const params = new URLSearchParams(activeSearchParams.toString());
     params.delete("work");
     params.delete("trainingAssessment");
+    params.delete("assessmentSection");
     if (nextScreen === "referrals") {
       params.set("view", "referrals");
       params.delete("screen");
@@ -185,6 +187,7 @@ export default function PipelineOverviewRoute() {
         newDraftKey={newReferralDraftKey}
         initialWorkspaceStage={getInitialWorkspaceStage(activeSearchParams)}
         trainingAssessmentMode={getTrainingAssessmentMode(activeSearchParams)}
+        trainingAssessmentSection={getTrainingAssessmentSection(activeSearchParams)}
         onWorkspaceStageChange={(stage) => {
           const params = new URLSearchParams(activeSearchParams.toString());
           if (stage === "intake") params.delete("workspaceStage");
@@ -265,6 +268,12 @@ function getInitialWorkspaceStage(params: URLSearchParams) {
 function getTrainingAssessmentMode(params: URLSearchParams): TrainingAssessmentMode | undefined {
   const mode = params.get("trainingAssessment");
   return mode === "schedule" || mode === "interview" ? mode : undefined;
+}
+
+function getTrainingAssessmentSection(params: URLSearchParams): AssessmentToolSection | undefined {
+  if (getTrainingAssessmentMode(params) !== "interview") return undefined;
+  const section = params.get("assessmentSection");
+  return assessmentToolSections.find((candidate) => candidate === section);
 }
 
 function getScreenFromParams(params: URLSearchParams): PipelineScreen {

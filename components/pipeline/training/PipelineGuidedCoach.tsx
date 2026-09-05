@@ -19,7 +19,6 @@ import { PIPELINE_NAVIGATION_EVENT, pushPipelineHistory } from "@/lib/pipeline/c
 import {
   getOperatorGuidedTutorial,
   guidedTutorialsForRoles,
-  operatorGuideChapterAtStep,
   operatorGuideStepTitle,
   type OperatorGuidedTutorial,
   type OperatorGuidePlacement,
@@ -340,24 +339,36 @@ function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume
 function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceCount, targetAvailable, targetRect, routeMatches, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorial: OperatorGuidedTutorial; step: OperatorGuideStep; stepIndex: number; sequenceIndex: number; sequenceCount: number; targetAvailable: boolean; targetRect: DOMRect | null; routeMatches: boolean; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
   const targetReady = routeMatches && targetAvailable;
   const canConfirm = step.advance === "confirm";
-  const chapter = operatorGuideChapterAtStep(tutorial, stepIndex);
-  const chapterStep = chapter ? stepIndex - chapter.startStepIndex + 1 : stepIndex + 1;
   const isFullWorkflow = sequenceCount > 1;
   const panelStyle = guidePanelLayout(targetRect, step.placement ?? "auto");
   return (
     <section role="dialog" aria-label={`${isFullWorkflow ? "Full Pipeline walkthrough" : tutorial.title} guided tutorial`} data-testid="guided-coach-panel" style={panelStyle} className="fixed z-[100] flex flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)]">
       <header className="border-b border-[#d5ddda] bg-[#f2f6f4] px-4 py-3">
-        <div className="flex items-start justify-between gap-3"><div className="min-w-0">{isFullWorkflow ? <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">Full tour · Module {sequenceIndex + 1} of {sequenceCount}</div> : null}<h2 className="mt-1 truncate text-[16px] font-black text-[#202623]">{tutorial.title}</h2><div className="mt-1 text-[10px] font-bold text-[#6d7773]">{chapter?.title ?? step.phase} · Action {chapterStep} of {chapter?.steps.length ?? tutorial.steps.length}</div></div><div className="flex items-center gap-1"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={16} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={17} /></button></div></div>
+        <div className="flex items-start justify-between gap-3"><div className="min-w-0">{isFullWorkflow ? <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">Full tour · Module {sequenceIndex + 1} of {sequenceCount}</div> : null}<h2 className="mt-1 truncate text-[16px] font-black text-[#202623]">{tutorial.title}</h2><div className="mt-1 text-[10px] font-bold text-[#6d7773]">Step {stepIndex + 1} of {tutorial.steps.length}</div></div><div className="flex items-center gap-1"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={16} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={17} /></button></div></div>
         <div className="mt-3 flex gap-1" aria-label={`Action ${stepIndex + 1} of ${tutorial.steps.length}`}>{Array.from({ length: tutorial.steps.length }, (_, index) => <span key={index} className={`h-1 flex-1 ${index <= stepIndex ? "bg-[#0f8b73]" : "bg-[#d7dfdc]"}`} />)}</div>
       </header>
       <GuideConversationBody step={step} targetReady={targetReady} routeMatches={routeMatches} onOpenRoute={onOpenRoute} />
-      <GuideConversationFooter stepIndex={stepIndex} stepCount={tutorial.steps.length} canConfirm={canConfirm} hasPreviousModule={sequenceIndex > 0} hasNextModule={sequenceIndex < sequenceCount - 1} onBack={onBack} onAdvance={onAdvance} />
+      <GuideConversationFooter step={step} stepIndex={stepIndex} stepCount={tutorial.steps.length} canConfirm={canConfirm} hasPreviousModule={sequenceIndex > 0} hasNextModule={sequenceIndex < sequenceCount - 1} onBack={onBack} onAdvance={onAdvance} />
     </section>
   );
 }
 
 function GuideConversationBody({ step, targetReady, routeMatches, onOpenRoute }: { step: OperatorGuideStep; targetReady: boolean; routeMatches: boolean; onOpenRoute: () => void }) {
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-5" aria-live="polite"><div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#0c705f]">{step.phase}</div><h3 className="mt-2 text-[25px] font-black leading-7 tracking-normal text-[#1d2421]">{operatorGuideStepTitle(step)}</h3><p className="mt-3 text-[13px] font-medium leading-5 text-[#68736e]">{step.message}</p><div className="mt-5 border-l-[3px] border-[#0f8b73] pl-4"><div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#557069]">Do this</div><p className="mt-1 text-[17px] font-bold leading-6 text-[#244b40]">{step.instruction}</p></div><div className="mt-5 text-[10px] font-black uppercase tracking-[0.08em] text-[#68736e]">Done when</div><p className="mt-1 text-[13px] font-semibold leading-5 text-[#4f5b56]">{step.completion}</p><details className="mt-4 border-t border-[#e3e8e6] pt-3 text-[12px] leading-5 text-[#66716d]"><summary className="cursor-pointer font-black text-[#52605a] hover:text-[#0f7c68]">Why this matters</summary><p className="mt-2">{step.why}</p></details><details className="mt-3 text-[12px] leading-5 text-[#705924]"><summary className="cursor-pointer font-black hover:text-[#4f421f]">Keep in mind</summary><p className="mt-2 font-semibold">{step.safety}</p></details>{!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : null}</div>;
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-5" aria-live="polite">
+      <h3 className="text-[24px] font-black leading-7 tracking-normal text-[#1d2421]">{operatorGuideStepTitle(step)}</h3>
+      <p className="mt-4 border-l-[3px] border-[#0f8b73] pl-4 text-[16px] font-bold leading-6 text-[#244b40]">{step.instruction}</p>
+      <div className="mt-5 border border-[#dce4e1] bg-[#f6f9f8] px-4 py-3 text-[12px] font-semibold leading-5 text-[#4f5b56]">
+        <span className="font-black text-[#27322e]">Check: </span>{step.completion}
+      </div>
+      <details className="mt-4 border-t border-[#e3e8e6] pt-3 text-[12px] leading-5 text-[#66716d]">
+        <summary className="cursor-pointer font-black text-[#52605a] hover:text-[#0f7c68]">Notes</summary>
+        <p className="mt-2">{step.message}</p>
+        <p className="mt-2 font-semibold text-[#705924]">{step.safety}</p>
+      </details>
+      {!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : null}
+    </div>
+  );
 }
 
 function UnavailableGuideAction({ step, routeMatches, onOpenRoute }: { step: OperatorGuideStep; routeMatches: boolean; onOpenRoute: () => void }) {
@@ -370,8 +381,14 @@ function unavailableGuideMessage(step: OperatorGuideStep, routeMatches: boolean)
   return "This control is not available yet. Skip this step or open the required page.";
 }
 
-function GuideConversationFooter({ stepIndex, stepCount, canConfirm, hasPreviousModule, hasNextModule, onBack, onAdvance }: { stepIndex: number; stepCount: number; canConfirm: boolean; hasPreviousModule: boolean; hasNextModule: boolean; onBack: () => void; onAdvance: () => void }) {
-  return <footer className="flex items-center justify-between gap-2 border-t border-[#d8dfdc] bg-[#fafcfb] px-4 py-3"><button type="button" disabled={stepIndex === 0 && !hasPreviousModule} onClick={onBack} className="flex h-10 items-center gap-1.5 px-2 text-[12px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={15} /> Back</button><div className="flex items-center gap-2"><button type="button" onClick={onAdvance} className="h-10 px-2 text-[12px] font-black text-[#66716d] hover:text-[#111111]">{guideSkipLabel(stepIndex, stepCount, hasNextModule)}</button>{canConfirm ? <button type="button" onClick={onAdvance} className="flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[12px] font-black text-white">{guideAdvanceLabel(stepIndex, stepCount, hasNextModule)}<ArrowRight size={15} /></button> : <span className="flex h-10 items-center gap-1.5 px-2 text-[12px] font-black text-[#0c705f]">Use highlight <ChevronRight size={14} /></span>}</div></footer>;
+function GuideConversationFooter({ step, stepIndex, stepCount, canConfirm, hasPreviousModule, hasNextModule, onBack, onAdvance }: { step: OperatorGuideStep; stepIndex: number; stepCount: number; canConfirm: boolean; hasPreviousModule: boolean; hasNextModule: boolean; onBack: () => void; onAdvance: () => void }) {
+  return <footer className="flex items-center justify-between gap-2 border-t border-[#d8dfdc] bg-[#fafcfb] px-4 py-3"><button type="button" disabled={stepIndex === 0 && !hasPreviousModule} onClick={onBack} className="flex h-10 items-center gap-1.5 px-2 text-[12px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={15} /> Back</button><div className="flex items-center gap-2"><button type="button" onClick={onAdvance} className="h-10 px-2 text-[12px] font-black text-[#66716d] hover:text-[#111111]">{guideSkipLabel(stepIndex, stepCount, hasNextModule)}</button>{canConfirm ? <button type="button" onClick={onAdvance} className="flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[12px] font-black text-white">{guideAdvanceLabel(stepIndex, stepCount, hasNextModule)}<ArrowRight size={15} /></button> : <span className="flex h-10 items-center gap-1.5 px-2 text-[12px] font-black text-[#0c705f]">{guideInteractionLabel(step)} <ChevronRight size={14} /></span>}</div></footer>;
+}
+
+function guideInteractionLabel(step: OperatorGuideStep) {
+  if (step.advance === "target-input") return "Enter an answer";
+  if (step.advance === "target-change") return "Use highlighted field";
+  return "Select highlighted item";
 }
 
 function guideAdvanceLabel(stepIndex: number, stepCount: number, hasNextModule: boolean) {

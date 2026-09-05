@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:eeb88086545df0f3",
-  "fingerprint": "eeb88086545df0f38caef2eca582340a98ba7f45167f39e12f15962ac5de7ee9",
+  "generatedAt": "source-fingerprint:a99dbae5bebdeb71",
+  "fingerprint": "a99dbae5bebdeb7184d85d5c5a5fb6f55d9b2857ab263a8897f5e1de47b21ba5",
   "totals": {
     "files": 800,
-    "lines": 269623,
+    "lines": 269768,
     "coveredFiles": 800
   },
   "entries": [
@@ -1674,7 +1674,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1988,
+      "lines": 1993,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -1938,7 +1938,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 353,
+      "lines": 362,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2034,7 +2034,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3310,
+      "lines": 3314,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2178,7 +2178,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 248,
+      "lines": 239,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2238,7 +2238,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 423,
+      "lines": 442,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2250,7 +2250,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 602,
+      "lines": 619,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -6643,7 +6643,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 378,
+      "lines": 383,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9235,7 +9235,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 131,
+      "lines": 224,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9667,7 +9667,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 73,
+      "lines": 75,
       "moduleIds": [
         "developer-toolchain",
         "system-map"

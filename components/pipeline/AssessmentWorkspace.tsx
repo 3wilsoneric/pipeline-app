@@ -83,6 +83,7 @@ import {
 type AssessmentWorkspaceProps = {
   referralId?: number;
   trainingAssessmentMode?: TrainingAssessmentMode;
+  trainingAssessmentSection?: AssessmentToolSection;
   assignedAssessorId?: string;
   packetEvidenceVersion?: string;
   onSummaryChange?: (summary: {
@@ -147,7 +148,7 @@ type AssessmentRemoteChange = {
   conflicts: AssessmentFieldConflict[];
 };
 
-export default function AssessmentWorkspace({ referralId, trainingAssessmentMode, assignedAssessorId, packetEvidenceVersion, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
+export default function AssessmentWorkspace({ referralId, trainingAssessmentMode, trainingAssessmentSection, assignedAssessorId, packetEvidenceVersion, onSummaryChange, onAssessmentSaved }: AssessmentWorkspaceProps) {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
@@ -209,6 +210,10 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
     () => trainingAssessmentMode ? getAssessmentPracticeReview(draft) : null,
     [draft, trainingAssessmentMode],
   );
+
+  useEffect(() => {
+    if (trainingAssessmentSection) setActiveSection(trainingAssessmentSection);
+  }, [trainingAssessmentSection]);
 
   const upsertAssessment = useCallback((assessment: PipelineAssessmentRecord, select = false) => {
     setAssessments((current) => [assessment, ...current.filter((item) => item.assessment_id !== assessment.assessment_id)]);
