@@ -338,7 +338,7 @@ function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume
 
 function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceCount, targetAvailable, targetRect, routeMatches, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorial: OperatorGuidedTutorial; step: OperatorGuideStep; stepIndex: number; sequenceIndex: number; sequenceCount: number; targetAvailable: boolean; targetRect: DOMRect | null; routeMatches: boolean; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
   const targetReady = routeMatches && targetAvailable;
-  const canConfirm = step.advance === "confirm";
+  const canConfirm = step.advance === "confirm" && !usesVerifiedCompletionEvent(step);
   const isFullWorkflow = sequenceCount > 1;
   const panelStyle = guidePanelLayout(targetRect, step.placement ?? "auto");
   return (
@@ -386,6 +386,7 @@ function GuideConversationFooter({ step, stepIndex, stepCount, canConfirm, hasPr
 }
 
 function guideInteractionLabel(step: OperatorGuideStep) {
+  if (step.target === "assessment-schedule-save") return "Save the appointment";
   if (step.advance === "target-input") return "Enter an answer";
   if (step.advance === "target-change") return "Use highlighted field";
   return "Select highlighted item";
@@ -606,11 +607,15 @@ function normalizeRoles(roles: readonly string[]): readonly OperatorRole[] {
 }
 
 function guideAdvanceEvent(step: OperatorGuideStep, target: HTMLElement) {
-  if (step.target === "initial-packet-upload") return "pipeline:guide-complete" as const;
+  if (usesVerifiedCompletionEvent(step)) return "pipeline:guide-complete" as const;
   if (step.advance === "target-input") return "input" as const;
   if (step.advance === "target-change") return "change" as const;
   if (step.advance === "target-click") return target instanceof HTMLSelectElement ? "change" as const : "click" as const;
   return null;
+}
+
+function usesVerifiedCompletionEvent(step: OperatorGuideStep) {
+  return step.target === "initial-packet-upload" || step.target === "assessment-schedule-save";
 }
 
 function isMostlyVisible(rect: DOMRect) {

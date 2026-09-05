@@ -891,6 +891,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
         });
         upsertAssessment(updated, true);
         setMessage("Practice appointment saved locally");
+        dispatchGuideCompletion("assessment-schedule-save");
         setShowScheduleDialog(false);
         setShowBeginDialog(true);
         return;
@@ -915,6 +916,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
       upsertAssessment(payload.assessment, true);
       await onAssessmentSaved?.(payload.assessment);
       setMessage("Assessment scheduled");
+      dispatchGuideCompletion("assessment-schedule-save");
       setShowScheduleDialog(false);
       if (!payload.assessment.started_at && !payload.assessment.signed_at) setShowBeginDialog(true);
     } catch (scheduleError) {
@@ -1365,7 +1367,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
                 <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Duration</span><span className="relative mt-1 block"><select aria-label="Assessment duration" value={scheduleDuration} onChange={(event) => setScheduleDuration(event.target.value)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120">2 hours</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Method</span><span className="relative mt-1 block"><select aria-label="Assessment method" value={scheduleMethod} onChange={(event) => setScheduleMethod(event.target.value as typeof scheduleMethod)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="in_person">In person</option><option value="zoom">Zoom</option><option value="phone">Phone</option><option value="record_review">Record review</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
+                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Method</span><span className="relative mt-1 block"><select data-guide-target="assessment-schedule-method" aria-label="Assessment method" value={scheduleMethod} onChange={(event) => setScheduleMethod(event.target.value as typeof scheduleMethod)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="in_person">In person</option><option value="zoom">Zoom</option><option value="phone">Phone</option><option value="record_review">Record review</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
                 <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Location or link</span><input aria-label="Assessment location or link" value={scheduleLocation} maxLength={500} onChange={(event) => setScheduleLocation(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
               </div>
               {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
@@ -1835,6 +1837,12 @@ function nextAssessmentScheduleStatus(status: PipelineAssessmentRecord["schedule
 
 function nullableTrimmedText(value: string) {
   return value.trim() || null;
+}
+
+function dispatchGuideCompletion(target: string) {
+  document
+    .querySelector<HTMLElement>(`[data-guide-target~="${target}"]`)
+    ?.dispatchEvent(new CustomEvent("pipeline:guide-complete", { bubbles: true }));
 }
 
 function assessmentRequiresSavedReferral(

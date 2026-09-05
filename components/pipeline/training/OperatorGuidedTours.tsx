@@ -48,7 +48,7 @@ const fullWorkflowTutorialIds = [
 
 const taskPresentation: Readonly<Record<string, { description: string; icon: ReactNode }>> = {
   "complete-assessment": { description: "Answer, review, and sign.", icon: <ClipboardCheck size={26} aria-hidden="true" /> },
-  "start-assessment": { description: "Schedule it and begin.", icon: <CalendarPlus size={26} aria-hidden="true" /> },
+  "start-assessment": { description: "Schedule it, then open the assessment.", icon: <CalendarPlus size={26} aria-hidden="true" /> },
   "assessor-shift": { description: "Open what needs attention.", icon: <LayoutDashboard size={26} aria-hidden="true" /> },
   "create-referral": { description: "Upload, assign, and schedule.", icon: <CalendarPlus size={26} aria-hidden="true" /> },
   "find-workspace": { description: "Search and reopen it.", icon: <FolderSearch2 size={26} aria-hidden="true" /> },

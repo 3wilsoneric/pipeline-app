@@ -69,7 +69,7 @@ const concepts: readonly WorkflowConcept[] = [
     points: [
       { title: "Set complete details", detail: "Date, time, duration, method, and location or meeting link make the event usable." },
       { title: "Keep the scope clean", detail: "Calendar entries identify the assessment without exposing unnecessary clinical detail." },
-      { title: "Begin deliberately", detail: "Begin assessment records who started the interview and when clinical entry became active." },
+      { title: "Open the assessment", detail: "After the schedule saves, continue to Client & referral and work through each section." },
     ],
   },
   {

@@ -75,7 +75,7 @@ const presentationSlides: readonly PresentationSlide[] = [
   {
     number: 3,
     title: "Assessment",
-    summary: "Schedule the interview, begin it under the assigned assessor, and complete all 12 sections.",
+    summary: "Schedule the interview, then complete all 12 sections under the assigned assessor.",
     points: ["Inherited intake facts remain visible", "Conditional questions appear only when relevant", "Autosave protects the draft; signature remains a deliberate action"],
   },
   {
@@ -114,9 +114,9 @@ const demoChapters: readonly DemoChapter[] = [
   {
     number: 3,
     title: "Schedule the assessment",
-    instruction: "Set the assessor, date, time, duration, and interview method.",
-    actions: ["Open Assessment and select Schedule", "Choose Zoom or the correct interview method", "Save and confirm the scheduled time on the referral"],
-    completeWhen: "The assessment has an assessor, time, and interview method.",
+    instruction: "Set the appointment, save it, then open the assessment.",
+    actions: ["Set the date, time, duration, and method", "Add the Zoom link or location", "Select Schedule assessment and continue to Client & referral"],
+    completeWhen: "The appointment is saved and section 1 of the assessment is open.",
     scenarioId: "assessment-preparation",
     guide: { tutorialId: "start-assessment", stepId: "assessment-schedule-fields" },
   },

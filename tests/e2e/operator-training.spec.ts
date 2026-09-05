@@ -29,28 +29,24 @@ test.describe("Pipeline Learning Center", () => {
     await page.getByRole("button", { name: "Open Finish an assessment" }).click();
     await expect(page.getByRole("heading", { name: "Finish an assessment" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Finish an assessment chapters" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Find", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Client & referral", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Start guided walkthrough: Finish an assessment" })).toBeVisible();
-    await page
-      .getByRole("navigation", { name: "Finish an assessment chapters" })
-      .getByRole("button", { name: /^02 Open/ })
-      .click();
-    await expect(page.getByRole("heading", { name: "Open Assessment" })).toBeVisible();
     const assessmentSections = ["Client & referral", "Placement", "History", "Clinical", "Function", "Medication", "Substance use", "Behavior & safety", "Physical health", "Legal", "Support & goals", "Review"];
     for (const [index, section] of assessmentSections.entries()) {
-      const chapterNumber = String(index + 3).padStart(2, "0");
+      const chapterNumber = String(index + 1).padStart(2, "0");
       await page
         .getByRole("navigation", { name: "Finish an assessment chapters" })
         .getByRole("button", { name: new RegExp(`^${chapterNumber} Section ${index + 1} of 12`) })
         .click();
       await expect(page.getByRole("heading", { name: section, exact: true })).toBeVisible();
     }
-    await page.getByRole("navigation", { name: "Finish an assessment chapters" }).getByRole("button", { name: /^02 Open/ }).click();
-    await page.getByRole("button", { name: "Open guided tooltip for Open Assessment" }).click();
+    await page.getByRole("navigation", { name: "Finish an assessment chapters" }).getByRole("button", { name: /^01 Section 1 of 12/ }).click();
+    await page.getByRole("button", { name: "Open guided tooltip for Client & referral" }).click();
     await expect(page).toHaveURL(/trainingAssessment=interview/);
     await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible();
-    await expect(page.getByRole("dialog", { name: /Finish an assessment guided tutorial/ })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Open Assessment" })).toBeVisible();
+    const coach = page.getByRole("dialog", { name: /Finish an assessment guided tutorial/ });
+    await expect(coach).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Client & referral", exact: true })).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });
 
@@ -120,13 +116,6 @@ test.describe("Pipeline Learning Center", () => {
     await page.getByRole("button", { name: "Start guided walkthrough: Finish an assessment" }).click();
 
     const coach = page.getByRole("dialog", { name: "Finish an assessment guided tutorial" });
-    await expect(coach.getByRole("heading", { name: "Find the referral" })).toBeVisible();
-    await coach.getByRole("button", { name: "Skip step" }).click();
-    await expect(coach.getByRole("heading", { name: "Open the referral" })).toBeVisible();
-    await coach.getByRole("button", { name: "Skip step" }).click();
-    await expect(coach.getByRole("heading", { name: "Open Assessment" })).toBeVisible();
-    await coach.getByRole("button", { name: "Continue" }).click();
-
     await expect(page).toHaveURL(/trainingAssessment=interview/);
     const assessment = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(assessment).toBeVisible();

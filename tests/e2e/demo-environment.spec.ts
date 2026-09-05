@@ -112,6 +112,32 @@ test.describe("Pipeline Demo Environment", () => {
     await expect.poll(() => errors).toEqual([]);
   });
 
+  test("moves directly from a saved schedule into the assessment", async ({ page }) => {
+    const errors = watchBrowserErrors(page);
+    await mockTrainingProgress(page);
+    await page.goto("/training/demo");
+    await page.getByRole("tab", { name: "Referral journey" }).click();
+    await page.getByRole("navigation", { name: "Referral journey stages" }).getByRole("button", { name: /Schedule the assessment/ }).click();
+    await page.getByRole("button", { name: "Open guided practice" }).click();
+
+    const coach = page.getByRole("dialog", { name: "Schedule an assessment guided tutorial" });
+    const schedule = page.getByRole("dialog", { name: "Schedule assessment" });
+    await expect(coach.getByRole("heading", { name: "Set the appointment" })).toBeVisible();
+    await schedule.getByLabel("Assessment date and time").fill(futureLocalDateTime());
+    await expect(coach.getByRole("heading", { name: "Choose the interview method" })).toBeVisible();
+    await schedule.getByLabel("Assessment method").selectOption("zoom");
+    await expect(coach.getByRole("heading", { name: "Save the schedule" })).toBeVisible();
+    await schedule.getByLabel("Assessment location or link").fill("https://example.invalid/pipeline-training");
+    await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+
+    await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=identity/);
+    await expect(page.getByRole("dialog", { name: "Begin assessment" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Open the assessment" })).toBeVisible();
+    await expect(coach).toContainText("Select Client & referral");
+    await expect.poll(() => errors).toEqual([]);
+  });
+
   test("opens intake review on Intake instead of skipping ahead to Assessment", async ({ page }) => {
     await page.goto("/training/demo");
     await page.getByRole("tab", { name: "Referral journey" }).click();
@@ -192,6 +218,13 @@ function watchBrowserErrors(page: import("@playwright/test").Page) {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function futureLocalDateTime() {
+  const date = new Date(Date.now() + 24 * 60 * 60 * 1_000);
+  date.setMinutes(0, 0, 0);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
 }
 
 async function mockTrainingProgress(page: import("@playwright/test").Page) {
