@@ -1,8 +1,15 @@
 import type { ReferralStage } from "@/lib/pipeline/referral-workflow";
 import type { PipelineCommunity } from "@/lib/pipeline/community-config";
-import type { ReferralWorkflowStatus, RequirementType } from "@/lib/pipeline/referral-types";
+import type { ReferralWorkflowStatus, RequirementStatus, RequirementType } from "@/lib/pipeline/referral-types";
 import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
 import type { ActiveReferralFlowState } from "@/lib/pipeline/referral-flow";
+import type {
+  WorkspaceAssessmentState,
+  WorkspaceAssignmentState,
+  WorkspaceDocumentState,
+  WorkspaceOutcomeState,
+  WorkspaceProfileState,
+} from "@/lib/pipeline/workspace-state";
 
 export type OperationsWorkItem = {
   referral_id: number;
@@ -11,6 +18,13 @@ export type OperationsWorkItem = {
   community: string;
   stage: ReferralStage;
   workflow_status: ReferralWorkflowStatus;
+  flow_state: ActiveReferralFlowState | "complete";
+  assignment_state: WorkspaceAssignmentState;
+  assessment_state: WorkspaceAssessmentState;
+  outcome_state: WorkspaceOutcomeState;
+  document_state: WorkspaceDocumentState;
+  profile_state: WorkspaceProfileState;
+  assessment_is_reassessment: boolean;
   owner_id?: string;
   owner: string;
   priority: string;
@@ -38,7 +52,7 @@ export type OperationsRequirementItem = {
   client_name: string;
   community: string;
   label: string;
-  status: string;
+  status: RequirementStatus;
   owner_id?: string;
   owner: string;
   due_at: string | null;
@@ -67,6 +81,13 @@ export type ReferralWorklistItem = {
   community: PipelineCommunity;
   stage: ReferralStage;
   workflow_status: ReferralWorkflowStatus;
+  flow_state: ActiveReferralFlowState | "complete";
+  assignment_state: WorkspaceAssignmentState;
+  assessment_state: WorkspaceAssessmentState;
+  outcome_state: WorkspaceOutcomeState;
+  document_state: WorkspaceDocumentState;
+  profile_state: WorkspaceProfileState;
+  assessment_is_reassessment: boolean;
   owner: string;
   priority: string;
   categories: Exclude<ReferralWorklistBucket, "all_actionable">[];

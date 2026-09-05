@@ -8,6 +8,8 @@ const root = process.cwd();
 const read = (file) => readFileSync(file, "utf8");
 const workflow = loadTypeScriptModule(root, "lib/pipeline/workflow-status.ts");
 const referralFlow = loadTypeScriptModule(root, "lib/pipeline/referral-flow.ts");
+const referralProgress = loadTypeScriptModule(root, "lib/pipeline/referral-progress.ts");
+const workspaceState = loadTypeScriptModule(root, "lib/pipeline/workspace-state.ts");
 const lifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
 const records = loadTypeScriptModule(root, "lib/pipeline/workflow-records.ts");
 const assessmentSeed = loadTypeScriptModule(root, "lib/assessment/assessment-seed.ts");
@@ -97,6 +99,153 @@ check("active referral statuses map to one operational flow state", [
 ].every(([status, state]) => referralFlow.referralFlowStateForStatus(status) === state));
 check("terminal referral statuses stay out of current work", ["accepted", "declined", "closed"]
   .every((status) => referralFlow.referralFlowStateForStatus(status) === "complete"));
+
+const acceptedDecision = {
+  decisionId: "decision-71",
+  outcome: "accepted",
+  reasonCode: "meets_criteria",
+  reasonNote: "Synthetic workflow fixture.",
+  decidedBy: "supervisor-1",
+  decidedByName: "Supervisor",
+  decidedAt: "2026-08-25T18:00:00.000Z",
+  version: 1,
+};
+const acceptedReferral = {
+  ...referral,
+  date: "2026-08-23",
+  stage: "Accepted / Admitted",
+  workspaceStatus: "active",
+  admissionDecision: acceptedDecision,
+};
+const requirement = (overrides = {}) => ({
+  id: "requirement-tb",
+  version: 1,
+  type: "tb_test",
+  label: "TB test",
+  status: "needed",
+  requiredFor: "move_in",
+  ownerId: "assessor-1",
+  owner: "Assigned Assessor",
+  dueAt: "2026-08-27T18:00:00.000Z",
+  nextStep: "Attach the current TB test.",
+  blocker: true,
+  updatedAt: "2026-08-25T18:00:00.000Z",
+  ...overrides,
+});
+const acceptedContext = {
+  assessmentExists: true,
+  assessmentComplete: true,
+  assessmentSigned: true,
+  assessmentCreatedAt: "2026-08-25T12:00:00.000Z",
+  decision: acceptedDecision,
+};
+const acceptedWithLateDocument = workspaceState.getWorkspaceState(acceptedReferral, {
+  ...acceptedContext,
+  requirements: [requirement()],
+});
+check("accepted outcomes remain authoritative while late documents become follow-up work",
+  acceptedWithLateDocument.outcome === "accepted"
+  && acceptedWithLateDocument.focus === "follow_up"
+  && acceptedWithLateDocument.open_requirement_ids.includes("requirement-tb")
+  && acceptedWithLateDocument.open_document_count === 1);
+check("accepted follow-up work appears in the operational board without reopening the outcome",
+  referralFlow.getReferralFlowState(acceptedReferral, {
+    ...acceptedContext,
+    requirements: [requirement()],
+  }) === "complete_chart");
+const acceptedWithReplacementEvidence = workspaceState.getWorkspaceState(acceptedReferral, {
+  ...acceptedContext,
+  requirements: [requirement({
+    status: "received",
+    evidenceDocumentId: "document-replacement",
+    evidenceDocumentName: "current-tb-test.pdf",
+  })],
+});
+check("replacement evidence resolves its requirement without changing the admission outcome",
+  acceptedWithReplacementEvidence.outcome === "accepted"
+  && acceptedWithReplacementEvidence.focus === "complete"
+  && acceptedWithReplacementEvidence.open_requirement_ids.length === 0);
+const acceptedWithoutOriginalPacket = workspaceState.getWorkspaceState({
+  ...acceptedReferral,
+  documentStatus: "Missing",
+  documentName: "",
+  packetId: "",
+}, {
+  ...acceptedContext,
+  requirements: [],
+});
+check("a completed outcome does not invent new work for missing historical intake evidence",
+  acceptedWithoutOriginalPacket.documents === "complete"
+  && acceptedWithoutOriginalPacket.focus === "complete");
+const pendingWithFutureMoveInRequirement = workspaceState.getWorkspaceState({
+  ...referral,
+  date: "2026-08-23",
+  workspaceStatus: "active",
+}, {
+  assessmentExists: true,
+  assessmentComplete: false,
+  decision: null,
+  requirements: [requirement()],
+});
+check("future move-in requirements stay out of pre-decision queues",
+  pendingWithFutureMoveInRequirement.outcome === "pending"
+  && !pendingWithFutureMoveInRequirement.active_requirement_ids.includes("requirement-tb"));
+const declinedDecision = { ...acceptedDecision, decisionId: "decision-declined", outcome: "declined" };
+const declinedState = workspaceState.getWorkspaceState({
+  ...acceptedReferral,
+  stage: "Declined",
+  admissionDecision: declinedDecision,
+}, {
+  ...acceptedContext,
+  decision: declinedDecision,
+  requirements: [requirement({ status: "expired" })],
+});
+check("declined outcomes do not create artificial document work",
+  declinedState.outcome === "declined"
+  && declinedState.focus === "complete"
+  && declinedState.active_requirement_ids.length === 0);
+const reassessmentDraft = workspaceState.getWorkspaceState(acceptedReferral, {
+  ...acceptedContext,
+  assessmentSigned: false,
+  assessmentComplete: false,
+  assessmentStatus: "draft",
+  assessmentScheduleStatus: "unscheduled",
+  assessmentCreatedAt: "2026-08-26T12:00:00.000Z",
+});
+check("a post-outcome assessment is explicit current work while the prior outcome remains intact",
+  reassessmentDraft.assessment_is_reassessment
+  && reassessmentDraft.outcome === "accepted"
+  && reassessmentDraft.focus === "ready_to_schedule");
+const scheduledReassessment = workspaceState.getWorkspaceState(acceptedReferral, {
+  ...acceptedContext,
+  assessmentSigned: false,
+  assessmentComplete: false,
+  assessmentStatus: "draft",
+  assessmentScheduleStatus: "scheduled",
+  assessmentCreatedAt: "2026-08-26T12:00:00.000Z",
+});
+check("a scheduled reassessment uses the same calendar-facing state without erasing the prior outcome",
+  scheduledReassessment.outcome === "accepted" && scheduledReassessment.focus === "scheduled");
+const inProgressReassessment = referralProgress.getReferralProgress(acceptedReferral, {
+  ...acceptedContext,
+  assessmentSigned: false,
+  assessmentComplete: false,
+  assessmentStarted: true,
+  assessmentStatus: "draft",
+  assessmentScheduleStatus: "completed",
+  assessmentCreatedAt: "2026-08-26T12:00:00.000Z",
+});
+check("a post-outcome reassessment keeps its own next action instead of reopening intake",
+  inProgressReassessment.state.assessment_is_reassessment
+  && inProgressReassessment.next_action === "Complete the reassessment");
+const signedReassessment = workspaceState.getWorkspaceState(acceptedReferral, {
+  ...acceptedContext,
+  assessmentCreatedAt: "2026-08-26T12:00:00.000Z",
+});
+check("a signed reassessment waits in follow-up rather than silently closing",
+  signedReassessment.assessment_is_reassessment
+  && signedReassessment.outcome === "accepted"
+  && signedReassessment.focus === "follow_up");
 
 const seededAssessment = assessmentSeed.buildAssessmentSeedFromReferral({
   ...referral,

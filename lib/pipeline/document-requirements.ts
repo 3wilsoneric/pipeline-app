@@ -25,3 +25,7 @@ export function documentCategoryForRequirement(type: RequirementType): DocumentC
 export function requirementForDocumentCategory(category: DocumentCategory): RequirementType | null {
   return requirementByCategory[category] ?? null;
 }
+
+export function isDocumentRequirementType(type: RequirementType) {
+  return categoryByRequirement[type] !== undefined;
+}

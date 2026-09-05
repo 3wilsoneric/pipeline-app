@@ -4,6 +4,7 @@ import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { getAssessmentCompletionReport } from "@/lib/assessment/assessment-store";
 import { getPipelineDatabaseReadiness, getPipelineSql } from "@/lib/database/pipeline-database";
+import { isDocumentRequirementType } from "@/lib/pipeline/document-requirements";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 import { getAssessmentCalendar } from "@/lib/pipeline/calendar-store";
 import {
@@ -20,9 +21,13 @@ import { getSupervisorExceptionSnapshot } from "@/lib/pipeline/operations-snapsh
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { listReferralFacets, listReferrals } from "@/lib/pipeline/referral-store";
-import { isClosedReferralStage } from "@/lib/pipeline/referral-workflow";
-import type { AdmissionRequirement, Referral } from "@/lib/pipeline/referral-types";
-import { resolveReferralWorkflowStatus, workflowStatusLabels } from "@/lib/pipeline/workflow-status";
+import type { Referral } from "@/lib/pipeline/referral-types";
+import type { WorkflowContext } from "@/lib/pipeline/workflow-records";
+import { getReferralWorkflowContexts } from "@/lib/pipeline/workflow-store";
+import {
+  isRequirementResolved,
+  type WorkspaceStateProjection,
+} from "@/lib/pipeline/workspace-state";
 
 const previewLimit = 500;
 const exportLimit = 5_000;
@@ -31,7 +36,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   {
     id: "active_referrals",
     label: "Current workflow",
-    description: "Open workspaces by explicit workflow status, assignment, age, and next recorded action.",
+    description: "Current workspaces by assignment, workflow focus, age, and next recorded action.",
     cadence: "Current",
     audience: "Assessment team",
     filters: ["community", "owner"],
@@ -63,7 +68,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   {
     id: "assessor_workload",
     label: "Team workload",
-    description: "Current open assignments, overdue assignment targets, assessment work, and oldest workspace by assessor.",
+    description: "Current assignments, overdue targets, assessment work, and oldest workspace by assessor.",
     cadence: "Current",
     audience: "Supervisors",
     filters: ["community", "owner"],
@@ -125,17 +130,6 @@ const visibleReportIds = new Set<OperationsReportId>([
   "assessment_schedule",
   "assessment_completion",
   "assessor_workload",
-]);
-
-const documentRequirementTypes = new Set([
-  "medication_list",
-  "tb_test",
-  "signed_admission_agreement",
-  "conservatorship_document",
-  "lic_602",
-  "lic_601_603",
-  "provider_form",
-  "face_sheet",
 ]);
 
 export function getOperationsReportCatalog(user: PipelineUser) {
@@ -253,12 +247,13 @@ async function reportRows(
   if (reportId === "supervisor_exceptions") return supervisorExceptionRows(filters);
 
   const referrals = await loadReportReferrals(user, filters, workspaceScopeForReport(reportId));
-  if (reportId === "active_referrals") return activeReferralRows(referrals);
-  if (reportId === "workspace_inventory") return workspaceInventoryRows(referrals);
-  if (reportId === "document_coverage") return documentCoverageRows(referrals);
+  const contexts = await getReferralWorkflowContexts(referrals);
+  if (reportId === "active_referrals") return activeReferralRows(referrals, contexts);
+  if (reportId === "workspace_inventory") return workspaceInventoryRows(referrals, contexts);
+  if (reportId === "document_coverage") return documentCoverageRows(referrals, contexts);
   if (reportId === "intake_review") return intakeReviewRows(referrals);
-  if (reportId === "assessor_workload") return assessorWorkloadRows(referrals);
-  if (reportId === "missing_documents") return missingDocumentRows(referrals);
+  if (reportId === "assessor_workload") return assessorWorkloadRows(referrals, contexts);
+  if (reportId === "missing_documents") return missingDocumentRows(referrals, contexts);
   if (reportId === "decisions") return decisionRows(referrals, filters.month);
   return ehrHandoffRows(referrals);
 }
@@ -292,16 +287,15 @@ function workspaceScopeForReport(reportId: OperationsReportId): "active" | "all"
     : "active";
 }
 
-function activeReferralRows(referrals: Referral[]) {
+function activeReferralRows(referrals: Referral[], contexts: Map<number, WorkflowContext>) {
   return referrals
-    .filter((referral) => !isClosedReferralStage(referral.stage))
-    .map((referral) => {
-      const workflowStatus = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
-      const progress = getReferralProgress(referral);
+    .map((referral) => ({ referral, progress: getReferralProgress(referral, contexts.get(referral.id)) }))
+    .filter(({ progress }) => progress.state.focus !== "complete")
+    .map(({ referral, progress }) => {
       return referralRow(referral, {
         client: referral.name,
         community: referral.community,
-        status: workflowStatusLabels[workflowStatus],
+        status: workspaceFocusLabel(progress.state),
         owner: referral.owner || "Unassigned",
         next_action: progress.next_action ?? "Review referral",
         age_days: ageDays(referral.updatedAt ?? referral.createdAt),
@@ -311,26 +305,33 @@ function activeReferralRows(referrals: Referral[]) {
     .sort((left, right) => Number(right.values.age_days) - Number(left.values.age_days));
 }
 
-function workspaceInventoryRows(referrals: Referral[]) {
+function workspaceInventoryRows(referrals: Referral[], contexts: Map<number, WorkflowContext>) {
   return referrals
-    .map((referral) => referralRow(referral, {
-      client: referral.name,
-      community: referral.community,
-      county: referral.county ?? "Not recorded",
-      owner: referral.owner || "Unassigned",
-      created: referral.createdAt,
-      assessment: assessmentStatusLabel(referral),
-      materials: recordedMaterialCount(referral),
-      updated: referral.updatedAt ?? referral.createdAt,
-    }))
+    .map((referral) => {
+      const state = getReferralProgress(referral, contexts.get(referral.id)).state;
+      return referralRow(referral, {
+        client: referral.name,
+        community: referral.community,
+        county: referral.county ?? "",
+        owner: referral.owner || "Unassigned",
+        created: referral.createdAt,
+        assessment: assessmentStatusLabel(state),
+        materials: recordedMaterialCount(referral),
+        updated: referral.updatedAt ?? referral.createdAt,
+      });
+    })
     .sort((left, right) => String(right.values.updated).localeCompare(String(left.values.updated)));
 }
 
-function documentCoverageRows(referrals: Referral[]) {
+function documentCoverageRows(referrals: Referral[], contexts: Map<number, WorkflowContext>) {
   return referrals.map((referral) => {
-    const requirements = (referral.requirements ?? []).filter((requirement) => documentRequirementTypes.has(requirement.type));
-    const ready = requirements.filter((requirement) => !isRequirementOpen(requirement)).length;
-    const missing = requirements.filter(isRequirementOpen);
+    const context = contexts.get(referral.id);
+    const progress = getReferralProgress(referral, context);
+    const activeIds = new Set(progress.state.active_requirement_ids);
+    const requirements = (context?.requirements ?? referral.requirements ?? [])
+      .filter((requirement) => activeIds.has(requirement.id) && isDocumentRequirementType(requirement.type));
+    const ready = requirements.filter(isRequirementResolved).length;
+    const missing = requirements.filter((requirement) => !isRequirementResolved(requirement));
     return referralRow(referral, {
       client: referral.name,
       community: referral.community,
@@ -366,21 +367,20 @@ function intakeReviewRows(referrals: Referral[]) {
   }).sort((left, right) => Number(right.values.pending) - Number(left.values.pending));
 }
 
-function assessorWorkloadRows(referrals: Referral[]) {
-  const owners = new Map<string, Referral[]>();
-  for (const referral of referrals.filter((item) => !isClosedReferralStage(item.stage))) {
+function assessorWorkloadRows(referrals: Referral[], contexts: Map<number, WorkflowContext>) {
+  const owners = new Map<string, Array<{ referral: Referral; state: WorkspaceStateProjection }>>();
+  for (const referral of referrals) {
+    const state = getReferralProgress(referral, contexts.get(referral.id)).state;
+    if (state.focus === "complete") continue;
     const owner = referral.owner?.trim() || "Unassigned";
-    owners.set(owner, [...(owners.get(owner) ?? []), referral]);
+    owners.set(owner, [...(owners.get(owner) ?? []), { referral, state }]);
   }
   return [...owners.entries()].map(([owner, assignments]) => {
-    const overdue = assignments.filter((referral) => isPast(referral.assignmentDueAt)).length;
-    const assessmentWork = assignments.filter((referral) => {
-      const status = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
-      return ["ready_to_schedule", "assessment_scheduled", "assessment_in_progress", "assessment_ready_to_sign"].includes(status);
-    }).length;
-    const waiting = assignments.filter((referral) => (
-      (referral.workflowStatus ?? resolveReferralWorkflowStatus(referral)) === "waiting_for_information"
+    const overdue = assignments.filter(({ referral }) => isPast(referral.assignmentDueAt)).length;
+    const assessmentWork = assignments.filter(({ state }) => (
+      ["ready_to_schedule", "scheduled", "assessment"].includes(state.focus)
     )).length;
+    const waiting = assignments.filter(({ state }) => state.assessment === "waiting_for_information").length;
     return {
       row_id: `owner:${owner.toLocaleLowerCase()}`,
       referral_id: null,
@@ -392,19 +392,22 @@ function assessorWorkloadRows(referrals: Referral[]) {
         assessment_work: assessmentWork,
         waiting,
         overdue,
-        oldest_days: Math.max(...assignments.map((referral) => ageDays(referral.createdAt))),
+        oldest_days: Math.max(...assignments.map(({ referral }) => ageDays(referral.createdAt))),
       },
     };
   }).sort((left, right) => Number(right.values.assigned) - Number(left.values.assigned));
 }
 
-function missingDocumentRows(referrals: Referral[]) {
+function missingDocumentRows(referrals: Referral[], contexts: Map<number, WorkflowContext>) {
   return referrals.flatMap((referral) => {
-    if (isClosedReferralStage(referral.stage)) return [];
-    const missing = missingDocumentRequirements(referral);
-    if (referral.documentStatus === "Missing" && missing.length === 0) missing.push("Initial referral packet");
+    const context = contexts.get(referral.id);
+    const progress = getReferralProgress(referral, context);
+    if (progress.state.focus === "complete") return [];
+    const missing = missingDocumentRequirements(referral, context, progress.state);
+    if (progress.state.outcome === "pending" && referral.documentStatus === "Missing" && missing.length === 0) {
+      missing.push("Initial referral packet");
+    }
     if (missing.length === 0) return [];
-    const progress = getReferralProgress(referral);
     return [referralRow(referral, {
       client: referral.name,
       community: referral.community,
@@ -566,8 +569,8 @@ function reportMetrics(reportId: OperationsReportId, rows: OperationsReportRow[]
   const sum = (key: string) => rows.reduce((total, row) => total + numericValue(row.values[key]), 0);
   const distinct = (key: string) => new Set(rows.map((row) => String(row.values[key] ?? "").trim()).filter(Boolean)).size;
   if (reportId === "active_referrals") return [
-    metric("Open workspaces", rows.length, "Every accessible workspace not in a closed state."),
-    metric("Unassigned", countValue(rows, "owner", "Unassigned"), "Open workspaces without a recorded assessor."),
+    metric("Current work", rows.length, "Every accessible workspace with recorded work still in motion."),
+    metric("Unassigned", countValue(rows, "owner", "Unassigned"), "Current work without a recorded assessor."),
     metric("Communities", distinct("community"), "Distinct destination communities represented."),
     metric("Average age", `${average(rows.map((row) => numericValue(row.values.age_days)))} days`, "Days since the latest recorded workspace activity."),
   ];
@@ -590,13 +593,13 @@ function reportMetrics(reportId: OperationsReportId, rows: OperationsReportRow[]
     metric("Conflicts", sum("conflicts"), "Fields with competing extraction candidates."),
   ];
   if (reportId === "assessor_workload") return [
-    metric("Open assignments", sum("assigned"), "Current open workspaces across the visible team."),
-    metric("Assignees", rows.filter((row) => row.values.owner !== "Unassigned").length, "People with at least one open assignment."),
+    metric("Current assignments", sum("assigned"), "Current workspace work across the visible team."),
+    metric("Assignees", rows.filter((row) => row.values.owner !== "Unassigned").length, "People with at least one current assignment."),
     metric("Assessment work", sum("assessment_work"), "Workspaces ready to schedule through ready to sign."),
     metric("Overdue", sum("overdue"), "Assignments past their recorded assignment target."),
   ];
   if (reportId === "missing_documents") return [
-    metric("Workspaces waiting", rows.length, "Open workspaces with at least one missing required document."),
+    metric("Workspaces waiting", rows.length, "Current workspaces with at least one missing required document."),
     metric("Required items missing", sum("count"), "Total open document requirements."),
     metric("Unassigned", countValue(rows, "owner", "Unassigned"), "Waiting workspaces without an owner."),
     metric("Communities", distinct("community"), "Communities affected by missing documents."),
@@ -651,14 +654,19 @@ function referralRow(referral: Referral, values: OperationsReportRow["values"]):
   };
 }
 
-function missingDocumentRequirements(referral: Referral) {
-  return (referral.requirements ?? [])
-    .filter((requirement) => documentRequirementTypes.has(requirement.type) && isRequirementOpen(requirement))
+function missingDocumentRequirements(
+  referral: Referral,
+  context: WorkflowContext | undefined,
+  state: WorkspaceStateProjection,
+) {
+  const activeIds = new Set(state.active_requirement_ids);
+  return (context?.requirements ?? referral.requirements ?? [])
+    .filter((requirement) => (
+      activeIds.has(requirement.id)
+      && isDocumentRequirementType(requirement.type)
+      && !isRequirementResolved(requirement)
+    ))
     .map((requirement) => requirement.label);
-}
-
-function isRequirementOpen(requirement: AdmissionRequirement) {
-  return !["received", "reviewed", "waived", "not_applicable"].includes(requirement.status);
 }
 
 function recordedMaterialCount(referral: Referral) {
@@ -666,17 +674,31 @@ function recordedMaterialCount(referral: Referral) {
   return referral.documentStatus === "Missing" ? 0 : 1;
 }
 
-function assessmentStatusLabel(referral: Referral) {
-  const status = referral.workflowStatus;
-  if (!status) return "Not recorded";
-  if (["intake_unassigned", "intake_documents_needed", "profile_incomplete"].includes(status)) return "Not started";
-  if (status === "ready_to_schedule") return "Ready to schedule";
-  if (status === "assessment_scheduled") return "Scheduled";
-  if (status === "assessment_in_progress") return "In progress";
-  if (status === "waiting_for_information") return "Waiting for information";
-  if (status === "assessment_ready_to_sign") return "Ready to sign";
-  if (["assessment_signed", "recommendation_submitted", "decision_pending", "accepted", "declined", "closed"].includes(status)) return "Signed";
-  return workflowStatusLabels[status];
+function assessmentStatusLabel(state: WorkspaceStateProjection) {
+  return {
+    not_started: "Not started",
+    unscheduled: "Not scheduled",
+    scheduled: "Scheduled",
+    in_progress: "In progress",
+    waiting_for_information: "Waiting for information",
+    ready_to_sign: "Ready to sign",
+    signed: "Signed",
+  }[state.assessment];
+}
+
+function workspaceFocusLabel(state: WorkspaceStateProjection) {
+  if (state.assessment_is_reassessment) {
+    if (state.focus === "ready_to_schedule") return "Reassessment to schedule";
+    if (state.focus === "scheduled") return "Reassessment scheduled";
+    if (state.focus === "assessment") return "Reassessment in progress";
+  }
+  return {
+    ready_to_schedule: state.assignment === "unassigned" ? "Needs assignment" : "Ready to schedule",
+    scheduled: "Scheduled",
+    assessment: "Assessment in progress",
+    follow_up: state.outcome === "accepted" ? "Accepted · follow-up" : "Follow-up",
+    complete: "Complete",
+  }[state.focus];
 }
 
 function isPast(value?: string) {

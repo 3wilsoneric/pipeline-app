@@ -3,10 +3,10 @@ import "server-only";
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getClinicalDataReadiness } from "@/lib/clinical/clinical-data";
 import { getExtractionBackendReadiness } from "@/lib/extraction/backend-config";
-import { getReferralProgress } from "@/lib/pipeline/referral-progress";
+import { getReferralProgress, type ReferralProgress } from "@/lib/pipeline/referral-progress";
 import {
   activeReferralFlowStates,
-  referralFlowStateForStatus,
+  referralFlowStateForWorkspaceFocus,
   type ActiveReferralFlowState,
 } from "@/lib/pipeline/referral-flow";
 import { isAssignedToUser, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
@@ -19,12 +19,17 @@ import {
 import {
   boardStages,
   getStageLabel,
-  isClosedReferralStage,
 } from "@/lib/pipeline/referral-workflow";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { resolveReferralWorkflowStatus } from "@/lib/pipeline/workflow-status";
+import {
+  hasInitialDocument,
+  hasManualIntakeAuthorization,
+  resolveReferralWorkflowStatus,
+} from "@/lib/pipeline/workflow-status";
 import { getReferralWorkflowContexts } from "@/lib/pipeline/workflow-store";
 import type { WorkflowContext } from "@/lib/pipeline/workflow-records";
+import { isDocumentRequirementType } from "@/lib/pipeline/document-requirements";
+import { isRequirementStatusResolved } from "@/lib/pipeline/workspace-state";
 import type {
   MyQueueItem,
   MyQueueSnapshot,
@@ -186,7 +191,7 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
     ),
   ).sort(compareReferralWorklistItems);
   const readyToSchedule = activeItems.filter((item) =>
-    workByReferral.get(item.referral_id)?.workflow_status === "ready_to_schedule",
+    workByReferral.get(item.referral_id)?.flow_state === "ready_to_schedule",
   );
   const dataCompletion = activeItems.filter((item) =>
     item.missing_data.length > 0 || item.missing_document_count > 0,
@@ -201,7 +206,7 @@ export async function getHomeWorkflowSummary(user: PipelineUser): Promise<HomeWo
     activeReferralFlowStates.map(({ key }) => [key, 0]),
   ) as Record<ActiveReferralFlowState, number>;
   for (const item of operational.activeWork) {
-    const flowState = referralFlowStateForStatus(item.workflow_status);
+    const flowState = item.flow_state;
     if (flowState !== "complete") flowCounts[flowState] += 1;
   }
 
@@ -441,12 +446,23 @@ async function loadOperationalWork(user?: PipelineUser) {
 
   const now = new Date();
   const workflowContexts = await getReferralWorkflowContexts(referrals);
-  const work = referrals.map((referral) => toWorkItem(referral, now, workflowContexts.get(referral.id)));
-  const activeWork = work.filter((item) => !isClosedReferralStage(item.stage));
-  const requirements = referrals.flatMap((referral) =>
-    toRequirementWork(referral, workflowContexts.get(referral.id), now),
+  const progressByReferral = new Map(referrals.map((referral) => [
+    referral.id,
+    getReferralProgress(referral, workflowContexts.get(referral.id)),
+  ]));
+  const work = referrals.map((referral) =>
+    toWorkItem(referral, now, workflowContexts.get(referral.id), progressByReferral.get(referral.id)!),
   );
-  const openRequirements = requirements.filter((item) => !["reviewed", "waived", "not_applicable"].includes(item.status));
+  const activeWork = work.filter((item) => item.flow_state !== "complete");
+  const requirements = referrals.flatMap((referral) =>
+    toRequirementWork(
+      referral,
+      workflowContexts.get(referral.id),
+      progressByReferral.get(referral.id)!,
+      now,
+    ),
+  );
+  const openRequirements = requirements.filter((item) => !isRequirementStatusResolved(item.status));
 
   return {
     activeWork,
@@ -578,8 +594,8 @@ function toWorkItem(
   referral: Referral,
   now: Date,
   context?: WorkflowContext,
+  progress = getReferralProgress(referral, context),
 ): OperationsWorkItem {
-  const progress = getReferralProgress(referral, context);
   const updatedAt = new Date(referral.updatedAt ?? referral.createdAt);
   const ageHours = Number.isNaN(updatedAt.getTime())
     ? 0
@@ -599,6 +615,7 @@ function toWorkItem(
     && (normalizedOwner === "Unassigned" || !referral.ownerId?.trim())
       ? "intake_unassigned"
       : storedWorkflowStatus;
+  const flowState = referralFlowStateForWorkspaceFocus(progress.state.focus);
   const assignmentDeadlineApplies = [
     "intake_unassigned",
     "intake_documents_needed",
@@ -617,16 +634,19 @@ function toWorkItem(
     community: referral.community,
     stage: referral.stage,
     workflow_status: workflowStatus,
+    flow_state: flowState,
+    assignment_state: progress.state.assignment,
+    assessment_state: progress.state.assessment,
+    outcome_state: progress.state.outcome,
+    document_state: progress.state.documents,
+    profile_state: progress.state.profile,
+    assessment_is_reassessment: progress.state.assessment_is_reassessment,
     owner_id: referral.ownerId,
     owner: normalizedOwner,
     priority: referral.priority,
     blocker_count: progress.blockers.length,
     blockers: progress.blockers,
-    missing_data: progress.sections.flatMap((section) =>
-      section.items
-        .filter((item) => item.status !== "complete")
-        .map((item) => item.label),
-    ),
+    missing_data: progress.open_items,
     next_action: progress.next_action,
     action_required: progress.action_required,
     waiting: progress.waiting,
@@ -646,11 +666,16 @@ function toWorkItem(
 
 async function loadOperationalReferrals(user?: PipelineUser) {
   const scope = user ? scopeReferralListOptions(user, {}) : {};
-  const [active, accepted] = await Promise.all([
+  const [active, accepted, reassessments] = await Promise.all([
     loadReferralPages({ ...scope, activeOnly: true }),
     loadReferralPages({ ...scope, stage: "Accepted / Admitted" }),
+    loadReferralPages({ ...scope, postOutcomeAssessment: true }),
   ]);
-  return [...new Map([...active, ...accepted].map((referral) => [referral.id, referral])).values()];
+  return [
+    ...new Map(
+      [...active, ...accepted, ...reassessments].map((referral) => [referral.id, referral]),
+    ).values(),
+  ];
 }
 
 async function loadReferralPages(
@@ -675,43 +700,36 @@ async function loadReferralPages(
 function toRequirementWork(
   referral: Referral,
   context: WorkflowContext | undefined,
+  progress: ReferralProgress,
   now: Date,
 ): OperationsRequirementItem[] {
-  return (context?.requirements ?? referral.requirements ?? []).map((requirement) => {
-    const dueTime = requirement.dueAt ? new Date(requirement.dueAt).getTime() : Number.NaN;
-    const isOpen = !["reviewed", "waived", "not_applicable"].includes(requirement.status);
-    return {
-      work_item_id: requirement.id,
-      version: requirement.version ?? 1,
-      referral_id: referral.id,
-      client_name: referral.name,
-      community: referral.community,
-      label: requirement.label,
-      status: requirement.status,
-      owner_id: requirement.ownerId,
-      owner: normalizeOwnerName(requirement.owner),
-      due_at: Number.isFinite(dueTime) ? new Date(dueTime).toISOString() : null,
-      next_action: requirement.nextStep,
-      evidence_document_name: requirement.evidenceDocumentName ?? null,
-      overdue: isOpen && Number.isFinite(dueTime) && dueTime < now.getTime(),
-      due_soon: isOpen && Number.isFinite(dueTime) && dueTime >= now.getTime() && dueTime <= now.getTime() + 72 * 36e5,
-      unassigned: normalizeOwnerName(requirement.owner) === "Unassigned",
-      type: requirement.type,
-      blocker: requirement.blocker,
-    };
-  });
+  const activeRequirementIds = new Set(progress.state.active_requirement_ids);
+  return (context?.requirements ?? referral.requirements ?? [])
+    .filter((requirement) => activeRequirementIds.has(requirement.id))
+    .map((requirement) => {
+      const dueTime = requirement.dueAt ? new Date(requirement.dueAt).getTime() : Number.NaN;
+      const isOpen = !isRequirementStatusResolved(requirement.status);
+      return {
+        work_item_id: requirement.id,
+        version: requirement.version ?? 1,
+        referral_id: referral.id,
+        client_name: referral.name,
+        community: referral.community,
+        label: requirement.label,
+        status: requirement.status,
+        owner_id: requirement.ownerId,
+        owner: normalizeOwnerName(requirement.owner),
+        due_at: Number.isFinite(dueTime) ? new Date(dueTime).toISOString() : null,
+        next_action: requirement.nextStep,
+        evidence_document_name: requirement.evidenceDocumentName ?? null,
+        overdue: isOpen && Number.isFinite(dueTime) && dueTime < now.getTime(),
+        due_soon: isOpen && Number.isFinite(dueTime) && dueTime >= now.getTime() && dueTime <= now.getTime() + 72 * 36e5,
+        unassigned: normalizeOwnerName(requirement.owner) === "Unassigned",
+        type: requirement.type,
+        blocker: requirement.blocker,
+      };
+    });
 }
-
-const documentRequirementTypes = new Set([
-  "medication_list",
-  "tb_test",
-  "signed_admission_agreement",
-  "conservatorship_document",
-  "lic_602",
-  "lic_601_603",
-  "provider_form",
-  "face_sheet",
-]);
 
 function toReferralWorklistItem(
   work: OperationsWorkItem,
@@ -720,20 +738,23 @@ function toReferralWorklistItem(
 ): ReferralWorklistItem {
   const categories: ReferralWorklistItem["categories"] = [];
   const missingDocuments = requirements.filter((requirement) =>
-    documentRequirementTypes.has(requirement.type)
-      && !["received", "reviewed", "waived", "not_applicable"].includes(requirement.status),
+    isDocumentRequirementType(requirement.type),
   );
   const extractionConflict = Boolean(referral.packetFields?.some((field) => field.is_conflict));
   const explicitBlocked = referral.packetStatus === "failed"
     || extractionConflict
     || requirements.some((requirement) => requirement.blocker && (requirement.overdue || requirement.status === "expired"));
 
-  if (work.owner === "Unassigned") categories.push("unassigned");
-  if (["New", "Packet Needed", "Packet Review"].includes(work.stage)) categories.push("packet_review");
-  if (["ready_to_schedule", "assessment_scheduled", "assessment_in_progress", "waiting_for_information", "assessment_ready_to_sign"].includes(work.workflow_status) && !work.assessment_complete) categories.push("assessment_due");
-  if (["assessment_signed", "recommendation_submitted", "decision_pending"].includes(work.workflow_status)) categories.push("decision_needed");
-  if (referral.documentStatus === "Missing" || missingDocuments.length > 0) categories.push("missing_documents");
-  if (work.stage === "Accepted / Admitted" && requirements.length > 0) categories.push("follow_up");
+  if (work.assignment_state === "unassigned") categories.push("unassigned");
+  if (work.outcome_state === "pending" && ["New", "Packet Needed", "Packet Review"].includes(work.stage)) {
+    categories.push("packet_review");
+  }
+  if (["scheduled", "assessment"].includes(work.flow_state)) categories.push("assessment_due");
+  if (work.outcome_state === "pending" && ["ready_to_sign", "signed"].includes(work.assessment_state)) {
+    categories.push("decision_needed");
+  }
+  if (work.document_state !== "complete" || missingDocuments.length > 0) categories.push("missing_documents");
+  if (work.flow_state === "complete_chart") categories.push("follow_up");
   if (explicitBlocked) categories.push("blocked");
 
   const primaryOrder: ReferralWorklistItem["categories"] = [
@@ -774,6 +795,13 @@ function toReferralWorklistItem(
     community: referral.community,
     stage: work.stage,
     workflow_status: work.workflow_status,
+    flow_state: work.flow_state,
+    assignment_state: work.assignment_state,
+    assessment_state: work.assessment_state,
+    outcome_state: work.outcome_state,
+    document_state: work.document_state,
+    profile_state: work.profile_state,
+    assessment_is_reassessment: work.assessment_is_reassessment,
     owner: work.owner,
     priority: work.priority,
     categories,
@@ -786,7 +814,9 @@ function toReferralWorklistItem(
     last_activity_at: referral.updatedAt ?? referral.createdAt,
     age_hours: work.age_hours,
     completion_pct: work.completion_pct,
-    missing_document_count: missingDocuments.length + Number(referral.documentStatus === "Missing"),
+    missing_document_count: missingDocuments.length + Number(
+      !hasInitialDocument(referral) && !hasManualIntakeAuthorization(referral),
+    ),
   };
 }
 

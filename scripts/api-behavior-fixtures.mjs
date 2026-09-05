@@ -241,7 +241,7 @@ const results = [
     }, "2026-08-23");
     assert(event?.status === "overdue" && event?.title === "Assessment overdue", "Expected overdue status");
   }),
-  run("calendar includes only assessment-gated open follow-ups", () => {
+  run("calendar follows active requirement gates without reopening outcomes", () => {
     const base = {
       id: 43,
       name: "Follow-up Client",
@@ -257,7 +257,19 @@ const results = [
     ];
     const events = assessmentCalendar.assessmentFollowUpEvents({ ...base, requirements }, "2026-08-23");
     assert(events.length === 1 && events[0].id === "follow-up:pre", "Expected only the open assessment-gated follow-up");
-    assert(assessmentCalendar.assessmentFollowUpEvents({ ...base, stage: "Accepted / Admitted", requirements }, "2026-08-23").length === 0, "Closed workspaces must not produce follow-ups");
+    const acceptedEvents = assessmentCalendar.assessmentFollowUpEvents({
+      ...base,
+      stage: "Accepted / Admitted",
+      admissionDecision: { outcome: "accepted", decidedAt: "2026-08-22T12:00:00.000Z" },
+      requirements,
+    }, "2026-08-23");
+    assert(acceptedEvents.length === 1 && acceptedEvents[0].id === "follow-up:move", "Accepted workspaces must retain active move-in follow-ups");
+    assert(assessmentCalendar.assessmentFollowUpEvents({
+      ...base,
+      stage: "Declined",
+      admissionDecision: { outcome: "declined", decidedAt: "2026-08-22T12:00:00.000Z" },
+      requirements,
+    }, "2026-08-23").length === 0, "Declined outcomes must not create follow-up work");
   }),
   run("calendar date stepping is exact and unscheduled work is explicit", () => {
     assert(assessmentCalendar.addCalendarDays("2026-08-23", 1) === "2026-08-24", "Expected a one-day calendar step");
@@ -280,6 +292,24 @@ const results = [
     assert(blocked?.workflowStatus === "intake_documents_needed", "Expected blocked intake work to remain visible before scheduling");
     assert(blocked?.nextAction === "complete_intake", "Blocked intake work must route back to intake");
     assert(assessmentCalendar.assessmentPreparationItem({ ...item, id: 44, name: "Needs Scheduling", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "allo" }, null) === null, "Imported historical work must not enter the scheduling queue");
+    const reassessment = assessmentCalendar.assessmentPreparationItem({
+      ...item,
+      id: 46,
+      name: "Accepted Reassessment",
+      date: "2026-08-22",
+      createdAt: "2026-08-22T12:00:00.000Z",
+      stage: "Accepted / Admitted",
+      workspaceOrigin: "pipeline",
+      workflowStatus: "accepted",
+      admissionDecision: { outcome: "accepted", decidedAt: "2026-08-20T12:00:00.000Z" },
+    }, {
+      assessment_id: "asm-reassessment",
+      version: 1,
+      schedule_status: "unscheduled",
+      status: "draft",
+      created_at: "2026-08-23T12:00:00.000Z",
+    });
+    assert(reassessment?.nextAction === "schedule", "A deliberate post-outcome reassessment must enter scheduling without erasing the prior outcome");
   }),
   run("calendar consolidates related follow-ups without hiding their labels", () => {
     const consolidated = assessmentCalendar.consolidateCalendarFollowUps([{

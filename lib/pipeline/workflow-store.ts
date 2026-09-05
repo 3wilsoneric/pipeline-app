@@ -110,6 +110,8 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
       recommendation,
       context: {
         assessmentExists: Boolean(latestAssessment) || Boolean(referral.assessment),
+        assessmentId: latestAssessment?.assessment_id ?? null,
+        assessmentCreatedAt: latestAssessment?.created_at ?? null,
         assessmentComplete: latestAssessment ? latestAssessment.status === "complete" : Boolean(referral.assessment?.completedAt),
         assessmentSigned: Boolean(latestAssessment?.signed_at),
         assessmentStarted: Boolean(latestAssessment?.started_at),
@@ -150,8 +152,8 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
       order by recommended_at desc, recommendation_id desc
       limit 1
     `,
-    sql<{ status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
-      select status, assessment_date, signed_at, started_at, schedule_status, data
+    sql<{ assessment_id: string; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
+      select assessment_id, created_at, status, assessment_date, signed_at, started_at, schedule_status, data
       from pipeline.assessments
       where referral_id = ${referralId}
       order by updated_at desc, assessment_id desc
@@ -172,6 +174,8 @@ export async function getReferralWorkflowSnapshot(referralId: number): Promise<R
     recommendation,
     context: {
       assessmentExists: Boolean(latestAssessment) || Boolean(referral.assessment),
+      assessmentId: latestAssessment?.assessment_id ?? null,
+      assessmentCreatedAt: latestAssessment?.created_at ? toIso(latestAssessment.created_at) : null,
       assessmentComplete: latestAssessment ? latestAssessment.status === "complete" : Boolean(referral.assessment?.completedAt),
       assessmentSigned: Boolean(latestAssessment?.signed_at),
       assessmentStarted: Boolean(latestAssessment?.started_at),
@@ -222,8 +226,8 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
       where referral_id = any(${ids}::bigint[])
       order by referral_id, recommended_at desc, recommendation_id desc
     `,
-    sql<{ referral_id: number | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
-      select distinct on (referral_id) referral_id, status, assessment_date, signed_at, started_at, schedule_status, data
+    sql<{ referral_id: number | string; assessment_id: string; created_at: Date | string; status: AssessmentWorkflowStatus; assessment_date: Date | string | null; signed_at: Date | string | null; started_at: Date | string | null; schedule_status: PipelineAssessmentRecord["schedule_status"]; data: AssessmentToolData }[]>`
+      select distinct on (referral_id) referral_id, assessment_id, created_at, status, assessment_date, signed_at, started_at, schedule_status, data
       from pipeline.assessments
       where referral_id = any(${ids}::bigint[])
       order by referral_id, updated_at desc, assessment_id desc
@@ -241,6 +245,8 @@ export async function getReferralWorkflowContexts(referrals: Referral[]) {
     const recommendationRow = recommendationsByReferral.get(referral.id);
     contexts.set(referral.id, {
       assessmentExists: Boolean(assessmentRow) || Boolean(referral.assessment),
+      assessmentId: assessmentRow?.assessment_id ?? null,
+      assessmentCreatedAt: assessmentRow?.created_at ? toIso(assessmentRow.created_at) : null,
       assessmentComplete: assessmentRow ? assessmentRow.status === "complete" : Boolean(referral.assessment?.completedAt),
       assessmentSigned: Boolean(assessmentRow?.signed_at),
       assessmentStarted: Boolean(assessmentRow?.started_at),

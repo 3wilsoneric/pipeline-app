@@ -3,6 +3,11 @@ import { isUnassignedOwner } from "./referral-ownership";
 import type { WorkflowContext } from "./workflow-records";
 import { getAssessmentCompletionSummary } from "@/lib/assessment/assessment-completion";
 import { hasInitialDocument, hasManualIntakeAuthorization } from "./workflow-status";
+import {
+  getWorkspaceState,
+  isRequirementResolved,
+  type WorkspaceStateProjection,
+} from "./workspace-state";
 
 export type ReferralProgressPhase = "pre" | "assessment";
 export type ReferralProgressItemStatus = "complete" | "missing" | "attention";
@@ -26,6 +31,8 @@ export type ReferralProgressSection = {
 
 export type ReferralProgress = {
   referral_id: number;
+  /** Independent durable facts used by queues and workflow surfaces. */
+  state: WorkspaceStateProjection;
   phase: ReferralProgressPhase;
   overall: {
     complete: number;
@@ -34,6 +41,7 @@ export type ReferralProgress = {
   };
   sections: ReferralProgressSection[];
   blockers: string[];
+  open_items: string[];
   next_action: string | null;
   action_required: boolean;
   waiting: boolean;
@@ -41,9 +49,12 @@ export type ReferralProgress = {
 };
 
 export function getReferralProgress(referral: Referral, context: WorkflowContext = {}): ReferralProgress {
-  const decision = context.decision ?? referral.admissionDecision;
   const assessmentComplete = context.assessmentComplete ?? hasValue(referral.assessment?.completedAt);
   const canonicalAssessment = context.assessmentData ?? null;
+  const state = getWorkspaceState(referral, context);
+  const activeRequirementIds = new Set(state.active_requirement_ids);
+  const activeRequirements = (context.requirements ?? referral.requirements ?? [])
+    .filter((requirement) => activeRequirementIds.has(requirement.id));
   const sections = [
     section("referral", "Referral information", [
       item("name", "Client name", hasValue(referral.name), true),
@@ -58,19 +69,31 @@ export function getReferralProgress(referral: Referral, context: WorkflowContext
     ]),
     packetSection(referral),
     assessmentSection(referral, context, canonicalAssessment, assessmentComplete),
-    requirementsSection(context.requirements ?? referral.requirements ?? [], decision, assessmentComplete),
+    requirementsSection(activeRequirements),
   ];
 
   const allItems = sections.flatMap((current) => current.items);
   const complete = allItems.filter((current) => current.status === "complete").length;
-  const blockers = allItems
+  const operationalItems = getOperationalItems(sections, state);
+  const blockers = operationalItems
     .filter((current) => current.blocker && current.status !== "complete")
     .map((current) => current.detail ? `${current.label}: ${current.detail}` : current.label);
 
-  const nextAction = getNextAction(referral, context, canonicalAssessment, assessmentComplete, decision, blockers);
-  const waiting = ["received", "normalizing", "extracting"].includes(referral.packetStatus ?? "");
+  const openItems = [...new Set(operationalItems
+    .filter((current) => current.status !== "complete"
+      && (current.blocker || current.key.startsWith("requirement:")))
+    .map((current) => current.label))];
+  const nextAction = getNextAction(
+    referral,
+    canonicalAssessment,
+    state,
+    activeRequirements,
+  );
+  const waiting = ["received", "normalizing", "extracting"].includes(referral.packetStatus ?? "")
+    || state.assessment === "waiting_for_information";
   return {
     referral_id: referral.id,
+    state,
     phase: getPhase(referral, context),
     overall: {
       complete,
@@ -79,6 +102,7 @@ export function getReferralProgress(referral: Referral, context: WorkflowContext
     },
     sections,
     blockers,
+    open_items: openItems,
     next_action: nextAction,
     action_required: Boolean(nextAction) && !waiting,
     waiting,
@@ -88,15 +112,42 @@ export function getReferralProgress(referral: Referral, context: WorkflowContext
 
 function getNextAction(
   referral: Referral,
-  context: WorkflowContext,
   canonicalAssessment: WorkflowContext["assessmentData"],
-  assessmentComplete: boolean,
-  decision: Referral["admissionDecision"],
-  blockers: string[],
+  state: WorkspaceStateProjection,
+  activeRequirements: AdmissionRequirement[],
 ) {
-  if (decision?.outcome === "declined") return null;
-  if (decision?.outcome === "accepted") return blockers[0] ?? null;
-  if (isUnassignedOwner(referral.owner)) return "Assign an owner";
+  if (state.lifecycle !== "active") return null;
+  if (state.assignment === "unassigned") return "Assign an owner";
+  if (state.assessment === "scheduled") return "Begin the scheduled assessment";
+  if (state.outcome === "declined" && !state.assessment_is_reassessment) return null;
+
+  if (state.assessment_is_reassessment) {
+    if (state.assessment === "not_started" || state.assessment === "unscheduled") {
+      return "Schedule the reassessment";
+    }
+    if (state.assessment === "in_progress" || state.assessment === "waiting_for_information") {
+      const missingAssessmentRule = canonicalAssessment
+        ? getAssessmentCompletionSummary(canonicalAssessment).missing[0]
+        : null;
+      return missingAssessmentRule
+        ? `Complete reassessment: ${missingAssessmentRule.label}`
+        : "Complete the reassessment";
+    }
+    if (state.assessment === "ready_to_sign") return "Review and sign the reassessment";
+    if (state.assessment === "signed") return "Review the completed reassessment";
+  }
+
+  const nextRequirement = [...activeRequirements]
+    .filter((requirement) => !isRequirementResolved(requirement))
+    .sort((left, right) => Number(right.blocker) - Number(left.blocker)
+      || left.dueAt.localeCompare(right.dueAt))[0];
+  const missingProfileField = state.missing_profile_fields[0];
+
+  if (state.outcome === "accepted") {
+    if (missingProfileField) return `Complete profile: ${missingProfileField}`;
+    if (state.documents !== "complete" && !nextRequirement) return "Attach source documents";
+    return nextRequirement?.nextStep?.trim() || nextRequirement?.label || null;
+  }
   if (!hasManualIntakeAuthorization(referral)) {
     if (!hasInitialDocument(referral)) return "Upload the initial packet";
     if (referral.packetStatus === "failed") return "Retry packet extraction";
@@ -108,9 +159,14 @@ function getNextAction(
     }
     if (referral.packetStatus !== "reviewed" && referral.packetReadiness?.ready !== true) return "Complete packet review";
   }
-  if (!(context.assessmentExists ?? Boolean(referral.assessment))) return "Start the assessment";
-  if (!hasValue(context.assessmentDate ?? referral.assessment?.scheduledDate)) return "Schedule the assessment";
-  if (!assessmentComplete) {
+  if (missingProfileField) return `Complete profile: ${missingProfileField}`;
+  if (nextRequirement && ["profile_completion", "pre_assessment"].includes(nextRequirement.requiredFor)) {
+    return nextRequirement.nextStep?.trim() || nextRequirement.label;
+  }
+  if (state.assessment === "not_started" || state.assessment === "unscheduled") {
+    return "Schedule the assessment";
+  }
+  if (state.assessment === "in_progress" || state.assessment === "waiting_for_information") {
     const missingAssessmentRule = canonicalAssessment
       ? getAssessmentCompletionSummary(canonicalAssessment).missing[0]
       : null;
@@ -118,7 +174,10 @@ function getNextAction(
       ? `Complete assessment: ${missingAssessmentRule.label}`
       : "Complete the assessment";
   }
-  return blockers[0] ?? null;
+  if (state.assessment === "ready_to_sign") return "Review and sign the assessment";
+  return nextRequirement?.nextStep?.trim()
+    || nextRequirement?.label
+    || (state.assessment === "signed" ? "Review the completed assessment" : null);
 }
 
 function packetSection(referral: Referral): ReferralProgressSection {
@@ -200,40 +259,16 @@ function assessmentSection(
 
 function requirementsSection(
   requirements: AdmissionRequirement[],
-  decision: Referral["admissionDecision"],
-  assessmentComplete: boolean,
 ): ReferralProgressSection {
-  const items = requirements.length > 0
-    ? requirements.map((requirement) => {
-        const complete = isRequirementComplete(requirement);
-        return item(
-          `requirement:${requirement.id}`,
-          requirement.label,
-          complete,
-          requirement.blocker && isRequirementGateActive(requirement, decision, assessmentComplete),
-          requirement.status === "expired" ? "Evidence expired" : requirement.nextStep,
-        );
-      })
-    : [item("requirements_configured", "Admission requirements configured", false, false, "Add requirements when the workflow reaches follow-up.")];
+  const items = requirements.map((requirement) => item(
+    `requirement:${requirement.id}`,
+    requirement.label,
+    isRequirementResolved(requirement),
+    requirement.blocker,
+    requirement.status === "expired" ? "Evidence expired" : requirement.nextStep,
+  ));
 
-  return section("requirements", "Admission requirements", items);
-}
-
-function isRequirementGateActive(
-  requirement: AdmissionRequirement,
-  decision: Referral["admissionDecision"],
-  assessmentComplete: boolean,
-) {
-  if (requirement.requiredFor === "pre_assessment") {
-    return !assessmentComplete && !decision;
-  }
-  if (requirement.requiredFor === "admission_decision") {
-    return assessmentComplete && !decision;
-  }
-  if (requirement.requiredFor === "move_in") {
-    return decision?.outcome === "accepted";
-  }
-  return decision?.outcome === "accepted";
+  return section("requirements", "Current requirements", items);
 }
 
 function section(key: string, label: string, items: ReferralProgressItem[]): ReferralProgressSection {
@@ -274,10 +309,6 @@ function isPacketComplete(referral: Referral) {
   );
 }
 
-function isRequirementComplete(requirement: AdmissionRequirement) {
-  return ["received", "reviewed", "waived", "not_applicable"].includes(requirement.status);
-}
-
 function getPhase(
   referral: Referral,
   context: WorkflowContext,
@@ -308,5 +339,21 @@ const PLACEHOLDER_VALUES = new Set([
 ]);
 
 function percentage(complete: number, total: number) {
-  return total === 0 ? 0 : Math.round((complete / total) * 100);
+  return total === 0 ? 100 : Math.round((complete / total) * 100);
+}
+
+function getOperationalItems(
+  sections: ReferralProgressSection[],
+  state: WorkspaceStateProjection,
+) {
+  if (state.focus === "complete") return [];
+  const relevantSections = state.assessment_is_reassessment
+    ? new Set(["referral", "assessment", "requirements"])
+    : state.outcome === "accepted"
+      ? new Set(["referral", "requirements"])
+      : new Set(["referral", "packet", "assessment", "requirements"]);
+
+  return sections
+    .filter((current) => relevantSections.has(current.key))
+    .flatMap((current) => current.items);
 }

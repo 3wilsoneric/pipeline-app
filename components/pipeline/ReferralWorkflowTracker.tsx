@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
-import { activeReferralFlowStates, referralFlowStateForStatus } from "@/lib/pipeline/referral-flow";
+import { activeReferralFlowStates } from "@/lib/pipeline/referral-flow";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -55,7 +55,7 @@ export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
           </label>
           <div data-current-work-board className="grid items-start gap-5 lg:grid-cols-4">
             {activeReferralFlowStates.map((state) => {
-              const stageItems = items.filter((item) => referralFlowStateForStatus(item.workflow_status) === state.key);
+              const stageItems = items.filter((item) => item.flow_state === state.key);
               return (
                 <div key={state.key} className={`${mobileStage === state.key ? "block" : "hidden"} min-w-0 lg:block`}>
                   <div className={`mb-2 flex min-h-10 items-center justify-between gap-3 border-t-2 px-1 pt-2 ${columnRule(state.key)}`}>
@@ -112,7 +112,9 @@ function WorkflowCard({ item, state, showOwner, onOpenPacket }: {
       </span>
       <span className="mt-1.5 block line-clamp-2 min-h-9 text-[11px] font-medium leading-[18px] text-[#5f6762]">{item.next_action}</span>
       <span className="mt-2.5 flex min-w-0 items-center justify-between gap-2 text-[10px] font-bold text-[#69716c]">
-        <span className="truncate">{item.community}{owner ? ` · ${owner}` : ""}</span>
+        <span className="truncate">
+          {item.outcome_state === "accepted" ? "Accepted · " : ""}{item.community}{owner ? ` · ${owner}` : ""}
+        </span>
         <span className={attention ? "shrink-0 text-[#936116]" : "shrink-0"}>{formatWorkAge(item.age_hours)}</span>
       </span>
     </button>

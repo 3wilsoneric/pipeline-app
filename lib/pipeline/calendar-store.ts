@@ -20,7 +20,11 @@ import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation
 import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
 import { listReferrals } from "@/lib/pipeline/referral-store";
-import type { Referral } from "@/lib/pipeline/referral-types";
+import type { Referral, RequirementGate, RequirementStatus } from "@/lib/pipeline/referral-types";
+import {
+  isRequirementGateActive,
+  type WorkspaceOutcomeState,
+} from "@/lib/pipeline/workspace-state";
 
 type AssessmentCalendarRow = {
   assessment_id: string;
@@ -62,6 +66,10 @@ type FollowUpCalendarRow = {
   client_name: string;
   community: string;
   stage: Referral["stage"];
+  decision_outcome: "accepted" | "declined" | null;
+  gate: RequirementGate;
+  requirement_status: RequirementStatus;
+  assessment_status: "draft" | "needs_review" | "complete" | null;
 };
 
 type UnscheduledCalendarRow = {
@@ -74,6 +82,7 @@ type UnscheduledCalendarRow = {
   owner_name: string | null;
   received_date: string;
   workflow_status: NonNullable<Referral["workflowStatus"]>;
+  is_reassessment: boolean;
   total_count: number | string;
 };
 
@@ -137,14 +146,28 @@ async function getPostgresAssessmentCalendar(
     sql<FollowUpCalendarRow[]>`
       select w.work_item_id, w.referral_id, w.label, w.due_at::date::text as due_date,
         w.owner_id, w.owner_name, p.display_name as client_name,
-        r.community::text as community, r.stage
+        r.community::text as community, r.stage, latest_decision.outcome as decision_outcome, w.gate,
+        w.status as requirement_status, latest_assessment.status as assessment_status
       from pipeline.work_items w
       join pipeline.referrals r on r.referral_id = w.referral_id
       join pipeline.people p on p.person_id = r.person_id
+      left join lateral (
+        select a.status
+        from pipeline.assessments a
+        where a.referral_id = r.referral_id
+        order by a.updated_at desc, a.assessment_id desc
+        limit 1
+      ) latest_assessment on true
+      left join lateral (
+        select d.outcome
+        from pipeline.admission_decisions d
+        where d.referral_id = r.referral_id
+        order by d.decided_at desc, d.decision_id desc
+        limit 1
+      ) latest_decision on true
       where w.due_at::date between ${range.from}::date and ${range.to}::date
-        and w.gate in ('pre_assessment', 'admission_decision')
-        and w.status not in ('reviewed', 'waived')
-        and r.closed_at is null and r.deleted_at is null and r.workspace_status = 'active'
+        and w.status not in ('received', 'reviewed', 'waived', 'not_applicable')
+        and r.deleted_at is null and r.workspace_status = 'active'
         and ${access}
       order by w.due_at, lower(p.display_name), w.work_item_id
     `,
@@ -155,23 +178,40 @@ async function getPostgresAssessmentCalendar(
         r.owner_id, r.owner_name,
         coalesce(r.received_date, r.created_at::date)::text as received_date,
         r.workflow_status,
+        (r.closed_at is not null
+          and latest_assessment.created_at > coalesce(latest_decision.decided_at, r.closed_at)) as is_reassessment,
         count(*) over() as total_count
       from pipeline.referrals r
       join pipeline.people p on p.person_id = r.person_id
       left join lateral (
-        select a.assessment_id, a.version
+        select a.assessment_id, a.version, a.created_at, a.status, a.schedule_status
         from pipeline.assessments a
         where a.referral_id = r.referral_id
         order by a.updated_at desc, a.assessment_id desc
         limit 1
       ) latest_assessment on true
+      left join lateral (
+        select d.decided_at
+        from pipeline.admission_decisions d
+        where d.referral_id = r.referral_id
+        order by d.decided_at desc, d.decision_id desc
+        limit 1
+      ) latest_decision on true
       where r.workspace_origin = 'pipeline' and r.workspace_status = 'active'
-        and r.closed_at is null and r.deleted_at is null and ${access}
-        and r.workflow_status in (
-          'intake_unassigned',
-          'intake_documents_needed',
-          'profile_incomplete',
-          'ready_to_schedule'
+        and r.deleted_at is null and ${access}
+        and (
+          (r.closed_at is null and r.workflow_status in (
+            'intake_unassigned',
+            'intake_documents_needed',
+            'profile_incomplete',
+            'ready_to_schedule'
+          ))
+          or (
+            r.closed_at is not null
+            and latest_assessment.created_at > coalesce(latest_decision.decided_at, r.closed_at)
+            and latest_assessment.status <> 'complete'
+            and coalesce(latest_assessment.schedule_status, 'unscheduled') not in ('scheduled', 'rescheduled', 'completed')
+          )
         )
         and not exists (
           select 1 from pipeline.assessments a
@@ -223,19 +263,31 @@ async function getPostgresAssessmentCalendar(
     }, today);
     return event && event.date >= range.from && event.date <= range.to ? [event] : [];
   });
-  const followUpEvents = consolidateCalendarFollowUps(followUpRows.map((row): PipelineCalendarEvent => ({
-    id: `follow-up:${row.work_item_id}`,
-    referralId: Number(row.referral_id),
-    clientName: calendarClientName(row.client_name, row.community),
-    community: row.community,
-    ownerId: row.owner_id ?? undefined,
-    owner: row.owner_name?.trim() || "Unassigned",
-    date: row.due_date,
-    kind: "follow_up",
-    status: row.due_date < today ? "overdue" : "due",
-    title: row.label,
-    detail: row.due_date < today ? "Assessment follow-up overdue" : "Assessment follow-up due",
-  })));
+  const followUpEvents = consolidateCalendarFollowUps(followUpRows.flatMap((row): PipelineCalendarEvent[] => {
+    const outcome: WorkspaceOutcomeState = row.decision_outcome
+      ?? (row.stage === "Accepted / Admitted"
+        ? "accepted"
+        : row.stage === "Declined"
+          ? "declined"
+          : "pending");
+    if (!isRequirementGateActive(
+      { requiredFor: row.gate },
+      { assessmentComplete: row.assessment_status === "complete", outcome },
+    )) return [];
+    return [{
+      id: `follow-up:${row.work_item_id}`,
+      referralId: Number(row.referral_id),
+      clientName: calendarClientName(row.client_name, row.community),
+      community: row.community,
+      ownerId: row.owner_id ?? undefined,
+      owner: row.owner_name?.trim() || "Unassigned",
+      date: row.due_date,
+      kind: "follow_up",
+      status: row.due_date < today ? "overdue" : "due",
+      title: row.label,
+      detail: row.due_date < today ? "Assessment follow-up overdue" : "Assessment follow-up due",
+    }];
+  }));
   return {
     events: [...assignmentEvents, ...assessmentEvents, ...followUpEvents].sort(compareCalendarEvents),
     unscheduled: unscheduledRows.map((row): PipelineUnscheduledAssessment => ({
@@ -248,7 +300,9 @@ async function getPostgresAssessmentCalendar(
       owner: row.owner_name?.trim() || "Unassigned",
       receivedDate: row.received_date,
       workflowStatus: row.workflow_status,
-      nextAction: row.workflow_status === "intake_unassigned"
+      nextAction: row.is_reassessment
+        ? "schedule"
+        : row.workflow_status === "intake_unassigned"
         ? "assign"
         : row.workflow_status === "ready_to_schedule"
           ? "schedule"
@@ -311,7 +365,18 @@ async function getLocalAssessmentCalendar(
       const event = assessmentCalendarEvent(assessment, referral);
       return event && event.date >= range.from && event.date <= range.to ? [event] : [];
     }),
-    ...referrals.flatMap((referral) => assessmentFollowUpEvents(referral))
+    ...referrals.flatMap((referral) => {
+      const assessment = latestAssessmentByReferral.get(referral.id);
+      return assessmentFollowUpEvents(referral, calendarToday(), assessment ? {
+        assessmentExists: true,
+        assessmentCreatedAt: assessment.created_at,
+        assessmentComplete: assessment.status === "complete",
+        assessmentSigned: Boolean(assessment.signed_at),
+        assessmentStarted: Boolean(assessment.started_at),
+        assessmentScheduleStatus: assessment.schedule_status,
+        assessmentStatus: assessment.status,
+      } : {});
+    })
       .filter((event) => event.date >= range.from && event.date <= range.to),
   ]).sort(compareCalendarEvents);
   const allUnscheduled = referrals.flatMap((referral) => {

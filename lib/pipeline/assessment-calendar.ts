@@ -4,8 +4,9 @@ import type {
   PipelineUnscheduledAssessment,
 } from "@/lib/pipeline/calendar-types";
 import type { Referral, ReferralWorkflowStatus } from "@/lib/pipeline/referral-types";
+import type { WorkflowContext } from "@/lib/pipeline/workflow-records";
+import { getWorkspaceState } from "@/lib/pipeline/workspace-state";
 
-const closedStages = new Set(["Accepted / Admitted", "Declined"]);
 const assessmentPreparationStatuses = new Set([
   "intake_unassigned",
   "intake_documents_needed",
@@ -92,13 +93,15 @@ export function assessmentCalendarEvent(
 }
 
 export function assessmentFollowUpEvents(
-  referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId" | "stage" | "requirements">,
+  referral: Referral,
   today = calendarToday(),
+  context: WorkflowContext = {},
 ): PipelineCalendarEvent[] {
-  if (closedStages.has(referral.stage)) return [];
-  return (referral.requirements ?? []).flatMap((requirement) => {
-    if (!["pre_assessment", "admission_decision"].includes(requirement.requiredFor)) return [];
-    if (["reviewed", "waived"].includes(requirement.status)) return [];
+  const state = getWorkspaceState(referral, context);
+  const activeRequirementIds = new Set(state.active_requirement_ids);
+  return (context.requirements ?? referral.requirements ?? []).flatMap((requirement) => {
+    if (!activeRequirementIds.has(requirement.id)) return [];
+    if (["received", "reviewed", "waived", "not_applicable"].includes(requirement.status)) return [];
     const date = calendarDate(requirement.dueAt);
     if (!date) return [];
     const overdue = date < today;
@@ -108,7 +111,7 @@ export function assessmentFollowUpEvents(
       clientName: referral.name,
       community: referral.community,
       ownerId: requirement.ownerId,
-      owner: requirement.owner?.trim() || "Unassigned",
+      owner: requirement.owner?.trim() || referral.owner?.trim() || "Unassigned",
       date,
       kind: "follow_up" as const,
       status: overdue ? "overdue" as const : "due" as const,
@@ -119,13 +122,20 @@ export function assessmentFollowUpEvents(
 }
 
 export function assessmentPreparationItem(
-  referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId" | "date" | "createdAt" | "stage" | "workspaceOrigin" | "workflowStatus">,
-  assessment: Pick<PipelineAssessmentRecord, "assessment_id" | "version" | "schedule_status"> | null,
+  referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId" | "date" | "createdAt" | "stage" | "workspaceOrigin" | "workspaceStatus" | "workflowStatus" | "admissionDecision">,
+  assessment: Pick<PipelineAssessmentRecord, "assessment_id" | "version" | "schedule_status" | "status" | "created_at"> | null,
 ): PipelineUnscheduledAssessment | null {
   const hasScheduledAssessment = isScheduledAssessment(assessment);
-  if (referral.workspaceOrigin !== "pipeline" || closedStages.has(referral.stage) || hasScheduledAssessment) return null;
+  const reassessment = isPostOutcomeAssessment(referral, assessment);
+  if (
+    referral.workspaceOrigin !== "pipeline"
+    || (referral.workspaceStatus ?? "active") !== "active"
+    || hasScheduledAssessment
+    || assessment?.status === "complete"
+    || (isClosedOutcome(referral) && !reassessment)
+  ) return null;
   const workflowStatus = referral.workflowStatus ?? "intake_unassigned";
-  if (!assessmentPreparationStatuses.has(workflowStatus)) return null;
+  if (!reassessment && !assessmentPreparationStatuses.has(workflowStatus)) return null;
   const receivedDate = calendarDate(referral.date) ?? calendarDate(referral.createdAt);
   if (!receivedDate) return null;
   return {
@@ -138,7 +148,7 @@ export function assessmentPreparationItem(
     owner: referral.owner?.trim() || "Unassigned",
     receivedDate,
     workflowStatus,
-    nextAction: preparationNextAction(workflowStatus),
+    nextAction: reassessment ? "schedule" : preparationNextAction(workflowStatus),
   };
 }
 
@@ -151,6 +161,24 @@ function isScheduledAssessment(
 ) {
   if (!assessment) return false;
   return ["scheduled", "rescheduled"].includes(calendarScheduleStatus(assessment.schedule_status));
+}
+
+function isClosedOutcome(referral: Pick<Referral, "stage" | "admissionDecision">) {
+  return referral.stage === "Accepted / Admitted"
+    || referral.stage === "Declined"
+    || Boolean(referral.admissionDecision);
+}
+
+function isPostOutcomeAssessment(
+  referral: Pick<Referral, "admissionDecision">,
+  assessment: Pick<PipelineAssessmentRecord, "created_at"> | null,
+) {
+  if (!assessment?.created_at || !referral.admissionDecision?.decidedAt) return false;
+  const assessmentCreatedAt = Date.parse(assessment.created_at);
+  const decisionAt = Date.parse(referral.admissionDecision.decidedAt);
+  return Number.isFinite(assessmentCreatedAt)
+    && Number.isFinite(decisionAt)
+    && assessmentCreatedAt > decisionAt;
 }
 
 function preparationNextAction(workflowStatus: ReferralWorkflowStatus): PipelineUnscheduledAssessment["nextAction"] {

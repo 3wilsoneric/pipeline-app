@@ -11,6 +11,8 @@ import type { AssessmentToolData } from "@/lib/assessment/assessment-tool-schema
 
 export type WorkflowContext = {
   assessmentExists?: boolean;
+  assessmentId?: string | null;
+  assessmentCreatedAt?: string | null;
   assessmentComplete?: boolean;
   assessmentSigned?: boolean;
   assessmentStarted?: boolean;

@@ -88,6 +88,8 @@ export type ReferralListOptions = {
   month?: string;
   workflowStatus?: ReferralWorkflowStatus;
   activeOnly?: boolean;
+  /** Internal operational filter for assessments deliberately created after an outcome. */
+  postOutcomeAssessment?: boolean;
   /** Active is the safe default so historical imports never enter work queues. */
   workspaceStatus?: WorkspaceStatus | "all";
   queue?: ReferralQueueView;
@@ -1017,6 +1019,7 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
   const month = options.month?.trim() || null;
   const workflowStatus = options.workflowStatus ?? null;
   const activeOnly = options.activeOnly === true;
+  const postOutcomeAssessment = options.postOutcomeAssessment === true;
   const workspaceStatus = options.workspaceStatus ?? "active";
   const queue = options.queue ?? null;
   const sort = options.sort ?? "updated_desc";
@@ -1069,6 +1072,24 @@ async function listPostgresReferrals(options: ReferralListOptions = {}): Promise
         )
         and (${workflowStatus}::text is null or r.workflow_status = ${workflowStatus})
         and (${activeOnly} = false or r.closed_at is null)
+        and (
+          ${postOutcomeAssessment} = false
+          or exists (
+            select 1
+            from pipeline.assessments reassessment
+            where reassessment.referral_id = r.referral_id
+              and reassessment.created_at > coalesce(
+                (
+                  select decision.decided_at
+                  from pipeline.admission_decisions decision
+                  where decision.referral_id = r.referral_id
+                  order by decision.decided_at desc
+                  limit 1
+                ),
+                r.closed_at
+              )
+          )
+        )
         and (${workspaceStatus} = 'all' or r.workspace_status = ${workspaceStatus})
         and (
           ${queue}::text is null
@@ -2485,9 +2506,17 @@ function matchesReferralFilters(referral: Referral, options: ReferralListOptions
   if (options.month && workspaceMonthKey(referral) !== options.month) return false;
   if (options.workflowStatus && referral.workflowStatus !== options.workflowStatus) return false;
   if (options.activeOnly && isClosedStage(referral.stage)) return false;
+  if (options.postOutcomeAssessment && !hasPostOutcomeAssessment(referral)) return false;
   if (options.queue && !matchesReferralQueue(referral, options.queue)) return false;
   if (!matchesAssignmentScope(referral, options)) return false;
   return true;
+}
+
+function hasPostOutcomeAssessment(referral: Referral) {
+  const assessmentCreatedAt = referral.assessment?.requestedAt;
+  const outcomeAt = referral.admissionDecision?.decidedAt;
+  if (!assessmentCreatedAt || !outcomeAt) return false;
+  return new Date(assessmentCreatedAt).getTime() > new Date(outcomeAt).getTime();
 }
 
 function isDeletedReferral(referral: Referral) {
