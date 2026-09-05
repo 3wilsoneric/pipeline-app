@@ -15,7 +15,7 @@ import {
   LayoutDashboard,
   MonitorPlay,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode, type TouchEvent } from "react";
 
 import FullWorkflowWalkthroughPreview from "@/components/pipeline/training/FullWorkflowWalkthroughPreview";
 import {
@@ -62,6 +62,7 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
   const [previewOpen, setPreviewOpen] = useState(false);
   const tutorials = guidedTutorialsForRoles(assignedRoles).slice().sort((left, right) => priorityOf(left.id) - priorityOf(right.id));
   const selected = tutorials.find((tutorial) => tutorial.id === selectedId) ?? null;
+  const selectedIndex = selected ? tutorials.findIndex((tutorial) => tutorial.id === selected.id) : -1;
   const availableTutorialIds = new Set(tutorials.map((tutorial) => tutorial.id));
   const guidedWorkflowIds = fullWorkflowTutorialIds.filter((id) => availableTutorialIds.has(id));
 
@@ -70,7 +71,19 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
     window.requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-operator-academy="true"]')?.scrollTo({ top: 0, behavior: "smooth" }));
   }
 
-  if (selected) return <ExpandedTask tutorial={selected} progress={progress} onBack={() => selectTask(null)} />;
+  if (selected) {
+    return (
+      <ExpandedTask
+        key={selected.id}
+        tutorial={selected}
+        tutorials={tutorials}
+        activeModuleIndex={selectedIndex}
+        progress={progress}
+        onBack={() => selectTask(null)}
+        onSelectModule={(index) => selectTask(tutorials[index]?.id ?? selected.id)}
+      />
+    );
+  }
 
   return (
     <section className="mt-5 min-h-[calc(100dvh-180px)]" aria-label="Pipeline tasks">
@@ -127,20 +140,74 @@ function TaskTile({ rank, tutorial, completed, onOpen }: { rank: number; tutoria
   );
 }
 
-function ExpandedTask({ tutorial, progress, onBack }: { tutorial: OperatorGuidedTutorial; progress: OperatorTrainingProgress; onBack: () => void }) {
+function ExpandedTask({
+  tutorial,
+  tutorials,
+  activeModuleIndex,
+  progress,
+  onBack,
+  onSelectModule,
+}: {
+  tutorial: OperatorGuidedTutorial;
+  tutorials: readonly OperatorGuidedTutorial[];
+  activeModuleIndex: number;
+  progress: OperatorTrainingProgress;
+  onBack: () => void;
+  onSelectModule: (index: number) => void;
+}) {
   const completed = progress.tutorialResults[tutorial.id]?.status === "completed";
   const chapters = operatorGuideChapters(tutorial);
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
   const activeChapter = chapters[activeChapterIndex] ?? chapters[0];
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  function selectRelativeModule(offset: -1 | 1) {
+    const nextIndex = activeModuleIndex + offset;
+    if (nextIndex >= 0 && nextIndex < tutorials.length) onSelectModule(nextIndex);
+  }
+
+  function handleTouchStart(event: TouchEvent<HTMLElement>) {
+    const touch = event.touches[0];
+    touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  function handleTouchEnd(event: TouchEvent<HTMLElement>) {
+    const start = touchStart.current;
+    const touch = event.changedTouches[0];
+    touchStart.current = null;
+    if (!start || !touch) return;
+    const horizontalDistance = touch.clientX - start.x;
+    const verticalDistance = touch.clientY - start.y;
+    if (Math.abs(horizontalDistance) < 56 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance)) return;
+    selectRelativeModule(horizontalDistance < 0 ? 1 : -1);
+  }
+
+  function handleModuleKeys(event: KeyboardEvent<HTMLElement>) {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "ArrowLeft") selectRelativeModule(-1);
+    if (event.key === "ArrowRight") selectRelativeModule(1);
+  }
 
   if (!activeChapter) return null;
 
   return (
-    <section className="mt-5 flex min-h-[calc(100dvh-180px)] flex-col border border-[#cbd5d1] bg-white">
+    <section
+      className="mt-5 flex min-h-[calc(100dvh-180px)] flex-col border border-[#cbd5d1] bg-white outline-none"
+      aria-label={`${tutorial.title} module`}
+      tabIndex={0}
+      onKeyDown={handleModuleKeys}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <header className="border-b border-[#d5ddda] p-5 sm:p-7 lg:px-9 lg:py-8">
-        <button type="button" onClick={onBack} className="flex h-9 items-center gap-2 text-[10px] font-black text-[#5d6863] hover:text-[#0f7c68]">
-          <ArrowLeft size={14} aria-hidden="true" /> All tasks
-        </button>
+        <ModulePager
+          tutorials={tutorials}
+          activeIndex={activeModuleIndex}
+          onBack={onBack}
+          onSelect={onSelectModule}
+          onPrevious={() => selectRelativeModule(-1)}
+          onNext={() => selectRelativeModule(1)}
+        />
         <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div className="max-w-[780px]">
             <h2 className="text-[30px] font-black leading-9 tracking-normal text-[#19201d] sm:text-[38px] sm:leading-[42px]">{tutorial.title}</h2>
@@ -201,6 +268,75 @@ function ExpandedTask({ tutorial, progress, onBack }: { tutorial: OperatorGuided
         </section>
       </div>
     </section>
+  );
+}
+
+function ModulePager({
+  tutorials,
+  activeIndex,
+  onBack,
+  onSelect,
+  onPrevious,
+  onNext,
+}: {
+  tutorials: readonly OperatorGuidedTutorial[];
+  activeIndex: number;
+  onBack: () => void;
+  onSelect: (index: number) => void;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  const previous = tutorials[activeIndex - 1];
+  const next = tutorials[activeIndex + 1];
+
+  return (
+    <div className="flex min-h-11 items-center justify-between gap-3" aria-label="Change module">
+      <button type="button" onClick={onBack} className="flex h-10 shrink-0 items-center gap-2 px-1 text-[11px] font-black text-[#5d6863] hover:text-[#0f7c68]">
+        <ArrowLeft size={15} aria-hidden="true" /> Modules
+      </button>
+
+      <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+        <button
+          type="button"
+          aria-label={previous ? `Previous module: ${previous.title}` : "No previous module"}
+          disabled={!previous}
+          onClick={onPrevious}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#cbd5d1] text-[#36574e] hover:border-[#7da99b] hover:bg-[#f2f8f5] disabled:cursor-default disabled:opacity-25"
+        >
+          <ArrowLeft size={17} aria-hidden="true" />
+        </button>
+
+        <div className="min-w-0 text-center" aria-live="polite">
+          <div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#68736e]">
+            Module {activeIndex + 1} of {tutorials.length}
+          </div>
+          <div className="mt-2 flex items-center justify-center gap-1.5" role="tablist" aria-label="Modules">
+            {tutorials.map((candidate, index) => (
+              <button
+                key={candidate.id}
+                type="button"
+                role="tab"
+                aria-label={`Open module ${index + 1}: ${candidate.title}`}
+                aria-selected={index === activeIndex}
+                title={candidate.title}
+                onClick={() => onSelect(index)}
+                className={`h-2.5 rounded-full transition-[width,background-color] duration-200 ${index === activeIndex ? "w-7 bg-[#0f8b73]" : "w-2.5 bg-[#c8d2ce] hover:bg-[#7da99b]"}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          aria-label={next ? `Next module: ${next.title}` : "No next module"}
+          disabled={!next}
+          onClick={onNext}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#cbd5d1] text-[#36574e] hover:border-[#7da99b] hover:bg-[#f2f8f5] disabled:cursor-default disabled:opacity-25"
+        >
+          <ArrowRight size={17} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -28,6 +28,11 @@ test.describe("Pipeline Learning Center", () => {
 
     await page.getByRole("button", { name: "Open Finish an assessment" }).click();
     await expect(page.getByRole("heading", { name: "Finish an assessment" })).toBeVisible();
+    await expect(page.getByText(/Module \d+ of \d+/)).toBeVisible();
+    await page.getByRole("button", { name: "Next module: Review a chart" }).click();
+    await expect(page.getByRole("heading", { name: "Review a chart" })).toBeVisible();
+    await page.getByRole("button", { name: "Previous module: Finish an assessment" }).click();
+    await expect(page.getByRole("heading", { name: "Finish an assessment" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Finish an assessment chapters" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Client & referral", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Start guided walkthrough: Finish an assessment" })).toBeVisible();
@@ -314,6 +319,10 @@ test.describe("Pipeline Learning Center", () => {
     await preview.getByRole("button", { name: "Close full walkthrough" }).click();
 
     await page.getByRole("button", { name: "Open Find a referral" }).click();
+    await expect(page.getByText("Module 7 of 8", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Previous module: Check team work" })).toBeInViewport();
+    await expect(page.getByRole("button", { name: "Next module: Run a report" })).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await page.getByRole("button", { name: "Start guided walkthrough: Find a referral" }).click();
     await expect(page.getByRole("dialog", { name: /Find a referral guided tutorial/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Skip step" })).toBeInViewport();
