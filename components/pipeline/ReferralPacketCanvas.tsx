@@ -1636,17 +1636,21 @@ export default function ReferralPacketCanvas({
                 <History size={15} />
                 <span className="hidden xl:inline">Activity</span>
               </button>
-              <div className="hidden max-w-[28rem] text-right sm:block" aria-live="polite">
-                {savedAt !== "Workspace loaded" ? <div className="text-[11px] font-normal text-[#737373]">{savedAt}</div> : null}
-                {saveError ? <div className="mt-0.5 text-[11px] font-semibold text-[#a4473c]">{saveError}</div> : null}
-              </div>
-              <WorkspaceSaveControl
-                readOnly={isHistoricalWorkspace}
-                saving={isSaving}
-                hasReferral={hasReferralRecord(loadedReferral, referral?.id)}
-                blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
-                onSave={saveDraft}
-              />
+              {!trainingAssessmentMode ? (
+                <>
+                  <div className="hidden max-w-[20rem] text-right xl:block" aria-live="polite">
+                    {savedAt !== "Workspace loaded" ? <div className="text-[11px] font-normal text-[#737373]">{savedAt}</div> : null}
+                    {saveError ? <div className="mt-0.5 text-[11px] font-semibold text-[#a4473c]">{saveError}</div> : null}
+                  </div>
+                  <WorkspaceSaveControl
+                    readOnly={isHistoricalWorkspace}
+                    saving={isSaving}
+                    hasReferral={hasReferralRecord(loadedReferral, referral?.id)}
+                    blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
+                    onSave={saveDraft}
+                  />
+                </>
+              ) : null}
               {loadedReferral && canSupervise ? (
                 <button
                   type="button"
@@ -2055,7 +2059,7 @@ function WorkspaceSaveControl({
       data-guide-target="create-workspace"
       onClick={onSave}
       disabled={saving || blocked}
-      className="flex h-9 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#b8b8b8] sm:px-4"
+      className="flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
     >
       <Save size={15} />
       <span className="hidden sm:inline">{workspaceSaveLabel(saving, hasReferral, true)}</span>

@@ -133,6 +133,7 @@ test.describe("Pipeline Learning Center", () => {
     const errors = watchBrowserErrors(page);
     await page.goto(trainingAssessmentUrl("schedule"));
 
+    await expect(page.getByRole("button", { name: "Create workspace", exact: true })).toHaveCount(0);
     const schedule = page.getByRole("dialog", { name: "Schedule assessment" });
     await expect(schedule).toBeVisible();
     await schedule.getByLabel("Assessment date and time").fill(futureLocalDateTime());

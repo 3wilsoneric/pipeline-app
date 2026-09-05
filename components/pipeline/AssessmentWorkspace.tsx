@@ -1109,7 +1109,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
       <AssessmentEmpty
         title="Assessment not scheduled"
         detail="The assigned assessor schedules the interview here. Pipeline will keep the same assessment open through scheduling, interview, review, and signature."
-        action={canCreateAssignedAssessment ? <button type="button" data-guide-target="assessment-schedule-open" onClick={createAssessmentDraft} disabled={isBusy} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-50">Schedule assessment</button> : null}
+        action={canCreateAssignedAssessment ? <button type="button" data-guide-target="assessment-schedule-open" onClick={createAssessmentDraft} disabled={isBusy} className="h-10 bg-[#0f8b73] px-5 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] disabled:opacity-50">Schedule assessment</button> : null}
         error={error}
       />
     );
@@ -1117,16 +1117,21 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
 
   if (!isFocused) {
     return (
-      <section aria-label="Assessment" className="flex min-h-48 items-center justify-between gap-5 border border-[#d6ddd9] bg-white px-6 py-8">
-        <div>
-          <div className="flex items-center gap-2"><h2 className="text-[18px] font-black">Assessment</h2><StatusLabel status={selected.status} /></div>
-          <p className="mt-2 text-[12px] text-[#737373]">{completion.complete} of {completion.total} required areas complete · {selected.assessor || "Unassigned"}</p>
+      <section aria-label="Assessment" className="flex flex-col gap-3 border border-[#d6ddd9] bg-[#f8faf9] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#cfe0da] bg-white text-[#0f8b73]" aria-hidden="true">
+            <CalendarClock size={16} />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2"><h2 className="text-[14px] font-extrabold text-[#202522]">Assessment</h2><StatusLabel status={selected.status} /></div>
+            <p className="mt-0.5 truncate text-[11px] text-[#68716c]">{completion.complete} of {completion.total} required areas complete · {selected.assessor || "Unassigned"}</p>
+          </div>
         </div>
         <button type="button" data-guide-target={["assessment-open", "assessment-schedule-open"].join(" ")} onClick={() => {
           setIsFocused(true);
           setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
           setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
-        }} className="h-11 bg-[#111111] px-5 text-[12px] font-black text-white hover:bg-[#0f8b73]">Open assessment</button>
+        }} className="flex h-9 w-full items-center justify-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] sm:w-auto">Open assessment <ChevronRight size={14} /></button>
       </section>
     );
   }
