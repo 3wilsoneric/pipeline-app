@@ -34,6 +34,11 @@ on:
         required: true
         default: true
         type: boolean
+      enable_demo_center:
+        description: Expose the read-only Demo Center (synthetic database writes remain locked)
+        required: true
+        default: true
+        type: boolean
       enable_meet_client_mail:
         description: Enable Microsoft 365 Meet the Client summary and packet delivery
         required: true
@@ -199,6 +204,7 @@ jobs:
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
               enableNoteLab='${{ inputs.enable_note_lab }}' \
+              enableDemoCenter='${{ inputs.enable_demo_center }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}'
 
       - name: Deploy runtime and scheduled jobs
@@ -243,6 +249,7 @@ jobs:
               enableClinicalReconcileJob='${{ inputs.enable_clinical_reconcile_job }}' \
               enableRetentionJob='${{ inputs.enable_retention_job }}' \
               enableNoteLab='${{ inputs.enable_note_lab }}' \
+              enableDemoCenter='${{ inputs.enable_demo_center }}' \
               initialDatabaseBootstrap='${{ inputs.initial_database_bootstrap }}' \
             --query properties.outputs \
             --output json > runtime-outputs.json

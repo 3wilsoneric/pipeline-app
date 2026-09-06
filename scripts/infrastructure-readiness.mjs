@@ -85,6 +85,14 @@ check(
     && (deployment.match(/enableNoteLab='\$\{\{ inputs\.enable_note_lab \}\}'/g) ?? []).length === 2,
 );
 check(
+  "the Demo Center is deployment controlled and production synthetic writes stay locked",
+  runtime.includes("param enableDemoCenter bool = false")
+    && runtime.includes("{ name: 'PIPELINE_DEMO_MODE', value: enableDemoCenter ? 'true' : 'false' }")
+    && runtime.includes("{ name: 'PIPELINE_DEMO_DATA_ISOLATED', value: 'false' }")
+    && deployment.includes("enable_demo_center:")
+    && (deployment.match(/enableDemoCenter='\$\{\{ inputs\.enable_demo_center \}\}'/g) ?? []).length === 2,
+);
+check(
   "Meet the Client mail is fail-closed and Graph credentials stay in Key Vault",
   runtime.includes("param enableMeetClientMail bool = false")
     && runtime.includes("param enableMeetClientLargePackets bool = false")

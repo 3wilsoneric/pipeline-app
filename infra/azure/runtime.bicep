@@ -67,6 +67,9 @@ param enableRetentionJob bool = false
 @description('Expose the Assessment Language Lab to authenticated supervisors only.')
 param enableNoteLab bool = false
 
+@description('Expose the authenticated Demo Center without enabling synthetic writes to the production data store.')
+param enableDemoCenter bool = false
+
 @description('Create the privileged one-time database bootstrap job. Enable only for the first deployment, then remove it and its administrator secret.')
 param initialDatabaseBootstrap bool = false
 
@@ -175,6 +178,8 @@ var baseEnvironment = [
   { name: 'PIPELINE_DESKTOP_STATE_ENABLED', value: 'true' }
   { name: 'NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED', value: 'true' }
   { name: 'PIPELINE_NOTE_LAB_ENABLED', value: enableNoteLab ? 'true' : 'false' }
+  { name: 'PIPELINE_DEMO_MODE', value: enableDemoCenter ? 'true' : 'false' }
+  { name: 'PIPELINE_DEMO_DATA_ISOLATED', value: 'false' }
   { name: 'PIPELINE_ALLOW_LOCAL_DESKTOP_STATE_STORE', value: 'false' }
   { name: 'PIPELINE_AUTH_MODE', value: 'entra_jwt' }
   { name: 'PIPELINE_ENTRA_TENANT_ID', value: entraTenantId }
