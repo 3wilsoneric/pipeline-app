@@ -33,33 +33,34 @@ test.describe("Pipeline Demo Environment", () => {
 
     const presentationTab = page.getByRole("tab", { name: "Presentation" });
     await expect(presentationTab).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: "Follow one referral" })).toBeVisible();
-    await expect(page.getByText("Email received", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Start with your assigned work" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Assessor assigned work" })).toBeVisible();
+    await expect(page.getByText("Assigned", { exact: true })).toBeVisible();
 
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
-    await slideNavigation.getByRole("button", { name: /03 Create the referral/ }).click();
+    await slideNavigation.getByRole("button", { name: /02 Open the referral workspace/ }).click();
     const intakeScreenshot = page.getByRole("img", { name: /^Synthetic Pipeline intake workspace/ });
     await expect(intakeScreenshot).toBeVisible();
     await expect.poll(() => intakeScreenshot.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
 
-    await slideNavigation.getByRole("button", { name: /06 Schedule the assessment/ }).click();
+    await slideNavigation.getByRole("button", { name: /04 Schedule the assessment/ }).click();
     await expect(page.getByRole("img", { name: "Synthetic Pipeline assessment scheduling dialog" })).toBeVisible();
     await page.getByRole("tablist", { name: "Slide screenshots" }).getByRole("tab", { name: "Calendar" }).click();
     await expect(page.getByRole("img", { name: /^Synthetic Pipeline team calendar/ })).toBeVisible();
 
-    await slideNavigation.getByRole("button", { name: /07 Complete the assessment/ }).click();
-    await expect(page.getByRole("heading", { name: "Complete the assessment" })).toBeVisible();
+    await slideNavigation.getByRole("button", { name: /05 Open the assessment/ }).click();
+    await expect(page.getByRole("heading", { name: "Open the assessment" })).toBeVisible();
     for (const section of ["Client & referral", "Placement", "History", "Clinical", "Function", "Legal", "Medication", "Substance use", "Behavior & safety", "Physical health", "Support & goals", "Review"]) {
       await expect(page.getByText(section, { exact: true })).toBeVisible();
     }
 
     await page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTo({ top: 500 }));
-    await slideNavigation.getByRole("button", { name: /09 Supervisor review and decision/ }).click();
+    await slideNavigation.getByRole("button", { name: /08 Review and sign/ }).click();
     await expect.poll(() => page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTop)).toBe(0);
-    await expect(page.getByRole("region", { name: "Admission decision path" })).toBeVisible();
+    await expect(page.getByRole("img", { name: /^Synthetic Pipeline assessment review section/ })).toBeVisible();
 
-    await slideNavigation.getByRole("button", { name: /11 Keep the record trustworthy/ }).click();
-    await expect(page.getByRole("heading", { name: "Keep the record trustworthy" })).toBeVisible();
+    await slideNavigation.getByRole("button", { name: /09 Submit the assessment/ }).click();
+    await expect(page.getByRole("heading", { name: "Submit the assessment" })).toBeVisible();
     await page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
     await page.getByRole("button", { name: "Open referral journey" }).click();
 
@@ -67,6 +68,22 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.getByRole("heading", { name: "Create the referral" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Referral journey stages" })).toBeVisible();
     await expect.poll(() => page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTop)).toBe(0);
+  });
+
+  test("moves from the assessor presentation into Notes Lab and returns for final review", async ({ page }) => {
+    await page.goto("/training/demo");
+
+    const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
+    await slideNavigation.getByRole("button", { name: /07 Practice assessment language/ }).click();
+    await page.getByRole("link", { name: "Open Assessment Notes Lab" }).click();
+
+    await expect(page).toHaveURL(/\/note-lab\/practice\?from=demo$/);
+    await expect(page.getByRole("heading", { name: "Jordan Practice" })).toBeVisible();
+    await page.getByRole("link", { name: "Back to presentation" }).click();
+
+    await expect(page).toHaveURL(/\/training\/demo\?slide=review-and-sign$/);
+    await expect(page.getByRole("heading", { name: "Review and sign" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Presentation slides" }).getByRole("button", { name: /08 Review and sign/ })).toHaveAttribute("aria-current", "step");
   });
 
   test("starts the referral journey in the real intake workspace", async ({ page }) => {
@@ -175,8 +192,8 @@ test.describe("Pipeline Demo Environment", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/training/demo");
     await expect(page.getByRole("heading", { name: "Pipeline training" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Follow one referral" })).toBeVisible();
-    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("button", { name: /03 Create the referral/ }).click();
+    await expect(page.getByRole("heading", { name: "Start with your assigned work" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("button", { name: /02 Open the referral workspace/ }).click();
     await expect(page.getByRole("img", { name: /^Synthetic Pipeline intake workspace/ })).toBeVisible();
     await page.getByRole("tab", { name: "Referral journey" }).click();
     await expect(page.getByRole("heading", { name: "Create the referral" })).toBeVisible();

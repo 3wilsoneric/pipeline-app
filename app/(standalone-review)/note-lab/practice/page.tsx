@@ -12,10 +12,21 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-export default async function AssessmentPracticePage() {
+export default async function AssessmentPracticePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string | string[] }>;
+}) {
+  const source = (await searchParams).from;
   const user = await getAssessmentPracticeUser(await getServerComponentRequestHeaders());
   if (!user) notFound();
-  return <AssessmentPracticeWorkspace traineeId={user.id} traineeName={firstName(user.name)} />;
+  return (
+    <AssessmentPracticeWorkspace
+      traineeId={user.id}
+      traineeName={firstName(user.name)}
+      returnToPresentation={source === "demo"}
+    />
+  );
 }
 
 function firstName(displayName: string) {

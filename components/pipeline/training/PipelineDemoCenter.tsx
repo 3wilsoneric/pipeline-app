@@ -20,6 +20,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { startTransition, useEffect, useRef, useState } from "react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
@@ -50,6 +51,7 @@ type DemoReferralSummary = Pick<Referral, "id" | "name" | "community" | "tags" |
 type DemoView = "presentation" | "journey" | "lab" | "handoff";
 
 type PresentationSlide = {
+  id: string;
   number: number;
   title: string;
   summary: string;
@@ -57,8 +59,12 @@ type PresentationSlide = {
   flow?: readonly string[];
   sections?: readonly string[];
   rule?: string;
-  graphic?: "navigation" | "readiness" | "decision" | "evidence";
+  graphic?: "assignments" | "navigation" | "readiness" | "decision" | "evidence";
   screenshots?: readonly PresentationScreenshot[];
+  action?: {
+    label: string;
+    href: string;
+  };
 };
 
 type PresentationScreenshot = {
@@ -82,86 +88,61 @@ type DemoChapter = {
 
 const presentationSlides: readonly PresentationSlide[] = [
   {
+    id: "assigned-work",
     number: 1,
-    title: "Follow one referral",
-    summary: "The workspace holds one referral episode. The client profile is the durable record for the person.",
+    title: "Start with your assigned work",
+    summary: "Home shows the referrals and appointments that belong to you.",
     points: [
-      "Create one workspace for each referral episode.",
-      "Keep the packet, intake, assessment, decision, Chart, files, and activity connected to that workspace.",
-      "Use the client profile when you need information that continues across referral episodes.",
+      "Open an assigned referral from Home instead of searching through every workspace.",
+      "Resume an intake draft where you stopped; do not create the same referral again.",
+      "Use the upcoming schedule to prepare for assessments and follow-ups due next.",
     ],
-    flow: ["Email received", "Referral created", "Packet review", "Assessment", "Post-assessment", "Accepted or declined"],
-    rule: "The referral can close. The client record remains.",
+    flow: ["Assigned", "Review intake", "Schedule", "Assess", "Review and sign", "Submit"],
+    graphic: "assignments",
   },
   {
+    id: "open-workspace",
     number: 2,
-    title: "Know where to work",
-    summary: "Each main screen answers a different question.",
+    title: "Open the referral workspace",
+    summary: "The workspace keeps the packet, intake, assessment, files, and activity together.",
     points: [
-      "Home shows your assignments, drafts, upcoming assessments, and work that needs action.",
-      "Workspaces holds every referral episode and lets you filter by month, community, owner, or stage.",
-      "Calendar holds appointments and follow-up dates. Clients holds the durable profile for each person.",
-      "Search gets you to a known workspace or client quickly; verify identity before changing anything.",
+      "Confirm the client identity, assigned assessor, community, and current stage before editing.",
+      "Use Files for the original referral material and Activity for the change history.",
+      "Keep later documents in this workspace so the referral remains one continuous record.",
     ],
-    graphic: "navigation",
-  },
-  {
-    number: 3,
-    title: "Create the referral once",
-    summary: "Start with the source packet, then establish the identity and ownership of the work.",
-    points: [
-      "Upload the initial packet and supporting files at the top of Intake.",
-      "Verify the name, date of birth, referral source, received date, county, and contacts.",
-      "Set the community and owner, then enter the supplied medication information.",
-      "If you stop, resume the saved draft from Home instead of starting another referral.",
-    ],
-    rule: "A late document belongs in the existing workspace. It does not create another referral.",
     screenshots: [{
       src: "/training/presentation/intake-workspace.png",
-      alt: "Synthetic Pipeline intake workspace with the referral packet drop zone highlighted by the guided tutorial.",
-      label: "Start in Intake",
-      caption: "The packet drop and document checklist are at the top of the workspace.",
+      alt: "Synthetic Pipeline intake workspace with the referral packet and workspace navigation visible.",
+      label: "Referral workspace",
+      caption: "One workspace holds the source packet, intake facts, assessment, files, and activity.",
     }],
   },
   {
-    number: 4,
-    title: "Review the packet",
-    summary: "Extraction proposes values. A person confirms what the record can actually support.",
+    id: "review-intake",
+    number: 3,
+    title: "Review the intake data",
+    summary: "The assessment begins with information collected from the referral packet.",
     points: [
-      "Compare each extracted value with its source before confirming it.",
-      "Correct inaccurate values, preserve conflicting sources, and leave unsupported facts missing.",
-      "Check required documents and create a requirement for anything still needed.",
-      "Finish packet review only when identity, routing, medication context, and follow-up needs are clear.",
+      "Verify identity, referral source, contacts, prior setting, community, and medications against the supplied documents.",
+      "Inherited fields remain visible in the assessment; update the intake source when an inherited fact is wrong.",
+      "Record missing documents and conflicting information instead of guessing or silently choosing a source.",
     ],
-    rule: "Extraction can fill a blank. It cannot silently replace a human-confirmed value.",
     screenshots: [{
       src: "/training/presentation/intake-review.png",
-      alt: "Synthetic Pipeline intake workspace populated with reviewed identity, routing, referral, and medication information.",
-      label: "Confirm the chart",
-      caption: "Reviewed source information remains visible beside document status and assignment.",
+      alt: "Synthetic Pipeline intake workspace populated with reviewed referral and medication information.",
+      label: "Intake review",
+      caption: "Verified intake facts carry forward while missing and conflicting source information stays visible.",
     }],
   },
   {
-    number: 5,
-    title: "Move it when it is ready",
-    summary: "The lifecycle stage says where the referral is. Work queues say why it needs attention.",
-    points: [
-      "A workspace has one stage, but it may appear in several queues such as Assessment due, Missing documents, and Blocked.",
-      "An owner is required before the referral workflow starts; an initial packet is required before packet review.",
-      "Packet review must be complete before Assessment, and the assessment must be complete before Post-assessment.",
-      "Requirements carry their own owner, due date, next action, evidence, and blocker state.",
-    ],
-    graphic: "readiness",
-  },
-  {
-    number: 6,
+    id: "schedule-assessment",
+    number: 4,
     title: "Schedule the assessment",
-    summary: "Schedule from the workspace or the Calendar queue, then confirm the event appears for the assigned assessor.",
+    summary: "Save the appointment, then confirm it appears on your calendar.",
     points: [
       "Set the date, time, duration, and method: Zoom, in person, phone, or record review.",
-      "Add the Zoom link, location, or other appointment detail and check for conflicts.",
-      "Use Calendar to reschedule or record a cancellation or no-show.",
-      "Changing an appointment changes the schedule, not the referral outcome.",
+      "Add the Zoom link, location, or appointment detail and check for conflicts.",
+      "A reschedule, cancellation, or no-show updates the appointment without changing the referral outcome.",
     ],
     screenshots: [
       {
@@ -179,13 +160,14 @@ const presentationSlides: readonly PresentationSlide[] = [
     ],
   },
   {
-    number: 7,
-    title: "Complete the assessment",
-    summary: "Verify inherited facts, then document the interview in the section where each finding belongs.",
+    id: "open-assessment",
+    number: 5,
+    title: "Open the assessment",
+    summary: "The full assessment combines verified intake context with the assessor's interview.",
     points: [
-      "Use section navigation to move in order or return directly to a section that needs work.",
-      "Conditional follow-up fields appear only when the preceding answer makes them relevant.",
-      "Keep client report, collateral information, supplied records, and direct observation distinguishable.",
+      "Review the inherited client, referral, placement, and medication information before adding interview findings.",
+      "Move through all 12 sections in order or return directly to a section that needs work.",
+      "Use the packet and source files for context, but document what the client, collateral source, record, or assessor established.",
     ],
     sections: [
       "Client & referral",
@@ -204,69 +186,71 @@ const presentationSlides: readonly PresentationSlide[] = [
     screenshots: [{
       src: "/training/presentation/assessment-guided.png",
       alt: "Synthetic Pipeline assessment with section navigation, interview fields, progress, and guided tutorial visible.",
-      label: "Work section by section",
-      caption: "The left rail shows completion by section while the main area holds the current questions.",
+      label: "Full assessment",
+      caption: "The section rail, inherited context, conditional questions, and saved progress remain together.",
     }],
   },
   {
-    number: 8,
-    title: "Save, review, and sign",
-    summary: "Autosave protects the draft. Signature is the point at which the assessor closes the clinical record.",
+    id: "document-interview",
+    number: 6,
+    title: "Document the interview",
+    summary: "Record the answer in the section where the finding belongs.",
     points: [
-      "Use Answer Help only when a narrative field needs structure; it does not supply the clinical answer.",
-      "Confirm section saves have completed before leaving, especially after reconnecting or resolving a version warning.",
-      "Review missing and conflicting information before signing. Required omissions block signature.",
-      "After signature, record later information as an addendum rather than rewriting the signed assessment.",
+      "Answer conditional follow-up questions only when the preceding response makes them relevant.",
+      "Keep client report, collateral information, records, and direct observation distinguishable.",
+      "Use Answer Help for field-specific structure when a narrative response needs it.",
+    ],
+    graphic: "evidence",
+  },
+  {
+    id: "practice-language",
+    number: 7,
+    title: "Practice assessment language",
+    summary: "Use the Notes Lab to practice the same assessment fields with synthetic information.",
+    points: [
+      "Choose a section and complete its fields as you would during an assessment.",
+      "Open Answer Help only for narrative fields that need structure or an example.",
+      "When you finish practicing, return here to review and sign the assessment.",
+    ],
+    action: {
+      label: "Open Assessment Notes Lab",
+      href: "/note-lab/practice?from=demo",
+    },
+  },
+  {
+    id: "review-and-sign",
+    number: 8,
+    title: "Review and sign",
+    summary: "Autosave protects the draft. Signature closes the assessor's clinical record.",
+    points: [
+      "Confirm that saves have completed before leaving or signing.",
+      "Review required omissions, conflicting information, source attribution, and the recommendation.",
+      "Sign only when the assessment is complete; record later information as an addendum.",
     ],
     screenshots: [{
       src: "/training/presentation/assessment-review.png",
       alt: "Synthetic Pipeline assessment review section showing saved status, required-field progress, and final narrative fields.",
-      label: "Review before signature",
-      caption: "Saved status and unresolved required fields stay visible before the assessor signs.",
+      label: "Final review",
+      caption: "Saved status and unresolved required fields remain visible before signature.",
     }],
   },
   {
+    id: "submit-assessment",
     number: 9,
-    title: "Supervisor review and decision",
-    summary: "The assessor's recommendation informs the decision; it is not the decision itself.",
+    title: "Submit the assessment",
+    summary: "The signed assessment moves to supervisor review and becomes part of the client Chart.",
     points: [
-      "The supervisor reviews the assessment, source evidence, conflicts, completeness, and community fit.",
-      "Unclear or unsupported work returns for correction before disposition.",
-      "A declined referral requires a recorded reason.",
-      "An accepted referral must have an accepted decision and its blocking move-in requirements resolved.",
+      "The supervisor reviews the assessment and returns unclear or incomplete work to the assessor.",
+      "After an accepted decision, verified assessment data feeds the Chart and Meet the Client handoff.",
+      "Files remain attached to the workspace and Activity preserves who changed the record and when.",
     ],
-    graphic: "decision",
-  },
-  {
-    number: 10,
-    title: "Complete an accepted handoff",
-    summary: "The signed assessment feeds the Chart, receiving-community summary, and EHR preparation.",
-    points: [
-      "Review the complete Chart against the verified intake and signed assessment.",
-      "Prepare Meet the Client and select only the approved admission packet files.",
-      "Verify the receiving community and authorized recipient before sending.",
-      "Monitor EHR handoff separately: accepted, queued, sent, and failed are different states.",
-    ],
-    rule: "Do not treat a request to send as proof that delivery or EHR creation finished.",
+    rule: "The assessor documents and signs the assessment. The supervisor makes the admission decision.",
     screenshots: [{
       src: "/training/presentation/meet-client-handoff.png",
-      alt: "Synthetic Meet the Client handoff preview with client summary, care information, and four admission packet attachments.",
-      label: "Verify the handoff",
-      caption: "The receiving summary and selected admission files are reviewed together before delivery.",
+      alt: "Synthetic Meet the Client handoff preview created from verified intake and signed assessment information.",
+      label: "Downstream record",
+      caption: "Accepted referrals use the verified record for the Chart, receiving summary, and approved packet files.",
     }],
-  },
-  {
-    number: 11,
-    title: "Keep the record trustworthy",
-    summary: "Most recovery work belongs in the existing record, with the original evidence and activity preserved.",
-    points: [
-      "Verify identity before linking a client or editing a workspace; a similar name is not enough.",
-      "Resolve newer-version warnings instead of overwriting another person's work.",
-      "Keep missing, unreviewed, stale, conflicting, failed, and unassigned states visible.",
-      "Use Files for evidence and Activity to see who changed the record and when.",
-    ],
-    rule: "When the presentation ends, use Referral journey to practice the same sequence in the application.",
-    graphic: "evidence",
   },
 ] as const;
 
@@ -325,7 +309,15 @@ const demoChapters: readonly DemoChapter[] = [
   },
 ] as const;
 
-export default function PipelineDemoCenter({ actor, environment }: { actor: DemoActor; environment: PipelineDemoEnvironment }) {
+export default function PipelineDemoCenter({
+  actor,
+  environment,
+  initialPresentationSlide,
+}: {
+  actor: DemoActor;
+  environment: PipelineDemoEnvironment;
+  initialPresentationSlide?: string;
+}) {
   const scrollContainerRef = useRef<HTMLElement>(null);
   const [view, setView] = useState<DemoView>("presentation");
   const [chapterIndex, setChapterIndex] = useState(0);
@@ -460,6 +452,7 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
 
         {view === "presentation" ? (
           <PresentationDeck
+            initialSlideId={initialPresentationSlide}
             onStartJourney={() => selectView("journey")}
             onSlideChange={() => scrollContainerRef.current?.scrollTo({ top: 0 })}
           />
@@ -497,13 +490,18 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
 }
 
 function PresentationDeck({
+  initialSlideId,
   onStartJourney,
   onSlideChange,
 }: {
+  initialSlideId?: string;
   onStartJourney: () => void;
   onSlideChange: () => void;
 }) {
-  const [slideIndex, setSlideIndex] = useState(0);
+  const [slideIndex, setSlideIndex] = useState(() => {
+    const requestedIndex = presentationSlides.findIndex((slide) => slide.id === initialSlideId);
+    return requestedIndex >= 0 ? requestedIndex : 0;
+  });
   const slide = presentationSlides[slideIndex] ?? presentationSlides[0];
   const isLast = slideIndex === presentationSlides.length - 1;
   const hasSupportingVisual = Boolean(slide.graphic || slide.screenshots?.length);
@@ -537,6 +535,7 @@ function PresentationDeck({
               </ul>
               {slide.sections ? <ol className="mt-5 grid grid-cols-2 border-t border-[#d5ddda]">{slide.sections.map((section, index) => <li key={section} className="flex min-h-9 items-center gap-2 border-b border-[#e0e5e2] py-1.5 pr-2"><span className="text-[8px] font-black tabular-nums text-[#0c705f]">{String(index + 1).padStart(2, "0")}</span><span className="text-[10px] font-bold leading-4 text-[#34413c]">{section}</span></li>)}</ol> : null}
               {slide.rule ? <p className="mt-5 border-l-[3px] border-[#0f8b73] bg-[#f0f6f4] px-4 py-3 text-[11px] font-bold leading-5 text-[#355047]">{slide.rule}</p> : null}
+              {slide.action ? <Link href={toPipelinePath(slide.action.href)} className="mt-5 inline-flex h-11 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white hover:bg-[#0b6d5b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">{slide.action.label}<ArrowRight size={14} aria-hidden="true" /></Link> : null}
             </div>
             {hasSupportingVisual ? <PresentationVisual key={slide.number} slide={slide} /> : null}
           </div>
@@ -608,6 +607,22 @@ function PresentationScreenshots({ screenshots }: { screenshots: readonly Presen
 }
 
 function PresentationGraphic({ graphic }: { graphic: NonNullable<PresentationSlide["graphic"]> }) {
+  if (graphic === "assignments") {
+    return (
+      <section aria-label="Assessor assigned work" className="border border-[#cbd5d1] bg-[#f7f9f8]">
+        <div className="flex items-center justify-between border-b border-[#d7dfdb] bg-white px-4 py-3">
+          <div><div className="text-[10px] font-black text-[#27322d]">Your work</div><div className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-[#74807b]">Synthetic example</div></div>
+          <span className="border border-[#b9d5cc] bg-[#e8f4f0] px-2 py-1 text-[8px] font-black text-[#0c705f]">Assigned to you</span>
+        </div>
+        <div className="divide-y divide-[#dfe5e2] px-4">
+          <AssignmentRow name="Jordan Practice" detail="Intake review due today" status="Needs review" />
+          <AssignmentRow name="Taylor Example" detail="Assessment tomorrow at 10:00 AM" status="Scheduled" />
+          <AssignmentRow name="Morgan Training" detail="Assessment draft saved" status="In progress" />
+        </div>
+      </section>
+    );
+  }
+
   if (graphic === "navigation") {
     return (
       <section aria-label="Pipeline screen map" className="border border-[#cbd5d1] bg-[#f7f9f8] p-5">
@@ -673,6 +688,15 @@ function PresentationGraphic({ graphic }: { graphic: NonNullable<PresentationSli
         <GraphicCell icon={Activity} title="Activity" detail="Change history" compact />
       </div>
     </section>
+  );
+}
+
+function AssignmentRow({ name, detail, status }: { name: string; detail: string; status: string }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-white py-3">
+      <div className="min-w-0"><div className="truncate text-[11px] font-black text-[#27322d]">{name}</div><div className="mt-1 truncate text-[9px] font-semibold text-[#68736e]">{detail}</div></div>
+      <span className="text-[8px] font-black uppercase tracking-[0.06em] text-[#0c705f]">{status}</span>
+    </div>
   );
 }
 

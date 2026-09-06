@@ -12,7 +12,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-export default async function PipelineDemoPage() {
+export default async function PipelineDemoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ slide?: string | string[] }>;
+}) {
+  const requestedSlide = (await searchParams).slide;
   const requestHeaders = await getServerComponentRequestHeaders();
   const [user, environment] = await Promise.all([
     getOperatorTrainingUser(requestHeaders),
@@ -24,6 +29,7 @@ export default async function PipelineDemoPage() {
     <PipelineDemoCenter
       actor={{ id: user.id, name: user.name, email: user.email, roles: user.roles }}
       environment={environment}
+      initialPresentationSlide={typeof requestedSlide === "string" ? requestedSlide : undefined}
     />
   );
 }

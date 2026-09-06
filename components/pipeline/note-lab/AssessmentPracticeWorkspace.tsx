@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
@@ -24,6 +25,7 @@ import {
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
 import { createAssessmentPracticeData } from "@/lib/note-lab/assessment-practice-scenario";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 const assessmentPracticeNavigationGroups: ReadonlyArray<{
   label: string;
@@ -80,7 +82,15 @@ function autosaveLabel(state: PracticeAutosaveState) {
   return "Autosaved in this browser";
 }
 
-export default function AssessmentPracticeWorkspace({ traineeId, traineeName }: { traineeId: string; traineeName: string }) {
+export default function AssessmentPracticeWorkspace({
+  traineeId,
+  traineeName,
+  returnToPresentation = false,
+}: {
+  traineeId: string;
+  traineeName: string;
+  returnToPresentation?: boolean;
+}) {
   const [data, setData] = useState(createAssessmentPracticeData);
   const [activeSection, setActiveSection] = useState<AssessmentToolSection>(assessmentInterviewSections[0].key);
   const [autosaveState, setAutosaveState] = useState<PracticeAutosaveState>("loading");
@@ -169,9 +179,16 @@ export default function AssessmentPracticeWorkspace({ traineeId, traineeName }: 
           </div>
           <p className="mt-0.5 text-[10px] text-[#737b77]">Synthetic training record</p>
         </div>
-        <button type="button" onClick={reset} className="inline-flex h-9 shrink-0 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-          <RotateCcw size={13} aria-hidden="true" />Reset
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {returnToPresentation ? (
+            <Link href={toPipelinePath("/training/demo?slide=review-and-sign")} className="inline-flex h-9 items-center gap-2 border border-[#0f8b73] bg-[#e7f3ee] px-3 text-[10px] font-black text-[#0f6f5d] outline-none hover:bg-[#dceee7] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+              <ArrowLeft size={13} aria-hidden="true" />Back to presentation
+            </Link>
+          ) : null}
+          <button type="button" onClick={reset} className="inline-flex h-9 shrink-0 items-center gap-2 border border-[#c9ceca] bg-white px-3 text-[10px] font-black text-[#4d5652] outline-none hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
+            <RotateCcw size={13} aria-hidden="true" />Reset
+          </button>
+        </div>
       </header>
 
       <div className="min-h-0 flex-1 bg-white lg:grid lg:grid-cols-[230px_minmax(0,1fr)]">

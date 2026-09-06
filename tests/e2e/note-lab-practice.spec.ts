@@ -18,6 +18,7 @@ test.describe("Assessment practice lab", () => {
     await expect(page.getByRole("button", { name: "Save and continue" })).toBeVisible();
     await expect(page.getByText("Autosaved in this browser", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open guide launcher" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Back to presentation" })).toHaveCount(0);
 
     await expect(page.getByText("Note help", { exact: true })).toHaveCount(0);
 
@@ -36,6 +37,13 @@ test.describe("Assessment practice lab", () => {
     await expect(page.getByRole("button", { name: "Next field" })).toHaveCount(0);
 
     expect(clinicalRequests).toEqual([]);
+  });
+
+  test("shows a bounded presentation return only when launched from the demo", async ({ page }) => {
+    await page.goto("/note-lab/practice?from=demo");
+
+    const returnLink = page.getByRole("link", { name: "Back to presentation" });
+    await expect(returnLink).toHaveAttribute("href", /\/training\/demo\?slide=review-and-sign$/);
   });
 
   test("uses canonical conditionals and field-specific narrative guidance", async ({ page }) => {
