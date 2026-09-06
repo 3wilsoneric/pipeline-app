@@ -21,10 +21,10 @@ test.describe("Pipeline Learning Center", () => {
     const response = await page.goto(trainingUrl);
     expect(response?.status()).toBe(200);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    await expect(page.getByRole("heading", { name: "I want to..." })).toBeVisible();
-    const taskTiles = page.locator('section[aria-label="Pipeline tasks"] > div > button');
+    await expect(page.getByRole("heading", { name: "Learning Center" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open Pipeline walkthrough presentation" })).toBeVisible();
+    const taskTiles = page.locator('section[aria-label="Quick help"] > div > button');
     await expect(taskTiles.first()).toHaveAccessibleName("Open Create a referral");
-    await expect(page.getByRole("button", { name: "Open full Pipeline walkthrough" })).toBeVisible();
 
     await page.getByRole("button", { name: "Open Finish an assessment" }).click();
     await expect(page.getByRole("heading", { name: "Finish an assessment" })).toBeVisible();
@@ -251,59 +251,25 @@ test.describe("Pipeline Learning Center", () => {
   test("is discoverable from the signed-in profile menu", async ({ page }) => {
     await page.goto(homeUrl);
     await page.getByRole("button", { name: /Open profile menu for/ }).click();
-    const learningLink = page.getByRole("link", { name: /Learning Center Guided walkthroughs and common tasks/ });
+    const learningLink = page.getByRole("link", { name: /Learning Center Pipeline walkthrough and quick help/ });
     await expect(learningLink).toBeVisible();
     await learningLink.click();
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    await expect(page.getByRole("heading", { name: "I want to..." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Learning Center" })).toBeVisible();
   });
 
-  test("presents the workflow concepts before starting the real guided tour", async ({ page }) => {
+  test("opens the full presentation from the Learning Center", async ({ page }) => {
     await mockTrainingProgress(page);
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    const preview = page.getByRole("dialog", { name: "Full Pipeline walkthrough" });
-    await expect(async () => {
-      await page.getByRole("button", { name: "Open full Pipeline walkthrough" }).click();
-      await expect(preview).toBeVisible({ timeout: 1_000 });
-    }).toPass({ timeout: 5_000 });
-    const previewBox = await preview.boundingBox();
-    const viewport = page.viewportSize();
-    expect(previewBox).not.toBeNull();
-    expect(viewport).not.toBeNull();
-    expect(previewBox!.x).toBeGreaterThanOrEqual(0);
-    expect(previewBox!.y).toBeGreaterThanOrEqual(0);
-    expect(previewBox!.x + previewBox!.width).toBeLessThanOrEqual(viewport!.width);
-    expect(previewBox!.y + previewBox!.height).toBeLessThanOrEqual(viewport!.height);
-    await expect(preview.getByRole("heading", { name: "How Pipeline moves a referral" })).toBeVisible();
-    await expect(preview.getByRole("heading", { name: "One referral, one workspace" })).toBeVisible();
+    const presentationLink = page.getByRole("link", { name: "Open Pipeline walkthrough presentation" });
+    await expect(presentationLink).toHaveAttribute("href", /\/training\/demo$/);
+    await presentationLink.click();
 
-    for (const heading of [
-      "The packet starts the record",
-      "Scheduling creates the plan",
-      "Complete the assessment in the interview",
-      "Completion creates the chart",
-      "Review closes the referral loop",
-    ]) {
-      await preview.getByRole("button", { name: "Next concept" }).click();
-      await expect(preview.getByRole("heading", { name: heading })).toBeVisible();
-    }
-    await preview.getByRole("button", { name: "Continue" }).click();
-    await expect(preview.getByRole("heading", { name: "From concepts to the real workflow" })).toBeVisible();
-    await expect(preview.getByRole("heading", { name: "Follow the workflow where it happens." })).toBeVisible();
-    await expect(preview.getByText(/guided tour now opens the real Pipeline pages/)).toBeVisible();
-    await expect(preview.getByText(/never submits, signs, sends, schedules, or exports on your behalf/)).toBeVisible();
-    await preview.getByRole("button", { name: "Start guided tour" }).click();
-    await expect(preview).toBeHidden();
-    const coach = page.getByRole("dialog", { name: "Full Pipeline walkthrough guided tutorial" });
-    await expect(coach).toBeVisible();
-    await expect(coach.getByText("Full tour · Module 1 of 4")).toBeVisible();
-    await expect(coach.getByRole("heading", { name: "Select New referral" })).toBeVisible();
-    await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
-    await coach.getByRole("button", { name: "Skip step" }).click();
-    await expect(page).toHaveURL(/view=referrals&screen=packet/);
-    await expect(coach.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
+    await expect(page).toHaveURL(/\/training\/demo$/);
+    await expect(page.getByRole("tab", { name: "Presentation" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("heading", { name: "Review your assigned work" })).toBeVisible();
   });
 
   test("keeps the Learning Center and guide usable at a narrow viewport", async ({ page }) => {
@@ -311,13 +277,10 @@ test.describe("Pipeline Learning Center", () => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
-    await expect(page.getByRole("heading", { name: "I want to..." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Learning Center" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
-    await page.getByRole("button", { name: "Open full Pipeline walkthrough" }).click();
-    const preview = page.getByRole("dialog", { name: "Full Pipeline walkthrough" });
-    await expect(preview.getByRole("button", { name: "Next concept" })).toBeInViewport();
-    await preview.getByRole("button", { name: "Close full walkthrough" }).click();
+    await expect(page.getByRole("link", { name: "Open Pipeline walkthrough presentation" })).toBeInViewport();
 
     await page.getByRole("button", { name: "Open Find a referral" }).click();
     await expect(page.getByText("Module 7 of 8", { exact: true })).toBeVisible();

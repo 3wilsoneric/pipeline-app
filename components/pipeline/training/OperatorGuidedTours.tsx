@@ -13,11 +13,9 @@ import {
   FileSearch,
   FolderSearch2,
   LayoutDashboard,
-  MonitorPlay,
 } from "lucide-react";
 import { useRef, useState, type KeyboardEvent, type ReactNode, type TouchEvent } from "react";
 
-import FullWorkflowWalkthroughPreview from "@/components/pipeline/training/FullWorkflowWalkthroughPreview";
 import {
   guidedTutorialsForRoles,
   operatorGuideChapters,
@@ -39,13 +37,6 @@ const taskPriority = [
   "run-report",
 ] as const;
 
-const fullWorkflowTutorialIds = [
-  "create-referral",
-  "start-assessment",
-  "complete-assessment",
-  "review-chart",
-] as const;
-
 const taskPresentation: Readonly<Record<string, { description: string; icon: ReactNode }>> = {
   "complete-assessment": { description: "Answer, review, and sign.", icon: <ClipboardCheck size={26} aria-hidden="true" /> },
   "start-assessment": { description: "Schedule it, then open the assessment.", icon: <CalendarPlus size={26} aria-hidden="true" /> },
@@ -59,12 +50,9 @@ const taskPresentation: Readonly<Record<string, { description: string; icon: Rea
 
 export default function OperatorGuidedTours({ assignedRoles, progress }: { assignedRoles: readonly string[]; progress: OperatorTrainingProgress }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const tutorials = guidedTutorialsForRoles(assignedRoles).slice().sort((left, right) => priorityOf(left.id) - priorityOf(right.id));
   const selected = tutorials.find((tutorial) => tutorial.id === selectedId) ?? null;
   const selectedIndex = selected ? tutorials.findIndex((tutorial) => tutorial.id === selected.id) : -1;
-  const availableTutorialIds = new Set(tutorials.map((tutorial) => tutorial.id));
-  const guidedWorkflowIds = fullWorkflowTutorialIds.filter((id) => availableTutorialIds.has(id));
 
   function selectTask(id: string | null) {
     setSelectedId(id);
@@ -86,34 +74,13 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
   }
 
   return (
-    <section className="mt-5 min-h-[calc(100dvh-180px)]" aria-label="Pipeline tasks">
-      <button type="button" aria-label="Open full Pipeline walkthrough" onClick={() => setPreviewOpen(true)} className="group grid min-h-[210px] w-full gap-7 border border-[#a9c2b9] bg-[#e8f3ef] p-6 text-left hover:border-[#5f9585] sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:p-9">
-        <div>
-          <span className="flex h-14 w-14 items-center justify-center border border-[#9bbab0] bg-white text-[#0f7c68]"><MonitorPlay size={27} aria-hidden="true" /></span>
-          <h2 className="mt-7 text-[30px] font-black leading-9 tracking-normal text-[#18372f] sm:text-[38px] sm:leading-[42px]">Full referral workflow</h2>
-          <p className="mt-3 text-[16px] font-medium leading-6 text-[#4e6860]">Create a referral, complete the assessment, review the Chart, and prepare the handoff.</p>
-        </div>
-        <div className="flex items-center gap-4 border-t border-[#bcd0c9] pt-5 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-          <span className="text-[15px] font-black text-[#315a4f]">Open walkthrough</span>
-          <ArrowRight size={24} className="shrink-0 text-[#0f7c68] transition-transform group-hover:translate-x-1" aria-hidden="true" />
-        </div>
-      </button>
-
+    <section className="mt-7 min-h-[calc(100dvh-470px)]" aria-label="Quick help">
+      <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-[#252b28]">Quick help</h2>
       <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {tutorials.map((tutorial, index) => (
           <TaskTile key={tutorial.id} rank={index + 1} tutorial={tutorial} completed={progress.tutorialResults[tutorial.id]?.status === "completed"} onOpen={() => selectTask(tutorial.id)} />
         ))}
       </div>
-
-      {previewOpen ? (
-        <FullWorkflowWalkthroughPreview
-          onClose={() => setPreviewOpen(false)}
-          onStartGuide={guidedWorkflowIds.length > 0 ? () => {
-            setPreviewOpen(false);
-            dispatchOperatorGuide({ type: "start-sequence", tutorialIds: guidedWorkflowIds });
-          } : undefined}
-        />
-      ) : null}
     </section>
   );
 }

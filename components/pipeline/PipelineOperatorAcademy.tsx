@@ -3,6 +3,7 @@
 import { CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import OperatorDemoEntry from "@/components/pipeline/training/OperatorDemoEntry";
 import OperatorGuidedTours from "@/components/pipeline/training/OperatorGuidedTours";
 import {
   emptyOperatorProgress,
@@ -14,10 +15,12 @@ import {
 
 export default function PipelineOperatorAcademy({
   assignedRoles,
+  demoUrl,
   progressStorageKey,
   initialProgress,
 }: {
   assignedRoles: readonly string[];
+  demoUrl: string | null;
   progressStorageKey: string;
   initialProgress: OperatorProgressRecord;
 }) {
@@ -69,11 +72,11 @@ export default function PipelineOperatorAcademy({
       className="h-full min-h-0 overflow-y-auto bg-[#f6f8f7] text-[#171a18]"
     >
       <div className="mx-auto w-full max-w-[1480px] px-4 pb-12 pt-6 sm:px-6 lg:px-8 lg:pt-9">
-        <header className="border-b border-[#cbd5d1] pb-5">
-          <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">Learning Center</div>
-          <h1 className="mt-1 text-[34px] font-semibold tracking-[-0.045em] text-[#151917] sm:text-[44px]">I want to...</h1>
+        <header className="pb-5">
+          <h1 className="text-[34px] font-semibold tracking-[-0.045em] text-[#151917] sm:text-[44px]">Learning Center</h1>
         </header>
 
+        <OperatorDemoEntry demoUrl={demoUrl} />
         <OperatorGuidedTours assignedRoles={assignedRoles} progress={progress} />
 
         <footer className="mt-5 flex items-center gap-2 text-[10px] leading-4 text-[#6d7773]">

@@ -1,38 +1,40 @@
 "use client";
 
-import { ArrowRight, FlaskConical, Presentation, ShieldCheck } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
 export default function OperatorDemoEntry({ demoUrl }: { demoUrl: string | null }) {
   const destination = demoUrl?.startsWith("/") ? toPipelinePath(demoUrl) : demoUrl;
+
+  if (!destination) {
+    return (
+      <section className="border border-[#d8dfdc] bg-white px-6 py-7" aria-labelledby="pipeline-walkthrough-title">
+        <h2 id="pipeline-walkthrough-title" className="text-[24px] font-semibold text-[#202623]">Pipeline walkthrough</h2>
+        <p className="mt-2 text-[13px] text-[#68736f]">The presentation is not available in this environment.</p>
+      </section>
+    );
+  }
+
   return (
-    <section className="overflow-hidden border border-[#cbd5d1] bg-white">
-      <div className="grid min-h-[520px] lg:grid-cols-[minmax(0,1.1fr)_minmax(380px,0.9fr)]">
-        <div className="flex flex-col justify-center px-6 py-10 sm:px-9 lg:px-12">
-          <span className="flex h-11 w-11 items-center justify-center border border-[#a9c9be] bg-[#edf7f3] text-[#0c705f]"><Presentation size={20} /></span>
-          <div className="mt-6 text-[9px] font-black uppercase tracking-[0.12em] text-[#0c705f]">Demo environment</div>
-          <h2 className="mt-2 max-w-[720px] text-[27px] font-semibold tracking-[-0.035em] text-[#171b19]">Presentation and referral practice</h2>
-          <p className="mt-3 max-w-[720px] text-[12px] leading-6 text-[#5b6662]">Present the workflow, follow one referral journey, or open a synthetic practice case.</p>
-          {destination ? (
-            <a href={destination} className="mt-7 inline-flex h-11 w-fit items-center gap-3 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b]">Open Demo Center <ArrowRight size={14} /></a>
-          ) : (
-            <div className="mt-7 w-fit border border-[#dfca97] bg-[#fff8e8] px-4 py-3 text-[10px] font-bold text-[#765817]">A separate demo deployment has not been connected to this environment yet.</div>
-          )}
+    <section aria-labelledby="pipeline-walkthrough-title">
+      <Link
+        href={destination}
+        aria-label="Open Pipeline walkthrough presentation"
+        data-learning-presentation-entry="true"
+        className="group grid min-h-[220px] gap-7 border border-[#9fbeb4] bg-[#e8f3ef] p-6 outline-none hover:border-[#4f8f7c] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:p-9"
+      >
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f7c68]">Start here</div>
+          <h2 id="pipeline-walkthrough-title" className="mt-3 text-[30px] font-semibold leading-9 tracking-[-0.03em] text-[#18372f] sm:text-[38px] sm:leading-[42px]">Pipeline walkthrough</h2>
+          <p className="mt-3 max-w-[760px] text-[15px] font-medium leading-6 text-[#4e6860]">Follow an assessor from assigned referral through intake, scheduling, assessment, review, and handoff.</p>
         </div>
-        <div className="border-t border-[#d8dfdc] bg-[#eff4f2] p-6 sm:p-8 lg:border-l lg:border-t-0">
-          <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#0c705f]"><FlaskConical size={13} /> Includes</div>
-          <div className="mt-5 divide-y divide-[#d1dad6] border-y border-[#d1dad6]">
-            {[
-              "Five-slide Pipeline presentation",
-              "Referral-to-handoff walkthrough",
-              "Four synthetic practice cases",
-              "The complete assessment questionnaire",
-            ].map((item) => <div key={item} className="flex gap-3 py-4 text-[11px] font-bold leading-5 text-[#45504b]"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-[#0f8b73]" />{item}</div>)}
-          </div>
-          <p className="mt-5 text-[9px] leading-4 text-[#6d7773]">The dedicated deployment must use isolated storage and normal authentication. Training never elevates production permissions.</p>
+        <div className="flex items-center gap-4 border-t border-[#bcd0c9] pt-5 text-[14px] font-black text-[#315a4f] lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+          <span>Open presentation</span>
+          <ArrowRight size={22} className="shrink-0 text-[#0f7c68] transition-transform group-hover:translate-x-1" aria-hidden="true" />
         </div>
-      </div>
+      </Link>
     </section>
   );
 }

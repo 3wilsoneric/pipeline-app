@@ -1,8 +1,8 @@
 # Pipeline Learning Center
 
-The Learning Center is Pipeline's guided product help. Its landing page is a ranked
-"I want to..." task launcher. Selecting a task opens a full task briefing with the exact
-clickpath before the guided walkthrough begins.
+The Learning Center is Pipeline's entry point for the full workflow presentation and
+quick, role-aware task help. Selecting a quick-help task opens its exact clickpath before
+the guided walkthrough begins.
 
 ## Product Contract
 
@@ -22,9 +22,9 @@ clickpath before the guided walkthrough begins.
 
 | Surface | Purpose |
 | --- | --- |
-| Ranked task launcher | Large tiles ordered from frequent frontline work to less frequent reporting and review tasks |
+| Pipeline walkthrough | Prominent link to the existing presentation, referral journey, and synthetic practice environment at `/training/demo` |
+| Quick help | Task tiles ordered from frequent frontline work to less frequent reporting and review tasks |
 | Expanded task | Full-page clickpath, action list, duration, and one start control |
-| Full walkthrough preview | Six-part presentation prototype spanning Home, referral, intake, assessment, decision, and handoff |
 | Guided walkthrough | Deterministic in-product tooltip sequence that highlights and verifies authored actions |
 
 The detailed curriculum, scenarios, job aids, product map, demo environment, and readiness

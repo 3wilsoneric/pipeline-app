@@ -13,7 +13,7 @@ test.describe("Pipeline warm navigation and bounded reads", () => {
     });
 
     await page.goto("/training");
-    await expect(page.getByRole("heading", { name: "I want to...", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Learning Center", exact: true })).toBeVisible();
     const initialDocumentRequests = documentRequests;
 
     await page.getByRole("button", { name: "Open referrals", exact: true }).click();

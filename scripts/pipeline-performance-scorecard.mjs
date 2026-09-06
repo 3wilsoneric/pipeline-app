@@ -352,7 +352,7 @@ await measureJourney("referrals_to_learning_center", "navigation", async () => {
   const startedAt = performance.now();
   await activate(page.getByRole("button", { name: /Open profile menu for / }).first());
   navigationPhases.learning_profile_menu_ms = round(performance.now() - startedAt);
-  const learningCenter = page.getByRole("link", { name: /Learning Center Guided walkthroughs and common tasks/ });
+  const learningCenter = page.getByRole("link", { name: /Learning Center Pipeline walkthrough and quick help/ });
   await learningCenter.waitFor({ state: "visible" });
   const linkStartedAt = performance.now();
   await learningCenter.click({ noWaitAfter: true });
@@ -360,7 +360,7 @@ await measureJourney("referrals_to_learning_center", "navigation", async () => {
   const commitStartedAt = performance.now();
   const academy = page.locator('[data-operator-academy="true"]');
   const hydratedAcademy = page.locator('[data-training-hydrated="true"]');
-  const workflowAction = page.getByRole("button", { name: "Open full Pipeline walkthrough", exact: true });
+  const workflowAction = page.getByRole("link", { name: "Open Pipeline walkthrough presentation", exact: true });
   await Promise.all([
     recordPhase(navigationPhases, "learning_url_commit_ms", commitStartedAt, page.waitForURL((url) => url.pathname === "/training")),
     recordPhase(navigationPhases, "learning_dom_attached_ms", commitStartedAt, academy.waitFor({ state: "attached" })),
@@ -369,17 +369,17 @@ await measureJourney("referrals_to_learning_center", "navigation", async () => {
     recordPhase(navigationPhases, "learning_action_visible_ms", commitStartedAt, workflowAction.waitFor({ state: "visible" })),
   ]);
 });
-await measureJourney("learning_workflow_open", "overlay", async () => {
-  await activate(page.getByRole("button", { name: "Open full Pipeline walkthrough", exact: true }));
-  await page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).waitFor({ state: "visible" });
+await measureJourney("learning_workflow_open", "navigation", async () => {
+  await activate(page.getByRole("link", { name: "Open Pipeline walkthrough presentation", exact: true }));
+  await page.getByRole("heading", { name: "Review your assigned work", exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("learning_workflow_step", "overlay", async () => {
-  await activate(page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).getByRole("button", { name: "Next concept", exact: true }));
-  await page.getByRole("heading", { name: "The packet starts the record", exact: true }).waitFor({ state: "visible" });
+await measureJourney("learning_workflow_step", "interaction", async () => {
+  await activate(page.getByRole("navigation", { name: "Presentation slides", exact: true }).getByRole("button", { name: /02 Open the workspace/ }));
+  await page.getByRole("heading", { name: "Open the workspace", exact: true }).waitFor({ state: "visible" });
 });
-await measureJourney("learning_workflow_close", "overlay", async () => {
-  await activate(page.getByRole("button", { name: "Close full walkthrough", exact: true }));
-  await page.getByRole("dialog", { name: "Full Pipeline walkthrough", exact: true }).waitFor({ state: "hidden" });
+await measureJourney("learning_workflow_close", "navigation", async () => {
+  await page.goBack();
+  await page.locator('[data-training-hydrated="true"]').waitFor({ state: "visible" });
 });
 await measureJourney("learning_task_open", "overlay", async () => {
   await activate(page.getByRole("button", { name: "Open Finish an assessment", exact: true }));
