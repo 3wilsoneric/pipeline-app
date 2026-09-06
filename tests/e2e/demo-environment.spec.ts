@@ -37,11 +37,26 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.getByText("Email received", { exact: true })).toBeVisible();
 
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
+    await slideNavigation.getByRole("button", { name: /03 Create the referral/ }).click();
+    const intakeScreenshot = page.getByRole("img", { name: /^Synthetic Pipeline intake workspace/ });
+    await expect(intakeScreenshot).toBeVisible();
+    await expect.poll(() => intakeScreenshot.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+
+    await slideNavigation.getByRole("button", { name: /06 Schedule the assessment/ }).click();
+    await expect(page.getByRole("img", { name: "Synthetic Pipeline assessment scheduling dialog" })).toBeVisible();
+    await page.getByRole("tablist", { name: "Slide screenshots" }).getByRole("tab", { name: "Calendar" }).click();
+    await expect(page.getByRole("img", { name: /^Synthetic Pipeline team calendar/ })).toBeVisible();
+
     await slideNavigation.getByRole("button", { name: /07 Complete the assessment/ }).click();
     await expect(page.getByRole("heading", { name: "Complete the assessment" })).toBeVisible();
     for (const section of ["Client & referral", "Placement", "History", "Clinical", "Function", "Legal", "Medication", "Substance use", "Behavior & safety", "Physical health", "Support & goals", "Review"]) {
       await expect(page.getByText(section, { exact: true })).toBeVisible();
     }
+
+    await page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTo({ top: 500 }));
+    await slideNavigation.getByRole("button", { name: /09 Supervisor review and decision/ }).click();
+    await expect.poll(() => page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTop)).toBe(0);
+    await expect(page.getByRole("region", { name: "Admission decision path" })).toBeVisible();
 
     await slideNavigation.getByRole("button", { name: /11 Keep the record trustworthy/ }).click();
     await expect(page.getByRole("heading", { name: "Keep the record trustworthy" })).toBeVisible();
@@ -161,6 +176,8 @@ test.describe("Pipeline Demo Environment", () => {
     await page.goto("/training/demo");
     await expect(page.getByRole("heading", { name: "Pipeline training" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Follow one referral" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("button", { name: /03 Create the referral/ }).click();
+    await expect(page.getByRole("img", { name: /^Synthetic Pipeline intake workspace/ })).toBeVisible();
     await page.getByRole("tab", { name: "Referral journey" }).click();
     await expect(page.getByRole("heading", { name: "Create the referral" })).toBeVisible();
     await expect(page.getByText("Attach the source packet", { exact: true })).toBeVisible();

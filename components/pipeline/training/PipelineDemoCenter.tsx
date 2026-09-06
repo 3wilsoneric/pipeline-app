@@ -1,14 +1,25 @@
 "use client";
 
 import {
+  Activity,
   ArrowLeft,
   ArrowRight,
+  CalendarDays,
+  CheckCircle2,
   ClipboardCheck,
+  FileCheck2,
+  FileText,
   ExternalLink,
   FlaskConical,
+  FolderOpen,
+  Home,
   Play,
   RefreshCcw,
+  ShieldCheck,
+  type LucideIcon,
+  UserRound,
 } from "lucide-react";
+import Image from "next/image";
 import { startTransition, useEffect, useRef, useState } from "react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
@@ -46,6 +57,15 @@ type PresentationSlide = {
   flow?: readonly string[];
   sections?: readonly string[];
   rule?: string;
+  graphic?: "navigation" | "readiness" | "decision" | "evidence";
+  screenshots?: readonly PresentationScreenshot[];
+};
+
+type PresentationScreenshot = {
+  src: string;
+  alt: string;
+  label: string;
+  caption: string;
 };
 
 type DemoChapter = {
@@ -83,6 +103,7 @@ const presentationSlides: readonly PresentationSlide[] = [
       "Calendar holds appointments and follow-up dates. Clients holds the durable profile for each person.",
       "Search gets you to a known workspace or client quickly; verify identity before changing anything.",
     ],
+    graphic: "navigation",
   },
   {
     number: 3,
@@ -95,6 +116,12 @@ const presentationSlides: readonly PresentationSlide[] = [
       "If you stop, resume the saved draft from Home instead of starting another referral.",
     ],
     rule: "A late document belongs in the existing workspace. It does not create another referral.",
+    screenshots: [{
+      src: "/training/presentation/intake-workspace.png",
+      alt: "Synthetic Pipeline intake workspace with the referral packet drop zone highlighted by the guided tutorial.",
+      label: "Start in Intake",
+      caption: "The packet drop and document checklist are at the top of the workspace.",
+    }],
   },
   {
     number: 4,
@@ -107,6 +134,12 @@ const presentationSlides: readonly PresentationSlide[] = [
       "Finish packet review only when identity, routing, medication context, and follow-up needs are clear.",
     ],
     rule: "Extraction can fill a blank. It cannot silently replace a human-confirmed value.",
+    screenshots: [{
+      src: "/training/presentation/intake-review.png",
+      alt: "Synthetic Pipeline intake workspace populated with reviewed identity, routing, referral, and medication information.",
+      label: "Confirm the chart",
+      caption: "Reviewed source information remains visible beside document status and assignment.",
+    }],
   },
   {
     number: 5,
@@ -118,6 +151,7 @@ const presentationSlides: readonly PresentationSlide[] = [
       "Packet review must be complete before Assessment, and the assessment must be complete before Post-assessment.",
       "Requirements carry their own owner, due date, next action, evidence, and blocker state.",
     ],
+    graphic: "readiness",
   },
   {
     number: 6,
@@ -128,6 +162,20 @@ const presentationSlides: readonly PresentationSlide[] = [
       "Add the Zoom link, location, or other appointment detail and check for conflicts.",
       "Use Calendar to reschedule or record a cancellation or no-show.",
       "Changing an appointment changes the schedule, not the referral outcome.",
+    ],
+    screenshots: [
+      {
+        src: "/training/presentation/assessment-schedule.png",
+        alt: "Synthetic Pipeline assessment scheduling dialog with date, duration, method, and location fields.",
+        label: "Schedule",
+        caption: "The appointment remains attached to the referral and assigned assessor.",
+      },
+      {
+        src: "/training/presentation/assessor-calendar.png",
+        alt: "Synthetic Pipeline team calendar showing a scheduled assessment and ready-to-schedule queue.",
+        label: "Calendar",
+        caption: "The saved appointment appears in the assessor-scoped calendar.",
+      },
     ],
   },
   {
@@ -153,6 +201,12 @@ const presentationSlides: readonly PresentationSlide[] = [
       "Support & goals",
       "Review",
     ],
+    screenshots: [{
+      src: "/training/presentation/assessment-guided.png",
+      alt: "Synthetic Pipeline assessment with section navigation, interview fields, progress, and guided tutorial visible.",
+      label: "Work section by section",
+      caption: "The left rail shows completion by section while the main area holds the current questions.",
+    }],
   },
   {
     number: 8,
@@ -164,6 +218,12 @@ const presentationSlides: readonly PresentationSlide[] = [
       "Review missing and conflicting information before signing. Required omissions block signature.",
       "After signature, record later information as an addendum rather than rewriting the signed assessment.",
     ],
+    screenshots: [{
+      src: "/training/presentation/assessment-review.png",
+      alt: "Synthetic Pipeline assessment review section showing saved status, required-field progress, and final narrative fields.",
+      label: "Review before signature",
+      caption: "Saved status and unresolved required fields stay visible before the assessor signs.",
+    }],
   },
   {
     number: 9,
@@ -175,6 +235,7 @@ const presentationSlides: readonly PresentationSlide[] = [
       "A declined referral requires a recorded reason.",
       "An accepted referral must have an accepted decision and its blocking move-in requirements resolved.",
     ],
+    graphic: "decision",
   },
   {
     number: 10,
@@ -187,6 +248,12 @@ const presentationSlides: readonly PresentationSlide[] = [
       "Monitor EHR handoff separately: accepted, queued, sent, and failed are different states.",
     ],
     rule: "Do not treat a request to send as proof that delivery or EHR creation finished.",
+    screenshots: [{
+      src: "/training/presentation/meet-client-handoff.png",
+      alt: "Synthetic Meet the Client handoff preview with client summary, care information, and four admission packet attachments.",
+      label: "Verify the handoff",
+      caption: "The receiving summary and selected admission files are reviewed together before delivery.",
+    }],
   },
   {
     number: 11,
@@ -199,6 +266,7 @@ const presentationSlides: readonly PresentationSlide[] = [
       "Use Files for evidence and Activity to see who changed the record and when.",
     ],
     rule: "When the presentation ends, use Referral journey to practice the same sequence in the application.",
+    graphic: "evidence",
   },
 ] as const;
 
@@ -391,7 +459,10 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
         {!environment.writable ? <div className="mt-4 border border-[#dfca97] bg-[#fff9e9] px-4 py-3 text-[11px] leading-5 text-[#765817]"><strong>Synthetic writes are locked.</strong> {environment.reason}</div> : null}
 
         {view === "presentation" ? (
-          <PresentationDeck onStartJourney={() => selectView("journey")} />
+          <PresentationDeck
+            onStartJourney={() => selectView("journey")}
+            onSlideChange={() => scrollContainerRef.current?.scrollTo({ top: 0 })}
+          />
         ) : view === "journey" ? (
           <ReferralJourney
             chapter={chapter}
@@ -425,17 +496,28 @@ export default function PipelineDemoCenter({ actor, environment }: { actor: Demo
   );
 }
 
-function PresentationDeck({ onStartJourney }: { onStartJourney: () => void }) {
+function PresentationDeck({
+  onStartJourney,
+  onSlideChange,
+}: {
+  onStartJourney: () => void;
+  onSlideChange: () => void;
+}) {
   const [slideIndex, setSlideIndex] = useState(0);
   const slide = presentationSlides[slideIndex] ?? presentationSlides[0];
   const isLast = slideIndex === presentationSlides.length - 1;
+  const hasSupportingVisual = Boolean(slide.graphic || slide.screenshots?.length);
+  const selectSlide = (index: number) => {
+    setSlideIndex(Math.max(0, Math.min(presentationSlides.length - 1, index)));
+    onSlideChange();
+  };
 
   return (
-    <section className="mt-5 grid min-h-[540px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[230px_minmax(0,1fr)]">
+    <section className="mt-5 grid min-h-[620px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[230px_minmax(0,1fr)]">
       <aside className="border-b border-[#d8dfdc] bg-[#eef3f1] p-3 lg:max-h-[720px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-4">
         <nav aria-label="Presentation slides" className="flex gap-1 overflow-x-auto lg:block">
           {presentationSlides.map((item, index) => (
-            <button key={item.number} type="button" onClick={() => setSlideIndex(index)} aria-current={index === slideIndex ? "step" : undefined} className={`grid min-h-[50px] w-[176px] shrink-0 grid-cols-[24px_minmax(0,1fr)] items-center gap-2 border-l-2 px-3 text-left lg:mb-1 lg:w-full ${index === slideIndex ? "border-[#0f8b73] bg-white text-[#20302b]" : "border-transparent text-[#63706b] hover:bg-white/70"}`}>
+            <button key={item.number} type="button" onClick={() => selectSlide(index)} aria-current={index === slideIndex ? "step" : undefined} className={`grid min-h-[50px] w-[176px] shrink-0 grid-cols-[24px_minmax(0,1fr)] items-center gap-2 border-l-2 px-3 text-left lg:mb-1 lg:w-full ${index === slideIndex ? "border-[#0f8b73] bg-white text-[#20302b]" : "border-transparent text-[#63706b] hover:bg-white/70"}`}>
               <span className="text-[9px] font-black tabular-nums">{String(item.number).padStart(2, "0")}</span>
               <span className="text-[11px] font-black leading-4">{item.title}</span>
             </button>
@@ -443,24 +525,173 @@ function PresentationDeck({ onStartJourney }: { onStartJourney: () => void }) {
         </nav>
       </aside>
       <div className="flex min-w-0 flex-col">
-        <article aria-label={`Presentation slide ${slide.number}`} className="flex flex-1 flex-col px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
+        <article aria-label={`Presentation slide ${slide.number}`} className="flex flex-1 flex-col px-5 py-7 sm:px-8 lg:px-10 lg:py-9 xl:px-12">
           <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#0c705f]">{slide.number} / {presentationSlides.length}</div>
-          <h2 className="mt-3 max-w-[900px] text-[30px] font-semibold leading-9 tracking-[-0.035em] text-[#1c2421] sm:text-[38px] sm:leading-[44px]">{slide.title}</h2>
-          <p className="mt-4 max-w-[820px] text-[16px] font-medium leading-7 text-[#58645f]">{slide.summary}</p>
-          {slide.flow ? <div className="mt-7 grid gap-px overflow-hidden border border-[#cbd5d1] bg-[#cbd5d1] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{slide.flow.map((item, index) => <div key={item} className="flex min-h-[66px] items-center gap-3 bg-[#f7faf9] px-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center bg-[#dceee8] text-[9px] font-black text-[#0c705f]">{index + 1}</span><span className="text-[10px] font-black leading-4 text-[#34413c]">{item}</span></div>)}</div> : null}
-          <ul className="mt-7 max-w-[920px] border-y border-[#d9dfdc]">
-            {slide.points.map((point) => <li key={point} className="grid grid-cols-[22px_minmax(0,1fr)] items-start border-b border-[#e1e5e3] py-3.5 last:border-b-0"><span className="mt-[7px] h-1.5 w-1.5 bg-[#0f8b73]" aria-hidden="true" /><span className="text-[13px] font-semibold leading-5 text-[#39423e]">{point}</span></li>)}
-          </ul>
-          {slide.sections ? <ol className="mt-6 grid max-w-[920px] gap-px border border-[#d5ddda] bg-[#d5ddda] sm:grid-cols-2 lg:grid-cols-3">{slide.sections.map((section, index) => <li key={section} className="flex min-h-11 items-center gap-3 bg-[#f8faf9] px-3 py-2"><span className="text-[9px] font-black tabular-nums text-[#0c705f]">{String(index + 1).padStart(2, "0")}</span><span className="text-[11px] font-bold text-[#34413c]">{section}</span></li>)}</ol> : null}
-          {slide.rule ? <p className="mt-6 max-w-[920px] border-l-[3px] border-[#0f8b73] bg-[#f0f6f4] px-4 py-3 text-[12px] font-bold leading-5 text-[#355047]">{slide.rule}</p> : null}
+          <h2 className="mt-2 max-w-[900px] text-[30px] font-semibold leading-9 tracking-[-0.035em] text-[#1c2421] sm:text-[36px] sm:leading-[42px]">{slide.title}</h2>
+          <p className="mt-3 max-w-[840px] text-[15px] font-medium leading-6 text-[#58645f]">{slide.summary}</p>
+          {slide.flow ? <PresentationFlow steps={slide.flow} /> : null}
+          <div className={hasSupportingVisual ? "mt-6 grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(250px,0.72fr)_minmax(440px,1.28fr)]" : "mt-6 max-w-[920px]"}>
+            <div className="min-w-0">
+              <ul className="border-y border-[#d9dfdc]">
+                {slide.points.map((point) => <li key={point} className="grid grid-cols-[20px_minmax(0,1fr)] items-start border-b border-[#e1e5e3] py-3 last:border-b-0"><span className="mt-[7px] h-1.5 w-1.5 bg-[#0f8b73]" aria-hidden="true" /><span className="text-[12px] font-semibold leading-5 text-[#39423e]">{point}</span></li>)}
+              </ul>
+              {slide.sections ? <ol className="mt-5 grid grid-cols-2 border-t border-[#d5ddda]">{slide.sections.map((section, index) => <li key={section} className="flex min-h-9 items-center gap-2 border-b border-[#e0e5e2] py-1.5 pr-2"><span className="text-[8px] font-black tabular-nums text-[#0c705f]">{String(index + 1).padStart(2, "0")}</span><span className="text-[10px] font-bold leading-4 text-[#34413c]">{section}</span></li>)}</ol> : null}
+              {slide.rule ? <p className="mt-5 border-l-[3px] border-[#0f8b73] bg-[#f0f6f4] px-4 py-3 text-[11px] font-bold leading-5 text-[#355047]">{slide.rule}</p> : null}
+            </div>
+            {hasSupportingVisual ? <PresentationVisual key={slide.number} slide={slide} /> : null}
+          </div>
         </article>
         <footer className="flex items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-4 sm:px-8">
-          <button type="button" disabled={slideIndex === 0} onClick={() => setSlideIndex((current) => Math.max(0, current - 1))} className="inline-flex h-10 items-center gap-2 px-2 text-[10px] font-black text-[#5d6863] disabled:invisible"><ArrowLeft size={13} /> Previous</button>
-          {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b]">Open referral journey <ArrowRight size={13} /></button> : <button type="button" onClick={() => setSlideIndex((current) => Math.min(presentationSlides.length - 1, current + 1))} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[10px] font-black text-white">Next <ArrowRight size={13} /></button>}
+          <button type="button" disabled={slideIndex === 0} onClick={() => selectSlide(slideIndex - 1)} className="inline-flex h-10 items-center gap-2 px-2 text-[10px] font-black text-[#5d6863] disabled:invisible"><ArrowLeft size={13} /> Previous</button>
+          {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b]">Open referral journey <ArrowRight size={13} /></button> : <button type="button" onClick={() => selectSlide(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[10px] font-black text-white">Next <ArrowRight size={13} /></button>}
         </footer>
       </div>
     </section>
   );
+}
+
+function PresentationFlow({ steps }: { steps: readonly string[] }) {
+  return (
+    <div aria-label="Referral lifecycle" className="mt-6 overflow-x-auto border-y border-[#d9dfdc] py-5">
+      <div className="flex min-w-[720px] items-center">
+        {steps.map((step, index) => (
+          <div key={step} className="contents">
+            <div className="flex min-w-0 flex-1 flex-col items-center text-center">
+              <span className="flex h-8 w-8 items-center justify-center border-2 border-[#0f8b73] bg-white text-[9px] font-black text-[#0c705f]">{index + 1}</span>
+              <span className="mt-2 max-w-[110px] text-[10px] font-black leading-4 text-[#34413c]">{step}</span>
+            </div>
+            {index < steps.length - 1 ? <ArrowRight size={16} className="shrink-0 text-[#8aa59c]" aria-hidden="true" /> : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PresentationVisual({ slide }: { slide: PresentationSlide }) {
+  if (slide.screenshots?.length) return <PresentationScreenshots screenshots={slide.screenshots} />;
+  if (slide.graphic) return <PresentationGraphic graphic={slide.graphic} />;
+  return null;
+}
+
+function PresentationScreenshots({ screenshots }: { screenshots: readonly PresentationScreenshot[] }) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const selected = screenshots[selectedIndex] ?? screenshots[0];
+
+  return (
+    <figure className="min-w-0 border border-[#cbd5d1] bg-[#f4f7f5]">
+      <div className="flex min-h-10 items-center justify-between border-b border-[#d7dfdb] px-3">
+        {screenshots.length > 1 ? (
+          <div role="tablist" aria-label="Slide screenshots" className="flex self-stretch">
+            {screenshots.map((screenshot, index) => (
+              <button key={screenshot.src} type="button" role="tab" aria-selected={index === selectedIndex} onClick={() => setSelectedIndex(index)} className={`border-b-2 px-3 text-[10px] font-black ${index === selectedIndex ? "border-[#0f8b73] bg-white text-[#1f342d]" : "border-transparent text-[#6a746f] hover:text-[#26332e]"}`}>{screenshot.label}</button>
+            ))}
+          </div>
+        ) : <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0c705f]">{selected.label}</span>}
+        <span className="text-[8px] font-black uppercase tracking-[0.08em] text-[#75807b]">Synthetic demo</span>
+      </div>
+      <div className="relative aspect-video overflow-hidden bg-[#e6ece9]">
+        <Image
+          key={selected.src}
+          src={toPipelinePath(selected.src)}
+          alt={selected.alt}
+          fill
+          unoptimized
+          loading="eager"
+          sizes="(max-width: 1023px) 100vw, 60vw"
+          className="object-cover object-top"
+        />
+      </div>
+      <figcaption className="border-t border-[#d7dfdb] bg-white px-3 py-2.5 text-[10px] font-semibold leading-4 text-[#56615c]">{selected.caption}</figcaption>
+    </figure>
+  );
+}
+
+function PresentationGraphic({ graphic }: { graphic: NonNullable<PresentationSlide["graphic"]> }) {
+  if (graphic === "navigation") {
+    return (
+      <section aria-label="Pipeline screen map" className="border border-[#cbd5d1] bg-[#f7f9f8] p-5">
+        <div className="grid grid-cols-2 gap-px border border-[#d2dbd7] bg-[#d2dbd7]">
+          <GraphicCell icon={Home} title="Home" detail="What needs my attention?" />
+          <GraphicCell icon={FolderOpen} title="Workspaces" detail="Where is this referral?" />
+          <GraphicCell icon={CalendarDays} title="Calendar" detail="When is the assessment?" />
+          <GraphicCell icon={UserRound} title="Clients" detail="What follows this person?" />
+        </div>
+      </section>
+    );
+  }
+
+  if (graphic === "readiness") {
+    return (
+      <section aria-label="Lifecycle and attention model" className="border border-[#cbd5d1] bg-[#f7f9f8] p-5">
+        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#68736e]">One lifecycle</div>
+        <div className="mt-3 flex items-center gap-2">
+          <GraphicPill label="Intake" active />
+          <ArrowRight size={15} className="shrink-0 text-[#81938c]" aria-hidden="true" />
+          <GraphicPill label="Assessment" />
+          <ArrowRight size={15} className="shrink-0 text-[#81938c]" aria-hidden="true" />
+          <GraphicPill label="Decision" />
+        </div>
+        <div className="mt-6 border-t border-[#d4dcd8] pt-5">
+          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#68736e]">Attention can overlap</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {["Missing document", "Assessment due", "Blocked", "Needs review"].map((label) => <span key={label} className="border border-[#c8d3ce] bg-white px-2.5 py-1.5 text-[9px] font-black text-[#44514b]">{label}</span>)}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (graphic === "decision") {
+    return (
+      <section aria-label="Admission decision path" className="border border-[#cbd5d1] bg-[#f7f9f8] p-5">
+        <div className="flex items-center gap-3">
+          <GraphicStep icon={ClipboardCheck} label="Assessor recommendation" />
+          <ArrowRight size={16} className="shrink-0 text-[#81938c]" aria-hidden="true" />
+          <GraphicStep icon={ShieldCheck} label="Supervisor review" emphasis />
+        </div>
+        <div className="ml-auto mt-5 grid w-[72%] grid-cols-2 gap-2 border-t border-[#cbd5d1] pt-5">
+          <div className="flex items-center gap-2 border-l-[3px] border-[#0f8b73] bg-white px-3 py-3 text-[10px] font-black text-[#245447]"><CheckCircle2 size={15} aria-hidden="true" />Accepted</div>
+          <div className="flex items-center gap-2 border-l-[3px] border-[#a65b51] bg-white px-3 py-3 text-[10px] font-black text-[#744039]"><FileText size={15} aria-hidden="true" />Declined + reason</div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="Trusted record evidence" className="border border-[#cbd5d1] bg-[#f7f9f8] p-5">
+      <div className="flex items-center gap-2">
+        <GraphicStep icon={FileCheck2} label="Source files" />
+        <ArrowRight size={15} className="shrink-0 text-[#81938c]" aria-hidden="true" />
+        <GraphicStep icon={ClipboardCheck} label="Confirmed data" />
+        <ArrowRight size={15} className="shrink-0 text-[#81938c]" aria-hidden="true" />
+        <GraphicStep icon={ShieldCheck} label="Signed assessment" emphasis />
+      </div>
+      <div className="mt-5 grid grid-cols-3 gap-px border border-[#d2dbd7] bg-[#d2dbd7]">
+        <GraphicCell icon={FileText} title="Chart" detail="Clinical record" compact />
+        <GraphicCell icon={FolderOpen} title="Files" detail="Source evidence" compact />
+        <GraphicCell icon={Activity} title="Activity" detail="Change history" compact />
+      </div>
+    </section>
+  );
+}
+
+function GraphicCell({ icon: Icon, title, detail, compact = false }: { icon: LucideIcon; title: string; detail: string; compact?: boolean }) {
+  return (
+    <div className={`bg-white ${compact ? "px-3 py-3" : "px-4 py-5"}`}>
+      <Icon size={compact ? 15 : 18} className="text-[#0f8b73]" aria-hidden="true" />
+      <div className="mt-2 text-[11px] font-black text-[#27322d]">{title}</div>
+      <div className="mt-1 text-[9px] font-semibold leading-4 text-[#68736e]">{detail}</div>
+    </div>
+  );
+}
+
+function GraphicPill({ label, active = false }: { label: string; active?: boolean }) {
+  return <span className={`flex min-h-10 flex-1 items-center justify-center border px-2 text-center text-[9px] font-black ${active ? "border-[#0f8b73] bg-[#e5f3ee] text-[#0c705f]" : "border-[#c8d3ce] bg-white text-[#44514b]"}`}>{label}</span>;
+}
+
+function GraphicStep({ icon: Icon, label, emphasis = false }: { icon: LucideIcon; label: string; emphasis?: boolean }) {
+  return <div className={`flex min-h-[76px] flex-1 flex-col items-center justify-center border px-3 text-center ${emphasis ? "border-[#0f8b73] bg-[#e5f3ee] text-[#0c705f]" : "border-[#c8d3ce] bg-white text-[#44514b]"}`}><Icon size={18} aria-hidden="true" /><span className="mt-2 text-[9px] font-black leading-4">{label}</span></div>;
 }
 
 function ReferralJourney({ chapter, chapterIndex, launchingId, canWrite, onSelect, onLaunch }: { chapter: DemoChapter; chapterIndex: number; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onSelect: (index: number) => void; onLaunch: (chapter: DemoChapter) => void }) {
