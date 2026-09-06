@@ -5,7 +5,8 @@ test.describe("Pipeline Demo Environment", () => {
     const errors = watchBrowserErrors(page);
     const response = await page.goto("/training/demo");
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: "Pipeline training" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Review your assigned work" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pipeline training" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Open guide launcher" })).toHaveCount(0);
     await page.getByRole("tab", { name: "Practice cases" }).click();
 
@@ -33,23 +34,26 @@ test.describe("Pipeline Demo Environment", () => {
 
     const presentationTab = page.getByRole("tab", { name: "Presentation" });
     await expect(presentationTab).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: "Start with your assigned work" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Review your assigned work" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Assessor assigned work" })).toBeVisible();
-    await expect(page.getByText("Assigned", { exact: true })).toBeVisible();
 
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
-    await slideNavigation.getByRole("button", { name: /02 Open the referral workspace/ }).click();
+    await expect(slideNavigation.getByRole("button", { name: /01 Review your assigned work/ })).toHaveAttribute("aria-current", "step");
+    await slideNavigation.getByRole("button", { name: /02 Open the workspace/ }).click();
     const intakeScreenshot = page.getByRole("img", { name: /^Synthetic Pipeline intake workspace/ });
-    await expect(intakeScreenshot).toBeVisible();
-    await expect.poll(() => intakeScreenshot.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    await expectImageLoaded(intakeScreenshot);
+
+    await slideNavigation.getByRole("button", { name: /03 Verify the intake/ }).click();
+    await expectImageLoaded(page.getByRole("img", { name: /^Synthetic Pipeline intake workspace populated/ }));
 
     await slideNavigation.getByRole("button", { name: /04 Schedule the assessment/ }).click();
-    await expect(page.getByRole("img", { name: "Synthetic Pipeline assessment scheduling dialog" })).toBeVisible();
+    await expectImageLoaded(page.getByRole("img", { name: "Synthetic Pipeline assessment scheduling dialog" }));
     await page.getByRole("tablist", { name: "Slide screenshots" }).getByRole("tab", { name: "Calendar" }).click();
-    await expect(page.getByRole("img", { name: /^Synthetic Pipeline team calendar/ })).toBeVisible();
+    await expectImageLoaded(page.getByRole("img", { name: /^Synthetic Pipeline team calendar/ }));
 
     await slideNavigation.getByRole("button", { name: /05 Open the assessment/ }).click();
     await expect(page.getByRole("heading", { name: "Open the assessment" })).toBeVisible();
+    await expectImageLoaded(page.getByRole("img", { name: /^Synthetic Pipeline assessment with section navigation/ }));
     for (const section of ["Client & referral", "Placement", "History", "Clinical", "Function", "Legal", "Medication", "Substance use", "Behavior & safety", "Physical health", "Support & goals", "Review"]) {
       await expect(page.getByText(section, { exact: true })).toBeVisible();
     }
@@ -57,12 +61,13 @@ test.describe("Pipeline Demo Environment", () => {
     await page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTo({ top: 500 }));
     await slideNavigation.getByRole("button", { name: /08 Review and sign/ }).click();
     await expect.poll(() => page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTop)).toBe(0);
-    await expect(page.getByRole("img", { name: /^Synthetic Pipeline assessment review section/ })).toBeVisible();
+    await expectImageLoaded(page.getByRole("img", { name: /^Synthetic Pipeline assessment review section/ }));
 
-    await slideNavigation.getByRole("button", { name: /09 Submit the assessment/ }).click();
-    await expect(page.getByRole("heading", { name: "Submit the assessment" })).toBeVisible();
+    await slideNavigation.getByRole("button", { name: /09 Submit for supervisor review/ }).click();
+    await expect(page.getByRole("heading", { name: "Submit for supervisor review" })).toBeVisible();
+    await expectImageLoaded(page.getByRole("img", { name: /^Synthetic Meet the Client handoff preview/ }));
     await page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
-    await page.getByRole("button", { name: "Open referral journey" }).click();
+    await page.getByRole("button", { name: "Start the referral journey" }).click();
 
     await expect(page.getByRole("tab", { name: "Referral journey" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("heading", { name: "Create the referral" })).toBeVisible();
@@ -74,7 +79,7 @@ test.describe("Pipeline Demo Environment", () => {
     await page.goto("/training/demo");
 
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
-    await slideNavigation.getByRole("button", { name: /07 Practice assessment language/ }).click();
+    await slideNavigation.getByRole("button", { name: /07 Practice in Notes Lab/ }).click();
     await page.getByRole("link", { name: "Open Assessment Notes Lab" }).click();
 
     await expect(page).toHaveURL(/\/note-lab\/practice\?from=demo$/);
@@ -191,9 +196,8 @@ test.describe("Pipeline Demo Environment", () => {
   test("keeps the presentation and referral journey usable on a narrow screen", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/training/demo");
-    await expect(page.getByRole("heading", { name: "Pipeline training" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Start with your assigned work" })).toBeVisible();
-    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("button", { name: /02 Open the referral workspace/ }).click();
+    await expect(page.getByRole("heading", { name: "Review your assigned work" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("button", { name: /02 Open the workspace/ }).click();
     await expect(page.getByRole("img", { name: /^Synthetic Pipeline intake workspace/ })).toBeVisible();
     await page.getByRole("tab", { name: "Referral journey" }).click();
     await expect(page.getByRole("heading", { name: "Create the referral" })).toBeVisible();
@@ -255,6 +259,11 @@ function watchBrowserErrors(page: import("@playwright/test").Page) {
   });
   page.on("pageerror", (error) => errors.push(error.message));
   return errors;
+}
+
+async function expectImageLoaded(image: import("@playwright/test").Locator) {
+  await expect(image).toBeVisible();
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true);
 }
 
 function escapeRegExp(value: string) {

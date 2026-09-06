@@ -1,23 +1,12 @@
 "use client";
 
 import {
-  Activity,
   ArrowLeft,
   ArrowRight,
-  CalendarDays,
-  CheckCircle2,
   ClipboardCheck,
-  FileCheck2,
-  FileText,
   ExternalLink,
-  FlaskConical,
-  FolderOpen,
-  Home,
   Play,
   RefreshCcw,
-  ShieldCheck,
-  type LucideIcon,
-  UserRound,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -54,12 +43,10 @@ type PresentationSlide = {
   id: string;
   number: number;
   title: string;
-  summary: string;
   points: readonly string[];
-  flow?: readonly string[];
   sections?: readonly string[];
   rule?: string;
-  graphic?: "assignments" | "navigation" | "readiness" | "decision" | "evidence";
+  graphic?: "assignments";
   screenshots?: readonly PresentationScreenshot[];
   action?: {
     label: string;
@@ -90,25 +77,22 @@ const presentationSlides: readonly PresentationSlide[] = [
   {
     id: "assigned-work",
     number: 1,
-    title: "Start with your assigned work",
-    summary: "Home shows the referrals and appointments that belong to you.",
+    title: "Review your assigned work",
     points: [
-      "Open an assigned referral from Home instead of searching through every workspace.",
-      "Resume an intake draft where you stopped; do not create the same referral again.",
-      "Use the upcoming schedule to prepare for assessments and follow-ups due next.",
+      "Start on Home. It shows the referrals, drafts, and appointments assigned to you.",
+      "Open an existing draft instead of creating the referral again.",
+      "Check today's work and upcoming appointments before opening a workspace.",
     ],
-    flow: ["Assigned", "Review intake", "Schedule", "Assess", "Review and sign", "Submit"],
     graphic: "assignments",
   },
   {
     id: "open-workspace",
     number: 2,
-    title: "Open the referral workspace",
-    summary: "The workspace keeps the packet, intake, assessment, files, and activity together.",
+    title: "Open the workspace",
     points: [
-      "Confirm the client identity, assigned assessor, community, and current stage before editing.",
-      "Use Files for the original referral material and Activity for the change history.",
-      "Keep later documents in this workspace so the referral remains one continuous record.",
+      "Confirm the client, assigned assessor, community, and current stage.",
+      "Use Files for source documents and Activity for the change history.",
+      "Add later documents to this same workspace so the record stays together.",
     ],
     screenshots: [{
       src: "/training/presentation/intake-workspace.png",
@@ -120,12 +104,11 @@ const presentationSlides: readonly PresentationSlide[] = [
   {
     id: "review-intake",
     number: 3,
-    title: "Review the intake data",
-    summary: "The assessment begins with information collected from the referral packet.",
+    title: "Verify the intake",
     points: [
-      "Verify identity, referral source, contacts, prior setting, community, and medications against the supplied documents.",
-      "Inherited fields remain visible in the assessment; update the intake source when an inherited fact is wrong.",
-      "Record missing documents and conflicting information instead of guessing or silently choosing a source.",
+      "Check identity, referral source, contacts, prior setting, community, and medications against the packet.",
+      "Correct inherited information in Intake before starting the assessment.",
+      "Mark missing or conflicting information. Do not guess.",
     ],
     screenshots: [{
       src: "/training/presentation/intake-review.png",
@@ -138,11 +121,10 @@ const presentationSlides: readonly PresentationSlide[] = [
     id: "schedule-assessment",
     number: 4,
     title: "Schedule the assessment",
-    summary: "Save the appointment, then confirm it appears on your calendar.",
     points: [
-      "Set the date, time, duration, and method: Zoom, in person, phone, or record review.",
-      "Add the Zoom link, location, or appointment detail and check for conflicts.",
-      "A reschedule, cancellation, or no-show updates the appointment without changing the referral outcome.",
+      "Set the date, time, duration, and method.",
+      "Add the Zoom link, location, or appointment detail, then save.",
+      "Confirm it appears on your calendar. Reschedule or record a no-show without changing the referral outcome.",
     ],
     screenshots: [
       {
@@ -163,11 +145,10 @@ const presentationSlides: readonly PresentationSlide[] = [
     id: "open-assessment",
     number: 5,
     title: "Open the assessment",
-    summary: "The full assessment combines verified intake context with the assessor's interview.",
     points: [
-      "Review the inherited client, referral, placement, and medication information before adding interview findings.",
-      "Move through all 12 sections in order or return directly to a section that needs work.",
-      "Use the packet and source files for context, but document what the client, collateral source, record, or assessor established.",
+      "Review the inherited client, referral, placement, and medication information.",
+      "Complete all 12 sections. You can return directly to any unfinished section.",
+      "Keep client report, collateral information, records, and assessor observations distinguishable.",
     ],
     sections: [
       "Client & referral",
@@ -193,24 +174,21 @@ const presentationSlides: readonly PresentationSlide[] = [
   {
     id: "document-interview",
     number: 6,
-    title: "Document the interview",
-    summary: "Record the answer in the section where the finding belongs.",
+    title: "Complete each section",
     points: [
-      "Answer conditional follow-up questions only when the preceding response makes them relevant.",
-      "Keep client report, collateral information, records, and direct observation distinguishable.",
-      "Use Answer Help for field-specific structure when a narrative response needs it.",
+      "Answer conditional follow-up questions only when they appear.",
+      "Write each finding in the section where it belongs.",
+      "Use Answer Help when a narrative field needs structure or an example.",
     ],
-    graphic: "evidence",
   },
   {
     id: "practice-language",
     number: 7,
-    title: "Practice assessment language",
-    summary: "Use the Notes Lab to practice the same assessment fields with synthetic information.",
+    title: "Practice in Notes Lab",
     points: [
-      "Choose a section and complete its fields as you would during an assessment.",
-      "Open Answer Help only for narrative fields that need structure or an example.",
-      "When you finish practicing, return here to review and sign the assessment.",
+      "Practice the same assessment fields with a synthetic client.",
+      "Use Answer Help only when you need it.",
+      "Return to this presentation when you finish.",
     ],
     action: {
       label: "Open Assessment Notes Lab",
@@ -221,11 +199,10 @@ const presentationSlides: readonly PresentationSlide[] = [
     id: "review-and-sign",
     number: 8,
     title: "Review and sign",
-    summary: "Autosave protects the draft. Signature closes the assessor's clinical record.",
     points: [
-      "Confirm that saves have completed before leaving or signing.",
-      "Review required omissions, conflicting information, source attribution, and the recommendation.",
-      "Sign only when the assessment is complete; record later information as an addendum.",
+      "Confirm autosave has finished.",
+      "Review missing required answers, conflicts, sources, and the recommendation.",
+      "Sign only when the assessment is complete. Add later information as an addendum.",
     ],
     screenshots: [{
       src: "/training/presentation/assessment-review.png",
@@ -237,12 +214,11 @@ const presentationSlides: readonly PresentationSlide[] = [
   {
     id: "submit-assessment",
     number: 9,
-    title: "Submit the assessment",
-    summary: "The signed assessment moves to supervisor review and becomes part of the client Chart.",
+    title: "Submit for supervisor review",
     points: [
-      "The supervisor reviews the assessment and returns unclear or incomplete work to the assessor.",
-      "After an accepted decision, verified assessment data feeds the Chart and Meet the Client handoff.",
-      "Files remain attached to the workspace and Activity preserves who changed the record and when.",
+      "The supervisor reviews the signed assessment and returns anything that needs correction.",
+      "After an accepted decision, verified data feeds the Chart and Meet the Client handoff.",
+      "Files remain in the workspace and Activity records who changed the record and when.",
     ],
     rule: "The assessor documents and signs the assessment. The supervisor makes the admission decision.",
     screenshots: [{
@@ -429,17 +405,8 @@ export default function PipelineDemoCenter({
   return (
     <main ref={scrollContainerRef} data-demo-center="true" className={`h-full min-h-0 overflow-y-auto text-[#171a18] ${showingHandoff ? "bg-white" : "bg-[#f4f7f5]"}`}>
       <div className={`mx-auto w-full pb-14 ${showingHandoff ? "max-w-[1320px] px-4 pt-3 sm:px-6 lg:px-8" : "max-w-[1540px] px-4 pt-5 sm:px-6 lg:px-8 lg:pt-7"}`}>
-        <header className={showingHandoff ? "border-b border-[#dfe4e1] bg-white" : "border border-[#c8d3cf] bg-white"}>
-          {!showingHandoff ? <div className="px-5 py-4 sm:px-7">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 border border-[#9fc6b9] bg-[#eaf5f1] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.11em] text-[#0b6d5b]"><FlaskConical size={12} /> Synthetic data</span>
-                <span className={`border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.09em] ${environment.writable ? "border-[#bdd4cc] bg-[#f3f8f6] text-[#42665b]" : "border-[#dfca97] bg-[#fff8e8] text-[#825a10]"}`}>{environment.label}</span>
-              </div>
-              <h1 className="mt-2 text-[24px] font-semibold tracking-[-0.035em]">Pipeline training</h1>
-            </div>
-          </div> : null}
-          <div className={`flex min-w-0 items-end overflow-x-auto ${showingHandoff ? "gap-1 bg-white px-0" : "border-t border-[#d8dfdc] bg-[#edf2f0] px-3 pt-2"}`} role="tablist" aria-label="Demo Center sections">
+        <header className="border-b border-[#d8dfdc] bg-white">
+          <div className={`flex min-w-0 items-end overflow-x-auto ${showingHandoff ? "gap-1 px-0" : "bg-[#edf2f0] px-3 pt-2"}`} role="tablist" aria-label="Demo Center sections">
             <DemoTab active={view === "presentation"} label="Presentation" onClick={() => selectView("presentation")} />
             <DemoTab active={view === "journey"} label="Referral journey" onClick={() => selectView("journey")} />
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => selectView("lab")} />
@@ -448,7 +415,7 @@ export default function PipelineDemoCenter({
         </header>
 
         {error ? <div role="alert" className="mt-4 border-l-4 border-[#b95649] bg-[#fff2ef] px-4 py-3 text-[11px] font-bold text-[#8c3d33]">{error}</div> : null}
-        {!environment.writable ? <div className="mt-4 border border-[#dfca97] bg-[#fff9e9] px-4 py-3 text-[11px] leading-5 text-[#765817]"><strong>Synthetic writes are locked.</strong> {environment.reason}</div> : null}
+        {!environment.writable && (view === "journey" || view === "lab") ? <div className="mt-4 border border-[#dfca97] bg-[#fff9e9] px-4 py-3 text-[11px] leading-5 text-[#765817]"><strong>Practice records are read only.</strong> {environment.reason}</div> : null}
 
         {view === "presentation" ? (
           <PresentationDeck
@@ -505,71 +472,61 @@ function PresentationDeck({
   const slide = presentationSlides[slideIndex] ?? presentationSlides[0];
   const isLast = slideIndex === presentationSlides.length - 1;
   const hasSupportingVisual = Boolean(slide.graphic || slide.screenshots?.length);
+
+  useEffect(() => {
+    for (const presentationSlide of presentationSlides) {
+      for (const screenshot of presentationSlide.screenshots ?? []) {
+        const preload = new window.Image();
+        preload.src = toPipelinePath(screenshot.src);
+      }
+    }
+  }, []);
+
   const selectSlide = (index: number) => {
     setSlideIndex(Math.max(0, Math.min(presentationSlides.length - 1, index)));
     onSlideChange();
   };
 
   return (
-    <section className="mt-5 grid min-h-[620px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[230px_minmax(0,1fr)]">
-      <aside className="border-b border-[#d8dfdc] bg-[#eef3f1] p-3 lg:max-h-[720px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-4">
+    <section className="mt-3 grid min-h-[620px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[230px_minmax(0,1fr)]">
+      <aside className="border-b border-[#d8dfdc] bg-[#eef3f1] p-3 lg:max-h-[760px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-4">
         <nav aria-label="Presentation slides" className="flex gap-1 overflow-x-auto lg:block">
           {presentationSlides.map((item, index) => (
             <button key={item.number} type="button" onClick={() => selectSlide(index)} aria-current={index === slideIndex ? "step" : undefined} className={`grid min-h-[50px] w-[176px] shrink-0 grid-cols-[24px_minmax(0,1fr)] items-center gap-2 border-l-2 px-3 text-left lg:mb-1 lg:w-full ${index === slideIndex ? "border-[#0f8b73] bg-white text-[#20302b]" : "border-transparent text-[#63706b] hover:bg-white/70"}`}>
-              <span className="text-[9px] font-black tabular-nums">{String(item.number).padStart(2, "0")}</span>
-              <span className="text-[11px] font-black leading-4">{item.title}</span>
+              <span className="text-[10px] font-bold tabular-nums">{String(item.number).padStart(2, "0")}</span>
+              <span className="text-[11px] font-bold leading-4">{item.title}</span>
             </button>
           ))}
         </nav>
       </aside>
       <div className="flex min-w-0 flex-col">
         <article aria-label={`Presentation slide ${slide.number}`} className="flex flex-1 flex-col px-5 py-7 sm:px-8 lg:px-10 lg:py-9 xl:px-12">
-          <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#0c705f]">{slide.number} / {presentationSlides.length}</div>
-          <h2 className="mt-2 max-w-[900px] text-[30px] font-semibold leading-9 tracking-[-0.035em] text-[#1c2421] sm:text-[36px] sm:leading-[42px]">{slide.title}</h2>
-          <p className="mt-3 max-w-[840px] text-[15px] font-medium leading-6 text-[#58645f]">{slide.summary}</p>
-          {slide.flow ? <PresentationFlow steps={slide.flow} /> : null}
+          <div className="text-[10px] font-bold uppercase tracking-[0.09em] text-[#0c705f]">Step {slide.number} of {presentationSlides.length}</div>
+          <h2 className="mt-2 max-w-[900px] text-[28px] font-semibold leading-9 tracking-[-0.035em] text-[#1c2421] sm:text-[32px] sm:leading-[38px]">{slide.title}</h2>
           <div className={hasSupportingVisual ? "mt-6 grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(250px,0.72fr)_minmax(440px,1.28fr)]" : "mt-6 max-w-[920px]"}>
             <div className="min-w-0">
               <ul className="border-y border-[#d9dfdc]">
-                {slide.points.map((point) => <li key={point} className="grid grid-cols-[20px_minmax(0,1fr)] items-start border-b border-[#e1e5e3] py-3 last:border-b-0"><span className="mt-[7px] h-1.5 w-1.5 bg-[#0f8b73]" aria-hidden="true" /><span className="text-[12px] font-semibold leading-5 text-[#39423e]">{point}</span></li>)}
+                {slide.points.map((point, index) => <li key={point} className="grid grid-cols-[28px_minmax(0,1fr)] items-start border-b border-[#e1e5e3] py-3 last:border-b-0"><span className="pt-0.5 text-[10px] font-bold tabular-nums text-[#0c705f]">{index + 1}</span><span className="text-[12px] font-semibold leading-5 text-[#39423e]">{point}</span></li>)}
               </ul>
               {slide.sections ? <ol className="mt-5 grid grid-cols-2 border-t border-[#d5ddda]">{slide.sections.map((section, index) => <li key={section} className="flex min-h-9 items-center gap-2 border-b border-[#e0e5e2] py-1.5 pr-2"><span className="text-[8px] font-black tabular-nums text-[#0c705f]">{String(index + 1).padStart(2, "0")}</span><span className="text-[10px] font-bold leading-4 text-[#34413c]">{section}</span></li>)}</ol> : null}
               {slide.rule ? <p className="mt-5 border-l-[3px] border-[#0f8b73] bg-[#f0f6f4] px-4 py-3 text-[11px] font-bold leading-5 text-[#355047]">{slide.rule}</p> : null}
-              {slide.action ? <Link href={toPipelinePath(slide.action.href)} className="mt-5 inline-flex h-11 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white hover:bg-[#0b6d5b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">{slide.action.label}<ArrowRight size={14} aria-hidden="true" /></Link> : null}
+              {slide.action ? <Link href={toPipelinePath(slide.action.href)} className="mt-5 inline-flex h-11 items-center bg-[#0f8b73] px-5 text-[11px] font-bold text-white hover:bg-[#0b6d5b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">{slide.action.label}</Link> : null}
             </div>
             {hasSupportingVisual ? <PresentationVisual key={slide.number} slide={slide} /> : null}
           </div>
         </article>
         <footer className="flex items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-4 sm:px-8">
-          <button type="button" disabled={slideIndex === 0} onClick={() => selectSlide(slideIndex - 1)} className="inline-flex h-10 items-center gap-2 px-2 text-[10px] font-black text-[#5d6863] disabled:invisible"><ArrowLeft size={13} /> Previous</button>
-          {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b]">Open referral journey <ArrowRight size={13} /></button> : <button type="button" onClick={() => selectSlide(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[10px] font-black text-white">Next <ArrowRight size={13} /></button>}
+          <button type="button" disabled={slideIndex === 0} onClick={() => selectSlide(slideIndex - 1)} className="inline-flex h-10 items-center px-2 text-[10px] font-bold text-[#5d6863] disabled:invisible">Previous</button>
+          {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center bg-[#0f8b73] px-5 text-[10px] font-bold text-white hover:bg-[#0b6d5b]">Start the referral journey</button> : <button type="button" onClick={() => selectSlide(slideIndex + 1)} className="inline-flex h-10 items-center bg-[#111111] px-5 text-[10px] font-bold text-white">Next</button>}
         </footer>
       </div>
     </section>
   );
 }
 
-function PresentationFlow({ steps }: { steps: readonly string[] }) {
-  return (
-    <div aria-label="Referral lifecycle" className="mt-6 overflow-x-auto border-y border-[#d9dfdc] py-5">
-      <div className="flex min-w-[720px] items-center">
-        {steps.map((step, index) => (
-          <div key={step} className="contents">
-            <div className="flex min-w-0 flex-1 flex-col items-center text-center">
-              <span className="flex h-8 w-8 items-center justify-center border-2 border-[#0f8b73] bg-white text-[9px] font-black text-[#0c705f]">{index + 1}</span>
-              <span className="mt-2 max-w-[110px] text-[10px] font-black leading-4 text-[#34413c]">{step}</span>
-            </div>
-            {index < steps.length - 1 ? <ArrowRight size={16} className="shrink-0 text-[#8aa59c]" aria-hidden="true" /> : null}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function PresentationVisual({ slide }: { slide: PresentationSlide }) {
   if (slide.screenshots?.length) return <PresentationScreenshots screenshots={slide.screenshots} />;
-  if (slide.graphic) return <PresentationGraphic graphic={slide.graphic} />;
+  if (slide.graphic) return <AssignedWorkExample />;
   return null;
 }
 
@@ -578,17 +535,14 @@ function PresentationScreenshots({ screenshots }: { screenshots: readonly Presen
   const selected = screenshots[selectedIndex] ?? screenshots[0];
 
   return (
-    <figure className="min-w-0 border border-[#cbd5d1] bg-[#f4f7f5]">
-      <div className="flex min-h-10 items-center justify-between border-b border-[#d7dfdb] px-3">
-        {screenshots.length > 1 ? (
-          <div role="tablist" aria-label="Slide screenshots" className="flex self-stretch">
-            {screenshots.map((screenshot, index) => (
-              <button key={screenshot.src} type="button" role="tab" aria-selected={index === selectedIndex} onClick={() => setSelectedIndex(index)} className={`border-b-2 px-3 text-[10px] font-black ${index === selectedIndex ? "border-[#0f8b73] bg-white text-[#1f342d]" : "border-transparent text-[#6a746f] hover:text-[#26332e]"}`}>{screenshot.label}</button>
-            ))}
-          </div>
-        ) : <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#0c705f]">{selected.label}</span>}
-        <span className="text-[8px] font-black uppercase tracking-[0.08em] text-[#75807b]">Synthetic demo</span>
-      </div>
+    <figure className="min-w-0 border border-[#cbd5d1] bg-white">
+      {screenshots.length > 1 ? (
+        <div role="tablist" aria-label="Slide screenshots" className="flex min-h-10 border-b border-[#d7dfdb] bg-[#f4f7f5]">
+          {screenshots.map((screenshot, index) => (
+            <button key={screenshot.src} type="button" role="tab" aria-selected={index === selectedIndex} onClick={() => setSelectedIndex(index)} className={`border-b-2 px-4 text-[10px] font-bold ${index === selectedIndex ? "border-[#0f8b73] bg-white text-[#1f342d]" : "border-transparent text-[#6a746f] hover:text-[#26332e]"}`}>{screenshot.label}</button>
+          ))}
+        </div>
+      ) : null}
       <div className="relative aspect-video overflow-hidden bg-[#e6ece9]">
         <Image
           key={selected.src}
@@ -601,91 +555,19 @@ function PresentationScreenshots({ screenshots }: { screenshots: readonly Presen
           className="object-cover object-top"
         />
       </div>
-      <figcaption className="border-t border-[#d7dfdb] bg-white px-3 py-2.5 text-[10px] font-semibold leading-4 text-[#56615c]">{selected.caption}</figcaption>
+      <figcaption className="border-t border-[#d7dfdb] px-3 py-2.5 text-[10px] font-medium leading-4 text-[#56615c]">{selected.caption}</figcaption>
     </figure>
   );
 }
 
-function PresentationGraphic({ graphic }: { graphic: NonNullable<PresentationSlide["graphic"]> }) {
-  if (graphic === "assignments") {
-    return (
-      <section aria-label="Assessor assigned work" className="border border-[#cbd5d1] bg-[#f7f9f8]">
-        <div className="flex items-center justify-between border-b border-[#d7dfdb] bg-white px-4 py-3">
-          <div><div className="text-[10px] font-black text-[#27322d]">Your work</div><div className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-[#74807b]">Synthetic example</div></div>
-          <span className="border border-[#b9d5cc] bg-[#e8f4f0] px-2 py-1 text-[8px] font-black text-[#0c705f]">Assigned to you</span>
-        </div>
-        <div className="divide-y divide-[#dfe5e2] px-4">
-          <AssignmentRow name="Jordan Practice" detail="Intake review due today" status="Needs review" />
-          <AssignmentRow name="Taylor Example" detail="Assessment tomorrow at 10:00 AM" status="Scheduled" />
-          <AssignmentRow name="Morgan Training" detail="Assessment draft saved" status="In progress" />
-        </div>
-      </section>
-    );
-  }
-
-  if (graphic === "navigation") {
-    return (
-      <section aria-label="Pipeline screen map" className="border border-[#cbd5d1] bg-[#f7f9f8] p-5">
-        <div className="grid grid-cols-2 gap-px border border-[#d2dbd7] bg-[#d2dbd7]">
-          <GraphicCell icon={Home} title="Home" detail="What needs my attention?" />
-          <GraphicCell icon={FolderOpen} title="Workspaces" detail="Where is this referral?" />
-          <GraphicCell icon={CalendarDays} title="Calendar" detail="When is the assessment?" />
-          <GraphicCell icon={UserRound} title="Clients" detail="What follows this person?" />
-        </div>
-      </section>
-    );
-  }
-
-  if (graphic === "readiness") {
-    return (
-      <section aria-label="Lifecycle and attention model" className="border border-[#cbd5d1] bg-[#f7f9f8] p-5">
-        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#68736e]">One lifecycle</div>
-        <div className="mt-3 flex items-center gap-2">
-          <GraphicPill label="Intake" active />
-          <ArrowRight size={15} className="shrink-0 text-[#81938c]" aria-hidden="true" />
-          <GraphicPill label="Assessment" />
-          <ArrowRight size={15} className="shrink-0 text-[#81938c]" aria-hidden="true" />
-          <GraphicPill label="Decision" />
-        </div>
-        <div className="mt-6 border-t border-[#d4dcd8] pt-5">
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#68736e]">Attention can overlap</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {["Missing document", "Assessment due", "Blocked", "Needs review"].map((label) => <span key={label} className="border border-[#c8d3ce] bg-white px-2.5 py-1.5 text-[9px] font-black text-[#44514b]">{label}</span>)}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (graphic === "decision") {
-    return (
-      <section aria-label="Admission decision path" className="border border-[#cbd5d1] bg-[#f7f9f8] p-5">
-        <div className="flex items-center gap-3">
-          <GraphicStep icon={ClipboardCheck} label="Assessor recommendation" />
-          <ArrowRight size={16} className="shrink-0 text-[#81938c]" aria-hidden="true" />
-          <GraphicStep icon={ShieldCheck} label="Supervisor review" emphasis />
-        </div>
-        <div className="ml-auto mt-5 grid w-[72%] grid-cols-2 gap-2 border-t border-[#cbd5d1] pt-5">
-          <div className="flex items-center gap-2 border-l-[3px] border-[#0f8b73] bg-white px-3 py-3 text-[10px] font-black text-[#245447]"><CheckCircle2 size={15} aria-hidden="true" />Accepted</div>
-          <div className="flex items-center gap-2 border-l-[3px] border-[#a65b51] bg-white px-3 py-3 text-[10px] font-black text-[#744039]"><FileText size={15} aria-hidden="true" />Declined + reason</div>
-        </div>
-      </section>
-    );
-  }
-
+function AssignedWorkExample() {
   return (
-    <section aria-label="Trusted record evidence" className="border border-[#cbd5d1] bg-[#f7f9f8] p-5">
-      <div className="flex items-center gap-2">
-        <GraphicStep icon={FileCheck2} label="Source files" />
-        <ArrowRight size={15} className="shrink-0 text-[#81938c]" aria-hidden="true" />
-        <GraphicStep icon={ClipboardCheck} label="Confirmed data" />
-        <ArrowRight size={15} className="shrink-0 text-[#81938c]" aria-hidden="true" />
-        <GraphicStep icon={ShieldCheck} label="Signed assessment" emphasis />
-      </div>
-      <div className="mt-5 grid grid-cols-3 gap-px border border-[#d2dbd7] bg-[#d2dbd7]">
-        <GraphicCell icon={FileText} title="Chart" detail="Clinical record" compact />
-        <GraphicCell icon={FolderOpen} title="Files" detail="Source evidence" compact />
-        <GraphicCell icon={Activity} title="Activity" detail="Change history" compact />
+    <section aria-label="Assessor assigned work" className="border border-[#cbd5d1] bg-white">
+      <div className="border-b border-[#d7dfdb] px-4 py-3 text-[11px] font-bold text-[#27322d]">Assigned work</div>
+      <div className="divide-y divide-[#dfe5e2] px-4">
+        <AssignmentRow name="Jordan Practice" detail="Intake review due today" status="Needs review" />
+        <AssignmentRow name="Taylor Example" detail="Assessment tomorrow at 10:00 AM" status="Scheduled" />
+        <AssignmentRow name="Morgan Training" detail="Assessment draft saved" status="In progress" />
       </div>
     </section>
   );
@@ -694,28 +576,10 @@ function PresentationGraphic({ graphic }: { graphic: NonNullable<PresentationSli
 function AssignmentRow({ name, detail, status }: { name: string; detail: string; status: string }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-white py-3">
-      <div className="min-w-0"><div className="truncate text-[11px] font-black text-[#27322d]">{name}</div><div className="mt-1 truncate text-[9px] font-semibold text-[#68736e]">{detail}</div></div>
-      <span className="text-[8px] font-black uppercase tracking-[0.06em] text-[#0c705f]">{status}</span>
+      <div className="min-w-0"><div className="truncate text-[11px] font-bold text-[#27322d]">{name}</div><div className="mt-1 truncate text-[9px] font-medium text-[#68736e]">{detail}</div></div>
+      <span className="text-[9px] font-bold text-[#0c705f]">{status}</span>
     </div>
   );
-}
-
-function GraphicCell({ icon: Icon, title, detail, compact = false }: { icon: LucideIcon; title: string; detail: string; compact?: boolean }) {
-  return (
-    <div className={`bg-white ${compact ? "px-3 py-3" : "px-4 py-5"}`}>
-      <Icon size={compact ? 15 : 18} className="text-[#0f8b73]" aria-hidden="true" />
-      <div className="mt-2 text-[11px] font-black text-[#27322d]">{title}</div>
-      <div className="mt-1 text-[9px] font-semibold leading-4 text-[#68736e]">{detail}</div>
-    </div>
-  );
-}
-
-function GraphicPill({ label, active = false }: { label: string; active?: boolean }) {
-  return <span className={`flex min-h-10 flex-1 items-center justify-center border px-2 text-center text-[9px] font-black ${active ? "border-[#0f8b73] bg-[#e5f3ee] text-[#0c705f]" : "border-[#c8d3ce] bg-white text-[#44514b]"}`}>{label}</span>;
-}
-
-function GraphicStep({ icon: Icon, label, emphasis = false }: { icon: LucideIcon; label: string; emphasis?: boolean }) {
-  return <div className={`flex min-h-[76px] flex-1 flex-col items-center justify-center border px-3 text-center ${emphasis ? "border-[#0f8b73] bg-[#e5f3ee] text-[#0c705f]" : "border-[#c8d3ce] bg-white text-[#44514b]"}`}><Icon size={18} aria-hidden="true" /><span className="mt-2 text-[9px] font-black leading-4">{label}</span></div>;
 }
 
 function ReferralJourney({ chapter, chapterIndex, launchingId, canWrite, onSelect, onLaunch }: { chapter: DemoChapter; chapterIndex: number; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onSelect: (index: number) => void; onLaunch: (chapter: DemoChapter) => void }) {
