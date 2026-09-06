@@ -33,11 +33,18 @@ test.describe("Pipeline Demo Environment", () => {
 
     const presentationTab = page.getByRole("tab", { name: "Presentation" });
     await expect(presentationTab).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: "One referral, one record" })).toBeVisible();
-    await expect(page.getByText("Email + packet", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Follow one referral" })).toBeVisible();
+    await expect(page.getByText("Email received", { exact: true })).toBeVisible();
 
-    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("button", { name: /05 Accepted referral/ }).click();
-    await expect(page.getByRole("heading", { name: "Accepted referral" })).toBeVisible();
+    const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
+    await slideNavigation.getByRole("button", { name: /07 Complete the assessment/ }).click();
+    await expect(page.getByRole("heading", { name: "Complete the assessment" })).toBeVisible();
+    for (const section of ["Client & referral", "Placement", "History", "Clinical", "Function", "Legal", "Medication", "Substance use", "Behavior & safety", "Physical health", "Support & goals", "Review"]) {
+      await expect(page.getByText(section, { exact: true })).toBeVisible();
+    }
+
+    await slideNavigation.getByRole("button", { name: /11 Keep the record trustworthy/ }).click();
+    await expect(page.getByRole("heading", { name: "Keep the record trustworthy" })).toBeVisible();
     await page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
     await page.getByRole("button", { name: "Open referral journey" }).click();
 
@@ -153,7 +160,7 @@ test.describe("Pipeline Demo Environment", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/training/demo");
     await expect(page.getByRole("heading", { name: "Pipeline training" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "One referral, one record" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Follow one referral" })).toBeVisible();
     await page.getByRole("tab", { name: "Referral journey" }).click();
     await expect(page.getByRole("heading", { name: "Create the referral" })).toBeVisible();
     await expect(page.getByText("Attach the source packet", { exact: true })).toBeVisible();

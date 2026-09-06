@@ -44,6 +44,8 @@ type PresentationSlide = {
   summary: string;
   points: readonly string[];
   flow?: readonly string[];
+  sections?: readonly string[];
+  rule?: string;
 };
 
 type DemoChapter = {
@@ -61,34 +63,142 @@ type DemoChapter = {
 const presentationSlides: readonly PresentationSlide[] = [
   {
     number: 1,
-    title: "One referral, one record",
-    summary: "Pipeline keeps the packet, intake, assessment, decision, Chart, and handoff connected.",
-    points: ["The referral workspace is the source record", "Each role sees the work it needs", "Files and activity stay attached to the referral"],
-    flow: ["Email + packet", "Intake", "Assessment", "Decision", "Chart + handoff"],
+    title: "Follow one referral",
+    summary: "The workspace holds one referral episode. The client profile is the durable record for the person.",
+    points: [
+      "Create one workspace for each referral episode.",
+      "Keep the packet, intake, assessment, decision, Chart, files, and activity connected to that workspace.",
+      "Use the client profile when you need information that continues across referral episodes.",
+    ],
+    flow: ["Email received", "Referral created", "Packet review", "Assessment", "Post-assessment", "Accepted or declined"],
+    rule: "The referral can close. The client record remains.",
   },
   {
     number: 2,
-    title: "Intake",
-    summary: "Create the referral from the source packet before assessment work begins.",
-    points: ["Attach the packet first", "Verify identity, source, community, and owner", "Carry supplied medication information forward for assessment verification"],
+    title: "Know where to work",
+    summary: "Each main screen answers a different question.",
+    points: [
+      "Home shows your assignments, drafts, upcoming assessments, and work that needs action.",
+      "Workspaces holds every referral episode and lets you filter by month, community, owner, or stage.",
+      "Calendar holds appointments and follow-up dates. Clients holds the durable profile for each person.",
+      "Search gets you to a known workspace or client quickly; verify identity before changing anything.",
+    ],
   },
   {
     number: 3,
-    title: "Assessment",
-    summary: "Schedule the interview, then complete all 12 sections under the assigned assessor.",
-    points: ["Inherited intake facts remain visible", "Conditional questions appear only when relevant", "Autosave protects the draft; signature remains a deliberate action"],
+    title: "Create the referral once",
+    summary: "Start with the source packet, then establish the identity and ownership of the work.",
+    points: [
+      "Upload the initial packet and supporting files at the top of Intake.",
+      "Verify the name, date of birth, referral source, received date, county, and contacts.",
+      "Set the community and owner, then enter the supplied medication information.",
+      "If you stop, resume the saved draft from Home instead of starting another referral.",
+    ],
+    rule: "A late document belongs in the existing workspace. It does not create another referral.",
   },
   {
     number: 4,
-    title: "Supervisor review",
-    summary: "Review the evidence, unresolved conflicts, completeness, and recommendation before the decision.",
-    points: ["Prioritize exceptions and overdue work", "Return unclear documentation for correction", "Record the admission decision in the referral workspace"],
+    title: "Review the packet",
+    summary: "Extraction proposes values. A person confirms what the record can actually support.",
+    points: [
+      "Compare each extracted value with its source before confirming it.",
+      "Correct inaccurate values, preserve conflicting sources, and leave unsupported facts missing.",
+      "Check required documents and create a requirement for anything still needed.",
+      "Finish packet review only when identity, routing, medication context, and follow-up needs are clear.",
+    ],
+    rule: "Extraction can fill a blank. It cannot silently replace a human-confirmed value.",
   },
   {
     number: 5,
-    title: "Accepted referral",
-    summary: "Use the signed assessment to prepare the Chart and the receiving-community handoff.",
-    points: ["Review the complete Chart", "Send Meet the Client with the approved admission files", "Prepare the accepted record for EHR entry"],
+    title: "Move it when it is ready",
+    summary: "The lifecycle stage says where the referral is. Work queues say why it needs attention.",
+    points: [
+      "A workspace has one stage, but it may appear in several queues such as Assessment due, Missing documents, and Blocked.",
+      "An owner is required before the referral workflow starts; an initial packet is required before packet review.",
+      "Packet review must be complete before Assessment, and the assessment must be complete before Post-assessment.",
+      "Requirements carry their own owner, due date, next action, evidence, and blocker state.",
+    ],
+  },
+  {
+    number: 6,
+    title: "Schedule the assessment",
+    summary: "Schedule from the workspace or the Calendar queue, then confirm the event appears for the assigned assessor.",
+    points: [
+      "Set the date, time, duration, and method: Zoom, in person, phone, or record review.",
+      "Add the Zoom link, location, or other appointment detail and check for conflicts.",
+      "Use Calendar to reschedule or record a cancellation or no-show.",
+      "Changing an appointment changes the schedule, not the referral outcome.",
+    ],
+  },
+  {
+    number: 7,
+    title: "Complete the assessment",
+    summary: "Verify inherited facts, then document the interview in the section where each finding belongs.",
+    points: [
+      "Use section navigation to move in order or return directly to a section that needs work.",
+      "Conditional follow-up fields appear only when the preceding answer makes them relevant.",
+      "Keep client report, collateral information, supplied records, and direct observation distinguishable.",
+    ],
+    sections: [
+      "Client & referral",
+      "Placement",
+      "History",
+      "Clinical",
+      "Function",
+      "Legal",
+      "Medication",
+      "Substance use",
+      "Behavior & safety",
+      "Physical health",
+      "Support & goals",
+      "Review",
+    ],
+  },
+  {
+    number: 8,
+    title: "Save, review, and sign",
+    summary: "Autosave protects the draft. Signature is the point at which the assessor closes the clinical record.",
+    points: [
+      "Use Answer Help only when a narrative field needs structure; it does not supply the clinical answer.",
+      "Confirm section saves have completed before leaving, especially after reconnecting or resolving a version warning.",
+      "Review missing and conflicting information before signing. Required omissions block signature.",
+      "After signature, record later information as an addendum rather than rewriting the signed assessment.",
+    ],
+  },
+  {
+    number: 9,
+    title: "Supervisor review and decision",
+    summary: "The assessor's recommendation informs the decision; it is not the decision itself.",
+    points: [
+      "The supervisor reviews the assessment, source evidence, conflicts, completeness, and community fit.",
+      "Unclear or unsupported work returns for correction before disposition.",
+      "A declined referral requires a recorded reason.",
+      "An accepted referral must have an accepted decision and its blocking move-in requirements resolved.",
+    ],
+  },
+  {
+    number: 10,
+    title: "Complete an accepted handoff",
+    summary: "The signed assessment feeds the Chart, receiving-community summary, and EHR preparation.",
+    points: [
+      "Review the complete Chart against the verified intake and signed assessment.",
+      "Prepare Meet the Client and select only the approved admission packet files.",
+      "Verify the receiving community and authorized recipient before sending.",
+      "Monitor EHR handoff separately: accepted, queued, sent, and failed are different states.",
+    ],
+    rule: "Do not treat a request to send as proof that delivery or EHR creation finished.",
+  },
+  {
+    number: 11,
+    title: "Keep the record trustworthy",
+    summary: "Most recovery work belongs in the existing record, with the original evidence and activity preserved.",
+    points: [
+      "Verify identity before linking a client or editing a workspace; a similar name is not enough.",
+      "Resolve newer-version warnings instead of overwriting another person's work.",
+      "Keep missing, unreviewed, stale, conflicting, failed, and unassigned states visible.",
+      "Use Files for evidence and Activity to see who changed the record and when.",
+    ],
+    rule: "When the presentation ends, use Referral journey to practice the same sequence in the application.",
   },
 ] as const;
 
@@ -322,10 +432,10 @@ function PresentationDeck({ onStartJourney }: { onStartJourney: () => void }) {
 
   return (
     <section className="mt-5 grid min-h-[540px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[230px_minmax(0,1fr)]">
-      <aside className="border-b border-[#d8dfdc] bg-[#eef3f1] p-3 lg:border-b-0 lg:border-r lg:p-4">
+      <aside className="border-b border-[#d8dfdc] bg-[#eef3f1] p-3 lg:max-h-[720px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-4">
         <nav aria-label="Presentation slides" className="flex gap-1 overflow-x-auto lg:block">
           {presentationSlides.map((item, index) => (
-            <button key={item.number} type="button" onClick={() => setSlideIndex(index)} aria-current={index === slideIndex ? "step" : undefined} className={`grid min-h-[56px] w-[176px] shrink-0 grid-cols-[24px_minmax(0,1fr)] items-center gap-2 border-l-2 px-3 text-left lg:mb-1 lg:w-full ${index === slideIndex ? "border-[#0f8b73] bg-white text-[#20302b]" : "border-transparent text-[#63706b] hover:bg-white/70"}`}>
+            <button key={item.number} type="button" onClick={() => setSlideIndex(index)} aria-current={index === slideIndex ? "step" : undefined} className={`grid min-h-[50px] w-[176px] shrink-0 grid-cols-[24px_minmax(0,1fr)] items-center gap-2 border-l-2 px-3 text-left lg:mb-1 lg:w-full ${index === slideIndex ? "border-[#0f8b73] bg-white text-[#20302b]" : "border-transparent text-[#63706b] hover:bg-white/70"}`}>
               <span className="text-[9px] font-black tabular-nums">{String(item.number).padStart(2, "0")}</span>
               <span className="text-[11px] font-black leading-4">{item.title}</span>
             </button>
@@ -337,10 +447,12 @@ function PresentationDeck({ onStartJourney }: { onStartJourney: () => void }) {
           <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#0c705f]">{slide.number} / {presentationSlides.length}</div>
           <h2 className="mt-3 max-w-[900px] text-[30px] font-semibold leading-9 tracking-[-0.035em] text-[#1c2421] sm:text-[38px] sm:leading-[44px]">{slide.title}</h2>
           <p className="mt-4 max-w-[820px] text-[16px] font-medium leading-7 text-[#58645f]">{slide.summary}</p>
-          {slide.flow ? <div className="mt-8 grid gap-px overflow-hidden border border-[#cbd5d1] bg-[#cbd5d1] sm:grid-cols-5">{slide.flow.map((item, index) => <div key={item} className="flex min-h-[82px] items-center gap-3 bg-[#f7faf9] px-4"><span className="flex h-7 w-7 shrink-0 items-center justify-center bg-[#dceee8] text-[9px] font-black text-[#0c705f]">{index + 1}</span><span className="text-[11px] font-black leading-4 text-[#34413c]">{item}</span></div>)}</div> : null}
-          <div className="mt-8 max-w-[920px] border-y border-[#d9dfdc]">
-            {slide.points.map((point, index) => <div key={point} className="grid grid-cols-[30px_minmax(0,1fr)] items-center border-b border-[#e1e5e3] py-4 last:border-b-0"><span className="text-[10px] font-black text-[#0c705f]">{index + 1}</span><span className="text-[13px] font-bold leading-5 text-[#39423e]">{point}</span></div>)}
-          </div>
+          {slide.flow ? <div className="mt-7 grid gap-px overflow-hidden border border-[#cbd5d1] bg-[#cbd5d1] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{slide.flow.map((item, index) => <div key={item} className="flex min-h-[66px] items-center gap-3 bg-[#f7faf9] px-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center bg-[#dceee8] text-[9px] font-black text-[#0c705f]">{index + 1}</span><span className="text-[10px] font-black leading-4 text-[#34413c]">{item}</span></div>)}</div> : null}
+          <ul className="mt-7 max-w-[920px] border-y border-[#d9dfdc]">
+            {slide.points.map((point) => <li key={point} className="grid grid-cols-[22px_minmax(0,1fr)] items-start border-b border-[#e1e5e3] py-3.5 last:border-b-0"><span className="mt-[7px] h-1.5 w-1.5 bg-[#0f8b73]" aria-hidden="true" /><span className="text-[13px] font-semibold leading-5 text-[#39423e]">{point}</span></li>)}
+          </ul>
+          {slide.sections ? <ol className="mt-6 grid max-w-[920px] gap-px border border-[#d5ddda] bg-[#d5ddda] sm:grid-cols-2 lg:grid-cols-3">{slide.sections.map((section, index) => <li key={section} className="flex min-h-11 items-center gap-3 bg-[#f8faf9] px-3 py-2"><span className="text-[9px] font-black tabular-nums text-[#0c705f]">{String(index + 1).padStart(2, "0")}</span><span className="text-[11px] font-bold text-[#34413c]">{section}</span></li>)}</ol> : null}
+          {slide.rule ? <p className="mt-6 max-w-[920px] border-l-[3px] border-[#0f8b73] bg-[#f0f6f4] px-4 py-3 text-[12px] font-bold leading-5 text-[#355047]">{slide.rule}</p> : null}
         </article>
         <footer className="flex items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-4 sm:px-8">
           <button type="button" disabled={slideIndex === 0} onClick={() => setSlideIndex((current) => Math.max(0, current - 1))} className="inline-flex h-10 items-center gap-2 px-2 text-[10px] font-black text-[#5d6863] disabled:invisible"><ArrowLeft size={13} /> Previous</button>
