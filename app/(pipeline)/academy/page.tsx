@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import PipelineDeveloperAcademy from "@/components/pipeline/PipelineDeveloperAcademy";
 import { getDeveloperAcademyOwner } from "@/lib/academy/academy-access";
 import { emptyAcademyProgress, type AcademyProgressRecord } from "@/lib/academy/academy-progress-contract";
 import { getAcademyProgressRecord } from "@/lib/academy/academy-progress-store";
+import { getServerComponentRequestHeaders } from "@/lib/auth/server-component-request";
 
 export const metadata: Metadata = {
   title: "Developer Academy | AHS - Pipeline",
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AcademyPage() {
-  const owner = await getDeveloperAcademyOwner(new Headers(await headers()));
+  const owner = await getDeveloperAcademyOwner(await getServerComponentRequestHeaders());
   if (!owner) notFound();
 
   const progressIdentity = createHash("sha256")

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
+import { getServerComponentRequestHeaders } from "@/lib/auth/server-component-request";
 import { getAssessmentPracticeUser } from "@/lib/note-lab/note-lab-access";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function NoteLabPage() {
-  const user = await getAssessmentPracticeUser(new Headers(await headers()));
+  const user = await getAssessmentPracticeUser(await getServerComponentRequestHeaders());
   if (!user) notFound();
   redirect(toPipelinePath("/note-lab/practice"));
 }

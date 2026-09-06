@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import PipelineDemoCenter from "@/components/pipeline/training/PipelineDemoCenter";
+import { getServerComponentRequestHeaders } from "@/lib/auth/server-component-request";
 import { getPipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import { getOperatorTrainingUser } from "@/lib/training/operator-training-access";
 
@@ -13,8 +13,9 @@ export const metadata: Metadata = {
 };
 
 export default async function PipelineDemoPage() {
+  const requestHeaders = await getServerComponentRequestHeaders();
   const [user, environment] = await Promise.all([
-    getOperatorTrainingUser(new Headers(await headers())),
+    getOperatorTrainingUser(requestHeaders),
     Promise.resolve(getPipelineDemoEnvironment()),
   ]);
   if (!user || !environment.enabled) notFound();

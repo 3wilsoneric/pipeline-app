@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import AssessmentPracticeWorkspace from "@/components/pipeline/note-lab/AssessmentPracticeWorkspace";
+import { getServerComponentRequestHeaders } from "@/lib/auth/server-component-request";
 import { getAssessmentPracticeUser } from "@/lib/note-lab/note-lab-access";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AssessmentPracticePage() {
-  const user = await getAssessmentPracticeUser(new Headers(await headers()));
+  const user = await getAssessmentPracticeUser(await getServerComponentRequestHeaders());
   if (!user) notFound();
   return <AssessmentPracticeWorkspace traineeId={user.id} traineeName={firstName(user.name)} />;
 }

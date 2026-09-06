@@ -63,7 +63,6 @@ const rolePriority: PipelineRole[] = [
   "viewer",
 ];
 const noteLabReviewerClaimRole = "Pipeline.NoteLabReviewer";
-const verifiedUserHeaderName = "x-pipeline-verified-user";
 // Version the cookie when its authorization payload changes so a previously
 // broader session cannot survive a role-boundary deployment.
 const sessionCookieName = "pipeline_entra_session_v2";
@@ -551,50 +550,6 @@ export function canAccessPipeline(user: PipelineUser) {
 export function canAccessNoteLab(user: PipelineUser) {
   if (user.accessScope === "note_lab") return true;
   return user.roles.some((role) => role === "admin" || role === "assessment_coordinator" || role === "reviewer");
-}
-
-export function setVerifiedPipelineUserHeader(headers: Headers, user: PipelineUser) {
-  headers.set(verifiedUserHeaderName, encodeURIComponent(JSON.stringify({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    roles: user.roles,
-    accessScope: user.accessScope,
-    entraAppRoleAssigned: user.entraAppRoleAssigned === true,
-  } satisfies PipelineUser)));
-}
-
-export function clearVerifiedPipelineUserHeader(headers: Headers) {
-  headers.delete(verifiedUserHeaderName);
-}
-
-export function getVerifiedPipelineUserHeader(headers: Headers): PipelineUser | null {
-  const encoded = headers.get(verifiedUserHeaderName);
-  if (!encoded) return null;
-
-  try {
-    const parsed = JSON.parse(decodeURIComponent(encoded)) as Partial<PipelineUser>;
-    if (
-      typeof parsed.id !== "string" ||
-      typeof parsed.email !== "string" ||
-      typeof parsed.name !== "string" ||
-      !Array.isArray(parsed.roles) ||
-      (parsed.accessScope !== "pipeline" && parsed.accessScope !== "note_lab")
-    ) return null;
-
-    const roles = parsed.roles.filter((role): role is PipelineRole => rolePriority.includes(role as PipelineRole));
-    if (roles.length !== parsed.roles.length) return null;
-    return {
-      id: parsed.id,
-      email: parsed.email,
-      name: parsed.name,
-      roles,
-      accessScope: parsed.accessScope,
-      entraAppRoleAssigned: parsed.entraAppRoleAssigned === true,
-    };
-  } catch {
-    return null;
-  }
 }
 
 function accessScopeForClaimRoles(claimRoles: string[] | undefined): PipelineAccessScope {

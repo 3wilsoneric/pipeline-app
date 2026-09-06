@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import PipelineOperatorAcademy from "@/components/pipeline/PipelineOperatorAcademy";
+import { getServerComponentRequestHeaders } from "@/lib/auth/server-component-request";
 import { primaryOperatorRole } from "@/lib/training/operator-training-curriculum";
 import { getOperatorTrainingUser } from "@/lib/training/operator-training-access";
 import { emptyOperatorProgress, type OperatorProgressRecord } from "@/lib/training/operator-training-progress-contract";
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 export default async function TrainingPage() {
-  const user = await getOperatorTrainingUser(new Headers(await headers()));
+  const user = await getOperatorTrainingUser(await getServerComponentRequestHeaders());
   if (!user) notFound();
   const role = primaryOperatorRole(user.roles);
   const identity = createHash("sha256").update(user.id).digest("hex").slice(0, 16);
