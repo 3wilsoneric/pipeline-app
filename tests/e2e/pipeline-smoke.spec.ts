@@ -628,8 +628,13 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
   });
 
-  test("shows assigned referrals and scheduled assessments as distinct calendar events", async ({ page }) => {
+  test("keeps assignment history out of the calendar and schedules from the ready queue", async ({ page }) => {
     let schedulePayload: Record<string, unknown> | null = null;
+    await page.evaluate(async () => {
+      if (!("serviceWorker" in navigator)) return;
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    });
     await page.route("**/api/assessments/calendar-ready/schedule", async (route) => {
       schedulePayload = route.request().postDataJSON() as Record<string, unknown>;
       await route.fulfill({
@@ -652,8 +657,9 @@ test.describe("Referral home and packet canvas", () => {
         }),
       });
     });
-    await page.route("**/api/calendar/events?*", async (route) => {
+    await page.route("**/api/calendar/events**", async (route) => {
       const requestUrl = new URL(route.request().url());
+      expect(requestUrl.searchParams.get("include_assignments")).toBe("false");
       const from = requestUrl.searchParams.get("from") ?? new Date().toISOString().slice(0, 8) + "01";
       const to = requestUrl.searchParams.get("to") ?? from;
       const eventDate = from;
@@ -709,6 +715,8 @@ test.describe("Referral home and packet canvas", () => {
             nextAction: "schedule",
           }],
           unscheduledTotal: 1,
+          unscheduledHasMore: false,
+          assessors: [{ id: "playwright-user", name: "Playwright QA" }],
           scope: "team",
           viewer: { id: "playwright-user", name: "Playwright QA" },
           timezone: "America/Los_Angeles",
@@ -717,24 +725,25 @@ test.describe("Referral home and packet canvas", () => {
       });
     });
 
-    await page.getByRole("button", { name: "Open calendar", exact: true }).click();
+    await page.goto("/?screen=calendar");
     await expect(page.getByText("Team schedule", { exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Supervisor team week" })).toBeVisible();
-    await expect(page.getByText("1 assignment/follow-up", { exact: true })).toBeVisible();
     await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
+    await expect(page.getByText("Assigned Client", { exact: true })).toHaveCount(0);
 
     await page.getByRole("combobox", { name: "Filter calendar by assessor" }).selectOption({ label: "Playwright QA" });
     await expect(page.getByRole("region", { name: "Timed assessment week" })).toBeVisible();
-    await expect(page.getByText("Assigned Client", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Scheduled Client", { exact: true }).first()).toBeVisible();
-    await expect(page.locator('button[title^="Assigned Client - Referral assigned"]')).toHaveClass(/bg-\[#e8f5f1\]/);
     await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
-    await expect(page.getByRole("combobox", { name: "Filter calendar by event type" })).toContainText("Referral assignments");
+    await expect(page.getByRole("combobox", { name: "Filter calendar by event type" })).not.toContainText("Referral assignments");
     await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(4);
     await expect(page.getByRole("button", { name: "Open search" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    await page.getByRole("button", { name: /Ready to schedule\s+1/ }).click();
+    const queueDialog = page.getByRole("dialog", { name: "Scheduling queue" });
+    await expect(queueDialog).toContainText("Ready Client");
+    await queueDialog.getByRole("button", { name: "Schedule", exact: true }).click();
     const scheduleDialog = page.getByRole("dialog").filter({ hasText: "Ready Client" });
     await expect(scheduleDialog).toBeVisible();
     await scheduleDialog.getByLabel("Method").selectOption("zoom");
@@ -759,7 +768,8 @@ test.describe("Referral home and packet canvas", () => {
     await page.setViewportSize({ width: 430, height: 932 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
     await expect(page.getByRole("button", { name: "agenda", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("button:visible").filter({ hasText: "Assigned Client" }).first()).toContainText("Referral assigned");
+    await expect(page.getByText("Assigned Client", { exact: true })).toHaveCount(0);
+    await expect(page.locator("button:visible").filter({ hasText: "Scheduled Client" }).first()).toBeVisible();
   });
 
   test("rejects overlapping assessor appointments until a supervisor explicitly overrides", async ({ page }) => {

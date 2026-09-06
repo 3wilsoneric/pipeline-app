@@ -11,12 +11,12 @@ export async function getHomeBriefing(user: PipelineUser): Promise<HomeBriefingS
   const today = dateKey(new Date());
   const through = addDays(today, 6);
   const [calendarResult, workflowResult] = await Promise.allSettled([
-    getAssessmentCalendar(user, { from: today, to: through }),
+    getAssessmentCalendar(user, { from: today, to: through }, { includeAssignments: false }),
     getHomeWorkflowSummary(user),
   ]);
   const calendar = calendarResult.status === "fulfilled"
     ? calendarResult.value
-    : { events: [], unscheduled: [], unscheduledTotal: 0 };
+    : { events: [], unscheduled: [], unscheduledTotal: 0, unscheduledHasMore: false, assessors: [] };
   const workflow = workflowResult.status === "fulfilled"
     ? workflowResult.value
     : emptyWorkflowSummary(user);

@@ -86,13 +86,28 @@ type UnscheduledCalendarRow = {
   total_count: number | string;
 };
 
+type AssessmentCalendarOptions = {
+  queueLimit?: number;
+  queueSearch?: string;
+  queueCommunity?: string;
+  queueOwner?: string;
+  queueMine?: boolean;
+  includeAssignments?: boolean;
+};
+
+type CalendarAssessorRow = {
+  owner_id: string | null;
+  owner_name: string | null;
+};
+
 export async function getAssessmentCalendar(
   user: PipelineUser,
   range: { from: string; to: string },
+  options: AssessmentCalendarOptions = {},
 ): Promise<PipelineCalendarResponse> {
   const data = getPipelineDatabaseReadiness().ready
-    ? await getPostgresAssessmentCalendar(user, range)
-    : await getLocalAssessmentCalendar(user, range);
+    ? await getPostgresAssessmentCalendar(user, range, options)
+    : await getLocalAssessmentCalendar(user, range, options);
   return {
     ...range,
     ...data,
@@ -106,15 +121,22 @@ export async function getAssessmentCalendar(
 async function getPostgresAssessmentCalendar(
   user: PipelineUser,
   range: { from: string; to: string },
+  options: AssessmentCalendarOptions,
 ) {
   const sql = getPipelineSql();
   const restricted = isAssessorUser(user);
   const ownerAliases = normalizedOwnerAliases(user);
+  const queueLimit = Math.min(200, Math.max(1, options.queueLimit ?? 24));
+  const queueSearch = options.queueSearch?.trim().toLowerCase() ?? "";
+  const queueSearchPattern = `%${queueSearch}%`;
+  const queueCommunity = options.queueCommunity?.trim() ?? "";
+  const queueOwnerId = options.queueOwner?.startsWith("id:") ? options.queueOwner.slice(3) : "";
+  const queueOwnerName = options.queueOwner?.startsWith("name:") ? options.queueOwner.slice(5).trim().toLowerCase() : "";
   const access = sql`
     (${restricted} = false or r.owner_id = ${user.id}
       or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${ownerAliases}::text[])))
   `;
-  const [assignmentRows, assessmentRows, followUpRows, unscheduledRows] = await Promise.all([
+  const [assignmentRows, assessmentRows, followUpRows, unscheduledRows, assessorRows] = await Promise.all([
     sql<ReferralAssignmentCalendarRow[]>`
       select r.referral_id, p.display_name as client_name, r.community::text as community,
         r.owner_id, r.owner_name, r.assigned_at, r.assignment_version, r.created_at,
@@ -122,6 +144,7 @@ async function getPostgresAssessmentCalendar(
       from pipeline.referrals r
       join pipeline.people p on p.person_id = r.person_id
       where r.workspace_status = 'active'
+        and ${options.includeAssignments !== false}
         and r.deleted_at is null and r.owner_id is not null and r.assigned_at is not null
         and r.assigned_at >= (${range.from}::date - interval '1 day')
         and r.assigned_at < (${range.to}::date + interval '2 days')
@@ -200,12 +223,7 @@ async function getPostgresAssessmentCalendar(
       where r.workspace_status = 'active'
         and r.deleted_at is null and ${access}
         and (
-          (r.closed_at is null and r.workflow_status in (
-            'intake_unassigned',
-            'intake_documents_needed',
-            'profile_incomplete',
-            'ready_to_schedule'
-          ))
+          (r.closed_at is null and r.workflow_status = 'ready_to_schedule')
           or (
             r.closed_at is not null
             and latest_assessment.created_at > coalesce(latest_decision.decided_at, r.closed_at)
@@ -218,8 +236,28 @@ async function getPostgresAssessmentCalendar(
           where a.referral_id = r.referral_id
             and a.schedule_status in ('scheduled', 'rescheduled')
         )
+        and (${queueSearch} = '' or lower(p.display_name) like ${queueSearchPattern}
+          or lower(r.community::text) like ${queueSearchPattern}
+          or lower(coalesce(r.owner_name, '')) like ${queueSearchPattern})
+        and (${queueCommunity} = '' or r.community::text = ${queueCommunity})
+        and (${queueOwnerId} = '' or r.owner_id = ${queueOwnerId})
+        and (${queueOwnerName} = '' or lower(trim(coalesce(r.owner_name, ''))) = ${queueOwnerName})
+        and (${options.queueMine === true} = false or r.owner_id = ${user.id}
+          or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${ownerAliases}::text[])))
       order by coalesce(r.received_date, r.created_at::date), lower(p.display_name), r.referral_id
-      limit 20
+      limit ${queueLimit + 1}
+    `,
+    sql<CalendarAssessorRow[]>`
+      select distinct r.owner_id, r.owner_name
+      from pipeline.referrals r
+      where r.workspace_status = 'active'
+        and r.closed_at is null
+        and r.deleted_at is null
+        and btrim(coalesce(r.owner_name, '')) <> ''
+        and lower(btrim(r.owner_name)) <> 'unassigned'
+        and ${access}
+      order by r.owner_name, r.owner_id
+      limit 100
     `,
   ]);
 
@@ -288,9 +326,10 @@ async function getPostgresAssessmentCalendar(
       detail: row.due_date < today ? "Assessment follow-up overdue" : "Assessment follow-up due",
     }];
   }));
+  const queueRows = unscheduledRows.slice(0, queueLimit);
   return {
     events: [...assignmentEvents, ...assessmentEvents, ...followUpEvents].sort(compareCalendarEvents),
-    unscheduled: unscheduledRows.map((row): PipelineUnscheduledAssessment => ({
+    unscheduled: queueRows.map((row): PipelineUnscheduledAssessment => ({
       referralId: Number(row.referral_id),
       assessmentId: row.assessment_id ?? undefined,
       assessmentVersion: row.assessment_version === null ? undefined : Number(row.assessment_version),
@@ -309,6 +348,11 @@ async function getPostgresAssessmentCalendar(
           : "complete_intake",
     })),
     unscheduledTotal: Number(unscheduledRows[0]?.total_count ?? 0),
+    unscheduledHasMore: unscheduledRows.length > queueLimit,
+    assessors: assessorRows.map((row) => ({
+      id: row.owner_id ?? undefined,
+      name: row.owner_name?.trim() || "Unassigned",
+    })),
   };
 }
 
@@ -325,6 +369,7 @@ function normalizeScheduleMethod(method: string | null) {
 async function getLocalAssessmentCalendar(
   user: PipelineUser,
   range: { from: string; to: string },
+  options: AssessmentCalendarOptions,
 ) {
   const referrals: Referral[] = [];
   let referralCursor: string | undefined;
@@ -355,10 +400,10 @@ async function getLocalAssessmentCalendar(
     }
   }
   const events = consolidateCalendarFollowUps([
-    ...referrals.flatMap((referral) => {
+    ...(options.includeAssignments === false ? [] : referrals.flatMap((referral) => {
       const event = referralAssignmentCalendarEvent(referral);
       return event && event.date >= range.from && event.date <= range.to ? [event] : [];
-    }),
+    })),
     ...assessments.flatMap((assessment) => {
       const referral = referralById.get(assessment.referral_id);
       if (!referral) return [];
@@ -379,11 +424,46 @@ async function getLocalAssessmentCalendar(
     })
       .filter((event) => event.date >= range.from && event.date <= range.to),
   ]).sort(compareCalendarEvents);
+  const queueLimit = Math.min(200, Math.max(1, options.queueLimit ?? 24));
   const allUnscheduled = referrals.flatMap((referral) => {
     const item = assessmentPreparationItem(referral, latestAssessmentByReferral.get(referral.id) ?? null);
-    return item ? [item] : [];
-  }).sort((left, right) => left.receivedDate.localeCompare(right.receivedDate) || left.clientName.localeCompare(right.clientName));
-  return { events, unscheduled: allUnscheduled.slice(0, 20), unscheduledTotal: allUnscheduled.length };
+    return item?.nextAction === "schedule" ? [item] : [];
+  })
+    .filter((item) => matchesQueueOptions(item, user, options))
+    .sort((left, right) => left.receivedDate.localeCompare(right.receivedDate) || left.clientName.localeCompare(right.clientName));
+  return {
+    events,
+    unscheduled: allUnscheduled.slice(0, queueLimit),
+    unscheduledTotal: allUnscheduled.length,
+    unscheduledHasMore: allUnscheduled.length > queueLimit,
+    assessors: uniqueLocalAssessors(referrals),
+  };
+}
+
+function uniqueLocalAssessors(referrals: Referral[]) {
+  const assessors = new Map<string, { id?: string; name: string }>();
+  for (const referral of referrals) {
+    const name = referral.owner?.trim();
+    if (!name || name.toLowerCase() === "unassigned") continue;
+    assessors.set(ownerFilterKey(referral.ownerId, name), { id: referral.ownerId, name });
+  }
+  return [...assessors.values()].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function matchesQueueOptions(item: PipelineUnscheduledAssessment, user: PipelineUser, options: AssessmentCalendarOptions) {
+  const search = options.queueSearch?.trim().toLowerCase() ?? "";
+  if (search && ![item.clientName, item.community, item.owner].some((value) => value.toLowerCase().includes(search))) return false;
+  if (options.queueCommunity && item.community !== options.queueCommunity) return false;
+  if (options.queueOwner && ownerFilterKey(item.ownerId, item.owner) !== options.queueOwner) return false;
+  if (options.queueMine) {
+    const aliases = new Set(normalizedOwnerAliases(user));
+    if (item.ownerId !== user.id && !aliases.has(item.owner.trim().toLowerCase())) return false;
+  }
+  return true;
+}
+
+function ownerFilterKey(id: string | undefined, name: string) {
+  return id ? `id:${id}` : `name:${name.trim().toLowerCase() || "unassigned"}`;
 }
 
 function compareCalendarEvents(left: PipelineCalendarEvent, right: PipelineCalendarEvent) {

@@ -50,6 +50,8 @@ export type PipelineCalendarResponse = {
   events: PipelineCalendarEvent[];
   unscheduled: PipelineUnscheduledAssessment[];
   unscheduledTotal: number;
+  unscheduledHasMore: boolean;
+  assessors: Array<{ id?: string; name: string }>;
   scope: "personal" | "team";
   timezone: "America/Los_Angeles";
   viewer: { id: string; name: string };

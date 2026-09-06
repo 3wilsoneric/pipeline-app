@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   CalendarClock,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   ExternalLink,
   Filter,
   FolderOpen,
   RefreshCw,
+  Search,
   UserRoundCheck,
   Video,
   X,
@@ -32,6 +35,7 @@ import type {
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 type CalendarView = "month" | "week" | "agenda";
+type CalendarDisplayKind = Exclude<PipelineCalendarEventKind, "referral_assigned">;
 type CalendarSelection =
   | { type: "event"; event: PipelineCalendarEvent }
   | { type: "unscheduled"; item: PipelineUnscheduledAssessment };
@@ -46,7 +50,7 @@ type ScheduleTarget = {
   location?: string;
   reschedule: boolean;
 };
-type CalendarSnapshot = Pick<PipelineCalendarResponse, "events" | "unscheduled" | "unscheduledTotal" | "scope" | "viewer" | "timezone">;
+type CalendarSnapshot = Pick<PipelineCalendarResponse, "events" | "unscheduled" | "unscheduledTotal" | "unscheduledHasMore" | "assessors" | "scope" | "viewer" | "timezone">;
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const operationalTimeZone = "America/Los_Angeles";
@@ -60,11 +64,11 @@ const eventColors: Record<PipelineCalendarEventKind, string> = {
   assessment: "border-l-[#4b68ad] bg-[#eef1ff] text-[#354b85]",
   follow_up: "border-l-[#a16a16] bg-[#fff8ed] text-[#6f4b13]",
 };
-const kindLabels: Record<PipelineCalendarEventKind, string> = {
-  referral_assigned: "Referral assignments",
+const kindLabels: Record<CalendarDisplayKind, string> = {
   assessment: "Assessments",
   follow_up: "Follow-ups",
 };
+const calendarDisplayKinds: CalendarDisplayKind[] = ["assessment", "follow_up"];
 const workflowLabels: Record<PipelineUnscheduledAssessment["workflowStatus"], string> = {
   intake_unassigned: "Needs an assessor",
   intake_documents_needed: "Documents needed",
@@ -87,9 +91,12 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const [anchor, setAnchor] = useState(todayKey);
   const [community, setCommunity] = useState("");
   const [owner, setOwner] = useState("");
-  const [kind, setKind] = useState<PipelineCalendarEventKind | "">("");
+  const [kind, setKind] = useState<CalendarDisplayKind | "">("");
   const [mySchedule, setMySchedule] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [queueSearch, setQueueSearch] = useState("");
+  const [queueLimit, setQueueLimit] = useState(24);
   const [refreshToken, setRefreshToken] = useState(0);
   const [selected, setSelected] = useState<CalendarSelection | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<ScheduleTarget | null>(null);
@@ -98,8 +105,9 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const [scheduleMethod, setScheduleMethod] = useState<AssessmentScheduleMethod>("zoom");
   const [scheduleLocation, setScheduleLocation] = useState("");
   const [mutationState, setMutationState] = useState({ busy: false, error: "", message: "", canOverride: false });
+  const deferredQueueSearch = useDebouncedValue(queueSearch, 250);
   const range = calendarRange(view, anchor);
-  const requestKey = `${range.from}:${range.to}`;
+  const requestKey = [range.from, range.to, deferredQueueSearch, queueLimit, community, owner, mySchedule].join(":");
   const [cache, setCache] = useState<Record<string, CalendarSnapshot>>({});
   const [requestState, setRequestState] = useState({ key: "", loading: false, error: "" });
   const calendarState = resolveCalendarState(cache[requestKey], requestState, requestKey);
@@ -119,7 +127,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   useEffect(() => {
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") setRefreshToken((value) => value + 1);
-    }, 60_000);
+    }, 30_000);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -136,8 +144,34 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   }, []);
 
   useEffect(() => {
+    if (!queueOpen && !selected && !scheduleTarget) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeTopOverlay = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || mutationState.busy) return;
+      if (scheduleTarget) setScheduleTarget(null);
+      else if (selected) setSelected(null);
+      else setQueueOpen(false);
+    };
+    window.addEventListener("keydown", closeTopOverlay);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeTopOverlay);
+    };
+  }, [mutationState.busy, queueOpen, scheduleTarget, selected]);
+
+  useEffect(() => {
     const controller = new AbortController();
-    const params = new URLSearchParams({ from: range.from, to: range.to });
+    const params = new URLSearchParams({
+      from: range.from,
+      to: range.to,
+      queue_limit: String(queueLimit),
+      include_assignments: "false",
+    });
+    if (deferredQueueSearch) params.set("queue_q", deferredQueueSearch);
+    if (community) params.set("queue_community", community);
+    if (owner) params.set("queue_owner", owner);
+    if (mySchedule) params.set("queue_mine", "true");
     queueMicrotask(() => {
       if (!controller.signal.aborted) setRequestState({ key: requestKey, loading: true, error: "" });
     });
@@ -151,6 +185,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           events: payload.events ?? [],
           unscheduled: payload.unscheduled ?? [],
           unscheduledTotal: payload.unscheduledTotal ?? 0,
+          unscheduledHasMore: payload.unscheduledHasMore ?? false,
+          assessors: payload.assessors ?? [],
           scope: payload.scope ?? "team",
           viewer: payload.viewer,
           timezone: payload.timezone ?? operationalTimeZone,
@@ -162,31 +198,30 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
       setRequestState({ key: requestKey, loading: false, error: reason instanceof Error ? reason.message : "Calendar could not be loaded." });
     });
     return () => controller.abort();
-  }, [range.from, range.to, refreshToken, requestKey]);
+  }, [community, deferredQueueSearch, mySchedule, owner, queueLimit, range.from, range.to, refreshToken, requestKey]);
 
+  const calendarEvents = events.filter((event) => event.kind !== "referral_assigned");
   const communityOptions = uniqueValues([
-    ...events.map((event) => event.community),
+    ...calendarEvents.map((event) => event.community),
     ...unscheduled.map((item) => item.community),
   ]);
   const ownerOptions = uniqueOwnerOptions([
-    ...events.map((event) => ({ id: event.ownerId, name: event.owner })),
+    ...(snapshot?.assessors ?? []).map((assessor) => ({ id: assessor.id, name: assessor.name })),
+    ...calendarEvents.map((event) => ({ id: event.ownerId, name: event.owner })),
     ...unscheduled.map((item) => ({ id: item.ownerId, name: item.owner })),
   ]);
-  const visibleEvents = events.filter((event) => (
+  const visibleEvents = calendarEvents.filter((event) => (
     (!community || event.community === community)
     && (!owner || ownerKey(event.ownerId, event.owner) === owner)
     && (!mySchedule || (Boolean(viewer?.id) && event.ownerId === viewer?.id))
     && (!kind || event.kind === kind)
   ));
-  const visibleUnscheduled = unscheduled.filter((item) => (
-    (!community || item.community === community)
-    && (!owner || ownerKey(item.ownerId, item.owner) === owner)
-    && (!mySchedule || (Boolean(viewer?.id) && item.ownerId === viewer?.id))
-  ));
+  const visibleUnscheduled = unscheduled;
   const eventsByDate = groupEventsByDate(visibleEvents);
   const hasFilters = hasCalendarFilters(community, owner, kind, mySchedule);
-  const overdue = visibleEvents.filter((event) => event.status === "overdue");
+  const overdue = visibleEvents.filter((event) => event.kind === "assessment" && event.status === "overdue");
   const conflicts = findScheduleConflicts(visibleEvents);
+  const scheduledCount = visibleEvents.filter((event) => event.kind === "assessment").length;
 
   const openWorkspace = (identity: { referralId: number; clientName: string; community: string }) => {
     onOpenPacket({ id: identity.referralId, name: calendarClientName(identity.clientName, identity.community), community: identity.community as Referral["community"] });
@@ -298,6 +333,9 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           loading={loading}
           refreshing={refreshing}
           message={mutationState.message}
+          queueCount={snapshot?.unscheduledTotal ?? visibleUnscheduled.length}
+          scheduledCount={scheduledCount}
+          overdueCount={overdue.length}
           onView={setView}
           onAnchor={setAnchor}
           onCommunity={setCommunity}
@@ -305,19 +343,10 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           onKind={setKind}
           onMySchedule={setMySchedule}
           onShowFilters={setShowFilters}
+          onOpenQueue={() => setQueueOpen(true)}
           onRefresh={() => setRefreshToken((value) => value + 1)}
         />
         <CalendarNotices error={error} mutationError={mutationState.error} scheduleOpen={Boolean(scheduleTarget)} onRetry={() => setRefreshToken((value) => value + 1)} />
-        <CalendarActionQueue
-          kind={kind}
-          scope={scope}
-          items={visibleUnscheduled}
-          total={calendarQueueTotal(snapshot, visibleUnscheduled, hasFilters)}
-          overdue={overdue}
-          onOpen={(item) => setSelected({ type: "unscheduled", item })}
-          onSchedule={(item) => beginScheduling(scheduleTargetFromUnscheduled(item))}
-          onSelectEvent={(event) => setSelected({ type: "event", event })}
-        />
         <CalendarViews
           loading={loading}
           view={view}
@@ -328,6 +357,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           range={range}
           events={visibleEvents}
           unscheduled={visibleUnscheduled}
+          assessors={snapshot?.assessors ?? []}
           eventsByDate={eventsByDate}
           conflicts={conflicts}
           hasFilters={hasFilters}
@@ -335,7 +365,27 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           onFocusOwner={setOwner}
         />
       </div>
-      <CalendarOverlays
+      {queueOpen ? (
+        <CalendarPortal><SchedulingQueue
+          items={visibleUnscheduled}
+          total={snapshot?.unscheduledTotal ?? visibleUnscheduled.length}
+          hasMore={snapshot?.unscheduledHasMore ?? false}
+          search={queueSearch}
+          loading={refreshing}
+          onSearch={(value) => {
+            setQueueSearch(value);
+            setQueueLimit(24);
+          }}
+          onClose={() => setQueueOpen(false)}
+          onLoadMore={() => setQueueLimit((value) => Math.min(200, value + 24))}
+          onOpenWorkspace={(item) => openWorkspace(item)}
+          onSchedule={(item) => {
+            setQueueOpen(false);
+            beginScheduling(scheduleTargetFromUnscheduled(item));
+          }}
+        /></CalendarPortal>
+      ) : null}
+      <CalendarPortal><CalendarOverlays
         selected={selected}
         scheduleTarget={scheduleTarget}
         scheduleStart={scheduleStart}
@@ -355,7 +405,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         onLocation={setScheduleLocation}
         onSave={() => saveSchedule(false)}
         onOverride={() => saveSchedule(true)}
-      />
+      /></CalendarPortal>
     </main>
   );
 }
@@ -369,20 +419,24 @@ type CalendarHeaderProps = {
   communityOptions: string[];
   owner: string;
   ownerOptions: { value: string; label: string }[];
-  kind: PipelineCalendarEventKind | "";
+  kind: CalendarDisplayKind | "";
   mySchedule: boolean;
   showFilters: boolean;
   hasFilters: boolean;
   loading: boolean;
   refreshing: boolean;
   message: string;
+  queueCount: number;
+  scheduledCount: number;
+  overdueCount: number;
   onView: (value: CalendarView) => void;
   onAnchor: (value: string) => void;
   onCommunity: (value: string) => void;
   onOwner: (value: string) => void;
-  onKind: (value: PipelineCalendarEventKind | "") => void;
+  onKind: (value: CalendarDisplayKind | "") => void;
   onMySchedule: (value: boolean) => void;
   onShowFilters: (value: boolean) => void;
+  onOpenQueue: () => void;
   onRefresh: () => void;
 };
 
@@ -399,41 +453,51 @@ function CalendarHeader(props: CalendarHeaderProps) {
     props.onOwner("");
   };
   return (
-    <header className="sticky top-0 z-20 bg-white/95 py-2 backdrop-blur">
-      <div className="flex min-h-11 flex-wrap items-center justify-between gap-2">
+    <header className="sticky top-0 z-20 bg-white/95 py-3 backdrop-blur">
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1.5">
           <IconButton label="Previous calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, -1))}><ChevronLeft size={17} /></IconButton>
           <IconButton label="Next calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, 1))}><ChevronRight size={17} /></IconButton>
-          <h1 className="ml-1 truncate text-[17px] font-extrabold tracking-[-0.025em] text-[#202522] sm:text-[20px]">{rangeLabel(props.view, props.range)}</h1>
-          <button type="button" onClick={() => props.onAnchor(todayKey())} className="ml-1 h-8 border border-[#bfc7c3] px-2.5 text-[11px] font-bold text-[#3f4743] hover:border-[#167f6b] hover:text-[#116b5a]">Today</button>
+          <h1 className="ml-1 truncate text-[19px] font-extrabold text-[#202522] sm:text-[22px]">{rangeLabel(props.view, props.range)}</h1>
+          <button type="button" onClick={() => props.onAnchor(todayKey())} className="ml-1 h-9 border border-[#bfc7c3] px-3 text-[12px] font-bold text-[#3f4743] hover:border-[#167f6b] hover:text-[#116b5a]">Today</button>
         </div>
         <div className="flex items-center gap-1.5">
           <span role="status" aria-live="polite" className="hidden text-[11px] text-[#747b77] lg:inline">{status}</span>
+          <button type="button" onClick={props.onOpenQueue} className="flex h-9 items-center gap-2 border border-[#bfc7c3] bg-white px-3 text-[11px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]">
+            <ClipboardList size={15} />
+            <span>Ready to schedule</span>
+            <span className="tabular-nums text-[#167f6b]">{props.queueCount.toLocaleString()}</span>
+          </button>
           <IconButton label="Refresh calendar" onClick={props.onRefresh}><RefreshCw size={14} className={props.refreshing ? "animate-spin" : ""} /></IconButton>
-          <button type="button" aria-label="Show calendar filters" aria-expanded={props.showFilters} onClick={() => props.onShowFilters(!props.showFilters)} className={`flex h-8 w-8 items-center justify-center border md:hidden ${props.hasFilters ? "border-[#167f6b] text-[#116b5a]" : "border-[#cfd5d2] text-[#626a66]"}`}><Filter size={15} /></button>
+          <button type="button" aria-label="Show calendar filters" aria-expanded={props.showFilters} onClick={() => props.onShowFilters(!props.showFilters)} className={`flex h-9 w-9 items-center justify-center border md:hidden ${props.hasFilters ? "border-[#167f6b] text-[#116b5a]" : "border-[#cfd5d2] text-[#626a66]"}`}><Filter size={15} /></button>
           <CalendarViewSwitch view={props.view} onView={props.onView} />
         </div>
       </div>
       <CalendarFilters {...props} onClear={clearFilters} onToggleMine={toggleMine} />
+      <div className="mt-2 flex items-center gap-4 text-[11px] font-bold text-[#747b77]">
+        <span><strong className="text-[#2c332f]">{props.scheduledCount.toLocaleString()}</strong> scheduled</span>
+        {props.overdueCount > 0 ? <span className="text-[#9c3d32]"><strong>{props.overdueCount.toLocaleString()}</strong> overdue</span> : null}
+        <span className="hidden sm:inline">Pacific Time</span>
+      </div>
     </header>
   );
 }
 
 function CalendarViewSwitch({ view, onView }: { view: CalendarView; onView: (value: CalendarView) => void }) {
-  return <div data-guide-target="calendar-view" role="group" aria-label="Calendar view" className="flex border border-[#cfd5d2] bg-[#f4f6f5] p-0.5">{(["month", "week", "agenda"] as const).map((option) => <button key={option} type="button" aria-pressed={view === option} onClick={() => onView(option)} className={`h-8 px-2.5 text-[10px] font-bold capitalize sm:px-3 ${view === option ? "bg-white text-[#202522] shadow-sm" : "text-[#69706c] hover:text-[#202522]"}`}>{option}</button>)}</div>;
+  return <div data-guide-target="calendar-view" role="group" aria-label="Calendar view" className="flex border border-[#cfd5d2] bg-[#f4f6f5] p-0.5">{(["month", "week", "agenda"] as const).map((option) => <button key={option} type="button" aria-pressed={view === option} onClick={() => onView(option)} className={`h-8 px-2.5 text-[11px] font-bold capitalize sm:h-9 sm:px-3.5 ${view === option ? "bg-white text-[#202522] shadow-sm" : "text-[#69706c] hover:text-[#202522]"}`}>{option}</button>)}</div>;
 }
 
 function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void; onToggleMine: () => void }) {
   return (
     <div data-guide-target="calendar-filters" className={`${props.showFilters ? "flex" : "hidden"} mt-1 flex-wrap items-center gap-2 pt-1 md:flex`}>
-      <span className="shrink-0 bg-[#eaf5f1] px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#176f5e]">{props.scope === "personal" ? "My schedule" : "Team schedule"}</span>
+      <span className="flex h-9 shrink-0 items-center bg-[#eaf5f1] px-3 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#176f5e]">{props.scope === "personal" ? "My schedule" : "Team schedule"}</span>
       <CalendarFilter label="community" value={props.community} onChange={props.onCommunity} options={props.communityOptions} />
       {props.scope === "team" ? <OwnerFilter value={props.owner} onChange={props.onOwner} options={props.ownerOptions} /> : null}
-      <select aria-label="Filter calendar by event type" value={props.kind} onChange={(event) => props.onKind(event.target.value as PipelineCalendarEventKind | "")} className="h-8 min-w-0 border border-[#cfd5d2] bg-white px-2 text-[11px] font-semibold text-[#303632] outline-none focus:border-[#167f6b]">
-        <option value="">All work types</option>
-        {(Object.keys(kindLabels) as PipelineCalendarEventKind[]).map((value) => <option key={value} value={value}>{kindLabels[value]}</option>)}
+      <select aria-label="Filter calendar by event type" value={props.kind} onChange={(event) => props.onKind(event.target.value as CalendarDisplayKind | "")} className="h-9 min-w-0 border border-[#cfd5d2] bg-white px-2.5 text-[12px] font-semibold text-[#303632] outline-none focus:border-[#167f6b]">
+        <option value="">Assessments and follow-ups</option>
+        {calendarDisplayKinds.map((value) => <option key={value} value={value}>{kindLabels[value]}</option>)}
       </select>
-      {props.scope === "team" ? <button type="button" aria-pressed={props.mySchedule} onClick={props.onToggleMine} className={`flex h-8 shrink-0 items-center gap-1.5 border px-2.5 text-[10px] font-bold ${props.mySchedule ? "border-[#4b68ad] bg-[#eef1ff] text-[#354b85]" : "border-[#cfd5d2] text-[#525a56] hover:border-[#4b68ad]"}`}><UserRoundCheck size={13} /> Mine</button> : null}
+      {props.scope === "team" ? <button type="button" aria-pressed={props.mySchedule} onClick={props.onToggleMine} className={`flex h-9 shrink-0 items-center gap-1.5 border px-3 text-[11px] font-bold ${props.mySchedule ? "border-[#4b68ad] bg-[#eef1ff] text-[#354b85]" : "border-[#cfd5d2] text-[#525a56] hover:border-[#4b68ad]"}`}><UserRoundCheck size={14} /> Mine</button> : null}
       {props.hasFilters ? <button type="button" onClick={props.onClear} className="flex h-8 items-center gap-1 px-2 text-[10px] font-bold text-[#6d7470] hover:text-[#9c3d32]"><X size={12} /> Clear</button> : null}
     </div>
   );
@@ -441,11 +505,6 @@ function CalendarFilters(props: CalendarHeaderProps & { onClear: () => void; onT
 
 function CalendarNotices({ error, mutationError, scheduleOpen, onRetry }: { error: string; mutationError: string; scheduleOpen: boolean; onRetry: () => void }) {
   return <>{error ? <div role="alert" className="mt-3 flex items-center justify-between gap-4 border-l-2 border-[#a16a16] bg-[#fff8ed] px-4 py-3 text-[12px] text-[#6f4b13]"><span>{error}</span><button type="button" onClick={onRetry} className="shrink-0 font-bold">Try again</button></div> : null}{mutationError && !scheduleOpen ? <div role="alert" className="mt-3 border-l-2 border-[#a9473d] bg-[#fff3f1] px-4 py-3 text-[12px] text-[#7c3229]">{mutationError}</div> : null}</>;
-}
-
-function CalendarActionQueue({ kind, ...props }: Parameters<typeof ActionQueue>[0] & { kind: PipelineCalendarEventKind | "" }) {
-  if (!shouldShowActionQueue(kind, props.items, props.overdue)) return null;
-  return <ActionQueue {...props} />;
 }
 
 type CalendarViewsProps = {
@@ -458,6 +517,7 @@ type CalendarViewsProps = {
   range: { from: string; to: string };
   events: PipelineCalendarEvent[];
   unscheduled: PipelineUnscheduledAssessment[];
+  assessors: Array<{ id?: string; name: string }>;
   eventsByDate: Map<string, PipelineCalendarEvent[]>;
   conflicts: Set<string>;
   hasFilters: boolean;
@@ -469,7 +529,7 @@ function CalendarViews(props: CalendarViewsProps) {
   if (props.loading) return <CalendarSkeleton />;
   if (props.view === "month") return <MonthView month={props.anchor.slice(0, 7)} eventsByDate={props.eventsByDate} onOpen={props.onOpen} />;
   if (props.view === "agenda") return <AgendaView events={props.events} hasFilters={props.hasFilters} onOpen={props.onOpen} />;
-  if (showTeamWeek(props.scope, props.owner, props.mySchedule)) return <TeamWeekView range={props.range} events={props.events} unscheduled={props.unscheduled} conflicts={props.conflicts} onOpen={props.onOpen} onFocusOwner={props.onFocusOwner} />;
+  if (showTeamWeek(props.scope, props.owner, props.mySchedule)) return <TeamWeekView range={props.range} events={props.events} unscheduled={props.unscheduled} assessors={props.assessors} conflicts={props.conflicts} onOpen={props.onOpen} onFocusOwner={props.onFocusOwner} />;
   return <TimedWeekView range={props.range} eventsByDate={props.eventsByDate} onOpen={props.onOpen} />;
 }
 
@@ -499,23 +559,68 @@ function CalendarOverlays(props: CalendarOverlaysProps) {
   return <>{props.selected ? <CalendarDrawer selection={props.selected} busy={props.mutationState.busy} scope={props.scope} onClose={props.onCloseSelection} onOpenWorkspace={props.onOpenWorkspace} onSchedule={props.onScheduleSelection} onStatus={props.onStatus} /> : null}{props.scheduleTarget ? <ScheduleDialog target={props.scheduleTarget} start={props.scheduleStart} duration={props.scheduleDuration} method={props.scheduleMethod} location={props.scheduleLocation} state={props.mutationState} onStart={props.onStart} onDuration={props.onDuration} onMethod={props.onMethod} onLocation={props.onLocation} onClose={props.onCloseSchedule} onSave={props.onSave} onOverride={props.onOverride} /> : null}</>;
 }
 
-function ActionQueue({ scope, items, total, overdue, onOpen, onSchedule, onSelectEvent }: { scope: "personal" | "team"; items: PipelineUnscheduledAssessment[]; total: number; overdue: PipelineCalendarEvent[]; onOpen: (item: PipelineUnscheduledAssessment) => void; onSchedule: (item: PipelineUnscheduledAssessment) => void; onSelectEvent: (event: PipelineCalendarEvent) => void }) {
+function SchedulingQueue({ items, total, hasMore, search, loading, onSearch, onClose, onLoadMore, onOpenWorkspace, onSchedule }: {
+  items: PipelineUnscheduledAssessment[];
+  total: number;
+  hasMore: boolean;
+  search: string;
+  loading: boolean;
+  onSearch: (value: string) => void;
+  onClose: () => void;
+  onLoadMore: () => void;
+  onOpenWorkspace: (item: PipelineUnscheduledAssessment) => void;
+  onSchedule: (item: PipelineUnscheduledAssessment) => void;
+}) {
   return (
-    <section aria-label="Calendar actions" className="mt-3 bg-[#f7f9f8] px-3 py-3 sm:px-4">
-      <div className="flex items-center justify-between pb-2.5"><div className="flex items-center gap-2"><AlertTriangle size={15} className="text-[#a16a16]" /><h2 className="text-[13px] font-extrabold text-[#252a27]">Needs attention</h2></div><span className="text-[10px] font-bold text-[#6d7470]">{total + overdue.length} item{total + overdue.length === 1 ? "" : "s"}</span></div>
-      <div className="flex gap-2 overflow-x-auto">
-        {overdue.map((event) => <button key={event.id} type="button" onClick={() => onSelectEvent(event)} className="w-[245px] shrink-0 border border-[#e4c7c2] bg-white p-3 text-left hover:border-[#a9473d]"><span className="block text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#9c3d32]">Overdue assessment</span><span className="mt-1.5 block truncate text-[13px] font-extrabold text-[#252a27]">{calendarClientName(event.clientName, event.community)}</span><span className="mt-1 block truncate text-[11px] text-[#69706c]">{event.owner} - {shortDate(event.date)}</span></button>)}
-        {items.map((item) => (
-          <article key={item.referralId} className="w-[265px] shrink-0 border border-[#d8dedb] bg-white p-3">
-            <div className="flex items-start justify-between gap-2"><span className={`text-[10px] font-extrabold uppercase tracking-[0.07em] ${item.nextAction === "schedule" ? "text-[#176f5e]" : item.nextAction === "assign" ? "text-[#9c3d32]" : "text-[#8a5c14]"}`}>{workflowLabels[item.workflowStatus]}</span><span className="shrink-0 text-[10px] text-[#7b827e]">{ageLabel(item.receivedDate)}</span></div>
-            <button type="button" onClick={() => onOpen(item)} className="mt-1.5 block w-full truncate text-left text-[13px] font-extrabold text-[#252a27] hover:text-[#116b5a]">{calendarClientName(item.clientName, item.community)}</button>
-            <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-[#69706c]"><span className="truncate">{item.community}</span><span className="truncate">{item.owner}</span></div>
-            <button type="button" onClick={() => item.nextAction === "schedule" ? onSchedule(item) : onOpen(item)} className="mt-3 h-8 w-full bg-[#167f6b] px-3 text-[11px] font-extrabold text-white hover:bg-[#116b5a]">{item.nextAction === "schedule" ? "Schedule assessment" : item.nextAction === "assign" && scope === "team" ? "Assign referral" : "Finish intake"}</button>
-          </article>
-        ))}
-      </div>
-    </section>
+    <div className="fixed inset-0 z-[100] bg-[#18201d]/30" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+      <aside role="dialog" aria-modal="true" aria-label="Scheduling queue" className="absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col bg-white shadow-2xl">
+        <header className="flex items-start justify-between gap-4 border-b border-[#d8dedb] px-5 py-5 sm:px-6">
+          <div>
+            <h2 className="flex items-center gap-2 text-[22px] font-extrabold text-[#202522]"><ClipboardList size={18} className="text-[#167f6b]" /> Ready to schedule</h2>
+            <p className="mt-1 text-[11px] text-[#737a76]">{total.toLocaleString()} referral{total === 1 ? "" : "s"} ready for an appointment</p>
+          </div>
+          <IconButton label="Close scheduling queue" onClick={onClose}><X size={16} /></IconButton>
+        </header>
+        <label className="mx-5 mt-4 flex h-10 items-center gap-2 border-b border-[#aeb7b2] sm:mx-6">
+          <Search size={16} className="shrink-0 text-[#167f6b]" />
+          <span className="sr-only">Search scheduling queue</span>
+          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search client, community, or assessor" className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-[#252a27] outline-none placeholder:text-[#959b98]" />
+          {loading ? <RefreshCw size={13} className="animate-spin text-[#7b827e]" /> : null}
+        </label>
+        <div className="flex-1 overflow-y-auto px-5 py-3 sm:px-6">
+          {items.length === 0 ? (
+            <div className="py-16 text-center">
+              <CalendarClock size={21} className="mx-auto text-[#89918d]" />
+              <div className="mt-3 text-[13px] font-extrabold text-[#343a36]">{search ? "No ready referrals match that search." : "No referrals are waiting to be scheduled."}</div>
+            </div>
+          ) : (
+            <ol>
+              {items.map((item) => (
+                <li key={item.referralId} className="border-b border-[#e1e5e3] py-4 last:border-b-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <button type="button" onClick={() => onOpenWorkspace(item)} className="min-w-0 text-left">
+                      <span className="block truncate text-[15px] font-extrabold text-[#252a27] hover:text-[#116b5a]">{calendarClientName(item.clientName, item.community)}</span>
+                      <span className="mt-1 block truncate text-[12px] text-[#69706c]">{item.community} · {item.owner}</span>
+                    </button>
+                    <span className="shrink-0 text-[10px] font-bold text-[#7b827e]">{ageLabel(item.receivedDate)}</span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className="text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#176f5e]">{workflowLabels[item.workflowStatus]}</span>
+                    <button type="button" onClick={() => onSchedule(item)} className="h-8 bg-[#167f6b] px-3 text-[10px] font-extrabold text-white hover:bg-[#116b5a]">Schedule</button>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+        {hasMore ? <div className="border-t border-[#d8dedb] p-4 sm:px-6"><button type="button" onClick={onLoadMore} disabled={loading} className="h-9 w-full border border-[#bfc7c3] text-[11px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a] disabled:opacity-50">{loading ? "Loading..." : "Load more"}</button></div> : null}
+      </aside>
+    </div>
   );
+}
+
+function CalendarPortal({ children }: { children: React.ReactNode }) {
+  return typeof document === "undefined" ? null : createPortal(children, document.body);
 }
 
 function MonthView({ month, eventsByDate, onOpen }: { month: string; eventsByDate: Map<string, PipelineCalendarEvent[]>; onOpen: (event: PipelineCalendarEvent) => void }) {
@@ -526,8 +631,8 @@ function MonthView({ month, eventsByDate, onOpen }: { month: string; eventsByDat
       {days.map((day) => {
         const dayEvents = eventsByDate.get(day.date) ?? [];
         const scheduled = dayEvents.filter((event) => event.kind === "assessment");
-        const otherCount = dayEvents.length - scheduled.length;
-        return <div key={day.date} className={`min-h-[112px] border-b border-r border-[#e1e5e3] p-2 last:border-r-0 ${day.inMonth ? "bg-white" : "bg-[#fafbfa]"}`}><div className={`mb-2 text-[11px] font-extrabold ${day.today ? "text-[#0f8b73]" : day.inMonth ? "text-[#515854]" : "text-[#a0a6a2]"}`}>{day.day}</div><div className="space-y-1.5">{scheduled.slice(0, 2).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}{otherCount > 0 ? <div className="px-1 text-[10px] font-bold text-[#737a76]">{otherCount} assignment/follow-up{otherCount === 1 ? "" : "s"}</div> : null}{scheduled.length > 2 ? <div className="px-1 text-[10px] font-bold text-[#526a63]">+{scheduled.length - 2} assessments</div> : null}</div></div>;
+        const followUps = dayEvents.length - scheduled.length;
+        return <div key={day.date} className={`min-h-[112px] border-b border-r border-[#e1e5e3] p-2 last:border-r-0 ${day.inMonth ? "bg-white" : "bg-[#fafbfa]"}`}><div className={`mb-2 text-[11px] font-extrabold ${day.today ? "text-[#0f8b73]" : day.inMonth ? "text-[#515854]" : "text-[#a0a6a2]"}`}>{day.day}</div><div className="space-y-1.5">{scheduled.slice(0, 2).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact />)}{followUps > 0 ? <div className="px-1 text-[10px] font-bold text-[#8a5c14]">{followUps} follow-up{followUps === 1 ? "" : "s"}</div> : null}{scheduled.length > 2 ? <div className="px-1 text-[10px] font-bold text-[#526a63]">+{scheduled.length - 2} assessments</div> : null}</div></div>;
       })}
     </div></div>
   );
@@ -545,14 +650,14 @@ function TimedWeekView({ range, eventsByDate, onOpen }: { range: { from: string;
   );
 }
 
-function TeamWeekView({ range, events, unscheduled, conflicts, onOpen, onFocusOwner }: { range: { from: string; to: string }; events: PipelineCalendarEvent[]; unscheduled: PipelineUnscheduledAssessment[]; conflicts: Set<string>; onOpen: (event: PipelineCalendarEvent) => void; onFocusOwner: (owner: string) => void }) {
+function TeamWeekView({ range, events, unscheduled, assessors, conflicts, onOpen, onFocusOwner }: { range: { from: string; to: string }; events: PipelineCalendarEvent[]; unscheduled: PipelineUnscheduledAssessment[]; assessors: Array<{ id?: string; name: string }>; conflicts: Set<string>; onOpen: (event: PipelineCalendarEvent) => void; onFocusOwner: (owner: string) => void }) {
   const dates = dateKeys(range.from, range.to);
-  const owners = uniqueOwnerOptions([...events.map((event) => ({ id: event.ownerId, name: event.owner })), ...unscheduled.map((item) => ({ id: item.ownerId, name: item.owner }))]).filter((item) => item.label !== "Unassigned");
+  const owners = uniqueOwnerOptions([...assessors, ...events.map((event) => ({ id: event.ownerId, name: event.owner })), ...unscheduled.map((item) => ({ id: item.ownerId, name: item.owner }))]).filter((item) => item.label !== "Unassigned");
   if (owners.length === 0) return <EmptyCalendar title="No team work is scheduled in this week." />;
   return (
-    <section aria-label="Supervisor team week" className="mt-3 overflow-auto border border-[#d8dedb]"><div className="min-w-[1050px]">
-      <div className="grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] border-b border-[#d8dedb] bg-[#f7f9f8]"><div className="px-3 py-3 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#69706c]">Assessor</div>{dates.map((date) => <div key={date} className={`border-l border-[#d8dedb] px-2 py-2.5 ${date === todayKey() ? "bg-[#eaf5f1]" : ""}`}><span className="block text-[9px] font-extrabold uppercase text-[#737a76]">{weekdays[parseDate(date).getUTCDay()]}</span><span className="block text-[12px] font-extrabold text-[#252a27]">{shortDate(date)}</span></div>)}</div>
-      {owners.map((assessor) => { const ownerEvents = events.filter((event) => ownerKey(event.ownerId, event.owner) === assessor.value); const ownerQueue = unscheduled.filter((item) => ownerKey(item.ownerId, item.owner) === assessor.value); const conflictCount = ownerEvents.filter((event) => conflicts.has(event.id)).length; const scheduledCount = ownerEvents.filter((event) => event.kind === "assessment").length; return <div key={assessor.value} className="grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] border-b border-[#e1e5e3] last:border-b-0"><button type="button" onClick={() => onFocusOwner(assessor.value)} className="px-3 py-3 text-left hover:bg-[#f4f8f6]"><span className="block truncate text-[12px] font-extrabold text-[#252a27]">{assessor.label}</span><span className="mt-1 block text-[10px] text-[#737a76]">{scheduledCount} scheduled - {ownerQueue.length} waiting</span>{conflictCount > 0 ? <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-extrabold text-[#9c3d32]"><AlertTriangle size={11} /> {Math.ceil(conflictCount / 2)} conflict{conflictCount > 2 ? "s" : ""}</span> : null}</button>{dates.map((date) => { const dayEvents = ownerEvents.filter((event) => event.date === date); const appointments = dayEvents.filter((event) => event.kind === "assessment"); const other = dayEvents.length - appointments.length; return <div key={date} className={`min-h-[112px] border-l border-[#e1e5e3] p-1.5 ${appointments.length >= 5 ? "bg-[#fff9ef]" : "bg-white"}`}>{appointments.slice(0, 3).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact conflict={conflicts.has(event.id)} />)}{appointments.length > 3 ? <button type="button" onClick={() => onOpen(appointments[3])} className="mt-1 text-[9px] font-bold text-[#526a63]">+{appointments.length - 3} more</button> : null}{other > 0 ? <div className="mt-1 text-[9px] font-semibold text-[#7a817d]">{other} assignment/follow-up</div> : null}</div>; })}</div>; })}
+    <section aria-label="Supervisor team week" className="mt-3 overflow-auto border border-[#d8dedb]"><div className="min-w-[1080px]">
+      <div className="sticky top-0 z-10 grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] border-b border-[#d8dedb] bg-[#f7f9f8]"><div className="sticky left-0 z-20 bg-[#f7f9f8] px-3 py-3 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#69706c]">Assessor</div>{dates.map((date) => <div key={date} className={`border-l border-[#d8dedb] px-2 py-2.5 ${date === todayKey() ? "bg-[#eaf5f1]" : ""}`}><span className="block text-[9px] font-extrabold uppercase text-[#737a76]">{weekdays[parseDate(date).getUTCDay()]}</span><span className="block text-[12px] font-extrabold text-[#252a27]">{shortDate(date)}</span></div>)}</div>
+      {owners.map((assessor) => { const ownerEvents = events.filter((event) => ownerKey(event.ownerId, event.owner) === assessor.value); const ownerQueue = unscheduled.filter((item) => ownerKey(item.ownerId, item.owner) === assessor.value); const conflictCount = ownerEvents.filter((event) => conflicts.has(event.id)).length; const scheduledCount = ownerEvents.filter((event) => event.kind === "assessment").length; return <div key={assessor.value} className="grid grid-cols-[190px_repeat(7,minmax(118px,1fr))] border-b border-[#e1e5e3] last:border-b-0"><button type="button" onClick={() => onFocusOwner(assessor.value)} className="sticky left-0 z-[5] bg-white px-3 py-3 text-left hover:bg-[#f4f8f6]"><span className="block truncate text-[12px] font-extrabold text-[#252a27]">{assessor.label}</span><span className="mt-1 block text-[10px] text-[#737a76]">{scheduledCount} scheduled · {ownerQueue.length} waiting</span>{conflictCount > 0 ? <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-extrabold text-[#9c3d32]"><AlertTriangle size={11} /> {Math.ceil(conflictCount / 2)} conflict{conflictCount > 2 ? "s" : ""}</span> : null}</button>{dates.map((date) => { const dayEvents = ownerEvents.filter((event) => event.date === date); const appointments = dayEvents.filter((event) => event.kind === "assessment"); const followUps = dayEvents.length - appointments.length; return <div key={date} className={`min-h-[118px] border-l border-[#e1e5e3] p-1.5 ${appointments.length >= 5 ? "bg-[#fff9ef]" : "bg-white"}`}>{appointments.slice(0, 3).map((event) => <CalendarEventButton key={event.id} event={event} onOpen={onOpen} compact conflict={conflicts.has(event.id)} />)}{appointments.length > 3 ? <button type="button" onClick={() => onOpen(appointments[3])} className="mt-1 text-[9px] font-bold text-[#526a63]">+{appointments.length - 3} more</button> : null}{followUps > 0 ? <div className="mt-1 text-[9px] font-semibold text-[#8a5c14]">{followUps} follow-up{followUps === 1 ? "" : "s"}</div> : null}</div>; })}</div>; })}
     </div></section>
   );
 }
@@ -566,7 +671,7 @@ function AgendaView({ events, hasFilters, onOpen }: { events: PipelineCalendarEv
 function CalendarDrawer({ selection, busy, scope, onClose, onOpenWorkspace, onSchedule, onStatus }: { selection: CalendarSelection; busy: boolean; scope: "personal" | "team"; onClose: () => void; onOpenWorkspace: () => void; onSchedule: () => void; onStatus: (status: "cancelled" | "no_show") => void }) {
   const model = calendarDrawerModel(selection, scope);
   return (
-    <div className="fixed inset-0 z-50 bg-[#18201d]/30" role="presentation" onMouseDown={(mouseEvent) => { if (mouseEvent.currentTarget === mouseEvent.target) onClose(); }}>
+    <div className="fixed inset-0 z-[100] bg-[#18201d]/30" role="presentation" onMouseDown={(mouseEvent) => { if (mouseEvent.currentTarget === mouseEvent.target) onClose(); }}>
       <aside role="dialog" aria-modal="true" aria-label="Calendar item" className="absolute inset-y-0 right-0 flex w-full max-w-[430px] flex-col border-l border-[#cfd5d2] bg-white shadow-2xl">
         <div className="flex items-start justify-between border-b border-[#d8dedb] p-5">
           <div className="min-w-0"><span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#167f6b]">{model.kicker}</span><h2 className="mt-1.5 truncate text-[20px] font-extrabold tracking-[-0.025em] text-[#202522]">{model.clientName}</h2></div>
@@ -636,15 +741,15 @@ function CalendarEventButton({ event, onOpen, compact = false, conflict = false 
 }
 
 function CalendarFilter({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {
-  return <select aria-label={`Filter calendar by ${label}`} value={value} onChange={(event) => onChange(event.target.value)} className="h-8 min-w-0 border border-[#cfd5d2] bg-white px-2 text-[11px] font-semibold text-[#303632] outline-none focus:border-[#167f6b]"><option value="">All {label === "community" ? "communities" : "owners"}</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
+  return <select aria-label={`Filter calendar by ${label}`} value={value} onChange={(event) => onChange(event.target.value)} className="h-9 min-w-0 border border-[#cfd5d2] bg-white px-2.5 text-[12px] font-semibold text-[#303632] outline-none focus:border-[#167f6b]"><option value="">All {label === "community" ? "communities" : "owners"}</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
 }
 
 function OwnerFilter({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) {
-  return <select aria-label="Filter calendar by assessor" value={value} onChange={(event) => onChange(event.target.value)} className="h-8 min-w-0 border border-[#cfd5d2] bg-white px-2 text-[11px] font-semibold text-[#303632] outline-none focus:border-[#167f6b]"><option value="">All assessors</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>;
+  return <select aria-label="Filter calendar by assessor" value={value} onChange={(event) => onChange(event.target.value)} className="h-9 min-w-0 border border-[#cfd5d2] bg-white px-2.5 text-[12px] font-semibold text-[#303632] outline-none focus:border-[#167f6b]"><option value="">All assessors</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>;
 }
 
 function IconButton({ label, onClick, disabled = false, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
-  return <button type="button" aria-label={label} onClick={onClick} disabled={disabled} className="flex h-8 w-8 shrink-0 items-center justify-center border border-[#cfd5d2] text-[#626a66] hover:border-[#167f6b] hover:text-[#116b5a] disabled:opacity-50">{children}</button>;
+  return <button type="button" aria-label={label} onClick={onClick} disabled={disabled} className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#cfd5d2] text-[#626a66] hover:border-[#167f6b] hover:text-[#116b5a] disabled:opacity-50">{children}</button>;
 }
 
 function CalendarSkeleton() { return <div className="mt-3 animate-pulse border border-[#d8dedb] p-4"><div className="h-10 bg-[#eef1ef]" /><div className="mt-3 grid grid-cols-3 gap-3"><div className="h-52 bg-[#f4f6f5]" /><div className="h-52 bg-[#f4f6f5]" /><div className="h-52 bg-[#f4f6f5]" /></div></div>; }
@@ -734,20 +839,10 @@ function hasCalendarFilters(community: string, owner: string, kind: string, mySc
   return Boolean(community || owner || kind || mySchedule);
 }
 
-function calendarQueueTotal(snapshot: CalendarSnapshot | undefined, visible: PipelineUnscheduledAssessment[], hasFilters: boolean) {
-  if (hasFilters) return visible.length;
-  return snapshot?.unscheduledTotal ?? visible.length;
-}
-
 function calendarStatusText(loading: boolean, refreshing: boolean, message: string) {
   if (loading) return "Loading...";
   if (refreshing) return "Refreshing...";
   return message;
-}
-
-function shouldShowActionQueue(kind: PipelineCalendarEventKind | "", items: PipelineUnscheduledAssessment[], overdue: PipelineCalendarEvent[]) {
-  if (kind && kind !== "assessment") return false;
-  return items.length > 0 || overdue.length > 0;
 }
 
 function showTeamWeek(scope: "personal" | "team", owner: string, mySchedule: boolean) {
@@ -856,3 +951,12 @@ function operationalInputToIso(value: string) { const match = /^(\d{4})-(\d{2})-
 function nextSchedulingInput() { const next = new Date(Date.now() + 60 * 60_000); next.setMinutes(0, 0, 0); return isoToOperationalInput(next.toISOString()); }
 function mutationId(prefix: string) { return `${prefix}:${typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}:${Math.random().toString(16).slice(2)}`}`; }
 function isHttpUrl(value: string) { try { const url = new URL(value); return url.protocol === "https:" || url.protocol === "http:"; } catch { return false; } }
+
+function useDebouncedValue<T>(value: T, delay: number) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timeout);
+  }, [delay, value]);
+  return debounced;
+}
