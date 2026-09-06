@@ -59,8 +59,6 @@ export async function POST(
     const access = await requireReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
     const referral = access.referral;
-    const workspaceFailure = assessmentWorkspaceFailure(referral.workspaceStatus);
-    if (workspaceFailure) return workspaceFailure;
     const assignment = resolveAssessmentAssignment(auth.user, referral);
     if (!assignment.ok) return assignment.response;
     const assessmentAssignee = assignment.assignee;
@@ -109,12 +107,6 @@ export async function POST(
       return jsonError(error instanceof Error ? error.message : "Could not create assessment.", 400);
     }
   });
-}
-
-function assessmentWorkspaceFailure(workspaceStatus: string | undefined) {
-  return workspaceStatus === "historical"
-    ? jsonError("Historical workspaces are read-only profiles and cannot create assessments.", 409)
-    : null;
 }
 
 function resolveAssessmentAssignment(

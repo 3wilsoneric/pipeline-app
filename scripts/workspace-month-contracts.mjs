@@ -102,8 +102,8 @@ check(
 );
 check(
   "workspace filter describes month precision without claiming an exact creation date",
-  workspacePage.includes("Filter by workspace month")
-    && workspacePage.includes("All workspace months")
+  workspacePage.includes('aria-label="Browse workspaces by month and community"')
+    && workspacePage.includes("Choose a month, then a community.")
     && !workspacePage.includes("Filter by creation month"),
 );
 

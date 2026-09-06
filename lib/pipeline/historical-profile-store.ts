@@ -79,8 +79,8 @@ const globalCache = globalThis as typeof globalThis & {
 };
 
 export async function getHistoricalProfile(referral: Referral): Promise<HistoricalProfileResponse> {
-  if (referral.workspaceStatus !== "historical") {
-    throw new Error("Historical profile is available only for imported historical workspaces.");
+  if (referral.workspaceOrigin !== "allo" && referral.workspaceOrigin !== "import") {
+    throw new Error("Source profile is available only for imported workspaces.");
   }
 
   const readiness = getPipelineDatabaseReadiness();

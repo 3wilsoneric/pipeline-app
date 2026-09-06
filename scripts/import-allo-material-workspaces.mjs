@@ -28,7 +28,7 @@ const requirements = [
   ["provider_form", "Provider form", "pre_assessment", false],
   ["face_sheet", "Face sheet", "pre_assessment", true],
 ];
-const importedReferenceStage = "Packet Review";
+const importedInProgressStage = "Packet Review";
 
 const args = argumentMap();
 const dryRun = args.has("--dry-run");
@@ -71,9 +71,14 @@ try {
   await connection`select pg_advisory_lock(hashtextextended('pipeline_allo_workspace_import', 0))`;
   const migrations = await connection`
     select 1 from pipeline.schema_migrations
-    where migration_id in ('0011_historical_material_workspaces', '0024_workspace_month_provenance')
+    where migration_id in (
+      '0011_historical_material_workspaces',
+      '0015_assessor_workflow',
+      '0024_workspace_month_provenance',
+      '0026_imported_workspace_lifecycle'
+    )
   `;
-  if (migrations.length !== 2) throw new Error("missing_migration");
+  if (migrations.length !== 4) throw new Error("missing_migration");
 
   const memberRows = await connection`
     select principal_id, display_name
@@ -161,6 +166,8 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
   const externalClientId = profileExternalId(profile, workspace.source_workspace_id);
   const dateOfBirth = sqlDate(profile?.date_of_birth);
   const admissionDate = sqlDate(profile?.admit_date);
+  const stage = admissionDate ? "Accepted / Admitted" : importedInProgressStage;
+  const closedAt = admissionDate ? `${admissionDate}T12:00:00.000Z` : null;
   const receivedDate = sqlDate(workspace.first_material_at);
   const workspaceMonth = resolveWorkspaceMonth({
     workspaceMonth: workspace.workspace_month,
@@ -171,17 +178,20 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
   const owner = workspace.primary_owner ? members.get(normalizeName(workspace.primary_owner)) : null;
   const ownerName = owner?.display_name ?? "Unassigned";
   const ownerId = owner?.principal_id ?? null;
+  const workflowStatus = admissionDate ? "accepted" : ownerId ? "profile_incomplete" : "intake_unassigned";
   const tags = ["allo-import", ...(owner ? [] : ["owner-review"])];
   const firstFile = workspace.files[0] ?? null;
   const data = {
     clientId: externalClientId,
     workspaceOrigin: "allo",
-    workspaceStatus: "historical",
+    workspaceStatus: "active",
     sourceWorkspaceId: workspace.source_workspace_id,
     sourceWorkspaceName: workspace.source_workspace_name,
     sourceProjectId: workspace.project_id ?? undefined,
     sourceProjectName: workspace.project_name ?? undefined,
     sourceMaterialCount: workspace.material_count,
+    stage,
+    workflowStatus,
     name: workspace.display_name,
     date: receivedDate ?? "",
     community,
@@ -216,19 +226,19 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
     workspace.project_name, "allo import", ...workspace.files.map((file) => file.source_file_name)].filter(Boolean).join(" ").toLowerCase();
   const referrals = await tx`
     insert into pipeline.referrals (
-      person_id, stage, community, owner_id, owner_name, priority, source, received_date,
+      person_id, stage, workflow_status, community, owner_id, owner_name, priority, source, received_date,
       workspace_month, workspace_month_basis,
       tags, summary, search_text, data, closed_at,
       workspace_origin, workspace_status, source_workspace_id, source_workspace_name,
       source_project_id, source_project_name, source_material_count, workspace_import_batch_id,
       created_by, created_by_name, updated_by, updated_by_name, created_at, updated_at
     ) values (
-      ${personId}::uuid, ${importedReferenceStage}, ${community}, ${ownerId}, ${ownerName},
+      ${personId}::uuid, ${stage}, ${workflowStatus}, ${community}, ${ownerId}, ${ownerName},
       'standard', 'Allo workspace import', ${receivedDate}::date,
       ${workspaceMonth.month ? `${workspaceMonth.month}-01` : null}::date, ${workspaceMonth.basis},
       ${tags}, ${data.note}, ${searchText},
-      ${tx.json(data)}, coalesce(${workspace.first_material_at}::timestamptz, now()),
-      'allo', 'historical', ${workspace.source_workspace_id}, ${workspace.source_workspace_name},
+      ${tx.json(data)}, ${closedAt}::timestamptz,
+      'allo', 'active', ${workspace.source_workspace_id}, ${workspace.source_workspace_name},
       ${workspace.project_id}, ${workspace.project_name}, ${workspace.material_count}, ${workspaceImportBatchId}::uuid,
       'allo_workspace_import', 'Allo workspace import', 'allo_workspace_import', 'Allo workspace import',
       coalesce(${workspace.first_material_at}::timestamptz, now()), coalesce(${workspace.first_material_at}::timestamptz, now())
@@ -236,7 +246,18 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
     on conflict (workspace_origin, source_workspace_id) where source_workspace_id is not null
     do update set
       person_id = excluded.person_id,
-      stage = excluded.stage,
+      stage = case
+        when pipeline.referrals.workspace_status = 'archived'
+          or pipeline.referrals.workflow_status not in ('intake_unassigned', 'profile_incomplete')
+          then pipeline.referrals.stage
+        else excluded.stage
+      end,
+      workflow_status = case
+        when pipeline.referrals.workspace_status = 'archived'
+          or pipeline.referrals.workflow_status not in ('intake_unassigned', 'profile_incomplete')
+          then pipeline.referrals.workflow_status
+        else excluded.workflow_status
+      end,
       owner_id = excluded.owner_id,
       owner_name = excluded.owner_name,
       community = excluded.community,
@@ -246,10 +267,38 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
       workspace_month = excluded.workspace_month,
       workspace_month_basis = excluded.workspace_month_basis,
       source_material_count = excluded.source_material_count,
+      workspace_status = case
+        when pipeline.referrals.workspace_status = 'archived' then pipeline.referrals.workspace_status
+        else excluded.workspace_status
+      end,
       workspace_import_batch_id = excluded.workspace_import_batch_id,
       search_text = excluded.search_text,
-      data = (excluded.data || pipeline.referrals.data) - 'stage',
+      data = jsonb_set(
+        jsonb_set(
+          (excluded.data || pipeline.referrals.data) - 'stage',
+          '{workspaceStatus}',
+          to_jsonb(case
+            when pipeline.referrals.workspace_status = 'archived' then pipeline.referrals.workspace_status
+            else excluded.workspace_status
+          end),
+          true
+        ),
+        '{workflowStatus}',
+        to_jsonb(case
+          when pipeline.referrals.workspace_status = 'archived'
+            or pipeline.referrals.workflow_status not in ('intake_unassigned', 'profile_incomplete')
+            then pipeline.referrals.workflow_status
+          else excluded.workflow_status
+        end),
+        true
+      ),
       tags = (select array_agg(distinct tag) from unnest(pipeline.referrals.tags || excluded.tags) tag),
+      closed_at = case
+        when pipeline.referrals.workspace_status = 'archived'
+          or pipeline.referrals.workflow_status not in ('intake_unassigned', 'profile_incomplete')
+          then pipeline.referrals.closed_at
+        else excluded.closed_at
+      end,
       updated_at = greatest(pipeline.referrals.updated_at, excluded.updated_at)
     returning referral_id, (xmax = 0) as inserted
   `;
@@ -345,7 +394,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
       insert into pipeline.audit_events (
         entity_type, entity_id, action, actor_id, actor_name, to_version, changed_fields, metadata
       ) values (
-        'referral', ${String(referralId)}, 'historical_workspace_imported',
+        'referral', ${String(referralId)}, 'workspace_imported',
         'allo_workspace_import', 'Allo workspace import', 1,
         array['workspace_origin','workspace_status','owner','documents'],
         ${tx.json({ source_system: "allo", material_count: workspace.material_count })}

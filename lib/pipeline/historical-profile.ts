@@ -171,7 +171,7 @@ export function buildHistoricalProfile(
     },
     message: hasContent
       ? null
-      : "No captured source content or linked documents are available for this historical workspace.",
+      : "No captured source content or linked documents are available for this workspace.",
   };
 }
 

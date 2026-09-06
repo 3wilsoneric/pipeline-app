@@ -210,7 +210,7 @@ const results = [
     assert(event?.receivedDate === "2026-08-22", "Expected the received date on the event");
     assert(event?.ownerId === "assessor-1" && event?.kind === "referral_assigned", "Expected an assessor-scoped assignment event");
   }),
-  run("calendar does not expose unassigned or imported historical work as assignments", () => {
+  run("calendar excludes unassigned and archived work but treats imports normally", () => {
     const base = {
       id: 40,
       name: "New Referral",
@@ -222,7 +222,8 @@ const results = [
       workspaceStatus: "active",
     };
     assert(assessmentCalendar.referralAssignmentCalendarEvent({ ...base, workspaceOrigin: "pipeline" }) === null, "Unassigned work must not create an assignment event");
-    assert(assessmentCalendar.referralAssignmentCalendarEvent({ ...base, ownerId: "assessor-1", workspaceOrigin: "historical_import" }) === null, "Historical imports must not create live assignment events");
+    assert(assessmentCalendar.referralAssignmentCalendarEvent({ ...base, ownerId: "assessor-1", workspaceOrigin: "allo" })?.kind === "referral_assigned", "Active imported workspaces must create ordinary assignment events");
+    assert(assessmentCalendar.referralAssignmentCalendarEvent({ ...base, ownerId: "assessor-1", workspaceOrigin: "allo", workspaceStatus: "archived" }) === null, "Archived imports must not create live assignment events");
   }),
   run("calendar marks unfinished past assessments overdue", () => {
     const event = assessmentCalendar.assessmentCalendarEvent({
@@ -291,7 +292,8 @@ const results = [
     const blocked = assessmentCalendar.assessmentPreparationItem({ ...item, id: 45, name: "Needs Documents", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "pipeline", workflowStatus: "intake_documents_needed" }, null);
     assert(blocked?.workflowStatus === "intake_documents_needed", "Expected blocked intake work to remain visible before scheduling");
     assert(blocked?.nextAction === "complete_intake", "Blocked intake work must route back to intake");
-    assert(assessmentCalendar.assessmentPreparationItem({ ...item, id: 44, name: "Needs Scheduling", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "allo" }, null) === null, "Imported historical work must not enter the scheduling queue");
+    assert(assessmentCalendar.assessmentPreparationItem({ ...item, id: 47, name: "Imported Scheduling", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "allo" }, null)?.nextAction === "schedule", "Active imported work must use the ordinary scheduling queue");
+    assert(assessmentCalendar.assessmentPreparationItem({ ...item, id: 48, name: "Archived Import", date: "2026-08-22", createdAt: "2026-08-22T12:00:00.000Z", stage: "New", workspaceOrigin: "allo", workspaceStatus: "archived" }, null) === null, "Archived imports must remain outside the scheduling queue");
     const reassessment = assessmentCalendar.assessmentPreparationItem({
       ...item,
       id: 46,
@@ -545,13 +547,14 @@ const results = [
     assert(result.value.activeOnly === true, "Expected active-only filter");
     assert(result.value.community === "San Pablo", "Expected community filter");
     assert(result.value.county === "Los Angeles County", "Expected county filter");
-    assert(result.value.workspaceStatus === "all", "Expected historical workspaces to be explicitly selectable");
+    assert(result.value.workspaceStatus === "all", "Expected active and archived workspaces to be selectable together");
     assert(result.value.sort === "community_asc", "Expected the requested server sort");
   }),
   run("referral list query rejects unsafe pagination and filters", () => {
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ cursor: "-1" })), "cursor is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ limit: "500" })), "limit must be a whole number between 1 and 200.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ stage: "Anything" })), "stage is invalid.");
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ workspace: "historical" })), "workspace is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ workspace: "anything" })), "workspace is invalid.");
     assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ sort: "anything" })), "sort is invalid.");
   }),
@@ -594,15 +597,19 @@ const results = [
   run("workspace outcomes use governed admission history for imported workspaces", () => {
     const base = {
       stage: "Packet Review",
-      workspaceStatus: "historical",
+      workspaceOrigin: "allo",
+      workspaceStatus: "active",
+      workflowStatus: "profile_incomplete",
       admissionDate: "",
     };
-    const unmatched = workspacePresentation.getWorkspaceAdmissionOutcome(base);
-    assert(unmatched.status === "unmatched", "Imported workspaces without a census match must not be presented as denied");
-    assert(unmatched.evidence === "no_census_match", "The absence of a census match must remain visible");
+    const inProgress = workspacePresentation.getWorkspaceAdmissionOutcome(base);
+    assert(inProgress.status === "pending", "Imported workspaces without a terminal outcome must remain in progress");
+    assert(inProgress.evidence === "open", "An open imported workspace must retain an explicit open state");
+    assert(workspacePresentation.getWorkspaceWorkflowLabel(base) === "In progress", "Imported workspaces must use the ordinary in-progress lifecycle label");
     const admitted = workspacePresentation.getWorkspaceAdmissionOutcome({ ...base, admissionDate: "2024-01-15" });
     assert(admitted.status === "admitted", "Recorded client admission history must count as admitted");
     assert(admitted.evidence === "census_match", "Admission history evidence must remain explicit");
+    assert(workspacePresentation.getWorkspaceWorkflowLabel({ ...base, admissionDate: "2024-01-15", workflowStatus: "accepted" }) === "Completed", "Admitted imported workspaces must be shown as completed");
     const declined = workspacePresentation.getWorkspaceAdmissionOutcome({
       ...base,
       workspaceStatus: "active",
@@ -629,6 +636,8 @@ const results = [
       admissionDecision: { outcome: "accepted" },
     });
     assert(recordedAcceptance.status === "accepted", "A recorded acceptance must remain distinct from a governed admission match");
+    assert(workspacePresentation.getWorkspaceWorkflowLabel({ ...base, workflowStatus: "declined" }) === "Completed", "Terminal imported workspaces must be shown as completed");
+    assert(workspacePresentation.getWorkspaceWorkflowLabel({ ...base, workspaceStatus: "archived" }) === "Archived", "Archived provenance must not override the archived lifecycle");
     const supervisorConfirmedAdmission = workspacePresentation.getWorkspaceAdmissionOutcome({
       ...acceptedReferralWithoutCensus,
       admissionDecision: { outcome: "accepted", reasonCode: "supervisor_confirmed_admission" },

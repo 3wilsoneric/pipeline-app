@@ -32,6 +32,7 @@ const noteLabPatternSelectionsRollback = await readFile("database/rollbacks/0022
 const noteLabFieldReviewsRollback = await readFile("database/rollbacks/0023_note_lab_field_reviews.sql", "utf8");
 const workspaceMonthRollback = await readFile("database/rollbacks/0024_workspace_month_provenance.sql", "utf8");
 const homeDashboardLayoutRollback = await readFile("database/rollbacks/0025_home_dashboard_layout.sql", "utf8");
+const importedWorkspaceLifecycleRollback = await readFile("database/rollbacks/0026_imported_workspace_lifecycle.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -108,6 +109,7 @@ try {
           and check_clause like '%home_dashboard_layout%'
       ) as home_dashboard_layout_kind,
       exists(select 1 from pipeline.schema_migrations where migration_id='0025_home_dashboard_layout') as home_dashboard_layout_history,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0026_imported_workspace_lifecycle') as imported_workspace_lifecycle_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -165,6 +167,7 @@ try {
       && before[0].operator_training_progress_history
       && before[0].home_dashboard_layout_kind
       && before[0].home_dashboard_layout_history
+      && before[0].imported_workspace_lifecycle_history
       && before[0].canvas_content_snapshots
       && before[0].canvas_content_candidates
       && before[0].allo_canvas_content_history
@@ -177,6 +180,24 @@ try {
       && before[0].workspace_month
       && before[0].workspace_month_index
       && before[0].workspace_month_history
+    ),
+  });
+  await connection.unsafe(importedWorkspaceLifecycleRollback);
+  const importedWorkspaceLifecycleDuring = await connection`
+    select not exists(
+        select 1 from pipeline.schema_migrations
+        where migration_id='0026_imported_workspace_lifecycle'
+      ) as history_removed,
+      exists(
+        select 1 from pipeline.schema_migrations
+        where migration_id='0025_home_dashboard_layout'
+      ) as prior_history_preserved
+  `;
+  checks.push({
+    name: "rollback restores imported workspace lifecycle evidence and preserves prior migration history",
+    ok: Boolean(
+      importedWorkspaceLifecycleDuring[0].history_removed
+      && importedWorkspaceLifecycleDuring[0].prior_history_preserved
     ),
   });
   await connection.unsafe(homeDashboardLayoutRollback);
@@ -539,6 +560,7 @@ try {
           and check_clause like '%home_dashboard_layout%'
       ) as home_dashboard_layout_kind,
       exists(select 1 from pipeline.schema_migrations where migration_id='0025_home_dashboard_layout') as home_dashboard_layout_history,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0026_imported_workspace_lifecycle') as imported_workspace_lifecycle_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -598,6 +620,7 @@ try {
       && after[0].operator_training_progress_history
       && after[0].home_dashboard_layout_kind
       && after[0].home_dashboard_layout_history
+      && after[0].imported_workspace_lifecycle_history
       && after[0].canvas_content_snapshots
       && after[0].canvas_content_candidates
       && after[0].allo_canvas_content_history

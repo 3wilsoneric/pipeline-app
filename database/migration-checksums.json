@@ -26,6 +26,7 @@
     "0022_note_lab_pattern_selections.sql": "4b9617c6575ef3e73ec6f0abfef1d0c0d6dfa5a903efdbfcc3c74c668854238c",
     "0023_note_lab_field_reviews.sql": "550f7394f5ba04931d0cc0d9e2cb4843b70ea14369a36f85e102ae0d24e2083f",
     "0024_workspace_month_provenance.sql": "a78b576cd557f3fcb10998b6410029bb0d1e6bd7be7304aeaf41dd9a2da0787d",
-    "0025_home_dashboard_layout.sql": "b4e52f1e3d7720a2dd0e660c17c6bbfa3586ac5bae4696605c1aeaaa717ddaae"
+    "0025_home_dashboard_layout.sql": "b4e52f1e3d7720a2dd0e660c17c6bbfa3586ac5bae4696605c1aeaaa717ddaae",
+    "0026_imported_workspace_lifecycle.sql": "3c1834c8c0eea18575be2254eae9897059832a2fc02224dea892ac45f0f9e978"
   }
 }

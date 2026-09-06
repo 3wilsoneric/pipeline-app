@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Archive, FileSearch, Paperclip } from "lucide-react";
+import { AlertTriangle, FileSearch, FolderOpen, Paperclip } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { HistoricalProfileResponse } from "@/lib/pipeline/historical-profile-contracts";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { getWorkspaceCounty } from "@/lib/pipeline/workspace-presentation";
+import { getWorkspaceCounty, getWorkspaceWorkflowLabel } from "@/lib/pipeline/workspace-presentation";
 import { formatClientIdentityTitle, resolveClientCommunity, resolveClientGender } from "@/lib/pipeline/client-identity-presentation.mjs";
 
-export default function HistoricalReferralProfile({ referral }: { referral: Referral }) {
+export default function ImportedWorkspaceProfile({ referral }: { referral: Referral }) {
   const [profile, setProfile] = useState<HistoricalProfileResponse | null>(null);
   const [error, setError] = useState("");
 
@@ -20,7 +20,7 @@ export default function HistoricalReferralProfile({ referral }: { referral: Refe
       signal: controller.signal,
     }).then(setProfile).catch((reason) => {
       if (!controller.signal.aborted) {
-        setError(reason instanceof Error ? reason.message : "Historical profile could not be loaded.");
+        setError(reason instanceof Error ? reason.message : "Profile could not be loaded.");
       }
     });
     return () => controller.abort();
@@ -55,11 +55,11 @@ function HistoricalProfileHeader({ referral, county, dob, gender }: { referral: 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-[760px]">
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">
-            <Archive size={14} aria-hidden="true" /> Historical profile
+            <FolderOpen size={14} aria-hidden="true" /> {getWorkspaceWorkflowLabel(referral)}
           </div>
           <h2 className="mt-2 text-[18px] font-black tracking-[-0.02em] text-[#111111]">{identityTitle}</h2>
           <p className="mt-1 text-[11px] leading-5 text-[#59635f]">
-            Read-only facts and notes reconstructed from imported source material. This is not a completed assessment and does not enter assessment reporting.
+            Client information, notes, and documents carried into Pipeline from the original workspace.
           </p>
         </div>
         {facts.length > 0 ? <div className="grid min-w-[260px] grid-cols-2 border-l border-t border-[#d7ddd9] bg-white">{facts.map((fact) => <ProfileFact key={fact.label} {...fact} />)}</div> : null}
@@ -89,7 +89,7 @@ function HistoricalProfileContent({ profile }: { profile: HistoricalProfileRespo
       <HistoricalUnmappedEvidence evidence={profile.unmappedEvidence} />
       <HistoricalSourceDetails sections={profile.sourceSections} />
       <p className="border-t border-[#d7ddd9] pt-3 text-[9px] leading-4 text-[#68716d]">
-        This is a read-only reconstruction of the linked source record. Historical facts and notes must be verified before reuse in a current assessment.
+        Source information keeps its original provenance. Verify facts that may have changed before using them in a new assessment.
       </p>
     </>
   );
@@ -102,7 +102,7 @@ function HistoricalEmptyMessage({ message }: { message: string | null }) {
       <FileSearch size={17} className="mt-0.5 shrink-0 text-[#68716d]" aria-hidden="true" />
       <div>
         <p className="text-[11px] font-bold text-[#303633]">{message}</p>
-        <p className="mt-0.5 text-[10px] leading-4 text-[#737373]">This workspace will update when source material is linked.</p>
+        <p className="mt-0.5 text-[10px] leading-4 text-[#737373]">Open Files to review the material attached to this workspace.</p>
       </div>
     </section>
   );
@@ -112,7 +112,7 @@ function HistoricalFacts({ facts }: { facts: HistoricalProfileResponse["facts"] 
   if (!facts.length) return null;
   return (
     <section aria-labelledby="historical-facts">
-      <SectionHeading id="historical-facts" title="Profile facts" detail="Values captured in the original workspace" count={facts.length} />
+      <SectionHeading id="historical-facts" title="Client information" detail="Values carried into this workspace" count={facts.length} />
       <div className="grid border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 lg:grid-cols-3">
         {facts.map((fact) => (
           <div key={fact.factId} className="min-w-0 border-b border-r border-[#d7ddd9] px-4 py-3">
@@ -130,7 +130,7 @@ function HistoricalDocuments({ documents }: { documents: HistoricalProfileRespon
   if (!documents.length) return null;
   return (
     <section aria-labelledby="historical-documents">
-      <SectionHeading id="historical-documents" title="Source documents" detail="Every file linked to this imported workspace" count={documents.length} />
+      <SectionHeading id="historical-documents" title="Files" detail="Documents linked to this workspace" count={documents.length} />
       <div className="divide-y divide-[#e1e5e2] border border-[#d7ddd9] bg-white">
         {documents.map((document) => (
           <article key={document.documentId} className="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_180px_130px] sm:items-center">
@@ -156,7 +156,7 @@ function HistoricalAssessmentEvidence({ sections }: { sections: HistoricalProfil
       <SectionHeading
         id={`historical-${section.section}`}
         title={section.label}
-        detail="Imported evidence organized against future assessment fields"
+        detail="Source notes organized by assessment field"
         count={section.evidenceCount}
       />
       <div className="divide-y divide-[#e1e5e2] border border-[#d7ddd9] bg-white">

@@ -17,11 +17,11 @@ export async function GET(request: Request) {
     const query = searchParams.get("q")?.trim() ?? "";
     const workspace = searchParams.get("workspace")?.trim() || "active";
     if (query.length > 200) return jsonError("q must be 200 characters or fewer.");
-    if (!new Set(["active", "historical", "archived", "all"]).has(workspace)) {
+    if (!new Set(["active", "archived", "all"]).has(workspace)) {
       return jsonError("workspace is invalid.");
     }
     const access = scopeReferralListOptions(auth.user, {
-      workspaceStatus: workspace as "active" | "historical" | "archived" | "all",
+      workspaceStatus: workspace as "active" | "archived" | "all",
     });
     const facets = await listReferralFacets(query, access);
 

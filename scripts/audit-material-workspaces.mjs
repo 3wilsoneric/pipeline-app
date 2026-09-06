@@ -80,7 +80,7 @@ try {
     from pipeline.client_file_import_items
   `;
 
-  const historical = await sql`
+  const imported = await sql`
     select
       count(distinct r.referral_id)::integer as workspace_count,
       count(distinct r.referral_id) filter (where r.owner_id is not null)::integer as owner_assigned_workspace_count,
@@ -90,12 +90,12 @@ try {
       count(distinct d.document_id) filter (where d.source_external_id is not null)::integer as sourced_document_count
     from pipeline.referrals r
     left join pipeline.documents d on d.referral_id = r.referral_id and d.deleted_at is null
-    where r.workspace_origin = 'allo' and r.workspace_status = 'historical'
+    where r.workspace_origin = 'allo' and r.workspace_status <> 'archived'
   `;
-  const historicalStages = await sql`
+  const importedStages = await sql`
     select stage, count(*)::integer as workspace_count
     from pipeline.referrals
-    where workspace_origin = 'allo' and workspace_status = 'historical'
+    where workspace_origin = 'allo' and workspace_status <> 'archived'
     group by stage
     order by stage
   `;
@@ -114,8 +114,8 @@ try {
     material_client_with_workspace_count: clients.filter((client) => Number(client.referral_count) > 0).length,
     document_count: clients.reduce((sum, client) => sum + Number(client.document_count), 0),
     imports: imports[0] ?? { total_items: 0, imported_items: 0, pending_items: 0, distinct_source_clients: 0 },
-    historical: historical[0] ?? {},
-    historical_stages: historicalStages,
+    imported_workspaces: imported[0] ?? {},
+    imported_workspace_stages: importedStages,
     latest_workspace_import_batch: latestBatch[0] ?? null,
     clients,
   };
@@ -131,8 +131,8 @@ try {
     material_client_with_workspace_count: payload.material_client_with_workspace_count,
     document_count: payload.document_count,
     pending_import_items: Number(payload.imports.pending_items ?? 0),
-    historical: payload.historical,
-    historical_stages: payload.historical_stages,
+    imported_workspaces: payload.imported_workspaces,
+    imported_workspace_stages: payload.imported_workspace_stages,
     latest_workspace_import_batch: payload.latest_workspace_import_batch,
     output_written: true,
   }));

@@ -121,7 +121,7 @@ async function getPostgresAssessmentCalendar(
         r.received_date::text as received_date
       from pipeline.referrals r
       join pipeline.people p on p.person_id = r.person_id
-      where r.workspace_origin = 'pipeline' and r.workspace_status = 'active'
+      where r.workspace_status = 'active'
         and r.deleted_at is null and r.owner_id is not null and r.assigned_at is not null
         and r.assigned_at >= (${range.from}::date - interval '1 day')
         and r.assigned_at < (${range.to}::date + interval '2 days')
@@ -197,7 +197,7 @@ async function getPostgresAssessmentCalendar(
         order by d.decided_at desc, d.decision_id desc
         limit 1
       ) latest_decision on true
-      where r.workspace_origin = 'pipeline' and r.workspace_status = 'active'
+      where r.workspace_status = 'active'
         and r.deleted_at is null and ${access}
         and (
           (r.closed_at is null and r.workflow_status in (

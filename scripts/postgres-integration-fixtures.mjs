@@ -18,9 +18,9 @@ try {
     await sql.begin(async (tx) => {
       const migrations = await tx`
         select migration_id from pipeline.schema_migrations
-        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration','0010_provisional_workspace_members','0011_historical_material_workspaces','0012_referral_trash','0013_search_performance','0014_workspace_county','0015_assessor_workflow','0016_zoom_assessment_method','0017_referral_received_month','0018_academy_progress','0019_operator_training_progress','0020_allo_canvas_content','0021_note_practice_lab','0022_note_lab_pattern_selections','0023_note_lab_field_reviews','0024_workspace_month_provenance','0025_home_dashboard_layout')
+        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration','0010_provisional_workspace_members','0011_historical_material_workspaces','0012_referral_trash','0013_search_performance','0014_workspace_county','0015_assessor_workflow','0016_zoom_assessment_method','0017_referral_received_month','0018_academy_progress','0019_operator_training_progress','0020_allo_canvas_content','0021_note_practice_lab','0022_note_lab_pattern_selections','0023_note_lab_field_reviews','0024_workspace_month_provenance','0025_home_dashboard_layout','0026_imported_workspace_lifecycle')
       `;
-      checks.push({ name: "all migrations applied", ok: migrations.length === 25 });
+      checks.push({ name: "all migrations applied", ok: migrations.length === 26 });
       await tx`
         insert into pipeline.user_workspace_state (
           principal_id, state_kind, state_key, payload, expires_at

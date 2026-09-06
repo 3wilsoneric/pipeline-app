@@ -18,8 +18,7 @@ export function referralAssignmentCalendarEvent(
   referral: Pick<Referral, "id" | "name" | "community" | "owner" | "ownerId" | "assignedAt" | "assignmentVersion" | "createdAt" | "date" | "workspaceOrigin" | "workspaceStatus" | "deletedAt">,
 ): PipelineCalendarEvent | null {
   if (
-    referral.workspaceOrigin !== "pipeline"
-    || (referral.workspaceStatus ?? "active") !== "active"
+    (referral.workspaceStatus ?? "active") !== "active"
     || referral.deletedAt
     || !referral.assignedAt
     || !referral.ownerId
@@ -128,8 +127,7 @@ export function assessmentPreparationItem(
   const hasScheduledAssessment = isScheduledAssessment(assessment);
   const reassessment = isPostOutcomeAssessment(referral, assessment);
   if (
-    referral.workspaceOrigin !== "pipeline"
-    || (referral.workspaceStatus ?? "active") !== "active"
+    (referral.workspaceStatus ?? "active") !== "active"
     || hasScheduledAssessment
     || assessment?.status === "complete"
     || (isClosedOutcome(referral) && !reassessment)

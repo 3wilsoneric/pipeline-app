@@ -126,23 +126,29 @@ check("historical profiles load latest raw canvas blocks and every linked docume
     && store.includes("where referral_id = ${referralId}"));
 check("private manifests remain disabled in production",
   store.includes("process.env.NODE_ENV === \"production\"") && store.includes("PIPELINE_NOTE_LAB_MANIFEST_PATH"));
-check("historical profile API is authenticated, access-scoped, and no-store",
+check("imported profile API is authenticated, access-scoped, and no-store",
   route.includes("requirePipelineUser") && route.includes("requireReferralAccess")
-    && route.includes("workspaceStatus !== \"historical\"") && route.includes("private, no-store"));
-check("normal assessment creation rejects historical workspaces",
-  assessmentRoute.includes("Historical workspaces are read-only profiles and cannot create assessments."));
-check("historical workspace exposes Profile but not the Assessment stage",
-  canvas.includes("const historicalSteps") && canvas.includes("{ page: 1, label: \"Profile\" }")
-    && canvas.includes("activePage === 2 && !isHistoricalWorkspace"));
-check("historical workspace removes mutation affordances",
-  canvas.includes("isHistoricalWorkspace ? (") && canvas.includes("Read only")
-    && canvas.includes("readOnly={isHistoricalWorkspace}"));
-check("historical UI clearly distinguishes retrieval from current assessment",
-  historicalWorkspace.includes("This is not a completed assessment")
-    && historicalWorkspace.includes("Historical facts and notes must be verified before reuse")
+    && route.includes('workspaceOrigin !== "allo"') && route.includes('workspaceOrigin !== "import"')
+    && route.includes("private, no-store"));
+check("imported workspaces can create normal assessments",
+  !assessmentRoute.includes("Historical workspaces are read-only profiles and cannot create assessments."));
+check("imported workspaces expose Profile, Assessment, and Chart",
+  canvas.includes("const importedWorkspaceSteps")
+    && canvas.includes("{ page: 1, label: \"Profile\" }")
+    && canvas.includes("{ page: 2, label: \"Assessment\" }")
+    && canvas.includes("{ page: 3, label: \"Chart\" }")
+    && canvas.includes("activePage === 2")
+    && canvas.includes("activePage === 3"));
+check("imported workspaces keep ordinary save and file controls",
+  canvas.includes("<WorkspaceSaveControl")
+    && canvas.includes("<WorkspaceFilesPage")
+    && !canvas.includes("readOnly={isHistoricalWorkspace}"));
+check("imported profile UI preserves source content without a lower-status label",
+  historicalWorkspace.includes("Client information, notes, and documents carried into Pipeline")
+    && historicalWorkspace.includes("Source information keeps its original provenance")
     && !historicalWorkspace.includes("CoverageFact")
     && historicalWorkspace.includes("Source notes needing structure")
-    && historicalWorkspace.includes("Source documents")
+    && historicalWorkspace.includes('title="Files"')
     && historicalWorkspace.includes("Other source details"));
 check("historical projection code contains no clinical writes",
   !store.includes("insert into pipeline.assessments") && !store.includes("update pipeline.assessments")

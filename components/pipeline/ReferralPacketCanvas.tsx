@@ -16,11 +16,15 @@ import {
 } from "lucide-react";
 
 import { pipelineCommunities, type PipelineCommunity } from "@/lib/pipeline/community-config";
-import { californiaCountyOptions } from "@/lib/pipeline/workspace-presentation";
+import {
+  californiaCountyOptions,
+  isImportedWorkspace,
+  isInternalWorkspaceTag,
+} from "@/lib/pipeline/workspace-presentation";
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
 import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
-import HistoricalReferralProfile from "@/components/pipeline/HistoricalReferralProfile";
+import ImportedWorkspaceProfile from "@/components/pipeline/HistoricalReferralProfile";
 import type { AssessmentListResponse } from "@/lib/assessment/assessment-records";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
@@ -56,7 +60,6 @@ import type { ReferralChangeSnapshot, ReferralPresenceView } from "@/lib/pipelin
 import { getReferralPatchSections, normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
 import { documentCategoryForRequirement } from "@/lib/pipeline/document-requirements";
 import type { WorkspaceMember } from "@/lib/pipeline/workspace-members";
-import { isInternalWorkspaceTag } from "@/lib/pipeline/workspace-presentation";
 import {
   allowedUploadContentTypes,
   maxUploadFileBytes,
@@ -167,8 +170,10 @@ const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
   { page: 3, label: "Chart" },
 ] as const;
 
-const historicalSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
+const importedWorkspaceSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
   { page: 1, label: "Profile" },
+  { page: 2, label: "Assessment" },
+  { page: 3, label: "Chart" },
 ] as const;
 
 const initialFields: Record<FieldKey, PacketField> = {
@@ -381,7 +386,7 @@ export default function ReferralPacketCanvas({
       setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
       return;
     }
-    if (!loadedReferral || loadedReferral.id !== referralId || loadedReferral.workspaceStatus === "historical") return;
+    if (!loadedReferral || loadedReferral.id !== referralId) return;
     setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
     let cancelled = false;
     fetchPipelineJson<AssessmentListResponse>(`/api/referrals/${referralId}/assessments`, { cache: "no-store" })
@@ -911,9 +916,8 @@ export default function ReferralPacketCanvas({
   };
 
   const openPage = (page: WorkspaceView) => {
-    const nextPage = normalizeWorkspaceView(page, loadedReferralRef.current?.workspaceStatus);
-    setActivePage(nextPage);
-    if (typeof nextPage === "number") onWorkspaceStageChange?.(workspaceStageName(nextPage));
+    setActivePage(page);
+    if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
     requestAnimationFrame(() => {
       canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -1517,11 +1521,11 @@ export default function ReferralPacketCanvas({
     community: loadedReferral?.community || referral?.community || fields.community.value,
   });
   const workspacePresentation = getWorkspacePresentation(
-    loadedReferral?.workspaceStatus,
+    loadedReferral,
     admissionDocumentCount,
     attachmentCount,
   );
-  const { isHistorical: isHistoricalWorkspace, steps: workspaceSteps } = workspacePresentation;
+  const { usesSourceProfile, steps: workspaceSteps } = workspacePresentation;
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
     (field) => extractedCanvasFieldKeys(field.field_key).length > 0,
   );
@@ -1643,7 +1647,6 @@ export default function ReferralPacketCanvas({
                     {saveError ? <div className="mt-0.5 text-[11px] font-semibold text-[#a4473c]">{saveError}</div> : null}
                   </div>
                   <WorkspaceSaveControl
-                    readOnly={isHistoricalWorkspace}
                     saving={isSaving}
                     hasReferral={hasReferralRecord(loadedReferral, referral?.id)}
                     blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
@@ -1759,9 +1762,9 @@ export default function ReferralPacketCanvas({
         ) : null}
 
         <div key={activePage} className="pipeline-step-enter">
-          {activePage === 1 && isHistoricalWorkspace && loadedReferral ? (
-            <PacketPage id="historical-profile" title="Profile">
-              <HistoricalReferralProfile key={loadedReferral.id} referral={loadedReferral} />
+          {activePage === 1 && usesSourceProfile && loadedReferral ? (
+            <PacketPage id="source-profile" title="Profile">
+              <ImportedWorkspaceProfile key={loadedReferral.id} referral={loadedReferral} />
             </PacketPage>
           ) : activePage === 1 ? (
           <PacketPage id="packet-page-1" title="Intake">
@@ -1933,7 +1936,7 @@ export default function ReferralPacketCanvas({
               uploadingDocumentIds={uploadingDocumentIds}
               onAttach={attachDocument}
             />
-          ) : activePage === 2 && !isHistoricalWorkspace ? (
+          ) : activePage === 2 ? (
             <PacketPage id="packet-page-2" title="Assessment">
                 <AssessmentWorkspace
                   referralId={loadedReferral?.id ?? referral?.id}
@@ -1953,7 +1956,7 @@ export default function ReferralPacketCanvas({
                   }}
                 />
             </PacketPage>
-          ) : activePage === 3 && !isHistoricalWorkspace ? (
+          ) : activePage === 3 ? (
             <PacketPage id="packet-charts" title="Chart">
               <AssessmentChartWorkspace referralId={loadedReferral?.id ?? referral?.id} />
             </PacketPage>
@@ -2011,48 +2014,38 @@ function workspaceRouteKey(
   return `${referralId ?? draftKey ?? "new"}:${stage}`;
 }
 
-function normalizeWorkspaceView(page: WorkspaceView, workspaceStatus: Referral["workspaceStatus"] | undefined) {
-  if (workspaceStatus !== "historical") return page;
-  return typeof page === "number" ? 1 : page;
-}
-
 function getWorkspacePresentation(
-  workspaceStatus: Referral["workspaceStatus"] | undefined,
+  referral: Referral | null,
   admissionDocumentCount: number,
   attachmentCount: number,
 ) {
-  const isHistorical = workspaceStatus === "historical";
+  const usesSourceProfile = referral ? isImportedWorkspace(referral) : false;
   return {
-    isHistorical,
-    steps: isHistorical ? historicalSteps : packetSteps,
-    filesLabel: isHistorical ? "Source files" : "Files",
-    admissionTitle: isHistorical ? "Admission documents" : "Required for admission",
-    admissionDetail: isHistorical
+    usesSourceProfile,
+    steps: usesSourceProfile ? importedWorkspaceSteps : packetSteps,
+    filesLabel: "Files",
+    admissionTitle: usesSourceProfile ? "Admission documents" : "Required for admission",
+    admissionDetail: usesSourceProfile
       ? `${admissionDocumentCount} linked`
       : `${admissionDocumentCount} of ${requirements.length} attached`,
-    supportingTitle: isHistorical ? "Supporting files" : "Assessment and supporting files",
-    supportingDetail: isHistorical
+    supportingTitle: usesSourceProfile ? "Supporting files" : "Assessment and supporting files",
+    supportingDetail: usesSourceProfile
       ? `${attachmentCount} linked`
       : `${attachmentCount} of ${attachments.length} attached`,
   };
 }
 
 function WorkspaceSaveControl({
-  readOnly,
   saving,
   hasReferral,
   blocked,
   onSave,
 }: {
-  readOnly: boolean;
   saving: boolean;
   hasReferral: boolean;
   blocked: boolean;
   onSave: () => void;
 }) {
-  if (readOnly) {
-    return <span className="hidden h-9 items-center bg-[#f1f4f2] px-3 text-[9px] font-black uppercase tracking-[0.08em] text-[#66706b] sm:flex">Read only</span>;
-  }
   return (
     <button
       type="button"
@@ -2102,7 +2095,6 @@ function WorkspaceFilesPage({
         documents={documents}
         uploadingDocumentIds={uploadingDocumentIds}
         onAttach={onAttach}
-        readOnly={presentation.isHistorical}
       />
       <DocumentGroup
         title={presentation.supportingTitle}
@@ -2111,7 +2103,6 @@ function WorkspaceFilesPage({
         documents={documents}
         uploadingDocumentIds={uploadingDocumentIds}
         onAttach={onAttach}
-        readOnly={presentation.isHistorical}
       />
     </PacketPage>
   );

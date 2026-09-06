@@ -1,10 +1,11 @@
 import type { Referral } from "./referral-types";
 import { extractImportedClientMetadata } from "./client-identity-presentation.mjs";
+import { resolveReferralWorkflowStatus, workflowStatusLabels } from "./workflow-status";
 
 export type WorkspaceAdmissionOutcome = {
-  status: "admitted" | "accepted" | "denied" | "pending" | "unmatched";
-  label: "Admitted" | "Accepted" | "Denied" | "In progress" | "No admission match";
-  evidence: "recorded" | "census_match" | "no_census_match" | "open";
+  status: "admitted" | "accepted" | "denied" | "pending";
+  label: "Admitted" | "Accepted" | "Denied" | "In progress";
+  evidence: "recorded" | "census_match" | "open";
   explanation: string;
 };
 
@@ -138,21 +139,28 @@ export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmis
     };
   }
 
-  if (referral.workspaceStatus === "historical") {
-    return {
-      status: "unmatched",
-      label: "No admission match",
-      evidence: "no_census_match",
-      explanation: "No governed admission record has been matched to this imported workspace. This does not mean the referral was denied.",
-    };
-  }
-
   return {
     status: "pending",
     label: "In progress",
     evidence: "open",
     explanation: "The referral is open and has no recorded decision or governed admission match yet.",
   };
+}
+
+export function isImportedWorkspace(referral: Pick<Referral, "workspaceOrigin">) {
+  return referral.workspaceOrigin === "allo" || referral.workspaceOrigin === "import";
+}
+
+export function getWorkspaceWorkflowLabel(referral: Referral) {
+  if (referral.workspaceStatus === "archived") return "Archived";
+  const workflowStatus = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
+  if (isImportedWorkspace(referral)) {
+    const outcome = getWorkspaceAdmissionOutcome(referral);
+    return outcome.status !== "pending" || ["accepted", "declined", "closed"].includes(workflowStatus)
+      ? "Completed"
+      : "In progress";
+  }
+  return workflowStatusLabels[workflowStatus];
 }
 
 export function visibleWorkspaceTags(tags: string[] | undefined) {

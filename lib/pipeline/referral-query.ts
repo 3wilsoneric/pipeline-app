@@ -11,7 +11,7 @@ type QueryResult =
 
 const priorities: Priority[] = ["urgent", "high", "standard"];
 const queues: ReferralQueueView[] = ["my_work", "unassigned", "packet_review", "assessment", "decision"];
-const workspaceStatuses = ["active", "historical", "archived", "all"] as const;
+const workspaceStatuses = ["active", "archived", "all"] as const;
 
 type ReferralQueryValues = {
   query: string;

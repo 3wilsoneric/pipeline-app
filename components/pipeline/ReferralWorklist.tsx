@@ -11,10 +11,10 @@ import {
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { resolveReferralWorkflowStatus, workflowStatusLabels } from "@/lib/pipeline/workflow-status";
 import {
   getWorkspaceAdmissionOutcome,
   getWorkspaceCounty,
+  getWorkspaceWorkflowLabel,
   isRecordedWorkspaceCommunity,
 } from "@/lib/pipeline/workspace-presentation";
 
@@ -39,7 +39,7 @@ export default function ReferralWorklist({
       identityTitle: formatClientIdentityTitle(referral),
       outcome: getWorkspaceAdmissionOutcome(referral),
       county: getWorkspaceCounty(referral),
-      workflowLabel: workflowStatusLabels[referral.workflowStatus ?? resolveReferralWorkflowStatus(referral)],
+      workflowLabel: getWorkspaceWorkflowLabel(referral),
     };
   });
 
@@ -97,33 +97,20 @@ export default function ReferralWorklist({
               </span>
 
               <span className="pr-5">
-                {referral.workspaceStatus === "historical" ? (
-                  <>
-                    <span className="block text-[12px] font-black text-[#111111]">{referral.sourceMaterialCount ?? 0}</span>
-                    <span className="mt-1 block text-[9px] text-[#737373]">material{referral.sourceMaterialCount === 1 ? "" : "s"}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="flex items-center justify-between gap-2 text-[10px]">
-                      <span className="font-black text-[#111111]">{progress.overall.percent}%</span>
-                      <span className="text-[#737373]">{progress.overall.complete}/{progress.overall.total}</span>
-                    </span>
-                    <span className="mt-1.5 block h-1.5 bg-[#e5e9e6]">
-                      <span className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
-                    </span>
-                    {extractedTotal > 0 ? (
-                      <span className="mt-1 block text-[9px] text-[#737373]">{extractedReviewed}/{extractedTotal} extracted values reviewed</span>
-                    ) : null}
-                  </>
-                )}
+                <span className="flex items-center justify-between gap-2 text-[10px]">
+                  <span className="font-black text-[#111111]">{progress.overall.percent}%</span>
+                  <span className="text-[#737373]">{progress.overall.complete}/{progress.overall.total}</span>
+                </span>
+                <span className="mt-1.5 block h-1.5 bg-[#e5e9e6]">
+                  <span className="block h-full bg-[#0f8b73]" style={{ width: `${progress.overall.percent}%` }} />
+                </span>
+                {extractedTotal > 0 ? (
+                  <span className="mt-1 block text-[9px] text-[#737373]">{extractedReviewed}/{extractedTotal} extracted values reviewed</span>
+                ) : null}
               </span>
 
               <span className="truncate text-[11px] font-semibold text-[#404040]">{normalizeOwnerName(referral.owner)}</span>
-              <span className="text-[11px] text-[#737373]">
-                {referral.workspaceStatus === "historical"
-                  ? monthYearLabel(referral.createdAt)
-                  : ageLabel(referral.updatedAt ?? referral.createdAt)}
-              </span>
+              <span className="text-[11px] text-[#737373]">{ageLabel(referral.updatedAt ?? referral.createdAt)}</span>
               <span className={`text-right text-[11px] ${outcomeTextClass(outcome.status)}`} title={outcome.explanation}>
                 {outcome.label}
               </span>
@@ -207,11 +194,10 @@ function CompactReferralRow({
 }
 
 function WorkspaceChartThumbnail({ referral, progress }: { referral: Referral; progress: ReferralProgress }) {
-  const historical = referral.workspaceStatus === "historical";
   const seed = Math.abs(referral.id) % 13;
   const firstLine = 15 + seed;
   const secondLine = 10 + ((seed * 3) % 17);
-  const accent = referral.priority === "urgent" || referral.priority === "high" ? "#c85b4d" : historical ? "#6f7d76" : "#0f8b73";
+  const accent = referral.priority === "urgent" || referral.priority === "high" ? "#c85b4d" : "#0f8b73";
   const progressWidth = Math.max(3, Math.round(progress.overall.percent * 0.32));
 
   return (
@@ -229,18 +215,17 @@ function WorkspaceChartThumbnail({ referral, progress }: { referral: Referral; p
         <rect x="11" y="27" width="32" height="2" fill="#d5dfdb" />
         <rect x="11" y="32" width="26" height="2" fill="#d5dfdb" />
         <rect x="11" y="38" width="32" height="3" fill="#e1e8e5" />
-        <rect x="11" y="38" width={historical ? 32 : progressWidth} height="3" fill={accent} />
+        <rect x="11" y="38" width={progressWidth} height="3" fill={accent} />
         <path d="M45 4h6v6z" fill="#e8efec" />
       </svg>
     </span>
   );
 }
 
-function outcomeTextClass(status: "admitted" | "accepted" | "denied" | "pending" | "unmatched") {
+function outcomeTextClass(status: "admitted" | "accepted" | "denied" | "pending") {
   if (status === "admitted") return "font-semibold text-[#0f705d]";
   if (status === "accepted") return "font-semibold text-[#405b9d]";
   if (status === "denied") return "font-semibold text-[#8c392f]";
-  if (status === "unmatched") return "font-normal text-[#737373]";
   return "font-normal text-[#6b5a2a]";
 }
 
@@ -260,10 +245,4 @@ function ageLabel(value: string) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
-}
-
-function monthYearLabel(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Imported";
-  return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 }

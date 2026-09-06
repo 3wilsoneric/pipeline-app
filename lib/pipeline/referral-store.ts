@@ -90,7 +90,7 @@ export type ReferralListOptions = {
   activeOnly?: boolean;
   /** Internal operational filter for assessments deliberately created after an outcome. */
   postOutcomeAssessment?: boolean;
-  /** Active is the safe default so historical imports never enter work queues. */
+  /** Active is the safe default so archived workspaces never enter live work queues. */
   workspaceStatus?: WorkspaceStatus | "all";
   queue?: ReferralQueueView;
   /** Internal access-control filter. Never populated from query parameters. */

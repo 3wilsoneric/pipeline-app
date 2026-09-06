@@ -18,8 +18,8 @@ export async function GET(
     if (!Number.isInteger(id) || id < 1) return jsonError("referralId is invalid.");
     const access = await requireReferralAccess(auth.user, id);
     if (!access.ok) return access.response;
-    if (access.referral.workspaceStatus !== "historical") {
-      return jsonError("Historical profile is available only for imported historical workspaces.", 409);
+    if (access.referral.workspaceOrigin !== "allo" && access.referral.workspaceOrigin !== "import") {
+      return jsonError("Source profile is available only for imported workspaces.", 409);
     }
 
     try {
@@ -30,7 +30,7 @@ export async function GET(
         },
       });
     } catch (error) {
-      return jsonError(error instanceof Error ? error.message : "Historical profile could not be loaded.", 503);
+      return jsonError(error instanceof Error ? error.message : "Source profile could not be loaded.", 503);
     }
   });
 }
