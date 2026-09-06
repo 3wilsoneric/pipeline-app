@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   canAccessNoteLab,
+  getVerifiedPipelineUserHeader,
   requireAuthenticatedUser,
   type PipelineUser,
 } from "@/lib/auth/pipeline-auth";
@@ -28,6 +29,11 @@ export function canReviewAssessmentLanguage(user: PipelineUser) {
 
 async function getAuthorizedLabUser(requestHeaders: Headers, roles: ReadonlySet<string>, pathname: string) {
   if (!isNoteLabEnabled()) return null;
+  const forwardedUser = getVerifiedPipelineUserHeader(requestHeaders);
+  if (forwardedUser && canAccessNoteLab(forwardedUser)) {
+    if (forwardedUser.accessScope === "note_lab") return forwardedUser;
+    return forwardedUser.roles.some((role) => roles.has(role)) ? forwardedUser : null;
+  }
   const request = new Request(requestUrl(requestHeaders, pathname), { headers: new Headers(requestHeaders) });
   try {
     const auth = await requireAuthenticatedUser(request);

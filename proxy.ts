@@ -3,8 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   canAccessNoteLab,
   canAccessPipeline,
+  clearVerifiedPipelineUserHeader,
   isProtectedPath,
   requireAuthenticatedUser,
+  setVerifiedPipelineUserHeader,
 } from "@/lib/auth/pipeline-auth";
 import { getCanonicalPageRedirect } from "@/lib/auth/canonical-origin";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
@@ -43,9 +45,14 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isNoteLabPath(applicationPathname)) {
-    const response = canAccessNoteLab(auth.user)
-      ? NextResponse.next()
-      : NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!canAccessNoteLab(auth.user)) {
+      return withSecurityHeaders(NextResponse.json({ error: "Forbidden" }, { status: 403 }), request);
+    }
+
+    const requestHeaders = new Headers(request.headers);
+    clearVerifiedPipelineUserHeader(requestHeaders);
+    setVerifiedPipelineUserHeader(requestHeaders, auth.user);
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
     return withSecurityHeaders(response, request);
   }
 
