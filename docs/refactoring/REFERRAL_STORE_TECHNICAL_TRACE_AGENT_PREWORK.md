@@ -112,7 +112,9 @@ Read entry points include single-referral lookup, deleted lookup, packet lookup,
 
 At observed commit `ea076521`, the same synthetic API characterization passed 5/5 against isolated local-file storage and 5/5 against disposable PostgreSQL 16. Focused suspected-duplicate tests passed 2/2 against each adapter. Covered observations include create replay, disjoint and same-section writes, denials without side effects, packet duplication, exact duplicate-person review, concurrent unconfirmed creates, trash/restore, audit cardinality, and inaccessible-candidate protection.
 
-This is meaningful parity evidence, but not complete parity. It does not yet exercise every list/facet/file filter, assignment synchronization, local persistence failure, PostgreSQL rollback injection, workflow transition, capacity limit, malformed local state, or retention purge boundary.
+Supplemental evidence in `characterization/referral-assessment-handoff-run-080e5f9c.json` adds one successful referral-to-open-assessment reassignment contract. Its first exact-commit run passed local-file mode but exposed an ambiguous PostgreSQL prepared-parameter type in the assessment JSON update; the transaction rolled back. Commit `080e5f9` added the narrow SQL text cast, after which the production build and all 6/6 scenarios passed against both isolated local-file storage and disposable PostgreSQL 16.
+
+This is meaningful parity evidence, but not complete parity. It does not yet exercise every list/facet/file filter, local persistence failure, injected PostgreSQL rollback, same-referral reassignment races, completed/signed assessment reassignment boundaries, workflow transition, capacity limit, malformed local state, or retention purge boundary.
 
 ## Dependency direction and comprehension risks
 

@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "recordType": "machine_observation_not_approval",
+  "purpose": "Freeze referral reassignment coupling to open assessment assignment across local-file and PostgreSQL adapters, and retain the failing observation that exposed the PostgreSQL defect.",
+  "fixtureClassification": "synthetic",
+  "containsPhi": false,
+  "testPath": "tests/e2e/operational/referral-store-characterization.spec.ts",
+  "testDigestSha256": "91094a2f8b228e8373cd5d5866df839698187cd92dd9ceb722735f3d1987980d",
+  "boundedContract": [
+    "A supervisor-created referral assigned to assessor A records the supervisor as creator and assigning supervisor and assessor A as assignee.",
+    "An open assessment created by assessor A inherits assessor A's id and display name.",
+    "A supervisor reassignment to assessor B records the supplied handoff reason, removes assessor A's assignee access, preserves the supervisor's creator and assigning-supervisor responsibilities, and gives assessor B assignee access.",
+    "The open assessment changes to assessor B, increments exactly one version, and records one assessment_assigned audit event attributed to the supervisor.",
+    "PostgreSQL performs the referral, assessment, work-item, audit, and revision effects in one transaction; local-file mode provides the same successful domain result without claiming equivalent failure atomicity."
+  ],
+  "attempts": [
+    {
+      "capturedAt": "2026-09-07T07:10:25.027Z",
+      "capturedFromCommit": "63d678f1cda2285d244e428a3aa7ee7eb49c7d0d",
+      "artifactDigestSha256": "9cbd461e3976cd23c94b85248deab3c6ce4fa57a52247532317b57a9ad649599",
+      "validCharacterization": false,
+      "buildPassed": true,
+      "migrationsApplied": 26,
+      "postgresMajor": 16,
+      "adapters": [
+        {
+          "adapter": "local_file",
+          "ok": true,
+          "tests": { "expected": 6, "unexpected": 0, "flaky": 0, "skipped": 0 }
+        },
+        {
+          "adapter": "postgres",
+          "ok": false,
+          "tests": { "expected": 5, "unexpected": 1, "flaky": 0, "skipped": 0 },
+          "failure": "Referral reassignment returned HTTP 500 before any coupled transaction effect committed."
+        }
+      ],
+      "diagnosis": {
+        "source": "PostgreSQL server log for the isolated PostgreSQL 16 cluster",
+        "error": "could not determine data type of parameter $3",
+        "statementBoundary": "jsonb_build_object('assessor', parameter) in syncPostgresOpenAssessmentAssignments",
+        "rollbackObserved": "The referral, assessment, and audit rows remained at their pre-handoff versions after the failed transaction."
+      }
+    },
+    {
+      "capturedAt": "2026-09-07T07:12:34.818Z",
+      "capturedFromCommit": "080e5f9c17693f2dfd4dfbc84684209d9df79ab6",
+      "artifactDigestSha256": "9177021a01e08bfbf76c69c021f584509bc69e27bd8beaa29d18e328281dfe81",
+      "validCharacterization": true,
+      "fix": "Cast the nullable assessor-name SQL parameter to text at the jsonb_build_object call so PostgreSQL can type the prepared parameter without changing the stored JSON value.",
+      "buildPassed": true,
+      "migrationsApplied": 26,
+      "postgresMajor": 16,
+      "adapters": [
+        {
+          "adapter": "local_file",
+          "ok": true,
+          "durationMs": 2701,
+          "tests": { "expected": 6, "unexpected": 0, "flaky": 0, "skipped": 0 }
+        },
+        {
+          "adapter": "postgres",
+          "ok": true,
+          "durationMs": 2150,
+          "tests": { "expected": 6, "unexpected": 0, "flaky": 0, "skipped": 0 }
+        }
+      ]
+    }
+  ],
+  "claimBoundary": "This evidence supports only the named successful handoff behavior on the recorded commit. It does not prove local failure atomicity, every reassignment race, signed/completed assessment behavior, or whole-application correctness.",
+  "humanReview": {
+    "status": "awaiting_human_review",
+    "approvedBy": null,
+    "approvedAt": null
+  }
+}

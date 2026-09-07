@@ -39,7 +39,7 @@ All six slices are intentionally `not_started`. No slice is start-ready yet:
 
 | Slice | Before-start gap |
 | --- | --- |
-| Referral store | Owner narrative, independent review, approval, human acceptance of the machine-observed behavior/retry/parity contract, and approved assurance/file dispositions |
+| Referral store | Owner narrative, independent review, approval, human acceptance of the machine-observed behavior/retry/parity contract (now including open-assessment handoff), and approved assurance/file dispositions |
 | Assessment store | Owner, narrative, approval, frozen lifecycle/workflow-sync behavior, local/PostgreSQL parity |
 | Workflow and handoff | Owner, narrative, approval, database-effect goldens, runtime role matrix, retry contract |
 | Extraction | Owner, narrative, approval, packet-level goldens, governed labeled corpus |
