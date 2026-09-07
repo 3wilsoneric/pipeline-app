@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T21:14:41.680Z",
+  "generated_at": "2026-09-07T21:28:45.745Z",
   "audit_date": "2026-09-07",
-  "git_head": "6eb8c611d5039f0280f30973829b4dd6ab86151d",
+  "git_head": "c76caef92304a4c53a56693dc5ac5de4585058e7",
   "files": [
     {
       "path": ".dockerignore",
@@ -3744,7 +3744,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "0eff9594a80f2ceee2bf27b478f3a1fd1ad53503ea6225084dd746f8f0fac2af",
+      "content_sha256": "36eb0fd04552a5db7a20e89bda9c48994c9cca7a8e9762fd9055f3df9ac2484c",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4318,7 +4318,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "189947bce8cf69d4744976a4d6764a95342eb1b0a3fd2d5e4c2f56a4af7bba07",
+      "content_sha256": "96ba16f89ab78f517e517f1d4785ef997da784aa385c294d9af176244401b0b5",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 371136,
@@ -4346,7 +4346,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "e17b5c9111a7149f988f187e759f4cda24e7a6836015a2c9ef4047fbdf7f4e28",
+      "content_sha256": "3e7579b8157e3d459405251c5ee1c054cc5f82ed05babfa30c0abd970d532e4b",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 215815,
@@ -4405,7 +4405,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "ad5574cc64fe4f1418fcfca81c38e74c018c04a59dcaf8ae9c7f776220a4315f",
+      "content_sha256": "c4388406731ad4e0506d75982502931643a15dd4b21eac90497592d96aa123ad",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 515913,
@@ -10102,10 +10102,10 @@
     },
     {
       "path": "tests/e2e/visual-regression.spec.ts-snapshots/desktop-new-packet-darwin.png",
-      "content_sha256": "ffec9c8eb9a6ced1ed8ee18558c9e05d8f1adc68edd0e7bc336cef4077753726",
+      "content_sha256": "9e5cc9bbc3f8ef6dd9e4dcf42c1a40da2ad9bbe5584041eb0a5da65fc8596482",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 106344,
+      "bytes": 88410,
       "lines": null,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
@@ -10113,10 +10113,10 @@
     },
     {
       "path": "tests/e2e/visual-regression.spec.ts-snapshots/desktop-new-packet-linux.png",
-      "content_sha256": "8c54a6d37e596041a441008d011ccd90c844c30087ce196739514ad5b0bbd4c8",
+      "content_sha256": "58203a1cd98bdc8afd81f3ad317ec08baa57588761dfcfe1ec7233685d472f71",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 86584,
+      "bytes": 75096,
       "lines": null,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
@@ -10168,10 +10168,10 @@
     },
     {
       "path": "tests/e2e/visual-regression.spec.ts-snapshots/mobile-new-packet-darwin.png",
-      "content_sha256": "efc80ca18d98b076ca32f43160053e4a1c2a5e28167d29b24a2743884f425b3f",
+      "content_sha256": "3f8a836043eb87a9e3ae61efcf2c3e7fc392c261c788685a82d0f636dd3de2d2",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 53427,
+      "bytes": 30512,
       "lines": null,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
@@ -10179,10 +10179,10 @@
     },
     {
       "path": "tests/e2e/visual-regression.spec.ts-snapshots/mobile-new-packet-linux.png",
-      "content_sha256": "a21b646f49b198d2ab875cc1a4a632dd9e0a67f600ab8e8059770f5c7bbdc82e",
+      "content_sha256": "8065661ab8ec70affe0ee0b116096f541f5c831af0de1938df5563e93f8d57d8",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 47891,
+      "bytes": 28804,
       "lines": null,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
