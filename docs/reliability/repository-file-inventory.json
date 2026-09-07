@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T21:28:45.745Z",
+  "generated_at": "2026-09-07T21:56:18.911Z",
   "audit_date": "2026-09-07",
-  "git_head": "c76caef92304a4c53a56693dc5ac5de4585058e7",
+  "git_head": "840772c1dfb1e3d8d3f64f17d434db6db01faa33",
   "files": [
     {
       "path": ".dockerignore",
@@ -1980,18 +1980,18 @@
     },
     {
       "path": "components/pipeline/ReferralPacketCanvas.tsx",
-      "content_sha256": "65b655fb54e86dc88b676329c978c676c5a52eb2b875210ccd31cdcc462396ec",
+      "content_sha256": "b0ae27e776041c439cdf71c6343413478a8b0979a62bc9dd262a7bc13f5fc940",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 143162,
-      "lines": 3534,
+      "bytes": 143360,
+      "lines": 3545,
       "detected_concerns": [
-        "Large module (3534 lines): split by behavior before adding more responsibilities.",
+        "Large module (3545 lines): split by behavior before adding more responsibilities.",
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (3534 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (3545 lines): split by behavior before adding more responsibilities.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -3744,7 +3744,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "36eb0fd04552a5db7a20e89bda9c48994c9cca7a8e9762fd9055f3df9ac2484c",
+      "content_sha256": "bffc33a6e043d0fa22fd57db152f7677e181abba71a21d2baf669b4c9e7335e4",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4318,10 +4318,10 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "96ba16f89ab78f517e517f1d4785ef997da784aa385c294d9af176244401b0b5",
+      "content_sha256": "150b84bffbd05e0cf663d61186e4d328524b6abec81e060539a8cb807a6f7baa",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 371136,
+      "bytes": 371135,
       "lines": 1763,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4346,7 +4346,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "3e7579b8157e3d459405251c5ee1c054cc5f82ed05babfa30c0abd970d532e4b",
+      "content_sha256": "184e4989f34aa587c5d213420d40519ded4a4ec3b19a31f2c7e10d3c1c5c3152",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 215815,
@@ -4405,10 +4405,10 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "c4388406731ad4e0506d75982502931643a15dd4b21eac90497592d96aa123ad",
+      "content_sha256": "4657ebed70fdd8dc2e7c86ab08a17cc9557375aeb6696ff0bcaa5bd363e36ca4",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 515913,
+      "bytes": 515912,
       "lines": 10421,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4600,7 +4600,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "c1ee10a31e69052a390bfdc4ac31131e25b306aae7c0e5673a8bb891f34be0ac",
+      "content_sha256": "f1fdfb01c37af7dc85b56ad74eab369ea8bb15ed255113df522e1b151aaa5f79",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 263117,

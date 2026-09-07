@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import dynamic from "next/dynamic";
 import {
   Check,
   CheckCircle2,
@@ -32,7 +33,6 @@ import DuplicateReferralReviewDialog, {
   type ReferralDuplicateReview,
 } from "@/components/pipeline/DuplicateReferralReviewDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
-import ReferralWorkflowPanel from "@/components/pipeline/ReferralWorkflowPanel";
 import StructuredNarrativeField from "@/components/pipeline/StructuredNarrativeField";
 import type {
   Referral,
@@ -96,6 +96,17 @@ import {
   referralCanvasValue,
   type PersistedCanvasFieldKey,
 } from "@/lib/pipeline/referral-canvas-persistence";
+
+const ReferralWorkflowPanel = dynamic(
+  () => import("@/components/pipeline/ReferralWorkflowPanel"),
+  {
+    loading: () => (
+      <p aria-live="polite" className="text-sm text-[#666]">
+        Loading workflow…
+      </p>
+    ),
+  },
+);
 
 type FieldKey = ReferralCanvasFieldKey;
 
