@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "status": "owner_approved",
+  "decision": "Freeze the exact inherited complexity failures without changing the historical baseline. Permit no new failure or growth. Reduce matchesReferralFilters during the approved referral-store slice and separately own the other ten functions.",
+  "approvalContextCommit": "141982d908d07da06dcb9d7c19e83df2f1c7ec4b",
+  "ownerApproval": {
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-07T13:57:45Z"
+  },
+  "independentReview": {
+    "reviewedBy": null,
+    "reviewedAt": null
+  },
+  "ceilings": {
+    "functions": {
+      "app/api/calendar/events/route.ts::resolveQueueOptions::1": 11,
+      "components/pipeline/ClientProfileDirectory.tsx::ClientProfileDirectory::1": 31,
+      "lib/pipeline/assessment-calendar.ts::assessmentPreparationItem::1": 14,
+      "lib/pipeline/operations-snapshot.ts::toReferralWorklistItem::1": 28,
+      "lib/pipeline/referral-progress.ts::getNextAction::1": 46,
+      "lib/pipeline/referral-store.ts::matchesReferralFilters::1": 26,
+      "lib/pipeline/workflow-store.ts::getReferralWorkflowSnapshot::1": 32,
+      "lib/pipeline/workflow-store.ts::getReferralWorkflowContexts::1": 22,
+      "lib/pipeline/workspace-state.ts::resolveFocus::1": 17,
+      "scripts/import-allo-material-workspaces.mjs::processWorkspace::1": 37,
+      "scripts/operator-training-route-contracts.mjs::<callback:check:1>::22": 12
+    },
+    "totals": {
+      "hotspots": 272,
+      "controlPlaneHotspots": 136
+    }
+  },
+  "requirements": [
+    "The independent reviewer must differ from the owner approver.",
+    "A function or aggregate count above its listed ceiling remains a hard failure.",
+    "Any unlisted complexity failure remains a hard failure.",
+    "A supported reduction makes its ceiling stale and triggers a warning to lower or remove it.",
+    "The historical cyclomatic-complexity baseline is not regenerated to absorb this debt."
+  ]
+}

@@ -48,6 +48,8 @@ All six slices are intentionally `not_started`. No slice is start-ready yet:
 
 Every slice also inherits the global before-start gaps: independent review of the owner-approved complexity non-regression disposition, a risk-ranked exact-start baseline, independent protected review, commit-attached required checks, owner-validated assurance definitions, a human-adopted exact-commit guidance evaluation baseline, and an exact-start dedicated `codex/refactor-*` worktree recorded in the active slice. Eric approved the inherited 531-location dependency ceiling and complexity disposition on 2026-09-07; neither approval authorizes new dependency or complexity growth. Node 22 type alignment and a clean integration worktree now exist as candidate evidence; they are not slice approval. The current file/dependency inventory is generated evidence, not a hand-maintained list.
 
+The consolidated machine baseline at `92fa991` passed repository hygiene, code-quality setup, the 20/20 seeded-defect suite, the broader safety corpus, and the production build. The fast platform command stops only at the recorded inherited complexity ratchet; independent review of that owner-approved disposition is still a start gate.
+
 The checker derives the authoritative state from the JSON files. Update this summary only when the registry or matrix changes.
 
 ## Operating documents

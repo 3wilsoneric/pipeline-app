@@ -12,6 +12,8 @@ Approved at: `2026-09-07T13:57:45Z`
 
 Recorded decision: freeze the 11 inherited failures at their current levels, permit no new failure or growth, reduce `matchesReferralFilters` during the approved referral-store slice, and keep the other ten as separately owned prerequisite cleanup. The historical baseline must not be regenerated to absorb them.
 
+Machine-readable enforcement: `docs/refactoring/complexity-disposition.json`. The overlay is deliberately inactive until a distinct independent reviewer is recorded. Once approved, only the exact function and aggregate ceilings in that file may be applied; growth and unlisted failures remain red.
+
 ## Current result
 
 `npm run complexity:check` remains red against the reviewed baseline:

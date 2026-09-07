@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "recordType": "machine_observation_not_approval",
+  "purpose": "Consolidated candidate start baseline for the referral-store refactor program.",
+  "capturedAt": "2026-09-07T14:06:03Z",
+  "capturedFromCommit": "92fa991c49b9905bc3532bb49506e9f595d6988a",
+  "workingTreeClean": true,
+  "structuralBaseline": {
+    "command": "npm run codebase:baseline -- --label=candidate-92fa991",
+    "ok": true,
+    "artifact": "outputs/refactor-baseline/refactor-baseline-candidate-92fa991.json",
+    "artifactDigestSha256": "af01dba3b657c9b89b33339fab4f6c89635958bba38c634e027b186bb50c05f7",
+    "totals": {
+      "files": 600,
+      "lines": 114298,
+      "cycles": 8,
+      "duplicateGroups": 60,
+      "controlPlaneDuplicateGroups": 50,
+      "deadExportCandidates": 462,
+      "staticSourceContracts": 28,
+      "controlPlaneFiles": 180,
+      "criticalReviewFiles": 12,
+      "highReviewFiles": 38
+    },
+    "highestRiskPath": "lib/pipeline/referral-store.ts",
+    "highestRiskOverlappingMeasures": 4
+  },
+  "platformFast": {
+    "command": "npm run check:platform:fast",
+    "ok": false,
+    "passedBeforeStop": [
+      "Tracked repository hygiene",
+      "Repository engineering quality"
+    ],
+    "stoppedAt": "Cyclomatic complexity ratchet",
+    "reason": "The exact 11 inherited function failures and two aggregate count failures recorded in the owner-approved complexity disposition remain. No new failure or growth was observed relative to that disposition. Independent review is still required."
+  },
+  "testEffectiveness": {
+    "command": "npm run certify:test-effectiveness",
+    "ok": true,
+    "criticalSafetyChecks": 23,
+    "seededDefectsKilled": 20,
+    "seededDefectsTotal": 20,
+    "seededDefectKillRate": 1,
+    "additionalPassedSuites": [
+      "certify:master-merge",
+      "check:storage-consistency",
+      "check:allo-import-identity",
+      "check:allo-content",
+      "check:extraction-quality"
+    ]
+  },
+  "productionBuild": {
+    "command": "npm run build",
+    "ok": true,
+    "nextVersion": "16.2.11"
+  },
+  "knownBoundary": [
+    "This is machine evidence for the recorded commit, not human approval or slice activation.",
+    "The broad baseline ranks review pressure and does not prove correctness.",
+    "The complexity result remains non-green until the independent reviewer accepts the bounded disposition or the functions are repaired.",
+    "A fresh baseline and all required gates must run again from the final approved starting commit in the dedicated execution worktree."
+  ],
+  "humanReview": {
+    "status": "awaiting_owner_and_independent_review",
+    "approvedBy": null,
+    "approvedAt": null
+  }
+}

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T14:04:26.973Z",
+  "generated_at": "2026-09-07T14:17:34.767Z",
   "audit_date": "2026-09-07",
-  "git_head": "141982d908d07da06dcb9d7c19e83df2f1c7ec4b",
+  "git_head": "92fa991c49b9905bc3532bb49506e9f595d6988a",
   "direct": [
     {
       "name": "@azure/identity",
@@ -507,6 +507,7 @@
         "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
         "docs/refactoring/COMPATIBILITY_MATRIX.md",
         "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
+        "docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json",
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/code-quality-policy.json",
         "docs/refactoring/refactor-eval-scenarios.json",
@@ -703,6 +704,7 @@
         "docs/POSTGRES_DEPLOYMENT.md",
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
+        "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md",
         "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",

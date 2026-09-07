@@ -57,6 +57,8 @@ Require:
 
 The required checks must be attached to the exact candidate commit. For a refactor pull request, the selected slice gates, complexity ratchet, full refactor certification, and any required browser/PostgreSQL/security jobs cannot be satisfied only by an older commit or an unlinked local run.
 
+The integration candidate removes the pull-request exclusions from `browser`, `operational`, `postgres`, and `codeql`, and makes both CI workflows run for documentation/control-only pull requests so required contexts cannot disappear. After that workflow change lands, protect the exact job contexts `verify`, `browser`, `operational`, `postgres`, `dependency-review`, and `codeql`; a path-selected job may report skipped, but its workflow must still produce the commit-attached context.
+
 ## Human review rule
 
 The implementation agent cannot be the only reviewer of its generated test and production changes. Control-plane pull requests include the human explain-back template and name the operator who owns rollback.

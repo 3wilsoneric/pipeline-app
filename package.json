@@ -19,7 +19,7 @@
     "demo:check": "node scripts/demo-environment-contracts.mjs",
     "demo:certify": "npm run demo:check && npm run training:certify && PORT=3196 npm run test:e2e:demo",
     "complexity:baseline": "node scripts/cyclomatic-complexity-audit.mjs --write-baseline",
-    "complexity:check": "node scripts/cyclomatic-complexity-audit.mjs",
+    "complexity:check": "node scripts/complexity-disposition-fixtures.mjs && node scripts/cyclomatic-complexity-audit.mjs",
     "dev": "next dev --webpack",
     "build": "next build",
     "clean:artifacts": "node scripts/clean-local-artifacts.mjs",
