@@ -6,6 +6,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { patchReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
 import type { ManualIntakeAuthorization } from "@/lib/pipeline/referral-types";
+import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
 export const runtime = "nodejs";
 
@@ -27,7 +28,7 @@ export async function POST(
     const access = await requireReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
 
-    const body = await readJsonBody<{ if_match?: unknown; if_match_section?: unknown; reason?: unknown }>(request);
+    const body = await readJsonBody<{ if_match?: unknown; if_match_section?: unknown; reason?: unknown; client_mutation_id?: unknown }>(request);
     if (!body.ok) return jsonError(body.message, body.status);
     if (!Number.isInteger(body.value?.if_match) || Number(body.value?.if_match) < 1) {
       return jsonError("if_match must be a positive version number.");
@@ -38,6 +39,8 @@ export async function POST(
     const reason = typeof body.value?.reason === "string" ? body.value.reason.trim() : "";
     if (reason.length < 10) return jsonError("Explain why intake is proceeding without extraction in at least 10 characters.");
     if (reason.length > 1_000) return jsonError("reason must be 1,000 characters or fewer.");
+    const mutationId = validateClientMutationId(body.value?.client_mutation_id);
+    if (!mutationId.ok) return jsonError(mutationId.message);
 
     const accountableActor = pipelineAccountableActor(auth.user);
     const authorization: ManualIntakeAuthorization = {
@@ -53,7 +56,12 @@ export async function POST(
       Number(body.value.if_match),
       accountableActor,
       { documents: Number(body.value.if_match_section) },
-      { auditAction: "manual_intake_authorized", auditReason: reason },
+      {
+        auditAction: "manual_intake_authorized",
+        auditReason: reason,
+        mutationId: mutationId.value,
+        mutationScope: "manual_intake_authorization",
+      },
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) {

@@ -4,6 +4,8 @@ import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import {
   patchReferral,
+  getReferralMutationReplay,
+  getReferralStoreRevision,
   requireReferralStore,
   DuplicateReferralPacketError,
   softDeleteReferral,
@@ -17,18 +19,21 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import {
   assignedOwnerForPatch,
+  canAccessReferral,
   isAssessorUser,
   requireReferralAccess,
 } from "@/lib/pipeline/referral-access";
 import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
 import { isUnassignedOwner, reassignReferralOwners } from "@/lib/pipeline/referral-ownership";
 import { getAssignableWorkspaceAssessor, touchWorkspaceMember, type WorkspaceMember } from "@/lib/pipeline/workspace-members";
+import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
 export const runtime = "nodejs";
 
 type PatchReferralBody = {
   if_match?: number;
   if_match_sections?: Partial<ReferralSectionVersions>;
+  client_mutation_id?: string;
   patch?: ReferralPatch;
   assignee_id?: string;
   handoff_reason?: string;
@@ -69,15 +74,27 @@ export async function DELETE(
     const { referralId } = await context.params;
     const id = Number.parseInt(referralId, 10);
     if (!Number.isInteger(id) || id < 1) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, id);
-    if (!access.ok) return access.response;
-    const body = await readJsonBody<{ if_match?: number }>(request);
+    const body = await readJsonBody<{ if_match?: number; client_mutation_id?: unknown }>(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const expectedVersion = body.value?.if_match;
     if (!Number.isInteger(expectedVersion) || Number(expectedVersion) < 1) {
       return jsonError("if_match must be a positive version number.");
     }
-    const result = await softDeleteReferral(id, pipelineAuditActor(auth.user), expectedVersion);
+    const mutationId = validateClientMutationId(body.value?.client_mutation_id);
+    if (!mutationId.ok) return jsonError(mutationId.message);
+    const replay = await getReferralMutationReplay(id, "referral_delete", mutationId.value);
+    if (replay) {
+      if (!canAccessReferral(auth.user, replay)) return jsonError("Referral not found.", 404);
+      return Response.json({
+        ok: true,
+        referral: replay,
+        revision: await getReferralStoreRevision(),
+        idempotentReplay: true,
+      }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    }
+    const access = await requireReferralAccess(auth.user, id);
+    if (!access.ok) return access.response;
+    const result = await softDeleteReferral(id, pipelineAuditActor(auth.user), expectedVersion, mutationId.value);
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok) {
       return Response.json({
@@ -120,6 +137,8 @@ export async function PATCH(
     if (!Number.isInteger(body.value.if_match) || Number(body.value.if_match) < 1) {
       return jsonError("if_match must be a positive version number.");
     }
+    const mutationId = validateClientMutationId(body.value.client_mutation_id);
+    if (!mutationId.ok) return jsonError(mutationId.message);
     const patchResult = validateReferralPatch(body.value.patch);
     if (!patchResult.ok) return jsonError(patchResult.message, patchResult.status);
     const ownerResult = await resolveOwnerPatch({
@@ -146,6 +165,7 @@ export async function PATCH(
       user: auth.user,
       ownerChanged: ownerResult.ownerChanged,
       handoffReason: ownerResult.handoffReason,
+      mutationId: mutationId.value,
     });
   });
 }
@@ -238,6 +258,7 @@ type ApplyReferralPatchInput = {
   user: PipelineUser;
   ownerChanged: boolean;
   handoffReason: string;
+  mutationId?: string;
 };
 
 async function applyReferralPatch(input: ApplyReferralPatchInput): Promise<Response> {
@@ -249,7 +270,11 @@ async function applyReferralPatch(input: ApplyReferralPatchInput): Promise<Respo
       input.expectedVersion,
       pipelineAuditActor(input.user),
       input.expectedSectionVersions,
-      input.ownerChanged ? { auditAction: "referral_reassigned", auditReason: input.handoffReason } : undefined,
+      {
+        ...(input.ownerChanged ? { auditAction: "referral_reassigned", auditReason: input.handoffReason } : {}),
+        mutationId: input.mutationId,
+        mutationScope: "referral_patch",
+      },
     );
   } catch (error) {
     if (error instanceof DuplicateReferralPacketError) return duplicatePacketResponse(error);

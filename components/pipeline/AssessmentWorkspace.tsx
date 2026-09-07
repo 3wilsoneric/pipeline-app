@@ -700,14 +700,9 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
           body: requestBody,
           createdAt: new Date().toISOString(),
         });
-        const nextBase = pickAssessmentToolData(baseDataRef.current);
-        for (const field of fieldsForAssessmentSection(section)) {
-          if (sentData[field] !== undefined) nextBase[field] = sentData[field] as never;
-        }
-        baseDataRef.current = nextBase;
-        const nextDirty = dirtyAssessmentSections(draftRef.current, nextBase);
-        dirtySectionsRef.current = nextDirty;
-        setDirtySections(nextDirty);
+        // Keep the last confirmed server data as the comparison base. Treating
+        // a queued write as saved would hide a later server collision and allow
+        // polling to replace the user's offline edits.
         const queued = await pendingOfflineAssessmentMutations(offlinePrincipal);
         setPendingOfflineSaves(queued);
         setNetworkOnline(false);
@@ -731,20 +726,20 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
       await fetchPipelineJson(mutation.url, { method: mutation.method, body: mutation.body });
     });
     setPendingOfflineSaves(result.remaining);
-    if (result.conflicts > 0) {
-      setMessage(`${result.conflicts} synced change${result.conflicts === 1 ? "" : "s"} need conflict review`);
-    } else if (result.completed > 0) {
-      setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : "Offline changes synced");
-    }
     const current = selectedRef.current;
-    if (result.completed > 0 && current) {
+    if ((result.completed > 0 || result.conflicts > 0) && current) {
       try {
         const payload = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
           `/api/assessments/${encodeURIComponent(current.assessment_id)}`,
           { cache: "no-store" },
         );
         receiveRemoteAssessment(payload.assessment, false);
-        if (result.remaining === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
+        if (result.conflicts > 0) {
+          setMessage(`${result.conflicts} offline change${result.conflicts === 1 ? "" : "s"} need conflict review`);
+        } else {
+          setMessage(result.remaining > 0 ? `${result.remaining} offline changes still queued` : "Offline changes synced");
+          if (result.remaining === 0) await removeOfflineAssessmentDraft(offlinePrincipal, current.assessment_id);
+        }
       } catch {
         // The normal active-assessment poll will reconcile the saved version.
       }
@@ -1150,7 +1145,7 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
             {canSupervise && selected.assessor_id !== viewer?.id ? <span className="sr-only">Supervisor access</span> : null}
           </div>
         </div>
-        <span data-guide-target="assessment-save-status" aria-live="polite" className={`hidden max-w-[280px] truncate text-[10px] lg:block ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
+        <span data-guide-target="assessment-save-status" aria-live="polite" className={`max-w-[120px] shrink-0 truncate text-right text-[10px] sm:max-w-[220px] ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
         {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? (
           <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button>
         ) : null}

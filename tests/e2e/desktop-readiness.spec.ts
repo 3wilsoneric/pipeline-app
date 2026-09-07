@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, request, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 
 const desktopEnabled = process.env.PIPELINE_DESKTOP_E2E === "true";
@@ -432,6 +432,46 @@ test.describe("desktop feature enabled", () => {
       return payload.assessment?.current_location ?? "";
     }).toBe(offlineValue);
 
+    const latestResponse = await page.request.get(`/api/assessments/${assessmentPayload.assessment.assessment_id}`);
+    const latestPayload = await latestResponse.json() as {
+      assessment: {
+        version: number;
+        section_versions: Record<string, number>;
+      };
+    };
+    const localCollisionValue = `Local collision ${token}`;
+    const remoteCollisionValue = `Remote collision ${token}`;
+    const outsideSession = await request.newContext({ baseURL: new URL(page.url()).origin });
+    await context.setOffline(true);
+    try {
+      await location.fill(localCollisionValue);
+      await expect(page.getByText("Offline · 1 queued", { exact: true })).toBeVisible({ timeout: 10_000 });
+      const remoteWrite = await outsideSession.patch(`/api/assessments/${assessmentPayload.assessment.assessment_id}`, {
+        data: {
+          section: "identity",
+          if_match_section: latestPayload.assessment.section_versions.identity,
+          client_mutation_id: `offline-collision-remote-${token}`,
+          patch: { data: { current_location: remoteCollisionValue } },
+        },
+      });
+      const remotePayload = await remoteWrite.json();
+      expect(remoteWrite.ok(), JSON.stringify(remotePayload)).toBeTruthy();
+    } finally {
+      await outsideSession.dispose();
+      await context.setOffline(false);
+    }
+
+    await expect(page.getByText(/changed fields you were editing\./)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(`Yours: ${localCollisionValue}`, { exact: false })).toBeVisible();
+    await expect(page.getByText(`Latest: ${remoteCollisionValue}`, { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: "Keep mine" }).click();
+    await expect(page.getByText("All changes saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect.poll(async () => {
+      const response = await page.request.get(`/api/assessments/${assessmentPayload.assessment.assessment_id}`);
+      const payload = await response.json() as { assessment?: { current_location?: string } };
+      return payload.assessment?.current_location ?? "";
+    }).toBe(localCollisionValue);
+
     await expect.poll(() => page.evaluate(async () => {
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open("pipeline-offline-v1");
@@ -452,7 +492,7 @@ test.describe("desktop feature enabled", () => {
     try {
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: new RegExp(`^${clientName} assessment$`, "i") })).toBeVisible();
-      await expect(page.getByRole("textbox", { name: "Current location *", exact: true })).toHaveValue(offlineValue);
+      await expect(page.getByRole("textbox", { name: "Current location *", exact: true })).toHaveValue(localCollisionValue);
       const duration = page.getByRole("textbox", { name: "Time at current location" });
       await duration.fill(coldStartValue);
       await expect(page.getByText("Saved on this device · syncs after reconnect", { exact: true })).toBeVisible();

@@ -31,6 +31,15 @@ export function isAssignedToUser(
   return normalizedOwnerAliases(user).includes(normalizeOwnerName(assignment.owner).toLowerCase());
 }
 
+export function isReferralOwner(
+  referral: { ownerId?: string | null; owner?: string | null; owners?: ReferralOwner[] },
+  user: AssignedUser,
+) {
+  if (isAssignedToUser(referral, user)) return true;
+  const userId = user.id.trim().toLowerCase();
+  return normalizeReferralOwners(referral.owners).some((owner) => owner.id.trim().toLowerCase() === userId);
+}
+
 export function createReferralOwners(
   creator: AssignedUser,
   assignment: { ownerId?: string | null; owner?: string | null },

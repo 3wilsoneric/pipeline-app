@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RotateCcw, Search, Trash2 } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { createMutationId } from "@/lib/pipeline/referral-packet-upload";
 import {
   formatClientIdentityDetail,
   formatClientIdentityTitle,
@@ -18,6 +19,7 @@ export default function PipelineTrash() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [restoringId, setRestoringId] = useState<number>();
+  const restoreMutationIds = useRef(new Map<number, string>());
 
   const load = useCallback(async (search = query) => {
     setLoading(true);
@@ -40,12 +42,15 @@ export default function PipelineTrash() {
   const restore = async (referral: Referral) => {
     setRestoringId(referral.id);
     setError("");
+    const mutationId = restoreMutationIds.current.get(referral.id) ?? createMutationId();
+    restoreMutationIds.current.set(referral.id, mutationId);
     try {
       await fetchPipelineJson(`/api/trash/referrals/${referral.id}/restore`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ if_match: referral.version }),
+        body: JSON.stringify({ if_match: referral.version, client_mutation_id: mutationId }),
       });
+      restoreMutationIds.current.delete(referral.id);
       setReferrals((current) => current.filter((item) => item.id !== referral.id));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The workspace could not be restored.");

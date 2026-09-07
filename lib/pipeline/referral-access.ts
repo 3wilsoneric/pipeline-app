@@ -2,7 +2,7 @@ import "server-only";
 
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { readPacketReferralId } from "@/lib/extraction/packet-referral";
-import { isAssignedToUser, normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
+import { isReferralOwner, normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
 import { getDeletedReferral, getReferral, getReferralByPacketId, type ReferralFileListOptions, type ReferralListOptions } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
@@ -13,7 +13,7 @@ export function isAssessorUser(user: PipelineUser) {
 }
 
 export function canAccessReferral(user: PipelineUser, referral: Referral) {
-  return !isAssessorUser(user) || isAssignedToUser(referral, user);
+  return !isAssessorUser(user) || isReferralOwner(referral, user);
 }
 
 export function canRecordAdmissionDecision(user: PipelineUser) {

@@ -7,6 +7,7 @@ import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { updateEhrHandoff } from "@/lib/pipeline/workflow-store";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,8 @@ export async function POST(
     if (body.value.failure_reason !== undefined && (typeof body.value.failure_reason !== "string" || body.value.failure_reason.length > 2_000)) {
       return jsonError("failure_reason is invalid.");
     }
+    const mutationId = validateClientMutationId(body.value.client_mutation_id);
+    if (!mutationId.ok) return jsonError(mutationId.message);
 
     const action = body.value.action as (typeof actions)[number];
     const result = await updateEhrHandoff(
@@ -54,6 +57,7 @@ export async function POST(
       Number(body.value.if_match_section),
       pipelineAccountableActor(auth.user),
       typeof body.value.failure_reason === "string" ? body.value.failure_reason : "",
+      mutationId.value,
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) {

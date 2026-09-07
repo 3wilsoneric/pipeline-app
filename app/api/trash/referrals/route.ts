@@ -1,6 +1,7 @@
 import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { listDeletedReferrals, requireReferralStore } from "@/lib/pipeline/referral-store";
+import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
     if (!store.ok) return store.response;
     const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
     if (query.length > 200) return Response.json({ error: "Search is too long." }, { status: 400 });
-    return Response.json(await listDeletedReferrals(query), {
+    return Response.json(await listDeletedReferrals(scopeReferralListOptions(auth.user, { query })), {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     });
   });

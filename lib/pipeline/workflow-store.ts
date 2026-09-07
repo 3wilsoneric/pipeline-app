@@ -10,6 +10,7 @@ import type { AssessmentWorkflowStatus, PipelineAssessmentRecord } from "@/lib/a
 import { getPipelineSql } from "@/lib/database/pipeline-database";
 import {
   getReferral,
+  getReferralMutationReplay,
   getReferralStoreReadiness,
   patchReferral,
   type ReferralActor,
@@ -283,6 +284,7 @@ export async function transitionReferral(
   expectedVersion: number,
   expectedWorkflowVersion: number,
   actor: ReferralActor,
+  mutationId?: string,
 ): Promise<ReferralMutation | null> {
   return patchReferral(
     referralId,
@@ -294,6 +296,7 @@ export async function transitionReferral(
     expectedVersion,
     actor,
     { workflow: expectedWorkflowVersion },
+    { mutationId, mutationScope: "referral_transition" },
   );
 }
 
@@ -303,8 +306,12 @@ export async function recordAssessmentRecommendation(
   expectedVersion: number,
   expectedDecisionVersion: number,
   actor: ReferralActor,
-  options: { allowSupervisorOverride?: boolean } = {},
+  options: { allowSupervisorOverride?: boolean; mutationId?: string } = {},
 ): Promise<WorkflowRecordMutation<AssessmentRecommendation> | null> {
+  const replay = await getReferralMutationReplay(referralId, "assessment_recommendation", options.mutationId);
+  if (replay?.assessmentRecommendation) {
+    return { ok: true, record: replay.assessmentRecommendation, referral: replay };
+  }
   const snapshot = await getReferralWorkflowSnapshot(referralId);
   if (!snapshot) return null;
   if (normalizeReferralSectionVersions(snapshot.referral.sectionVersions).decision !== expectedDecisionVersion) {
@@ -362,14 +369,24 @@ export async function recordAssessmentRecommendation(
       expectedVersion,
       actor,
       { decision: expectedDecisionVersion, workflow: normalizeReferralSectionVersions(snapshot.referral.sectionVersions).workflow },
-      { auditAction: "assessment_recommendation_submitted" },
+      {
+        auditAction: "assessment_recommendation_submitted",
+        mutationId: options.mutationId,
+        mutationScope: "assessment_recommendation",
+      },
     );
     if (!mutation) return null;
     if (!mutation.ok) {
       if ("conflict" in mutation) return { ok: false, conflict: true, referral: mutation.referral, record: snapshot.recommendation ?? undefined };
       return { ok: false, blocked: true, referral: mutation.referral, blockers: mutation.blockers };
     }
-    return { ok: true, record: recommendation, referral: mutation.referral };
+    return {
+      ok: true,
+      record: mutation.idempotentReplay
+        ? mutation.referral.assessmentRecommendation ?? recommendation
+        : recommendation,
+      referral: mutation.referral,
+    };
   }
 
   const sql = getPipelineSql();
@@ -382,6 +399,7 @@ export async function recordAssessmentRecommendation(
     actor,
     snapshot.referral,
     options,
+    options.mutationId,
   ));
   if (!result.ok) return result;
   const referral = await getReferral(referralId);
@@ -394,7 +412,10 @@ export async function recordAdmissionDecision(
   expectedVersion: number,
   expectedDecisionVersion: number,
   actor: ReferralActor,
+  mutationId?: string,
 ): Promise<WorkflowRecordMutation<AdmissionDecision> | null> {
+  const replay = await getReferralMutationReplay(referralId, "admission_decision", mutationId);
+  if (replay?.admissionDecision) return { ok: true, record: replay.admissionDecision, referral: replay };
   const snapshot = await getReferralWorkflowSnapshot(referralId);
   if (!snapshot) return null;
   if (normalizeReferralSectionVersions(snapshot.referral.sectionVersions).decision !== expectedDecisionVersion) {
@@ -462,6 +483,8 @@ export async function recordAdmissionDecision(
         ...((input.overrideReason?.trim() || input.outcome === "declined")
           ? { auditReason: input.overrideReason?.trim() || decision.reasonNote }
           : {}),
+        mutationId,
+        mutationScope: "admission_decision",
       },
     );
     if (!mutation) return null;
@@ -469,7 +492,11 @@ export async function recordAdmissionDecision(
       if ("conflict" in mutation) return { ok: false, conflict: true, referral: mutation.referral, record: snapshot.decision ?? undefined };
       return { ok: false, blocked: true, referral: mutation.referral, blockers: mutation.blockers };
     }
-    return { ok: true, record: decision, referral: mutation.referral };
+    return {
+      ok: true,
+      record: mutation.idempotentReplay ? mutation.referral.admissionDecision ?? decision : decision,
+      referral: mutation.referral,
+    };
   }
 
   const sql = getPipelineSql();
@@ -481,6 +508,7 @@ export async function recordAdmissionDecision(
     expectedDecisionVersion,
     actor,
     snapshot.referral,
+    mutationId,
   ));
   if (!result.ok) return result;
   const referral = await getReferral(referralId);
@@ -495,7 +523,11 @@ export async function patchReferralWorkItem(
   expectedVersion: number,
   actor: ReferralActor,
   auditReason = "",
+  mutationId?: string,
 ): Promise<WorkflowRecordMutation<AdmissionRequirement> | null> {
+  const replay = await getReferralMutationReplay(referralId, "work_item_patch", mutationId);
+  const replayedWorkItem = replay?.requirements?.find((item) => item.id === workItemId);
+  if (replay && replayedWorkItem) return { ok: true, record: replayedWorkItem, referral: replay };
   const snapshot = await getReferralWorkflowSnapshot(referralId);
   if (!snapshot) return null;
   const current = snapshot.work_items.find((item) => item.id === workItemId);
@@ -530,14 +562,25 @@ export async function patchReferralWorkItem(
       snapshot.referral.version,
       actor,
       undefined,
-      { auditAction: "work_item_updated", ...(auditReason ? { auditReason } : {}) },
+      {
+        auditAction: "work_item_updated",
+        ...(auditReason ? { auditReason } : {}),
+        mutationId,
+        mutationScope: "work_item_patch",
+      },
     );
     if (!mutation) return null;
     if (!mutation.ok) {
       if ("conflict" in mutation) return { ok: false, conflict: true, referral: mutation.referral, record: current };
       return { ok: false, blocked: true, referral: mutation.referral, blockers: mutation.blockers };
     }
-    return { ok: true, record: next, referral: mutation.referral };
+    return {
+      ok: true,
+      record: mutation.idempotentReplay
+        ? mutation.referral.requirements?.find((item) => item.id === workItemId) ?? next
+        : next,
+      referral: mutation.referral,
+    };
   }
 
   const sql = getPipelineSql();
@@ -554,6 +597,7 @@ export async function patchReferralWorkItem(
     snapshot.referral,
     auditReason,
     workflowStatus,
+    mutationId,
   ));
   if (!result.ok) return result;
   const referral = await getReferral(referralId);
@@ -568,7 +612,10 @@ export async function updateEhrHandoff(
   expectedDecisionVersion: number,
   actor: ReferralActor,
   failureReason = "",
+  mutationId?: string,
 ): Promise<WorkflowRecordMutation<EhrHandoffRecord> | null> {
+  const replay = await getReferralMutationReplay(referralId, "ehr_handoff", mutationId);
+  if (replay?.ehrHandoff) return { ok: true, record: replay.ehrHandoff, referral: replay };
   const snapshot = await getReferralWorkflowSnapshot(referralId);
   if (!snapshot) return null;
   const sectionVersion = normalizeReferralSectionVersions(snapshot.referral.sectionVersions).decision;
@@ -618,6 +665,8 @@ export async function updateEhrHandoff(
         mark_failed: "ehr_handoff_failed",
       }[action],
       ...(failureReason.trim() ? { auditReason: failureReason.trim() } : {}),
+      mutationId,
+      mutationScope: "ehr_handoff",
     },
   );
   if (!mutation) return null;
@@ -625,7 +674,11 @@ export async function updateEhrHandoff(
     if ("conflict" in mutation) return { ok: false, conflict: true, referral: mutation.referral, record: current };
     return { ok: false, blocked: true, referral: mutation.referral, blockers: mutation.blockers };
   }
-  return { ok: true, record, referral: mutation.referral };
+  return {
+    ok: true,
+    record: mutation.idempotentReplay ? mutation.referral.ehrHandoff ?? record : record,
+    referral: mutation.referral,
+  };
 }
 
 async function recordPostgresRecommendation(
@@ -637,7 +690,19 @@ async function recordPostgresRecommendation(
   actor: ReferralActor,
   fallback: Referral,
   options: { allowSupervisorOverride?: boolean },
+  mutationId?: string,
 ): Promise<WorkflowRecordMutation<AssessmentRecommendation>> {
+  if (await lockWorkflowMutation(tx, "assessment_recommendation", mutationId, referralId)) {
+    const existing = await tx<RecommendationRow[]>`
+      select recommendation_id, referral_id, assessment_id, outcome, reason_code,
+             reason_note, recommended_by, recommended_by_name, recommended_at, version
+      from pipeline.assessment_recommendations
+      where referral_id = ${referralId}
+      order by recommended_at desc, recommendation_id desc
+      limit 1
+    `;
+    if (existing[0]) return { ok: true, record: mapRecommendation(existing[0]), referral: fallback };
+  }
   const referralRows = await tx<{ version: number; data: unknown; section_versions: unknown }[]>`
     select version, data, section_versions
     from pipeline.referrals
@@ -730,6 +795,7 @@ async function recordPostgresRecommendation(
     recommendation.version,
     ["outcome", "reasonCode", "reasonNote"],
   );
+  await saveWorkflowMutation(tx, "assessment_recommendation", mutationId, referralId);
   await bumpRevisions(tx);
   return { ok: true, record: recommendation, referral: fallback };
 }
@@ -742,7 +808,18 @@ async function recordPostgresDecision(
   expectedDecisionVersion: number,
   actor: ReferralActor,
   fallback: Referral,
+  mutationId?: string,
 ): Promise<WorkflowRecordMutation<AdmissionDecision>> {
+  if (await lockWorkflowMutation(tx, "admission_decision", mutationId, referralId)) {
+    const existing = await tx<DecisionRow[]>`
+      select decision_id, outcome, reason_code, reason_note, decided_by,
+             decided_by_name, decided_at, version, recommendation_id, decided_by_role
+      from pipeline.admission_decisions
+      where referral_id = ${referralId}
+      limit 1
+    `;
+    if (existing[0]) return { ok: true, record: mapDecision(existing[0]), referral: fallback };
+  }
   const referralRows = await tx<{ version: number; stage: Referral["stage"]; data: unknown; section_versions: unknown }[]>`
     select version, stage, data, section_versions from pipeline.referrals where referral_id = ${referralId} and deleted_at is null for update
   `;
@@ -858,6 +935,7 @@ async function recordPostgresDecision(
       )
     `;
   }
+  await saveWorkflowMutation(tx, "admission_decision", mutationId, referralId);
   await bumpRevisions(tx);
   return { ok: true, record: decision, referral: fallback };
 }
@@ -873,7 +951,19 @@ async function patchPostgresWorkItem(
   fallback: Referral,
   auditReason: string,
   workflowStatus: Referral["workflowStatus"],
+  mutationId?: string,
 ): Promise<WorkflowRecordMutation<AdmissionRequirement>> {
+  if (await lockWorkflowMutation(tx, "work_item_patch", mutationId, referralId)) {
+    const existing = await tx<WorkItemRow[]>`
+      select work_item_id, type, label, gate, status, owner_id, owner_name, due_at,
+             next_action, blocker, evidence_document_id, evidence_document_name, waiver_reason,
+             field_key, requested_from, requested_at, follow_up_at, unavailable_reason,
+             version, updated_at
+      from pipeline.work_items
+      where referral_id = ${referralId} and work_item_id = ${workItemId}::uuid
+    `;
+    if (existing[0]) return { ok: true, record: mapWorkItem(existing[0]), referral: fallback };
+  }
   const referralRows = await tx<{ version: number; data: unknown }[]>`
     select version, data from pipeline.referrals where referral_id = ${referralId} and deleted_at is null for update
   `;
@@ -942,6 +1032,7 @@ async function patchPostgresWorkItem(
     changedFields,
     auditReason,
   );
+  await saveWorkflowMutation(tx, "work_item_patch", mutationId, referralId);
   await bumpRevisions(tx);
   return { ok: true, record, referral: fallback };
 }
@@ -1000,6 +1091,35 @@ async function bumpRevisions(tx: TransactionSql) {
     update pipeline.store_revisions
     set revision = revision + 1, updated_at = now()
     where store_name in ('referrals', 'workflow')
+  `;
+}
+
+async function lockWorkflowMutation(
+  tx: TransactionSql,
+  scope: string,
+  mutationId: string | undefined,
+  referralId: number,
+) {
+  if (!mutationId) return false;
+  await tx`select pg_advisory_xact_lock(hashtextextended(${`${scope}:${mutationId}`}, 0))`;
+  const existing = await tx<{ entity_id: string }[]>`
+    select entity_id from pipeline.idempotency_keys
+    where scope = ${scope} and mutation_id = ${mutationId}
+  `;
+  return existing[0]?.entity_id === String(referralId);
+}
+
+async function saveWorkflowMutation(
+  tx: TransactionSql,
+  scope: string,
+  mutationId: string | undefined,
+  referralId: number,
+) {
+  if (!mutationId) return;
+  await tx`
+    insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
+    values (${scope}, ${mutationId}, 'referral', ${String(referralId)})
+    on conflict (scope, mutation_id) do nothing
   `;
 }
 

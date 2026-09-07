@@ -129,6 +129,36 @@ test.describe("referral store characterization", () => {
     }
   });
 
+  test("replays an acknowledged referral patch without a second write or audit event", async ({ baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const coordinator = await actorApiContext("assessmentCoordinator", url);
+
+    try {
+      const created = await createReferral(coordinator, "characterization-patch-replay-create", "Parker Replay");
+      const mutationId = "characterization-patch-replay";
+      const body = {
+        if_match: number(created.version),
+        if_match_sections: { identity: sectionVersion(created, "identity") },
+        client_mutation_id: mutationId,
+        patch: { phone: "555-0142" },
+      };
+      const first = await coordinator.patch(`/api/referrals/${number(created.id)}`, { data: body });
+      const replay = await coordinator.patch(`/api/referrals/${number(created.id)}`, { data: body });
+      expect(first.status()).toBe(200);
+      expect(replay.status()).toBe(200);
+      const firstReferral = record(record(await first.json()).referral);
+      const replayBody = record(await replay.json());
+      const replayReferral = record(replayBody.referral);
+      expect(replayBody.idempotentReplay).toBe(true);
+      expect(replayReferral.version).toBe(firstReferral.version);
+      expect(replayReferral.phone).toBe("555-0142");
+      const events = await referralEvents(coordinator, number(created.id));
+      expect(events.filter((event) => array(event.changed_fields).includes("phone"))).toHaveLength(1);
+    } finally {
+      await coordinator.dispose();
+    }
+  });
+
   test("denied mutations leave referral state and audit history unchanged", async ({ baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const admin = await actorApiContext("admin", url);
@@ -285,6 +315,17 @@ test.describe("referral store characterization", () => {
         }),
       ]));
 
+      const activityResponse = await coordinator.get(`/api/referrals/${id}/activity`);
+      expect(activityResponse.status()).toBe(200);
+      const activityMetadata = record(record(await activityResponse.json()).metadata);
+      expect(record(activityMetadata.assessment)).toMatchObject({
+        assessor: {
+          id: pipelineActors.assessorB.id,
+          name: pipelineActors.assessorB.name,
+        },
+        started_at: null,
+      });
+
       const referralAudit = await referralEvents(coordinator, id);
       expect(referralAudit).toEqual(expect.arrayContaining([
         expect.objectContaining({
@@ -296,6 +337,51 @@ test.describe("referral store characterization", () => {
       ]));
       expect((await assessorA.get(`/api/referrals/${id}`)).status()).toBe(404);
       expect((await assessorB.get(`/api/referrals/${id}`)).status()).toBe(200);
+    } finally {
+      await Promise.all([coordinator.dispose(), assessorA.dispose(), assessorB.dispose()]);
+    }
+  });
+
+  test("keeps the workspace creator authorized after a supervisor reassigns the primary assessor", async ({ baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const coordinator = await actorApiContext("assessmentCoordinator", url);
+    const assessorA = await actorApiContext("assessorA", url);
+    const assessorB = await actorApiContext("assessorB", url);
+
+    try {
+      expect((await assessorA.get("/api/members")).status()).toBe(200);
+      expect((await assessorB.get("/api/members")).status()).toBe(200);
+      const created = await createReferral(
+        assessorA,
+        "characterization-creator-ownership",
+        "Casey Creator",
+      );
+      const id = number(created.id);
+      expect(array(created.owners)).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: pipelineActors.assessorA.id,
+          responsibilities: expect.arrayContaining(["creator", "assignee"]),
+        }),
+      ]));
+
+      const reassignment = await coordinator.patch(`/api/referrals/${id}`, {
+        data: {
+          if_match: number(created.version),
+          if_match_sections: {
+            intake: sectionVersion(created, "intake"),
+            workflow: sectionVersion(created, "workflow"),
+          },
+          patch: { owner: pipelineActors.assessorB.name },
+          assignee_id: pipelineActors.assessorB.id,
+          handoff_reason: "Synthetic creator-ownership characterization.",
+        },
+      });
+      expect(reassignment.status(), await reassignment.text()).toBe(200);
+
+      expect((await assessorA.get(`/api/referrals/${id}`)).status()).toBe(200);
+      expect((await assessorB.get(`/api/referrals/${id}`)).status()).toBe(200);
+      expect(await queryReferralCount(assessorA, "Casey Creator")).toBe(1);
+      expect(await queryReferralCount(assessorB, "Casey Creator")).toBe(1);
     } finally {
       await Promise.all([coordinator.dispose(), assessorA.dispose(), assessorB.dispose()]);
     }
@@ -492,14 +578,28 @@ test.describe("referral store characterization", () => {
       expect(staleDelete.status()).toBe(409);
       expect((await referralEvents(coordinator, id)).filter((event) => event.action === "referral_moved_to_trash")).toHaveLength(0);
 
+      const deleteMutationId = "characterization-trash-delete-replay";
       const deleted = await coordinator.delete(`/api/referrals/${id}`, {
-        data: { if_match: number(created.version) },
+        data: { if_match: number(created.version), client_mutation_id: deleteMutationId },
       });
       expect(deleted.status()).toBe(200);
       const deletedReferral = record(record(await deleted.json()).referral);
       expect(number(deletedReferral.version)).toBe(number(created.version) + 1);
       expect(Date.parse(String(deletedReferral.deleteAfter)) - Date.parse(String(deletedReferral.deletedAt))).toBe(30 * 24 * 60 * 60 * 1_000);
       expect((await coordinator.get(`/api/referrals/${id}`)).status()).toBe(404);
+      const deletedReplay = await coordinator.delete(`/api/referrals/${id}`, {
+        data: { if_match: number(created.version), client_mutation_id: deleteMutationId },
+      });
+      expect(deletedReplay.status()).toBe(200);
+      expect(record(await deletedReplay.json()).idempotentReplay).toBe(true);
+      const [assignedTrash, unassignedTrash] = await Promise.all([
+        assessorA.get("/api/trash/referrals"),
+        assessorB.get("/api/trash/referrals"),
+      ]);
+      expect(assignedTrash.status()).toBe(200);
+      expect(unassignedTrash.status()).toBe(200);
+      expect(array(record(await assignedTrash.json()).referrals).map((item) => number(record(item).id))).toContain(id);
+      expect(array(record(await unassignedTrash.json()).referrals).map((item) => number(record(item).id))).not.toContain(id);
 
       const [unassignedRestore, viewerRestore, crossOriginRestore] = await Promise.all([
         assessorB.post(`/api/trash/referrals/${id}/restore`, {
@@ -521,14 +621,20 @@ test.describe("referral store characterization", () => {
         data: { if_match: number(deletedReferral.version) + 1 },
       });
       expect(staleRestore.status()).toBe(409);
+      const restoreMutationId = "characterization-trash-restore-replay";
       const restored = await coordinator.post(`/api/trash/referrals/${id}/restore`, {
-        data: { if_match: number(deletedReferral.version) },
+        data: { if_match: number(deletedReferral.version), client_mutation_id: restoreMutationId },
       });
       expect(restored.status()).toBe(200);
       const restoredReferral = record(record(await restored.json()).referral);
       expect(number(restoredReferral.version)).toBe(number(deletedReferral.version) + 1);
       expect(restoredReferral.deletedAt).toBeUndefined();
       expect(restoredReferral.deleteAfter).toBeUndefined();
+      const restoredReplay = await coordinator.post(`/api/trash/referrals/${id}/restore`, {
+        data: { if_match: number(deletedReferral.version), client_mutation_id: restoreMutationId },
+      });
+      expect(restoredReplay.status()).toBe(200);
+      expect(record(await restoredReplay.json()).idempotentReplay).toBe(true);
 
       const events = await referralEvents(coordinator, id);
       expect(events.filter((event) => event.action === "referral_moved_to_trash")).toHaveLength(1);

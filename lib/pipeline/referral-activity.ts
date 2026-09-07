@@ -198,8 +198,8 @@ function buildWorkflowMetadata(
     right.created_at.localeCompare(left.created_at));
   const latestAssessment = orderedAssessments[0] ?? null;
   const completedDurations = orderedAssessments.flatMap((assessment) => {
-    if (!assessment.completed_at) return [];
-    const duration = minutesBetween(assessment.created_at, assessment.completed_at);
+    if (!assessment.started_at || !assessment.completed_at) return [];
+    const duration = minutesBetween(assessment.started_at, assessment.completed_at);
     return duration === null ? [] : [duration];
   });
   const earliestAssessment = [...assessments].sort((left, right) =>
@@ -226,12 +226,14 @@ function buildWorkflowMetadata(
     assessment: {
       status: latestAssessment?.status ?? (assessmentCompletedAt ? "complete" : "not_started"),
       assessor: latestAssessment
-        ? { id: latestAssessment.created_by.id, name: latestAssessment.created_by.name }
+        ? latestAssessment.assessor_id && latestAssessment.assessor
+          ? { id: latestAssessment.assessor_id, name: latestAssessment.assessor }
+          : null
         : null,
-      started_at: latestAssessment?.created_at ?? referral.assessment?.startedAt ?? null,
+      started_at: latestAssessment?.started_at ?? referral.assessment?.startedAt ?? null,
       completed_at: assessmentCompletedAt,
-      elapsed_minutes: latestAssessment
-        ? minutesBetween(latestAssessment.created_at, latestAssessment.completed_at ?? now)
+      elapsed_minutes: latestAssessment?.started_at
+        ? minutesBetween(latestAssessment.started_at, latestAssessment.completed_at ?? now)
         : referral.assessment?.startedAt
           ? minutesBetween(referral.assessment.startedAt, assessmentCompletedAt ?? now)
           : null,
@@ -242,7 +244,7 @@ function buildWorkflowMetadata(
     },
     timing: {
       referral_to_assessment_minutes: earliestAssessment
-        ? minutesBetween(referral.createdAt, earliestAssessment.created_at)
+        ? minutesBetween(referral.createdAt, earliestAssessment.started_at ?? earliestAssessment.created_at)
         : null,
       assessment_to_decision_minutes: assessmentCompletedAt && decisionAt
         ? minutesBetween(assessmentCompletedAt, decisionAt)

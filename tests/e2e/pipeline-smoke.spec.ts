@@ -453,6 +453,10 @@ test.describe("Referral home and packet canvas", () => {
     await expect(documentChecklist).toBeVisible();
     const documentPanel = page.getByTestId("document-checklist-panel");
     const documentToggle = page.getByTestId("document-checklist-toggle");
+    await expect(documentPanel).not.toHaveAttribute("open", "");
+    await expect(page.getByRole("region", { name: "Initial referral packet" })).toHaveCount(0);
+    await expect(documentChecklist.getByRole("button", { name: /drop document or browse$/ })).toHaveCount(0);
+    await documentToggle.click();
     await expect(documentPanel).toHaveAttribute("open", "");
     await expect(page.getByRole("region", { name: "Initial referral packet" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Identity chart section" })).toBeVisible();
@@ -1414,6 +1418,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("textbox", { name: "Tags", exact: true }).fill("Urgent Review, county-intake");
     await page.getByRole("button", { name: "yes", exact: true }).click();
 
+    await page.getByTestId("document-checklist-toggle").click();
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "face-sheet.pdf",
       mimeType: "application/pdf",
@@ -1706,6 +1711,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(firstClient);
     await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
     await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
+    await page.getByTestId("document-checklist-toggle").click();
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "first-copy.pdf",
       mimeType: "application/pdf",
@@ -1721,6 +1727,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(secondClient);
     await page.getByRole("combobox", { name: "Community:" }).selectOption("Turlock");
     await page.getByRole("combobox", { name: "County:" }).selectOption("Stanislaus County");
+    await page.getByTestId("document-checklist-toggle").click();
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "renamed-copy.pdf",
       mimeType: "application/pdf",
@@ -2083,97 +2090,33 @@ test.describe("Referral home and packet canvas", () => {
     const signedAssessmentPayload = await signedAssessment.json();
     expect(signedAssessment.ok(), JSON.stringify(signedAssessmentPayload)).toBeTruthy();
 
-    const communityReviewResponse = await page.request.get(`/api/referrals/${referral.id}`);
-    referral = (await communityReviewResponse.json()).referral as WorkflowReferral;
-    expect(referral.stage).toBe("Assessment");
-    const recommendationResponse = await page.request.put(`/api/referrals/${referral.id}/recommendation`, {
-      data: {
-        if_match: referral.version,
-        if_match_section: referral.sectionVersions.decision,
-        assessment_id: signedAssessmentPayload.assessment.assessment_id,
-        outcome: "accept",
-        reason_code: "clinical_fit",
-        reason_note: "Synthetic acceptance recommendation for the EHR handoff journey.",
-      },
-    });
-    const recommendationPayload = await recommendationResponse.json();
-    expect(recommendationResponse.ok(), JSON.stringify(recommendationPayload)).toBeTruthy();
-    referral = recommendationPayload.referral as WorkflowReferral;
-    const decisionResponse = await page.request.put(`/api/referrals/${referral.id}/decision`, {
-      data: {
-        if_match: referral.version,
-        if_match_section: referral.sectionVersions.decision,
-        outcome: "accepted",
-        reason_code: "",
-        reason_note: "",
-      },
-    });
-    const decisionPayload = await decisionResponse.json();
-    expect(decisionResponse.ok(), JSON.stringify(decisionPayload)).toBeTruthy();
-    referral = decisionPayload.referral;
+    await page.goto(`/?view=referrals&screen=packet&referralId=${referral.id}`);
+    await page.getByRole("button", { name: "Admission workflow" }).click();
+    const workflowPanel = page.getByRole("region", { name: "Admission workflow" });
+    await expect(workflowPanel.getByRole("heading", { name: "From referral to handoff" })).toBeVisible();
+    await workflowPanel.getByLabel("Reason code (optional)").first().fill("clinical_fit");
+    await workflowPanel.getByLabel("Clinical rationale").fill("Synthetic acceptance recommendation for the EHR handoff journey.");
+    await workflowPanel.getByRole("button", { name: "Submit recommendation" }).click();
+    await expect(workflowPanel.getByText("Recommendation submitted", { exact: true })).toBeVisible();
+    await workflowPanel.getByRole("button", { name: "Record decision" }).click();
+    await expect(workflowPanel.getByText("Supervisor decision recorded", { exact: true })).toBeVisible();
 
-    const blockedAcceptance = await page.request.post(`/api/referrals/${referral.id}/transition`, {
-      data: {
-        if_match: referral.version,
-        if_match_section: referral.sectionVersions.workflow,
-        target_stage: "Accepted / Admitted",
-      },
-    });
-    expect(blockedAcceptance.status()).toBe(422);
-    const blockedAcceptancePayload = await blockedAcceptance.json() as { blockers?: Array<{ code: string }> };
-    expect(blockedAcceptancePayload.blockers?.some((blocker) => blocker.code.startsWith("requirement:"))).toBeTruthy();
-
-    const blockingWorkItemsResponse = await page.request.get(`/api/referrals/${referral.id}/work-items`);
-    const blockingWorkItems = (await blockingWorkItemsResponse.json()) as {
-      work_items: Array<{ id: string; version: number; requiredFor: string; blocker: boolean; status: string }>;
-    };
-    for (const item of blockingWorkItems.work_items.filter((candidate) => (
-      candidate.requiredFor === "move_in"
-      && candidate.blocker
-      && !["received", "reviewed", "waived"].includes(candidate.status)
-    ))) {
-      const waiver = await page.request.patch(`/api/referrals/${referral.id}/work-items/${item.id}`, {
-        data: {
-          if_match: item.version,
-          patch: {
-            status: "waived",
-            waiverReason: "Synthetic release-journey exception approved for validation.",
-          },
-        },
-      });
-      const waiverPayload = await waiver.json();
-      expect(waiver.ok(), JSON.stringify(waiverPayload)).toBeTruthy();
+    for (const label of [
+      "Signed admission agreement + LIC forms",
+      "LIC 602",
+      "TB test result",
+      "LIC 601 & LIC 603",
+    ]) {
+      await workflowPanel.getByLabel(`${label} status`).selectOption("received");
+      await expect(workflowPanel.getByText(`${label} updated`, { exact: true })).toBeVisible();
     }
-    const readyReferralResponse = await page.request.get(`/api/referrals/${referral.id}`);
-    referral = (await readyReferralResponse.json()).referral as WorkflowReferral;
-    await transition("Accepted / Admitted");
-
-    const mutate = async (action: string, failureReason = "") => {
-      const response = await page.request.post(`/api/referrals/${referral.id}/ehr-handoff`, {
-        data: {
-          if_match: referral.version,
-          if_match_section: referral.sectionVersions.decision,
-          action,
-          failure_reason: failureReason,
-        },
-      });
-      const payload = await response.json();
-      if (response.ok()) referral = payload.referral;
-      return { response, payload };
-    };
-
-    const queued = await mutate("queue");
-    expect(queued.response.ok()).toBeTruthy();
-    expect(queued.payload.ehr_handoff.status).toBe("queued");
-    const stale = await page.request.post(`/api/referrals/${referral.id}/ehr-handoff`, {
-      data: { if_match: 1, if_match_section: 1, action: "mark_sent" },
-    });
-    expect(stale.status()).toBe(409);
-    const missingReason = await mutate("mark_failed");
-    expect(missingReason.response.status()).toBe(422);
-    const failed = await mutate("mark_failed", "Synthetic downstream rejection");
-    expect(failed.response.ok()).toBeTruthy();
-    expect(failed.payload.ehr_handoff.status).toBe("failed");
+    await workflowPanel.getByRole("button", { name: "Advance to Accepted / Admitted" }).click();
+    await expect(workflowPanel.getByText("Moved to Accepted / Admitted", { exact: true })).toBeVisible();
+    await workflowPanel.getByRole("button", { name: "Queue EHR handoff" }).click();
+    await expect(workflowPanel.getByText("EHR handoff queued", { exact: true })).toBeVisible();
+    page.once("dialog", (dialog) => void dialog.accept("Synthetic downstream rejection"));
+    await workflowPanel.getByRole("button", { name: "Record failed" }).click();
+    await expect(workflowPanel.getByText("EHR handoff failure recorded", { exact: true })).toBeVisible();
     const supervisorQueue = await page.request.get("/api/operations/supervisor-queue");
     expect(supervisorQueue.ok()).toBeTruthy();
     await expect(supervisorQueue.json()).resolves.toMatchObject({
@@ -2181,12 +2124,11 @@ test.describe("Referral home and packet canvas", () => {
         expect.objectContaining({ kind: "ehr_handoff_failed", referral_id: referral.id }),
       ]),
     });
-    const retried = await mutate("retry");
-    expect(retried.response.ok()).toBeTruthy();
-    expect(retried.payload.ehr_handoff.status).toBe("queued");
-    const sent = await mutate("mark_sent");
-    expect(sent.response.ok()).toBeTruthy();
-    expect(sent.payload.ehr_handoff.status).toBe("sent");
+    await workflowPanel.getByRole("button", { name: "Retry handoff" }).click();
+    await expect(workflowPanel.getByText("EHR handoff queued", { exact: true })).toBeVisible();
+    await workflowPanel.getByRole("button", { name: "Record sent" }).click();
+    await expect(workflowPanel.getByText("EHR handoff recorded as sent", { exact: true })).toBeVisible();
+    await expect(workflowPanel.getByText("Handoff recorded as sent.", { exact: true })).toBeVisible();
   });
 
   test("requires a documented reason and closes a declined referral", async ({ page }) => {

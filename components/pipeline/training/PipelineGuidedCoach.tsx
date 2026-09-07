@@ -210,6 +210,7 @@ export default function PipelineGuidedCoach() {
     let didScroll = false;
 
     const measure = () => {
+      revealCollapsedGuideTarget(step.target);
       const candidate = findVisibleGuideTarget(step.target);
       interaction = rebindGuideInteraction(interaction, candidate, step, advanceFromTarget);
       didScroll = scrollGuideTargetIntoView(candidate, didScroll);
@@ -481,6 +482,13 @@ function findVisibleGuideTarget(id: string) {
     const style = window.getComputedStyle(element);
     return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
   }) ?? null;
+}
+
+function revealCollapsedGuideTarget(id: string) {
+  const candidate = document.querySelector<HTMLElement>(`[data-guide-target~="${id}"]`);
+  const details = candidate?.closest<HTMLDetailsElement>("details:not([open])");
+  const summary = details?.querySelector<HTMLElement>(":scope > summary");
+  if (summary) summary.click();
 }
 
 function guideRouteMatches(route: string, locationKey = currentGuideLocationKey()) {
