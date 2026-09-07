@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T06:04:06.697Z",
+  "generated_at": "2026-09-07T06:39:59.208Z",
   "audit_date": "2026-09-07",
-  "git_head": "34fda122d5dbedacc852ba1333b843946e8fb998",
+  "git_head": "2060a7093af5882dad268bde0bac7868b1db9ab0",
   "files": [
     {
       "path": ".dockerignore",
@@ -1321,11 +1321,11 @@
     },
     {
       "path": "app/api/referrals/route.ts",
-      "content_sha256": "3a0313c6e50d0bd2be8e3f8c962c241aa01c3c965a6c611e9b00e67c6f04fc77",
+      "content_sha256": "f9fab7282258c8ad3f27b98d80bbddd034b9cec63e2ab6d46f49c4f78b9b1071",
       "role": "HTTP API route",
       "risk": "high",
-      "bytes": 9992,
-      "lines": 254,
+      "bytes": 13083,
+      "lines": 319,
       "detected_concerns": [],
       "review_focus": "Check authentication and role authorization, schema validation, status mapping, idempotency/version conflicts, bounded payloads, and PHI-safe errors/logs.",
       "verification": "check:api + check:route-policy + targeted E2E"
@@ -1690,6 +1690,17 @@
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
+      "path": "components/pipeline/DuplicateReferralReviewDialog.tsx",
+      "content_sha256": "154e9fd9e11253b694758733fbfc65ea43e71fc794472a6a90cee2a55ee7979f",
+      "role": "Pipeline user interface",
+      "risk": "medium",
+      "bytes": 5575,
+      "lines": 143,
+      "detected_concerns": [],
+      "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
+      "verification": "typecheck + lint + build + responsive/accessibility E2E"
+    },
+    {
       "path": "components/pipeline/HistoricalReferralProfile.tsx",
       "content_sha256": "b72aaf9cadc0f12ff198ea8afe454e7f121de331c2881837d04e3c9ff91734ab",
       "role": "Pipeline user interface",
@@ -1772,11 +1783,11 @@
     },
     {
       "path": "components/pipeline/PipelineCalendar.tsx",
-      "content_sha256": "88acb79fd4d6ef906abb79526d79d5ec7d194ba5b9814a7c5d11a35b9c10a158",
+      "content_sha256": "5e58627ab8cc8b53d784d78b1b5c1100e7e5c850d7b7904fe4a5d828b09139eb",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 71186,
-      "lines": 963,
+      "bytes": 71201,
+      "lines": 964,
       "detected_concerns": [
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
@@ -1933,18 +1944,18 @@
     },
     {
       "path": "components/pipeline/ReferralPacketCanvas.tsx",
-      "content_sha256": "12a9736cb2f70125ee6e7d8ab755a71257babf5970e76e142e8b027cd76bad8b",
+      "content_sha256": "56af40140fceac07538ca0e7c08673ac9947614e3df5ca0143e57dcf88694c49",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 134330,
-      "lines": 3337,
+      "bytes": 139719,
+      "lines": 3476,
       "detected_concerns": [
-        "Large module (3337 lines): split by behavior before adding more responsibilities.",
+        "Large module (3476 lines): split by behavior before adding more responsibilities.",
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (3337 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (3476 lines): split by behavior before adding more responsibilities.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -4025,11 +4036,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "a12ffb8a653ef77007872716e618c5478a8f7dcec34d91a6032c6256cd7d028b",
+      "content_sha256": "5bf20461bedf3f3ee4f127e110f2febcc115690c6ac2aba4206e03c3b195fde8",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 349647,
-      "lines": 1688,
+      "bytes": 353192,
+      "lines": 1719,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4053,11 +4064,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "fc1eaaa8654deaa2c0b6ff3fd94f4f9883f25d2960eba6e713e5b403081b2faa",
+      "content_sha256": "0c8d6b4bae4e1ffc0ac3ca69a6871bb47430089bd68b2dc35d380b685a513c76",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 213446,
-      "lines": 7465,
+      "bytes": 215439,
+      "lines": 7492,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4112,11 +4123,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "675228be54afba111e42914e98a84d7c9701d0227b4e8cfd9f63a344a4e5e478",
+      "content_sha256": "acc722944515ef9cc9ed0c6cf2a6996ca2ea3f75b4ac25f6d125a9ef0d9cadde",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 478715,
-      "lines": 9675,
+      "bytes": 481264,
+      "lines": 9724,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -6028,17 +6039,17 @@
     },
     {
       "path": "lib/pipeline/referral-store.ts",
-      "content_sha256": "c13627faeb44ac2c1e8e1da921ab75f3abb1364831dc454c81505f5e02deb536",
+      "content_sha256": "1a9aedb399de652c2db82f05e8f2d42bb912166516bef405ab7abd2cc5d2a706",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 112184,
-      "lines": 2921,
+      "bytes": 115794,
+      "lines": 3036,
       "detected_concerns": [
-        "Large module (2921 lines): split by behavior before adding more responsibilities.",
+        "Large module (3036 lines): split by behavior before adding more responsibilities.",
         "Contains runtime console logging; verify messages cannot include PHI, tokens, query strings, or upstream bodies.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (2921 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (3036 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -8162,11 +8173,11 @@
     },
     {
       "path": "scripts/mcmaster-certification-runner.mjs",
-      "content_sha256": "a07dc41d70943f93d357816f2e1bf98eff4fd1248c468fa25ec5b4e86b0311e5",
+      "content_sha256": "d3813c519ea1d4b9b7b02a2f36ca5958bffffbc7b8b28c31378fee8bb587aca8",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 10792,
-      "lines": 250,
+      "bytes": 10865,
+      "lines": 252,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
         "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence.",
@@ -8313,11 +8324,11 @@
     },
     {
       "path": "scripts/pipeline-performance-scorecard.mjs",
-      "content_sha256": "784d002711590a4b3523b9fa52f5feca91795b83dade6417c6180e9eaf4670c6",
+      "content_sha256": "7323c2dee819dc6329dc1bfbc7386152c39c67195f9a78dc9b9fe16cc8b690fb",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 34315,
-      "lines": 737,
+      "bytes": 34375,
+      "lines": 740,
       "detected_concerns": [
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
@@ -9195,6 +9206,17 @@
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {
+      "path": "tests/e2e/operational/referral-duplicate-review.spec.ts",
+      "content_sha256": "4468f9b89e44adc52dfd3e719afb56c2cbeb05f7ddf22ff5179d4e39dd840bad",
+      "role": "Browser journey test or snapshot",
+      "risk": "low",
+      "bytes": 7851,
+      "lines": 191,
+      "detected_concerns": [],
+      "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
+      "verification": "run owning Playwright project and review skips/snapshots"
+    },
+    {
       "path": "tests/e2e/operational/referral-lifecycle.scaffold.spec.ts",
       "content_sha256": "f5c3b54df1be01368b7fdf7429dc8be190a52d41b1258153c911ca3007298efe",
       "role": "Browser journey test or snapshot",
@@ -9267,17 +9289,17 @@
     },
     {
       "path": "tests/e2e/pipeline-smoke.spec.ts",
-      "content_sha256": "dc22cb4d1cd51f205e9c462df557e23d5f8ff13c56310786ed34fd3ceb3f451f",
+      "content_sha256": "a3fd959da1ff93dd4f2148c7636fda095a768435ef0a73438e21813171c45844",
       "role": "Browser journey test or snapshot",
       "risk": "medium",
-      "bytes": 157843,
-      "lines": 3121,
+      "bytes": 160325,
+      "lines": 3174,
       "detected_concerns": [
-        "Large module (3121 lines): split by behavior before adding more responsibilities.",
+        "Large module (3174 lines): split by behavior before adding more responsibilities.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
-      "review_focus": "Large module (3121 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (3174 lines): split by behavior before adding more responsibilities.",
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T06:04:06.697Z",
+  "generated_at": "2026-09-07T06:39:59.208Z",
   "audit_date": "2026-09-07",
-  "git_head": "34fda122d5dbedacc852ba1333b843946e8fb998",
+  "git_head": "2060a7093af5882dad268bde0bac7868b1db9ab0",
   "direct": [
     {
       "name": "@azure/identity",
@@ -141,6 +141,7 @@
         "tests/e2e/operational/concurrent-referral-edits.scaffold.spec.ts",
         "tests/e2e/operational/golden-thread.spec.ts",
         "tests/e2e/operational/high-traffic-capacity.scaffold.spec.ts",
+        "tests/e2e/operational/referral-duplicate-review.spec.ts",
         "tests/e2e/operational/referral-lifecycle.scaffold.spec.ts",
         "tests/e2e/operational/referral-store-characterization.spec.ts",
         "tests/e2e/operational/role-access.spec.ts",
@@ -816,6 +817,7 @@
         "components/pipeline/ClientProfileView.tsx",
         "components/pipeline/CurrentWorkOverlay.tsx",
         "components/pipeline/DeleteWorkspaceDialog.tsx",
+        "components/pipeline/DuplicateReferralReviewDialog.tsx",
         "components/pipeline/HistoricalReferralProfile.tsx",
         "components/pipeline/HomeModuleDashboard.tsx",
         "components/pipeline/OperationsDashboard.tsx",
@@ -889,6 +891,7 @@
         "components/pipeline/AssessmentWorkspace.tsx",
         "components/pipeline/CurrentWorkOverlay.tsx",
         "components/pipeline/DeleteWorkspaceDialog.tsx",
+        "components/pipeline/DuplicateReferralReviewDialog.tsx",
         "components/pipeline/PipelineCalendar.tsx",
         "components/pipeline/ReferralFilePreviewDialog.tsx",
         "components/pipeline/ReferralHome.tsx",
@@ -7459,8 +7462,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1062,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-store/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-refactor-referral-store/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-integration/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-refactor-integration/node_modules/@img/sharp-wasm32"
     ]
   }
 }
