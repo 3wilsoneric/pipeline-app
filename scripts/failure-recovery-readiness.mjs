@@ -24,6 +24,7 @@ const checks = [
   ["the UI preserves the last good referral snapshot on refresh failure", browserTests.includes("keeps the last successful referral snapshot when refresh fails")],
   ["document metadata and previews fail closed", browserTests.includes("fails document metadata and previews closed")],
   ["offline mode exposes no client records", desktopTests.includes("generic PHI-free offline screen")],
+  ["collaboration load uses an assignable assessor and distinct two-name client identities", collaborationLoad.includes('claimRole: index === 0 ? "Pipeline.Reviewer"') && collaborationLoad.includes('assignee_id: users[0].id') && collaborationLoad.includes("alphabeticNameToken(index)")],
   ["ten-user contention expects one winner and nine conflicts", collaborationLoad.includes("userCount - 1") && collaborationLoad.includes("Same-section optimistic contention") && collaborationLoad.includes("Same-draft optimistic contention")],
 ].map(([name, ok]) => ({ name, ok: Boolean(ok) }));
 

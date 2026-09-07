@@ -13,8 +13,10 @@ if (!["localhost", "127.0.0.1", "::1"].includes(baseUrl.hostname) && !process.ar
 const userCount = boundedInteger("PIPELINE_COLLABORATION_USERS", 20, 2, 100);
 const p95LimitMs = boundedInteger("PIPELINE_COLLABORATION_P95_LIMIT_MS", 500, 25, 10_000);
 const users = Array.from({ length: userCount }, (_, index) => ({
+  id: `pipeline-load-user-${index + 1}`,
   email: `pipeline-load-user-${index + 1}@example.invalid`,
   name: `Pipeline Load User ${index + 1}`,
+  claimRole: index === 0 ? "Pipeline.Reviewer" : "Pipeline.Admin",
 }));
 const timings = [];
 
@@ -27,6 +29,13 @@ if (process.env.PIPELINE_COLLABORATION_REQUIRE_POSTGRES === "true" && databaseMo
 }
 if (process.env.PIPELINE_COLLABORATION_REQUIRE_DESKTOP_STATE === "true" && !workspaceStateReady) {
   fail("The collaboration load check requires PostgreSQL-backed desktop workspace state.");
+}
+
+const assessorWarmup = await request(0, "/api/members?scope=assessors");
+expectStatus(assessorWarmup, 200, "assessor identity warmup");
+const assessorRoster = await assessorWarmup.json();
+if (!assessorRoster.members?.some((member) => member.principal_id === users[0].id)) {
+  fail("The collaboration load assessor was not available for assignment.");
 }
 
 const now = new Date();
@@ -236,8 +245,9 @@ function recoveryDraft(summary) {
 function syntheticReferral(index, now) {
   return {
     client_mutation_id: `collaboration-load-${index + 1}-${randomUUID()}`,
+    assignee_id: users[0].id,
     referral: {
-      name: `Collaboration Load Record ${index + 1}`,
+      name: `Collaboration ${alphabeticNameToken(index)}`,
       date: now.toISOString().slice(0, 10),
       stage: "New",
       community: "San Pablo",
@@ -246,7 +256,7 @@ function syntheticReferral(index, now) {
       tags: ["collaboration-load"],
       documentName: "",
       documentStatus: "Missing",
-      owner: users[index].name,
+      owner: users[0].name,
       note: "Initial",
       createdAt: now.toISOString(),
       dob: "",
@@ -256,6 +266,16 @@ function syntheticReferral(index, now) {
       requirements: [],
     },
   };
+}
+
+function alphabeticNameToken(index) {
+  let remainder = index;
+  let suffix = "";
+  do {
+    suffix = String.fromCharCode(97 + (remainder % 26)) + suffix;
+    remainder = Math.floor(remainder / 26) - 1;
+  } while (remainder >= 0);
+  return `Tester${suffix}`;
 }
 
 async function timedRequest(operation, userIndex, path, options) {
@@ -268,11 +288,11 @@ async function timedRequest(operation, userIndex, path, options) {
 async function request(userIndex, path, options = {}) {
   const user = users[userIndex];
   const principal = Buffer.from(JSON.stringify({
-    userId: `pipeline-load-user-${userIndex + 1}`,
+    userId: user.id,
     userDetails: user.email,
     claims: [
       { typ: "name", val: user.name },
-      { typ: "roles", val: "Pipeline.Admin" },
+      { typ: "roles", val: user.claimRole },
     ],
   })).toString("base64");
   return fetch(new URL(path, baseUrl), {
@@ -316,7 +336,10 @@ function boundedInteger(name, fallback, minimum, maximum) {
 
 function assertStatuses(responses, allowed, operation) {
   if (responses.some((response) => !allowed.includes(response.status))) {
-    fail(`${operation} returned an unexpected status class.`);
+    const statusCounts = Object.fromEntries([...new Set(responses.map((response) => response.status))]
+      .sort((left, right) => left - right)
+      .map((status) => [status, responses.filter((response) => response.status === status).length]));
+    fail(`${operation} returned unexpected status counts: ${JSON.stringify(statusCounts)}.`);
   }
 }
 
