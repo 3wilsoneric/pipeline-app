@@ -16,7 +16,7 @@ import { getReferralWorkflowContexts } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { assignedOwnerForCreate, isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
-import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
+import { createReferralOwners, isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
 import { getActiveWorkspaceMember, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
 import { createDefaultAdmissionRequirements, isRequirementComplete } from "@/lib/pipeline/workflow-records";
 import type { Referral } from "@/lib/pipeline/referral-types";
@@ -120,6 +120,7 @@ export async function POST(request: Request) {
       ...(selectedOwner ? { owner: selectedOwner.display_name, ownerId: selectedOwner.principal_id } : {}),
       ...(knownOwner ? { owner: knownOwner.name, ownerId: knownOwner.id } : {}),
     };
+    const owners = createReferralOwners(auth.user, assignedReferral, !isAssessorUser(auth.user));
     const defaultRequirements = createDefaultAdmissionRequirements(
       assignedReferral.requirements ?? [],
       {},
@@ -135,6 +136,7 @@ export async function POST(request: Request) {
     const defaultTypes = new Set(defaultRequirements.map((requirement) => requirement.type));
     const referral = {
       ...assignedReferral,
+      owners,
       requirements: [
         ...defaultRequirements,
         ...(assignedReferral.requirements ?? []).filter((requirement) => !defaultTypes.has(requirement.type)),

@@ -16,6 +16,10 @@ export function canAccessReferral(user: PipelineUser, referral: Referral) {
   return !isAssessorUser(user) || isAssignedToUser(referral, user);
 }
 
+export function canRecordAdmissionDecision(user: PipelineUser) {
+  return user.roles.includes("admin");
+}
+
 export function scopeReferralListOptions<T extends ReferralListOptions | ReferralFileListOptions>(
   user: PipelineUser,
   options: T,

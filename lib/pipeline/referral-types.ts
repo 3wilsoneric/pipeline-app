@@ -57,6 +57,14 @@ export const referralCanvasFieldKeys = [
 
 export type ReferralCanvasFieldKey = (typeof referralCanvasFieldKeys)[number];
 
+export type ReferralOwnerResponsibility = "creator" | "assignee" | "assigning_supervisor";
+
+export type ReferralOwner = {
+  id: string;
+  name: string;
+  responsibilities: ReferralOwnerResponsibility[];
+};
+
 export type CanvasWorkflowStage = "pre" | "assessment" | "post";
 export type PostAssessmentDecision = "accepted" | "not-accepted" | "pending";
 
@@ -232,6 +240,8 @@ export type Referral = {
   /** Stable Entra object id for assignment enforcement. */
   ownerId?: string;
   owner: string;
+  /** Current accountable owners. `owner`/`ownerId` remain the primary assessment assignment. */
+  owners?: ReferralOwner[];
   assignedAt?: string;
   assignmentDueAt?: string;
   assignmentVersion?: number;

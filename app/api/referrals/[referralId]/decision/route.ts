@@ -5,7 +5,7 @@ import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot, recordAdmissionDecision } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { canRecordAdmissionDecision, requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -27,7 +27,7 @@ export async function GET(
     return Response.json({
       decision: snapshot.decision,
       recommendation: snapshot.recommendation,
-      can_decide: auth.user.roles.some((role) => role === "admin" || role === "assessment_coordinator"),
+      can_decide: canRecordAdmissionDecision(auth.user),
     }, { headers: privateHeaders() });
   });
 }
@@ -37,7 +37,7 @@ export async function PUT(
   context: { params: Promise<{ referralId: string }> },
 ) {
   return withApiLogging(request, "/api/referrals/[referralId]/decision", async () => {
-    const auth = await requirePipelineUser(request, ["admin", "assessment_coordinator"]);
+    const auth = await requirePipelineUser(request, ["admin"]);
     if (!auth.ok) return auth.response;
     const originFailure = requireSameOriginMutation(request);
     if (originFailure) return originFailure;
@@ -73,7 +73,7 @@ export async function PUT(
         reasonCode: typeof body.value.reason_code === "string" ? body.value.reason_code : "",
         reasonNote: typeof body.value.reason_note === "string" ? body.value.reason_note : "",
         overrideReason: typeof body.value.override_reason === "string" ? body.value.override_reason : "",
-        decidedByRole: auth.user.roles.includes("admin") ? "admin" : "assessment_coordinator",
+        decidedByRole: "admin",
       },
       Number(body.value.if_match),
       Number(body.value.if_match_section),

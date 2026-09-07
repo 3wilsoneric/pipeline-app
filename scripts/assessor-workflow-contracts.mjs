@@ -418,7 +418,7 @@ check("assessment start requires an explicit schedule", startRoute.includes("Sch
 check("new assessments must be begun before signing", signRoute.includes("Begin the assessment before signing it"));
 check("signed addenda are limited to the signer or a supervisor", addendumRoute.includes("assessment.signed_by?.id !== auth.user.id") && addendumRoute.includes("Only the signing assessor or a supervisor"));
 check("assigned assessors and supervisors can submit a recommendation", recommendationRoute.includes("allowSupervisorOverride") && workflowStore.includes("allowSupervisorOverride") && workflowStore.includes("assigned assessor or a supervisor"));
-check("only supervisors can record final decisions", decisionRoute.includes('["admin", "assessment_coordinator"]'));
+check("only the head supervisor can record final decisions", decisionRoute.includes('requirePipelineUser(request, ["admin"])') && decisionRoute.includes('decidedByRole: "admin"'));
 check("authorized referral users can open signed assessment charts", admissionSummaryRoute.includes("requirePipelineUser(request)") && admissionSummaryRoute.includes("requireReferralAccess") && !admissionSummaryRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
 check("only supervisors can send Meet the Client", meetClientEmailRoute.includes('["admin", "assessment_coordinator"]'));
 check("Meet the Client requires explicit recipient confirmation and same-origin protection", meetClientEmailRoute.includes("body.value.confirmed !== true") && meetClientEmailRoute.includes("requireSameOriginMutation"));

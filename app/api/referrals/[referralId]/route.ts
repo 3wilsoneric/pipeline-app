@@ -21,7 +21,7 @@ import {
   requireReferralAccess,
 } from "@/lib/pipeline/referral-access";
 import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
-import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
+import { isUnassignedOwner, reassignReferralOwners } from "@/lib/pipeline/referral-ownership";
 import { getActiveWorkspaceMember, touchWorkspaceMember, type WorkspaceMember } from "@/lib/pipeline/workspace-members";
 
 export const runtime = "nodejs";
@@ -177,18 +177,36 @@ async function resolveOwnerPatch(input: OwnerPatchInput): Promise<
   const assignedOwner = input.requestedPatch.owner === undefined
     ? {}
     : { owner: assignment.owner, ownerId: assignment.ownerId };
-  const patch: ReferralPatch = {
+  const resolvedPatch: ReferralPatch = {
     ...input.requestedPatch,
     ...assignedOwner,
     ...(selectedOwner ? { owner: selectedOwner.display_name, ownerId: selectedOwner.principal_id } : {}),
     ...(knownOwner ? { owner: knownOwner.name, ownerId: knownOwner.id } : {}),
   };
-  const ownerChanged = patch.owner !== undefined
-    && (patch.ownerId ?? "") !== (input.current.ownerId ?? "");
+  const ownerChanged = resolvedPatch.owner !== undefined
+    && (resolvedPatch.ownerId ?? "") !== (input.current.ownerId ?? "");
+  const patch = withCurrentReferralOwners(input, resolvedPatch, ownerChanged);
   const handoffReason = typeof input.handoffReason === "string" ? input.handoffReason.trim() : "";
   const handoffFailure = validateHandoff(input.current, ownerChanged, handoffReason);
   if (handoffFailure) return { ok: false, response: handoffFailure };
   return { ok: true, patch, ownerChanged, handoffReason };
+}
+
+function withCurrentReferralOwners(
+  input: OwnerPatchInput,
+  patch: ReferralPatch,
+  ownerChanged: boolean,
+): ReferralPatch {
+  if (!ownerChanged) return patch;
+  return {
+    ...patch,
+    owners: reassignReferralOwners(
+      input.current.owners,
+      input.user,
+      patch,
+      !isAssessorUser(input.user),
+    ),
+  };
 }
 
 function validateHandoff(current: Referral, ownerChanged: boolean, handoffReason: string): Response | null {

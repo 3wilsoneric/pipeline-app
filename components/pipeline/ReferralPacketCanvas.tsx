@@ -1761,6 +1761,12 @@ export default function ReferralPacketCanvas({
           </section>
         ) : null}
 
+        <WorkspaceChangeHistory
+          activePage={activePage}
+          referral={loadedReferral}
+          onOpenFull={() => openPage("activity")}
+        />
+
         <div key={activePage} className="pipeline-step-enter">
           {activePage === 1 && usesSourceProfile && loadedReferral ? (
             <PacketPage id="source-profile" title="Profile">
@@ -3299,6 +3305,28 @@ function initialPacketDropzonePresentation({
     className: "border-[#aaa25f] bg-[#fffdf0] hover:border-[#817932] hover:bg-[#fffbe2]",
     iconClassName: "text-[#6f641b]",
   };
+}
+
+function WorkspaceChangeHistory({
+  activePage,
+  referral,
+  onOpenFull,
+}: {
+  activePage: WorkspaceView;
+  referral: Referral | null;
+  onOpenFull: () => void;
+}) {
+  if (!referral || activePage === "activity") return null;
+  return (
+    <div className="mb-3">
+      <ReferralActivityPanel
+        compact
+        referralId={referral.id}
+        version={referral.version}
+        onOpenFull={onOpenFull}
+      />
+    </div>
+  );
 }
 
 function formatFileSize(bytes: number) {

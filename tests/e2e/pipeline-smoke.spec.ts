@@ -1467,6 +1467,8 @@ test.describe("Referral home and packet canvas", () => {
     const referralPayload = await referralResponse.json() as {
       referral: {
         clientId?: string;
+        version: number;
+        sectionVersions: Record<string, number>;
         name: string;
         documentHash?: string;
         documentName: string;
@@ -1523,6 +1525,18 @@ test.describe("Referral home and packet canvas", () => {
       review_status: "edited",
     });
 
+    const historyPatch = await page.request.patch(`/api/referrals/${referralId}`, {
+      data: {
+        if_match: referralPayload.referral.version,
+        if_match_sections: referralPayload.referral.sectionVersions,
+        patch: {
+          county: "Alameda County",
+          ssn: "111-11-1111",
+        },
+      },
+    });
+    expect(historyPatch.status(), await historyPatch.text()).toBe(200);
+
     const pipelineClientId = referralList.referrals[0]?.clientId;
     expect(pipelineClientId).toBeTruthy();
     const clientIdentityTitle = referralPayload.referral.name;
@@ -1572,7 +1586,25 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("textbox", { name: "GENDER", exact: true })).toHaveValue("Synthetic gender");
     await expect(page.getByRole("textbox", { name: "AGE", exact: true })).toHaveValue("74");
     await expect(page.getByRole("textbox", { name: "DOB", exact: true })).toHaveValue("1951-08-15");
-    await expect(page.getByRole("textbox", { name: "SSN", exact: true })).toHaveValue("000-00-0000");
+    await expect(page.getByRole("textbox", { name: "SSN", exact: true })).toHaveValue("111-11-1111");
+    const compactHistory = page.getByRole("region", { name: "Workspace change history" });
+    await expect(compactHistory).toBeVisible();
+    await expect(compactHistory.getByText("Playwright QA", { exact: false }).first()).toBeVisible();
+    await compactHistory.getByRole("button", { name: "View change history", exact: true }).click();
+    const fullHistory = page.getByRole("region", { name: "Referral ownership and activity" });
+    await expect(fullHistory).toBeVisible();
+    const workspaceOwners = fullHistory.getByRole("group", { name: "Workspace owners" });
+    await expect(workspaceOwners).toContainText("Playwright QA");
+    await expect(workspaceOwners).toContainText("Creator");
+    await expect(workspaceOwners).toContainText("Assignee");
+    const countyChange = fullHistory.getByText("County", { exact: true }).locator("..");
+    await expect(countyChange).toContainText("Contra Costa County");
+    await expect(countyChange).toContainText("Alameda County");
+    const ssnChange = fullHistory.getByText("Social Security number", { exact: true }).locator("..");
+    await expect(ssnChange).toContainText("Value changed (masked)");
+    await expect(ssnChange).not.toContainText("000-00-0000");
+    await expect(ssnChange).not.toContainText("111-11-1111");
+    await page.getByRole("button", { name: "01 Intake" }).click();
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true })).toHaveValue("Referral summary for packet review.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
@@ -1826,7 +1858,7 @@ test.describe("Referral home and packet canvas", () => {
 
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
-    await expect(page.getByText("Assessment signed", { exact: true })).toBeVisible();
+    await expect(assessmentInterview.getByText("Assessment signed", { exact: true })).toBeVisible();
 
     const history = await page.request.get(`/api/referrals/${referralId}/assessments`);
     expect(history.ok()).toBeTruthy();

@@ -8,7 +8,19 @@ import type {
   ReferralWorkflowMetadata,
 } from "@/lib/pipeline/referral-activity";
 
-export default function ReferralActivityPanel({ referralId, version }: { referralId?: number; version?: number }) {
+type ReferralActivityPanelProps = {
+  referralId?: number;
+  version?: number;
+  compact?: boolean;
+  onOpenFull?: () => void;
+};
+
+export default function ReferralActivityPanel({
+  referralId,
+  version,
+  compact = false,
+  onOpenFull,
+}: ReferralActivityPanelProps) {
   const [result, setResult] = useState<{
     referralId: number;
     events: ReferralActivityEvent[];
@@ -51,15 +63,71 @@ export default function ReferralActivityPanel({ referralId, version }: { referra
   }
   const { events, metadata } = result;
 
+  return <ActivityContent compact={compact} events={events} metadata={metadata} onOpenFull={onOpenFull} />;
+}
+
+function ActivityContent({
+  compact,
+  events,
+  metadata,
+  onOpenFull,
+}: {
+  compact: boolean;
+  events: ReferralActivityEvent[];
+  metadata: ReferralWorkflowMetadata;
+  onOpenFull?: () => void;
+}) {
+  if (compact) return <CompactActivity events={events} metadata={metadata} onOpenFull={onOpenFull} />;
+  return <FullActivity events={events} metadata={metadata} />;
+}
+
+function CompactActivity({
+  events,
+  metadata,
+  onOpenFull,
+}: {
+  events: ReferralActivityEvent[];
+  metadata: ReferralWorkflowMetadata;
+  onOpenFull?: () => void;
+}) {
+  return (
+    <section aria-label="Workspace change history" className="border border-[#d9d9d9] bg-[#fbfcfb] px-3 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Change history</div>
+          <div className="mt-0.5 text-[10px] text-[#737373]">
+            {ownerNames(metadata) || "No owner assigned"} · {events.length} recent event{events.length === 1 ? "" : "s"}
+          </div>
+        </div>
+        {onOpenFull ? (
+          <button type="button" onClick={onOpenFull} className="h-7 border border-[#bfc8c4] bg-white px-2.5 text-[10px] font-black text-[#174f43] hover:border-[#0f8b73]">
+            View change history
+          </button>
+        ) : null}
+      </div>
+      <div className="mt-2 grid gap-px bg-[#e4e8e6] sm:grid-cols-3">
+        {events.slice(0, 3).map((event) => (
+          <div key={event.event_id} className="min-w-0 bg-white px-2.5 py-2">
+            <div className="truncate text-[10px] font-black text-[#111111]">{formatAction(event.action)}</div>
+            <div className="mt-0.5 truncate text-[9px] text-[#737373]">{event.actor_name} · {formatTimestamp(event.created_at)}</div>
+          </div>
+        ))}
+        {events.length === 0 ? <div className="bg-white px-2.5 py-2 text-[10px] text-[#737373] sm:col-span-3">No material changes recorded yet.</div> : null}
+      </div>
+    </section>
+  );
+}
+
+function FullActivity({ events, metadata }: { events: ReferralActivityEvent[]; metadata: ReferralWorkflowMetadata }) {
   return (
     <section aria-label="Referral ownership and activity" className="py-2 sm:px-2">
       <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Ownership and timing</div>
       <div className="mt-3 grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-2 xl:grid-cols-4">
         <WorkflowFact
-          label="Owner"
-          value={metadata.owner?.name ?? "Unassigned"}
-          detail={metadata.created_by ? `Created by ${metadata.created_by.name}` : "Assign an owner"}
-          attention={!metadata.owner}
+          label="Owners"
+          value={ownerNames(metadata) || "Unassigned"}
+          detail={metadata.owner ? `Primary assignee ${metadata.owner.name}` : metadata.created_by ? `Created by ${metadata.created_by.name}` : "Assign an owner"}
+          attention={metadata.owners.length === 0}
         />
         <WorkflowFact
           label="Last touched"
@@ -80,6 +148,8 @@ export default function ReferralActivityPanel({ referralId, version }: { referra
         />
       </div>
 
+      <WorkspaceOwners owners={metadata.owners} />
+
       {metadata.contributors.length > 0 ? (
         <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px]">
           <span className="font-black uppercase tracking-[0.08em] text-[#737373]">Contributors</span>
@@ -96,16 +166,53 @@ export default function ReferralActivityPanel({ referralId, version }: { referra
           <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Recent changes</div>
           <div className="mt-3 divide-y divide-[#eeeeee] border-y border-[#d9d9d9]">
             {events.slice(0, 8).map((event) => (
-              <div key={event.event_id} className="grid gap-1 py-2 text-[11px] sm:grid-cols-[minmax(0,1fr)_180px_150px] sm:gap-4">
-                <span className="font-black text-[#111111]">{formatAction(event.action)}</span>
-                <span className="text-[#595959]">{event.actor_name}</span>
-                <time className="text-[#737373] sm:text-right" dateTime={event.created_at}>{formatTimestamp(event.created_at)}</time>
+              <div key={event.event_id} className="py-3 text-[11px]">
+                <div className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_180px_150px] sm:gap-4">
+                  <span className="font-black text-[#111111]">{formatAction(event.action)}</span>
+                  <span className="text-[#595959]">{event.actor_name}</span>
+                  <time className="text-[#737373] sm:text-right" dateTime={event.created_at}>{formatTimestamp(event.created_at)}</time>
+                </div>
+                {event.reason ? <div className="mt-1 text-[10px] text-[#595959]"><span className="font-black">Reason:</span> {event.reason}</div> : null}
+                {event.changes.length > 0 ? (
+                  <div className="mt-2 space-y-1 border-l-2 border-[#dfe7e3] pl-2">
+                    {event.changes.map((change) => (
+                      <div key={change.field} className="grid gap-0.5 text-[10px] sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-3">
+                        <span className="font-black text-[#595959]">{change.label}</span>
+                        <span className="min-w-0 break-words text-[#737373]">
+                          {change.masked
+                            ? "Value changed (masked)"
+                            : change.values_available
+                              ? <><span>{change.before}</span> <span aria-hidden="true">→</span> <span>{change.after}</span></>
+                              : "Change recorded; historical values unavailable"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
         </div>
       ) : null}
     </section>
+  );
+}
+
+function ownerNames(metadata: ReferralWorkflowMetadata) {
+  return metadata.owners.map((owner) => owner.name).join(", ");
+}
+
+function WorkspaceOwners({ owners }: { owners: ReferralWorkflowMetadata["owners"] }) {
+  if (owners.length === 0) return null;
+  return (
+    <div role="group" aria-label="Workspace owners" className="mt-3 flex flex-wrap gap-2">
+      {owners.map((owner) => (
+        <div key={owner.id} className="border border-[#d9d9d9] bg-[#fbfcfb] px-2.5 py-1.5 text-[10px]">
+          <span className="font-black text-[#111111]">{owner.name}</span>
+          <span className="ml-1.5 text-[#737373]">{owner.responsibilities.map(formatAction).join(", ")}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
