@@ -202,6 +202,106 @@ test.describe("referral store characterization", () => {
     }
   });
 
+  test("reassigns the referral and its open assessment as one attributed handoff", async ({ baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const coordinator = await actorApiContext("assessmentCoordinator", url);
+    const assessorA = await actorApiContext("assessorA", url);
+    const assessorB = await actorApiContext("assessorB", url);
+
+    try {
+      expect((await assessorA.get("/api/members")).status()).toBe(200);
+      expect((await assessorB.get("/api/members")).status()).toBe(200);
+      const created = await createReferral(
+        coordinator,
+        "characterization-reassignment-create",
+        "Riley Reassignment",
+        pipelineActors.assessorA.id,
+      );
+      const id = number(created.id);
+      expect(created).toMatchObject({
+        owner: pipelineActors.assessorA.name,
+        ownerId: pipelineActors.assessorA.id,
+      });
+
+      const assessmentCreate = await assessorA.post(`/api/referrals/${id}/assessments`, {
+        data: {
+          client_mutation_id: "characterization-reassignment-assessment",
+          data: { current_location: "Synthetic reassignment characterization." },
+        },
+      });
+      const assessmentCreateText = await assessmentCreate.text();
+      expect(assessmentCreate.status(), assessmentCreateText).toBe(201);
+      const assessmentBefore = record(record(JSON.parse(assessmentCreateText)).assessment);
+      expect(assessmentBefore).toMatchObject({
+        assessor_id: pipelineActors.assessorA.id,
+        assessor: pipelineActors.assessorA.name,
+      });
+
+      const reassignment = await coordinator.patch(`/api/referrals/${id}`, {
+        data: {
+          if_match: number(created.version),
+          if_match_sections: {
+            intake: sectionVersion(created, "intake"),
+            workflow: sectionVersion(created, "workflow"),
+          },
+          patch: { owner: pipelineActors.assessorB.name },
+          assignee_id: pipelineActors.assessorB.id,
+          handoff_reason: "Synthetic reassignment characterization.",
+        },
+      });
+      const reassignmentText = await reassignment.text();
+      expect(reassignment.status(), reassignmentText).toBe(200);
+      const referralAfter = record(record(JSON.parse(reassignmentText)).referral);
+      expect(referralAfter).toMatchObject({
+        owner: pipelineActors.assessorB.name,
+        ownerId: pipelineActors.assessorB.id,
+      });
+      expect(array(referralAfter.owners)).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: pipelineActors.assessmentCoordinator.id,
+          responsibilities: expect.arrayContaining(["creator", "assigning_supervisor"]),
+        }),
+        expect.objectContaining({
+          id: pipelineActors.assessorB.id,
+          responsibilities: expect.arrayContaining(["assignee"]),
+        }),
+      ]));
+      expect(array(referralAfter.owners).some((owner) => record(owner).id === pipelineActors.assessorA.id)).toBe(false);
+
+      const assessmentsResponse = await coordinator.get(`/api/referrals/${id}/assessments`);
+      expect(assessmentsResponse.status()).toBe(200);
+      const assessments = array(record(await assessmentsResponse.json()).assessments).map(record);
+      expect(assessments).toHaveLength(1);
+      expect(assessments[0]).toMatchObject({
+        assessment_id: assessmentBefore.assessment_id,
+        assessor_id: pipelineActors.assessorB.id,
+        assessor: pipelineActors.assessorB.name,
+        version: number(assessmentBefore.version) + 1,
+      });
+      expect(array(assessments[0].audit_events).map(record)).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          action: "assessment_assigned",
+          actor_id: pipelineActors.assessmentCoordinator.id,
+          actor_name: pipelineActors.assessmentCoordinator.name,
+        }),
+      ]));
+
+      const referralAudit = await referralEvents(coordinator, id);
+      expect(referralAudit).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          action: "referral_reassigned",
+          actor_id: pipelineActors.assessmentCoordinator.id,
+          actor_name: pipelineActors.assessmentCoordinator.name,
+          reason: "Synthetic reassignment characterization.",
+        }),
+      ]));
+      expect((await assessorA.get(`/api/referrals/${id}`)).status()).toBe(404);
+      expect((await assessorB.get(`/api/referrals/${id}`)).status()).toBe(200);
+    } finally {
+      await Promise.all([coordinator.dispose(), assessorA.dispose(), assessorB.dispose()]);
+    }
+  });
+
   test("rejects invalid creates and duplicate packets without side effects", async ({ baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
