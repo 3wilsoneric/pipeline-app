@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "mode": "setup_only",
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-09-06",
   "slices": [
     {
       "id": "referral-store-boundaries",
       "priority": 1,
       "status": "not_started",
-      "owner": "unassigned",
+      "owner": "Eric",
       "paths": [
         "lib/pipeline/referral-store.ts",
         "lib/pipeline/referral-types.ts",
@@ -19,7 +19,8 @@
         "Optimistic referral and section versions reject stale same-section writes.",
         "Create retries with the same mutation identifier remain replay-idempotent; versioned patch, trash, and restore commands preserve their characterized conflict behavior.",
         "Audit writes remain transactionally coupled to material mutations.",
-        "Trash, restore, assignment, work-item, and assessment side effects remain unchanged."
+        "Soft-deleted referrals remain recoverable for 30 days; restore, assignment, work-item, and assessment side effects remain unchanged.",
+        "Suspected-duplicate review is a separate product behavior change: name and county may identify candidates for human review but never become automatic identity or merge keys."
       ],
       "requiredGates": [
         "check:api",

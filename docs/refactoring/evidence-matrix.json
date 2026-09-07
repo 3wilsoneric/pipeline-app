@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-01",
+  "updatedAt": "2026-09-06",
   "statusDefinitions": {
     "satisfied": "Existing evidence is executable or reviewable and may be cited now.",
     "partial": "Useful evidence exists, but the slice-specific contract is incomplete.",
@@ -104,21 +104,21 @@
           "phase": "before_start",
           "status": "partial",
           "gates": ["check:api", "check:assessor-workflow", "check:workflow-fuzz"],
-          "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code."
+          "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code. Owner direction recorded 2026-09-06: suspected matches by normalized name and county should trigger human review with open-existing or confirm-different-person outcomes, never automatic identity linking or merging. This is a separate product behavior change and is not part of the structural slice until separately implemented, reviewed, and included in the exact-start baseline."
         },
         {
           "id": "local_postgres_parity",
           "phase": "before_start",
           "status": "missing",
           "files": ["docs/refactoring/ADAPTER_PARITY_CONTRACT.md"],
-          "note": "Run the same referral contract scenarios against both adapters without erasing PostgreSQL-only transaction semantics. The local referral adapter currently has no persisted audit stream equivalent to PostgreSQL audit_events, so the owner must define the intended observable audit contract or approve the difference before moving the boundary."
+          "note": "Run the same referral contract scenarios against both adapters without erasing PostgreSQL-only transaction semantics. Owner direction recorded 2026-09-06: local mode must expose enough actor and audit information for shared behavioral tests, while PostgreSQL remains the sole production owner of transactionally durable audit_events. The exact local observable and shared assertions remain to be designed and executed."
         },
         {
           "id": "create_and_patch_retry_contract",
           "phase": "before_start",
           "status": "missing",
           "gates": ["check:api", "database:concurrency"],
-          "note": "Freeze exact replay outcomes per command. Referral creation accepts a mutation identifier, while patch, trash, and restore currently rely on optimistic versions; a safe duplicate conflict is not automatically the same contract as idempotent replay returning the original result."
+          "note": "Freeze exact replay outcomes per command. Owner direction recorded 2026-09-06: a repeated create with the same mutation identifier returns the original referral without applying a second mutation; patch, trash, and restore use optimistic conflict recovery rather than replay idempotency; trash remains restorable for 30 days. Exact response, audit, database-effect, and concurrency evidence is still missing."
         },
       {
         "id": "runtime_authorization",
@@ -161,7 +161,7 @@
             "docs/refactoring/architecture-comprehension-probes.json",
             "docs/refactoring/proof-obligations.json"
           ],
-          "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. The human owner must validate their completeness and intended semantics and complete the pre-change comprehension review before implementation."
+          "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. The 2026-09-06 owner explain-back did not yet demonstrate the concurrency, atomic-side-effect, or adapter-audit model, so human validation and the independent pre-change comprehension review remain required before implementation."
         },
         {
           "id": "convergence_and_residual_risk",
