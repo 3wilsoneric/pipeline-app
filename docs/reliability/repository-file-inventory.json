@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T06:58:38.019Z",
+  "generated_at": "2026-09-07T07:02:42.483Z",
   "audit_date": "2026-09-07",
-  "git_head": "31fe89e75bc580de295456d14d75299ef4c9b24f",
+  "git_head": "4d50f4ea3a312525b3d0b8a277c18a2c87da7bc8",
   "files": [
     {
       "path": ".dockerignore",
@@ -3694,6 +3694,17 @@
       "verification": "link/config drift review against executable source"
     },
     {
+      "path": "docs/refactoring/COMPLEXITY_RATCHET_DISPOSITION_PROPOSAL_4d50f4e.md",
+      "content_sha256": "41d412755609eb9e3783f8d647cff472d349b994641cf9159da1eaa49fec9b2a",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 3829,
+      "lines": 51,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
       "path": "docs/refactoring/CONTROL_PLANE_MAP.md",
       "content_sha256": "06c9feeea1b4454d659a3f174fb6bdce61da87e6438ab5fcaa0903122ca4aec7",
       "role": "Documentation or runbook",
@@ -3870,12 +3881,34 @@
       "verification": "link/config drift review against executable source"
     },
     {
+      "path": "docs/refactoring/characterization/refactor-baseline-machine-run-4d50f4ea.json",
+      "content_sha256": "4a033befc6a89fc74523841d23ba1c66dae03bbc6cecc17fbf94e832fa30be59",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 2610,
+      "lines": 69,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
       "path": "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
       "content_sha256": "7a32942d86d4b81db65764a9eb7a470858e83ef3c4c59d378b3db6d8b66bee7c",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 3950,
       "lines": 75,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
+      "content_sha256": "7e1c12ff76677a9448f5bdfeaee354252b55d6b478049879fda6dc169fc84aaf",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 2638,
+      "lines": 62,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3893,11 +3926,11 @@
     },
     {
       "path": "docs/refactoring/evidence-matrix.json",
-      "content_sha256": "f809598b163cc88d8f99c4f27344c916fdef24d636ba35b058af73dd83adff0c",
+      "content_sha256": "ee6da95f08f67e734096119c50ee2fcdd5909780fd96857894d85c072ef5d28b",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 29998,
-      "lines": 519,
+      "bytes": 30906,
+      "lines": 529,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4080,10 +4113,10 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "095deecb507daf638a9d694003c79f22b8e6bef5cece2b72152fe6d8f3710590",
+      "content_sha256": "43a01e4f973f0664dfc74cf31d0928f6aca7a36e3a10b94362c6aa24268df13f",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 352618,
+      "bytes": 352619,
       "lines": 1698,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4108,7 +4141,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "316290c46357cea65e9c45adccab3936728ff09a1d9cbb39870c970f7a12f25c",
+      "content_sha256": "d154710ba9e95ea83ef843a934a78d11c77519a2248d48b709ac5971e52953cd",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 214011,
@@ -4167,10 +4200,10 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "d4bb77b9d4f50df736915e27f8ee8d9480db3400e1a08dc9e2d43dbadf4c4aaf",
+      "content_sha256": "a175615ecf3c7b98a41913d99bb77d394255408ac2aaf3e32c376a0bb89797e7",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 483557,
+      "bytes": 483558,
       "lines": 9768,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",

@@ -39,8 +39,11 @@
       "phase": "before_start",
       "status": "partial",
       "gates": ["complexity:check"],
-      "files": ["docs/reliability/cyclomatic-complexity-baseline.json"],
-      "note": "A reviewed per-function baseline exists, but the current mixed main worktree exceeds it. Begin a slice only from a clean reviewed commit where the ratchet passes, or where every pre-existing failure has a named owner and an approved non-regression disposition."
+      "note": "A reviewed per-function baseline exists. The clean integration candidate has 272 hotspots versus 271, no increase in critical hotspots, one additional control-plane hotspot, and 11 exact inherited function failures. The characterization runner's new hotspot was removed rather than added to the baseline. Begin a slice only after the named owners and independent reviewer approve the exact-commit non-regression proposal or the prerequisite functions are repaired; never regenerate the baseline to absorb them.",
+      "files": [
+        "docs/reliability/cyclomatic-complexity-baseline.json",
+        "docs/refactoring/COMPLEXITY_RATCHET_DISPOSITION_PROPOSAL_4d50f4e.md"
+      ]
     },
     {
       "id": "enforced_code_ownership",
@@ -67,9 +70,10 @@
       "gates": ["codebase:baseline", "check:refactor-assurance"],
       "files": [
         "scripts/codebase-refactor-baseline.mjs",
-        "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md"
+        "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
+        "docs/refactoring/characterization/refactor-baseline-machine-run-4d50f4ea.json"
       ],
-      "note": "The baseline generator now records separate complexity, churn, fan-in, dependency, branch-depth, duplication, control-plane, and planned-slice signals without collapsing them into a correctness score. Generate and review the risk inventory from the clean exact starting commit; the current mixed worktree is not start evidence."
+      "note": "The baseline generator records separate complexity, churn, fan-in, dependency, branch-depth, duplication, control-plane, and planned-slice signals without collapsing them into a correctness score. A clean candidate run identifies referral-store.ts as the top critical-review target with four overlapping hotspot rankings, but human review and a fresh run from the final exact approved starting commit remain required."
     },
     {
       "id": "honest_high_assurance_claim_boundary",
@@ -110,7 +114,8 @@
           "gates": ["check:api", "check:assessor-workflow", "check:workflow-fuzz"],
           "files": [
             "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
-            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json"
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
+            "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json"
           ],
           "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code. Owner purpose statement recorded verbatim on 2026-09-06: \"accomplish gathering the full profile for eventual admission, and with the assessment, make that decision, generally only one person will touch the referral from start to finish, there are a few that will be assigned referral but will only do the assessment and hopefully wotn need to change the workspace creation part\". Owner role direction recorded 2026-09-06: most referral owners carry the workspace from creation through the decision process; two assessors generally receive assignments and also create their own workspaces; one assessment-only assessor receives assigned work and ordinarily changes only assessment information; verified profile corrections by that assessor are permitted and attributable. Workspace ownership, visible history, field-aware saves, and name-plus-county human duplicate review are now implemented as separate product prerequisites on the clean integration candidate. Machine observations cover their referral-store seams, but human review of the complete architecture narrative and exact-start evidence remains required."
         },
@@ -120,7 +125,8 @@
           "status": "partial",
           "files": [
             "docs/refactoring/ADAPTER_PARITY_CONTRACT.md",
-            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json"
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
+            "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json"
           ],
           "note": "The same clean-commit synthetic API characterization passes against isolated local-file and disposable PostgreSQL 16 stores for create replay, disjoint and conflicting section writes, denied mutations, duplicate packet rejection, duplicate-person review, trash, restore, and audit cardinality. Human review must still approve the observable contract and identify any missing domain or PostgreSQL-only transaction cases before this item can be satisfied."
         },
@@ -129,7 +135,10 @@
           "phase": "before_start",
           "status": "partial",
           "gates": ["check:api", "database:concurrency"],
-          "files": ["docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json"],
+          "files": [
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
+            "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json"
+          ],
           "note": "Clean-commit executable evidence freezes create replay with a changed replay payload, disjoint section success, same-section one-winner conflict behavior, exact-set duplicate confirmation, stale trash and restore rejection, audit cardinality, and the 30-day restore deadline on both adapters. Human owner review, direct database-effect review, and any missing command-specific concurrency cases remain required before this item can be satisfied."
         },
         {
@@ -139,7 +148,8 @@
           "gates": ["check:route-policy", "test:e2e:operational:high"],
           "files": [
             "docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md",
-            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json"
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
+            "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json"
           ],
           "note": "Static route coverage and clean-commit executed allow and deny evidence cover create, patch, trash, restore, and duplicate confirmation across local-file and PostgreSQL adapters, including anonymous, read-only, wrong-resource, cross-origin, hidden-candidate, and guessed-id denial with no side effects. Human review must still validate coverage against the final allowed file audit and any additional mutation entry points before completion."
         },

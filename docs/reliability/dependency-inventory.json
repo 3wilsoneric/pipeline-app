@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T06:58:38.019Z",
+  "generated_at": "2026-09-07T07:02:42.483Z",
   "audit_date": "2026-09-07",
-  "git_head": "31fe89e75bc580de295456d14d75299ef4c9b24f",
+  "git_head": "4d50f4ea3a312525b3d0b8a277c18a2c87da7bc8",
   "direct": [
     {
       "name": "@azure/identity",
@@ -702,6 +702,7 @@
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
         "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
+        "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
         "docs/refactoring/evidence-matrix.json",
         "docs/refactoring/refactor-eval-scenarios.json",
         "infra/azure/foundation-state.bicep",
