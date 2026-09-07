@@ -179,6 +179,7 @@
     "test:e2e:demo": "playwright test tests/e2e/demo-environment.spec.ts --project=chromium",
     "test:e2e:operational": "PIPELINE_OPERATIONAL_E2E=true PORT=3197 playwright test -c playwright.operational.config.ts",
     "test:e2e:operational:high": "PIPELINE_OPERATIONAL_E2E=true PIPELINE_HIGH_ASSURANCE_E2E=true PORT=3198 playwright test -c playwright.operational.config.ts",
+    "characterize:referral-store": "node scripts/referral-store-characterization.mjs",
     "demo:100": "PIPELINE_OPERATIONAL_E2E=true PIPELINE_HIGH_ASSURANCE_E2E=true PORT=3199 playwright test -c playwright.operational.config.ts tests/e2e/operational/high-traffic-capacity.scaffold.spec.ts",
     "test:e2e:desktop": "PIPELINE_NEXT_DIST_DIR=.next-desktop-e2e PIPELINE_DESKTOP_E2E=true PORT=3189 playwright test tests/e2e/desktop-readiness.spec.ts --project=chromium",
     "test:e2e:cross-browser": "PIPELINE_CROSS_BROWSER=true playwright test tests/e2e/cross-browser-smoke.spec.ts",
@@ -207,7 +208,7 @@
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20.19.37",
+    "@types/node": "22.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "axe-core": "^4.11.1",

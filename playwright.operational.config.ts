@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = process.env.PORT ?? "3197";
 const baseURL = `http://127.0.0.1:${port}`;
+const prebuiltOperational = process.env.PIPELINE_OPERATIONAL_PREBUILT === "true";
 const storeRoot = `.data/playwright-operational/${port}`;
 const allowedEmails = [
   "ops-admin@pipeline.local",
@@ -32,7 +33,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npm run build && npm run start",
+    command: prebuiltOperational ? "npm run start" : "npm run build && npm run start",
     url: `${baseURL}/api/health/live`,
     reuseExistingServer: false,
     timeout: process.env.CI ? 300_000 : 120_000,
