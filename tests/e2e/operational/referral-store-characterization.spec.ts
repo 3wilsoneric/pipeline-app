@@ -2,7 +2,6 @@ import { expect, request, test, type APIRequestContext } from "@playwright/test"
 
 import {
   actorApiContext,
-  operationalMutationId,
   pipelineActors,
   requireOperationalBaseURL,
   syntheticReferralInput,
