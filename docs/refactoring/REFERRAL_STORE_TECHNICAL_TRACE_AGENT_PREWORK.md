@@ -4,7 +4,7 @@ Author: TARS (agent-generated supporting evidence)
 
 Status: observed technical prework; not an owner architecture narrative, approval, file disposition, or assurance decision
 
-Observed commit: `ea076521654dcbb458ec39f666347d0818209a9a`
+Observed commit: `141982d908d07da06dcb9d7c19e83df2f1c7ec4b`
 
 Observed worktree: `/Users/eric/pipeline-refactor-integration`
 
@@ -153,7 +153,7 @@ This proposal is not authorized until the human owner validates the responsibili
 - Fresh-context answers to the referral stale-write/retry and audit-atomicity probes.
 - Human approval of the same-section one-winner and retry/audit-atomicity proof obligations.
 - Approved file audit disposition and exact allowed paths.
-- Exact-start baseline and a green or approved non-regression complexity disposition.
+- Exact-start baseline and independent review of the owner-approved complexity non-regression disposition.
 - Human-adopted refactor-guidance comparison, including private holdout evidence.
 - Independent reviewer/branch-protection path and commit-attached checks.
 

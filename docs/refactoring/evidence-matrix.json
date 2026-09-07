@@ -30,16 +30,17 @@
       "files": [
         "docs/refactoring/CODE_QUALITY_POLICY.md",
         "docs/refactoring/code-quality-policy.json",
-        "docs/refactoring/DEPENDENCY_CEILING_DISPOSITION_PROPOSAL.md"
+        "docs/refactoring/DEPENDENCY_CEILING_DISPOSITION_PROPOSAL.md",
+        "docs/refactoring/WORKTREE_RUNBOOK.md"
       ],
-      "note": "@types/node is aligned with Node 22 and the setup runs in a dedicated codex/refactor-* worktree. Eric approved the inherited 531-location ceiling on 2026-09-07; the policy now rejects 532 or more unless separately approved and requires a future supported removal to lower the ratchet. Stale worktrees with unique commits still require explicit disposition."
+      "note": "@types/node is aligned with Node 22 and the setup runs in a dedicated codex/refactor-* worktree. Eric approved the inherited 531-location ceiling on 2026-09-07; the policy now rejects 532 or more unless separately approved and requires a future supported removal to lower the ratchet. The 2026-09-07 worktree inventory identifies the branches fully contained in the integration candidate and the four branches with unique work still needing explicit preserve-or-abandon decisions."
     },
     {
       "id": "green_complexity_ratchet",
       "phase": "before_start",
       "status": "partial",
       "gates": ["complexity:check"],
-      "note": "A reviewed per-function baseline exists. The clean integration candidate has 272 hotspots versus 271, no increase in critical hotspots, one additional control-plane hotspot, and 11 exact inherited function failures. The characterization runner's new hotspot was removed rather than added to the baseline. Begin a slice only after the named owners and independent reviewer approve the exact-commit non-regression proposal or the prerequisite functions are repaired; never regenerate the baseline to absorb them.",
+      "note": "A reviewed per-function baseline exists. At approval-context commit 141982d908d07da06dcb9d7c19e83df2f1c7ec4b the clean integration candidate has 272 hotspots versus 271, no increase in critical hotspots, one additional control-plane hotspot, and 11 exact inherited function failures. The characterization runner's new hotspot was removed rather than added to the baseline. Eric approved freezing those failures at their current levels, permitting no new failure or growth, reducing referral-owned matchesReferralFilters during the approved referral-store slice, and separately owning the other ten without regenerating the baseline. Independent review of the exact starting commit remains required before a slice begins.",
       "files": [
         "docs/reliability/cyclomatic-complexity-baseline.json",
         "docs/refactoring/COMPLEXITY_RATCHET_DISPOSITION_PROPOSAL_4d50f4e.md"
@@ -50,7 +51,7 @@
       "phase": "before_start",
       "status": "blocked",
       "files": [".github/CODEOWNERS", "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"],
-      "note": "A repository-owner CODEOWNERS route exists, but there is no independent backup/reviewer and main currently requires zero approvals, does not require code-owner review, and permits administrator bypass. Name the independent reviewer path and enforce the reviewed branch-protection checks before a slice starts."
+      "note": "A repository-owner CODEOWNERS route exists, but there is no independent backup/reviewer. A 2026-09-07 GitHub API recheck confirms main still requires zero approvals, does not require code-owner review, permits administrator bypass, and has no additional ruleset. Name the independent reviewer path and enforce the reviewed branch-protection checks before a slice starts."
     },
     {
       "id": "commit_attached_refactor_gates",
@@ -61,7 +62,7 @@
         ".github/workflows/refactor-agent.yml",
         "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"
       ],
-      "note": "The guarded cloud controller dispatches focused and independent checks, but main protection currently requires only the verify job and ordinary pull requests do not run the browser, operational, or PostgreSQL jobs. Define and enforce the commit-attached required-check set for refactor pull requests before implementation."
+      "note": "The guarded cloud controller dispatches focused and independent checks, but a 2026-09-07 GitHub API recheck confirms main protection still requires only the verify job and ordinary pull requests do not run the browser, operational, or PostgreSQL jobs. Define and enforce the commit-attached required-check set for refactor pull requests before implementation."
     },
     {
       "id": "risk_ranked_exact_start_baseline",

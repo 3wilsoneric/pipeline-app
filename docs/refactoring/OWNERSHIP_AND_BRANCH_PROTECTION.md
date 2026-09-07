@@ -4,7 +4,7 @@
 
 The repository now routes all paths and high-risk control planes to `@3wilsoneric`, but that single-owner route does not provide the independent review required for a refactor. A real backup or reviewer with repository access is still required; do not add placeholder handles.
 
-Observed on 2026-08-31 through the GitHub API: `main` requires the `verify` status check with strict branch freshness, linear history, and conversation resolution, and blocks force pushes and deletion. It currently requires zero approvals, does not require code-owner review, does not enforce protection for administrators, and does not require the path-selected browser, operational, PostgreSQL, or security results. Recheck rather than trusting this dated observation:
+Rechecked on 2026-09-07 through the GitHub API: `main` requires the `verify` status check with strict branch freshness, linear history, and conversation resolution, and blocks force pushes and deletion. It still requires zero approvals, does not require code-owner review, does not enforce protection for administrators, and does not require the path-selected browser, operational, PostgreSQL, or security results. The repository has no additional rulesets. Recheck again immediately before activation:
 
 ```bash
 gh api repos/3wilsoneric/pipeline-app/branches/main/protection

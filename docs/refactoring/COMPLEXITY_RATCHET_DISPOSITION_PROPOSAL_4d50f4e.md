@@ -1,10 +1,16 @@
-# Complexity Ratchet Disposition Proposal — `4d50f4e`
+# Complexity Ratchet Disposition Record
 
 Author: TARS
 
-Status: proposed inherited-debt disposition; not approved and not a replacement baseline
+Status: owner-approved inherited-debt disposition; independent review pending; not a replacement baseline
 
-Exact observed commit: `4d50f4ea3a312525b3d0b8a277c18a2c87da7bc8`
+Exact approval-context commit: `141982d908d07da06dcb9d7c19e83df2f1c7ec4b`
+
+Approved by: Eric (application owner)
+
+Approved at: `2026-09-07T13:57:45Z`
+
+Recorded decision: freeze the 11 inherited failures at their current levels, permit no new failure or growth, reduce `matchesReferralFilters` during the approved referral-store slice, and keep the other ten as separately owned prerequisite cleanup. The historical baseline must not be regenerated to absorb them.
 
 ## Current result
 
@@ -34,17 +40,17 @@ The red result is not caused by the proposed referral type seam. No structural a
 | `scripts/import-allo-material-workspaces.mjs::processWorkspace` | 33 → 37 | Import/operator owner; preserve resumability, validation, and failure evidence. |
 | `scripts/operator-training-route-contracts.mjs` callback | 8 → 12 | Test/academy owner; reduce without hiding assertions. |
 
-## Recommended start disposition
+## Owner-approved start disposition
 
 Do not regenerate `cyclomatic-complexity-baseline.json`.
 
-Before activating the referral-store slice, choose one of these legitimate paths:
+Before activating the referral-store slice, the owner considered these legitimate paths:
 
 1. Repair every inherited function in separately scoped prerequisite changes and require a green ratchet; or
 2. Approve an exact-commit non-regression disposition that names the owners above, keeps the existing reviewed per-function ceilings, and requires the referral slice to introduce no new failure or growth. The referral-owned `matchesReferralFilters` failure must then be reduced in an approved, characterized iteration before the slice can complete.
 
-The second path is recommended for starting the narrow type-only seam because that seam does not touch any listed function and TypeScript/build/characterization evidence can prove its behavior-neutral boundary. It does not excuse the debt or permit a new baseline.
+The owner approved the second path. It does not excuse the debt or permit a new baseline. Independent review must confirm that the exact starting commit contains the same bounded failures and that the approved referral-store scope introduces no new failure or growth.
 
-## Human action
+## Remaining human action
 
-The human owner and independent reviewer must either approve the proposed non-regression path for the exact starting commit or direct the prerequisite repairs. TARS will record the decision without changing historical baseline values.
+An independent reviewer must approve this non-regression disposition for the exact starting commit before the referral-store slice begins. No historical baseline value changes under this disposition.
