@@ -301,6 +301,118 @@ test.describe("referral store characterization", () => {
     }
   });
 
+  test("preserves filtered lists, facets, client ordering, and cursor pagination", async ({ baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const coordinator = await actorApiContext("assessmentCoordinator", url);
+    const assessorA = await actorApiContext("assessorA", url);
+    const assessorB = await actorApiContext("assessorB", url);
+    const marker = "Synthetic parity catalog";
+
+    try {
+      expect((await assessorA.get("/api/members")).status()).toBe(200);
+      expect((await assessorB.get("/api/members")).status()).toBe(200);
+      await createReferral(
+        coordinator,
+        "characterization-query-alpha",
+        "Alden Filters",
+        pipelineActors.assessorA.id,
+        {
+          source: marker,
+          county: "Alameda County",
+          community: "San Pablo",
+          priority: "urgent",
+          tags: ["parity-batch", "parity-urgent"],
+        },
+      );
+      await createReferral(
+        coordinator,
+        "characterization-query-bravo",
+        "Brennan Filters",
+        pipelineActors.assessorB.id,
+        {
+          source: marker,
+          county: "Contra Costa County",
+          community: "Turlock",
+          priority: "high",
+          tags: ["parity-batch"],
+        },
+      );
+      await createReferral(
+        coordinator,
+        "characterization-query-charlie",
+        "Carmen Filters",
+        undefined,
+        {
+          source: marker,
+          county: "Alameda County",
+          community: "Santa Clarita",
+          priority: "standard",
+          tags: ["parity-batch"],
+        },
+      );
+
+      const firstPageResponse = await coordinator.get(
+        `/api/referrals?q=${encodeURIComponent(marker)}&sort=client_asc&limit=2&projection=summary`,
+      );
+      expect(firstPageResponse.status()).toBe(200);
+      const firstPage = record(await firstPageResponse.json());
+      expect(number(firstPage.total)).toBe(3);
+      expect(array(firstPage.referrals).map((item) => record(item).name)).toEqual([
+        "Alden Filters",
+        "Brennan Filters",
+      ]);
+      expect(typeof firstPage.next_cursor).toBe("string");
+
+      const secondPageResponse = await coordinator.get(
+        `/api/referrals?q=${encodeURIComponent(marker)}&sort=client_asc&limit=2&projection=summary&cursor=${encodeURIComponent(String(firstPage.next_cursor))}`,
+      );
+      expect(secondPageResponse.status()).toBe(200);
+      const secondPage = record(await secondPageResponse.json());
+      expect(number(secondPage.total)).toBe(3);
+      expect(array(secondPage.referrals).map((item) => record(item).name)).toEqual(["Carmen Filters"]);
+      expect(secondPage.next_cursor).toBeUndefined();
+
+      const filteredResponse = await coordinator.get(
+        `/api/referrals?q=${encodeURIComponent(marker)}&county=Alameda%20County&owner=Assessor%20A&priority=urgent&tag=parity-urgent&projection=summary`,
+      );
+      expect(filteredResponse.status()).toBe(200);
+      const filtered = record(await filteredResponse.json());
+      expect(number(filtered.total)).toBe(1);
+      expect(array(filtered.referrals).map((item) => record(item).name)).toEqual(["Alden Filters"]);
+
+      const facetsResponse = await coordinator.get(`/api/referrals/facets?q=${encodeURIComponent(marker)}`);
+      expect(facetsResponse.status()).toBe(200);
+      const facets = record(record(await facetsResponse.json()).facets);
+      expect(array(facets.communities).map(record)).toEqual([
+        { value: "San Pablo", count: 1 },
+        { value: "Santa Clarita", count: 1 },
+        { value: "Turlock", count: 1 },
+      ]);
+      expect(array(facets.counties).map(record)).toEqual([
+        { value: "Alameda County", count: 2 },
+        { value: "Contra Costa County", count: 1 },
+      ]);
+      expect(array(facets.owners).map(record)).toEqual([
+        { value: "Admissions Coordinator", count: 1 },
+        { value: "Assessor A", count: 1 },
+        { value: "Assessor B", count: 1 },
+      ]);
+      expect(array(facets.priorities).map(record)).toEqual([
+        { value: "high", count: 1 },
+        { value: "standard", count: 1 },
+        { value: "urgent", count: 1 },
+      ]);
+      expect(array(facets.stages).map(record)).toEqual([{ value: "New", count: 3 }]);
+      expect(array(facets.tags).map(record)).toEqual([
+        { value: "parity-batch", count: 3 },
+        { value: "parity-urgent", count: 1 },
+      ]);
+      expect(array(facets.months).map(record)).toEqual([{ value: "2026-09", count: 3 }]);
+    } finally {
+      await Promise.all([coordinator.dispose(), assessorA.dispose(), assessorB.dispose()]);
+    }
+  });
+
   test("rejects invalid creates and duplicate packets without side effects", async ({ baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const coordinator = await actorApiContext("assessmentCoordinator", url);

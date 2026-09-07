@@ -147,7 +147,7 @@ async function runCommand(name, command, args, extraEnv = {}, captureJson = fals
 
 function commandPassed({ exitCode, spawnError, parseError, captureJson, stats }) {
   if (exitCode !== 0 || spawnError || parseError) return false;
-  return !captureJson || (stats?.expected === 6 && stats.unexpected === 0);
+  return !captureJson || (stats?.expected === 7 && stats.unexpected === 0);
 }
 
 function reportCapturedFailure({ name, ok, captureJson, spawnError, parseError, output }) {
