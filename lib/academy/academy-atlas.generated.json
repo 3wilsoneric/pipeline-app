@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:2a583697cf876d43",
-  "fingerprint": "2a583697cf876d43ad0db7b726de144e0a5e82d96c82ff3bd10dc3f37227a329",
+  "generatedAt": "source-fingerprint:b8b6cdd777389fa7",
+  "fingerprint": "b8b6cdd777389fa72c65a6159d77f99b8ca3ed061d3bca70b22f6a6e8c266656",
   "totals": {
     "files": 852,
-    "lines": 283397,
+    "lines": 283408,
     "coveredFiles": 852
   },
   "entries": [
@@ -2083,7 +2083,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3534,
+      "lines": 3545,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
