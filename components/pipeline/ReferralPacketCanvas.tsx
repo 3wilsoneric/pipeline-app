@@ -2194,7 +2194,7 @@ function IntakeDocumentChecklist({
     getRequirementReviewValue(item, documents[item.id], referral)
   )).length;
   const hasInitialPacket = Boolean(initialPacket || (recordedName && recordedStatus !== "Missing"));
-  const [documentsOpen, setDocumentsOpen] = useState(!hasInitialPacket);
+  const [documentsOpen, setDocumentsOpen] = useState(false);
 
   return (
     <section aria-label="Document checklist" className="mb-6">

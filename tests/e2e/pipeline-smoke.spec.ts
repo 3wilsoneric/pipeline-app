@@ -453,6 +453,10 @@ test.describe("Referral home and packet canvas", () => {
     await expect(documentChecklist).toBeVisible();
     const documentPanel = page.getByTestId("document-checklist-panel");
     const documentToggle = page.getByTestId("document-checklist-toggle");
+    await expect(documentPanel).not.toHaveAttribute("open", "");
+    await expect(page.getByRole("region", { name: "Initial referral packet" })).toHaveCount(0);
+    await expect(documentChecklist.getByRole("button", { name: /drop document or browse$/ })).toHaveCount(0);
+    await documentToggle.click();
     await expect(documentPanel).toHaveAttribute("open", "");
     await expect(page.getByRole("region", { name: "Initial referral packet" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Identity chart section" })).toBeVisible();
