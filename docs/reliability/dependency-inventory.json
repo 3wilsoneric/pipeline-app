@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T14:17:34.767Z",
+  "generated_at": "2026-09-07T14:23:01.194Z",
   "audit_date": "2026-09-07",
-  "git_head": "92fa991c49b9905bc3532bb49506e9f595d6988a",
+  "git_head": "ef2b7d2b393ad5d36ac9d726e2c65ec21be5f08a",
   "direct": [
     {
       "name": "@azure/identity",
@@ -705,6 +705,7 @@
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
         "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md",
+        "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
         "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
@@ -944,6 +945,7 @@
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/WORKFLOW_BUILD_QUEUE.md",
         "docs/academy/ARCHITECTURE_GUIDE.md",
+        "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
         "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
         "docs/refactoring/refactor-slices.json",
         "lib/academy/academy-access.ts",

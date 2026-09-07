@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T14:17:34.767Z",
+  "generated_at": "2026-09-07T14:23:01.194Z",
   "audit_date": "2026-09-07",
-  "git_head": "92fa991c49b9905bc3532bb49506e9f595d6988a",
+  "git_head": "ef2b7d2b393ad5d36ac9d726e2c65ec21be5f08a",
   "files": [
     {
       "path": ".dockerignore",
@@ -3783,11 +3783,11 @@
     },
     {
       "path": "docs/refactoring/README.md",
-      "content_sha256": "ec9cd2c61613d1b8a9fd49783a4ec65adaf77c322cac53887c51a6c3c75e221f",
+      "content_sha256": "1e7b2ce2da746063a88cd561b9fe13a4131d365e7828d9ae7ceed22d6bbc3c8a",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 10052,
-      "lines": 145,
+      "bytes": 10200,
+      "lines": 146,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3810,6 +3810,17 @@
       "risk": "low",
       "bytes": 2298,
       "lines": 98,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
+      "content_sha256": "4d7ca78aa43614c91766732ce2be70491ee94e1c1bdfc42a9bc322e58047ee58",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 8504,
+      "lines": 106,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3970,11 +3981,11 @@
     },
     {
       "path": "docs/refactoring/evidence-matrix.json",
-      "content_sha256": "09fe67df6dbad6cef316fddc2a8a3d9779799b4de9dcebc8c22bb03274d25eb7",
+      "content_sha256": "21b6ec37fb47b471a34a441ba16b93ae355a569f511be182b8014bc8299c0f83",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 32752,
-      "lines": 540,
+      "bytes": 32962,
+      "lines": 541,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4157,11 +4168,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "4efd7202503882f5fa75f8e4704df9e59d971d2d7bc8799f025faf94dce2fced",
+      "content_sha256": "706862aa99ee8a1b9c0f6437200f75d906fa6b9e3c7e7b486b6b5cc6bdfecfca",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 354303,
-      "lines": 1703,
+      "bytes": 355635,
+      "lines": 1707,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4185,11 +4196,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "8d74efa652cd36c88cb161438dbbf43e2066080c05f6e70f5356e5bb51172514",
+      "content_sha256": "e4744d2733d99a87775ac76e5a4ebd6ac3b5590a465cf1fb43235bbd7c22272d",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 214429,
-      "lines": 7478,
+      "bytes": 214583,
+      "lines": 7480,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4244,11 +4255,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "7649e3f4623c679338ad3098760f0d71998bca5da6dd9d936da06f7b2147deab",
+      "content_sha256": "c15632bc45d166e929e7360b2486b938e9a9eb2c88cc9f98be153840ddba4939",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 486452,
-      "lines": 9823,
+      "bytes": 488752,
+      "lines": 9867,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"

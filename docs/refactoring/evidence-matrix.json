@@ -197,9 +197,10 @@
             "docs/refactoring/architecture-comprehension-probes.json",
             "docs/refactoring/proof-obligations.json",
             "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
-            "docs/refactoring/referral-store-file-audit-agent-prework.json"
+            "docs/refactoring/referral-store-file-audit-agent-prework.json",
+            "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md"
           ],
-          "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. The 2026-09-06 owner explain-back did not yet demonstrate the concurrency, atomic-side-effect, or adapter-audit model, so human validation and the independent pre-change comprehension review remain required before implementation."
+          "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. The consolidated start decision packet now reduces the outstanding owner decision to one response and the independent review to one pass. The 2026-09-06 owner explain-back did not yet demonstrate the concurrency, atomic-side-effect, or adapter-audit model, so human validation and the independent pre-change comprehension review remain required before implementation."
         },
         {
           "id": "convergence_and_residual_risk",

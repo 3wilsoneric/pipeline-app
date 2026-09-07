@@ -67,6 +67,7 @@ The checker derives the authoritative state from the JSON files. Update this sum
 - `ENGINEERING_RESEARCH_BASIS.md`: authoritative external rationale behind the local controls; it is not a second backlog.
 - `HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md`: bounded proof classes, recursive iteration, adversarial review, convergence, and residual-risk rules.
 - `REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md`: first-attempt outcome evaluation for changes to the refactor instructions and controls.
+- `REFERRAL_STORE_START_DECISION_PACKET.md`: consolidated owner response, independent review, and exact-start sequence for the first planned slice.
 
 ## Templates
 
