@@ -9,6 +9,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
+import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
 export const runtime = "nodejs";
 
@@ -48,6 +49,8 @@ export async function PATCH(
     if (!isRecord(body.value.patch)) return jsonError("patch must be an object.");
     const patch = validatePatch(body.value.patch);
     if (!patch.ok) return jsonError(patch.error);
+    const mutationId = validateClientMutationId(body.value.client_mutation_id);
+    if (!mutationId.ok) return jsonError(mutationId.message);
     await touchWorkspaceMember(auth.user);
     if (body.value.owner_principal_id !== undefined || body.value.handoff_reason !== undefined) {
       return jsonError("Change the referral assignment to change requirement ownership.", 422);
@@ -58,6 +61,8 @@ export async function PATCH(
       patch.value,
       Number(body.value.if_match),
       pipelineAuditActor(auth.user),
+      "",
+      mutationId.value,
     );
     if (!result) return jsonError("Work item not found.", 404);
     if (!result.ok && "conflict" in result) {

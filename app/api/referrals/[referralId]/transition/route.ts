@@ -7,6 +7,7 @@ import { isReferralStage } from "@/lib/pipeline/referral-workflow";
 import { transitionReferral } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,8 @@ export async function POST(
       return jsonError("if_match_section must be a positive workflow section version number.");
     }
     if (!isReferralStage(body.value.target_stage)) return jsonError("target_stage is invalid.");
+    const mutationId = validateClientMutationId(body.value.client_mutation_id);
+    if (!mutationId.ok) return jsonError(mutationId.message);
 
     const result = await transitionReferral(
       referralId,
@@ -43,6 +46,7 @@ export async function POST(
       Number(body.value.if_match),
       Number(body.value.if_match_section),
       pipelineAuditActor(auth.user),
+      mutationId.value,
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) {

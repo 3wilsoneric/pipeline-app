@@ -6,6 +6,7 @@ import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot, recordAdmissionDecision } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { canRecordAdmissionDecision, requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
 export const runtime = "nodejs";
 
@@ -65,6 +66,8 @@ export async function PUT(
         return jsonError(`${field} is invalid.`);
       }
     }
+    const mutationId = validateClientMutationId(body.value.client_mutation_id);
+    if (!mutationId.ok) return jsonError(mutationId.message);
 
     const result = await recordAdmissionDecision(
       referralId,
@@ -78,6 +81,7 @@ export async function PUT(
       Number(body.value.if_match),
       Number(body.value.if_match_section),
       pipelineAccountableActor(auth.user),
+      mutationId.value,
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) {

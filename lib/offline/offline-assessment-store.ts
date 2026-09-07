@@ -250,7 +250,13 @@ export async function flushOfflineAssessmentMutations(
       await request(database.transaction(mutationsStore, "readwrite").objectStore(mutationsStore).delete(stored.id));
       completed += 1;
     } catch (error) {
-      if (statusFor(error) === 409) conflicts += 1;
+      if (statusFor(error) === 409) {
+        // A stale write cannot become valid by replaying the same payload. The
+        // editor keeps the local draft and reconciles it against the latest
+        // server version before issuing a fresh mutation.
+        await request(database.transaction(mutationsStore, "readwrite").objectStore(mutationsStore).delete(stored.id));
+        conflicts += 1;
+      }
       if (statusFor(error) === 0 || statusFor(error) >= 500) break;
     }
   }

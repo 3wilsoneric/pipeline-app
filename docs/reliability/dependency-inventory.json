@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T19:23:08.144Z",
+  "generated_at": "2026-09-07T21:14:41.680Z",
   "audit_date": "2026-09-07",
-  "git_head": "f1d3a7279a7e209f6dc90fc6faf35840e51dbed5",
+  "git_head": "6eb8c611d5039f0280f30973829b4dd6ab86151d",
   "direct": [
     {
       "name": "@azure/identity",
@@ -380,6 +380,7 @@
         "components/pipeline/ReferralHome.tsx",
         "components/pipeline/ReferralPacketCanvas.tsx",
         "components/pipeline/ReferralProgressPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanel.tsx",
         "components/pipeline/ReferralWorkflowTracker.tsx",
         "components/pipeline/ReferralWorklist.tsx",
         "components/pipeline/ReferralWorkspaceGallery.tsx",
@@ -467,6 +468,7 @@
         "components/pipeline/ReferralHome.tsx",
         "components/pipeline/ReferralPacketCanvas.tsx",
         "components/pipeline/ReferralProgressPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanel.tsx",
         "components/pipeline/ReferralWorkflowTracker.tsx",
         "components/pipeline/TeamPresenceList.tsx",
         "components/pipeline/WorkspaceActivityFeed.tsx",
@@ -860,6 +862,7 @@
         "components/pipeline/ReferralHome.tsx",
         "components/pipeline/ReferralPacketCanvas.tsx",
         "components/pipeline/ReferralProgressPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanel.tsx",
         "components/pipeline/ReferralWorkflowTracker.tsx",
         "components/pipeline/ReferralWorklist.tsx",
         "components/pipeline/ReferralWorkspaceGallery.tsx",
@@ -7487,8 +7490,11 @@
     }
   ],
   "installed": {
-    "resolvedPackages": 528,
-    "dependencyEdges": 1093,
-    "problems": []
+    "resolvedPackages": 520,
+    "dependencyEdges": 1062,
+    "problems": [
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-workflow-hardening/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-workflow-hardening/node_modules/@img/sharp-wasm32"
+    ]
   }
 }

@@ -163,9 +163,12 @@ function FullActivity({ events, metadata }: { events: ReferralActivityEvent[]; m
 
       {events.length > 0 ? (
         <div className="mt-5">
-          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Recent changes</div>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Recent changes</div>
+            <div className="text-[10px] text-[#737373]">{events.length === 100 ? "Latest 100 recorded events" : `${events.length} recorded event${events.length === 1 ? "" : "s"}`}</div>
+          </div>
           <div className="mt-3 divide-y divide-[#eeeeee] border-y border-[#d9d9d9]">
-            {events.slice(0, 8).map((event) => (
+            {events.map((event) => (
               <div key={event.event_id} className="py-3 text-[11px]">
                 <div className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_180px_150px] sm:gap-4">
                   <span className="font-black text-[#111111]">{formatAction(event.action)}</span>

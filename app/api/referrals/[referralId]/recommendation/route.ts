@@ -7,6 +7,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot, recordAssessmentRecommendation } from "@/lib/pipeline/workflow-store";
+import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
 export const runtime = "nodejs";
 
@@ -46,6 +47,8 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
     for (const [field, maximum] of [["reason_code", 128], ["reason_note", 20_000]] as const) {
       if (body.value[field] !== undefined && (typeof body.value[field] !== "string" || body.value[field].length > maximum)) return jsonError(`${field} is invalid.`);
     }
+    const mutationId = validateClientMutationId(body.value.client_mutation_id);
+    if (!mutationId.ok) return jsonError(mutationId.message);
     const result = await recordAssessmentRecommendation(
       referralId,
       {
@@ -57,7 +60,7 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
       Number(body.value.if_match),
       Number(body.value.if_match_section),
       pipelineAuditActor(auth.user),
-      { allowSupervisorOverride: isAssessmentSupervisor(auth.user) },
+      { allowSupervisorOverride: isAssessmentSupervisor(auth.user), mutationId: mutationId.value },
     );
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok && "conflict" in result) return Response.json({ error: "This recommendation changed in another session.", ...result }, { status: 409 });

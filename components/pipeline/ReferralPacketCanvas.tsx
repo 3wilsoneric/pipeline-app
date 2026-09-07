@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Circle,
+  ClipboardCheck,
   FileText,
   FolderOpen,
   History,
@@ -31,6 +32,7 @@ import DuplicateReferralReviewDialog, {
   type ReferralDuplicateReview,
 } from "@/components/pipeline/DuplicateReferralReviewDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
+import ReferralWorkflowPanel from "@/components/pipeline/ReferralWorkflowPanel";
 import StructuredNarrativeField from "@/components/pipeline/StructuredNarrativeField";
 import type {
   Referral,
@@ -164,7 +166,7 @@ type ExtractionReviewConflict = {
 };
 
 type WorkspaceStage = 1 | 2 | 3;
-type WorkspaceView = WorkspaceStage | "files" | "activity";
+type WorkspaceView = WorkspaceStage | "workflow" | "files" | "activity";
 type WorkspaceStageName = "intake" | "assessment" | "chart";
 
 const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
@@ -337,6 +339,8 @@ export default function ReferralPacketCanvas({
   const isSavingRef = useRef(isSaving);
   const draftRevisionRef = useRef(0);
   const creationMutationIdRef = useRef(newReferralCreationMutationId(newDraftKey));
+  const patchMutationIdsRef = useRef(new Map<string, string>());
+  const deleteMutationIdRef = useRef(createMutationId());
   const saveDraftRef = useRef<(confirmedDistinctReferralIds?: number[]) => Promise<Referral | null>>(async () => null);
   const materializationAttemptRef = useRef<{ revision: number; attempts: number }>({ revision: -1, attempts: 0 });
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
@@ -726,6 +730,13 @@ export default function ReferralPacketCanvas({
     if (dirty.size === 0) setSavedAt(`Updated by ${updatedBy?.trim() || latest.updatedBy?.name || "another user"}`);
   };
 
+  const applyConfirmedWorkflowReferral = (latest: Referral) => {
+    loadedReferralRef.current = latest;
+    setLoadedReferral(latest);
+    setRemoteChange(null);
+    setSavedAt("Workflow updated");
+  };
+
   useEffect(() => {
     if (!referral?.id) return;
     let cancelled = false;
@@ -960,12 +971,16 @@ export default function ReferralPacketCanvas({
     const expectedSections = normalizeReferralSectionVersions(current.sectionVersions);
     const touchedSections = getReferralPatchSections(patch as Record<string, unknown>);
     const ownerTouched = keys.has("owner");
+    const mutationKey = JSON.stringify([current.id, current.version, patch, ownerPrincipalIdRef.current, handoffReasonRef.current]);
+    const clientMutationId = patchMutationIdsRef.current.get(mutationKey) ?? createMutationId();
+    patchMutationIdsRef.current.set(mutationKey, clientMutationId);
     const payload = await fetchPipelineJson<{ referral?: Referral; error?: string }>(`/api/referrals/${current.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         if_match: current.version,
         if_match_sections: Object.fromEntries(touchedSections.map((section) => [section, expectedSections[section]])),
+        client_mutation_id: clientMutationId,
         patch,
         ...(ownerTouched ? { assignee_id: ownerPrincipalIdRef.current || undefined } : {}),
         ...(ownerTouched && handoffReasonRef.current ? { handoff_reason: handoffReasonRef.current } : {}),
@@ -974,6 +989,7 @@ export default function ReferralPacketCanvas({
     if (!payload.referral) throw new Error(payload.error ?? "Could not save this referral.");
     loadedReferralRef.current = payload.referral;
     setLoadedReferral(payload.referral);
+    patchMutationIdsRef.current.delete(mutationKey);
     setOwnerPrincipalId(payload.referral.ownerId ?? "");
     if (ownerTouched) handoffReasonRef.current = "";
     return payload.referral;
@@ -1128,12 +1144,16 @@ export default function ReferralPacketCanvas({
       tags: normalizeTags(tagsInputRef.current),
       requirements: refreshedWorkspace.referral.requirements ?? [],
     });
+    const linkMutationKey = JSON.stringify(["packet-link", currentReferral.id, refreshedWorkspace.referral.version, upload.packetId, extractedPatch]);
+    const linkMutationId = patchMutationIdsRef.current.get(linkMutationKey) ?? createMutationId();
+    patchMutationIdsRef.current.set(linkMutationKey, linkMutationId);
     const linkedPayload = await fetchPipelineJson<{ referral?: Referral; error?: string }>(`/api/referrals/${currentReferral.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         if_match: refreshedWorkspace.referral.version,
         if_match_sections: normalizeReferralSectionVersions(refreshedWorkspace.referral.sectionVersions),
+        client_mutation_id: linkMutationId,
         patch: {
           ...extractedPatch,
           documentName: packet.name,
@@ -1150,6 +1170,7 @@ export default function ReferralPacketCanvas({
       }),
     });
     if (!linkedPayload.referral) throw new Error(linkedPayload.error ?? "Could not link the packet to this referral.");
+    patchMutationIdsRef.current.delete(linkMutationKey);
     loadedReferralRef.current = linkedPayload.referral;
     setLoadedReferral(linkedPayload.referral);
     setFields((current) => {
@@ -1390,6 +1411,9 @@ export default function ReferralPacketCanvas({
       const currentReferral = loadedReferralRef.current ?? loadedReferral;
       const touchedSections = getReferralPatchSections(referralPatch as Record<string, unknown>);
       const expectedSections = normalizeReferralSectionVersions(currentReferral.sectionVersions);
+      const reviewMutationKey = JSON.stringify(["extraction-review", currentReferral.id, currentReferral.version, referralPatch]);
+      const reviewMutationId = patchMutationIdsRef.current.get(reviewMutationKey) ?? createMutationId();
+      patchMutationIdsRef.current.set(reviewMutationKey, reviewMutationId);
 
       const payload = await fetchPipelineJson<{ referral?: Referral; error?: string }>(
         `/api/referrals/${currentReferral.id}`,
@@ -1401,11 +1425,13 @@ export default function ReferralPacketCanvas({
             if_match_sections: Object.fromEntries(
               touchedSections.map((section) => [section, expectedSections[section]]),
             ),
+            client_mutation_id: reviewMutationId,
             patch: referralPatch,
           }),
         },
       );
       if (!payload.referral) throw new Error(payload.error ?? "The reviewed value could not be linked to this referral.");
+      patchMutationIdsRef.current.delete(reviewMutationKey);
 
       loadedReferralRef.current = payload.referral;
       setLoadedReferral(payload.referral);
@@ -1563,7 +1589,7 @@ export default function ReferralPacketCanvas({
       await fetchPipelineJson(`/api/referrals/${current.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ if_match: current.version }),
+        body: JSON.stringify({ if_match: current.version, client_mutation_id: deleteMutationIdRef.current }),
       });
       await clearSessionDraft(current.id);
       setDeleteDialogOpen(false);
@@ -1629,6 +1655,23 @@ export default function ReferralPacketCanvas({
             </nav>
 
             <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:border-l lg:border-[#d9d9d9] lg:pl-2">
+              {loadedReferral && !trainingAssessmentMode ? (
+                <button
+                  type="button"
+                  onClick={() => openPage("workflow")}
+                  aria-current={activePage === "workflow" ? "page" : undefined}
+                  aria-label="Admission workflow"
+                  title="Workflow"
+                  className={`flex h-9 items-center gap-1.5 px-2 text-[10px] font-black transition-colors sm:px-3 ${
+                    activePage === "workflow"
+                      ? "bg-[#eaf6f2] text-[#0c705f]"
+                      : "text-[#737373] hover:bg-[#f3f6f4] hover:text-[#0c705f]"
+                  }`}
+                >
+                  <ClipboardCheck size={15} />
+                  <span className="hidden xl:inline">Workflow</span>
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => openPage("files")}
@@ -1661,8 +1704,8 @@ export default function ReferralPacketCanvas({
               </button>
               {!trainingAssessmentMode ? (
                 <>
-                  <div className="hidden max-w-[20rem] text-right xl:block" aria-live="polite">
-                    {savedAt !== "Workspace loaded" ? <div className="text-[11px] font-normal text-[#737373]">{savedAt}</div> : null}
+                  <div className="max-w-[9rem] text-right sm:max-w-[14rem] xl:max-w-[20rem]" aria-live="polite">
+                    <div className="truncate text-[10px] font-normal text-[#737373] sm:text-[11px]">{savedAt === "Workspace loaded" ? "All changes saved" : savedAt}</div>
                     {saveError ? <div className="mt-0.5 text-[11px] font-semibold text-[#a4473c]">{saveError}</div> : null}
                   </div>
                   <WorkspaceSaveControl
@@ -1966,6 +2009,16 @@ export default function ReferralPacketCanvas({
               uploadingDocumentIds={uploadingDocumentIds}
               onAttach={attachDocument}
             />
+          ) : activePage === "workflow" && loadedReferral ? (
+            <PacketPage id="admission-workflow" title="Workflow">
+              <ReferralWorkflowPanel
+                referral={loadedReferral}
+                onReferralChange={applyConfirmedWorkflowReferral}
+                onOpenIntake={() => openPage(1)}
+                onOpenAssessment={() => openPage(2)}
+                onOpenFiles={() => openPage("files")}
+              />
+            </PacketPage>
           ) : activePage === 2 ? (
             <PacketPage id="packet-page-2" title="Assessment">
                 <AssessmentWorkspace

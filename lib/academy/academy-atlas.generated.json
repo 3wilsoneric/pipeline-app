@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:d04bb3961870a91d",
-  "fingerprint": "d04bb3961870a91db9d15a65e5ee3ff7998b416bc5d9b8376fc25539b341bf67",
+  "generatedAt": "source-fingerprint:2a583697cf876d43",
+  "fingerprint": "2a583697cf876d43ad0db7b726de144e0a5e82d96c82ff3bd10dc3f37227a329",
   "totals": {
-    "files": 849,
-    "lines": 282320,
-    "coveredFiles": 849
+    "files": 852,
+    "lines": 283397,
+    "coveredFiles": 852
   },
   "entries": [
     {
@@ -1130,7 +1130,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 106,
+      "lines": 110,
       "moduleIds": [
         "assessment-decision-handoff",
         "medication-decision-ehr"
@@ -1142,7 +1142,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 92,
+      "lines": 96,
       "moduleIds": [
         "assessment-decision-handoff",
         "medication-decision-ehr"
@@ -1167,7 +1167,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 73,
+      "lines": 81,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1232,7 +1232,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 82,
+      "lines": 85,
       "moduleIds": [
         "assessment-decision-handoff",
         "medication-decision-ehr"
@@ -1244,7 +1244,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 320,
+      "lines": 345,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1257,7 +1257,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 77,
+      "lines": 81,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -1269,7 +1269,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 126,
+      "lines": 131,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -1285,6 +1285,19 @@
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
+      ]
+    },
+    {
+      "path": "app/api/referrals/[referralId]/workflow/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 49,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
       ]
     },
     {
@@ -1393,7 +1406,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 41,
+      "lines": 54,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1406,7 +1419,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 20,
+      "lines": 21,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1698,7 +1711,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2007,
+      "lines": 2002,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -1998,7 +2011,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 101,
+      "lines": 106,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2022,7 +2035,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 278,
+      "lines": 281,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2070,7 +2083,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3481,
+      "lines": 3534,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2086,6 +2099,18 @@
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
+      ]
+    },
+    {
+      "path": "components/pipeline/ReferralWorkflowPanel.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 406,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
       ]
     },
     {
@@ -2310,7 +2335,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 624,
+      "lines": 632,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3969,7 +3994,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 43,
+      "lines": 68,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4426,7 +4451,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1758,
+      "lines": 1763,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4462,7 +4487,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7495,
+      "lines": 7501,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4522,7 +4547,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10386,
+      "lines": 10421,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5862,7 +5887,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "critical",
-      "lines": 451,
+      "lines": 457,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -6031,6 +6056,18 @@
       "runtime": "shared",
       "risk": "standard",
       "lines": 153,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/pipeline/client-mutation-id.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 10,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6426,7 +6463,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 302,
+      "lines": 304,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6510,7 +6547,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 125,
+      "lines": 134,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6619,7 +6656,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3036,
+      "lines": 3222,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -6850,7 +6887,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 1190,
+      "lines": 1310,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -9791,7 +9828,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 513,
+      "lines": 552,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9947,7 +9984,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "critical",
-      "lines": 609,
+      "lines": 715,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -10008,7 +10045,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 3166,
+      "lines": 3108,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
