@@ -89,6 +89,10 @@ export type StoredReferralAuditEvent = {
 };
 
 export type ReferralCreateInput = Omit<Referral, "id" | "version" | "sectionVersions" | "updatedBy">;
+export type ReferralCreateOptions = {
+  confirmedDistinctReferralIds?: number[];
+  canReviewSuspectedDuplicate?: (referral: Referral) => boolean;
+};
 export type ReferralPatch = Partial<Omit<Referral, "id" | "version" | "clientId" | "sectionVersions" | "updatedBy">>;
 export type ReferralQueueView = "my_work" | "unassigned" | "packet_review" | "assessment" | "decision";
 
@@ -237,7 +241,12 @@ export interface ReferralStore {
   listDeleted(query?: string): Promise<DeletedReferralListResult>;
   softDelete(id: number, actor: ReferralActor, expectedVersion?: number): Promise<ReferralMutation | null>;
   restore(id: number, actor: ReferralActor, expectedVersion?: number): Promise<ReferralMutation | null>;
-  create(input: ReferralCreateInput, actor: ReferralActor, mutationId?: string): Promise<ReferralCreateResult>;
+  create(
+    input: ReferralCreateInput,
+    actor: ReferralActor,
+    mutationId?: string,
+    options?: ReferralCreateOptions,
+  ): Promise<ReferralCreateResult>;
   patch(
     id: number,
     patch: ReferralPatch,
@@ -252,6 +261,16 @@ export class DuplicateReferralPacketError extends Error {
   constructor(public readonly referralId: number) {
     super("This packet has already been uploaded.");
     this.name = "DuplicateReferralPacketError";
+  }
+}
+
+export class SuspectedDuplicateReferralError extends Error {
+  constructor(
+    public readonly referrals: Referral[],
+    public readonly additionalMatches: boolean,
+  ) {
+    super("A referral with this client name and county already exists.");
+    this.name = "SuspectedDuplicateReferralError";
   }
 }
 
@@ -276,6 +295,7 @@ state.createMutations ??= new Map<string, number>();
 
 const maxReferralRows = 100_000;
 const maxPageSize = 200;
+const maximumSuspectedDuplicateCandidates = 20;
 
 export function getReferralStoreReadiness(): ReferralStoreReadiness {
   const mode = resolveDurableStoreMode({
@@ -326,7 +346,7 @@ const localReferralStore: ReferralStore = {
   listDeleted: listLocalDeletedReferrals,
   softDelete: softDeleteLocalReferral,
   restore: restoreLocalReferral,
-  create: (input, actor, mutationId) => createLocalReferral(input, actor, mutationId),
+  create: (input, actor, mutationId, options) => createLocalReferral(input, actor, mutationId, options),
   patch: (id, patch, actor, expectedVersion, expectedSectionVersions, metadata) =>
     patchLocalReferral(id, patch, actor, expectedVersion, expectedSectionVersions, metadata),
 };
@@ -456,13 +476,14 @@ export async function createReferral(
   input: ReferralCreateInput,
   mutationId?: string,
   actor: ReferralActor = systemActor(),
+  options: ReferralCreateOptions = {},
 ) {
   const name = normalizeClientName(input.name, {
     gender: input.gender,
     community: input.community,
   });
   if (!name) throw new Error("A client name is required.");
-  return getReferralStore().create({ ...input, name }, actor, mutationId);
+  return getReferralStore().create({ ...input, name }, actor, mutationId, options);
 }
 
 export async function patchReferral(
@@ -718,6 +739,7 @@ async function createLocalReferral(
   input: ReferralCreateInput,
   actor: ReferralActor,
   mutationId?: string,
+  options: ReferralCreateOptions = {},
 ): Promise<ReferralCreateResult> {
   await ensureLoaded();
 
@@ -731,6 +753,10 @@ async function createLocalReferral(
   }
 
   assertPacketIsUnique(input.documentHash);
+  const confirmedDistinctReferralIds = requireSuspectedDuplicateConfirmation(
+    suspectedLocalDuplicateReferrals(input),
+    options,
+  );
 
   if (state.referrals.length >= maxReferralRows) {
     throw new Error("Referral capacity reached. Archive closed referrals before creating more.");
@@ -754,7 +780,17 @@ async function createLocalReferral(
   state.revision += 1;
   state.referrals = [referral, ...state.referrals];
   if (mutationId) state.createMutations.set(mutationId, referral.id);
-  appendLocalReferralAudit(referral.id, "referral_created", actor, [], null, referral, 1, undefined, createdAt);
+  appendLocalReferralAudit(
+    referral.id,
+    "referral_created",
+    actor,
+    [],
+    null,
+    referral,
+    1,
+    distinctPersonConfirmationReason(confirmedDistinctReferralIds),
+    createdAt,
+  );
   await persist();
 
   return { referral, revision: state.revision, idempotentReplay: false };
@@ -1562,6 +1598,7 @@ async function createPostgresReferral(
   input: ReferralCreateInput,
   actor: ReferralActor,
   mutationId?: string,
+  options: ReferralCreateOptions = {},
 ): Promise<ReferralCreateResult> {
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
@@ -1593,6 +1630,12 @@ async function createPostgresReferral(
       `;
       if (duplicate[0]) throw new DuplicateReferralPacketError(Number(duplicate[0].referral_id));
     }
+
+    const confirmedDistinctReferralIds = await lockAndConfirmPostgresDuplicate(
+      tx,
+      input,
+      options,
+    );
 
     const clientId = normalizeClientId(input.clientId) || `pipeline-client-${randomUUID()}`;
     const people = await tx<{ person_id: string }[]>`
@@ -1639,7 +1682,17 @@ async function createPostgresReferral(
     if (referral.requirements?.length) {
       await syncPostgresWorkItems(tx, referral.id, people[0].person_id, referral.requirements);
     }
-    await writeReferralAudit(tx, referral.id, "referral_created", actor, [], null, referral, 1);
+    await writeReferralAudit(
+      tx,
+      referral.id,
+      "referral_created",
+      actor,
+      [],
+      null,
+      referral,
+      1,
+      distinctPersonConfirmationReason(confirmedDistinctReferralIds),
+    );
     if (mutationId) {
       await tx`
         insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
@@ -2512,6 +2565,68 @@ function assertPacketIsUnique(documentHash: string | undefined, currentReferralI
     (referral) => referral.id !== currentReferralId && referral.documentHash === documentHash,
   );
   if (duplicate) throw new DuplicateReferralPacketError(duplicate.id);
+}
+
+function suspectedLocalDuplicateReferrals(input: ReferralCreateInput) {
+  const identity = suspectedDuplicateIdentity(input);
+  if (!identity) return [];
+  return state.referrals.filter((referral) => (
+    referral.name.trim().toLowerCase() === identity.name
+    && resolveWorkspaceCounty(referral) === identity.county
+  ));
+}
+
+function suspectedDuplicateIdentity(input: ReferralCreateInput) {
+  const name = input.name.trim().replace(/\s+/g, " ").toLowerCase();
+  const county = resolveWorkspaceCounty(input)?.trim();
+  return name && county ? { name, county } : null;
+}
+
+async function lockAndConfirmPostgresDuplicate(
+  tx: TransactionSql,
+  input: ReferralCreateInput,
+  options: ReferralCreateOptions,
+) {
+  const identity = suspectedDuplicateIdentity(input);
+  if (!identity) return [];
+  await tx`select pg_advisory_xact_lock(hashtextextended(${`referral_identity:${identity.name}:${identity.county}`}, 0))`;
+  const duplicateRows = await tx<ReferralRow[]>`
+    select r.*, p.external_client_id, p.display_name
+    from pipeline.referrals r
+    join pipeline.people p on p.person_id = r.person_id
+    where lower(p.display_name) = ${identity.name}
+      and r.county = ${identity.county}
+    order by r.created_at desc, r.referral_id desc
+    limit ${maximumSuspectedDuplicateCandidates + 1}
+  `;
+  return requireSuspectedDuplicateConfirmation(duplicateRows.map(mapReferralRow), options);
+}
+
+function requireSuspectedDuplicateConfirmation(
+  matches: Referral[],
+  options: ReferralCreateOptions,
+) {
+  if (matches.length === 0) return [];
+  const confirmed = new Set(
+    (options.confirmedDistinctReferralIds ?? []).filter((id) => Number.isSafeInteger(id) && id > 0),
+  );
+  if (
+    matches.length > maximumSuspectedDuplicateCandidates
+    || confirmed.size !== matches.length
+    || matches.some((referral) => !confirmed.has(referral.id) || !options.canReviewSuspectedDuplicate?.(referral))
+  ) {
+    throw new SuspectedDuplicateReferralError(
+      matches.slice(0, maximumSuspectedDuplicateCandidates),
+      matches.length > maximumSuspectedDuplicateCandidates,
+    );
+  }
+  return matches.map((referral) => referral.id).sort((left, right) => left - right);
+}
+
+function distinctPersonConfirmationReason(referralIds: number[]) {
+  return referralIds.length > 0
+    ? `Confirmed as a different person after reviewing referral${referralIds.length === 1 ? "" : "s"} ${referralIds.join(", ")}.`
+    : undefined;
 }
 
 function normalizeReferral(input: Referral): Referral {

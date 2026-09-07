@@ -1723,6 +1723,59 @@ test.describe("Referral home and packet canvas", () => {
     expect(duplicateList.total).toBe(0);
   });
 
+  test("reviews a same-name and county match before creating a different person", async ({ page }) => {
+    const clientName = `Duplicate ${uniqueAlphabeticNameToken()}`;
+    const firstResponse = await page.request.post("/api/referrals", {
+      data: {
+        client_mutation_id: `duplicate-review-first-${randomUUID()}`,
+        referral: {
+          name: clientName,
+          date: "2026-09-07",
+          stage: "New",
+          community: "San Pablo",
+          county: "Contra Costa County",
+          source: "Duplicate review test",
+          priority: "standard",
+          tags: [],
+          documentName: "",
+          documentStatus: "Missing",
+          owner: "Playwright QA",
+          note: "",
+          createdAt: new Date().toISOString(),
+          dob: "",
+          phone: "",
+          email: "",
+          payer: "",
+          requirements: [],
+        },
+      },
+    });
+    expect(firstResponse.status()).toBe(201);
+    const first = (await firstResponse.json() as { referral: { id: number } }).referral;
+
+    await page.getByRole("button", { name: "Create new referral" }).click();
+    await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
+    await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
+    await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
+
+    const review = page.getByRole("alertdialog", { name: "Possible duplicate referral" });
+    await expect(review).toBeVisible();
+    await expect(review.getByText(`Referral #${first.id}`, { exact: false })).toBeVisible();
+    await expect(review.getByRole("button", { name: "Open workspace" })).toBeVisible();
+    await review.getByRole("checkbox", { name: /I reviewed every possible match/ }).check();
+    await review.getByRole("button", { name: "Create different person" }).click();
+
+    await expect(review).toBeHidden();
+    await expect.poll(() => Number(new URL(page.url()).searchParams.get("referralId") ?? 0)).toBeGreaterThan(0);
+    const createdId = Number(new URL(page.url()).searchParams.get("referralId"));
+    expect(createdId).not.toBe(first.id);
+
+    const listResponse = await page.request.get(`/api/referrals?q=${encodeURIComponent(clientName)}&limit=10`);
+    expect(listResponse.status()).toBe(200);
+    expect((await listResponse.json() as { total: number }).total).toBe(2);
+  });
+
   test("switches packet steps without stacking the sections", async ({ page }) => {
     await page.getByRole("button", { name: "Create new referral" }).click();
     await expect(page.getByRole("button", { name: "01 Intake" })).toHaveAttribute("aria-current", "page");

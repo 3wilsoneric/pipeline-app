@@ -7,6 +7,7 @@ import {
   DuplicateReferralPacketError,
   listReferrals,
   requireReferralStore,
+  SuspectedDuplicateReferralError,
   type ReferralCreateInput,
 } from "@/lib/pipeline/referral-store";
 import { validateReferralCreateInput } from "@/lib/pipeline/referral-validation";
@@ -14,7 +15,7 @@ import { parseReferralListQuery } from "@/lib/pipeline/referral-query";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 import { getReferralWorkflowContexts } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { assignedOwnerForCreate, isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { assignedOwnerForCreate, canAccessReferral, isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
 import { createReferralOwners, isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
 import { getActiveWorkspaceMember, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
@@ -29,6 +30,7 @@ type CreateReferralBody = {
   referral?: ReferralCreateInput;
   client_mutation_id?: string;
   assignee_id?: string;
+  duplicate_confirmation?: unknown;
 };
 
 type ReferralListProjection = "full" | "summary";
@@ -99,6 +101,9 @@ export async function POST(request: Request) {
 
     const referralResult = validateReferralCreateInput(body.value.referral);
     if (!referralResult.ok) return jsonError(referralResult.message, referralResult.status);
+    const createMetadata = parseCreateReferralMetadata(body.value);
+    if (!createMetadata.ok) return jsonError(createMetadata.message);
+
     await touchWorkspaceMember(auth.user);
     const assignment = assignedOwnerForCreate(auth.user, referralResult.value.owner);
     const selectedOwner = typeof body.value.assignee_id === "string"
@@ -143,18 +148,15 @@ export async function POST(request: Request) {
       ],
     };
 
-    if (
-      body.value.client_mutation_id !== undefined &&
-      (typeof body.value.client_mutation_id !== "string" || !isSafeMutationId(body.value.client_mutation_id))
-    ) {
-      return jsonError("client_mutation_id is invalid.");
-    }
-
     try {
       const result = await createReferral(
         referral,
-        body.value.client_mutation_id,
+        createMetadata.mutationId,
         pipelineAuditActor(auth.user),
+        {
+          confirmedDistinctReferralIds: createMetadata.confirmedDistinctReferralIds,
+          canReviewSuspectedDuplicate: (candidate) => canAccessReferral(auth.user, candidate),
+        },
       );
 
       recordWorkspaceMaterialization(result.referral, result.idempotentReplay);
@@ -180,6 +182,9 @@ export async function POST(request: Request) {
           { status: 409 },
         );
       }
+      if (error instanceof SuspectedDuplicateReferralError) {
+        return suspectedDuplicateResponse(auth.user, error);
+      }
       return jsonError(
         error instanceof Error ? error.message : "Could not create referral.",
         507,
@@ -198,6 +203,66 @@ function recordWorkspaceMaterialization(referral: Referral, idempotentReplay: bo
 
 function isSafeMutationId(value: string) {
   return value.length > 0 && value.length <= 128 && /^[a-zA-Z0-9_.:-]+$/.test(value);
+}
+
+function parseCreateReferralMetadata(body: CreateReferralBody):
+  | { ok: true; mutationId: string | undefined; confirmedDistinctReferralIds: number[] }
+  | { ok: false; message: string } {
+  const mutationId = body.client_mutation_id;
+  if (mutationId !== undefined && (typeof mutationId !== "string" || !isSafeMutationId(mutationId))) {
+    return { ok: false, message: "client_mutation_id is invalid." };
+  }
+  const duplicateConfirmation = parseDuplicateConfirmation(body.duplicate_confirmation);
+  return duplicateConfirmation.ok
+    ? { ok: true, mutationId, confirmedDistinctReferralIds: duplicateConfirmation.referralIds }
+    : duplicateConfirmation;
+}
+
+function parseDuplicateConfirmation(value: unknown):
+  | { ok: true; referralIds: number[] }
+  | { ok: false; message: string } {
+  if (value === undefined) return { ok: true, referralIds: [] };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false, message: "duplicate_confirmation must be an object." };
+  }
+  const ids = (value as { referral_ids?: unknown }).referral_ids;
+  if (
+    !Array.isArray(ids)
+    || ids.length < 1
+    || ids.length > 20
+    || ids.some((id) => !Number.isSafeInteger(id) || Number(id) <= 0)
+    || new Set(ids).size !== ids.length
+  ) {
+    return { ok: false, message: "duplicate_confirmation.referral_ids must contain 1 to 20 unique referral ids." };
+  }
+  return { ok: true, referralIds: ids.map(Number) };
+}
+
+function suspectedDuplicateResponse(user: Parameters<typeof canAccessReferral>[0], error: SuspectedDuplicateReferralError) {
+  const visibleReferrals = error.referrals.filter((referral) => canAccessReferral(user, referral));
+  const canConfirmDistinctPerson = !error.additionalMatches && visibleReferrals.length === error.referrals.length;
+  return Response.json({
+    error: canConfirmDistinctPerson
+      ? "A referral with this name and county already exists. Review the possible match before creating a different person."
+      : "A referral with this name and county already exists. Ask a supervisor to review the possible match.",
+    suspected_duplicate: true,
+    duplicate_kind: "name_and_county",
+    can_confirm_distinct_person: canConfirmDistinctPerson,
+    candidates: visibleReferrals.map((referral) => ({
+      referral_id: referral.id,
+      name: referral.name,
+      county: referral.county ?? "",
+      community: referral.community,
+      date_of_birth: referral.dob,
+      referral_received: referral.date,
+      owner: referral.owner,
+      stage: referral.stage,
+      in_trash: Boolean(referral.deletedAt),
+    })),
+    ...(canConfirmDistinctPerson
+      ? { confirmation_referral_ids: error.referrals.map((referral) => referral.id).sort((left, right) => left - right) }
+      : {}),
+  }, { status: 409 });
 }
 
 function parseReferralListProjection(searchParams: URLSearchParams):
