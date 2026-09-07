@@ -104,7 +104,7 @@
           "phase": "before_start",
           "status": "partial",
           "gates": ["check:api", "check:assessor-workflow", "check:workflow-fuzz"],
-          "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code. Owner direction recorded 2026-09-06: suspected matches by normalized name and county should trigger human review with open-existing or confirm-different-person outcomes, never automatic identity linking or merging. The owner also provisionally selected field-aware optimistic saving as the target: non-overlapping field edits preserve both users' changes, same-field edits require an explicit conflict decision, sparse saves never replace untouched values, and important identity or clinical changes retain governed provenance, actor, time, prior value, and reason. These are separate product behavior changes and are not part of the structural slice until separately implemented, reviewed, certified, and included in the exact-start baseline."
+          "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code. Owner purpose statement recorded verbatim on 2026-09-06: \"accomplish gathering the full profile for eventual admission, and with the assessment, make that decision, generally only one person will touch the referral from start to finish, there are a few that will be assigned referral but will only do the assessment and hopefully wotn need to change the workspace creation part\". Owner role direction recorded 2026-09-06: most referral owners carry the workspace from creation through the decision process; two assessors generally receive assignments and also create their own workspaces; one assessment-only assessor receives assigned work and ordinarily changes only assessment information; verified profile corrections by that assessor are permitted and attributable. Owner direction recorded 2026-09-06: suspected matches by normalized name and county should trigger human review with open-existing or confirm-different-person outcomes, never automatic identity linking or merging. The owner also provisionally selected field-aware optimistic saving as the target: non-overlapping field edits preserve both users' changes, same-field edits require an explicit conflict decision, sparse saves never replace untouched values, and important identity or clinical changes retain governed provenance, actor, time, prior value, and reason. These are separate product behavior changes and are not part of the structural slice until separately implemented, reviewed, certified, and included in the exact-start baseline."
         },
         {
           "id": "local_postgres_parity",
@@ -182,7 +182,7 @@
           "phase": "before_start",
           "status": "partial",
           "gates": ["check:api", "check:assessor-workflow", "check:assessment-workbook"],
-          "note": "Freeze draft, schedule, start, sign, addendum, provenance, audit, and failure behavior, including assessment-owned synchronization back into referral workflow state and its local/PostgreSQL transaction differences."
+          "note": "Freeze draft, schedule, start, sign, addendum, provenance, audit, and failure behavior, including assessment-owned synchronization back into referral workflow state and its local/PostgreSQL transaction differences. Owner role direction recorded 2026-09-06: one supervisor performs assessments; two assessors generally both own referrals and perform assessments; one assessment-only assessor works assigned assessments and does not ordinarily alter workspace-creation information, except for verified attributable corrections."
         },
       {
         "id": "local_postgres_parity",
@@ -260,7 +260,7 @@
         "status": "partial",
         "gates": ["check:route-policy", "test:e2e:operational:high"],
         "files": ["docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md"],
-        "note": "Complete executable allow and deny coverage for recommendation, terminal decision, assignment, and EHR handoff mutations."
+          "note": "Complete executable allow and deny coverage for recommendation, terminal decision, assignment, and EHR handoff mutations. Owner role direction recorded 2026-09-06: final approval or denial belongs to the head supervisor who performs no assessments and makes the decision after discussion with the CEO or other leadership; assessment participation alone does not grant terminal-decision authority."
         },
         {
           "id": "retry_and_idempotency_contract",
