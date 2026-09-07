@@ -17,6 +17,15 @@ Pipeline is not a normal CRUD application. A safe refactor must preserve referra
 - Next.js framework changes begin by reading the relevant local documentation under `node_modules/next/dist/docs/`.
 - Control-plane logic has one owner. Authorization, state transitions, audit writes, retention, identity matching, idempotency, and EHR handoff may not be duplicated.
 
+## Operating lanes
+
+`refactor-slices.json` selects one governance lane for the program:
+
+- `standard` requires independent human review, fresh-context comprehension, and an adopted blind guidance comparison with private holdouts before implementation starts.
+- `owner_fast_lane` lets the named owner authorize machine-traced architecture and assurance evidence without making those independent-review and guidance-evaluation activities start gates.
+
+The fast lane is a governance shortcut, not a verification shortcut. It still requires exact bounded paths, a clean dedicated worktree and starting commit, all applicable machine tests, behavior and data-semantics preservation, no unresolved critical/high finding, and exercised rollback or recovery evidence. A failure in any retained control blocks implementation, merge, and deployment. The authorization and disabled gates are recorded in `docs/refactoring/owner-fast-lane.json`.
+
 ## What the syllabus misses for this repository
 
 ### Test power, not test volume
@@ -60,9 +69,9 @@ Refactoring cannot reduce the reviewer to a boolean. Preserve assignment, queue 
 
 Before moving route or worker code, snapshot metric names, status classes, bounded dimensions, and alert semantics. Do not add referral IDs, names, document IDs, query strings, extracted values, or upstream response bodies to logs to make a refactor easier to debug.
 
-### Refactor guidance must earn adoption
+### Refactor guidance evaluation
 
-The playbook and its machine-readable controls are not correct merely because they are detailed. Before any slice starts, evaluate whether a fresh agent uses them to make safer first-attempt decisions on fixed scenarios. Follow `docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md`:
+The playbook and its machine-readable controls are not correct merely because they are detailed. The standard lane requires evaluating whether a fresh agent uses them to make safer first-attempt decisions on fixed scenarios. Follow `docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md`:
 
 - Freeze public prompts, synthetic inputs, application commit, model version, settings, and response contract.
 - Keep the first substantive attempt without rerolls or conversational rescue.
@@ -71,7 +80,7 @@ The playbook and its machine-readable controls are not correct merely because th
 - Tolerate no critical or high regression and require a material targeted improvement before keeping a change.
 - Route each correction to guidance, a machine control, the harness, or an approved code slice according to the narrowest reliable enforcement layer.
 
-The public suite is calibration evidence, so its expected decisions are visible. Holdout prompt content and scoring keys stay outside the repository; only their hashes and manifest metadata are committed. A passing guidance evaluation measures the recorded scenarios, not universal agent compliance or application correctness.
+The public suite is calibration evidence, so its expected decisions are visible. Holdout prompt content and scoring keys stay outside the repository; only their hashes and manifest metadata are committed. A passing guidance evaluation measures the recorded scenarios, not universal agent compliance or application correctness. Under `owner_fast_lane`, the harness stays executable and useful, but its blind comparison and private holdout are advisory rather than start gates.
 
 ## Baseline command
 
@@ -132,9 +141,9 @@ The planned slices and their current `not_started` state live in `docs/refactori
 
 Run the refactor baseline, `npm run complexity:check`, `npm run check:platform:fast`, `npm run certify:test-effectiveness`, and `npm run build`. Record current browser screenshots and performance budgets for any UI module in scope. A failing baseline is either repaired first or documented as a known pre-existing failure.
 
-### 2. Write the human architecture narrative
+### 2. Approve the architecture narrative
 
-The owner reads the highest-overlap files and writes, without copying an agent summary:
+The owner reviews and approves a narrative grounded in the highest-overlap files. In the standard lane the owner writes it independently; in `owner_fast_lane` an agent may prepare the technical trace for owner authorization. It records:
 
 - Purpose, inputs, outputs, and callers.
 - Invariants and prohibited states.
@@ -143,11 +152,11 @@ The owner reads the highest-overlap files and writes, without copying an agent s
 - The executable test that proved the explanation.
 - Any difference between expected and observed behavior.
 
-This cannot be delegated. It is the comprehension-debt checkpoint.
+Owner approval cannot be delegated. The technical drafting may be delegated only in `owner_fast_lane` and must remain tied to cited code and executable evidence.
 
-The owner also validates the slice's entries in `canonical-responsibilities.json`, `architecture-comprehension-probes.json`, and `proof-obligations.json`. A fresh-context reviewer completes the pre-change comprehension probes and cites code plus executed evidence. Agent-drafted entries remain blockers until that validation is recorded.
+In the standard lane, the owner validates the slice's entries in `canonical-responsibilities.json`, `architecture-comprehension-probes.json`, and `proof-obligations.json`, and a fresh-context reviewer completes the pre-change comprehension probes. In `owner_fast_lane`, the owner may authorize machine-traced entries directly; the assurance record must contain the pre-change machine trace and exact approved obligation IDs.
 
-The assurance record also cites the exact human-adopted guidance comparison, guidance commit, and scenario-suite version. Structural validation of the evaluation harness is not a substitute for the matched public and private-holdout trials required by the global evidence matrix.
+The standard-lane assurance record also cites the exact human-adopted guidance comparison, guidance commit, and scenario-suite version. The owner-fast-lane assurance record instead binds the owner authorization record; it may not claim that a guidance comparison occurred when it did not.
 
 ### 3. Replace weak safety nets before moving code
 
@@ -202,12 +211,12 @@ Global evidence applies to every slice. In particular, implementation begins onl
 
 Each slice uses a record shaped like `docs/refactoring/slice-assurance-record.example.json` to bind:
 
-- the exact guidance bundle and human-adopted comparison used to direct the work;
-- pre- and post-change fresh-context comprehension;
+- the standard lane's adopted guidance comparison or the fast lane's exact owner authorization;
+- standard-lane pre/post fresh-context comprehension or fast-lane machine trace;
 - the owner-approved obligation set;
 - every bounded iteration and its accepted or rejected tradeoffs;
 - proof results and required gates attached to one candidate commit;
-- two consecutive context-separated adversarial passes;
+- two consecutive context-separated adversarial passes in the standard lane; advisory adversarial results, if run, in the fast lane;
 - rollback or recovery evidence;
 - human acceptance of only medium/low residual uncertainty.
 
@@ -243,7 +252,7 @@ Every structural change should state:
 - Rollback method.
 - Human explain-back for authorization, workflow, audit, PHI, retention, extraction provenance, matching, or handoff code.
 - Evidence matrix item updates and the selected performance budget profile.
-- Adopted guidance comparison, exact guidance commit, and scenario-suite version.
+- The standard lane's adopted guidance comparison or the fast lane's owner-authorization record.
 - Proof obligations addressed, assurance record updated, and exact candidate commit cited.
 - Pre/post comprehension result and adversarial finding dispositions.
 - Remaining medium/low uncertainty, detection, containment, recovery, owner, and review date.
@@ -255,7 +264,7 @@ Prefer a small sequence of complete vertical changes over one large mechanical r
 A slice is complete only when:
 
 - Current behavior is characterized and intended changes are explicit.
-- The slice assurance record is bound to the exact human-adopted guidance evaluation baseline.
+- The slice assurance record is bound to the exact standard-lane guidance baseline or owner-fast-lane authorization.
 - Changed complexity hotspots have reviewed before/after evidence and do not worsen the repository ratchet.
 - Control-plane invariants have executable tests.
 - The focused suite and `npm run check:platform:fast` pass.
@@ -267,8 +276,7 @@ A slice is complete only when:
 - The old implementation is removed or has a dated, owned strangler exit criterion.
 - The baseline is rerun and the before/after result is reviewed rather than assumed to improve.
 - Every applicable proof obligation is verified against the candidate commit with implementation traceability.
-- Two consecutive context-separated adversarial passes leave no unresolved critical/high finding or material unaddressed simplification.
-- Post-change comprehension is no worse than the approved pre-change result.
+- Standard-lane adversarial and post-change comprehension gates pass; in the fast lane they are advisory, but every recorded critical/high finding still blocks completion.
 - Rollback or recovery evidence is exercised and remaining medium/low uncertainty is human accepted with detection and containment.
 - `npm run check:refactor-assurance` passes without lifecycle warnings for the completed slice.
 

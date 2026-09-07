@@ -1,6 +1,7 @@
 # Refactoring Workspace
 
 Current mode: `setup_only`
+Approval mode: `owner_fast_lane`
 Started slices: `0`
 
 This directory prepares a controlled refactor program. It does not authorize implementation work and it is not evidence that a refactor has started.
@@ -13,6 +14,8 @@ Use these four lifecycle files together:
 2. `evidence-matrix.json` records what is proven, partial, missing, blocked, conditional, or not applicable at each lifecycle phase.
 3. `performance-budgets.json` defines structural, API, database, queue, and UI regression limits by slice type.
 4. `code-quality-policy.json` defines repository, dependency, TypeScript, suppression, and worktree rules.
+
+`owner-fast-lane.json` records the owner's explicit authorization to make independent review, blind guidance comparison, and private holdouts advisory start activities. It does not waive any machine gate, bounded-scope rule, clean-worktree requirement, behavior-preservation requirement, or rollback/recovery evidence.
 
 Do not create a second backlog in prose. The other files here explain how to satisfy these controls.
 
@@ -31,7 +34,7 @@ The refactor-guidance evaluation layer tests whether that model changes fresh-ag
 - `refactor-anti-patterns.json` names recurring unsafe agent moves so they can be recognized and measured.
 - `refactor-correction-ledger.json` tracks recurrent corrections without automatically turning them into rules.
 
-These files contain setup candidates, not human-approved truth. Their relevant entries must be validated before a slice starts, and the result is recorded in a slice-specific assurance record.
+These files contain setup candidates, not universal truth. In the standard lane their relevant entries require independent human validation before a slice starts. In `owner_fast_lane`, the named owner may authorize machine-traced entries in the slice-specific assurance record.
 
 ## Current readiness
 
@@ -39,16 +42,16 @@ All six slices are intentionally `not_started`. No slice is start-ready yet:
 
 | Slice | Before-start gap |
 | --- | --- |
-| Referral store | Owner narrative, independent review, approval, human acceptance of the machine-observed behavior/retry/parity contract (now including open-assessment handoff), and approved assurance/file dispositions |
+| Referral store | Owner-approved narrative, machine-complete behavior/retry/parity contract (including open-assessment handoff), exact allowed paths, and owner-authorized assurance/file dispositions |
 | Assessment store | Owner, narrative, approval, frozen lifecycle/workflow-sync behavior, local/PostgreSQL parity |
 | Workflow and handoff | Owner, narrative, approval, database-effect goldens, runtime role matrix, retry contract |
 | Extraction | Owner, narrative, approval, packet-level goldens, governed labeled corpus |
 | Referral canvas | Owner, narrative, approval, autosave/conflict recovery and identity-link characterization |
-| Test structure | Owner, narrative, approval, assertion inventory and independent human review |
+| Test structure | Owner, narrative, approval, and machine-backed assertion inventory; independent review is advisory in the fast lane |
 
-Every slice also inherits the global before-start gaps: independent review of the owner-approved complexity non-regression disposition, a risk-ranked exact-start baseline, independent protected review, commit-attached required checks, owner-validated assurance definitions, a human-adopted exact-commit guidance evaluation baseline, and an exact-start dedicated `codex/refactor-*` worktree recorded in the active slice. Eric approved the inherited 531-location dependency ceiling and complexity disposition on 2026-09-07; neither approval authorizes new dependency or complexity growth. Node 22 type alignment and a clean integration worktree now exist as candidate evidence; they are not slice approval. The current file/dependency inventory is generated evidence, not a hand-maintained list.
+Every slice still inherits the machine-owned global before-start gates: a risk-ranked exact-start baseline, commit-attached required checks, the complexity non-regression ratchet, and an exact-start dedicated `codex/refactor-*` worktree recorded in the active slice. Eric activated `owner_fast_lane` on 2026-09-07, so independent review and the adopted guidance comparison are no longer start gates. The inherited 531-location dependency ceiling and exact complexity ceilings remain hard limits; the authorization permits no new dependency or complexity growth. The current file/dependency inventory is generated evidence, not a hand-maintained list.
 
-The consolidated machine baseline at `92fa991` passed repository hygiene, code-quality setup, the 20/20 seeded-defect suite, the broader safety corpus, and the production build. The fast platform command stops only at the recorded inherited complexity ratchet; independent review of that owner-approved disposition is still a start gate.
+The consolidated machine baseline at `92fa991` passed repository hygiene, code-quality setup, the 20/20 seeded-defect suite, the broader safety corpus, and the production build. The owner-authorized complexity disposition now makes its exact inherited ceilings enforceable without an independent reviewer; any increase or unlisted failure remains red.
 
 The checker derives the authoritative state from the JSON files. Update this summary only when the registry or matrix changes.
 
@@ -67,7 +70,8 @@ The checker derives the authoritative state from the JSON files. Update this sum
 - `ENGINEERING_RESEARCH_BASIS.md`: authoritative external rationale behind the local controls; it is not a second backlog.
 - `HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md`: bounded proof classes, recursive iteration, adversarial review, convergence, and residual-risk rules.
 - `REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md`: first-attempt outcome evaluation for changes to the refactor instructions and controls.
-- `REFERRAL_STORE_START_DECISION_PACKET.md`: consolidated owner response, independent review, and exact-start sequence for the first planned slice.
+- `owner-fast-lane.json`: exact owner authorization and the start/completion controls that remain mandatory.
+- `REFERRAL_STORE_START_DECISION_PACKET.md`: technical evidence and exact-start sequence for the first planned slice.
 
 ## Templates
 
@@ -120,11 +124,11 @@ npm run check:refactor-agent
 
 1. Select one slice from `refactor-slices.json`; do not invent a parallel scope.
 2. Create a clean dedicated `codex/refactor-*` worktree from the exact reviewed starting commit.
-3. Assign a real human owner and backup.
-4. Complete and approve the architecture narrative and any decision record.
+3. Assign a real human owner; record the rollback operator.
+4. Complete and owner-approve the architecture narrative and any decision record.
 5. Resolve every global and slice `before_start` evidence item to `satisfied` or approved `not_applicable`.
-6. Human-validate the public guidance scenarios and anti-patterns, run the matched baseline/candidate trials and private holdouts, and record a `keep` adoption for one exact guidance commit in the global evidence matrix.
-7. Human-validate the relevant canonical responsibilities, comprehension probes, and proof obligations; complete the pre-change comprehension review and create the slice assurance record with its exact guidance-evaluation binding.
+6. In the standard lane, complete the adopted guidance comparison and private holdouts. In `owner_fast_lane`, mark that start item `not_applicable` with the recorded owner authorization while keeping `npm run check:refactor-guidance` green.
+7. In the standard lane, complete independent validation and pre-change comprehension. In `owner_fast_lane`, record the machine trace, exact approved obligations, and owner authorization in the assurance record.
 8. Complete the file audit disposition and record `owner`, `architectureNarrative`, `fileAuditDisposition`, `assuranceRecord`, `allowedChangePaths`, `approvedBy`, `approvedAt`, `worktreePath`, `branch`, and `startingCommit` in the registry.
 9. Change registry mode to `active` and only that slice to `in_progress`.
 10. Run `npm run audit:repository`, `npm run check:refactor-guidance`, and `npm run check:refactor-setup`; all must pass before implementation files move.

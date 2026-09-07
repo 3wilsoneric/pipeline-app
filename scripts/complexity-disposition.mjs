@@ -1,4 +1,5 @@
 const allowedStatuses = new Set(["owner_approved", "approved"]);
+const allowedApprovalModes = new Set(["standard", "owner_fast_lane"]);
 const allowedTotalMetrics = new Set(["hotspots", "criticalHotspots", "controlPlaneHotspots"]);
 
 export function evaluateComplexityDisposition(failures, disposition) {
@@ -41,8 +42,10 @@ function validateDispositionHeader(disposition) {
   const errors = [];
   if (disposition.schemaVersion !== 1) errors.push("Complexity disposition must use schemaVersion 1.");
   if (!allowedStatuses.has(disposition.status)) errors.push("Complexity disposition status must be owner_approved or approved.");
+  if (!allowedApprovalModes.has(disposition.approvalMode ?? "standard")) errors.push("Complexity disposition approvalMode must be standard or owner_fast_lane.");
   if (!disposition.ownerApproval?.approvedBy) errors.push("Complexity disposition requires an owner approver.");
   if (!disposition.ownerApproval?.approvedAt) errors.push("Complexity disposition requires an owner approval timestamp.");
+  if (disposition.approvalMode === "owner_fast_lane" && !disposition.ownerApproval?.directive) errors.push("Owner-fast-lane complexity disposition requires the owner's explicit directive.");
   return errors;
 }
 
@@ -67,7 +70,7 @@ function validateTotalCeilings(ceilings = {}) {
 }
 
 function validateIndependentReview(disposition) {
-  if (disposition.status !== "approved") return [];
+  if (disposition.status !== "approved" || disposition.approvalMode === "owner_fast_lane") return [];
   const errors = [];
   const reviewer = disposition.independentReview?.reviewedBy;
   if (!reviewer) errors.push("Approved complexity disposition requires an independent reviewer.");

@@ -38,9 +38,9 @@
     {
       "id": "green_complexity_ratchet",
       "phase": "before_start",
-      "status": "partial",
+      "status": "satisfied",
       "gates": ["complexity:check"],
-      "note": "A reviewed per-function baseline exists. At approval-context commit 141982d908d07da06dcb9d7c19e83df2f1c7ec4b the clean integration candidate has 272 hotspots versus 271, no increase in critical hotspots, one additional control-plane hotspot, and 11 exact inherited function failures. The characterization runner's new hotspot was removed rather than added to the baseline. Eric approved freezing those failures at their current levels, permitting no new failure or growth, reducing referral-owned matchesReferralFilters during the approved referral-store slice, and separately owning the other ten without regenerating the baseline. Independent review of the exact starting commit remains required before a slice begins.",
+      "note": "The owner-fast-lane disposition freezes 11 exact inherited function failures plus aggregate ceilings of 272 hotspots and 136 control-plane hotspots. npm run complexity:check applies those ceilings, rejects every unlisted failure or increase, and warns when a reduction should lower the ceiling. The historical baseline was not regenerated. Eric authorized this enforcement path on 2026-09-07; the exact-start run remains mandatory for each active slice.",
       "files": [
         "docs/reliability/cyclomatic-complexity-baseline.json",
         "docs/refactoring/COMPLEXITY_RATCHET_DISPOSITION_PROPOSAL_4d50f4e.md",
@@ -53,9 +53,11 @@
     {
       "id": "enforced_code_ownership",
       "phase": "before_start",
-      "status": "blocked",
+      "status": "not_applicable",
+      "approvedBy": "Eric",
+      "approvedAt": "2026-09-07T14:37:17Z",
       "files": [".github/CODEOWNERS", "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"],
-      "note": "A repository-owner CODEOWNERS route exists, but there is no independent backup/reviewer. A 2026-09-07 GitHub API recheck confirms main still requires zero approvals, does not require code-owner review, permits administrator bypass, and has no additional ruleset. Name the independent reviewer path and enforce the reviewed branch-protection checks before a slice starts."
+      "note": "Eric explicitly selected owner_fast_lane on 2026-09-07, so a second independent repository approver and code-owner approval are advisory rather than start gates. CODEOWNERS still routes responsibility to @3wilsoneric. Pull requests, commit-attached machine checks, exact scope, rollback ownership, and the ban on bypassing failed retained gates remain mandatory."
     },
     {
       "id": "commit_attached_refactor_gates",
@@ -95,7 +97,9 @@
     {
       "id": "evaluated_refactor_guidance_baseline",
       "phase": "before_start",
-      "status": "missing",
+      "status": "not_applicable",
+      "approvedBy": "Eric",
+      "approvedAt": "2026-09-07T14:37:17Z",
       "gates": ["check:refactor-guidance"],
       "files": [
         "docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md",
@@ -105,7 +109,7 @@
         "docs/refactoring/refactor-correction-ledger.json"
       ],
       "adoptionRecord": null,
-      "note": "The evaluation harness and public calibration suite are agent-drafted bootstrap candidates. Before any slice starts, humans must validate the scenarios and anti-patterns, run matched first-attempt baseline/candidate trials with blind review and private holdouts, keep an exact-commit guidance bundle, and record the adopted comparison. Passing the structural checker alone is not adoption evidence."
+      "note": "Eric explicitly selected owner_fast_lane on 2026-09-07, making blind matched comparison, private holdouts, and an adopted guidance record advisory rather than start gates. No adoption is claimed. The public harness, structural validation, anti-pattern catalog, and correction ledger remain executable, while every application machine test and behavior-preservation gate remains mandatory."
     }
   ],
   "slices": [
@@ -200,7 +204,7 @@
             "docs/refactoring/referral-store-file-audit-agent-prework.json",
             "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md"
           ],
-          "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. The consolidated start decision packet now reduces the outstanding owner decision to one response and the independent review to one pass. The 2026-09-06 owner explain-back did not yet demonstrate the concurrency, atomic-side-effect, or adapter-audit model, so human validation and the independent pre-change comprehension review remain required before implementation."
+          "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. Under owner_fast_lane, Eric may authorize their machine trace without a separate reviewer or fresh-context comprehension pass. This item remains partial until the slice assurance record binds that owner authorization, the exact approved obligations, and the executable pre-change machine evidence."
         },
         {
           "id": "convergence_and_residual_risk",
@@ -497,9 +501,11 @@
       {
         "id": "independent_human_assertion_review",
         "phase": "before_start",
-        "status": "blocked",
+        "status": "not_applicable",
+        "approvedBy": "Eric",
+        "approvedAt": "2026-09-07T14:37:17Z",
         "files": ["docs/TEST_EFFECTIVENESS_AND_CORPUS.md"],
-          "note": "A senior engineer who did not author the workflow must review the assertion list."
+          "note": "Eric selected owner_fast_lane, so independent assertion review is advisory rather than a start gate. Machine-backed assertion preservation and mutation effectiveness remain mandatory."
         },
         {
           "id": "behavior_assertion_preservation",
@@ -524,7 +530,7 @@
             "docs/refactoring/architecture-comprehension-probes.json",
             "docs/refactoring/proof-obligations.json"
           ],
-          "note": "The assertion-ownership, helper-failure, isolation, behavior-preservation, and mutation-effectiveness obligations are setup candidates. The independent human reviewer must validate the inventory before tests move."
+          "note": "The assertion-ownership, helper-failure, isolation, behavior-preservation, and mutation-effectiveness obligations are setup candidates. The standard lane requires independent validation; owner_fast_lane permits owner authorization of a machine-backed inventory before tests move."
         },
         {
           "id": "convergence_and_residual_risk",
@@ -532,7 +538,7 @@
           "status": "missing",
           "gates": ["check:refactor-assurance"],
           "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind the assertion inventory, mutant kill evidence, required gates, fresh-context comprehension, adversarial review, and any accepted medium/low test-infrastructure uncertainty to one candidate commit."
+          "note": "Bind the assertion inventory, mutant kill evidence, required gates, rollback evidence, and any accepted medium/low test-infrastructure uncertainty to one candidate commit. Standard-lane fresh-context comprehension and adversarial review are advisory in owner_fast_lane."
         }
       ]
     }

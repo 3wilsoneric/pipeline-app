@@ -1,14 +1,14 @@
 # Referral Store Refactor Start Decision Packet
 
-Status: ready for consolidated owner and independent review; implementation is not yet authorized
+Status: owner fast lane authorized; implementation still requires exact-start machine gates and slice activation
 
 Prepared from machine-evidence commit: `ef2b7d2b393ad5d36ac9d726e2c65ec21be5f08a`
 
 Human owner: Eric
 
-Proposed independent reviewer: unassigned
+Approval mode: `owner_fast_lane`
 
-This packet reduces the remaining referral-store start decision to one owner response and one independent review. It does not replace either human decision. After both are recorded, TARS will create the final exact-start commit, create a fresh dedicated execution worktree from that commit, activate only this slice, and run the first bounded code iteration without another planning round.
+Eric authorized the owner fast lane on 2026-09-07. Independent review, fresh-context comprehension, blind guidance comparison, and private holdouts are advisory rather than start gates. TARS must still create the final exact-start commit, create a fresh dedicated execution worktree from that commit, activate only this slice, and pass every retained machine and rollback control before moving implementation code.
 
 ## What is already established
 
@@ -66,40 +66,34 @@ Explicitly excluded:
 
 Required evidence for this iteration includes TypeScript/build compatibility, referral-store characterization, API behavior, local/PostgreSQL parity, workflow fuzzing, critical safety checks, database integration/concurrency, performance/query budgets, and the refactor assurance gate. A failed obligation stops or reverts the iteration; it does not expand scope.
 
-## Owner decision — one response
+## Recorded owner authorization
 
-The owner must review the scoped code and the linked technical trace, then send one response containing all four lines below. The first line must be in the owner's own words; the remaining lines may use the exact acceptance text.
+The controlling directive is recorded verbatim in `owner-fast-lane.json`:
 
-1. `MY EXPLANATION: <In your own words, explain what the referral store is responsible for and the worst failure this refactor must prevent.>`
-2. `BOUNDARIES: I approve the responsibilities, invariants, adapter differences, failure/recovery behavior, and explicit exclusions in this packet.`
-3. `FIRST ITERATION: I approve the three-file type-boundary iteration exactly as written.`
-4. `INDEPENDENT REVIEWER: <GitHub username of a real person other than Eric who will review the complexity disposition, file audit, architecture comprehension, proof obligations, pull request, and guidance evaluation.>`
+> Replace TARS’s mandatory independent-review and guidance-evaluation start gates with an owner-authorized fast lane. Keep all machine tests, rollback protection, and behavior-preservation requirements.
 
-If the independent reviewer will not also custody the private guidance holdout, add one fifth line:
+The slice activation record must separately bind Eric's approval of the narrative, proof obligations, exact three-file first iteration, rollback operator, clean worktree, and starting commit. This directive does not itself make an untested implementation deployable.
 
-`HOLDOUT CUSTODIAN: <name or GitHub username of another human>`
+## Advisory independent review
 
-## Independent review — one pass
-
-The independent reviewer must:
+If an independent reviewer becomes available, one pass should:
 
 1. Confirm the exact inherited complexity ceilings and that growth or unlisted failures still fail.
 2. Accept or reject each proposed file disposition in `referral-store-file-audit-agent-prework.json`.
 3. Answer and cite executable evidence for the two referral comprehension probes: create-retry/stale-patch behavior and PostgreSQL audit atomicity/local-adapter difference.
 4. Accept or reject the two critical proof obligations: same-section one-winner and retry/audit atomicity.
 5. Review the exact candidate pull request and its commit-attached `verify`, `browser`, `operational`, `postgres`, `dependency-review`, and `codeql` contexts.
-6. Custody or coordinate the private holdout and blind matched guidance comparison; the implementation agent cannot see the holdout or approve the result.
+6. Optionally custody the private holdout and blind matched guidance comparison.
 
 ## Exact-start sequence after approval
 
 TARS will then perform this as one batch:
 
-1. Record the owner narrative and decisions verbatim.
-2. Record the independent dispositions and the adopted guidance comparison.
-3. Freeze the final file/dependency inventory and exact risk baseline.
-4. Set the exact allowed paths, branch, worktree, starting commit, assurance record, and approval metadata in the slice registry.
-5. Create `/Users/eric/pipeline-refactor-referral-store-v2` on `codex/refactor-referral-store-v2` from the approved starting commit.
-6. Run all before-start gates; activate the slice only if they pass.
-7. Execute the approved type-boundary iteration, run its focused and full proof set, compare baselines, and commit or revert based on evidence.
+1. Bind the owner-approved narrative, proof obligations, and file disposition to the fast-lane record.
+2. Freeze the final file/dependency inventory and exact risk baseline.
+3. Set the exact allowed paths, branch, worktree, starting commit, assurance record, and approval metadata in the slice registry.
+4. Create `/Users/eric/pipeline-refactor-referral-store-v2` on `codex/refactor-referral-store-v2` from the approved starting commit.
+5. Run all before-start machine gates; activate the slice only if they pass.
+6. Execute the approved type-boundary iteration, run its focused and full proof set, compare baselines, and commit or revert based on evidence.
 
-No later iteration begins merely because the first succeeds. Each additional responsibility still requires its recorded property, allowed files, proof obligations, and independent review, but those iterations can run consecutively without returning to conversational planning when their approvals are already present.
+No later iteration begins merely because the first succeeds. Each additional responsibility still requires its recorded property, exact allowed files, proof obligations, owner authorization, retained machine gates, and rollback path. Those iterations can run consecutively without another conversational planning round when those records are already present.

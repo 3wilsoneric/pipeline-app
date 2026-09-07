@@ -144,18 +144,18 @@ Why this is the first rung that holds:
 - It touches only files already named in the registry scope.
 - It is reviewable as a pure type-location change and can be reverted in one commit.
 
-This proposal is not authorized until the human owner validates the responsibility, probe, proof obligations, file disposition, exact start commit, and adopted guidance bundle.
+This proposal is not authorized until the human owner approves the responsibility, proof obligations, file disposition, and exact start commit. Under `owner_fast_lane`, a machine trace may replace fresh-context comprehension and no adopted guidance bundle is required.
 
 ## Evidence still needed before start
 
-- Human owner architecture narrative and explain-back in the owner's own words.
-- Human validation of `referral_state_persistence`, `authentication_and_resource_authorization`, and `transaction_local_audit_and_retry`.
-- Fresh-context answers to the referral stale-write/retry and audit-atomicity probes.
-- Human approval of the same-section one-winner and retry/audit-atomicity proof obligations.
+- Owner approval of the architecture narrative and its code/evidence trace.
+- Owner authorization of `referral_state_persistence`, `authentication_and_resource_authorization`, and `transaction_local_audit_and_retry`.
+- Machine-traced answers to the referral stale-write/retry and audit-atomicity probes; fresh-context review is advisory in the fast lane.
+- Owner approval of the same-section one-winner and retry/audit-atomicity proof obligations.
 - Approved file audit disposition and exact allowed paths.
-- Exact-start baseline and independent review of the owner-approved complexity non-regression disposition.
-- Human-adopted refactor-guidance comparison, including private holdout evidence.
-- Independent reviewer/branch-protection path and commit-attached checks.
+- Exact-start baseline and a passing owner-authorized complexity non-regression check.
+- Owner-fast-lane record in place of the adopted guidance comparison and private holdout start gate.
+- Commit-attached machine checks and a named rollback operator; independent review remains advisory.
 
 ## Questions the owner narrative must answer
 

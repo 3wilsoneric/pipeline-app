@@ -24,6 +24,7 @@
   "criticalities": ["critical", "high", "medium", "low"],
   "obligationStatuses": ["planned", "partial", "verified"],
   "convergence": {
+    "appliesTo": "standard",
     "requiredConsecutiveAdversarialPasses": 2,
     "requireContextSeparatedPasses": true,
     "requireIndependentHumanDisposition": true,
@@ -34,6 +35,17 @@
     "requireRollbackOrRecoveryEvidence": true,
     "requireResidualRiskAcceptance": true,
     "prohibitMetricOnlyAcceptance": true
+  },
+  "ownerFastLaneConvergence": {
+    "ownerAuthorizationRequired": true,
+    "allApplicableMachineGatesRequired": true,
+    "allApprovedObligationsVerified": true,
+    "behaviorPreservationEvidenceRequired": true,
+    "requireRollbackOrRecoveryEvidence": true,
+    "maximumUnresolvedCritical": 0,
+    "maximumUnresolvedHigh": 0,
+    "independentAdversarialPassesAdvisory": true,
+    "postChangeFreshContextComprehensionAdvisory": true
   },
   "iteration": {
     "oneResponsibilityPerIteration": true,

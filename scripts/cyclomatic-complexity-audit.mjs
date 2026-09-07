@@ -316,7 +316,7 @@ function compareWithBaseline(report, baseline, disposition) {
     errors,
     warnings,
     interpretation: errors.length === 0
-      ? "No complexity exceeded the historical baseline or independently approved exact ceilings. Existing hotspots remain refactor candidates, not approved patterns."
+      ? "No complexity exceeded the historical baseline or approved exact ceilings. Existing hotspots remain refactor candidates, not approved patterns."
       : "Complexity exceeded the reviewed ratchet. Characterize behavior and reduce the changed function; do not regenerate the baseline to hide growth.",
   };
 }

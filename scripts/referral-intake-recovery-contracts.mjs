@@ -33,6 +33,7 @@ const upload = read("lib/pipeline/referral-packet-upload.ts");
 const retention = read("app/api/internal/retention/route.ts");
 const azureRuntime = read("infra/azure/runtime.bicep");
 const worklist = read("components/pipeline/ReferralWorklist.tsx");
+const workspacePresentation = read("lib/pipeline/workspace-presentation.ts");
 const browserProof = read("tests/e2e/desktop-readiness.spec.ts");
 const referralRoute = read("app/api/referrals/route.ts");
 const referralStore = read("lib/pipeline/referral-store.ts");
@@ -69,8 +70,9 @@ check("unfinished private drafts are resumable without creating a second queue",
     && overview.includes("resumeReferralDraft")
     && overview.includes("params.set(\"draftId\", draftKey.slice(4))"));
 check("canonical workspace lists expose deterministic intake status",
-  worklist.includes("resolveReferralWorkflowStatus")
-    && worklist.includes("workflowStatusLabels"));
+  worklist.includes("getWorkspaceWorkflowLabel")
+    && workspacePresentation.includes("resolveReferralWorkflowStatus")
+    && workspacePresentation.includes("workflowStatusLabels"));
 check("automatic retries are limited to idempotent upload boundaries",
   upload.includes("retryIdempotentOperation")
     && upload.includes('method: "PUT"')

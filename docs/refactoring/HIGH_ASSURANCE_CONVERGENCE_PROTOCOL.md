@@ -4,11 +4,15 @@ Status: setup-only control. This protocol does not authorize a slice or certify 
 
 ## Target claim
 
-Pipeline may claim only that a named candidate commit satisfied the reviewed proof obligations, executable gates, adversarial reviews, and residual-risk controls recorded for that slice. It must never claim that the whole application is perfect, bug-free, safe for every environment, or formally verified unless each bounded property and the model-to-code relationship actually has that evidence.
+Pipeline may claim only that a named candidate commit satisfied the approved proof obligations, executable gates, rollback/recovery evidence, and residual-risk controls recorded for that slice. It must never claim that the whole application is perfect, bug-free, safe for every environment, or formally verified unless each bounded property and the model-to-code relationship actually has that evidence.
 
 The practical objective is:
 
-> No unresolved critical or high-severity finding in the approved slice; mechanically enforced critical invariants; bounded uncertainty; independent challenge; and detection, containment, audit, recovery, and human control for what cannot be proven.
+> No unresolved critical or high-severity finding in the approved slice; mechanically enforced critical invariants; bounded uncertainty; and detection, containment, audit, recovery, and owner control for what cannot be proven.
+
+## Governance lanes
+
+The `standard` lane requires fresh-context comprehension, independent adversarial review, and adopted guidance evaluation. `owner_fast_lane` makes those independent human activities advisory and binds the assurance record to the owner's explicit authorization instead. Both lanes require the same proof obligations, machine gates, exact commits, behavior preservation, critical/high-finding prohibition, and exercised rollback or recovery evidence.
 
 ## Assurance classes
 
@@ -36,7 +40,7 @@ The machine-readable obligations in `proof-obligations.json` cover the applicati
 - autosave/conflict recovery and explicit human-reviewed identity linking;
 - preservation of behavior assertions and seeded-defect detection while tests are reorganized.
 
-The obligation set is a draft until the human owner validates its meaning against code and operations. Missing obligations are a blocker, not evidence that the omitted risk is unimportant.
+The obligation set is a draft until the human owner either validates it in the standard lane or authorizes its machine trace in `owner_fast_lane`. Missing obligations are a blocker, not evidence that the omitted risk is unimportant.
 
 ## Recursive iteration loop
 
@@ -46,7 +50,7 @@ Recursion operates on one responsibility, not on every line:
 2. Record the current contract, callers, side effects, failures, and executable characterization.
 3. Propose the smallest structural change. Multiple candidates are allowed for a pure, well-characterized seam; do not create competing live writers.
 4. Run the focused obligation evidence, inspect the diff, and compare structural and performance baselines.
-5. Have a context-separated critic try to demonstrate behavior loss, duplicate ownership, needless abstraction, or weakened evidence.
+5. In the standard lane, have a context-separated critic try to demonstrate behavior loss, duplicate ownership, needless abstraction, or weakened evidence. In `owner_fast_lane`, this is advisory.
 6. The human owner accepts, rejects, or reverts the iteration and records every tradeoff.
 7. Continue only with the next approved responsibility. Do not expand scope because a nearby cleanup looks attractive.
 
@@ -56,19 +60,19 @@ An iteration is rejected when correctness evidence weakens, a critical invariant
 
 `architecture-comprehension-probes.json` tests whether a fresh reviewer can identify the correct owner, entry point, validation, authorization, persistence, audit/provenance effect, failure behavior, and executable gate without relying on the implementation agent's conversation.
 
-Run it before implementation and again on the candidate commit. The reviewer must cite code and executed evidence. Merely copying `canonical-responsibilities.json` is not a passing explanation. A human evaluator records whether the answer is correct, incomplete, or reveals genuine architectural ambiguity.
+In the standard lane, run it before implementation and again on the candidate commit. The reviewer must cite code and executed evidence. In `owner_fast_lane`, record a pre-change machine trace instead; fresh-context review remains recommended but is not a start gate.
 
 ## Guidance outcome evaluation
 
 Comprehension is necessary but does not show that an agent will act safely. `REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md` evaluates the control plane itself with frozen public scenarios, private holdouts, independent first attempts, mechanical scope checks, and blind human review.
 
-Before the first slice starts, a human must adopt one exact guidance commit through a comparison that records zero critical/high regressions and a material targeted improvement. Every started slice binds that adoption record and scenario-suite version in its assurance record. Later changes to guidance remain proposals until the same evaluation loop keeps them, revises them, or reverts them.
+Before a standard-lane first slice starts, a human must adopt one exact guidance commit through a comparison that records zero critical/high regressions and a material targeted improvement. Every standard-lane started slice binds that adoption record and scenario-suite version in its assurance record. In `owner_fast_lane`, the owner authorization replaces this start gate and the evaluation remains advisory.
 
 This is not another agent self-review. Agents may generate runs, mechanically score declared fields, and surface recurrent corrections; humans validate scenarios, custody holdouts, judge substantive criteria, and decide adoption.
 
 ## Adversarial review
 
-At least two context-separated read-only passes inspect the same candidate commit. Their mandate is: assume the refactor made Pipeline worse and find evidence.
+The standard lane requires at least two context-separated read-only passes over the same candidate commit. In `owner_fast_lane`, these passes are advisory. Any critical/high finding that is recorded by any pass still blocks completion until fixed or rejected with evidence.
 
 Each pass challenges:
 
@@ -89,11 +93,10 @@ Agent critics may find problems but do not approve their own work. Every finding
 
 A slice may converge only on one exact candidate commit when:
 
-- the assurance record cites the exact human-adopted guidance baseline used by the implementation and review contexts;
+- the assurance record cites the exact standard-lane guidance baseline or owner-fast-lane authorization used for the work;
 - all applicable proof obligations are verified and trace to implementation plus evidence;
 - every required focused and full gate is attached to that commit;
-- two consecutive context-separated adversarial passes produce no unresolved critical or high finding and no material simplification that preserves or improves all affected invariants;
-- the post-change comprehension review is at least as accurate as the pre-change review;
+- the standard lane's adversarial and post-change comprehension gates pass; in `owner_fast_lane` they are advisory, but every recorded critical/high finding remains resolved;
 - structural, performance, query, contention, browser, and extraction budgets pass or have an approved decision recorded before implementation;
 - rollback and recovery are exercised at the appropriate boundary;
 - all remaining medium/low uncertainties have an owner, detection signal, containment, recovery, and human acceptance;
@@ -109,6 +112,6 @@ No agent may mark a residual risk accepted. The named human owner records why it
 
 ## Evidence record
 
-Each active slice references a real record shaped like `slice-assurance-record.example.json`. The record binds the architecture narrative, comprehension reviews, approved obligations, iterations, adversarial findings, gate results, baselines, recovery evidence, and residual-risk acceptance to exact commits.
+Each active slice references a real record shaped like `slice-assurance-record.example.json`. The record binds the architecture narrative, approved obligations, iterations, gate results, baselines, recovery evidence, residual-risk acceptance, and either standard-lane reviews or owner-fast-lane authorization to exact commits.
 
 `npm run check:refactor-assurance` validates structure and lifecycle requirements. It does not decide whether a human explanation is true.

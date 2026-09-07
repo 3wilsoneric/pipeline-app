@@ -36,7 +36,7 @@ Google's published discussion of [mutation testing](https://testing.googleblog.c
 
 Microsoft's [safe deployment guidance](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/safe-deployments) recommends small quality-gated changes, progressive exposure, health models, stop conditions, and recovery. GitHub's documentation on [code owners](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) and [required status checks](https://docs.github.com/en/pull-requests/reference/status-checks) explains how review routing and commit-attached checks become merge controls.
 
-For Pipeline, that means an exact reviewed starting commit, an isolated worktree, independent human review, required checks attached to the candidate commit, explicit rollback ownership, and canary/shadow rollout only when the approved design introduces a replacement path.
+For Pipeline, that means an exact owner-approved starting commit, an isolated worktree, required checks attached to the candidate commit, explicit rollback ownership, and canary/shadow rollout only when the approved design introduces a replacement path. Independent human review remains mandatory in the standard lane and advisory in `owner_fast_lane`; the machine and recovery controls do not change.
 
 ## Why the instructions themselves are evaluated
 

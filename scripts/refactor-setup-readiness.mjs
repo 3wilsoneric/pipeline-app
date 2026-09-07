@@ -34,6 +34,7 @@ const requiredFiles = [
   "docs/refactoring/performance-budgets.json",
   "docs/refactoring/proof-obligations.json",
   "docs/refactoring/refactor-slices.json",
+  "docs/refactoring/owner-fast-lane.json",
   "docs/refactoring/slice-assurance-record.example.json",
   "docs/refactoring/refactor-eval-response.example.json",
   "docs/refactoring/refactor-guidance-run.example.json",
@@ -83,7 +84,54 @@ for (const command of ["check:refactor-setup", "complexity:check", "codebase:bas
 
 if (registry.schemaVersion !== 1) errors.push("Refactor slice registry must use schemaVersion 1.");
 if (!["setup_only", "active"].includes(registry.mode)) errors.push("Refactor slice registry mode must be setup_only or active.");
+if (!["standard", "owner_fast_lane"].includes(registry.approvalMode ?? "standard")) errors.push("Refactor slice registry approvalMode must be standard or owner_fast_lane.");
 if (!Array.isArray(registry.slices) || registry.slices.length < 5) errors.push("Refactor slice registry must define the planned bounded slices.");
+
+if (registry.approvalMode === "owner_fast_lane") validateOwnerFastLane();
+
+function validateOwnerFastLane() {
+  if (!registry.ownerFastLaneRecord || !existsSync(registry.ownerFastLaneRecord)) {
+    errors.push("Owner-fast-lane mode requires an existing ownerFastLaneRecord.");
+    return;
+  }
+  const record = JSON.parse(readFileSync(registry.ownerFastLaneRecord, "utf8"));
+  const requiredStartControls = [
+    "ownerApprovalRequired",
+    "boundedAllowedPathsRequired",
+    "cleanDedicatedWorktreeRequired",
+    "exactStartingCommitRequired",
+    "machineGatesRequired",
+    "rollbackOrRevertPlanRequired",
+    "behaviorPreservationRequired",
+  ];
+  const headerIsComplete = [
+    record.schemaVersion === 1,
+    record.status === "active",
+    Boolean(record.owner),
+    Boolean(record.authorizedAt),
+    Boolean(record.directive),
+  ].every(Boolean);
+  if (!headerIsComplete) {
+    errors.push("Owner-fast-lane record requires schemaVersion 1, active status, owner, authorization timestamp, and directive.");
+  }
+  validateBooleanControls(record.startPolicy, requiredStartControls, true, "keep");
+  validateBooleanControls(record.startPolicy, [
+    "independentHumanReviewRequired",
+    "blindGuidanceComparisonRequired",
+    "privateHoldoutRequired",
+  ], false, "disable only");
+  validateBooleanControls(record.completionPolicy, [
+    "allApplicableMachineGatesRequired",
+    "behaviorPreservationEvidenceRequired",
+    "noUnresolvedCriticalOrHighFindings",
+    "rollbackOrRecoveryEvidenceRequired",
+  ], true, "retain");
+}
+
+function validateBooleanControls(policy, controls, expected, verb) {
+  const mismatches = controls.filter((control) => policy?.[control] !== expected);
+  if (mismatches.length > 0) errors.push(`Owner-fast-lane record must ${verb} these controls: ${mismatches.join(", ")}.`);
+}
 
 const ids = new Set();
 const priorities = new Set();
@@ -157,7 +205,9 @@ const result = {
   activeSlice: activeSlices[0]?.id ?? null,
   errors,
   warnings,
-  nextHumanAction: "Choose one slice, assign its human owner, complete its architecture narrative, and resolve its before_start evidence before changing implementation code.",
+  nextHumanAction: registry.approvalMode === "owner_fast_lane"
+    ? "Satisfy the selected slice's machine-owned before-start evidence, record the owner-approved bounded paths, and activate one clean dedicated worktree."
+    : "Choose one slice, assign its human owner, complete its architecture narrative, and resolve its before_start evidence before changing implementation code.",
 };
 
 console.log(JSON.stringify(result, null, 2));

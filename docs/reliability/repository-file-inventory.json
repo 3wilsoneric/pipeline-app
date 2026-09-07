@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T14:23:01.194Z",
+  "generated_at": "2026-09-07T15:06:25.876Z",
   "audit_date": "2026-09-07",
-  "git_head": "ef2b7d2b393ad5d36ac9d726e2c65ec21be5f08a",
+  "git_head": "5b4789eca06d253be4077e30267ed278fdc2ff24",
   "files": [
     {
       "path": ".dockerignore",
@@ -180,11 +180,11 @@
     },
     {
       "path": "AGENTS.md",
-      "content_sha256": "405c7696319a02038c72ae7957f624ba177f21b0e9bd408a8a8d996c3ac6a65f",
+      "content_sha256": "532f243798e5b92d912896ae0050f66dede07a11390a0f7bc06784021cf16665",
       "role": "Repository support file",
       "risk": "low",
-      "bytes": 2623,
-      "lines": 22,
+      "bytes": 3085,
+      "lines": 23,
       "detected_concerns": [],
       "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
       "verification": "check:platform:fast and owning feature test"
@@ -3396,11 +3396,11 @@
     },
     {
       "path": "docs/REFACTORING_PLAYBOOK.md",
-      "content_sha256": "2643edb1facd2446d48b1b57e0925c0edcb7e8479f621b6ab885e6b719159f59",
+      "content_sha256": "baa9916482850a15ee145b27c296e8c85968807ec058a87a197e3c15c3951ac2",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 19254,
-      "lines": 288,
+      "bytes": 20785,
+      "lines": 296,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3605,7 +3605,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "a3e00a3d1c103cbd6bb2dfbd0801cce0d53dc62c40321b855ca04de9bc059e22",
+      "content_sha256": "6e8c9371e6834e328c7db387a5aaa36ba0b03b9c6cb946acb5c364246281c457",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -3695,10 +3695,10 @@
     },
     {
       "path": "docs/refactoring/COMPLEXITY_RATCHET_DISPOSITION_PROPOSAL_4d50f4e.md",
-      "content_sha256": "db50fbc5ed10e3fd87477a4425c3003e3ab252b504b0fdd04ff8d4b7da8a7464",
+      "content_sha256": "08a4a5126698dfb3962e82f440fa8abdf15a4a3518284a1a859728ba5d42f113",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 4515,
+      "bytes": 4558,
       "lines": 59,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -3750,10 +3750,10 @@
     },
     {
       "path": "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
-      "content_sha256": "021949fa40d68a04d60ed9d5ff93310f1149544a7ae8d58072f1599c612da6e3",
+      "content_sha256": "3a8d9ce6c1beffd595c3c37ccee56eccb5997a267f0d6509d67ac8a806502b0d",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 8203,
+      "bytes": 8331,
       "lines": 62,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -3761,44 +3761,44 @@
     },
     {
       "path": "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
-      "content_sha256": "28983d500a8c5003e3786ca78db40908050200263d4bcd0a161875066d87c2fa",
+      "content_sha256": "bebc5910767ce1eff303cefb53f9d5ec519910171ebadb9789f83ce02df43fde",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 9474,
-      "lines": 115,
+      "bytes": 10050,
+      "lines": 118,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
     },
     {
       "path": "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md",
-      "content_sha256": "84dbde3a64c4fb62d00a4454df7b6d0beeeaeb98280c570ee8a5f38ce10d94d6",
+      "content_sha256": "5dee4bed6a27f9d97db5ccd26deb067404d5288fc50e270dd0da457ec1455533",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 4110,
-      "lines": 65,
+      "bytes": 4626,
+      "lines": 64,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
     },
     {
       "path": "docs/refactoring/README.md",
-      "content_sha256": "1e7b2ce2da746063a88cd561b9fe13a4131d365e7828d9ae7ceed22d6bbc3c8a",
+      "content_sha256": "12db5bd3eceaf7faf55b7d701ff75d35886421e500297bcc86d083f9c2acb8c6",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 10200,
-      "lines": 146,
+      "bytes": 10633,
+      "lines": 150,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
     },
     {
       "path": "docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md",
-      "content_sha256": "c9e667da090dca9bd6847d78267c7bc016a0a48a088fff2e8e48ae7d84f32e0d",
+      "content_sha256": "71e2d9928e9fc0cafd37f90948cdf2fd97cc205b6b0c388037be768709b60ddb",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 8809,
-      "lines": 123,
+      "bytes": 9416,
+      "lines": 125,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3816,21 +3816,21 @@
     },
     {
       "path": "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
-      "content_sha256": "4d7ca78aa43614c91766732ce2be70491ee94e1c1bdfc42a9bc322e58047ee58",
+      "content_sha256": "000d701151bd351f862930e03708afbcddc894e387a68219dce068c36737f1d3",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 8504,
-      "lines": 106,
+      "bytes": 8056,
+      "lines": 100,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
     },
     {
       "path": "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
-      "content_sha256": "3a63e11404e9a624a89ff6e752005be7585f10be21b6507270b12b3dcdea1491",
+      "content_sha256": "c8cf6b5541220d97b7b0576f6139ef6aab3baaa8804cab0613d6667f24500823",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 16357,
+      "bytes": 16526,
       "lines": 169,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -3970,22 +3970,22 @@
     },
     {
       "path": "docs/refactoring/complexity-disposition.json",
-      "content_sha256": "3021f6c1a0cd3682215fe085428a857ea0bdb4fd2ede599963b1139b937b8552",
+      "content_sha256": "01c199a0659c2eadf0405d0aa980a61d7d223dd120fa470823b519f36d919038",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 1932,
-      "lines": 41,
+      "bytes": 2208,
+      "lines": 43,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
     },
     {
       "path": "docs/refactoring/evidence-matrix.json",
-      "content_sha256": "21b6ec37fb47b471a34a441ba16b93ae355a569f511be182b8014bc8299c0f83",
+      "content_sha256": "36066366fcda8d70858507406a576881ed73fb20b145a1b8845f127e32c1dbdb",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 32962,
-      "lines": 541,
+      "bytes": 33086,
+      "lines": 547,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4003,11 +4003,22 @@
     },
     {
       "path": "docs/refactoring/high-assurance-policy.json",
-      "content_sha256": "8fb58d121ada3c9d590e0f7f4dc340f6b2dbd7a6104c10e8fa6c232f4e277c0d",
+      "content_sha256": "0bca3ba1bbc218c3ab424dae7c38b6e5e52bf395f003288aa8c24fb6e74813ef",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 1579,
-      "lines": 49,
+      "bytes": 2047,
+      "lines": 61,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/owner-fast-lane.json",
+      "content_sha256": "e51792191e9962bf90674b28ee84305f2ab9d64ba0a4ab4290ee78fe2063dfea",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 1121,
+      "lines": 29,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4124,11 +4135,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "9b3c843a05d82bcc39048668816d3e371d9d6f3adb77e874e358d3043a2b788a",
+      "content_sha256": "a9626215b0b024dd9f78d5977ebbbe0ff288ae6b0bd2b9f48c88aead2c6a9035",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 6612,
-      "lines": 179,
+      "bytes": 6715,
+      "lines": 181,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4146,11 +4157,11 @@
     },
     {
       "path": "docs/refactoring/slice-assurance-record.example.json",
-      "content_sha256": "76c3032254952490be299a36623e9da01594d062943b2123f1c3bc4bb60b4184",
+      "content_sha256": "77df4b67761d8a52c21c4e033f8edf83e1578fe6056b3fb3ac9425457b9ec70c",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 5320,
-      "lines": 150,
+      "bytes": 5997,
+      "lines": 165,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4168,11 +4179,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "706862aa99ee8a1b9c0f6437200f75d906fa6b9e3c7e7b486b6b5cc6bdfecfca",
+      "content_sha256": "ce66d13d84995113956bcae8b1148f557df84387489893801130db332c451f4a",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 355635,
-      "lines": 1707,
+      "bytes": 356261,
+      "lines": 1709,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4196,11 +4207,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "e4744d2733d99a87775ac76e5a4ebd6ac3b5590a465cf1fb43235bbd7c22272d",
+      "content_sha256": "d9c5fa03f0601228b63fd729a0eca2af59ff689092408b7d9ddd42478b8cd611",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 214583,
-      "lines": 7480,
+      "bytes": 214719,
+      "lines": 7482,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4255,11 +4266,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "c15632bc45d166e929e7360b2486b938e9a9eb2c88cc9f98be153840ddba4939",
+      "content_sha256": "88ecf02c7e8571b7b1e784b2e465621ea50bdb4e929c61522fa207b7fc8c7e81",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 488752,
-      "lines": 9867,
+      "bytes": 489861,
+      "lines": 9889,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4450,15 +4461,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "256dfda29f8dd64a8dfc2e7eb6beef5ccfd554f9d3864ddd4d3b3d391da895ba",
+      "content_sha256": "b7ef51bba6bc88228741518221e2f929e72f4977e2a75598eeed62b0c8674b4c",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 246664,
-      "lines": 9678,
+      "bytes": 256719,
+      "lines": 10055,
       "detected_concerns": [
-        "Large module (9678 lines): split by behavior before adding more responsibilities."
+        "Large module (10055 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (9678 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (10055 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -7603,22 +7614,22 @@
     },
     {
       "path": "scripts/complexity-disposition-fixtures.mjs",
-      "content_sha256": "a05a7f412c4e0b754848f6e71fdd16b416e19823569308534b770cce40a1935d",
+      "content_sha256": "d46cfbc0b2080dd0cf9bc2448f01c3a5ce204980ef057a994d645eb33b1f8916",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 2247,
-      "lines": 64,
+      "bytes": 2963,
+      "lines": 82,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
       "path": "scripts/complexity-disposition.mjs",
-      "content_sha256": "1168f1d2fbd1ab41bb6c81f4c20a1265d396b56667fa6614a6ac554d6911f004",
+      "content_sha256": "3a04649dd9547cbbe67cae0ff0f941e96ab09f5cd9d657233ba7a82d07efa893",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 5412,
-      "lines": 137,
+      "bytes": 5886,
+      "lines": 140,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -7766,10 +7777,10 @@
     },
     {
       "path": "scripts/cyclomatic-complexity-audit.mjs",
-      "content_sha256": "396e830ec3ff38cf111fbe819c45698c0452f0cc122b8e2c14c603e9b88e8f8e",
+      "content_sha256": "b97e604354deb809d25abced48bf4905b84eb6f6588186e41740edda65a5783c",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 12259,
+      "bytes": 12245,
       "lines": 357,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures."
@@ -8769,11 +8780,11 @@
     },
     {
       "path": "scripts/refactor-guidance-eval.mjs",
-      "content_sha256": "3788a0fb966dff208aa5dfdaac594c123b9cf6db328eb0d13b918d487345a457",
+      "content_sha256": "3044879a9dfea5c1e6eba77f4fc612dc60d7e0e0de61cce77c7a8cf6083dfb34",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 47627,
-      "lines": 920,
+      "bytes": 49146,
+      "lines": 951,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
         "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence."
@@ -8783,11 +8794,11 @@
     },
     {
       "path": "scripts/refactor-high-assurance-readiness.mjs",
-      "content_sha256": "e6e9fd09d8d223934c063e6bb04dd82ec28efedc9d670a651b16ebe3acdec2c4",
+      "content_sha256": "df3f5e87ef7d3dbbea9e8b2904ebd9a64c30563e604edb31f29bdf3279e72864",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 23851,
-      "lines": 471,
+      "bytes": 29064,
+      "lines": 562,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures."
       ],
@@ -8796,22 +8807,22 @@
     },
     {
       "path": "scripts/refactor-setup-readiness.mjs",
-      "content_sha256": "0b09576b9ee478fba5b68601cbbd469085fea902961e24a52a9bb28c74e52810",
+      "content_sha256": "48aa85288f81f6078c7138b094d8a4d9c4a14e6e42f62e0bebcb6c1c43590e7f",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 9378,
-      "lines": 165,
+      "bytes": 11613,
+      "lines": 215,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
       "path": "scripts/referral-intake-recovery-contracts.mjs",
-      "content_sha256": "612799691aab7a92dbac02a0d63120d257fbf00fbf814d1279e315b504c0e6b9",
+      "content_sha256": "f69f59521e0499e43abb5cfd191bd0a8c50ddc37dc8d666798b70b56dfc74b87",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 5138,
-      "lines": 93,
+      "bytes": 5296,
+      "lines": 95,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"

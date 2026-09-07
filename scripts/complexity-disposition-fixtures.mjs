@@ -60,4 +60,22 @@ const selfReviewed = evaluateComplexityDisposition(failures, {
 assert.equal(selfReviewed.applied.length, 0);
 assert.ok(selfReviewed.validationErrors.some((error) => error.includes("must differ")));
 
-console.log(JSON.stringify({ ok: true, fixtures: 5 }, null, 2));
+const ownerFastLane = evaluateComplexityDisposition(failures, {
+  ...ownerApproved,
+  status: "approved",
+  approvalMode: "owner_fast_lane",
+  ownerApproval: { ...ownerApproved.ownerApproval, directive: "Owner authorized fast lane." },
+});
+assert.equal(ownerFastLane.applied.length, 2);
+assert.equal(ownerFastLane.remaining.length, 0);
+assert.equal(ownerFastLane.validationErrors.length, 0);
+
+const missingFastLaneDirective = evaluateComplexityDisposition(failures, {
+  ...ownerApproved,
+  status: "approved",
+  approvalMode: "owner_fast_lane",
+});
+assert.equal(missingFastLaneDirective.applied.length, 0);
+assert.ok(missingFastLaneDirective.validationErrors.some((error) => error.includes("explicit directive")));
+
+console.log(JSON.stringify({ ok: true, fixtures: 7 }, null, 2));
