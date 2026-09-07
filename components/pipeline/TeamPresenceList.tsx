@@ -16,11 +16,12 @@ type MemberResponse = {
   authenticated_principal_id?: string;
 };
 
-export default function TeamPresenceList({ compact = false }: { compact?: boolean }) {
+export default function TeamPresenceList({ compact = false, enabled = true }: { compact?: boolean; enabled?: boolean }) {
   const [payload, setPayload] = useState<MemberResponse | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     const refresh = () => {
       if (document.visibilityState === "hidden") return;
@@ -42,7 +43,7 @@ export default function TeamPresenceList({ compact = false }: { compact?: boolea
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, []);
+  }, [enabled]);
 
   const activeMembers = useMemo(() => (payload?.members ?? [])
     .filter((member) => member.presence_state !== "offline")

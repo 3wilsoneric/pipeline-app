@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T15:42:24.777Z",
+  "generated_at": "2026-09-07T16:58:17.873Z",
   "audit_date": "2026-09-07",
-  "git_head": "1110adfad51e8051487b78781e7ad78bbc059ee5",
+  "git_head": "7704ab708b1fbd9e6ac0b2a729292dc39705d05b",
   "files": [
     {
       "path": ".dockerignore",
@@ -1833,11 +1833,11 @@
     },
     {
       "path": "components/pipeline/PipelineHeader.tsx",
-      "content_sha256": "5c9bab5f347eb4c774a429a5ce5acf0a81613fe8652a52856d9776ee2b9de464",
+      "content_sha256": "d641f283dafa28d7ef1af2a652e1d1455e59f902b46baf35288467a3526bd0dc",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 17499,
-      "lines": 329,
+      "bytes": 17418,
+      "lines": 328,
       "detected_concerns": [
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
@@ -2053,11 +2053,11 @@
     },
     {
       "path": "components/pipeline/TeamPresenceList.tsx",
-      "content_sha256": "337cb63682f4716d2a410343b3a0cba33a25202b576e51b073d3b2fc71d6cd98",
+      "content_sha256": "001425ac48b36e7324f0d3af986fc5bb31ecd2bb58113503382012d34339e762",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 5341,
-      "lines": 126,
+      "bytes": 5409,
+      "lines": 127,
       "detected_concerns": [
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers."
       ],
@@ -3698,7 +3698,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "b6cedbd2a50a6026fc8d45694e84f82196616804634262e31d4b5356a49a0a8f",
+      "content_sha256": "18d8818d1c248c97fce842b33b87dbab5fa42017594e17c4cfc2ec1833ea1729",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4272,7 +4272,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "0c96bba78c82235f271240ba3ae2c11b7173993b11826b247ec9cd4098fb437b",
+      "content_sha256": "f89726c2ff32db6ce0537ba79bb9b9ac4237d525814f78dfc95d9cf430f0d887",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 369226,
@@ -4300,7 +4300,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "61302442b50ae87dced96050804214c2ea60bd2af19e3fea7323a03374d14e3d",
+      "content_sha256": "0173f0e4f900fae2d05c8f83d02d4fbb46cea0ffabefe8a9865e8bf03787cdc0",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 215584,
@@ -4359,7 +4359,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "92bcb7bb45afe423ff2a2ab42e60b2b7050d2f00d66f661f13565f9a8bc6bcb6",
+      "content_sha256": "059879ca4d16e6e5c216ffb25c200f04c3c4d166288391d42e999a39489c7b05",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 512581,
@@ -4554,7 +4554,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "c4a3a2b08ccb569857eb9e55dd1a7f16d4ac3af51f8f2a8f93342531f6cfd58a",
+      "content_sha256": "255a02e48c5ab5ff3b03566394335d0b0e6f0048a621999ad41328fa3aa4b66f",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 261266,

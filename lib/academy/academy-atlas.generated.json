@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:3a1fd4b3bb92e547",
-  "fingerprint": "3a1fd4b3bb92e547d1e312e91f762d33851a30d951d503ed98c2f48823ab20f3",
+  "generatedAt": "source-fingerprint:1b094055f230ef1f",
+  "fingerprint": "1b094055f230ef1f3394205ec3cc550fe6af2b02b18f2f0fe51ac8dc1d78f2ff",
   "totals": {
     "files": 846,
     "lines": 282038,
@@ -1938,7 +1938,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 329,
+      "lines": 328,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -2154,7 +2154,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 126,
+      "lines": 127,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"

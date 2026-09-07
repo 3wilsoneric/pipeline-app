@@ -182,56 +182,55 @@ export default function PipelineHeader() {
             <span aria-hidden="true" title="Online" className={profilePresenceIndicatorClass(Boolean(user))} />
           </button>
 
-          {isProfileMenuOpen ? (
-            <div
-              role="dialog"
-              aria-label="Profile menu"
-              data-profile-menu="true"
-              className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[calc(100vh-88px)] w-[min(304px,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-sm border border-[#cfcfcf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_10px_24px_rgba(17,17,17,0.12)]"
-            >
-              <div className="flex min-h-[78px] items-center gap-3 px-4 py-3.5">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-[#b8dacf] bg-[#f4faf7] text-[#0f8b73]">
-                  <UserRound size={20} strokeWidth={1.8} aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-[13px] font-black text-[#111111]">{signedInName}</div>
-                  <div className="mt-1 truncate text-[11px] text-[#737373]">{profileAppearance.detail}</div>
-                </div>
+          <div
+            role="dialog"
+            aria-label="Profile menu"
+            data-profile-menu="true"
+            hidden={!isProfileMenuOpen}
+            className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[calc(100vh-88px)] w-[min(304px,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-sm border border-[#cfcfcf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_10px_24px_rgba(17,17,17,0.12)]"
+          >
+            <div className="flex min-h-[78px] items-center gap-3 px-4 py-3.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-[#b8dacf] bg-[#f4faf7] text-[#0f8b73]">
+                <UserRound size={20} strokeWidth={1.8} aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-[13px] font-black text-[#111111]">{signedInName}</div>
+                <div className="mt-1 truncate text-[11px] text-[#737373]">{profileAppearance.detail}</div>
               </div>
-              <TeamPresenceList compact />
-              <AssessorSessionMenuAction user={user} closeProfileMenu={() => setIsProfileMenuOpen(false)} />
-              <ProfileSettingsLink active={pathname === "/settings"} onSelect={() => setIsProfileMenuOpen(false)} />
-              <ProfileLearningLink active={pathname === "/training"} onSelect={() => setIsProfileMenuOpen(false)} />
-              {user?.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role)) ? (
-                <button
-                  type="button"
-                  aria-current={trashActive ? "page" : undefined}
-                  onClick={() => {
-                    setIsProfileMenuOpen(false);
-                    navigateTo("trash");
-                  }}
-                  className={`grid min-h-[52px] w-full grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-b border-l-[3px] border-b-[#e5e5e5] px-4 py-2.5 text-left outline-none transition-colors ${trashActive ? "border-l-[#a9473d] bg-[#fff3f1]" : "border-l-transparent hover:border-l-[#a9473d] hover:bg-[#fff3f1]"}`}
-                >
-                  <Trash2 size={17} strokeWidth={1.8} className="text-[#a9473d]" aria-hidden="true" />
-                  <span><span className="block text-[11px] font-black text-[#111111]">Trash</span><span className="mt-0.5 block text-[9px] text-[#737373]">Restore deleted workspaces</span></span>
-                  <ArrowRight size={14} className="text-[#a9473d]" aria-hidden="true" />
-                </button>
-              ) : null}
-              {auth.required ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsProfileMenuOpen(false);
-                    void auth.signOut();
-                  }}
-                  className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left text-[#737373] outline-none transition-colors hover:bg-[#fff8ed] hover:text-[#8a5a10] focus-visible:bg-[#fff8ed] focus-visible:text-[#8a5a10]"
-                >
-                  <LogOut size={16} strokeWidth={1.8} aria-hidden="true" />
-                  <span className="text-[11px] font-black">Sign out</span>
-                </button>
-              ) : null}
             </div>
-          ) : null}
+            <TeamPresenceList compact enabled={isProfileMenuOpen} />
+            <AssessorSessionMenuAction user={user} closeProfileMenu={() => setIsProfileMenuOpen(false)} />
+            <ProfileSettingsLink active={pathname === "/settings"} onSelect={() => setIsProfileMenuOpen(false)} />
+            <ProfileLearningLink active={pathname === "/training"} onSelect={() => setIsProfileMenuOpen(false)} />
+            {user?.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role)) ? (
+              <button
+                type="button"
+                aria-current={trashActive ? "page" : undefined}
+                onClick={() => {
+                  setIsProfileMenuOpen(false);
+                  navigateTo("trash");
+                }}
+                className={`grid min-h-[52px] w-full grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-b border-l-[3px] border-b-[#e5e5e5] px-4 py-2.5 text-left outline-none transition-colors ${trashActive ? "border-l-[#a9473d] bg-[#fff3f1]" : "border-l-transparent hover:border-l-[#a9473d] hover:bg-[#fff3f1]"}`}
+              >
+                <Trash2 size={17} strokeWidth={1.8} className="text-[#a9473d]" aria-hidden="true" />
+                <span><span className="block text-[11px] font-black text-[#111111]">Trash</span><span className="mt-0.5 block text-[9px] text-[#737373]">Restore deleted workspaces</span></span>
+                <ArrowRight size={14} className="text-[#a9473d]" aria-hidden="true" />
+              </button>
+            ) : null}
+            {auth.required ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProfileMenuOpen(false);
+                  void auth.signOut();
+                }}
+                className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left text-[#737373] outline-none transition-colors hover:bg-[#fff8ed] hover:text-[#8a5a10] focus-visible:bg-[#fff8ed] focus-visible:text-[#8a5a10]"
+              >
+                <LogOut size={16} strokeWidth={1.8} aria-hidden="true" />
+                <span className="text-[11px] font-black">Sign out</span>
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     </header>
