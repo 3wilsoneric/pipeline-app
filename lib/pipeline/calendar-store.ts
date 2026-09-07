@@ -21,6 +21,7 @@ import { isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referra
 import { normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
 import { listReferrals } from "@/lib/pipeline/referral-store";
 import type { Referral, RequirementGate, RequirementStatus } from "@/lib/pipeline/referral-types";
+import { listAssignableWorkspaceAssessors } from "@/lib/pipeline/workspace-members";
 import {
   isRequirementGateActive,
   type WorkspaceOutcomeState,
@@ -95,11 +96,6 @@ type AssessmentCalendarOptions = {
   includeAssignments?: boolean;
 };
 
-type CalendarAssessorRow = {
-  owner_id: string | null;
-  owner_name: string | null;
-};
-
 export async function getAssessmentCalendar(
   user: PipelineUser,
   range: { from: string; to: string },
@@ -136,7 +132,7 @@ async function getPostgresAssessmentCalendar(
     (${restricted} = false or r.owner_id = ${user.id}
       or (r.owner_id is null and lower(trim(coalesce(r.owner_name, ''))) = any(${ownerAliases}::text[])))
   `;
-  const [assignmentRows, assessmentRows, followUpRows, unscheduledRows, assessorRows] = await Promise.all([
+  const [assignmentRows, assessmentRows, followUpRows, unscheduledRows, activeAssessors] = await Promise.all([
     sql<ReferralAssignmentCalendarRow[]>`
       select r.referral_id, p.display_name as client_name, r.community::text as community,
         r.owner_id, r.owner_name, r.assigned_at, r.assignment_version, r.created_at,
@@ -247,22 +243,13 @@ async function getPostgresAssessmentCalendar(
       order by coalesce(r.received_date, r.created_at::date), lower(p.display_name), r.referral_id
       limit ${queueLimit + 1}
     `,
-    sql<CalendarAssessorRow[]>`
-      select distinct r.owner_id, r.owner_name
-      from pipeline.referrals r
-      where r.workspace_status = 'active'
-        and r.closed_at is null
-        and r.deleted_at is null
-        and btrim(coalesce(r.owner_name, '')) <> ''
-        and lower(btrim(r.owner_name)) <> 'unassigned'
-        and ${access}
-      order by r.owner_name, r.owner_id
-      limit 100
-    `,
+    listAssignableWorkspaceAssessors(user),
   ]);
 
   const today = calendarToday();
+  const activeAssessorIds = new Set(activeAssessors.map((member) => member.principal_id));
   const assignmentEvents = assignmentRows.flatMap((row) => {
+    if (!activeAssessorIds.has(row.owner_id)) return [];
     const event = referralAssignmentCalendarEvent({
       id: Number(row.referral_id),
       name: calendarClientName(row.client_name, row.community),
@@ -280,6 +267,14 @@ async function getPostgresAssessmentCalendar(
   });
   const assessmentEvents = assessmentRows.flatMap((row) => {
     const clientName = calendarClientName(row.client_name, row.community);
+    const referralOwner = activeCalendarOwner(
+      activeAssessorIds,
+      row.referral_owner_id,
+      row.referral_owner_name,
+    );
+    const owner = referralOwner.id
+      ? referralOwner
+      : activeCalendarOwner(activeAssessorIds, row.assessor_id, row.assessor_name);
     const event = assessmentCalendarEvent({
       assessment_id: row.assessment_id,
       version: Number(row.version),
@@ -288,16 +283,16 @@ async function getPostgresAssessmentCalendar(
       scheduled_method: normalizeScheduleMethod(row.scheduled_method),
       scheduled_location: row.scheduled_location,
       schedule_status: row.schedule_status,
-      assessor_id: row.assessor_id,
-      assessor: row.assessor_name,
+      assessor_id: owner.id ?? null,
+      assessor: owner.name,
       status: row.status,
       referral_id: Number(row.referral_id),
     }, {
       id: Number(row.referral_id),
       name: clientName,
       community: row.community as Referral["community"],
-      ownerId: row.referral_owner_id ?? undefined,
-      owner: row.referral_owner_name ?? "Unassigned",
+      ownerId: owner.id,
+      owner: owner.name,
     }, today);
     return event && event.date >= range.from && event.date <= range.to ? [event] : [];
   });
@@ -312,13 +307,14 @@ async function getPostgresAssessmentCalendar(
       { requiredFor: row.gate },
       { assessmentComplete: row.assessment_status === "complete", outcome },
     )) return [];
+    const owner = activeCalendarOwner(activeAssessorIds, row.owner_id, row.owner_name);
     return [{
       id: `follow-up:${row.work_item_id}`,
       referralId: Number(row.referral_id),
       clientName: calendarClientName(row.client_name, row.community),
       community: row.community,
-      ownerId: row.owner_id ?? undefined,
-      owner: row.owner_name?.trim() || "Unassigned",
+      ownerId: owner.id,
+      owner: owner.name,
       date: row.due_date,
       kind: "follow_up",
       status: row.due_date < today ? "overdue" : "due",
@@ -329,30 +325,32 @@ async function getPostgresAssessmentCalendar(
   const queueRows = unscheduledRows.slice(0, queueLimit);
   return {
     events: [...assignmentEvents, ...assessmentEvents, ...followUpEvents].sort(compareCalendarEvents),
-    unscheduled: queueRows.map((row): PipelineUnscheduledAssessment => ({
-      referralId: Number(row.referral_id),
-      assessmentId: row.assessment_id ?? undefined,
-      assessmentVersion: row.assessment_version === null ? undefined : Number(row.assessment_version),
-      clientName: calendarClientName(row.client_name, row.community),
-      community: row.community,
-      ownerId: row.owner_id ?? undefined,
-      owner: row.owner_name?.trim() || "Unassigned",
-      receivedDate: row.received_date,
-      workflowStatus: row.workflow_status,
-      nextAction: row.is_reassessment
-        ? "schedule"
-        : row.workflow_status === "intake_unassigned"
-        ? "assign"
-        : row.workflow_status === "ready_to_schedule"
-          ? "schedule"
-          : "complete_intake",
-    })),
+    unscheduled: queueRows.map((row): PipelineUnscheduledAssessment => {
+      const owner = activeCalendarOwner(activeAssessorIds, row.owner_id, row.owner_name);
+      return {
+        referralId: Number(row.referral_id),
+        assessmentId: row.assessment_id ?? undefined,
+        assessmentVersion: row.assessment_version === null ? undefined : Number(row.assessment_version),
+        clientName: calendarClientName(row.client_name, row.community),
+        community: row.community,
+        ownerId: owner.id,
+        owner: owner.name,
+        receivedDate: row.received_date,
+        workflowStatus: owner.id ? row.workflow_status : "intake_unassigned",
+        nextAction: owner.id
+          ? row.is_reassessment
+            ? "schedule"
+            : row.workflow_status === "ready_to_schedule"
+              ? "schedule"
+              : "complete_intake"
+          : "assign",
+      };
+    }),
     unscheduledTotal: Number(unscheduledRows[0]?.total_count ?? 0),
     unscheduledHasMore: unscheduledRows.length > queueLimit,
-    assessors: assessorRows.map((row) => ({
-      id: row.owner_id ?? undefined,
-      name: row.owner_name?.trim() || "Unassigned",
-    })),
+    assessors: activeAssessors
+      .filter((member) => !restricted || member.principal_id === user.id)
+      .map((member) => ({ id: member.principal_id, name: member.display_name })),
   };
 }
 
@@ -392,7 +390,10 @@ async function getLocalAssessmentCalendar(
     assessmentCursor = page.next_cursor ?? undefined;
   } while (assessmentCursor);
 
-  const referralById = new Map(referrals.map((referral) => [referral.id, referral]));
+  const activeAssessors = await listAssignableWorkspaceAssessors(user);
+  const activeAssessorIds = new Set(activeAssessors.map((member) => member.principal_id));
+  const calendarReferrals = referrals.map((referral) => normalizeCalendarReferral(referral, activeAssessorIds));
+  const referralById = new Map(calendarReferrals.map((referral) => [referral.id, referral]));
   const latestAssessmentByReferral = new Map<number, typeof assessments[number]>();
   for (const assessment of assessments) {
     if (!latestAssessmentByReferral.has(assessment.referral_id)) {
@@ -400,17 +401,22 @@ async function getLocalAssessmentCalendar(
     }
   }
   const events = consolidateCalendarFollowUps([
-    ...(options.includeAssignments === false ? [] : referrals.flatMap((referral) => {
+    ...(options.includeAssignments === false ? [] : calendarReferrals.flatMap((referral) => {
       const event = referralAssignmentCalendarEvent(referral);
       return event && event.date >= range.from && event.date <= range.to ? [event] : [];
     })),
     ...assessments.flatMap((assessment) => {
       const referral = referralById.get(assessment.referral_id);
       if (!referral) return [];
-      const event = assessmentCalendarEvent(assessment, referral);
+      const owner = activeCalendarOwner(activeAssessorIds, assessment.assessor_id, assessment.assessor);
+      const event = assessmentCalendarEvent({
+        ...assessment,
+        assessor_id: owner.id ?? null,
+        assessor: owner.name,
+      }, referral);
       return event && event.date >= range.from && event.date <= range.to ? [event] : [];
     }),
-    ...referrals.flatMap((referral) => {
+    ...calendarReferrals.flatMap((referral) => {
       const assessment = latestAssessmentByReferral.get(referral.id);
       return assessmentFollowUpEvents(referral, calendarToday(), assessment ? {
         assessmentExists: true,
@@ -425,9 +431,9 @@ async function getLocalAssessmentCalendar(
       .filter((event) => event.date >= range.from && event.date <= range.to),
   ]).sort(compareCalendarEvents);
   const queueLimit = Math.min(200, Math.max(1, options.queueLimit ?? 24));
-  const allUnscheduled = referrals.flatMap((referral) => {
+  const allUnscheduled = calendarReferrals.flatMap((referral) => {
     const item = assessmentPreparationItem(referral, latestAssessmentByReferral.get(referral.id) ?? null);
-    return item?.nextAction === "schedule" ? [item] : [];
+    return item ? [item] : [];
   })
     .filter((item) => matchesQueueOptions(item, user, options))
     .sort((left, right) => left.receivedDate.localeCompare(right.receivedDate) || left.clientName.localeCompare(right.clientName));
@@ -436,18 +442,34 @@ async function getLocalAssessmentCalendar(
     unscheduled: allUnscheduled.slice(0, queueLimit),
     unscheduledTotal: allUnscheduled.length,
     unscheduledHasMore: allUnscheduled.length > queueLimit,
-    assessors: uniqueLocalAssessors(referrals),
+    assessors: activeAssessors
+      .filter((member) => !isAssessorUser(user) || member.principal_id === user.id)
+      .map((member) => ({ id: member.principal_id, name: member.display_name })),
   };
 }
 
-function uniqueLocalAssessors(referrals: Referral[]) {
-  const assessors = new Map<string, { id?: string; name: string }>();
-  for (const referral of referrals) {
-    const name = referral.owner?.trim();
-    if (!name || name.toLowerCase() === "unassigned") continue;
-    assessors.set(ownerFilterKey(referral.ownerId, name), { id: referral.ownerId, name });
-  }
-  return [...assessors.values()].sort((left, right) => left.name.localeCompare(right.name));
+function activeCalendarOwner(
+  activeAssessorIds: ReadonlySet<string>,
+  id: string | null | undefined,
+  name: string | null | undefined,
+) {
+  return id && activeAssessorIds.has(id)
+    ? { id, name: name?.trim() || "Assigned assessor" }
+    : { id: undefined, name: "Unassigned" };
+}
+
+function normalizeCalendarReferral(referral: Referral, activeAssessorIds: ReadonlySet<string>): Referral {
+  const owner = activeCalendarOwner(activeAssessorIds, referral.ownerId, referral.owner);
+  return {
+    ...referral,
+    ownerId: owner.id,
+    owner: owner.name,
+    workflowStatus: owner.id ? referral.workflowStatus : "intake_unassigned",
+    requirements: referral.requirements?.map((requirement) => {
+      const requirementOwner = activeCalendarOwner(activeAssessorIds, requirement.ownerId, requirement.owner);
+      return { ...requirement, ownerId: requirementOwner.id, owner: requirementOwner.name };
+    }),
+  };
 }
 
 function matchesQueueOptions(item: PipelineUnscheduledAssessment, user: PipelineUser, options: AssessmentCalendarOptions) {

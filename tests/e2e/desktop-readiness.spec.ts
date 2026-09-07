@@ -301,13 +301,12 @@ test.describe("desktop feature enabled", () => {
 
   test("encrypts offline assessment edits and syncs them after reconnecting", async ({ context, page }) => {
     await page.goto("/");
-    const membersResponse = await page.request.get("/api/members");
+    const membersResponse = await page.request.get("/api/members?scope=assessors");
     const members = await membersResponse.json() as {
       members: Array<{ principal_id: string; display_name: string }>;
-      current_principal_id: string;
     };
-    const current = members.members.find((member) => member.principal_id === members.current_principal_id);
-    expect(current).toBeTruthy();
+    const owner = members.members[0];
+    expect(owner).toBeTruthy();
 
     const token = Date.now().toString(36);
     const clientName = `Morgan ${token.replace(/\d/g, (digit) => String.fromCharCode(97 + Number(digit)))}`;
@@ -325,8 +324,8 @@ test.describe("desktop feature enabled", () => {
           documentName: `offline-${token}.pdf`,
           documentStatus: "Reviewed",
           packetStatus: "reviewed",
-          owner: current!.display_name,
-          assignee_id: current!.principal_id,
+          owner: owner!.display_name,
+          assignee_id: owner!.principal_id,
           note: "",
           createdAt: new Date().toISOString(),
           dob: "1980-01-01",

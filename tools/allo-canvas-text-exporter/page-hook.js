@@ -279,10 +279,6 @@
     return payload;
   };
 
-  const dropCacheKey = (body) => {
-    if (body?.params?.[0] && typeof body.params[0] === "object") delete body.params[0].if_none_match;
-  };
-
   const nextPageKey = (payload) => Core.paginationInfo(payload).next;
   const setPageKey = (body, key, treeMode = false) => {
     const params = body?.params?.[0];

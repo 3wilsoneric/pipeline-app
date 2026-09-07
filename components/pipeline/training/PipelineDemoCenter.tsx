@@ -37,6 +37,7 @@ type DemoActor = {
 };
 
 type DemoReferralSummary = Pick<Referral, "id" | "name" | "community" | "tags" | "createdAt">;
+type DemoAssessor = { principal_id: string; display_name: string };
 type DemoView = "presentation" | "journey" | "lab" | "handoff";
 
 type PresentationSlide = {
@@ -337,10 +338,14 @@ export default function PipelineDemoCenter({
 
     setLaunchingId(scenario.id);
     try {
+      const memberResult = await fetchPipelineJson<{ members: DemoAssessor[] }>("/api/members?scope=assessors");
+      const assessor = memberResult.members.find((member) => member.principal_id === actor.id) ?? memberResult.members[0];
+      if (!assessor) throw new Error("No active assessor is available for this practice case.");
       const referralResult = await fetchPipelineJson<{ referral: Referral }>("/api/referrals", {
         method: "POST",
         body: JSON.stringify({
-          referral: buildPipelineDemoReferral(scenario, actor.name),
+          referral: buildPipelineDemoReferral(scenario, assessor.display_name),
+          assignee_id: assessor.principal_id,
           client_mutation_id: demoMutationId(`referral-${scenario.id}`),
         }),
       });

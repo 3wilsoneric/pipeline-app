@@ -58,9 +58,9 @@ async function requireCurrentSchema() {
   const rows = await sql`
     select count(*)::integer as count
     from pipeline.schema_migrations
-    where migration_id between '0001_pipeline_core' and '0027_staff_profiles'
+    where migration_id between '0001_pipeline_core' and '0028_workspace_roster'
   `;
-  check("latest migration set is available", Number(rows[0].count) === 27, { migrations: Number(rows[0].count) });
+  check("latest migration set is available", Number(rows[0].count) === 28, { migrations: Number(rows[0].count) });
 }
 
 async function verifyAtomicRollback() {

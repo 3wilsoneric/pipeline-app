@@ -18,6 +18,7 @@ const fieldWritingSpec = loadTypeScriptModule(root, "lib/assessment/assessment-f
 const assessmentSummary = loadTypeScriptModule(root, "lib/assessment/assessment-summary.ts");
 const meetClientTemplate = loadTypeScriptModule(root, "lib/notifications/meet-client-email-template.ts");
 const attachmentPolicy = loadTypeScriptModule(root, "lib/notifications/meet-client-attachment-policy.ts");
+const memberEligibility = loadTypeScriptModule(root, "lib/pipeline/workspace-member-eligibility.ts");
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -75,6 +76,46 @@ check("referral edits cannot reopen a terminal referral", workflow.resolveReferr
   { ...referral, workflowStatus: "accepted", stage: "Accepted / Admitted", owner: "Unassigned", ownerId: undefined },
 ) === "accepted");
 check("explicit schedule drives calendar workflow state", workflow.resolveReferralWorkflowStatus(referral, { assessment: { ...assessment, schedule_status: "scheduled" } }) === "assessment_scheduled");
+check("active reviewer-only members are assignable assessors", memberEligibility.isAssignableAssessorMember({
+  principal_id: "assessor-1",
+  active: true,
+  roles: ["reviewer", "viewer"],
+  identity_status: "provisional",
+  merged_into_principal_id: null,
+}));
+check("assessment coordinators may remain assessors when that is their operating role", memberEligibility.isAssignableAssessorMember({
+  principal_id: "assessing-supervisor-1",
+  active: true,
+  roles: ["assessment_coordinator", "reviewer", "viewer"],
+  identity_status: "entra_linked",
+  merged_into_principal_id: null,
+}));
+check("Andrew and administrators never appear as assignable assessors", !memberEligibility.isAssignableAssessorMember({
+  principal_id: "e9f39185-d751-45c0-bcf5-c24d3565bdd9",
+  active: true,
+  roles: ["assessment_coordinator", "reviewer", "viewer"],
+  identity_status: "entra_linked",
+  merged_into_principal_id: null,
+}) && !memberEligibility.isAssignableAssessorMember({
+  principal_id: "admin-1",
+  active: true,
+  roles: ["admin", "reviewer", "viewer"],
+  identity_status: "entra_linked",
+  merged_into_principal_id: null,
+}));
+check("inactive and merged members never appear as assignable assessors", !memberEligibility.isAssignableAssessorMember({
+  principal_id: "inactive-assessor",
+  active: false,
+  roles: ["reviewer", "viewer"],
+  identity_status: "provisional",
+  merged_into_principal_id: null,
+}) && !memberEligibility.isAssignableAssessorMember({
+  principal_id: "merged-assessor",
+  active: false,
+  roles: ["reviewer", "viewer"],
+  identity_status: "merged",
+  merged_into_principal_id: "active-assessor",
+}));
 check("started assessment is in progress", workflow.resolveReferralWorkflowStatus(referral, { assessment: { ...assessment, schedule_status: "scheduled", started_at: "2026-08-23T15:00:00.000Z" } }) === "assessment_in_progress");
 check("an unstarted draft with complete fields remains ready to schedule", workflow.resolveReferralWorkflowStatus(referral, { assessment: { ...assessment, resident_number: "71", resident_name: "Workflow Fixture", date_of_birth: "1980-01-02", community: "San Pablo", assessment_date: "2026-08-23", assessor: "Assigned Assessor", primary_diagnosis: "Fixture", adl_needs: "Fixture", behavioral_history: "Fixture", medications_at_intake: ["Fixture"] } }) === "ready_to_schedule");
 check("legacy completion is ready to sign, never silently signed", workflow.resolveReferralWorkflowStatus(referral, { assessment: { ...assessment, status: "complete" } }) === "assessment_ready_to_sign");

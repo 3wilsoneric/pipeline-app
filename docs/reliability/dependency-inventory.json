@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T16:58:17.873Z",
+  "generated_at": "2026-09-07T19:23:08.144Z",
   "audit_date": "2026-09-07",
-  "git_head": "7704ab708b1fbd9e6ac0b2a729292dc39705d05b",
+  "git_head": "f1d3a7279a7e209f6dc90fc6faf35840e51dbed5",
   "direct": [
     {
       "name": "@azure/identity",
@@ -749,7 +749,6 @@
         "lib/pipeline/client-workspace-store.ts",
         "lib/pipeline/editing-presence.ts",
         "lib/pipeline/historical-profile-store.ts",
-        "lib/pipeline/known-users.ts",
         "lib/pipeline/referral-activity.ts",
         "lib/pipeline/referral-store.ts",
         "lib/pipeline/resident-link-records.ts",
@@ -888,6 +887,7 @@
         "components/pipeline/training/OperatorProductMap.tsx",
         "components/pipeline/training/PipelineDemoCenter.tsx",
         "components/pipeline/training/PipelineGuidedCoach.tsx",
+        "database/rollbacks/0028_workspace_roster.sql",
         "docs/COMPLETE_REPOSITORY_AUDIT_2026-08-22.md",
         "docs/CONSTRAINTS.md",
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
@@ -901,6 +901,7 @@
         "scripts/academy-atlas.mjs",
         "scripts/code-quality-readiness.mjs",
         "scripts/complete-repository-audit.mjs",
+        "scripts/database-rollback-drill.mjs",
         "tsconfig.json"
       ]
     },
@@ -7486,11 +7487,8 @@
     }
   ],
   "installed": {
-    "resolvedPackages": 520,
-    "dependencyEdges": 1062,
-    "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-integration/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-refactor-integration/node_modules/@img/sharp-wasm32"
-    ]
+    "resolvedPackages": 528,
+    "dependencyEdges": 1093,
+    "problems": []
   }
 }

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:1b094055f230ef1f",
-  "fingerprint": "1b094055f230ef1f3394205ec3cc550fe6af2b02b18f2f0fe51ac8dc1d78f2ff",
+  "generatedAt": "source-fingerprint:d04bb3961870a91d",
+  "fingerprint": "d04bb3961870a91db9d15a65e5ee3ff7998b416bc5d9b8376fc25539b341bf67",
   "totals": {
-    "files": 846,
-    "lines": 282038,
-    "coveredFiles": 846
+    "files": 849,
+    "lines": 282320,
+    "coveredFiles": 849
   },
   "entries": [
     {
@@ -793,7 +793,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 46,
+      "lines": 48,
       "moduleIds": [
         "route-handler-contract",
         "validation-authorization"
@@ -2298,7 +2298,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 674,
+      "lines": 679,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2346,7 +2346,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 34,
+      "lines": 35,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -2677,6 +2677,18 @@
       ]
     },
     {
+      "path": "database/migrations/0028_workspace_roster.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 41,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -2947,6 +2959,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 16,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0028_workspace_roster.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 28,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -4402,7 +4426,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1756,
+      "lines": 1758,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4438,7 +4462,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7497,
+      "lines": 7495,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4498,7 +4522,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10353,
+      "lines": 10386,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5266,7 +5290,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 119,
+      "lines": 120,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -5910,7 +5934,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 481,
+      "lines": 503,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -6258,7 +6282,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 68,
+      "lines": 20,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6330,7 +6354,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 892,
+      "lines": 893,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -6378,7 +6402,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 95,
+      "lines": 93,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6857,12 +6881,24 @@
       ]
     },
     {
+      "path": "lib/pipeline/workspace-member-eligibility.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 22,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/workspace-members.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 306,
+      "lines": 321,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7714,7 +7750,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2036,
+      "lines": 2054,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7774,7 +7810,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 485,
+      "lines": 526,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8026,7 +8062,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 331,
+      "lines": 354,
       "moduleIds": [
         "concurrency-idempotency",
         "stores-transactions"
@@ -8338,7 +8374,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 427,
+      "lines": 445,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -8362,7 +8398,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 684,
+      "lines": 739,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8458,7 +8494,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 33,
+      "lines": 34,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -9719,7 +9755,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 66,
+      "lines": 67,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9743,7 +9779,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 333,
+      "lines": 335,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9791,7 +9827,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 305,
+      "lines": 315,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9972,7 +10008,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 3174,
+      "lines": 3166,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

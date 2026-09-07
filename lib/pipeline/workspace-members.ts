@@ -9,6 +9,7 @@ import {
   type StaffProfile,
   type StaffProfilePreferences,
 } from "@/lib/pipeline/staff-profile";
+import { isAssignableAssessorMember } from "@/lib/pipeline/workspace-member-eligibility";
 
 export type WorkspaceMember = {
   principal_id: string;
@@ -134,6 +135,15 @@ export async function getActiveWorkspaceMember(principalId: string) {
   return rows[0] ? mapMember(rows[0]) : null;
 }
 
+export async function getAssignableWorkspaceAssessor(principalId: string) {
+  const member = await getActiveWorkspaceMember(principalId);
+  return member && isAssignableAssessorMember(member) ? member : null;
+}
+
+export async function listAssignableWorkspaceAssessors(currentUser?: PipelineUser) {
+  return (await listWorkspaceMembers(currentUser)).filter(isAssignableAssessorMember);
+}
+
 export async function findActiveWorkspaceMemberByName(name: string) {
   const normalized = name.trim();
   if (!normalized) return null;
@@ -141,6 +151,11 @@ export async function findActiveWorkspaceMemberByName(name: string) {
     (member) => member.display_name.localeCompare(normalized, undefined, { sensitivity: "accent" }) === 0,
   );
   return matches.length === 1 ? matches[0] : null;
+}
+
+export async function findAssignableWorkspaceAssessorByName(name: string) {
+  const member = await findActiveWorkspaceMemberByName(name);
+  return member && isAssignableAssessorMember(member) ? member : null;
 }
 
 export async function updateOwnWorkspaceMemberProfile(input: {

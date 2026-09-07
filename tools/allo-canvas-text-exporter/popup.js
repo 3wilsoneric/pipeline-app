@@ -1,6 +1,5 @@
 "use strict";
 
-const STATE_KEY = "alloCanvasTextState";
 const RESULT_PREFIX = "alloCanvasTextResult:";
 const ManifestCore = globalThis.AlloCanvasManifestCore;
 
@@ -210,7 +209,11 @@ const exportNormalized = async () => {
     catalog: state.catalog,
     content: state.content
   };
-  const records = results.map(({ raw_responses: _raw, ...result }) => result);
+  const records = results.map((result) => {
+    const record = { ...result };
+    delete record.raw_responses;
+    return record;
+  });
   const output = [JSON.stringify({ metadata }), ...records.map((result) => JSON.stringify(result))].join("\n");
   const folder = safeName(`ALLO-canvas-text-${new Date().toISOString().slice(0, 10)}`);
   await triggerDownload(output, "application/x-ndjson", `${folder}/canvas-content.jsonl`);

@@ -22,7 +22,7 @@ import {
 } from "@/lib/pipeline/referral-access";
 import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
 import { isUnassignedOwner, reassignReferralOwners } from "@/lib/pipeline/referral-ownership";
-import { getActiveWorkspaceMember, touchWorkspaceMember, type WorkspaceMember } from "@/lib/pipeline/workspace-members";
+import { getAssignableWorkspaceAssessor, touchWorkspaceMember, type WorkspaceMember } from "@/lib/pipeline/workspace-members";
 
 export const runtime = "nodejs";
 
@@ -172,7 +172,7 @@ async function resolveOwnerPatch(input: OwnerPatchInput): Promise<
     ? await resolveKnownPipelineUser(assignment.owner)
     : null;
   if (input.requestedPatch.owner !== undefined && !selectedOwner && !assignment.ownerId && !knownOwner && !isUnassignedOwner(assignment.owner)) {
-    return { ok: false, response: jsonError("Choose an active Pipeline member as owner.", 422) };
+    return { ok: false, response: jsonError("Choose an active assessor as owner.", 422) };
   }
   const assignedOwner = input.requestedPatch.owner === undefined
     ? {}
@@ -220,9 +220,9 @@ async function resolveSelectedOwner(
   user: PipelineUser,
   assigneeId: string | undefined,
 ): Promise<{ ok: true; member: WorkspaceMember | null } | { ok: false; response: Response }> {
-  const member = typeof assigneeId === "string" ? await getActiveWorkspaceMember(assigneeId) : null;
+  const member = typeof assigneeId === "string" ? await getAssignableWorkspaceAssessor(assigneeId) : null;
   if (assigneeId !== undefined && !member) {
-    return { ok: false, response: jsonError("Choose an active Pipeline member as owner.", 422) };
+    return { ok: false, response: jsonError("Choose an active assessor as owner.", 422) };
   }
   if (member && isAssessorUser(user) && member.principal_id !== user.id) {
     return { ok: false, response: jsonError("Assessors cannot reassign referrals.", 403) };

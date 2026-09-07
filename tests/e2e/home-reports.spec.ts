@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+const testAssessor = {
+  id: "provisional:allo:annette",
+  name: "Annette",
+} as const;
+
 test.describe("role-scoped home and reports", () => {
   test("presents the operational briefing without dashboard clutter", async ({ page }) => {
     await page.goto("/");
@@ -105,10 +110,15 @@ test.describe("role-scoped home and reports", () => {
   });
 
   test("returns only current personal assignments from the assignment feed", async ({ page }) => {
+    const delegated = await page.request.post("/api/auth/assessor-session", {
+      data: { target_principal_id: testAssessor.id },
+    });
+    expect(delegated.status(), await delegated.text()).toBe(200);
     const createdAt = new Date().toISOString();
     const created = await page.request.post("/api/referrals", {
       data: {
         client_mutation_id: `home-assignment-${Date.now()}`,
+        assignee_id: testAssessor.id,
         referral: {
           name: `New Assignment ${Date.now()}`,
           date: createdAt.slice(0, 10),
@@ -119,7 +129,7 @@ test.describe("role-scoped home and reports", () => {
           tags: [],
           documentName: "",
           documentStatus: "Missing",
-          owner: "Playwright QA",
+          owner: testAssessor.name,
           note: "",
           createdAt,
           dob: "",
