@@ -2118,7 +2118,7 @@ async function syncPostgresOpenAssessmentAssignments(
       update pipeline.assessments
       set assessor_id = ${nextAssessor?.id ?? null},
           assessor_name = ${nextAssessor?.name ?? null},
-          data = coalesce(data, '{}'::jsonb) || jsonb_build_object('assessor', ${nextAssessor?.name ?? null}),
+          data = coalesce(data, '{}'::jsonb) || jsonb_build_object('assessor', ${nextAssessor?.name ?? null}::text),
           section_versions = jsonb_set(
             coalesce(section_versions, '{}'::jsonb),
             '{identity}',
