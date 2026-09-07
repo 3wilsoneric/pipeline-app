@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T06:39:59.208Z",
+  "generated_at": "2026-09-07T06:43:50.580Z",
   "audit_date": "2026-09-07",
-  "git_head": "2060a7093af5882dad268bde0bac7868b1db9ab0",
+  "git_head": "98f7cdb412c66f0b77762e78c0d4e611c70fd7bd",
   "direct": [
     {
       "name": "@azure/identity",

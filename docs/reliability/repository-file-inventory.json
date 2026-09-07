@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T06:39:59.208Z",
+  "generated_at": "2026-09-07T06:43:50.580Z",
   "audit_date": "2026-09-07",
-  "git_head": "2060a7093af5882dad268bde0bac7868b1db9ab0",
+  "git_head": "98f7cdb412c66f0b77762e78c0d4e611c70fd7bd",
   "files": [
     {
       "path": ".dockerignore",
@@ -4036,11 +4036,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "5bf20461bedf3f3ee4f127e110f2febcc115690c6ac2aba4206e03c3b195fde8",
+      "content_sha256": "29415e66c21d9be34f989707457218ff6e09f434ab463869440584c172856637",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 353192,
-      "lines": 1719,
+      "bytes": 351293,
+      "lines": 1694,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4064,11 +4064,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "0c8d6b4bae4e1ffc0ac3ca69a6871bb47430089bd68b2dc35d380b685a513c76",
+      "content_sha256": "625a69fa0332356c81aad7ab7ea667008852e698b25deed381c4c51b33fbab2d",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 215439,
-      "lines": 7492,
+      "bytes": 213765,
+      "lines": 7470,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4123,7 +4123,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "acc722944515ef9cc9ed0c6cf2a6996ca2ea3f75b4ac25f6d125a9ef0d9cadde",
+      "content_sha256": "de99ff8ed37467202257fd5f6ad6e29cef215a548777ffd031d68d19b4df1248",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 481264,
@@ -9229,10 +9229,10 @@
     },
     {
       "path": "tests/e2e/operational/referral-store-characterization.spec.ts",
-      "content_sha256": "383f973894947271be15a3f09db670bbc7359f195ac3becca2f9a8e69ed0da0b",
+      "content_sha256": "e1de2d7137386978e4532e0164ac1512a945beb54f3408bffcd8103025ef7b5f",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 17069,
+      "bytes": 17037,
       "lines": 398,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."

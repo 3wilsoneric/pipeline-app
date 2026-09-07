@@ -65,7 +65,7 @@ test.describe("referral store characterization", () => {
     const coordinator = await actorApiContext("assessmentCoordinator", url);
 
     try {
-      const created = await createReferral(coordinator, "characterization-section-create", "Synthetic Section Person");
+      const created = await createReferral(coordinator, "characterization-section-create", "Simone Section");
       const identityVersion = sectionVersion(created, "identity");
       const intakeVersion = sectionVersion(created, "intake");
       const [identity, intake] = await Promise.all([
@@ -144,7 +144,7 @@ test.describe("referral store characterization", () => {
       const created = await createReferral(
         coordinator,
         "characterization-authorization-create",
-        "Synthetic Authorization Person",
+        "Avery Authorization",
         pipelineActors.assessorA.id,
       );
       const id = number(created.id);
@@ -256,7 +256,7 @@ test.describe("referral store characterization", () => {
       const created = await createReferral(
         coordinator,
         "characterization-trash-create",
-        "Synthetic Trash Person",
+        "Tessa Trash",
         pipelineActors.assessorA.id,
       );
       const id = number(created.id);
