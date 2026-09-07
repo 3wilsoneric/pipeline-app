@@ -1,10 +1,12 @@
 # Pipeline Refactor Guidance Evaluation Protocol
 
-Status: setup-only candidate. It evaluates the refactor process; it does not authorize implementation and does not certify application correctness.
+Status: available evaluation harness. It evaluates the refactor process; it does not authorize implementation and does not certify application correctness.
 
 ## Purpose
 
 Pipeline's refactor instructions, responsibility map, proof obligations, and automated gates are hypotheses about how to make refactoring safer. They become an adopted guidance baseline only after fresh agents apply them successfully to fixed first-attempt scenarios, matched comparisons show no safety-critical regression, private holdouts resist overfitting, and humans decide to keep the change.
+
+The adopted baseline is a mandatory start gate in the `standard` lane. In `owner_fast_lane`, the named owner may waive that start gate through `owner-fast-lane.json`; the public harness, structural checker, and correction ledger remain available, but blind comparison and private holdouts are advisory. This waiver does not affect application tests, scope enforcement, behavior preservation, rollback, or critical/high-finding blockers.
 
 This closes a different gap from architecture comprehension. A reviewer may be able to explain where code lives while still choosing an unsafe scope or moving the wrong boundary. Guidance evaluation asks whether a fresh agent actually:
 
@@ -95,9 +97,9 @@ After a correction lands, rerun affected scenarios and watch recurrence. If the 
 
 ## Adoption and exact-commit binding
 
-The global `evaluated_refactor_guidance_baseline` item in `evidence-matrix.json` remains unresolved until a real comparison record validates and a human keeps the candidate bundle. The adopted comparison record must be committed under `docs/refactoring/guidance-evaluations/` or referenced through another immutable evidence location accepted by the human owner.
+In the standard lane, the global `evaluated_refactor_guidance_baseline` item in `evidence-matrix.json` remains unresolved until a real comparison record validates and a human keeps the candidate bundle. The adopted comparison record must be committed under `docs/refactoring/guidance-evaluations/` or referenced through another immutable evidence location accepted by the human owner.
 
-Every started slice records the adopted comparison path, guidance commit, and scenario-suite version in its assurance record. `npm run check:refactor-guidance` validates setup structure and, once the evidence item is marked satisfied, validates the adoption record and active-slice binding.
+Every standard-lane started slice records the adopted comparison path, guidance commit, and scenario-suite version in its assurance record. Under `owner_fast_lane`, the evidence item is explicitly owner-approved `not_applicable`, the slice binds `owner-fast-lane.json` instead, and no adoption record may be claimed. `npm run check:refactor-guidance` validates both lifecycle shapes while always validating the harness structure.
 
 The current files bootstrap the harness. They are agent-drafted and have not yet passed their own initial matched comparison, so they remain setup evidence rather than an adopted refactor baseline.
 

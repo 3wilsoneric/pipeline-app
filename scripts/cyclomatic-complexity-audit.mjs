@@ -6,8 +6,11 @@ import { dirname, extname, join, relative, resolve } from "node:path";
 
 import ts from "typescript";
 
+import { evaluateComplexityDisposition } from "./complexity-disposition.mjs";
+
 const ROOT = process.cwd();
 const baselinePath = resolve(ROOT, "docs/reliability/cyclomatic-complexity-baseline.json");
+const dispositionPath = resolve(ROOT, "docs/refactoring/complexity-disposition.json");
 const reportPath = resolve(ROOT, "outputs/complexity/cyclomatic-complexity-latest.json");
 const writeBaseline = process.argv.includes("--write-baseline");
 const thresholds = {
@@ -59,7 +62,8 @@ if (writeBaseline) {
 }
 
 const baseline = readBaseline();
-const result = compareWithBaseline(report, baseline);
+const disposition = readDisposition();
+const result = compareWithBaseline(report, baseline, disposition);
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 if (!result.ok) process.exitCode = 1;
 
@@ -241,11 +245,11 @@ function createReport(records) {
   };
 }
 
-function compareWithBaseline(report, baseline) {
-  const errors = [];
+function compareWithBaseline(report, baseline, disposition) {
+  const failures = [];
   const warnings = [];
   if (baseline.schemaVersion !== 1 || !Array.isArray(baseline.functions)) {
-    errors.push("Complexity baseline is missing or uses an unsupported schema.");
+    failures.push({ kind: "policy", message: "Complexity baseline is missing or uses an unsupported schema." });
   }
   const baselineByKey = new Map((baseline.functions ?? []).map((item) => [item.key, item]));
 
@@ -254,7 +258,12 @@ function compareWithBaseline(report, baseline) {
     if (!previous) {
       const maximum = item.controlPlane ? thresholds.newControlPlaneMaximum : thresholds.newFunctionMaximum;
       if (item.complexity > maximum) {
-        errors.push(`New function ${item.key} has complexity ${item.complexity}; maximum is ${maximum}.`);
+        failures.push({
+          kind: "function",
+          key: item.key,
+          current: item.complexity,
+          message: `New function ${item.key} has complexity ${item.complexity}; maximum is ${maximum}.`,
+        });
       }
       continue;
     }
@@ -262,15 +271,32 @@ function compareWithBaseline(report, baseline) {
       item.complexity > previous.complexity
       && (item.complexity >= thresholds.warning || previous.complexity >= thresholds.warning)
     ) {
-      errors.push(`Function ${item.key} grew from ${previous.complexity} to ${item.complexity}.`);
+      failures.push({
+        kind: "function",
+        key: item.key,
+        current: item.complexity,
+        message: `Function ${item.key} grew from ${previous.complexity} to ${item.complexity}.`,
+      });
     }
   }
 
   for (const metric of ["hotspots", "criticalHotspots", "controlPlaneHotspots"]) {
     const previous = Number(baseline.totals?.[metric] ?? 0);
     const current = report.totals[metric];
-    if (current > previous) errors.push(`${metric} increased from ${previous} to ${current}.`);
+    if (current > previous) failures.push({
+      kind: "total",
+      metric,
+      current,
+      message: `${metric} increased from ${previous} to ${current}.`,
+    });
   }
+
+  const dispositionResult = evaluateComplexityDisposition(failures, disposition);
+  const errors = [
+    ...dispositionResult.validationErrors,
+    ...dispositionResult.remaining.map((failure) => failure.message),
+  ];
+  warnings.push(...dispositionResult.warnings);
 
   for (const item of report.topHotspots.slice(0, 15)) {
     warnings.push(`${item.path}:${item.line} ${item.name} has complexity ${item.complexity}.`);
@@ -282,10 +308,15 @@ function compareWithBaseline(report, baseline) {
     report: relative(ROOT, reportPath),
     totals: report.totals,
     baselineTotals: baseline.totals,
+    disposition: {
+      path: relative(ROOT, dispositionPath),
+      status: dispositionResult.status,
+      appliedFailures: dispositionResult.applied.map((failure) => failure.message),
+    },
     errors,
     warnings,
     interpretation: errors.length === 0
-      ? "No new high-complexity function or hotspot growth was detected. Existing hotspots remain refactor candidates, not approved patterns."
+      ? "No complexity exceeded the historical baseline or approved exact ceilings. Existing hotspots remain refactor candidates, not approved patterns."
       : "Complexity exceeded the reviewed ratchet. Characterize behavior and reduce the changed function; do not regenerate the baseline to hide growth.",
   };
 }
@@ -295,6 +326,14 @@ function readBaseline() {
     return JSON.parse(readFileSync(baselinePath, "utf8"));
   } catch {
     return { schemaVersion: 0, totals: {}, functions: [] };
+  }
+}
+
+function readDisposition() {
+  try {
+    return JSON.parse(readFileSync(dispositionPath, "utf8"));
+  } catch {
+    return null;
   }
 }
 

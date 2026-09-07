@@ -5,8 +5,20 @@
   "startingCommit": "full-reviewed-git-sha",
   "candidateCommit": null,
   "humanOwner": "name",
-  "independentHumanReviewer": "different-name",
+  "approvalMode": "standard | owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "human-owner",
+    "authorizedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
+  },
+  "independentHumanReviewer": "different-name | null in owner_fast_lane",
   "approvedObligationIds": [],
+  "preChangeMachineTrace": ["required only in owner_fast_lane: exact command and evidence reference"],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": ["exact invariant copied from the active registry slice"],
+    "evidence": ["characterization or parity artifact"]
+  },
   "guidanceEvaluation": {
     "adoptionRecord": "docs/refactoring/guidance-evaluations/exact-adopted-comparison.json",
     "guidanceCommit": "full-40-character-adopted-guidance-commit",
@@ -70,7 +82,7 @@
       "methods": ["assurance-class"],
       "evidence": ["artifact or exact command result"],
       "implementationTrace": ["exact/path.ts:symbol"],
-      "verifiedBy": "independent-human-reviewer",
+      "verifiedBy": "reviewer-or-owner-fast-lane-verifier",
       "verifiedAt": "YYYY-MM-DDTHH:mm:ss.sssZ"
     }
   ],
@@ -138,12 +150,15 @@
     "candidateCommit": "full-candidate-git-sha",
     "allObligationsVerified": false,
     "requiredGatesPassed": false,
+    "behaviorPreserved": false,
     "consecutiveCleanAdversarialPasses": 0,
     "postComprehensionNoWorse": false,
     "rollbackOrRecoveryProven": false,
     "noUnresolvedCriticalOrHigh": false,
     "acceptedBy": null,
     "acceptedAt": null,
+    "authorizedBy": "human-owner in owner_fast_lane",
+    "authorizedAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
     "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
   }
 }

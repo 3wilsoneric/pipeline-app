@@ -138,20 +138,36 @@ function resolveAssessment(
   assessmentComplete: boolean,
 ): WorkspaceAssessmentState {
   if (context.assessmentSigned) return "signed";
-  if (assessmentComplete || context.assessmentStatus === "complete") return "ready_to_sign";
+  if (isAssessmentComplete(context, assessmentComplete)) return "ready_to_sign";
 
   const scheduleStatus = context.assessmentScheduleStatus;
-  const started = context.assessmentStarted ?? Boolean(referral.assessment?.startedAt);
-  const waiting = activeRequirements.some((requirement) =>
-    requirement.blocker && requirement.status === "requested",
-  );
+  const started = hasAssessmentStarted(referral, context);
+  const waiting = hasRequestedBlockingRequirement(activeRequirements);
   if (started && waiting) return "waiting_for_information";
   if (started) return "in_progress";
   if (scheduleStatus === "completed") return "ready_to_sign";
   if (scheduleStatus === "scheduled" || scheduleStatus === "rescheduled") return "scheduled";
 
-  const exists = context.assessmentExists ?? Boolean(referral.assessment);
-  return exists ? "unscheduled" : "not_started";
+  return assessmentExists(referral, context) ? "unscheduled" : "not_started";
+}
+
+function isAssessmentComplete(context: WorkflowContext, assessmentComplete: boolean) {
+  return assessmentComplete
+    || context.assessmentStatus === "complete";
+}
+
+function hasAssessmentStarted(referral: Referral, context: WorkflowContext) {
+  return context.assessmentStarted ?? Boolean(referral.assessment?.startedAt);
+}
+
+function hasRequestedBlockingRequirement(requirements: AdmissionRequirement[]) {
+  return requirements.some((requirement) =>
+    requirement.blocker && requirement.status === "requested",
+  );
+}
+
+function assessmentExists(referral: Referral, context: WorkflowContext) {
+  return context.assessmentExists ?? Boolean(referral.assessment);
 }
 
 function resolveDocuments(

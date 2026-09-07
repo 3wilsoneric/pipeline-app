@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "status": "active",
+  "owner": "Eric",
+  "authorizedAt": "2026-09-07T14:37:17Z",
+  "source": "Codex conversation",
+  "directive": "Replace TARS’s mandatory independent-review and guidance-evaluation start gates with an owner-authorized fast lane. Keep all machine tests, rollback protection, and behavior-preservation requirements.",
+  "startPolicy": {
+    "independentHumanReviewRequired": false,
+    "blindGuidanceComparisonRequired": false,
+    "privateHoldoutRequired": false,
+    "ownerApprovalRequired": true,
+    "boundedAllowedPathsRequired": true,
+    "cleanDedicatedWorktreeRequired": true,
+    "exactStartingCommitRequired": true,
+    "machineGatesRequired": true,
+    "rollbackOrRevertPlanRequired": true,
+    "behaviorPreservationRequired": true
+  },
+  "completionPolicy": {
+    "allApplicableMachineGatesRequired": true,
+    "behaviorPreservationEvidenceRequired": true,
+    "noUnresolvedCriticalOrHighFindings": true,
+    "rollbackOrRecoveryEvidenceRequired": true,
+    "independentAdversarialPassesAdvisory": true,
+    "separateHumanResidualRiskAcceptanceAdvisory": true
+  }
+}

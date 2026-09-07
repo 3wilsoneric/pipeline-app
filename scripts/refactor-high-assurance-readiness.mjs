@@ -20,6 +20,7 @@ const criticalities = new Set(policy.criticalities ?? []);
 const obligationStatuses = new Set(policy.obligationStatuses ?? []);
 const fullCommit = /^[0-9a-f]{40}$/u;
 const runFixtures = process.argv.includes("--fixtures");
+const ownerFastLane = registry.approvalMode === "owner_fast_lane";
 
 function duplicateIds(items, label) {
   const seen = new Set();
@@ -111,11 +112,34 @@ function validateStartRecord(record, slice, obligations, probes) {
   if (record.schemaVersion !== 1 || record.sliceId !== slice.id) errors.push(`${slice.id} assurance record has the wrong schemaVersion or sliceId.`);
   if (record.startingCommit !== slice.startingCommit) errors.push(`${slice.id} assurance record must use the registry startingCommit.`);
   if (record.humanOwner !== slice.owner) errors.push(`${slice.id} assurance record humanOwner must match the registry owner.`);
+  exactSet(record.approvedObligationIds, obligations.map((item) => item.id), `${slice.id} approvedObligationIds`);
+  if (ownerFastLane) {
+    validateFastLaneStartRecord(record, slice);
+    return;
+  }
   if (!record.independentHumanReviewer || record.independentHumanReviewer === record.humanOwner) {
     errors.push(`${slice.id} assurance record requires an independent human reviewer.`);
   }
-  exactSet(record.approvedObligationIds, obligations.map((item) => item.id), `${slice.id} approvedObligationIds`);
   validateComprehension(record.preChangeComprehension, slice, probes, "preChangeComprehension", slice.startingCommit);
+}
+
+function validateFastLaneStartRecord(record, slice) {
+  const authorization = record.ownerAuthorization;
+  if (record.approvalMode !== "owner_fast_lane") errors.push(`${slice.id} assurance record must declare owner_fast_lane approval.`);
+  if (!authorization || authorization.record !== registry.ownerFastLaneRecord || authorization.authorizedBy !== slice.owner || !authorization.authorizedAt) {
+    errors.push(`${slice.id} assurance record requires owner authorization bound to the registry fast-lane record.`);
+  }
+  if (!Array.isArray(record.preChangeMachineTrace) || record.preChangeMachineTrace.length === 0) {
+    errors.push(`${slice.id} owner-fast-lane assurance record requires pre-change machine trace evidence.`);
+  }
+  validateFastLaneBehaviorPreservation(record.behaviorPreservation, slice);
+}
+
+function validateFastLaneBehaviorPreservation(preservation, slice) {
+  if (preservation?.required !== true || !Array.isArray(preservation?.evidence) || preservation.evidence.length === 0) {
+    errors.push(`${slice.id} owner-fast-lane assurance record requires behavior-preservation evidence.`);
+  }
+  exactSet(preservation?.invariants, slice.invariants, `${slice.id} behavior-preservation invariants`);
 }
 
 function findingIsUnresolved(finding) {
@@ -129,14 +153,30 @@ function validateCompletionRecord(record, slice, obligations, probes) {
 
   validateProofResults(record, slice, obligations, candidate);
   validateGateResults(record, slice, candidate);
-  const requiredPasses = validateAdversarialPasses(record, slice, candidate);
-
-  validateComprehension(record.postChangeComprehension, slice, probes, "postChangeComprehension", candidate);
-  if (!["better", "equal"].includes(record.postChangeComprehension?.comparisonToPreChange)) errors.push(`${slice.id} post-change comprehension regressed.`);
-
   validateRecovery(record.rollbackAndRecovery, slice.id, candidate);
   validateResidualRisks(record.residualRisks, slice.id);
+  if (ownerFastLane) {
+    validateFastLaneCompletion(record, slice, candidate);
+    return;
+  }
+  const requiredPasses = validateAdversarialPasses(record, slice, candidate);
+  validateComprehension(record.postChangeComprehension, slice, probes, "postChangeComprehension", candidate);
+  if (!["better", "equal"].includes(record.postChangeComprehension?.comparisonToPreChange)) errors.push(`${slice.id} post-change comprehension regressed.`);
   validateConvergence(record.convergence, slice.id, candidate, requiredPasses);
+}
+
+function validateFastLaneCompletion(record, slice, candidate) {
+  const findings = (record.adversarialPasses ?? []).flatMap((pass) => pass.findings ?? []);
+  for (const finding of findings) {
+    if (findingIsUnresolved(finding)) errors.push(`${slice.id} owner-fast-lane candidate has an unresolved ${finding.severity} finding.`);
+  }
+  const convergence = record.convergence;
+  for (const field of ["allObligationsVerified", "requiredGatesPassed", "behaviorPreserved", "rollbackOrRecoveryProven", "noUnresolvedCriticalOrHigh"]) {
+    if (convergence?.[field] !== true) errors.push(`${slice.id} owner-fast-lane convergence requires ${field} true.`);
+  }
+  if (convergence?.candidateCommit !== candidate) errors.push(`${slice.id} owner-fast-lane convergence must bind the candidate commit.`);
+  if (convergence?.authorizedBy !== slice.owner || !convergence?.authorizedAt) errors.push(`${slice.id} owner-fast-lane convergence requires recorded owner authorization.`);
+  if (convergence?.claim !== policy.claimPolicy?.allowed) errors.push(`${slice.id} convergence claim must use the bounded claim defined by policy.`);
 }
 
 function validateProofResults(record, slice, obligations, candidate) {
@@ -159,7 +199,7 @@ function validateProofResult(result, obligation, sliceId, candidate) {
   if (!proofEvidenceIsValid(result.evidence, result.implementationTrace)) {
     errors.push(`${sliceId}/${obligation.id} proof result lacks evidence or implementation trace.`);
   }
-  if (!result.verifiedBy || !result.verifiedAt) errors.push(`${sliceId}/${obligation.id} proof result lacks independent verification metadata.`);
+  if (!result.verifiedBy || !result.verifiedAt) errors.push(`${sliceId}/${obligation.id} proof result lacks verification metadata.`);
 }
 
 function proofMethodsAreValid(methods, allowedMethods) {
@@ -253,6 +293,12 @@ function validateConvergence(convergence, sliceId, candidate, requiredPasses) {
 if (policy.schemaVersion !== 1 || policy.target !== "practical_high_assurance") errors.push("High-assurance policy must use schemaVersion 1 and the practical_high_assurance target.");
 if ((policy.convergence?.requiredConsecutiveAdversarialPasses ?? 0) < 2) errors.push("High-assurance convergence requires at least two consecutive adversarial passes.");
 for (const claim of ["bug-free", "perfect"]) if (!policy.claimPolicy?.prohibitedClaims?.includes(claim)) errors.push(`High-assurance policy must prohibit the ${claim} claim.`);
+for (const field of ["ownerAuthorizationRequired", "allApplicableMachineGatesRequired", "allApprovedObligationsVerified", "behaviorPreservationEvidenceRequired", "requireRollbackOrRecoveryEvidence"]) {
+  if (policy.ownerFastLaneConvergence?.[field] !== true) errors.push(`Owner-fast-lane assurance policy must keep ${field} enabled.`);
+}
+if (policy.ownerFastLaneConvergence?.maximumUnresolvedCritical !== 0 || policy.ownerFastLaneConvergence?.maximumUnresolvedHigh !== 0) {
+  errors.push("Owner-fast-lane assurance policy must tolerate zero unresolved critical or high findings.");
+}
 
 if (responsibilityMap.schemaVersion !== 1 || !Array.isArray(responsibilityMap.responsibilities)) errors.push("Canonical responsibility map must use schemaVersion 1.");
 if (probeSet.schemaVersion !== 1 || !Array.isArray(probeSet.probes)) errors.push("Architecture comprehension probes must use schemaVersion 1.");
@@ -315,8 +361,12 @@ for (const slice of registry.slices ?? []) {
     ...obligations.filter((item) => item.humanValidated !== true).map((item) => `obligation:${item.id}`),
   ];
   const started = slice.status !== "not_started";
-  if (started && unvalidated.length > 0) errors.push(`${slice.id} started with unvalidated assurance definitions: ${unvalidated.join(", ")}.`);
-  if (!started && unvalidated.length > 0) warnings.push(`${slice.id} assurance model awaits human validation: ${unvalidated.join(", ")}.`);
+  if (started && unvalidated.length > 0 && !ownerFastLane) errors.push(`${slice.id} started with unvalidated assurance definitions: ${unvalidated.join(", ")}.`);
+  if (unvalidated.length > 0) {
+    warnings.push(ownerFastLane
+      ? `${slice.id} assurance definitions are machine-traced under the owner fast lane; separate human validation remains advisory: ${unvalidated.join(", ")}.`
+      : `${slice.id} assurance model awaits human validation: ${unvalidated.join(", ")}.`);
+  }
 
   let record = null;
   if (started) {
@@ -335,6 +385,7 @@ for (const slice of registry.slices ?? []) {
     probes: probes.length,
     obligations: obligations.length,
     humanValidated: unvalidated.length === 0,
+    approvalMode: ownerFastLane ? "owner_fast_lane" : "standard",
     assuranceRecord: slice.assuranceRecord ?? null,
   });
 }
@@ -370,6 +421,20 @@ if (runFixtures) {
     startingCommit: slice.startingCommit,
     candidateCommit: slice.startingCommit,
     humanOwner: slice.owner,
+    ...(ownerFastLane ? {
+      approvalMode: "owner_fast_lane",
+      ownerAuthorization: {
+        record: registry.ownerFastLaneRecord,
+        authorizedBy: slice.owner,
+        authorizedAt: "2026-08-31T00:00:00.000Z",
+      },
+      preChangeMachineTrace: ["fixture machine trace"],
+      behaviorPreservation: {
+        required: true,
+        invariants: [...slice.invariants],
+        evidence: ["fixture characterization evidence"],
+      },
+    } : {}),
     independentHumanReviewer: "Independent Human",
     approvedObligationIds: obligations.map((item) => item.id),
     preChangeComprehension: comprehension(slice.startingCommit, "pre-context"),
@@ -415,12 +480,17 @@ if (runFixtures) {
       candidateCommit: slice.startingCommit,
       allObligationsVerified: true,
       requiredGatesPassed: true,
+      behaviorPreserved: true,
       consecutiveCleanAdversarialPasses: 2,
       postComprehensionNoWorse: true,
       rollbackOrRecoveryProven: true,
       noUnresolvedCriticalOrHigh: true,
       acceptedBy: "Independent Human",
       acceptedAt: "2026-08-31T00:00:00.000Z",
+      ...(ownerFastLane ? {
+        authorizedBy: slice.owner,
+        authorizedAt: "2026-08-31T00:00:00.000Z",
+      } : {}),
       claim: policy.claimPolicy.allowed,
     },
   };
@@ -442,7 +512,26 @@ if (runFixtures) {
   validateCompletionRecord(invalid, slice, obligations, probes);
   assert.ok(errors.length > beforeInvalid, "Critical residual-risk fixture should fail assurance validation.");
   errors.length = beforeInvalid;
-  console.log(JSON.stringify({ ok: true, fixtures: 2 }, null, 2));
+
+  const failedGate = structuredClone(record);
+  failedGate.gateResults[0].outcome = "failed";
+  validateCompletionRecord(failedGate, slice, obligations, probes);
+  assert.ok(errors.length > beforeInvalid, "A failed required machine gate must block fast-lane completion.");
+  errors.length = beforeInvalid;
+
+  const missingRollback = structuredClone(record);
+  missingRollback.rollbackAndRecovery.exercisedEvidence = [];
+  validateCompletionRecord(missingRollback, slice, obligations, probes);
+  assert.ok(errors.length > beforeInvalid, "Missing exercised rollback evidence must block fast-lane completion.");
+  errors.length = beforeInvalid;
+
+  const missingBehaviorEvidence = structuredClone(record);
+  missingBehaviorEvidence.behaviorPreservation.evidence = [];
+  validateStartRecord(missingBehaviorEvidence, slice, obligations, probes);
+  assert.ok(errors.length > beforeInvalid, "Missing behavior-preservation evidence must block fast-lane start.");
+  errors.length = beforeInvalid;
+
+  console.log(JSON.stringify({ ok: true, fixtures: 5 }, null, 2));
   process.exit(0);
 }
 
@@ -463,7 +552,9 @@ const result = {
   warnings,
   interpretation: registry.mode === "setup_only"
     ? "The high-assurance model is a draft setup control. Its warnings do not authorize implementation or make whole-application correctness claims."
-    : "An active slice must bind human-validated responsibilities, probes, proof obligations, and its assurance record to exact commits.",
+    : ownerFastLane
+      ? "The active owner-fast-lane slice binds machine-traced responsibilities, proof obligations, required gates, and rollback evidence to exact commits."
+      : "An active slice must bind human-validated responsibilities, probes, proof obligations, and its assurance record to exact commits.",
 };
 
 console.log(JSON.stringify(result, null, 2));

@@ -28,6 +28,8 @@ const storeAdapter = loadTypeScriptModule(root, "lib/persistence/store-adapter.t
 const structuredNarrative = loadTypeScriptModule(root, "lib/pipeline/structured-narrative.ts");
 const residentLinkValidation = loadTypeScriptModule(root, "lib/pipeline/resident-link-validation.ts");
 const referralAccess = loadTypeScriptModule(root, "lib/pipeline/referral-access.ts");
+const referralOwnership = loadTypeScriptModule(root, "lib/pipeline/referral-ownership.ts");
+const referralActivityPresentation = loadTypeScriptModule(root, "lib/pipeline/referral-activity-presentation.ts");
 const requestSecurity = loadRequestSecurityModule({});
 const workspaceStateTypes = loadTypeScriptModule(root, "lib/pipeline/user-workspace-state-types.ts");
 const workspacePresentation = loadTypeScriptModule(root, "lib/pipeline/workspace-presentation.ts");
@@ -1082,6 +1084,48 @@ function authBehaviorResults() {
       assert(referralAccess.canAccessReferral(assessor, owned), "Stable owner id should grant access");
       assert(!referralAccess.canAccessReferral(assessor, other), "A different stable owner id must override a matching name");
       assert(referralAccess.canAccessReferral(assessor, legacy), "Legacy owner names should remain accessible during backfill");
+    }),
+    run("workspace ownership retains the creator and assigning supervisor", () => {
+      const supervisor = { id: "supervisor-1", name: "Supervisor User" };
+      const initial = referralOwnership.createReferralOwners(
+        supervisor,
+        { ownerId: "assessor-1", owner: "First Assessor" },
+        true,
+      );
+      assert(initial.length === 2, "Supervisor assignment should create two accountable owners");
+      assert(initial.find((owner) => owner.id === supervisor.id)?.responsibilities.includes("creator"), "The workspace creator must remain an owner");
+      assert(initial.find((owner) => owner.id === supervisor.id)?.responsibilities.includes("assigning_supervisor"), "The assigning supervisor must be explicit");
+      assert(initial.find((owner) => owner.id === "assessor-1")?.responsibilities.includes("assignee"), "The assessor must be an owner");
+
+      const reassigned = referralOwnership.reassignReferralOwners(
+        initial,
+        { id: "supervisor-2", name: "Second Supervisor" },
+        { ownerId: "assessor-2", owner: "Second Assessor" },
+        true,
+      );
+      assert(reassigned.some((owner) => owner.id === supervisor.id && owner.responsibilities.includes("creator")), "Reassignment must retain creator ownership");
+      assert(!reassigned.some((owner) => owner.id === "assessor-1"), "The prior assignee must not remain a current owner");
+      assert(reassigned.some((owner) => owner.id === "supervisor-2" && owner.responsibilities.includes("assigning_supervisor")), "The current assigning supervisor must be an owner");
+      assert(reassigned.some((owner) => owner.id === "assessor-2" && owner.responsibilities.includes("assignee")), "The current assignee must be an owner");
+    }),
+    run("only administrators can record the final admission decision", () => {
+      const headSupervisor = { id: "head-1", name: "Head Supervisor", roles: ["admin"] };
+      const assessmentSupervisor = { id: "supervisor-1", name: "Assessment Supervisor", roles: ["assessment_coordinator", "reviewer"] };
+      assert(referralAccess.canRecordAdmissionDecision(headSupervisor), "The head supervisor must retain final decision authority");
+      assert(!referralAccess.canRecordAdmissionDecision(assessmentSupervisor), "Assessment supervisors must not receive final decision authority");
+    }),
+    run("activity shows ordinary values and masks sensitive values", () => {
+      const changes = referralActivityPresentation.buildReferralActivityChanges(
+        ["county", "ssn"],
+        { county: "Merced County", ssn: "111-22-3333" },
+        { county: "Stanislaus County", ssn: "444-55-6666" },
+      );
+      const county = changes.find((change) => change.field === "county");
+      const ssn = changes.find((change) => change.field === "ssn");
+      assert(county?.before === "Merced County" && county?.after === "Stanislaus County", "Ordinary fields must retain exact old-to-new values");
+      assert(ssn?.masked && ssn.before === "Sensitive value" && ssn.after === "Sensitive value", "Sensitive values must not leave the server presentation boundary");
+      assert(referralActivityPresentation.isSensitiveReferralActivityField("ssn"), "Sensitive audit values must be identified before persistence");
+      assert(!referralActivityPresentation.isSensitiveReferralActivityField("county"), "Ordinary audit values must remain available");
     }),
     run("supervisors retain portfolio referral access", () => {
       const supervisor = {

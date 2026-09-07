@@ -27,6 +27,9 @@ import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorks
 import ImportedWorkspaceProfile from "@/components/pipeline/HistoricalReferralProfile";
 import type { AssessmentListResponse } from "@/lib/assessment/assessment-records";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
+import DuplicateReferralReviewDialog, {
+  type ReferralDuplicateReview,
+} from "@/components/pipeline/DuplicateReferralReviewDialog";
 import ReferralActivityPanel from "@/components/pipeline/ReferralActivityPanel";
 import StructuredNarrativeField from "@/components/pipeline/StructuredNarrativeField";
 import type {
@@ -320,6 +323,7 @@ export default function ReferralPacketCanvas({
   const [canSupervise, setCanSupervise] = useState(false);
   const [ownerPrincipalId, setOwnerPrincipalId] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [duplicateReview, setDuplicateReview] = useState<ReferralDuplicateReview | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const loadedReferralRef = useRef<Referral | null>(null);
@@ -333,7 +337,7 @@ export default function ReferralPacketCanvas({
   const isSavingRef = useRef(isSaving);
   const draftRevisionRef = useRef(0);
   const creationMutationIdRef = useRef(newReferralCreationMutationId(newDraftKey));
-  const saveDraftRef = useRef<() => Promise<Referral | null>>(async () => null);
+  const saveDraftRef = useRef<(confirmedDistinctReferralIds?: number[]) => Promise<Referral | null>>(async () => null);
   const materializationAttemptRef = useRef<{ revision: number; attempts: number }>({ revision: -1, attempts: 0 });
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
   useWorkspaceStageRouting(referral?.id, newDraftKey, initialWorkspaceStage, setActivePage);
@@ -794,6 +798,7 @@ export default function ReferralPacketCanvas({
   }, [activePage, referral?.id]);
 
   const updateField = (key: FieldKey, value: string) => {
+    setDuplicateReview((current) => duplicateIdentityFields.has(key) ? null : current);
     setSavedAt("Unsaved changes");
     markDirty(key);
     setFields((current) => {
@@ -1035,6 +1040,7 @@ export default function ReferralPacketCanvas({
     tags: string[],
     admissionRequirements: Referral["requirements"],
     documentHash: string | undefined,
+    confirmedDistinctReferralIds: number[],
   ) => {
     const currentReferral = loadedReferralRef.current;
     const referralId = referral?.id ?? currentReferral?.id;
@@ -1065,6 +1071,9 @@ export default function ReferralPacketCanvas({
         referral: createdReferral,
         client_mutation_id: creationMutationIdRef.current,
         ...(ownerPrincipalIdRef.current ? { assignee_id: ownerPrincipalIdRef.current } : {}),
+        ...(confirmedDistinctReferralIds.length > 0
+          ? { duplicate_confirmation: { referral_ids: confirmedDistinctReferralIds } }
+          : {}),
       }),
     });
     if (!payload.referral) throw new Error(payload.error ?? "Could not save this referral workspace.");
@@ -1171,14 +1180,11 @@ export default function ReferralPacketCanvas({
     setSavedAt(referralSaveStatus(remainingDirtyKeys.size, Boolean(snapshot.initialPacket)));
   };
 
-  const saveDraft = async (): Promise<Referral | null> => {
+  const saveDraft = async (confirmedDistinctReferralIds: number[] = []): Promise<Referral | null> => {
     setSaveError("");
-    if (uploadingDocumentIds.size > 0) {
-      setSaveError("Wait for the selected documents to finish uploading before saving again.");
-      return null;
-    }
-    if (remoteChange?.conflicts.length) {
-      setSaveError("Resolve the remote field changes before saving.");
+    const blockedMessage = referralSaveBlockedMessage(uploadingDocumentIds.size, Boolean(remoteChange?.conflicts.length));
+    if (blockedMessage) {
+      setSaveError(blockedMessage);
       return null;
     }
     setIsSaving(true);
@@ -1209,7 +1215,14 @@ export default function ReferralPacketCanvas({
         },
       );
       const documentHash = await resolveInitialDocumentHash(snapshot.initialPacket, loadedReferralRef.current?.documentHash, setSavedAt);
-      const persisted = await persistReferralSave(snapshot, community, tags, admissionRequirements, documentHash);
+      const persisted = await persistReferralSave(
+        snapshot,
+        community,
+        tags,
+        admissionRequirements,
+        documentHash,
+        confirmedDistinctReferralIds,
+      );
       savedReferral = persisted.referral;
       loadedReferralRef.current = savedReferral;
       setLoadedReferral(savedReferral);
@@ -1227,6 +1240,12 @@ export default function ReferralPacketCanvas({
     } catch (error) {
       let latestConflict: Referral | null = null;
       if (error instanceof PipelineApiError && error.status === 409) {
+        const suspectedDuplicate = getSuspectedDuplicateReview(error.payload);
+        if (suspectedDuplicate) {
+          setDuplicateReview(suspectedDuplicate);
+          setSavedAt("Review possible duplicate");
+          return null;
+        }
         latestConflict = getConflictReferral(error.payload);
         if (latestConflict) receiveRemoteReferral(latestConflict, latestConflict.updatedBy?.name, true);
       }
@@ -1256,14 +1275,14 @@ export default function ReferralPacketCanvas({
     const hasMeaningfulWork = dirtyKeys.size > 0
       || Object.keys(pendingDocuments).length > 0
       || Boolean(initialPacket);
-    if (
-      referral?.id
-      || loadedReferral
-      || draftRecoveryLoading
-      || isSaving
-      || !hasMeaningfulWork
-      || remoteChange?.conflicts.length
-    ) return;
+    if (shouldPauseDraftMaterialization({
+      hasLoadedReferral: Boolean(referral?.id || loadedReferral),
+      draftRecoveryLoading,
+      isSaving,
+      hasMeaningfulWork,
+      hasDuplicateReview: Boolean(duplicateReview),
+      hasRemoteConflicts: Boolean(remoteChange?.conflicts.length),
+    })) return;
 
     const revision = draftRevisionRef.current;
     const previous = materializationAttemptRef.current;
@@ -1285,7 +1304,7 @@ export default function ReferralPacketCanvas({
       window.clearTimeout(timer);
       window.removeEventListener("online", materialize);
     };
-  }, [draftRecoveryLoading, dirtyKeys, initialPacket, isSaving, loadedReferral, pendingDocuments, referral?.id, remoteChange?.conflicts.length]);
+  }, [draftRecoveryLoading, dirtyKeys, duplicateReview, initialPacket, isSaving, loadedReferral, pendingDocuments, referral?.id, remoteChange?.conflicts.length]);
 
   const reviewExtractedField = async (
     extractedField: ExtractedField,
@@ -1766,6 +1785,12 @@ export default function ReferralPacketCanvas({
           </section>
         ) : null}
 
+        <WorkspaceChangeHistory
+          activePage={activePage}
+          referral={loadedReferral}
+          onOpenFull={() => openPage("activity")}
+        />
+
         <div key={activePage} className="pipeline-step-enter">
           {activePage === 1 && usesSourceProfile && loadedReferral ? (
             <PacketPage id="source-profile" title="Profile">
@@ -1980,6 +2005,28 @@ export default function ReferralPacketCanvas({
           onClose={() => { if (!isDeleting) setDeleteDialogOpen(false); }}
         />
       ) : null}
+      <DuplicateReferralReviewDialog
+        review={duplicateReview}
+        busy={isSaving}
+        onOpenExisting={(candidate) => {
+          setDuplicateReview(null);
+          onReferralSaved?.({
+            id: candidate.referral_id,
+            name: candidate.name,
+            community: candidate.community,
+          });
+        }}
+        onConfirmDistinctPerson={(referralIds) => {
+          setDuplicateReview(null);
+          void saveDraft(referralIds);
+        }}
+        onClose={() => {
+          if (!isSaving) {
+            materializationAttemptRef.current = { revision: draftRevisionRef.current, attempts: 3 };
+            setDuplicateReview(null);
+          }
+        }}
+      />
     </div>
   );
 }
@@ -2057,7 +2104,7 @@ function WorkspaceSaveControl({
       data-guide-target="create-workspace"
       onClick={onSave}
       disabled={saving || blocked}
-      className="flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
+      className="flex h-9 items-center gap-2 bg-[#0b6f5d] px-3 text-[11px] font-bold text-white transition-colors hover:bg-[#075a4b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
     >
       <Save size={15} />
       <span className="hidden sm:inline">{workspaceSaveLabel(saving, hasReferral, true)}</span>
@@ -3203,6 +3250,104 @@ function getConflictReferral(payload: unknown) {
     : null;
 }
 
+function getSuspectedDuplicateReview(payload: unknown): ReferralDuplicateReview | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const value = payload as Record<string, unknown>;
+  if (value.suspected_duplicate !== true || !Array.isArray(value.candidates)) return null;
+  const candidates = parseReferralDuplicateCandidates(value.candidates);
+  if (!candidates) return null;
+  const confirmationReferralIds = parsePositiveReferralIds(value.confirmation_referral_ids);
+  const canConfirmDistinctPerson = canConfirmReferralDuplicate(value, candidates, confirmationReferralIds);
+  return {
+    canConfirmDistinctPerson,
+    confirmationReferralIds: canConfirmDistinctPerson ? confirmationReferralIds : [],
+    candidates,
+  };
+}
+
+const referralDuplicateTextFields = [
+  "name",
+  "county",
+  "community",
+  "date_of_birth",
+  "referral_received",
+  "owner",
+  "stage",
+] as const;
+
+function parseReferralDuplicateCandidates(value: unknown[]): ReferralDuplicateReview["candidates"] | null {
+  const candidates = value.map(parseReferralDuplicateCandidate);
+  return candidates.some((candidate) => candidate === null)
+    ? null
+    : candidates as ReferralDuplicateReview["candidates"];
+}
+
+function parseReferralDuplicateCandidate(candidate: unknown): ReferralDuplicateReview["candidates"][number] | null {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
+  const item = candidate as Record<string, unknown>;
+  const hasTextFields = referralDuplicateTextFields.every((field) => typeof item[field] === "string");
+  if (!Number.isSafeInteger(item.referral_id) || Number(item.referral_id) <= 0 || !hasTextFields) return null;
+  if (!pipelineCommunities.includes(item.community as PipelineCommunity) || typeof item.in_trash !== "boolean") return null;
+  return {
+    referral_id: Number(item.referral_id),
+    name: item.name as string,
+    county: item.county as string,
+    community: item.community as PipelineCommunity,
+    date_of_birth: item.date_of_birth as string,
+    referral_received: item.referral_received as string,
+    owner: item.owner as string,
+    stage: item.stage as string,
+    in_trash: item.in_trash,
+  };
+}
+
+function parsePositiveReferralIds(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((id): id is number => Number.isSafeInteger(id) && Number(id) > 0)
+    : [];
+}
+
+function canConfirmReferralDuplicate(
+  value: Record<string, unknown>,
+  candidates: ReferralDuplicateReview["candidates"],
+  confirmationReferralIds: number[],
+) {
+  const candidateIds = new Set(candidates.map((candidate) => candidate.referral_id));
+  return value.can_confirm_distinct_person === true
+    && confirmationReferralIds.length > 0
+    && confirmationReferralIds.every((id) => candidateIds.has(id));
+}
+
+const duplicateIdentityFields = new Set<FieldKey>(["name", "county", "community"]);
+
+function referralSaveBlockedMessage(uploadingDocumentCount: number, hasConflicts: boolean) {
+  if (uploadingDocumentCount > 0) return "Wait for the selected documents to finish uploading before saving again.";
+  return hasConflicts ? "Resolve the remote field changes before saving." : "";
+}
+
+function shouldPauseDraftMaterialization({
+  hasLoadedReferral,
+  draftRecoveryLoading,
+  isSaving,
+  hasMeaningfulWork,
+  hasDuplicateReview,
+  hasRemoteConflicts,
+}: {
+  hasLoadedReferral: boolean;
+  draftRecoveryLoading: boolean;
+  isSaving: boolean;
+  hasMeaningfulWork: boolean;
+  hasDuplicateReview: boolean;
+  hasRemoteConflicts: boolean;
+}) {
+  return hasLoadedReferral
+    || draftRecoveryLoading
+    || isSaving
+    || !hasMeaningfulWork
+    || hasDuplicateReview
+    || hasRemoteConflicts;
+}
+
 function presenceSection(page: WorkspaceView): ReferralSection {
   if (page === "files") return "documents";
   if (page === "activity") return "workflow";
@@ -3304,6 +3449,28 @@ function initialPacketDropzonePresentation({
     className: "border-[#aaa25f] bg-[#fffdf0] hover:border-[#817932] hover:bg-[#fffbe2]",
     iconClassName: "text-[#6f641b]",
   };
+}
+
+function WorkspaceChangeHistory({
+  activePage,
+  referral,
+  onOpenFull,
+}: {
+  activePage: WorkspaceView;
+  referral: Referral | null;
+  onOpenFull: () => void;
+}) {
+  if (!referral || activePage === "activity") return null;
+  return (
+    <div className="mb-3">
+      <ReferralActivityPanel
+        compact
+        referralId={referral.id}
+        version={referral.version}
+        onOpenFull={onOpenFull}
+      />
+    </div>
+  );
 }
 
 function formatFileSize(bytes: number) {

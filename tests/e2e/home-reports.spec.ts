@@ -219,6 +219,7 @@ test.describe("role-scoped home and reports", () => {
         priority: "standard",
         categories: ["ready_to_schedule"],
         primary_category: "ready_to_schedule",
+        flow_state: "ready_to_schedule",
         next_action: "Schedule the assessment",
         blockers: [],
         missing_data: [],

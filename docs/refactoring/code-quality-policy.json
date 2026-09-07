@@ -22,7 +22,7 @@
   "dependencies": {
     "requireRegistryIntegrity": true,
     "maximumDirectDependencies": 28,
-    "maximumLockedPackageLocations": 530,
+    "maximumLockedPackageLocations": 531,
     "maximumDuplicateVersionPackages": 18,
     "allowedInstallHooks": {
       "tesseract.js@7.0.0": {

@@ -31,6 +31,10 @@ const scenariosById = new Map((scenarioSet.scenarios ?? []).map((scenario) => [s
 const antiPatternsById = new Map((antiPatternSet.antiPatterns ?? []).map((item) => [item.id, item]));
 const allowedDecisions = new Set(policy.allowedDecisions ?? []);
 const allowedKinds = new Set(policy.allowedScenarioKinds ?? []);
+const ownerFastLane = registry.approvalMode === "owner_fast_lane";
+const ownerFastLaneRecord = ownerFastLane && registry.ownerFastLaneRecord && existsSync(registry.ownerFastLaneRecord)
+  ? readJson(registry.ownerFastLaneRecord)
+  : null;
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -635,7 +639,9 @@ function validateScenarioSetupEntry(scenario, observedKinds, coveredSlices) {
   for (const id of ids) validateScenarioSlice(id, label, coveredSlices);
   validateScenarioExpectations(scenario.mechanicalExpectations, label);
   validateScenarioCriteria(scenario.humanCriteria, label);
-  if (scenario.humanValidated !== true) warnings.push(`${label} awaits human validation.`);
+  if (scenario.humanValidated !== true) warnings.push(ownerFastLane
+    ? `${label} human validation is advisory under owner_fast_lane.`
+    : `${label} awaits human validation.`);
 }
 
 function validateScenarioSlice(id, label, coveredSlices) {
@@ -696,7 +702,9 @@ function validateAntiPatternSetupEntry(item) {
   for (const id of item.sliceIds ?? []) {
     if (!sliceIds.has(id)) errors.push(`Anti-pattern ${item.id} references unknown slice ${id}.`);
   }
-  if (item.humanValidated !== true) warnings.push(`Anti-pattern ${item.id} awaits human validation.`);
+  if (item.humanValidated !== true) warnings.push(ownerFastLane
+    ? `Anti-pattern ${item.id} human validation is advisory under owner_fast_lane.`
+    : `Anti-pattern ${item.id} awaits human validation.`);
 }
 
 function antiPatternEntryComplete(item) {
@@ -727,19 +735,40 @@ function validateGuidanceScriptSetup() {
 
 function validateGuidanceBaseline() {
   const baselineItem = (evidenceMatrix.globalItems ?? []).find((item) => item.id === "evaluated_refactor_guidance_baseline");
-  if (!baselineItem) errors.push("Evidence matrix must define evaluated_refactor_guidance_baseline.");
-  else if (baselineItem.status === "satisfied") {
-    if (!pathIsSafe(baselineItem.adoptionRecord ?? "") || !existsSync(baselineItem.adoptionRecord ?? "")) errors.push("Satisfied evaluated_refactor_guidance_baseline requires an existing adoptionRecord.");
-    else {
-      const adoption = validateComparisonRecord(readJson(baselineItem.adoptionRecord), "Adopted guidance comparison");
-      errors.push(...adoption.errors);
-      if (adoption.record?.decision !== "keep") errors.push("Adopted guidance comparison must have decision keep.");
-    }
-  } else warnings.push("The refactor guidance baseline has not yet passed its initial matched public and holdout comparison.");
+  if (!baselineItem) {
+    errors.push("Evidence matrix must define evaluated_refactor_guidance_baseline.");
+    return null;
+  }
+  if (ownerFastLane && baselineItem.status === "not_applicable") validateFastLaneGuidanceWaiver(baselineItem);
+  else if (baselineItem.status === "satisfied") validateAdoptedGuidanceBaseline(baselineItem);
+  else warnings.push("The refactor guidance baseline has not yet passed its initial matched public and holdout comparison.");
   return baselineItem;
 }
 
+function validateFastLaneGuidanceWaiver(baselineItem) {
+  const completeApproval = [
+    ownerFastLaneRecord?.status === "active",
+    baselineItem.approvedBy === ownerFastLaneRecord?.owner,
+    baselineItem.approvedAt === ownerFastLaneRecord?.authorizedAt,
+    timestamps.test(baselineItem.approvedAt ?? ""),
+    Boolean(baselineItem.note),
+  ].every(Boolean);
+  if (!completeApproval) errors.push("Owner-fast-lane guidance evaluation waiver requires approvedBy, approvedAt, and a written reason.");
+  if (baselineItem.adoptionRecord !== null) errors.push("Owner-fast-lane guidance evaluation waiver must not claim an adopted comparison record.");
+}
+
+function validateAdoptedGuidanceBaseline(baselineItem) {
+  if (!pathIsSafe(baselineItem.adoptionRecord ?? "") || !existsSync(baselineItem.adoptionRecord ?? "")) {
+    errors.push("Satisfied evaluated_refactor_guidance_baseline requires an existing adoptionRecord.");
+    return;
+  }
+  const adoption = validateComparisonRecord(readJson(baselineItem.adoptionRecord), "Adopted guidance comparison");
+  errors.push(...adoption.errors);
+  if (adoption.record?.decision !== "keep") errors.push("Adopted guidance comparison must have decision keep.");
+}
+
 function validateSliceGuidanceBindings(baselineItem) {
+  if (ownerFastLane) return;
   for (const slice of registry.slices ?? []) {
     validateSliceGuidanceBinding(slice, baselineItem);
   }
@@ -912,7 +941,9 @@ const result = {
   },
   errors,
   warnings,
-  interpretation: "The guidance harness is setup infrastructure. It measures bounded first-attempt decision behavior and cannot certify application correctness or authorize a refactor slice.",
+  interpretation: ownerFastLane
+    ? "The owner fast lane keeps guidance structure checks active while blind comparison and private holdouts remain advisory. This harness does not certify application correctness."
+    : "The guidance harness measures bounded first-attempt decision behavior and cannot certify application correctness or authorize a refactor slice.",
 };
 
 console.log(JSON.stringify(result, null, 2));

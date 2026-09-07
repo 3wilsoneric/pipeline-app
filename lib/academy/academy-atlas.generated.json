@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:cc1dcdee1e3c7d0c",
-  "fingerprint": "cc1dcdee1e3c7d0cacd1cb07e20a22880d7ad2f1bcdbbf0ea7526ecf3e508e79",
+  "generatedAt": "source-fingerprint:1b094055f230ef1f",
+  "fingerprint": "1b094055f230ef1f3394205ec3cc550fe6af2b02b18f2f0fe51ac8dc1d78f2ff",
   "totals": {
-    "files": 826,
-    "lines": 274798,
-    "coveredFiles": 826
+    "files": 846,
+    "lines": 282038,
+    "coveredFiles": 846
   },
   "entries": [
     {
@@ -74,7 +74,7 @@
       "kind": "repository-file",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 269,
+      "lines": 266,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -110,7 +110,7 @@
       "kind": "documentation",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 34,
+      "lines": 35,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -1244,7 +1244,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 302,
+      "lines": 320,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1332,7 +1332,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 252,
+      "lines": 319,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1789,6 +1789,18 @@
       ]
     },
     {
+      "path": "components/pipeline/DuplicateReferralReviewDialog.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 143,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/HistoricalReferralProfile.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -1902,7 +1914,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 963,
+      "lines": 964,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1926,7 +1938,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 329,
+      "lines": 328,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -2010,7 +2022,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 171,
+      "lines": 278,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2058,7 +2070,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3314,
+      "lines": 3481,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2142,7 +2154,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 126,
+      "lines": 127,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3715,7 +3727,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 302,
+      "lines": 310,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -3794,6 +3806,80 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/refactor-baseline-machine-run-4d50f4ea.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 69,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 70,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 77,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 43,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "critical",
+      "lines": 75,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "critical",
+      "lines": 62,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
       "path": "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -3811,7 +3897,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 67,
+      "lines": 68,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3836,6 +3922,30 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 29,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/COMPLEXITY_RATCHET_DISPOSITION_PROPOSAL_4d50f4e.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 59,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/complexity-disposition.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 43,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3878,6 +3988,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/DEPENDENCY_CEILING_DISPOSITION_PROPOSAL.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 43,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -3895,7 +4017,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 502,
+      "lines": 547,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3919,7 +4041,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 115,
+      "lines": 118,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3931,7 +4053,19 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 49,
+      "lines": 61,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/owner-fast-lane.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 29,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3943,7 +4077,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 63,
+      "lines": 64,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3979,7 +4113,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 143,
+      "lines": 150,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3991,7 +4125,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 123,
+      "lines": 125,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4111,10 +4245,47 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 179,
+      "lines": 181,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 100,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 169,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/referral-store-file-audit-agent-prework.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "critical",
+      "lines": 225,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
       ]
     },
     {
@@ -4135,7 +4306,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 150,
+      "lines": 165,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4147,7 +4318,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 42,
+      "lines": 51,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4231,7 +4402,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1445,
+      "lines": 1756,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4267,7 +4438,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7319,
+      "lines": 7497,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4327,7 +4498,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7428,
+      "lines": 10353,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6207,7 +6378,19 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 91,
+      "lines": 95,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/pipeline/referral-activity-presentation.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 125,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6219,7 +6402,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 260,
+      "lines": 302,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6303,7 +6486,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 31,
+      "lines": 125,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6376,7 +6559,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 99,
+      "lines": 100,
       "moduleIds": [
         "concurrency-idempotency",
         "stores-transactions"
@@ -6412,7 +6595,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 2781,
+      "lines": 3036,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -6425,7 +6608,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 301,
+      "lines": 311,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -6438,7 +6621,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 526,
+      "lines": 519,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -6727,7 +6910,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 266,
+      "lines": 282,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6943,7 +7126,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 230,
+      "lines": 231,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -6967,7 +7150,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 76,
+      "lines": 77,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -7531,7 +7714,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 1992,
+      "lines": 2036,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7898,6 +8081,30 @@
       ]
     },
     {
+      "path": "scripts/complexity-disposition-fixtures.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 82,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/complexity-disposition.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 140,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/configure-azure-clinical.sh",
       "subsystem": "Engineering tooling",
       "kind": "repository-file",
@@ -8035,7 +8242,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 318,
+      "lines": 357,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8623,7 +8830,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 250,
+      "lines": 252,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8767,7 +8974,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 737,
+      "lines": 740,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9067,7 +9274,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 920,
+      "lines": 951,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -9079,7 +9286,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 471,
+      "lines": 562,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9091,7 +9298,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 165,
+      "lines": 215,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9103,7 +9310,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 93,
+      "lines": 95,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -9131,6 +9338,19 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "scripts/referral-store-characterization.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "critical",
+      "lines": 244,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
       ]
     },
     {
@@ -9571,7 +9791,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 304,
+      "lines": 305,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9662,6 +9882,18 @@
       ]
     },
     {
+      "path": "tests/e2e/operational/referral-duplicate-review.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 191,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/operational/referral-lifecycle.scaffold.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -9671,6 +9903,19 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/operational/referral-store-characterization.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "critical",
+      "lines": 609,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
       ]
     },
     {
@@ -9727,7 +9972,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 3089,
+      "lines": 3174,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

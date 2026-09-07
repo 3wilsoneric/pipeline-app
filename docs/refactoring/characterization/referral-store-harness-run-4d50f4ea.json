@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "recordType": "machine_observation_not_approval",
+  "purpose": "Verify that simplifying the characterization runner did not change the referral-store characterization outcome.",
+  "capturedAt": "2026-09-07T06:59:44.149Z",
+  "capturedFromCommit": "4d50f4ea3a312525b3d0b8a277c18a2c87da7bc8",
+  "workingTreeClean": true,
+  "fixtureClassification": "synthetic",
+  "containsPhi": false,
+  "applicationSourceChangedSincePriorPassingRun": false,
+  "runnerChange": {
+    "path": "scripts/referral-store-characterization.mjs",
+    "change": "Separated child output capture, exit handling, JSON parsing, success evaluation, and failure reporting without changing command arguments, environment construction, expected test cardinality, database lifecycle, or emitted evidence fields.",
+    "complexity": {
+      "priorRunCommand": 24,
+      "currentRunCommand": 5,
+      "currentMaximumInRunner": 9,
+      "newRunnerHotspotsAtOrAbove15": 0
+    }
+  },
+  "attempts": [
+    {
+      "capturedAt": "2026-09-07T06:59:13.065Z",
+      "artifactDigestSha256": "464cc1ffe38798bcb66b41faccbb064e4528e7d9e633453fd0ef72e9c283032d",
+      "validCharacterization": false,
+      "failure": "Migration connection reset before TLS negotiation because the shell inherited a require-TLS setting while the disposable loopback PostgreSQL cluster was intentionally non-TLS.",
+      "adaptersExecuted": 0,
+      "cleanupObserved": "The disposable database cleanup path ran in finally before the command returned failure."
+    },
+    {
+      "capturedAt": "2026-09-07T06:59:44.149Z",
+      "artifactDigestSha256": "6aa2fd4590646488f6630303464de626f839ade1a0d7e11345bc94af92f95f2e",
+      "validCharacterization": true,
+      "environmentCorrection": "PIPELINE_DATABASE_SSL_MODE=disable was explicitly set for the non-TLS disposable loopback PostgreSQL cluster.",
+      "testPath": "tests/e2e/operational/referral-store-characterization.spec.ts",
+      "testDigestSha256": "e1de2d7137386978e4532e0164ac1512a945beb54f3408bffcd8103025ef7b5f",
+      "postgresMajor": 16,
+      "buildPassed": true,
+      "migrationsApplied": 26,
+      "adapters": [
+        {
+          "adapter": "local_file",
+          "ok": true,
+          "durationMs": 2612,
+          "tests": { "expected": 5, "unexpected": 0, "flaky": 0, "skipped": 0 }
+        },
+        {
+          "adapter": "postgres",
+          "ok": true,
+          "durationMs": 2009,
+          "tests": { "expected": 5, "unexpected": 0, "flaky": 0, "skipped": 0 }
+        }
+      ]
+    }
+  ],
+  "humanReview": {
+    "status": "awaiting_human_review",
+    "approvedBy": null,
+    "approvedAt": null
+  }
+}

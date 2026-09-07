@@ -83,18 +83,11 @@ export function validateReferralCreateInput(
 ): ReferralValidationResult<Referral> {
   if (!isPlainObject(value)) return invalid("The referral must be an object.");
 
-  if (
-    "id" in value
-    || "version" in value
-    || "sectionVersions" in value
-    || "updatedBy" in value
-    || "ownerId" in value
-    || "manualIntakeAuthorization" in value
-    || "interview" in value
-    || "assessment" in value
-    || "admissionDecision" in value
-    || "ehrHandoff" in value
-  ) {
+  const serverOwnedFields = [
+    "id", "version", "sectionVersions", "updatedBy", "ownerId", "owners",
+    "manualIntakeAuthorization", "interview", "assessment", "admissionDecision", "ehrHandoff",
+  ] as const;
+  if (serverOwnedFields.some((field) => field in value)) {
     return invalid("Referral ids and workflow records are assigned by the server.");
   }
 
@@ -154,7 +147,7 @@ export function validateReferralPatch(
   if (!isPlainObject(value)) return invalid("The referral patch must be an object.");
 
   for (const protectedField of [
-    "id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId",
+    "id", "version", "clientId", "sectionVersions", "updatedBy", "ownerId", "owners",
     "workflowStatus", "assignedAt", "assignmentDueAt", "assignmentVersion",
     "assessmentRecommendation", "manualIntakeAuthorization", "ehrHandoff", "interview", "assessment",
   ] as const) {

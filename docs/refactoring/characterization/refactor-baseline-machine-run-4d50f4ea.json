@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "recordType": "machine_observation_not_approval",
+  "purpose": "Candidate pre-start structural risk inventory for the referral-store slice.",
+  "capturedAt": "2026-09-07T07:00:55Z",
+  "capturedFromCommit": "4d50f4ea3a312525b3d0b8a277c18a2c87da7bc8",
+  "workingTreeClean": true,
+  "command": "npm run codebase:baseline -- --label=candidate-4d50f4e",
+  "artifact": "outputs/refactor-baseline/refactor-baseline-candidate-4d50f4e.json",
+  "artifactDigestSha256": "df304e3d07aff1eb911de12344187c7b0890892121db5b5f4247af9742f69f7c",
+  "totals": {
+    "files": 600,
+    "lines": 114087,
+    "cycles": 8,
+    "duplicateGroups": 60,
+    "controlPlaneDuplicateGroups": 50,
+    "deadExportCandidates": 462,
+    "staticSourceContracts": 28,
+    "controlPlaneFiles": 180,
+    "criticalReviewFiles": 12,
+    "highReviewFiles": 38
+  },
+  "referralStore": {
+    "riskBand": "critical_review",
+    "overlappingHotspotMeasures": 4,
+    "signals": [
+      "control_plane",
+      "planned_slice:referral-store-boundaries",
+      "complexity>=100",
+      "churn_lines_90d>=1000",
+      "fan_in>=10",
+      "dependencies>=10"
+    ],
+    "metrics": {
+      "lines": 3036,
+      "complexityProxy": 765,
+      "churnLines90d": 3491,
+      "churnCommits90d": 32,
+      "fanIn": 62,
+      "dependencies": 15,
+      "maximumBranchDepth": 4,
+      "duplicateBlocks": 0,
+      "staticSourceContracts": 0
+    }
+  },
+  "comparisonTo2026_08_27Setup": {
+    "command": "npm run codebase:baseline:compare -- --before=docs/reliability/refactor-baseline-2026-08-27-setup.json --after=outputs/refactor-baseline/refactor-baseline-candidate-4d50f4e.json",
+    "ok": false,
+    "interpretation": "The comparison spans substantial intervening product and assurance work and is not a referral-slice before/after comparison.",
+    "reviewRequired": [
+      "Local dependency cycles increased by 5.",
+      "Duplicate groups touching control-plane code increased by 5.",
+      "Static source-string contracts increased by 9."
+    ],
+    "hotspotSetChanged": false
+  },
+  "knownBoundary": [
+    "The broad complexity proxy and risk bands rank investigation pressure; they are not defect counts.",
+    "Dead-export candidates are not deletion authorization.",
+    "This candidate is not the exact approved slice starting commit until prerequisite policy and human gates are complete.",
+    "The slice must generate a fresh exact-start baseline and compare its exact candidate commit after each approved iteration."
+  ],
+  "humanReview": {
+    "status": "awaiting_human_review",
+    "approvedBy": null,
+    "approvedAt": null
+  }
+}

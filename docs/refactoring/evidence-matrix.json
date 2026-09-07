@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-06",
+  "updatedAt": "2026-09-07",
   "statusDefinitions": {
     "satisfied": "Existing evidence is executable or reviewable and may be cited now.",
     "partial": "Useful evidence exists, but the slice-specific contract is incomplete.",
@@ -20,30 +20,44 @@
         "docs/reliability/dependency-inventory.json",
         "docs/reliability/repository-file-inventory.json"
       ],
-      "note": "A generated hash-backed audit and locked-dependency inventory exist, but the live mixed main worktree has drifted from them. Regenerate and review both in the clean exact-start-commit worktree immediately before starting a slice; do not refresh them now merely to absorb unrelated in-flight product changes."
+      "note": "A generated hash-backed audit and locked-dependency inventory match clean integration candidate 92fa991c49b9905bc3532bb49506e9f595d6988a. Human review and a final exact-start freeze in the approved execution worktree are still required before a slice starts."
     },
     {
       "id": "runtime_types_and_worktree_alignment",
       "phase": "before_start",
       "status": "partial",
       "gates": ["check:code-quality"],
-      "files": ["docs/refactoring/CODE_QUALITY_POLICY.md", "docs/refactoring/code-quality-policy.json"],
-      "note": "Align @types/node with Node 22, disposition stale worktrees with unique commits, and start implementation in a recorded dedicated codex/refactor-* worktree."
+      "files": [
+        "docs/refactoring/CODE_QUALITY_POLICY.md",
+        "docs/refactoring/code-quality-policy.json",
+        "docs/refactoring/DEPENDENCY_CEILING_DISPOSITION_PROPOSAL.md",
+        "docs/refactoring/WORKTREE_RUNBOOK.md"
+      ],
+      "note": "@types/node is aligned with Node 22 and the setup runs in a dedicated codex/refactor-* worktree. Eric approved the inherited 531-location ceiling on 2026-09-07; the policy now rejects 532 or more unless separately approved and requires a future supported removal to lower the ratchet. The 2026-09-07 worktree inventory identifies the branches fully contained in the integration candidate and the four branches with unique work still needing explicit preserve-or-abandon decisions."
     },
     {
       "id": "green_complexity_ratchet",
       "phase": "before_start",
-      "status": "partial",
+      "status": "satisfied",
       "gates": ["complexity:check"],
-      "files": ["docs/reliability/cyclomatic-complexity-baseline.json"],
-      "note": "A reviewed per-function baseline exists, but the current mixed main worktree exceeds it. Begin a slice only from a clean reviewed commit where the ratchet passes, or where every pre-existing failure has a named owner and an approved non-regression disposition."
+      "note": "The owner-fast-lane disposition freezes 11 exact inherited function failures plus aggregate ceilings of 272 hotspots and 136 control-plane hotspots. npm run complexity:check applies those ceilings, rejects every unlisted failure or increase, and warns when a reduction should lower the ceiling. The historical baseline was not regenerated. Eric authorized this enforcement path on 2026-09-07; the exact-start run remains mandatory for each active slice.",
+      "files": [
+        "docs/reliability/cyclomatic-complexity-baseline.json",
+        "docs/refactoring/COMPLEXITY_RATCHET_DISPOSITION_PROPOSAL_4d50f4e.md",
+        "docs/refactoring/complexity-disposition.json",
+        "scripts/complexity-disposition.mjs",
+        "scripts/complexity-disposition-fixtures.mjs",
+        "scripts/cyclomatic-complexity-audit.mjs"
+      ]
     },
     {
       "id": "enforced_code_ownership",
       "phase": "before_start",
-      "status": "blocked",
+      "status": "not_applicable",
+      "approvedBy": "Eric",
+      "approvedAt": "2026-09-07T14:37:17Z",
       "files": [".github/CODEOWNERS", "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"],
-      "note": "A repository-owner CODEOWNERS route exists, but there is no independent backup/reviewer and main currently requires zero approvals, does not require code-owner review, and permits administrator bypass. Name the independent reviewer path and enforce the reviewed branch-protection checks before a slice starts."
+      "note": "Eric explicitly selected owner_fast_lane on 2026-09-07, so a second independent repository approver and code-owner approval are advisory rather than start gates. CODEOWNERS still routes responsibility to @3wilsoneric. Pull requests, commit-attached machine checks, exact scope, rollback ownership, and the ban on bypassing failed retained gates remain mandatory."
     },
     {
       "id": "commit_attached_refactor_gates",
@@ -54,7 +68,7 @@
         ".github/workflows/refactor-agent.yml",
         "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"
       ],
-      "note": "The guarded cloud controller dispatches focused and independent checks, but main protection currently requires only the verify job and ordinary pull requests do not run the browser, operational, or PostgreSQL jobs. Define and enforce the commit-attached required-check set for refactor pull requests before implementation."
+      "note": "The guarded cloud controller dispatches focused and independent checks. The integration candidate now makes CI and security workflows run on every pull request, removes the PR exclusion from the path-selected browser, operational, and PostgreSQL jobs, and runs CodeQL on pull requests. A 2026-09-07 GitHub API recheck confirms main protection still requires only verify, so the six recorded job contexts must be observed on the candidate pull request and then enforced before implementation."
     },
     {
       "id": "risk_ranked_exact_start_baseline",
@@ -63,9 +77,11 @@
       "gates": ["codebase:baseline", "check:refactor-assurance"],
       "files": [
         "scripts/codebase-refactor-baseline.mjs",
-        "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md"
+        "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
+        "docs/refactoring/characterization/refactor-baseline-machine-run-4d50f4ea.json",
+        "docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json"
       ],
-      "note": "The baseline generator now records separate complexity, churn, fan-in, dependency, branch-depth, duplication, control-plane, and planned-slice signals without collapsing them into a correctness score. Generate and review the risk inventory from the clean exact starting commit; the current mixed worktree is not start evidence."
+      "note": "A clean consolidated run at 92fa991c49b9905bc3532bb49506e9f595d6988a identifies referral-store.ts as the top critical-review target with four overlapping hotspot rankings. Repository hygiene and engineering-quality checks passed, all 20 seeded defects were killed, the broader safety corpus passed, and the production build succeeded. The fast platform gate stopped only at the exact owner-approved inherited complexity failures. Human review and a fresh run from the final exact approved starting commit remain required."
     },
     {
       "id": "honest_high_assurance_claim_boundary",
@@ -81,7 +97,9 @@
     {
       "id": "evaluated_refactor_guidance_baseline",
       "phase": "before_start",
-      "status": "missing",
+      "status": "not_applicable",
+      "approvedBy": "Eric",
+      "approvedAt": "2026-09-07T14:37:17Z",
       "gates": ["check:refactor-guidance"],
       "files": [
         "docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md",
@@ -91,7 +109,7 @@
         "docs/refactoring/refactor-correction-ledger.json"
       ],
       "adoptionRecord": null,
-      "note": "The evaluation harness and public calibration suite are agent-drafted bootstrap candidates. Before any slice starts, humans must validate the scenarios and anti-patterns, run matched first-attempt baseline/candidate trials with blind review and private holdouts, keep an exact-commit guidance bundle, and record the adopted comparison. Passing the structural checker alone is not adoption evidence."
+      "note": "Eric explicitly selected owner_fast_lane on 2026-09-07, making blind matched comparison, private holdouts, and an adopted guidance record advisory rather than start gates. No adoption is claimed. The public harness, structural validation, anti-pattern catalog, and correction ledger remain executable, while every application machine test and behavior-preservation gate remains mandatory."
     }
   ],
   "slices": [
@@ -104,29 +122,51 @@
           "phase": "before_start",
           "status": "partial",
           "gates": ["check:api", "check:assessor-workflow", "check:workflow-fuzz"],
-          "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code. Owner purpose statement recorded verbatim on 2026-09-06: \"accomplish gathering the full profile for eventual admission, and with the assessment, make that decision, generally only one person will touch the referral from start to finish, there are a few that will be assigned referral but will only do the assessment and hopefully wotn need to change the workspace creation part\". Owner role direction recorded 2026-09-06: most referral owners carry the workspace from creation through the decision process; two assessors generally receive assignments and also create their own workspaces; one assessment-only assessor receives assigned work and ordinarily changes only assessment information; verified profile corrections by that assessor are permitted and attributable. Workspace ownership direction recorded 2026-09-06: the staff member who receives the referral and creates its workspace owns it; when a supervisor assigns the workspace, the assigning supervisor and the assignee share ownership. This desired joint-ownership behavior differs from the current single owner/ownerId representation and must be implemented, reviewed, certified, and included in the exact-start baseline as a separate product behavior change before the structural slice. Change-history direction recorded 2026-09-06: every material workspace change must be durably attributed and presented in an obvious changelog module when the workspace is opened. Reuse the existing referral Activity/audit path rather than create a parallel history owner. Ordinary fields may show exact old-to-new values; sensitive field values must be masked while actor, timestamp, field, and reason remain visible. Owner direction recorded 2026-09-06: suspected matches by normalized name and county should trigger human review with open-existing or confirm-different-person outcomes, never automatic identity linking or merging. The owner also provisionally selected field-aware optimistic saving as the target: non-overlapping field edits preserve both users' changes, same-field edits require an explicit conflict decision, sparse saves never replace untouched values, and important identity or clinical changes retain governed provenance, actor, time, prior value, and reason. These are separate product behavior changes and are not part of the structural slice until separately implemented, reviewed, certified, and included in the exact-start baseline."
+          "files": [
+            "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
+            "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
+            "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
+            "docs/refactoring/characterization/referral-read-parity-run-741bf732.json"
+          ],
+          "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code. Owner purpose statement recorded verbatim on 2026-09-06: \"accomplish gathering the full profile for eventual admission, and with the assessment, make that decision, generally only one person will touch the referral from start to finish, there are a few that will be assigned referral but will only do the assessment and hopefully wotn need to change the workspace creation part\". Owner role direction recorded 2026-09-06: most referral owners carry the workspace from creation through the decision process; two assessors generally receive assignments and also create their own workspaces; one assessment-only assessor receives assigned work and ordinarily changes only assessment information; verified profile corrections by that assessor are permitted and attributable. Workspace ownership, visible history, field-aware saves, name-plus-county human duplicate review, and referral-to-open-assessment reassignment are now executable product prerequisites on the clean integration candidate. The reassignment scenario exposed and then verified a narrow PostgreSQL parameter-typing repair. Machine observations cover these referral-store seams, but human review of the complete architecture narrative and exact-start evidence remains required."
         },
         {
           "id": "local_postgres_parity",
           "phase": "before_start",
-          "status": "missing",
-          "files": ["docs/refactoring/ADAPTER_PARITY_CONTRACT.md"],
-          "note": "Run the same referral contract scenarios against both adapters without erasing PostgreSQL-only transaction semantics. Owner direction recorded 2026-09-06: local mode must expose enough actor and audit information for shared behavioral tests, while PostgreSQL remains the sole production owner of transactionally durable audit_events. The exact local observable and shared assertions remain to be designed and executed."
+          "status": "partial",
+          "files": [
+            "docs/refactoring/ADAPTER_PARITY_CONTRACT.md",
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
+            "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
+            "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
+            "docs/refactoring/characterization/referral-read-parity-run-741bf732.json"
+          ],
+          "note": "The same clean-commit synthetic API characterization passes against isolated local-file and disposable PostgreSQL 16 stores for create replay, disjoint and conflicting section writes, denied mutations, duplicate packet rejection, duplicate-person review, referral-to-open-assessment reassignment, trash, restore, access changes, audit cardinality, representative composed filters, facets, ordering, totals, and cursor pagination. The handoff scenario first exposed a PostgreSQL parameter-typing defect and then passed after the narrow repair; the expanded suite passes 7/7 on both adapters. Human review must still approve the observable contract and identify missing domain or PostgreSQL-only transaction cases before this item can be satisfied."
         },
         {
           "id": "create_and_patch_retry_contract",
           "phase": "before_start",
-          "status": "missing",
+          "status": "partial",
           "gates": ["check:api", "database:concurrency"],
-          "note": "Freeze exact replay outcomes per command. Owner direction recorded 2026-09-06: a repeated create with the same mutation identifier returns the original referral without applying a second mutation; patch, trash, and restore use optimistic conflict recovery rather than replay idempotency; trash remains restorable for 30 days. Exact response, audit, database-effect, and concurrency evidence is still missing."
+          "files": [
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
+            "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
+            "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json"
+          ],
+          "note": "Clean-commit executable evidence freezes create replay with a changed replay payload, disjoint section success, same-section one-winner conflict behavior, exact-set duplicate confirmation, stale trash and restore rejection, audit cardinality, and the 30-day restore deadline on both adapters. Human owner review, direct database-effect review, and any missing command-specific concurrency cases remain required before this item can be satisfied."
         },
-      {
-        "id": "runtime_authorization",
-        "phase": "before_complete",
-        "status": "partial",
-        "gates": ["check:route-policy", "test:e2e:operational:high"],
-        "files": ["docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md"],
-        "note": "Static route coverage exists; add executed allow, wrong-role, and wrong-resource cases for each mutation in scope."
+        {
+          "id": "runtime_authorization",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["check:route-policy", "test:e2e:operational:high"],
+          "files": [
+            "docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md",
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
+            "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json"
+          ],
+          "note": "Static route coverage and clean-commit executed allow and deny evidence cover create, patch, trash, restore, and duplicate confirmation across local-file and PostgreSQL adapters, including anonymous, read-only, wrong-resource, cross-origin, hidden-candidate, and guessed-id denial with no side effects. Human review must still validate coverage against the final allowed file audit and any additional mutation entry points before completion."
         },
         {
           "id": "performance_and_query_budget",
@@ -159,9 +199,12 @@
           "files": [
             "docs/refactoring/canonical-responsibilities.json",
             "docs/refactoring/architecture-comprehension-probes.json",
-            "docs/refactoring/proof-obligations.json"
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
+            "docs/refactoring/referral-store-file-audit-agent-prework.json",
+            "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md"
           ],
-          "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. The 2026-09-06 owner explain-back did not yet demonstrate the concurrency, atomic-side-effect, or adapter-audit model, so human validation and the independent pre-change comprehension review remain required before implementation."
+          "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. Under owner_fast_lane, Eric may authorize their machine trace without a separate reviewer or fresh-context comprehension pass. This item remains partial until the slice assurance record binds that owner authorization, the exact approved obligations, and the executable pre-change machine evidence."
         },
         {
           "id": "convergence_and_residual_risk",
@@ -458,9 +501,11 @@
       {
         "id": "independent_human_assertion_review",
         "phase": "before_start",
-        "status": "blocked",
+        "status": "not_applicable",
+        "approvedBy": "Eric",
+        "approvedAt": "2026-09-07T14:37:17Z",
         "files": ["docs/TEST_EFFECTIVENESS_AND_CORPUS.md"],
-          "note": "A senior engineer who did not author the workflow must review the assertion list."
+          "note": "Eric selected owner_fast_lane, so independent assertion review is advisory rather than a start gate. Machine-backed assertion preservation and mutation effectiveness remain mandatory."
         },
         {
           "id": "behavior_assertion_preservation",
@@ -485,7 +530,7 @@
             "docs/refactoring/architecture-comprehension-probes.json",
             "docs/refactoring/proof-obligations.json"
           ],
-          "note": "The assertion-ownership, helper-failure, isolation, behavior-preservation, and mutation-effectiveness obligations are setup candidates. The independent human reviewer must validate the inventory before tests move."
+          "note": "The assertion-ownership, helper-failure, isolation, behavior-preservation, and mutation-effectiveness obligations are setup candidates. The standard lane requires independent validation; owner_fast_lane permits owner authorization of a machine-backed inventory before tests move."
         },
         {
           "id": "convergence_and_residual_risk",
@@ -493,7 +538,7 @@
           "status": "missing",
           "gates": ["check:refactor-assurance"],
           "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind the assertion inventory, mutant kill evidence, required gates, fresh-context comprehension, adversarial review, and any accepted medium/low test-infrastructure uncertainty to one candidate commit."
+          "note": "Bind the assertion inventory, mutant kill evidence, required gates, rollback evidence, and any accepted medium/low test-infrastructure uncertainty to one candidate commit. Standard-lane fresh-context comprehension and adversarial review are advisory in owner_fast_lane."
         }
       ]
     }

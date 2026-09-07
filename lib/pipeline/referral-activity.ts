@@ -3,8 +3,18 @@ import "server-only";
 import { listAssessments } from "@/lib/assessment/assessment-store";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { getPipelineSql } from "@/lib/database/pipeline-database";
-import { getReferral, getReferralStoreReadiness } from "@/lib/pipeline/referral-store";
-import type { Referral } from "@/lib/pipeline/referral-types";
+import {
+  activityReason,
+  buildReferralActivityChanges,
+  type ReferralActivityChange,
+} from "@/lib/pipeline/referral-activity-presentation";
+import { isUnassignedOwner, normalizeReferralOwners } from "@/lib/pipeline/referral-ownership";
+import {
+  getReferral,
+  getReferralStoreReadiness,
+  listLocalReferralAuditEvents,
+} from "@/lib/pipeline/referral-store";
+import type { Referral, ReferralOwner } from "@/lib/pipeline/referral-types";
 
 export type ReferralActivityActor = {
   id: string | null;
@@ -17,6 +27,8 @@ export type ReferralActivityEvent = {
   actor_id: string | null;
   actor_name: string;
   changed_fields: string[];
+  changes: ReferralActivityChange[];
+  reason: string | null;
   from_version: number | null;
   to_version: number | null;
   created_at: string;
@@ -24,6 +36,7 @@ export type ReferralActivityEvent = {
 
 export type ReferralWorkflowMetadata = {
   owner: ReferralActivityActor | null;
+  owners: ReferralOwner[];
   created_by: ReferralActivityActor | null;
   last_changed_by: ReferralActivityActor | null;
   last_changed_at: string | null;
@@ -59,6 +72,9 @@ type ActivityRow = {
   actor_id: string | null;
   actor_name: string;
   changed_fields: string[];
+  before_values: unknown;
+  after_values: unknown;
+  metadata: unknown;
   from_version: number | null;
   to_version: number | null;
   created_at: Date | string;
@@ -88,7 +104,7 @@ async function loadActivityEvents(
     const sql = getPipelineSql();
     const rows = await sql<ActivityRow[]>`
       select audit_event_id, action, actor_id, actor_name, changed_fields,
-             from_version, to_version, created_at
+             before_values, after_values, metadata, from_version, to_version, created_at
       from pipeline.audit_events
       where (entity_type = 'referral' and entity_id = ${String(referral.id)})
          or (entity_type = 'assessment' and entity_id in (
@@ -106,6 +122,7 @@ async function loadActivityEvents(
     return rows.map(mapActivityRow);
   }
 
+  const referralEvents = (await listLocalReferralAuditEvents(referral.id)).map(mapActivityRow);
   const events: ReferralActivityEvent[] = assessments.flatMap((assessment) =>
     assessment.audit_events.map((event) => ({
       event_id: event.event_id,
@@ -113,21 +130,29 @@ async function loadActivityEvents(
       actor_id: event.actor_id,
       actor_name: event.actor_name,
       changed_fields: event.changed_fields,
+      changes: buildReferralActivityChanges(event.changed_fields, null, null),
+      reason: null,
       from_version: null,
       to_version: null,
       created_at: event.created_at,
     })),
   );
-  events.push({
-    event_id: `referral-${referral.id}-created`,
-    action: "referral_created",
-    actor_id: null,
-    actor_name: "Pipeline user",
-    changed_fields: [],
-    from_version: null,
-    to_version: 1,
-    created_at: referral.createdAt,
-  });
+  if (referralEvents.length > 0) {
+    events.push(...referralEvents);
+  } else {
+    events.push({
+      event_id: `referral-${referral.id}-created`,
+      action: "referral_created",
+      actor_id: null,
+      actor_name: "Pipeline user",
+      changed_fields: [],
+      changes: [],
+      reason: null,
+      from_version: null,
+      to_version: 1,
+      created_at: referral.createdAt,
+    });
+  }
   if (referral.admissionDecision) {
     events.push({
       event_id: `decision-${referral.admissionDecision.decisionId}-${referral.admissionDecision.version}`,
@@ -135,6 +160,12 @@ async function loadActivityEvents(
       actor_id: referral.admissionDecision.decidedBy,
       actor_name: referral.admissionDecision.decidedByName,
       changed_fields: ["outcome", "reasonNote"],
+      changes: buildReferralActivityChanges(
+        ["outcome", "reasonNote"],
+        null,
+        referral.admissionDecision,
+      ),
+      reason: referral.admissionDecision.reasonNote || null,
       from_version: referral.admissionDecision.version > 1 ? referral.admissionDecision.version - 1 : null,
       to_version: referral.admissionDecision.version,
       created_at: referral.admissionDecision.decidedAt,
@@ -150,6 +181,8 @@ function mapActivityRow(row: ActivityRow): ReferralActivityEvent {
     actor_id: row.actor_id,
     actor_name: row.actor_name,
     changed_fields: row.changed_fields ?? [],
+    changes: buildReferralActivityChanges(row.changed_fields ?? [], row.before_values, row.after_values),
+    reason: activityReason(row.metadata),
     from_version: row.from_version === null ? null : Number(row.from_version),
     to_version: row.to_version === null ? null : Number(row.to_version),
     created_at: toIso(row.created_at),
@@ -180,9 +213,10 @@ function buildWorkflowMetadata(
   const now = new Date().toISOString();
 
   return {
-    owner: referral.owner && referral.owner.toLowerCase() !== "unassigned"
+    owner: referral.owner && !isUnassignedOwner(referral.owner)
       ? { id: referral.ownerId ?? null, name: referral.owner }
       : null,
+    owners: activityOwners(referral),
     created_by: createdEvent ? actorFromEvent(createdEvent) : null,
     last_changed_by: lastEvent ? actorFromEvent(lastEvent) : referral.updatedBy
       ? { id: referral.updatedBy.id, name: referral.updatedBy.name }
@@ -217,6 +251,14 @@ function buildWorkflowMetadata(
       decision_recorded: Boolean(decisionAt),
     },
   };
+}
+
+function activityOwners(referral: Referral): ReferralOwner[] {
+  const owners = normalizeReferralOwners(referral.owners);
+  if (owners.length > 0) return owners;
+  return referral.ownerId?.trim() && !isUnassignedOwner(referral.owner)
+    ? [{ id: referral.ownerId, name: referral.owner, responsibilities: ["assignee"] }]
+    : [];
 }
 
 function buildContributors(events: ReferralActivityEvent[]) {

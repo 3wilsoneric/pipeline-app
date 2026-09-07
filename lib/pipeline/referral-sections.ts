@@ -21,6 +21,7 @@ const sectionByField = {
   priority: "intake",
   tags: "intake",
   owner: "intake",
+  owners: "intake",
   assignedAt: "intake",
   assignmentDueAt: "intake",
   assignmentVersion: "intake",

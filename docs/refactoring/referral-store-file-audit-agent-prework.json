@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 1,
+  "recordType": "agent_prework_not_human_disposition",
+  "sliceId": "referral-store-boundaries",
+  "observedCommit": "141982d908d07da06dcb9d7c19e83df2f1c7ec4b",
+  "generatedInventory": "docs/reliability/repository-file-inventory.json",
+  "humanOwner": "Eric",
+  "humanReview": {
+    "status": "awaiting_owner_and_independent_review",
+    "reviewedBy": null,
+    "approvedAt": null
+  },
+  "proposedFirstIteration": {
+    "property": "Pure referral create and patch types no longer require a type-only dependency on the effectful server store, while all existing store import paths and runtime behavior remain compatible.",
+    "files": [
+      "lib/pipeline/referral-store.ts",
+      "lib/pipeline/referral-types.ts",
+      "lib/pipeline/referral-validation.ts"
+    ],
+    "explicitlyExcluded": [
+      "Moving local-file or PostgreSQL adapter code",
+      "Changing SQL, transactions, locks, retries, audit events, authorization, validation, normalization, duplicate review, workflow, or assessment synchronization",
+      "Changing browser component imports in the same iteration",
+      "Adding a new abstraction, module, dependency, feature flag, migration, or compatibility implementation"
+    ]
+  },
+  "files": [
+    {
+      "path": "lib/pipeline/referral-store.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Server-only persistence boundary may depend on stable referral types, pure policy, database/persistence adapters, and workflow policy; routes and server services may depend on its public store API. Browser modules must not gain runtime imports from it.",
+      "observedPurpose": "Selects the durable adapter and currently owns public store contracts, local-file persistence, PostgreSQL queries and transactions, normalization, mapping, filtering, audit construction, duplicate review, trash/restore, and referral-coupled work-item and assessment effects.",
+      "observedCallers": [
+        "Referral, trash, file, search, activity, assessment, workflow, operations, calendar, health, and internal reconciliation routes/services",
+        "Browser components through type-only imports"
+      ],
+      "publicExports": [
+        "StoredReferralAuditEvent",
+        "ReferralCreateInput",
+        "ReferralCreateOptions",
+        "ReferralPatch",
+        "ReferralQueueView",
+        "ReferralListOptions",
+        "ReferralFacetValue",
+        "ReferralFacets",
+        "ReferralListResult",
+        "ReferralFileListOptions",
+        "ReferralFileListResult",
+        "ReferralConflict",
+        "ReferralTransitionBlocked",
+        "ReferralMutation",
+        "ReferralCreateResult",
+        "DeletedReferralListResult",
+        "ReferralStoreReadiness",
+        "ReferralActor",
+        "ReferralMutationMetadata",
+        "ReferralChangeMetadata",
+        "ReferralStore",
+        "DuplicateReferralPacketError",
+        "SuspectedDuplicateReferralError",
+        "getReferralStoreReadiness",
+        "listReferrals",
+        "getReferralStoreRevision",
+        "listReferralFacets",
+        "getReferral",
+        "getDeletedReferral",
+        "getReferralByPacketId",
+        "getReferralChangeMetadata",
+        "listLocalReferralAuditEvents",
+        "listReferralsByClient",
+        "listReferralFiles",
+        "listReferralFilesByClient",
+        "listDeletedReferrals",
+        "softDeleteReferral",
+        "restoreReferral",
+        "listReferralFilesByCanonicalClient",
+        "createReferral",
+        "patchReferral",
+        "requireReferralStore"
+      ],
+      "sideEffects": [
+        "Local JSON file read, atomic replace, chmod, and process-global state",
+        "PostgreSQL people/referral/work-item/assessment/idempotency/audit/revision reads and writes",
+        "Dynamic assessment-store reads and writes in local mode",
+        "Aggregate console warning on local load failure"
+      ],
+      "observedFailureBehavior": "Returns typed conflicts/blockers/null for expected state outcomes; throws for duplicate packet, suspected duplicate, capacity, invalid cursor, reassignment race, pagination safety limit, database errors, and local persistence errors. PostgreSQL rolls back coupled transaction effects; local reassignment and persistence are not fully atomic.",
+      "candidateTests": [
+        "npm run characterize:referral-store",
+        "playwright test -c playwright.operational.config.ts tests/e2e/operational/referral-duplicate-review.spec.ts",
+        "npm run check:api",
+        "npm run check:assessor-workflow",
+        "npm run check:workflow-fuzz",
+        "npm run test:critical-safety",
+        "npm run database:assurance:integration",
+        "npm run database:concurrency"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (3036 lines): split by behavior before adding more responsibilities.",
+          "candidateDisposition": "confirmed",
+          "evidence": "The module contains separately characterizable contracts, adapter selection, two adapters, queries, mappings, mutation policy, audit construction, projections, and cross-store synchronization.",
+          "humanOwnerRequired": true
+        },
+        {
+          "prompt": "Contains runtime console logging; verify messages cannot include PHI, tokens, query strings, or upstream bodies.",
+          "candidateDisposition": "expected",
+          "evidence": "The observed local-load warning contains only fixed service and event names and does not interpolate the error or referral data.",
+          "humanOwnerRequired": true
+        },
+        {
+          "prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+          "candidateDisposition": "deferred",
+          "evidence": "The persistence queue deliberately recovers its prior rejected state before attempting the next serialized write. Whether the preceding failed write needs additional operator-visible state is not yet characterized.",
+          "followUp": "Owner must decide whether aggregate logging/readiness is required for local persistence recovery before adapter movement.",
+          "humanOwnerRequired": true
+        }
+      ],
+      "proposedDecision": "split",
+      "proposedDecisionReason": "Split only by independently evidenced responsibility. The first proposed iteration moves two pure mutation types to the existing type owner and preserves store re-exports; adapter or transaction movement is explicitly deferred."
+    },
+    {
+      "path": "lib/pipeline/referral-types.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Stable referral data and mutation shapes may depend only on stable domain vocabularies or type-only external contracts; application, policy, persistence, route, and browser layers may depend on them.",
+      "observedPurpose": "Defines canonical referral, ownership, section, workflow projection, requirement, decision, handoff, assessment projection, and referral-file shapes shared across the application.",
+      "observedCallers": [
+        "Referral store, workflow, assessment, operations, calendar, activity, validation, extraction-adjacent domain modules, API routes, and browser components"
+      ],
+      "publicExports": [
+        "Priority",
+        "WorkspaceOrigin",
+        "WorkspaceStatus",
+        "ReferralWorkflowStatus",
+        "referralSectionNames",
+        "ReferralSection",
+        "ReferralSectionVersions",
+        "referralCanvasFieldKeys",
+        "ReferralCanvasFieldKey",
+        "ReferralOwnerResponsibility",
+        "ReferralOwner",
+        "CanvasWorkflowStage",
+        "PostAssessmentDecision",
+        "RequirementType",
+        "RequirementStatus",
+        "RequirementGate",
+        "AdmissionRequirement",
+        "AssessmentRecommendation",
+        "AdmissionDecision",
+        "EhrHandoffStatus",
+        "EhrHandoffRecord",
+        "ManualIntakeAuthorization",
+        "AssessmentProfile",
+        "AssessmentMetrics",
+        "Referral",
+        "ReferralFile"
+      ],
+      "sideEffects": ["none"],
+      "observedFailureBehavior": "Type-only module; compile-time incompatibilities fail TypeScript checks. Its type-level workflow and extraction dependencies can create comprehension or dependency-cycle risk without runtime effects.",
+      "candidateTests": [
+        "npx tsc --noEmit",
+        "npm run build",
+        "npm run characterize:referral-store"
+      ],
+      "staticPrompts": [],
+      "proposedDecision": "keep",
+      "proposedDecisionReason": "Reuse the existing stable type owner for the two pure mutation shapes. Do not turn this file into a universal infrastructure contract or change its workflow/extraction dependency direction without separate owner validation."
+    },
+    {
+      "path": "lib/pipeline/referral-validation.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Pure public-input validation may depend on canonical referral types and bounded vocabulary constants; it must not depend on storage, database, route, browser, or external-service implementations.",
+      "observedPurpose": "Validates referral create and public patch payloads, including server-owned fields, text limits, enum values, hashes, document sizes, packet projections, work items, decision projections, and timestamps.",
+      "observedCallers": [
+        "app/api/referrals/route.ts",
+        "app/api/referrals/[referralId]/route.ts"
+      ],
+      "publicExports": [
+        "ReferralValidationResult",
+        "validateReferralCreateInput",
+        "validateReferralPatch"
+      ],
+      "sideEffects": ["none"],
+      "observedFailureBehavior": "Returns a bounded validation failure with a public message and status, normally 400, before the route invokes persistence.",
+      "candidateTests": [
+        "npm run check:api",
+        "npm run characterize:referral-store",
+        "npx tsc --noEmit"
+      ],
+      "staticPrompts": [],
+      "proposedDecision": "keep",
+      "proposedDecisionReason": "Keep the validator as the public trust boundary but change its type-only `ReferralPatch` dependency from the effectful store to the stable referral type owner."
+    },
+    {
+      "path": "lib/pipeline/referral-sections.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Pure optimistic-section policy may depend on referral field and section types; routes, collaboration UI, workflow, and stores may depend on it.",
+      "observedPurpose": "Maps mutable referral fields to six optimistic-concurrency sections and owns section-version defaults, normalization, incrementing, patch classification, and section-name validation.",
+      "observedCallers": [
+        "Referral item route",
+        "Referral packet canvas",
+        "Referral store",
+        "Workflow store"
+      ],
+      "publicExports": [
+        "defaultReferralSectionVersions",
+        "normalizeReferralSectionVersions",
+        "getReferralPatchSections",
+        "incrementReferralSections",
+        "isReferralSection"
+      ],
+      "sideEffects": ["none"],
+      "observedFailureBehavior": "Malformed or missing section-version input normalizes to defaults; unsupported patch keys do not claim a section; callers own conflict response behavior.",
+      "candidateTests": [
+        "npm run characterize:referral-store",
+        "npm run check:workflow-fuzz",
+        "npm run test:critical-safety"
+      ],
+      "staticPrompts": [],
+      "proposedDecision": "keep",
+      "proposedDecisionReason": "The file already has one cohesive pure responsibility. It should remain unchanged in the first proposed iteration."
+    }
+  ]
+}

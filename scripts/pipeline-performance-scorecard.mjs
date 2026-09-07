@@ -167,6 +167,10 @@ const cold = await page.evaluate(() => {
     dom_nodes: document.querySelectorAll("*").length,
   };
 });
+const coldNetwork = {
+  requestCount,
+  transferredBytes: documentBytes + assetBytes,
+};
 
 const journeys = [];
 const navigationPhases = {};
@@ -399,7 +403,6 @@ const interaction = await page.evaluate(() => {
   };
 });
 const apiSummary = summarizeApi([...apiResponses.values()]);
-const transferredBytes = documentBytes + assetBytes;
 const result = {
   ok: true,
   mode: enforce ? "enforced" : "baseline",
@@ -410,8 +413,8 @@ const result = {
     interaction_count: interaction.count,
     useful_content_ms: usefulContentMs,
     status: response?.status() ?? 0,
-    request_count: requestCount,
-    transferred_bytes: transferredBytes,
+    request_count: coldNetwork.requestCount,
+    transferred_bytes: coldNetwork.transferredBytes,
   }),
   warm_journeys: journeys.map((journey) => ({ ...journey, duration_ms: round(journey.duration_ms) })),
   api: apiSummary,

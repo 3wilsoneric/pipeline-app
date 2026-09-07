@@ -1,7 +1,9 @@
 {
   "schemaVersion": 1,
   "mode": "setup_only",
-  "updatedAt": "2026-09-06",
+  "approvalMode": "owner_fast_lane",
+  "ownerFastLaneRecord": "docs/refactoring/owner-fast-lane.json",
+  "updatedAt": "2026-09-07",
   "slices": [
     {
       "id": "referral-store-boundaries",

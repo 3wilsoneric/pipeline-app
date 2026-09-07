@@ -15,7 +15,8 @@ import {
 import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from "@/lib/pipeline/keyset-cursor";
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
-import { isUnassignedOwner, normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
+import { isSensitiveReferralActivityField } from "@/lib/pipeline/referral-activity-presentation";
+import { isUnassignedOwner, normalizeOwnerName, normalizeReferralOwners } from "@/lib/pipeline/referral-ownership";
 import type { ReferralSort } from "@/lib/pipeline/referral-sort";
 import { decodeReferralSortCursor, encodeReferralSortCursor } from "@/lib/pipeline/referral-sort-cursor";
 import type {
@@ -58,6 +59,7 @@ type ReferralStoreState = {
   revision: number;
   nextId: number;
   referrals: Referral[];
+  auditEvents: StoredReferralAuditEvent[];
   createMutations: Map<string, number>;
   persistQueue: Promise<void>;
 };
@@ -67,10 +69,30 @@ type ReferralStoreFile = {
   revision: number;
   next_id: number;
   referrals: Referral[];
+  audit_events?: StoredReferralAuditEvent[];
   create_mutations?: Record<string, number>;
 };
 
+export type StoredReferralAuditEvent = {
+  audit_event_id: string;
+  referral_id: number;
+  action: string;
+  actor_id: string | null;
+  actor_name: string;
+  changed_fields: string[];
+  before_values: JSONValue | null;
+  after_values: JSONValue;
+  metadata: JSONValue;
+  from_version: number | null;
+  to_version: number;
+  created_at: string;
+};
+
 export type ReferralCreateInput = Omit<Referral, "id" | "version" | "sectionVersions" | "updatedBy">;
+export type ReferralCreateOptions = {
+  confirmedDistinctReferralIds?: number[];
+  canReviewSuspectedDuplicate?: (referral: Referral) => boolean;
+};
 export type ReferralPatch = Partial<Omit<Referral, "id" | "version" | "clientId" | "sectionVersions" | "updatedBy">>;
 export type ReferralQueueView = "my_work" | "unassigned" | "packet_review" | "assessment" | "decision";
 
@@ -219,7 +241,12 @@ export interface ReferralStore {
   listDeleted(query?: string): Promise<DeletedReferralListResult>;
   softDelete(id: number, actor: ReferralActor, expectedVersion?: number): Promise<ReferralMutation | null>;
   restore(id: number, actor: ReferralActor, expectedVersion?: number): Promise<ReferralMutation | null>;
-  create(input: ReferralCreateInput, actor: ReferralActor, mutationId?: string): Promise<ReferralCreateResult>;
+  create(
+    input: ReferralCreateInput,
+    actor: ReferralActor,
+    mutationId?: string,
+    options?: ReferralCreateOptions,
+  ): Promise<ReferralCreateResult>;
   patch(
     id: number,
     patch: ReferralPatch,
@@ -237,6 +264,16 @@ export class DuplicateReferralPacketError extends Error {
   }
 }
 
+export class SuspectedDuplicateReferralError extends Error {
+  constructor(
+    public readonly referrals: Referral[],
+    public readonly additionalMatches: boolean,
+  ) {
+    super("A referral with this client name and county already exists.");
+    this.name = "SuspectedDuplicateReferralError";
+  }
+}
+
 const globalForReferralStore = globalThis as typeof globalThis & {
   __pipelineReferralStore?: ReferralStoreState;
 };
@@ -248,14 +285,17 @@ const state =
     revision: 0,
     nextId: 1,
     referrals: [],
+    auditEvents: [],
     createMutations: new Map<string, number>(),
     persistQueue: Promise.resolve(),
   });
 
+state.auditEvents ??= [];
 state.createMutations ??= new Map<string, number>();
 
 const maxReferralRows = 100_000;
 const maxPageSize = 200;
+const maximumSuspectedDuplicateCandidates = 20;
 
 export function getReferralStoreReadiness(): ReferralStoreReadiness {
   const mode = resolveDurableStoreMode({
@@ -306,7 +346,7 @@ const localReferralStore: ReferralStore = {
   listDeleted: listLocalDeletedReferrals,
   softDelete: softDeleteLocalReferral,
   restore: restoreLocalReferral,
-  create: (input, actor, mutationId) => createLocalReferral(input, actor, mutationId),
+  create: (input, actor, mutationId, options) => createLocalReferral(input, actor, mutationId, options),
   patch: (id, patch, actor, expectedVersion, expectedSectionVersions, metadata) =>
     patchLocalReferral(id, patch, actor, expectedVersion, expectedSectionVersions, metadata),
 };
@@ -375,6 +415,15 @@ export async function getReferralChangeMetadata(id: number) {
   return getReferralStore().changeMetadata(id);
 }
 
+export async function listLocalReferralAuditEvents(id: number) {
+  if (getReferralStoreReadiness().mode !== "local_file") return [];
+  await ensureLoaded();
+  return state.auditEvents
+    .filter((event) => event.referral_id === id)
+    .sort((left, right) => right.created_at.localeCompare(left.created_at))
+    .slice(0, 100);
+}
+
 export async function listReferralsByClient(clientId: string) {
   return getReferralStore().listByClient(clientId);
 }
@@ -427,13 +476,14 @@ export async function createReferral(
   input: ReferralCreateInput,
   mutationId?: string,
   actor: ReferralActor = systemActor(),
+  options: ReferralCreateOptions = {},
 ) {
   const name = normalizeClientName(input.name, {
     gender: input.gender,
     community: input.community,
   });
   if (!name) throw new Error("A client name is required.");
-  return getReferralStore().create({ ...input, name }, actor, mutationId);
+  return getReferralStore().create({ ...input, name }, actor, mutationId, options);
 }
 
 export async function patchReferral(
@@ -487,6 +537,9 @@ async function ensureLoaded() {
         : [];
 
       state.referrals = referrals.map(normalizeReferral);
+      state.auditEvents = Array.isArray(parsed.audit_events)
+        ? parsed.audit_events.filter(isStoredReferralAuditEvent).slice(0, 100_000)
+        : [];
       state.revision = Number.isInteger(parsed.revision) ? Number(parsed.revision) : 0;
       state.createMutations = new Map(
         Object.entries(parsed.create_mutations ?? {}).filter(
@@ -517,6 +570,7 @@ async function persist() {
     revision: state.revision,
     next_id: state.nextId,
     referrals: state.referrals,
+    audit_events: state.auditEvents,
     create_mutations: Object.fromEntries(state.createMutations),
   };
   const path = storePath();
@@ -685,6 +739,7 @@ async function createLocalReferral(
   input: ReferralCreateInput,
   actor: ReferralActor,
   mutationId?: string,
+  options: ReferralCreateOptions = {},
 ): Promise<ReferralCreateResult> {
   await ensureLoaded();
 
@@ -698,6 +753,10 @@ async function createLocalReferral(
   }
 
   assertPacketIsUnique(input.documentHash);
+  const confirmedDistinctReferralIds = requireSuspectedDuplicateConfirmation(
+    suspectedLocalDuplicateReferrals(input),
+    options,
+  );
 
   if (state.referrals.length >= maxReferralRows) {
     throw new Error("Referral capacity reached. Archive closed referrals before creating more.");
@@ -721,6 +780,17 @@ async function createLocalReferral(
   state.revision += 1;
   state.referrals = [referral, ...state.referrals];
   if (mutationId) state.createMutations.set(mutationId, referral.id);
+  appendLocalReferralAudit(
+    referral.id,
+    "referral_created",
+    actor,
+    [],
+    null,
+    referral,
+    1,
+    distinctPersonConfirmationReason(confirmedDistinctReferralIds),
+    createdAt,
+  );
   await persist();
 
   return { referral, revision: state.revision, idempotentReplay: false };
@@ -801,6 +871,7 @@ async function patchLocalReferral(
   const internallyTouchedSections = workflowStatusChanged
     ? [...new Set([...touchedSections, "workflow" as const])]
     : touchedSections;
+  const changedFields = referralAuditChangedFields(safePatch, assignmentChanged, workflowStatusChanged);
 
   const next = normalizeReferral({
     ...current,
@@ -826,7 +897,19 @@ async function patchLocalReferral(
   if (assignmentChanged) {
     await syncLocalOpenAssessmentAssignments(current.id, nextOwner, actor);
   }
+  const auditAction = referralAuditAction(metadata, current, next, safePatch, assignmentChanged, nextOwner);
   state.referrals[index] = next;
+  appendLocalReferralAudit(
+    id,
+    auditAction,
+    actor,
+    changedFields,
+    current,
+    next,
+    Number(next.version),
+    metadata?.auditReason,
+    now,
+  );
   state.revision += 1;
   await persist();
 
@@ -901,6 +984,17 @@ async function softDeleteLocalReferral(
     deletedBy: actor,
   });
   state.referrals[index] = next;
+  appendLocalReferralAudit(
+    id,
+    "referral_moved_to_trash",
+    actor,
+    ["deletedAt", "deleteAfter"],
+    current,
+    next,
+    next.version ?? 1,
+    undefined,
+    deletedAt.toISOString(),
+  );
   state.revision += 1;
   await persist();
   return { ok: true, referral: next, revision: state.revision };
@@ -930,6 +1024,17 @@ async function restoreLocalReferral(
     updatedBy: actor,
   });
   state.referrals[index] = next;
+  appendLocalReferralAudit(
+    id,
+    "referral_restored",
+    actor,
+    ["deletedAt", "deleteAfter"],
+    current,
+    next,
+    next.version ?? 1,
+    undefined,
+    next.updatedAt,
+  );
   state.revision += 1;
   await persist();
   return { ok: true, referral: next, revision: state.revision };
@@ -1493,6 +1598,7 @@ async function createPostgresReferral(
   input: ReferralCreateInput,
   actor: ReferralActor,
   mutationId?: string,
+  options: ReferralCreateOptions = {},
 ): Promise<ReferralCreateResult> {
   const sql = getPipelineSql();
   return sql.begin(async (tx) => {
@@ -1524,6 +1630,12 @@ async function createPostgresReferral(
       `;
       if (duplicate[0]) throw new DuplicateReferralPacketError(Number(duplicate[0].referral_id));
     }
+
+    const confirmedDistinctReferralIds = await lockAndConfirmPostgresDuplicate(
+      tx,
+      input,
+      options,
+    );
 
     const clientId = normalizeClientId(input.clientId) || `pipeline-client-${randomUUID()}`;
     const people = await tx<{ person_id: string }[]>`
@@ -1570,7 +1682,17 @@ async function createPostgresReferral(
     if (referral.requirements?.length) {
       await syncPostgresWorkItems(tx, referral.id, people[0].person_id, referral.requirements);
     }
-    await writeReferralAudit(tx, referral.id, "referral_created", actor, [], null, referral.stage, 1);
+    await writeReferralAudit(
+      tx,
+      referral.id,
+      "referral_created",
+      actor,
+      [],
+      null,
+      referral,
+      1,
+      distinctPersonConfirmationReason(confirmedDistinctReferralIds),
+    );
     if (mutationId) {
       await tx`
         insert into pipeline.idempotency_keys (scope, mutation_id, entity_type, entity_id)
@@ -1663,13 +1785,7 @@ async function patchPostgresReferral(
       safePatch.workflowStatus,
     );
     const workflowStatusChanged = nextWorkflowStatus !== current.workflowStatus;
-    const changedFields = Array.from(new Set([
-      ...Object.keys(safePatch),
-      ...(assignmentChanged
-        ? ["assignedAt", "assignmentDueAt", "assignmentVersion", "requirements"]
-        : []),
-      ...(workflowStatusChanged ? ["workflowStatus"] : []),
-    ]));
+    const changedFields = referralAuditChangedFields(safePatch, assignmentChanged, workflowStatusChanged);
     const internallyTouchedSections = assignmentChanged || workflowStatusChanged
       ? [...new Set([...touchedSections, "workflow" as const])]
       : touchedSections;
@@ -1737,24 +1853,15 @@ async function patchPostgresReferral(
     if (assignmentChanged) {
       await syncPostgresOpenAssessmentAssignments(tx, referral, actor);
     }
-    const auditAction = metadata?.auditAction
-      ?? (assignmentChanged
-        ? nextAssigned
-          ? hasAssignedOwner(current) ? "referral_reassigned" : "referral_assigned"
-          : "referral_unassigned"
-        : safePatch.ehrHandoff !== undefined
-          ? "ehr_handoff_updated"
-          : current.stage === referral.stage
-            ? "referral_updated"
-            : "referral_stage_changed");
+    const auditAction = referralAuditAction(metadata, current, referral, safePatch, assignmentChanged, nextOwner);
     await writeReferralAudit(
       tx,
       id,
       auditAction,
       actor,
       changedFields,
-      current.stage,
-      referral.stage,
+      current,
+      referral,
       referral.version ?? currentVersion + 1,
       metadata?.auditReason,
     );
@@ -1820,7 +1927,7 @@ async function softDeletePostgresReferral(
       returning r.*, p.external_client_id, p.display_name
     `;
     const referral = mapReferralRow(rows[0]);
-    await writeReferralAudit(tx, id, "referral_moved_to_trash", actor, ["deletedAt"], current.stage, current.stage, referral.version ?? 1);
+    await writeReferralAudit(tx, id, "referral_moved_to_trash", actor, ["deletedAt", "deleteAfter"], current, referral, referral.version ?? 1);
     const revision = await bumpReferralRevision(tx);
     return { ok: true, referral, revision };
   });
@@ -1865,7 +1972,7 @@ async function restorePostgresReferral(
       returning r.*, p.external_client_id, p.display_name
     `;
     const referral = mapReferralRow(rows[0]);
-    await writeReferralAudit(tx, id, "referral_restored", actor, ["deletedAt"], current.stage, current.stage, referral.version ?? 1);
+    await writeReferralAudit(tx, id, "referral_restored", actor, ["deletedAt", "deleteAfter"], current, referral, referral.version ?? 1);
     const revision = await bumpReferralRevision(tx);
     return { ok: true, referral, revision };
   });
@@ -1892,11 +1999,12 @@ async function writeReferralAudit(
   action: string,
   actor: ReferralActor,
   changedFields: string[],
-  fromStage: string | null,
-  toStage: string,
+  before: Referral | null,
+  after: Referral,
   version: number,
   reason?: string,
 ) {
+  const valueFields = [...new Set(["stage", ...changedFields])];
   await tx`
     insert into pipeline.audit_events (
       entity_type, entity_id, action, actor_id, actor_name,
@@ -1904,10 +2012,77 @@ async function writeReferralAudit(
     ) values (
       'referral', ${String(referralId)}, ${action}, ${actor.id}, ${actor.name},
       ${version > 1 ? version - 1 : null}, ${version}, ${changedFields},
-      ${fromStage ? tx.json({ stage: fromStage }) : null}, ${tx.json({ stage: toStage })},
+      ${before ? tx.json(referralAuditValues(before, valueFields)) : null},
+      ${tx.json(referralAuditValues(after, valueFields))},
       ${tx.json(reason ? { reason } : {})}
     )
   `;
+}
+
+function referralAuditChangedFields(
+  patch: ReferralPatch,
+  assignmentChanged: boolean,
+  workflowStatusChanged: boolean,
+) {
+  const fields = Object.keys(patch);
+  if (assignmentChanged) fields.push("assignedAt", "assignmentDueAt", "assignmentVersion", "requirements");
+  if (workflowStatusChanged) fields.push("workflowStatus");
+  return [...new Set(fields)];
+}
+
+function referralAuditAction(
+  metadata: ReferralMutationMetadata | undefined,
+  current: Referral,
+  next: Referral,
+  patch: ReferralPatch,
+  assignmentChanged: boolean,
+  nextOwner: Pick<Referral, "owner" | "ownerId">,
+) {
+  if (metadata?.auditAction) return metadata.auditAction;
+  if (assignmentChanged) {
+    if (!hasAssignedOwner(nextOwner)) return "referral_unassigned";
+    return hasAssignedOwner(current) ? "referral_reassigned" : "referral_assigned";
+  }
+  if (patch.ehrHandoff !== undefined) return "ehr_handoff_updated";
+  return current.stage === next.stage ? "referral_updated" : "referral_stage_changed";
+}
+
+function appendLocalReferralAudit(
+  referralId: number,
+  action: string,
+  actor: ReferralActor,
+  changedFields: string[],
+  before: Referral | null,
+  after: Referral,
+  version: number,
+  reason?: string,
+  createdAt = new Date().toISOString(),
+) {
+  const valueFields = [...new Set(["stage", ...changedFields])];
+  state.auditEvents = [{
+    audit_event_id: randomUUID(),
+    referral_id: referralId,
+    action,
+    actor_id: actor.id || null,
+    actor_name: actor.name,
+    changed_fields: changedFields,
+    before_values: before ? referralAuditValues(before, valueFields) : null,
+    after_values: referralAuditValues(after, valueFields),
+    metadata: JSON.parse(JSON.stringify(reason ? { reason } : {})) as JSONValue,
+    from_version: version > 1 ? version - 1 : null,
+    to_version: version,
+    created_at: createdAt,
+  }, ...state.auditEvents].slice(0, 100_000);
+}
+
+function referralAuditValues(referral: Referral, fields: string[]): JSONValue {
+  const values = Object.fromEntries(fields.map((field) => [
+    field,
+    isSensitiveReferralActivityField(field)
+      ? "[masked]"
+      : (referral as unknown as Record<string, unknown>)[field] ?? null,
+  ]));
+  return JSON.parse(JSON.stringify(values)) as JSONValue;
 }
 
 async function syncPostgresOpenAssessmentAssignments(
@@ -1943,7 +2118,7 @@ async function syncPostgresOpenAssessmentAssignments(
       update pipeline.assessments
       set assessor_id = ${nextAssessor?.id ?? null},
           assessor_name = ${nextAssessor?.name ?? null},
-          data = coalesce(data, '{}'::jsonb) || jsonb_build_object('assessor', ${nextAssessor?.name ?? null}),
+          data = coalesce(data, '{}'::jsonb) || jsonb_build_object('assessor', ${nextAssessor?.name ?? null}::text),
           section_versions = jsonb_set(
             coalesce(section_versions, '{}'::jsonb),
             '{identity}',
@@ -2326,6 +2501,7 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "documentStatus",
     "owner",
     "ownerId",
+    "owners",
     "note",
     "createdAt",
     "dob",
@@ -2391,6 +2567,68 @@ function assertPacketIsUnique(documentHash: string | undefined, currentReferralI
   if (duplicate) throw new DuplicateReferralPacketError(duplicate.id);
 }
 
+function suspectedLocalDuplicateReferrals(input: ReferralCreateInput) {
+  const identity = suspectedDuplicateIdentity(input);
+  if (!identity) return [];
+  return state.referrals.filter((referral) => (
+    referral.name.trim().toLowerCase() === identity.name
+    && resolveWorkspaceCounty(referral) === identity.county
+  ));
+}
+
+function suspectedDuplicateIdentity(input: ReferralCreateInput) {
+  const name = input.name.trim().replace(/\s+/g, " ").toLowerCase();
+  const county = resolveWorkspaceCounty(input)?.trim();
+  return name && county ? { name, county } : null;
+}
+
+async function lockAndConfirmPostgresDuplicate(
+  tx: TransactionSql,
+  input: ReferralCreateInput,
+  options: ReferralCreateOptions,
+) {
+  const identity = suspectedDuplicateIdentity(input);
+  if (!identity) return [];
+  await tx`select pg_advisory_xact_lock(hashtextextended(${`referral_identity:${identity.name}:${identity.county}`}, 0))`;
+  const duplicateRows = await tx<ReferralRow[]>`
+    select r.*, p.external_client_id, p.display_name
+    from pipeline.referrals r
+    join pipeline.people p on p.person_id = r.person_id
+    where lower(p.display_name) = ${identity.name}
+      and r.county = ${identity.county}
+    order by r.created_at desc, r.referral_id desc
+    limit ${maximumSuspectedDuplicateCandidates + 1}
+  `;
+  return requireSuspectedDuplicateConfirmation(duplicateRows.map(mapReferralRow), options);
+}
+
+function requireSuspectedDuplicateConfirmation(
+  matches: Referral[],
+  options: ReferralCreateOptions,
+) {
+  if (matches.length === 0) return [];
+  const confirmed = new Set(
+    (options.confirmedDistinctReferralIds ?? []).filter((id) => Number.isSafeInteger(id) && id > 0),
+  );
+  if (
+    matches.length > maximumSuspectedDuplicateCandidates
+    || confirmed.size !== matches.length
+    || matches.some((referral) => !confirmed.has(referral.id) || !options.canReviewSuspectedDuplicate?.(referral))
+  ) {
+    throw new SuspectedDuplicateReferralError(
+      matches.slice(0, maximumSuspectedDuplicateCandidates),
+      matches.length > maximumSuspectedDuplicateCandidates,
+    );
+  }
+  return matches.map((referral) => referral.id).sort((left, right) => left - right);
+}
+
+function distinctPersonConfirmationReason(referralIds: number[]) {
+  return referralIds.length > 0
+    ? `Confirmed as a different person after reviewing referral${referralIds.length === 1 ? "" : "s"} ${referralIds.join(", ")}.`
+    : undefined;
+}
+
 function normalizeReferral(input: Referral): Referral {
   const workspaceMonth = resolveWorkspaceMonth(input);
   const normalized = {
@@ -2416,6 +2654,7 @@ function normalizeReferral(input: Referral): Referral {
       : 1,
     sectionVersions: normalizeReferralSectionVersions(input.sectionVersions),
     ownerId: input.ownerId?.trim() || undefined,
+    owners: normalizeReferralOwners(input.owners),
     assignedAt: input.assignedAt?.trim() || undefined,
     assignmentDueAt: input.assignmentDueAt?.trim() || undefined,
     assignmentVersion: Number.isInteger(input.assignmentVersion) && Number(input.assignmentVersion) > 0
@@ -2493,6 +2732,22 @@ function isReferralRecord(value: unknown): value is Referral {
     typeof candidate.community === "string" &&
     typeof candidate.createdAt === "string"
   );
+}
+
+function isStoredReferralAuditEvent(value: unknown): value is StoredReferralAuditEvent {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Partial<StoredReferralAuditEvent>;
+  const requiredValuesAreValid = [
+    typeof candidate.audit_event_id === "string",
+    Number.isInteger(candidate.referral_id),
+    typeof candidate.action === "string",
+    typeof candidate.actor_name === "string",
+    Number.isInteger(candidate.to_version),
+    typeof candidate.created_at === "string",
+  ].every(Boolean);
+  return requiredValuesAreValid
+    && Array.isArray(candidate.changed_fields)
+    && candidate.changed_fields.every((field) => typeof field === "string");
 }
 
 function matchesReferralFilters(referral: Referral, options: ReferralListOptions) {
