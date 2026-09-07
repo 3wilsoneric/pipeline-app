@@ -2,7 +2,7 @@ import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { listWorkspaceEditingPresence } from "@/lib/pipeline/editing-presence";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
-import { listWorkspaceMembers } from "@/lib/pipeline/workspace-members";
+import { listAssignableWorkspaceAssessors, listWorkspaceMembers } from "@/lib/pipeline/workspace-members";
 
 export const runtime = "nodejs";
 
@@ -13,7 +13,9 @@ export async function GET(request: Request) {
     const store = requireReferralStore();
     if (!store.ok) return store.response;
 
-    const members = await listWorkspaceMembers(auth.user);
+    const members = new URL(request.url).searchParams.get("scope") === "assessors"
+      ? await listAssignableWorkspaceAssessors(auth.user)
+      : await listWorkspaceMembers(auth.user);
     const identity = {
       current_principal_id: auth.user.id,
       authenticated_principal_id: auth.user.delegation?.initiatedBy.id ?? auth.user.id,

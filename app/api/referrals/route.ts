@@ -18,7 +18,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { assignedOwnerForCreate, canAccessReferral, isAssessorUser, scopeReferralListOptions } from "@/lib/pipeline/referral-access";
 import { resolveKnownPipelineUser } from "@/lib/pipeline/known-users";
 import { createReferralOwners, isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
-import { getActiveWorkspaceMember, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
+import { getAssignableWorkspaceAssessor, touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
 import { createDefaultAdmissionRequirements, isRequirementComplete } from "@/lib/pipeline/workflow-records";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { applyReviewedClinicalIdentity } from "@/lib/pipeline/referral-clinical-identity";
@@ -107,17 +107,17 @@ export async function POST(request: Request) {
     await touchWorkspaceMember(auth.user);
     const assignment = assignedOwnerForCreate(auth.user, referralResult.value.owner);
     const selectedOwner = typeof body.value.assignee_id === "string"
-      ? await getActiveWorkspaceMember(body.value.assignee_id)
+      ? await getAssignableWorkspaceAssessor(body.value.assignee_id)
       : null;
     if (body.value.assignee_id !== undefined && !selectedOwner) {
-      return jsonError("Choose an active Pipeline member as owner.", 422);
+      return jsonError("Choose an active assessor as owner.", 422);
     }
     if (selectedOwner && isAssessorUser(auth.user) && selectedOwner.principal_id !== auth.user.id) {
       return jsonError("Assessors can assign new referrals only to themselves.", 403);
     }
     const knownOwner = selectedOwner || assignment.ownerId ? null : await resolveKnownPipelineUser(assignment.owner);
     if (!selectedOwner && !assignment.ownerId && !knownOwner && !isUnassignedOwner(assignment.owner)) {
-      return jsonError("Choose an active Pipeline member as owner.", 422);
+      return jsonError("Choose an active assessor as owner.", 422);
     }
     const assignedReferral = {
       ...referralResult.value,

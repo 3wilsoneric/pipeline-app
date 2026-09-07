@@ -65,9 +65,7 @@ export async function requirePacketAccess(user: PipelineUser, packetId: string) 
 
 export function assignedOwnerForCreate(user: PipelineUser, owner: string) {
   if (isAssessorUser(user)) return { owner: user.name, ownerId: user.id };
-  return normalizedOwnerAliases(user).includes(owner.trim().toLowerCase())
-    ? { owner, ownerId: user.id }
-    : { owner, ownerId: undefined };
+  return { owner, ownerId: undefined };
 }
 
 export function assignedOwnerForPatch(
@@ -84,7 +82,7 @@ export function assignedOwnerForPatch(
       response: Response.json({ error: "Assessors cannot reassign referrals." }, { status: 403 }),
     };
   }
-  if (normalizedOwnerAliases(user).includes(requestedOwner.trim().toLowerCase())) {
+  if (isAssessorUser(user) && normalizedOwnerAliases(user).includes(requestedOwner.trim().toLowerCase())) {
     return { ok: true as const, owner: requestedOwner, ownerId: user.id };
   }
   if (requestedOwner.trim().toLowerCase() === current.owner.trim().toLowerCase()) {

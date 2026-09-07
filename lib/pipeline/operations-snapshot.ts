@@ -53,6 +53,7 @@ import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records"
 import { getAssessmentCompletionReport } from "@/lib/assessment/assessment-store";
 import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
 import { listWorkspaceMembers } from "@/lib/pipeline/workspace-members";
+import { isAssignableAssessorMember } from "@/lib/pipeline/workspace-member-eligibility";
 import type {
   SupervisorExceptionItem,
   SupervisorExceptionSnapshot,
@@ -154,7 +155,7 @@ async function getTeamAssessmentCompletionReport(user: PipelineUser, month: stri
     row,
   ]));
   for (const member of members) {
-    if (!member.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role))) continue;
+    if (!isAssignableAssessorMember(member)) continue;
     if (!rows.has(member.principal_id)) {
       rows.set(member.principal_id, {
         assessor_id: member.principal_id,

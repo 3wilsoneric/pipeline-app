@@ -183,7 +183,9 @@ test.describe("Pipeline Demo Environment", () => {
     const coach = page.getByRole("dialog", { name: "Schedule an assessment guided tutorial" });
     const schedule = page.getByRole("dialog", { name: "Schedule assessment" });
     await expect(coach.getByRole("heading", { name: "Set the appointment" })).toBeVisible();
-    await schedule.getByLabel("Assessment date and time").fill(futureLocalDateTime());
+    const appointment = schedule.getByLabel("Assessment date and time");
+    await appointment.fill(futureLocalDateTime());
+    await appointment.blur();
     await expect(coach.getByRole("heading", { name: "Choose the interview method" })).toBeVisible();
     await schedule.getByLabel("Assessment method").selectOption("zoom");
     await expect(coach.getByRole("heading", { name: "Save the schedule" })).toBeVisible();

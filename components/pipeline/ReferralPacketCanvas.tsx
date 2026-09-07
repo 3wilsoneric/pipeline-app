@@ -418,7 +418,7 @@ export default function ReferralPacketCanvas({
 
   useEffect(() => {
     let cancelled = false;
-    fetchPipelineJson<{ members: WorkspaceMember[]; current_principal_id: string }>("/api/members", { cache: "no-store" })
+    fetchPipelineJson<{ members: WorkspaceMember[]; current_principal_id: string }>("/api/members?scope=assessors", { cache: "no-store" })
       .then((payload) => {
         if (cancelled) return;
         setMembers(payload.members);

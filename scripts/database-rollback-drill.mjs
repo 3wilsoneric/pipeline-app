@@ -34,6 +34,7 @@ const workspaceMonthRollback = await readFile("database/rollbacks/0024_workspace
 const homeDashboardLayoutRollback = await readFile("database/rollbacks/0025_home_dashboard_layout.sql", "utf8");
 const importedWorkspaceLifecycleRollback = await readFile("database/rollbacks/0026_imported_workspace_lifecycle.sql", "utf8");
 const staffProfilesRollback = await readFile("database/rollbacks/0027_staff_profiles.sql", "utf8");
+const workspaceRosterRollback = await readFile("database/rollbacks/0028_workspace_roster.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -113,6 +114,7 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0026_imported_workspace_lifecycle') as imported_workspace_lifecycle_history,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='workspace_members' and column_name='profile_version') as staff_profile_fields,
       exists(select 1 from pipeline.schema_migrations where migration_id='0027_staff_profiles') as staff_profile_history,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0028_workspace_roster') as workspace_roster_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -173,6 +175,7 @@ try {
       && before[0].imported_workspace_lifecycle_history
       && before[0].staff_profile_fields
       && before[0].staff_profile_history
+      && before[0].workspace_roster_history
       && before[0].canvas_content_snapshots
       && before[0].canvas_content_candidates
       && before[0].allo_canvas_content_history
@@ -185,6 +188,56 @@ try {
       && before[0].workspace_month
       && before[0].workspace_month_index
       && before[0].workspace_month_history
+    ),
+  });
+  await connection`
+    insert into pipeline.workspace_members (
+      principal_id, display_name, email, roles, active, last_seen_at,
+      identity_status, source_system, source_identity
+    ) values (
+      'provisional:fixture:workspace-roster-retired', 'Synthetic Retired Assessor', null,
+      array['reviewer', 'viewer'], false, null,
+      'provisional', 'synthetic_fixture', 'workspace-roster-retired'
+    )
+  `;
+  await connection`
+    insert into pipeline.audit_events (
+      entity_type, entity_id, action, actor_id, actor_name,
+      changed_fields, before_values, after_values, metadata
+    ) values (
+      'workspace_member', 'provisional:fixture:workspace-roster-retired',
+      'workspace_member_deactivated', 'system:workspace-roster', 'Workspace roster migration',
+      array['active'], ${connection.json({ active: true })}, ${connection.json({ active: false })},
+      ${connection.json({ display_name: "Synthetic Retired Assessor", roles: ["reviewer", "viewer"] })}
+    )
+  `;
+  await connection.unsafe(workspaceRosterRollback);
+  const workspaceRosterDuring = await connection`
+    select not exists(
+        select 1 from pipeline.schema_migrations where migration_id='0028_workspace_roster'
+      ) as history_removed,
+      exists(
+        select 1 from pipeline.schema_migrations where migration_id='0027_staff_profiles'
+      ) as prior_history_preserved,
+      exists(
+        select 1 from pipeline.workspace_members
+        where principal_id='provisional:fixture:workspace-roster-retired' and active
+      ) as member_reactivated,
+      not exists(
+        select 1 from pipeline.audit_events
+        where entity_type='workspace_member'
+          and entity_id='provisional:fixture:workspace-roster-retired'
+          and action='workspace_member_deactivated'
+          and actor_id='system:workspace-roster'
+      ) as migration_audit_removed
+  `;
+  checks.push({
+    name: "rollback restores retired workspace members and preserves prior migration history",
+    ok: Boolean(
+      workspaceRosterDuring[0].history_removed
+      && workspaceRosterDuring[0].prior_history_preserved
+      && workspaceRosterDuring[0].member_reactivated
+      && workspaceRosterDuring[0].migration_audit_removed
     ),
   });
   await connection.unsafe(staffProfilesRollback);
@@ -589,6 +642,7 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0026_imported_workspace_lifecycle') as imported_workspace_lifecycle_history,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='workspace_members' and column_name='profile_version') as staff_profile_fields,
       exists(select 1 from pipeline.schema_migrations where migration_id='0027_staff_profiles') as staff_profile_history,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0028_workspace_roster') as workspace_roster_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -651,6 +705,7 @@ try {
       && after[0].imported_workspace_lifecycle_history
       && after[0].staff_profile_fields
       && after[0].staff_profile_history
+      && after[0].workspace_roster_history
       && after[0].canvas_content_snapshots
       && after[0].canvas_content_candidates
       && after[0].allo_canvas_content_history

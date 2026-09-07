@@ -1085,6 +1085,24 @@ function authBehaviorResults() {
       assert(!referralAccess.canAccessReferral(assessor, other), "A different stable owner id must override a matching name");
       assert(referralAccess.canAccessReferral(assessor, legacy), "Legacy owner names should remain accessible during backfill");
     }),
+    run("referral creation assigns assessors but never turns supervisors into assessors", () => {
+      const assessor = {
+        id: "entra-assessor-1",
+        email: "assessor@example.com",
+        name: "Assessor User",
+        roles: ["reviewer", "viewer"],
+      };
+      const supervisor = {
+        id: "entra-supervisor-1",
+        email: "supervisor@example.com",
+        name: "Supervisor User",
+        roles: ["assessment_coordinator", "reviewer", "viewer"],
+      };
+      const assessorAssignment = referralAccess.assignedOwnerForCreate(assessor, assessor.name);
+      const supervisorAssignment = referralAccess.assignedOwnerForCreate(supervisor, supervisor.name);
+      assert(assessorAssignment.ownerId === assessor.id, "An assessor creating a referral must remain its assignee");
+      assert(supervisorAssignment.ownerId === undefined, "A supervisor must choose an assessor or leave the referral unassigned");
+    }),
     run("workspace ownership retains the creator and assigning supervisor", () => {
       const supervisor = { id: "supervisor-1", name: "Supervisor User" };
       const initial = referralOwnership.createReferralOwners(

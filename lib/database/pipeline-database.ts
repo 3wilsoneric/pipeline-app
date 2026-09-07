@@ -45,6 +45,7 @@ const REQUIRED_PIPELINE_MIGRATIONS = [
   "0025_home_dashboard_layout",
   "0026_imported_workspace_lifecycle",
   "0027_staff_profiles",
+  "0028_workspace_roster",
 ] as const;
 
 export function getPipelineDatabaseMode(): PipelineDatabaseMode {

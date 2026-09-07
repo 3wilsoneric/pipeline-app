@@ -12,6 +12,11 @@ import {
 import { assessmentInterviewQuestions, assessmentInterviewSections } from "../../lib/assessment/assessment-interview-schema";
 import type { PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
 
+const testAssessor = {
+  id: "provisional:allo:annette",
+  name: "Annette",
+} as const;
+
 const clinicalFixture = JSON.parse(
   readFileSync(path.join(process.cwd(), "scripts/fixtures/alamo-pipeline-clinical.sanitized.json"), "utf8"),
 ) as {
@@ -440,7 +445,7 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("creates a durable shell before its initial document and recalls the saved referral chart", async ({ page }) => {
-    const clientName = `Referral chart ${randomUUID().slice(0, 8)}`;
+    const clientName = `Referral ${uniqueAlphabeticNameToken()}`;
     await page.getByRole("button", { name: "Create new referral" }).click();
 
     await expect(page.getByRole("region", { name: "Intake", exact: true })).toBeVisible();
@@ -464,13 +469,13 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
     await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
     await page.getByRole("textbox", { name: "Referent:", exact: true }).fill("San Pablo intake team");
-    await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption({ label: "Playwright QA" });
+    await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption(testAssessor.id);
+    await page.getByRole("button", { name: "Create workspace", exact: true }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
+    await expect(page.getByRole("button", { name: "Save workspace", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true }).fill("Referral chart created from the initial document.");
     await page.getByRole("button", { name: "Done", exact: true }).click();
-    await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
-    await expect(page.getByRole("button", { name: "Save workspace", exact: true })).toBeVisible();
-    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
     const referralId = new URL(page.url()).searchParams.get("referralId");
     expect(referralId).not.toBeNull();
     const shellResponse = await page.request.get(`/api/referrals/${referralId}`);
@@ -512,6 +517,7 @@ test.describe("Referral home and packet canvas", () => {
     const createdResponse = await page.request.post("/api/referrals", {
       data: {
         client_mutation_id: `new-intake-reset-${randomUUID()}`,
+        assignee_id: testAssessor.id,
         referral: {
           name: existingName,
           date: "2026-08-26",
@@ -522,7 +528,7 @@ test.describe("Referral home and packet canvas", () => {
           tags: [],
           documentName: "",
           documentStatus: "Missing",
-          owner: "Playwright QA",
+          owner: testAssessor.name,
           note: "",
           createdAt: new Date().toISOString(),
           dob: "",
@@ -781,6 +787,7 @@ test.describe("Referral home and packet canvas", () => {
       const created = await page.request.post("/api/referrals", {
         data: {
           client_mutation_id: `calendar-conflict-referral-${suffix}-${randomUUID()}`,
+          assignee_id: testAssessor.id,
           referral: {
             name: `Calendar Conflict ${suffix} ${randomUUID().slice(0, 6)}`,
             date: "2031-02-01",
@@ -791,7 +798,7 @@ test.describe("Referral home and packet canvas", () => {
             tags: ["calendar-conflict-test"],
             documentName: "",
             documentStatus: "Missing",
-            owner: "Playwright QA",
+            owner: testAssessor.name,
             note: "",
             createdAt: new Date().toISOString(),
             dob: "",
@@ -890,6 +897,7 @@ test.describe("Referral home and packet canvas", () => {
     const created = await page.request.post("/api/referrals", {
       data: {
         client_mutation_id: `refresh-recovery-${randomUUID()}`,
+        assignee_id: testAssessor.id,
         referral: {
           name,
           date: "2026-08-10",
@@ -900,7 +908,7 @@ test.describe("Referral home and packet canvas", () => {
           tags: ["refresh-recovery"],
           documentName: "",
           documentStatus: "Missing",
-          owner: "Playwright QA",
+          owner: testAssessor.name,
           note: "",
           createdAt: new Date().toISOString(),
           dob: "",
@@ -1113,6 +1121,7 @@ test.describe("Referral home and packet canvas", () => {
       const response = await page.request.post("/api/referrals", {
         data: {
           client_mutation_id: `cursor-${randomUUID()}`,
+          assignee_id: testAssessor.id,
           referral: {
             name: `${group} ${index + 1}`,
             date: now.slice(0, 10),
@@ -1123,7 +1132,7 @@ test.describe("Referral home and packet canvas", () => {
             tags: ["cursor-test"],
             documentName: "",
             documentStatus: "Missing",
-            owner: "Playwright QA",
+            owner: testAssessor.name,
             note: "",
             createdAt: now,
             dob: "",
@@ -1179,6 +1188,7 @@ test.describe("Referral home and packet canvas", () => {
       const createdResponse = await page.request.post("/api/referrals", {
         data: {
           client_mutation_id: `collaboration-${randomUUID()}`,
+          assignee_id: testAssessor.id,
           referral: {
             name,
             date: "2026-08-09",
@@ -1189,7 +1199,7 @@ test.describe("Referral home and packet canvas", () => {
             tags: ["collaboration"],
             documentName: "",
             documentStatus: "Missing",
-            owner: "Playwright QA",
+            owner: testAssessor.name,
             note: "Initial note",
             createdAt: new Date().toISOString(),
             dob: "",
@@ -1298,6 +1308,7 @@ test.describe("Referral home and packet canvas", () => {
     const createdResponse = await page.request.post("/api/referrals", {
       data: {
         client_mutation_id: `recovery-${randomUUID()}`,
+        assignee_id: testAssessor.id,
         referral: {
           name,
           date: "2026-08-09",
@@ -1308,7 +1319,7 @@ test.describe("Referral home and packet canvas", () => {
           tags: ["recovery-test"],
           documentName: "",
           documentStatus: "Missing",
-          owner: "Playwright QA",
+          owner: testAssessor.name,
           note: "Legacy free-text summary.",
           createdAt: new Date().toISOString(),
           dob: "",
@@ -1392,7 +1403,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("textbox", { name: "SSN", exact: true }).fill("000-00-0000");
     await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
     await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
-    await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption({ label: "Playwright QA" });
+    await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption(testAssessor.id);
     await page.getByRole("textbox", { name: "Referral received:" }).fill("2026-08-09");
     await page.getByRole("textbox", { name: "Admission date:" }).fill("2026-08-20");
     await page.getByRole("textbox", { name: "Referent:" }).fill("Synthetic County Access");
@@ -1501,7 +1512,7 @@ test.describe("Referral home and packet canvas", () => {
       stage: "New",
       date: "2026-08-09",
       source: "Synthetic County Access",
-      owner: "Playwright QA",
+      owner: testAssessor.name,
       note: "## Reason for referral\nReferral summary for packet review.",
       dob: "1951-08-15",
       gender: "Synthetic gender",
@@ -1728,6 +1739,7 @@ test.describe("Referral home and packet canvas", () => {
     const firstResponse = await page.request.post("/api/referrals", {
       data: {
         client_mutation_id: `duplicate-review-first-${randomUUID()}`,
+        assignee_id: testAssessor.id,
         referral: {
           name: clientName,
           date: "2026-09-07",
@@ -1739,7 +1751,7 @@ test.describe("Referral home and packet canvas", () => {
           tags: [],
           documentName: "",
           documentStatus: "Missing",
-          owner: "Playwright QA",
+          owner: testAssessor.name,
           note: "",
           createdAt: new Date().toISOString(),
           dob: "",
@@ -1804,7 +1816,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
     await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
     await page.getByRole("textbox", { name: "Referent:", exact: true }).fill("San Pablo intake team");
-    await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption({ label: "Playwright QA" });
+    await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption(testAssessor.id);
     await page.getByTestId("initial-packet-input").setInputFiles({
       name: "assessment-referral.pdf",
       mimeType: "application/pdf",
@@ -1855,7 +1867,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Schedule assessment" }).click();
     const assessmentInterview = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(assessmentInterview).toBeVisible();
-    await expect(assessmentInterview.getByText("Playwright QA", { exact: true })).toBeVisible();
+    await expect(assessmentInterview.getByText(testAssessor.name, { exact: true })).toBeVisible();
     const scheduleDialog = page.getByRole("dialog", { name: "Schedule assessment" });
     await scheduleDialog.getByLabel("Assessment date and time").fill("2026-08-26T09:00");
     await scheduleDialog.getByLabel("Assessment location or link").fill("San Pablo interview room");
@@ -1922,7 +1934,7 @@ test.describe("Referral home and packet canvas", () => {
     });
     expect(historyPayload.assessments[0].version).toBeGreaterThanOrEqual(4);
     expect(historyPayload.assessments[0].assessor_id).toBeTruthy();
-    expect(historyPayload.assessments[0].assessor).toBe("Playwright QA");
+    expect(historyPayload.assessments[0].assessor).toBe(testAssessor.name);
     expect(historyPayload.assessments[0].signed_by?.name).toBe("Playwright QA");
     expect(historyPayload.assessments[0].unable_to_assess_reasons.language_barrier).toBe("The client could not participate and no collateral source was available.");
     const reportMonth = historyPayload.assessments[0].signed_at!.slice(0, 7);
@@ -1933,7 +1945,7 @@ test.describe("Referral home and packet canvas", () => {
     };
     expect(operationsPayload.snapshot.assessment_report.total_completed).toBeGreaterThan(0);
     expect(operationsPayload.snapshot.assessment_report.rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ assessor_name: "Playwright QA", completed_assessments: expect.any(Number) }),
+      expect.objectContaining({ assessor_name: testAssessor.name, completed_assessments: expect.any(Number) }),
     ]));
 
     const signedEdit = await page.request.patch(`/api/assessments/${historyPayload.assessments[0].assessment_id}`, {
@@ -1963,20 +1975,11 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("versions the EHR handoff and records failure recovery explicitly", async ({ page }) => {
-    const membersResponse = await page.request.get("/api/members");
-    const membersPayload = await membersResponse.json() as {
-      members: Array<{ principal_id: string; display_name: string }>;
-      current_principal_id: string;
-    };
-    const currentMember = membersPayload.members.find(
-      (member) => member.principal_id === membersPayload.current_principal_id,
-    );
-    expect(currentMember).toBeTruthy();
-
     const now = new Date().toISOString();
     const create = await page.request.post("/api/referrals", {
       data: {
         client_mutation_id: `ehr-handoff-${randomUUID()}`,
+        assignee_id: testAssessor.id,
         referral: {
           name: `Synthetic EHR ${randomUUID().slice(0, 8)}`,
           date: now.slice(0, 10),
@@ -1988,8 +1991,7 @@ test.describe("Referral home and packet canvas", () => {
           documentName: "synthetic-packet.pdf",
           documentStatus: "Reviewed",
           packetStatus: "reviewed",
-          owner: currentMember!.display_name,
-          assignee_id: currentMember!.principal_id,
+          owner: testAssessor.name,
           note: "",
           createdAt: now,
           dob: "1980-01-01",
@@ -2188,20 +2190,11 @@ test.describe("Referral home and packet canvas", () => {
   });
 
   test("requires a documented reason and closes a declined referral", async ({ page }) => {
-    const membersResponse = await page.request.get("/api/members");
-    const membersPayload = await membersResponse.json() as {
-      members: Array<{ principal_id: string; display_name: string }>;
-      current_principal_id: string;
-    };
-    const currentMember = membersPayload.members.find(
-      (member) => member.principal_id === membersPayload.current_principal_id,
-    );
-    expect(currentMember).toBeTruthy();
-
     const now = new Date().toISOString();
     const create = await page.request.post("/api/referrals", {
       data: {
         client_mutation_id: `decline-journey-${randomUUID()}`,
+        assignee_id: testAssessor.id,
         referral: {
           name: `Synthetic Decline ${randomUUID().slice(0, 8)}`,
           date: now.slice(0, 10),
@@ -2213,8 +2206,7 @@ test.describe("Referral home and packet canvas", () => {
           documentName: "synthetic-decline-packet.pdf",
           documentStatus: "Reviewed",
           packetStatus: "reviewed",
-          owner: currentMember!.display_name,
-          assignee_id: currentMember!.principal_id,
+          owner: testAssessor.name,
           note: "",
           createdAt: now,
           dob: "1980-01-01",
@@ -2348,7 +2340,7 @@ test.describe("Referral home and packet canvas", () => {
     expect(declinedPayload.decision).toMatchObject({
       outcome: "declined",
       reasonCode: "clinical_fit",
-      decidedBy: currentMember!.principal_id,
+      decidedBy: "playwright@pipeline.local",
     });
 
     const savedDecision = await page.request.get(`/api/referrals/${referral.id}/decision`);
