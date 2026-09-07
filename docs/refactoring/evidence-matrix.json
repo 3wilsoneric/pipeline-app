@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-06",
+  "updatedAt": "2026-09-07",
   "statusDefinitions": {
     "satisfied": "Existing evidence is executable or reviewable and may be cited now.",
     "partial": "Useful evidence exists, but the slice-specific contract is incomplete.",
@@ -20,15 +20,19 @@
         "docs/reliability/dependency-inventory.json",
         "docs/reliability/repository-file-inventory.json"
       ],
-      "note": "A generated hash-backed audit and locked-dependency inventory exist, but the live mixed main worktree has drifted from them. Regenerate and review both in the clean exact-start-commit worktree immediately before starting a slice; do not refresh them now merely to absorb unrelated in-flight product changes."
+      "note": "A generated hash-backed audit and locked-dependency inventory now match the clean integration candidate. Human review and an exact-start freeze after prerequisite integration are still required before a slice starts."
     },
     {
       "id": "runtime_types_and_worktree_alignment",
       "phase": "before_start",
       "status": "partial",
       "gates": ["check:code-quality"],
-      "files": ["docs/refactoring/CODE_QUALITY_POLICY.md", "docs/refactoring/code-quality-policy.json"],
-      "note": "Align @types/node with Node 22, disposition stale worktrees with unique commits, and start implementation in a recorded dedicated codex/refactor-* worktree."
+      "files": [
+        "docs/refactoring/CODE_QUALITY_POLICY.md",
+        "docs/refactoring/code-quality-policy.json",
+        "docs/refactoring/DEPENDENCY_CEILING_DISPOSITION_PROPOSAL.md"
+      ],
+      "note": "@types/node is aligned with Node 22 and the setup runs in a dedicated codex/refactor-* worktree. The lockfile contains 531 locations while the policy says 530; repository history shows the security-mandated @humanfs/types location existed before the policy was created, so a human must either adopt a reviewed 531-location exception or direct a supported dependency reduction. Stale worktrees with unique commits also require explicit disposition."
     },
     {
       "id": "green_complexity_ratchet",
@@ -104,29 +108,40 @@
           "phase": "before_start",
           "status": "partial",
           "gates": ["check:api", "check:assessor-workflow", "check:workflow-fuzz"],
-          "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code. Owner purpose statement recorded verbatim on 2026-09-06: \"accomplish gathering the full profile for eventual admission, and with the assessment, make that decision, generally only one person will touch the referral from start to finish, there are a few that will be assigned referral but will only do the assessment and hopefully wotn need to change the workspace creation part\". Owner role direction recorded 2026-09-06: most referral owners carry the workspace from creation through the decision process; two assessors generally receive assignments and also create their own workspaces; one assessment-only assessor receives assigned work and ordinarily changes only assessment information; verified profile corrections by that assessor are permitted and attributable. Workspace ownership direction recorded 2026-09-06: the staff member who receives the referral and creates its workspace owns it; when a supervisor assigns the workspace, the assigning supervisor and the assignee share ownership. This desired joint-ownership behavior differs from the current single owner/ownerId representation and must be implemented, reviewed, certified, and included in the exact-start baseline as a separate product behavior change before the structural slice. Change-history direction recorded 2026-09-06: every material workspace change must be durably attributed and presented in an obvious changelog module when the workspace is opened. Reuse the existing referral Activity/audit path rather than create a parallel history owner. Ordinary fields may show exact old-to-new values; sensitive field values must be masked while actor, timestamp, field, and reason remain visible. Owner direction recorded 2026-09-06: suspected matches by normalized name and county should trigger human review with open-existing or confirm-different-person outcomes, never automatic identity linking or merging. The owner also provisionally selected field-aware optimistic saving as the target: non-overlapping field edits preserve both users' changes, same-field edits require an explicit conflict decision, sparse saves never replace untouched values, and important identity or clinical changes retain governed provenance, actor, time, prior value, and reason. These are separate product behavior changes and are not part of the structural slice until separately implemented, reviewed, certified, and included in the exact-start baseline."
+          "files": [
+            "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json"
+          ],
+          "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code. Owner purpose statement recorded verbatim on 2026-09-06: \"accomplish gathering the full profile for eventual admission, and with the assessment, make that decision, generally only one person will touch the referral from start to finish, there are a few that will be assigned referral but will only do the assessment and hopefully wotn need to change the workspace creation part\". Owner role direction recorded 2026-09-06: most referral owners carry the workspace from creation through the decision process; two assessors generally receive assignments and also create their own workspaces; one assessment-only assessor receives assigned work and ordinarily changes only assessment information; verified profile corrections by that assessor are permitted and attributable. Workspace ownership, visible history, field-aware saves, and name-plus-county human duplicate review are now implemented as separate product prerequisites on the clean integration candidate. Machine observations cover their referral-store seams, but human review of the complete architecture narrative and exact-start evidence remains required."
         },
         {
           "id": "local_postgres_parity",
           "phase": "before_start",
-          "status": "missing",
-          "files": ["docs/refactoring/ADAPTER_PARITY_CONTRACT.md"],
-          "note": "Run the same referral contract scenarios against both adapters without erasing PostgreSQL-only transaction semantics. Owner direction recorded 2026-09-06: local mode must expose enough actor and audit information for shared behavioral tests, while PostgreSQL remains the sole production owner of transactionally durable audit_events. The exact local observable and shared assertions remain to be designed and executed."
+          "status": "partial",
+          "files": [
+            "docs/refactoring/ADAPTER_PARITY_CONTRACT.md",
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json"
+          ],
+          "note": "The same clean-commit synthetic API characterization passes against isolated local-file and disposable PostgreSQL 16 stores for create replay, disjoint and conflicting section writes, denied mutations, duplicate packet rejection, duplicate-person review, trash, restore, and audit cardinality. Human review must still approve the observable contract and identify any missing domain or PostgreSQL-only transaction cases before this item can be satisfied."
         },
         {
           "id": "create_and_patch_retry_contract",
           "phase": "before_start",
-          "status": "missing",
+          "status": "partial",
           "gates": ["check:api", "database:concurrency"],
-          "note": "Freeze exact replay outcomes per command. Owner direction recorded 2026-09-06: a repeated create with the same mutation identifier returns the original referral without applying a second mutation; patch, trash, and restore use optimistic conflict recovery rather than replay idempotency; trash remains restorable for 30 days. Exact response, audit, database-effect, and concurrency evidence is still missing."
+          "files": ["docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json"],
+          "note": "Clean-commit executable evidence freezes create replay with a changed replay payload, disjoint section success, same-section one-winner conflict behavior, exact-set duplicate confirmation, stale trash and restore rejection, audit cardinality, and the 30-day restore deadline on both adapters. Human owner review, direct database-effect review, and any missing command-specific concurrency cases remain required before this item can be satisfied."
         },
-      {
-        "id": "runtime_authorization",
-        "phase": "before_complete",
-        "status": "partial",
-        "gates": ["check:route-policy", "test:e2e:operational:high"],
-        "files": ["docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md"],
-        "note": "Static route coverage exists; add executed allow, wrong-role, and wrong-resource cases for each mutation in scope."
+        {
+          "id": "runtime_authorization",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["check:route-policy", "test:e2e:operational:high"],
+          "files": [
+            "docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md",
+            "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json"
+          ],
+          "note": "Static route coverage and clean-commit executed allow and deny evidence cover create, patch, trash, restore, and duplicate confirmation across local-file and PostgreSQL adapters, including anonymous, read-only, wrong-resource, cross-origin, hidden-candidate, and guessed-id denial with no side effects. Human review must still validate coverage against the final allowed file audit and any additional mutation entry points before completion."
         },
         {
           "id": "performance_and_query_budget",
@@ -159,7 +174,9 @@
           "files": [
             "docs/refactoring/canonical-responsibilities.json",
             "docs/refactoring/architecture-comprehension-probes.json",
-            "docs/refactoring/proof-obligations.json"
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
+            "docs/refactoring/referral-store-file-audit-agent-prework.json"
           ],
           "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. The 2026-09-06 owner explain-back did not yet demonstrate the concurrency, atomic-side-effect, or adapter-audit model, so human validation and the independent pre-change comprehension review remain required before implementation."
         },

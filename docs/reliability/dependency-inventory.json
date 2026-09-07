@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T06:43:50.580Z",
+  "generated_at": "2026-09-07T06:55:28.162Z",
   "audit_date": "2026-09-07",
-  "git_head": "98f7cdb412c66f0b77762e78c0d4e611c70fd7bd",
+  "git_head": "ea076521654dcbb458ec39f666347d0818209a9a",
   "direct": [
     {
       "name": "@azure/identity",
@@ -509,6 +509,7 @@
         "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
         "docs/refactoring/code-quality-policy.json",
         "docs/refactoring/refactor-eval-scenarios.json",
+        "docs/refactoring/referral-store-file-audit-agent-prework.json",
         "eslint.config.mjs",
         "lib/academy/academy-atlas.generated.json",
         "lib/academy/academy-curriculum.ts",
@@ -700,6 +701,7 @@
         "docs/POSTGRES_DEPLOYMENT.md",
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
+        "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
         "docs/refactoring/evidence-matrix.json",
         "docs/refactoring/refactor-eval-scenarios.json",
         "infra/azure/foundation-state.bicep",
@@ -935,6 +937,7 @@
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/WORKFLOW_BUILD_QUEUE.md",
         "docs/academy/ARCHITECTURE_GUIDE.md",
+        "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
         "docs/refactoring/refactor-slices.json",
         "lib/academy/academy-access.ts",
         "lib/academy/academy-curriculum.ts",

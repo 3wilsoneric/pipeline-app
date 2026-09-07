@@ -39,14 +39,14 @@ All six slices are intentionally `not_started`. No slice is start-ready yet:
 
 | Slice | Before-start gap |
 | --- | --- |
-| Referral store | Owner, narrative, approval, frozen behavior, retry contract, local/PostgreSQL parity |
+| Referral store | Owner narrative, independent review, approval, human acceptance of the machine-observed behavior/retry/parity contract, and approved assurance/file dispositions |
 | Assessment store | Owner, narrative, approval, frozen lifecycle/workflow-sync behavior, local/PostgreSQL parity |
 | Workflow and handoff | Owner, narrative, approval, database-effect goldens, runtime role matrix, retry contract |
 | Extraction | Owner, narrative, approval, packet-level goldens, governed labeled corpus |
 | Referral canvas | Owner, narrative, approval, autosave/conflict recovery and identity-link characterization |
 | Test structure | Owner, narrative, approval, assertion inventory and independent human review |
 
-Every slice also inherits the global before-start gaps: Node 22 type alignment, a green or explicitly dispositioned complexity ratchet, a risk-ranked exact-start baseline, independent protected review, commit-attached required checks, owner-validated assurance definitions, a human-adopted exact-commit guidance evaluation baseline, and a recorded dedicated `codex/refactor-*` worktree. The current file/dependency inventory is generated evidence, not a hand-maintained list.
+Every slice also inherits the global before-start gaps: human disposition of the inherited 531-location dependency ceiling, a green or explicitly dispositioned complexity ratchet, a risk-ranked exact-start baseline, independent protected review, commit-attached required checks, owner-validated assurance definitions, a human-adopted exact-commit guidance evaluation baseline, and an exact-start dedicated `codex/refactor-*` worktree recorded in the active slice. Node 22 type alignment and a clean integration worktree now exist as candidate evidence; they are not slice approval. The current file/dependency inventory is generated evidence, not a hand-maintained list.
 
 The checker derives the authoritative state from the JSON files. Update this summary only when the registry or matrix changes.
 

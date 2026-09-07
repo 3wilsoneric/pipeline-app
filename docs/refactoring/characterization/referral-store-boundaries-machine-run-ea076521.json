@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "recordType": "machine_observation_not_approval",
+  "sliceId": "referral-store-boundaries",
+  "capturedAt": "2026-09-07T06:45:46Z",
+  "capturedFromCommit": "ea076521654dcbb458ec39f666347d0818209a9a",
+  "workingTreeClean": true,
+  "fixtureClassification": "synthetic",
+  "containsPhi": false,
+  "runs": [
+    {
+      "command": "npm run characterize:referral-store",
+      "testPath": "tests/e2e/operational/referral-store-characterization.spec.ts",
+      "testDigest": "e1de2d7137386978e4532e0164ac1512a945beb54f3408bffcd8103025ef7b5f",
+      "postgresMajor": 16,
+      "disposablePostgresDatabase": true,
+      "adapters": [
+        {
+          "adapter": "local_file",
+          "ok": true,
+          "durationMs": 2717,
+          "tests": { "expected": 5, "unexpected": 0, "flaky": 0, "skipped": 0 }
+        },
+        {
+          "adapter": "postgres",
+          "ok": true,
+          "durationMs": 1998,
+          "tests": { "expected": 5, "unexpected": 0, "flaky": 0, "skipped": 0 }
+        }
+      ]
+    },
+    {
+      "command": "playwright test -c playwright.operational.config.ts tests/e2e/operational/referral-duplicate-review.spec.ts",
+      "testPath": "tests/e2e/operational/referral-duplicate-review.spec.ts",
+      "testDigest": "4468f9b89e44adc52dfd3e719afb56c2cbeb05f7ddf22ff5179d4e39dd840bad",
+      "adapters": [
+        {
+          "adapter": "local_file",
+          "ok": true,
+          "tests": { "expected": 2, "unexpected": 0, "flaky": 0, "skipped": 0 }
+        },
+        {
+          "adapter": "postgres",
+          "ok": true,
+          "tests": { "expected": 2, "unexpected": 0, "flaky": 0, "skipped": 0 }
+        }
+      ]
+    }
+  ],
+  "coveredContracts": [
+    "A repeated create using the same mutation id returns the first referral, reports an idempotent replay, creates no second referral, and emits no second create audit event even when the replay payload differs.",
+    "Disjoint identity and intake section writes both persist; two stale writes to the same identity section produce one success, one section conflict, and one durable mutation audit event.",
+    "Denied create and patch attempts from anonymous, read-only, wrong-resource, or cross-origin callers leave referral state and audit history unchanged.",
+    "Invalid create input and duplicate packet content produce no new referral or audit side effect.",
+    "Stale trash and restore commands produce no side effect; successful trash and restore each advance the version once, emit one attributed audit event, and preserve a 30-day recovery deadline.",
+    "A matching normalized name and county returns review candidates without creating a workspace; an exact reviewed candidate set permits a separate person and records the reviewed referral ids in the create audit reason.",
+    "A stale or over-broad confirmation set is rejected, and concurrent unconfirmed creates for one normalized name and county produce one creation and one review response.",
+    "An assessor cannot see an inaccessible match and cannot bypass the review by guessing its referral id."
+  ],
+  "normalizedNondeterminism": [
+    "Store-generated referral ids are asserted for stability within an adapter, not equality across adapters.",
+    "Audit ids and storage timestamps are not compared across adapters; semantic order, actor, version, action, and cardinality are asserted."
+  ],
+  "knownCoverageBoundary": [
+    "This run does not approve the proposed structural split or prove that every referral-store behavior is characterized.",
+    "This run does not replace owner validation, independent review, required gates, production observability, recovery rehearsal, or candidate-commit certification.",
+    "The duplicate review evidence covers the HTTP/store workflow but is not an automatic identity match or merge guarantee."
+  ],
+  "humanReview": {
+    "status": "awaiting_human_review",
+    "approvedBy": null,
+    "approvedAt": null
+  }
+}
