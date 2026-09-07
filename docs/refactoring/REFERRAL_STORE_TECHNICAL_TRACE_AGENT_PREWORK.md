@@ -156,7 +156,6 @@ This proposal is not authorized until the human owner validates the responsibili
 - Exact-start baseline and a green or approved non-regression complexity disposition.
 - Human-adopted refactor-guidance comparison, including private holdout evidence.
 - Independent reviewer/branch-protection path and commit-attached checks.
-- Human disposition of the stale 530-versus-531 locked-package ceiling.
 
 ## Questions the owner narrative must answer
 

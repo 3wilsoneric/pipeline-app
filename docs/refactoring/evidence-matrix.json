@@ -32,7 +32,7 @@
         "docs/refactoring/code-quality-policy.json",
         "docs/refactoring/DEPENDENCY_CEILING_DISPOSITION_PROPOSAL.md"
       ],
-      "note": "@types/node is aligned with Node 22 and the setup runs in a dedicated codex/refactor-* worktree. The lockfile contains 531 locations while the policy says 530; repository history shows the security-mandated @humanfs/types location existed before the policy was created, so a human must either adopt a reviewed 531-location exception or direct a supported dependency reduction. Stale worktrees with unique commits also require explicit disposition."
+      "note": "@types/node is aligned with Node 22 and the setup runs in a dedicated codex/refactor-* worktree. Eric approved the inherited 531-location ceiling on 2026-09-07; the policy now rejects 532 or more unless separately approved and requires a future supported removal to lower the ratchet. Stale worktrees with unique commits still require explicit disposition."
     },
     {
       "id": "green_complexity_ratchet",

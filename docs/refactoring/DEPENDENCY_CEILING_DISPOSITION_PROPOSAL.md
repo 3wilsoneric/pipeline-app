@@ -1,14 +1,20 @@
-# Locked-Package Ceiling Disposition Proposal
+# Locked-Package Ceiling Disposition Record
 
 Author: TARS
 
-Status: proposed policy disposition; awaiting human approval
+Status: approved policy disposition
 
-Observed commit: `ea076521654dcbb458ec39f666347d0818209a9a`
+Approval context commit: `4730a4ef4e75dd4429ba0b6d1fb9e000eaba852f`
 
-## Decision needed
+Approved by: Eric (application owner)
 
-The generated dependency inventory contains 531 locked package locations. `code-quality-policy.json` permits 530, so `check:code-quality` and the aggregate refactor setup gate cannot pass.
+Approved at: `2026-09-07T13:50:16Z`
+
+Recorded instruction: `approve 531`
+
+## Decision
+
+Adopt 531 as the reviewed inherited locked-package ceiling. A count of 532 or greater is an unapproved increase and fails `check:code-quality`.
 
 ## Historical evidence
 
@@ -18,7 +24,7 @@ The generated dependency inventory contains 531 locked package locations. `code-
 - `npm dedupe --dry-run` did not identify a safe one-location reduction; it proposed broad optional-package churn instead.
 - No direct dependency was added by the candidate branch, and the repository audit matches its lockfile.
 
-## Proposed disposition
+## Approved disposition
 
 Adopt 531 as the reviewed locked-package ceiling for the exact-start baseline, with this explicit interpretation:
 
@@ -27,10 +33,10 @@ Adopt 531 as the reviewed locked-package ceiling for the exact-start baseline, w
 - The direct-dependency, duplicate-version, registry-integrity, install-hook, and unused-dependency controls remain unchanged.
 - Future supported removal of the inherited transitive location should lower the ceiling in the same reviewed change.
 
-## Alternative
+## Rejected alternative
 
 Direct a supported dependency reduction that produces 530 or fewer locations without changing application behavior, weakening the security fix, adding overrides, or generating broad optional-platform lockfile churn. That reduction must be reviewed and certified as a separate prerequisite change.
 
-## Human action
+## Effect
 
-Choose one of the two dispositions. If the 531 baseline is approved, TARS will change only `maximumLockedPackageLocations` from 530 to 531, update the explanatory code-quality document/evidence note, regenerate the repository audit, and rerun the exact setup gates. This proposal itself does not change policy.
+`maximumLockedPackageLocations` changes from 530 to 531. Direct-dependency, duplicate-version, registry-integrity, install-hook, and unused-dependency controls remain unchanged. This decision does not authorize application refactoring or activate a slice.

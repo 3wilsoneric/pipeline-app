@@ -52,6 +52,7 @@ See `docs/refactoring/CYCLOMATIC_COMPLEXITY_POLICY.md` for thresholds, control-p
 - Security patches are isolated and expedited. Major upgrades are isolated changes with migration notes, focused tests, bundle/performance comparison, and rollback.
 - Do not bulk-update because `npm outdated` reports a newer major.
 - Refactor-only changes may not increase the current direct dependency count, locked package locations, multi-version package count, or install-hook allowlist without a reviewed decision record.
+- The reviewed inherited locked-package ceiling is 531 under `DEPENDENCY_CEILING_DISPOSITION_PROPOSAL.md`. It is a ratchet, not a target: 532 fails without a separate prior approval, and a supported removal must lower the ceiling in the same reviewed change.
 
 ## Required evidence
 
