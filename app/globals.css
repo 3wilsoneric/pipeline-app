@@ -136,32 +136,12 @@ textarea {
 .pipeline-directory-loader__visual {
   display: inline-flex;
   align-items: center;
+  gap: 0;
 }
 
 .pipeline-directory-loader {
   gap: 9px;
   color: #59635f;
-}
-
-.pipeline-directory-loader__visual {
-  gap: 7px;
-}
-
-.pipeline-directory-loader__mark {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  flex: none;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  border: 1px solid #b9c9c2;
-  background: #f3f8f6;
-  padding: 3px;
-}
-
-.pipeline-directory-loader__pixel {
-  background: #0f8b73;
 }
 
 .pipeline-directory-loader__meter {
@@ -192,16 +172,6 @@ textarea {
 
 .pipeline-directory-loader--compact {
   gap: 0;
-}
-
-.pipeline-directory-loader--compact .pipeline-directory-loader__visual {
-  gap: 5px;
-}
-
-.pipeline-directory-loader--compact .pipeline-directory-loader__mark {
-  width: 18px;
-  height: 18px;
-  padding: 2px;
 }
 
 .pipeline-directory-loader--compact .pipeline-directory-loader__meter {

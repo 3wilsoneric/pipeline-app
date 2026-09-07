@@ -7,6 +7,8 @@ import {
   CalendarDays,
   ChevronDown,
   CircleAlert,
+  FileText,
+  FolderOpen,
   MapPin,
   RefreshCw,
   Search,
@@ -355,14 +357,17 @@ export default function ClientProfileDirectory({
         {directoryNotice ? <DirectoryNotice>{directoryNotice}</DirectoryNotice> : null}
         {error ? <DirectoryError message={error} onRetry={() => setReloadKey((current) => current + 1)} hasPartialResults={clients.length > 0} /> : null}
 
-        <section aria-label="Client list">
-          <div className="hidden grid-cols-[minmax(280px,0.9fr)_minmax(360px,1.4fr)_36px] items-center gap-6 border-b border-[#d9dfdc] bg-[#fafbfa] px-5 py-3 text-[10px] font-black uppercase tracking-[0.08em] text-[#68716d] md:grid">
-            <span>Client</span>
-            <span>Details</span>
-            <span className="sr-only">Open</span>
-          </div>
+        <section aria-label="Client list" className="pt-4">
           {isLoading && clients.length === 0 ? <RosterSkeleton /> : null}
-          {visibleClients.map((client) => <ClientDirectoryRow key={client.canonical_client_id} client={client} onOpen={() => onOpenProfile(client.canonical_client_id)} />)}
+          {visibleClients.length > 0 ? (
+            <div role="list" className="grid gap-4 md:grid-cols-2">
+              {visibleClients.map((client) => (
+                <div role="listitem" key={client.canonical_client_id} className="min-w-0">
+                  <ClientDirectoryCard client={client} onOpen={() => onOpenProfile(client.canonical_client_id)} />
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           {!isLoading && !error && filteredClients.length === 0 ? (
             <div className="px-5 py-16 text-center">
@@ -475,7 +480,7 @@ function DirectoryError({ message, onRetry, hasPartialResults }: { message: stri
   );
 }
 
-function ClientDirectoryRow({ client, onOpen }: { client: DirectoryClient; onOpen: () => void }) {
+function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOpen: () => void }) {
   const identityTitle = formatClientIdentityTitle({
     name: client.display_name,
     gender: client.gender,
@@ -483,42 +488,53 @@ function ClientDirectoryRow({ client, onOpen }: { client: DirectoryClient; onOpe
   });
   const gender = resolveClientGender(client.gender);
   const community = resolveClientCommunity(client.current_community, client.community_names[0]);
-  const identityDetail = [
-    gender,
-    client.current_resident ? "Current census" : null,
-  ].filter(Boolean).join(" · ");
-  const placementDetail = [
-    community,
-    client.unit ? `Unit ${client.unit}` : null,
-    client.admit_date ? `Admitted ${formatDate(client.admit_date)}` : null,
-  ].filter(Boolean).join(" · ");
-  const activityTotal = client.referral_count + client.document_count;
-  const activity = activityTotal > 0
-    ? `${countNoun(client.document_count, "document")} · ${countNoun(client.referral_count, "referral")}`
-    : "";
-  const secondaryDetail = [client.care_level, activity].filter(Boolean).join(" · ");
+  const profileKind = client.current_resident ? "Current census" : "Client workspace";
+  const location = [community, client.unit ? `Unit ${client.unit}` : null].filter(Boolean).join(" · ");
 
   return (
     <button
       type="button"
       aria-label={`Open profile for ${identityTitle}`}
       onClick={onOpen}
-      className="group grid w-full grid-cols-[minmax(0,1fr)_32px] items-start gap-x-3 gap-y-2 border-b border-l-[3px] border-b-[#e3e7e5] border-l-transparent px-4 py-4 text-left transition-colors last:border-b-0 hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:border-l-[#0f8b73] focus-visible:bg-[#f7faf9] focus-visible:outline-none sm:px-5 md:grid-cols-[minmax(280px,0.9fr)_minmax(360px,1.4fr)_36px] md:items-center md:gap-6"
+      className="group w-full min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >
-      <span className="min-w-0">
-        <span className="block truncate text-[16px] font-bold leading-5 text-[#151a18]" title={identityTitle}>{identityTitle}</span>
-        {identityDetail ? <span className="mt-1 block truncate text-[11px] leading-4 text-[#68716d]">{identityDetail}</span> : null}
-      </span>
-      {placementDetail || secondaryDetail ? (
-      <span className="col-span-2 min-w-0 md:col-span-1 md:col-start-2 md:row-start-1">
-        <span className="min-w-0">
-          {placementDetail ? <span className="block truncate text-[13px] font-semibold text-[#343b38]" title={placementDetail}>{placementDetail}</span> : null}
-          {secondaryDetail ? <span className={`block truncate text-[11px] ${placementDetail ? "mt-1" : ""} ${activityTotal > 0 ? "text-[#0c705f]" : "text-[#747c78]"}`}>{secondaryDetail}</span> : null}
+      <span aria-hidden="true" className="block min-h-[156px] border-b border-[#dfe5e2] bg-[#f4f8f6] p-4">
+        <span className="flex items-center justify-between gap-3">
+          <span className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
+          <span className="text-[10px] font-bold text-[#68716c]">{profileKind}</span>
+        </span>
+        <span className="mt-3 grid grid-cols-2 gap-px border border-[#bdc9c4] bg-[#bdc9c4]">
+          <ChartPreviewCell label="Community" value={community} />
+          <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
+          <ChartPreviewCell label="Admitted" value={client.admit_date ? formatDate(client.admit_date) : null} />
+          <ChartPreviewCell label="Care level" value={client.care_level} />
         </span>
       </span>
-      ) : null}
-      <span className="col-start-2 row-start-1 flex h-8 w-8 items-center justify-center self-center text-[#77807c] transition-transform group-hover:translate-x-0.5 group-hover:text-[#0f8b73] md:col-start-3"><ArrowRight size={17} /></span>
+
+      <span className="block px-4 py-3.5">
+        <span className="flex items-start justify-between gap-3">
+          <span className="min-w-0">
+            <strong className="block truncate text-[16px] font-black leading-5 text-[#151a18]" title={identityTitle}>{identityTitle}</strong>
+            <span className="mt-1 block truncate text-[11px] text-[#68716d]">{[gender, location].filter(Boolean).join(" · ") || profileKind}</span>
+          </span>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[#0f8b73] transition-transform group-hover:translate-x-0.5"><ArrowRight size={17} /></span>
+        </span>
+        <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#e7ebe8] pt-2.5 text-[10px] text-[#68716c]">
+          <span className="flex min-w-0 items-center gap-1.5"><FileText size={12} className="shrink-0" /><span className="truncate">{countNoun(client.document_count, "document")}</span></span>
+          <span className="flex min-w-0 items-center gap-1.5"><FolderOpen size={12} className="shrink-0" /><span className="truncate">{countNoun(client.referral_count, "workspace")}</span></span>
+          <span className="shrink-0">{countNoun(client.episode_count, "stay")}</span>
+        </span>
+      </span>
     </button>
+  );
+}
+
+function ChartPreviewCell({ label, value }: { label: string; value: string | null }) {
+  return (
+    <span className="min-w-0 bg-white px-3 py-2.5">
+      <span className="block text-[8px] font-black uppercase tracking-[0.08em] text-[#69736e]">{label}</span>
+      <span className={`mt-1 block truncate text-[11px] font-bold ${value ? "text-[#26302c]" : "text-[#a3aaa6]"}`} title={value ?? undefined}>{value || "—"}</span>
+    </span>
   );
 }
 

@@ -22,11 +22,6 @@ export default function PipelineArcadeLoader({
       className={`pipeline-directory-loader${compact ? " pipeline-directory-loader--compact" : ""}${className ? ` ${className}` : ""}`}
     >
       <span className="pipeline-directory-loader__visual" aria-hidden="true">
-        <span className="pipeline-directory-loader__mark">
-          {arcadePixels.map((active, index) => (
-            <span key={index} className={active ? "pipeline-directory-loader__pixel" : ""} />
-          ))}
-        </span>
         <span className="pipeline-directory-loader__meter">
           {Array.from({ length: 8 }, (_, index) => (
             <span key={index} className="pipeline-directory-loader__segment" style={{ animationDelay: `${index * 80}ms` }} />
@@ -37,10 +32,3 @@ export default function PipelineArcadeLoader({
     </span>
   );
 }
-
-const arcadePixels = [
-  false, true, true, false,
-  true, true, true, true,
-  true, false, false, true,
-  false, true, true, false,
-];
