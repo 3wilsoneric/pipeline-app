@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T18:55:21.289Z",
+  "generated_at": "2026-09-07T19:05:38.563Z",
   "audit_date": "2026-09-07",
-  "git_head": "abe5054277ea49b47bdcd18ed22ef284697b2541",
+  "git_head": "30ab6fd7cbb9e063978a5b928781692ae8656032",
   "files": [
     {
       "path": ".dockerignore",
@@ -2904,11 +2904,11 @@
     },
     {
       "path": "database/rollbacks/0028_workspace_roster.sql",
-      "content_sha256": "f6beddec913322b211d1dcdbb3ee877f05f176cd805beef5a833e9ba6ecb32c6",
+      "content_sha256": "f5c7a1380a283b6ddba86c769dcbdc15d1054f7356963bc0d787fca8f71d92e3",
       "role": "Database rollback",
       "risk": "high",
-      "bytes": 919,
-      "lines": 24,
+      "bytes": 1135,
+      "lines": 28,
       "detected_concerns": [],
       "review_focus": "Check data-loss boundaries, exact migration pairing, dependency ordering, transactional safety, and rehearsed restoration path.",
       "verification": "check:database + database:fixtures + rollback/query-plan drill"
@@ -3720,7 +3720,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "4672825134fb4969b906a0bdf485dbb1b340ab92370329943b34e1e89264cf4c",
+      "content_sha256": "0942b11a32aa6c1a4f93be8b01d7c2538455b20921c5e1ac9f3cf659bc1cf4fd",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4322,7 +4322,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "72d37da017fc50cfdfb7451749d378d36278a0b7679f842d1d3d067107182759",
+      "content_sha256": "01acfcf469df68d4aed1091f97caf18364f94db971013352fdae99bd275e392f",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 215410,
@@ -4381,7 +4381,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "d09bf0018ef9bf01a9bde0bfe47a72c0d241ab4a3e9feaa259f2c3ffef499cb9",
+      "content_sha256": "c44fa96afd90c785880bfec68652816ca2e4fd011fa283cc408e39f11a4b3fe1",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 514223,
@@ -4576,7 +4576,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "9a4d47e555e3ac7de8f24a19ced96b0d124a93bf40cbc6268fd69f69774fa3fe",
+      "content_sha256": "8bc62cc75e603bebab2dea605b677764bf6598b21248158db56980511bbb65dd",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 262178,
@@ -8312,11 +8312,11 @@
     },
     {
       "path": "scripts/database-readiness.mjs",
-      "content_sha256": "a0b8abd4382a099ccacdb9d827430cc5eaddc4796985bdfc49be72a20240c899",
+      "content_sha256": "6e074b9acd141610a948948b6f1e7213c9b6bfa370038160afad9fbfe51e2be0",
       "role": "Operator, verification, or data script",
       "risk": "high",
-      "bytes": 38469,
-      "lines": 441,
+      "bytes": 38690,
+      "lines": 445,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],

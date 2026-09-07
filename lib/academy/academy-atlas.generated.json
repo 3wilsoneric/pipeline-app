@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:cf1ef9f91f36cc58",
-  "fingerprint": "cf1ef9f91f36cc58adc3067fbc2f0672612a21afce5e3dbb2d7eb280939d0e16",
+  "generatedAt": "source-fingerprint:33f0398b0265a7c5",
+  "fingerprint": "33f0398b0265a7c558371dbbf2a14edbfbd652a06a79f920f346d8e88d8422a2",
   "totals": {
     "files": 849,
-    "lines": 282288,
+    "lines": 282296,
     "coveredFiles": 849
   },
   "entries": [
@@ -2970,7 +2970,7 @@
       "kind": "rollback",
       "runtime": "postgres",
       "risk": "standard",
-      "lines": 24,
+      "lines": 28,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -8374,7 +8374,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 441,
+      "lines": 445,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
