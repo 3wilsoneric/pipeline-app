@@ -26,6 +26,20 @@ Pipeline is not a normal CRUD application. A safe refactor must preserve referra
 
 The fast lane is a governance shortcut, not a verification shortcut. It still requires exact bounded paths, a clean dedicated worktree and starting commit, all applicable machine tests, behavior and data-semantics preservation, no unresolved critical/high finding, and exercised rollback or recovery evidence. A failure in any retained control blocks implementation, merge, and deployment. The authorization and disabled gates are recorded in `docs/refactoring/owner-fast-lane.json`.
 
+## Implementation economy
+
+Refactoring should reduce the number of concepts required to understand and safely change Pipeline. After the current behavior, callers, effects, and proof obligations are understood, evaluate proposed work in this order:
+
+1. No change: the requested outcome already exists or the proposed cleanup has no evidence-backed benefit.
+2. Reuse: an existing canonical owner, helper, type, component, test primitive, or repository pattern already covers the responsibility.
+3. Native capability: the standard library, browser, Next.js version in this repository, PostgreSQL, or another platform primitive provides the required semantics.
+4. Installed capability: an existing dependency is already the correct owner and does not weaken a boundary.
+5. Minimum new code: add only the smallest reviewable seam that improves the selected responsibility and proof obligation.
+
+Fix a shared root cause once at its canonical owner instead of distributing guards among callers. Prefer safe deletion, consolidation, and removal of superseded paths over parallel implementations. Reject speculative interfaces, factories, registries, wrappers, configuration, dependencies, compatibility layers, and scaffolding that have no current caller, independent contract, proof benefit, or removal condition.
+
+Implementation economy is subordinate to correctness. It never removes trust-boundary validation, authorization, audit atomicity, optimistic concurrency, provenance, error handling that prevents data loss, security, accessibility, rollback or recovery behavior, or required executable evidence. A smaller diff is better only when those properties remain at least as strong. Record a deliberate simplification only when its known ceiling, concrete revisit trigger, evidence, and owner are visible in the approved slice record or correction ledger.
+
 ## What the syllabus misses for this repository
 
 ### Test power, not test volume

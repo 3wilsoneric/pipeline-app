@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T15:06:25.876Z",
+  "generated_at": "2026-09-07T15:16:24.379Z",
   "audit_date": "2026-09-07",
-  "git_head": "5b4789eca06d253be4077e30267ed278fdc2ff24",
+  "git_head": "c295f36fb74b0f19778c69c70049c7d76829c948",
   "files": [
     {
       "path": ".dockerignore",
@@ -156,11 +156,11 @@
     },
     {
       "path": ".gitignore",
-      "content_sha256": "442c38c11eaa7ea549cc28abae7b2e3ee1e126d0ab38a30b96383aded5867d04",
+      "content_sha256": "beafa90c38c5191055b8b60b0c76c86104224051595e9c3c999eead36b6805ee",
       "role": "Build, runtime, or repository configuration",
       "risk": "low",
-      "bytes": 736,
-      "lines": 52,
+      "bytes": 773,
+      "lines": 53,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -180,11 +180,11 @@
     },
     {
       "path": "AGENTS.md",
-      "content_sha256": "532f243798e5b92d912896ae0050f66dede07a11390a0f7bc06784021cf16665",
+      "content_sha256": "d09099f46bfe68c362ed377576acbd4068ac737f36ba76db331203d7d9eb6912",
       "role": "Repository support file",
       "risk": "low",
-      "bytes": 3085,
-      "lines": 23,
+      "bytes": 4379,
+      "lines": 35,
       "detected_concerns": [],
       "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
       "verification": "check:platform:fast and owning feature test"
@@ -349,11 +349,11 @@
     },
     {
       "path": "app/(pipeline)/settings/page.tsx",
-      "content_sha256": "095957f11f35141ecdb39258edeea1133f493dba9f899b3396de054636306a0e",
+      "content_sha256": "5a49b9d2a0ea1580b26d86dbebbbcd6453ab9fd1c849c6065353fd3f64ad7f3a",
       "role": "Next.js route or application shell",
       "risk": "low",
-      "bytes": 105,
-      "lines": 6,
+      "bytes": 414,
+      "lines": 14,
       "detected_concerns": [],
       "review_focus": "Check server/client boundaries, loading/error/empty states, navigation persistence, metadata, and hydration behavior.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
@@ -814,6 +814,28 @@
       "verification": "check:api + check:route-policy + targeted E2E"
     },
     {
+      "path": "app/api/me/presence/route.ts",
+      "content_sha256": "efe12fa3615227e2e74737ec078b3fe34308e66c281c300d8ffd0f0e3c68b8b9",
+      "role": "HTTP API route",
+      "risk": "high",
+      "bytes": 1166,
+      "lines": 27,
+      "detected_concerns": [],
+      "review_focus": "Check authentication and role authorization, schema validation, status mapping, idempotency/version conflicts, bounded payloads, and PHI-safe errors/logs.",
+      "verification": "check:api + check:route-policy + targeted E2E"
+    },
+    {
+      "path": "app/api/me/profile/route.ts",
+      "content_sha256": "f043e30cd2e61539ceb2c2c6c0f58f856b8366725c55f37c519e081482fb35ec",
+      "role": "HTTP API route",
+      "risk": "high",
+      "bytes": 3404,
+      "lines": 73,
+      "detected_concerns": [],
+      "review_focus": "Check authentication and role authorization, schema validation, status mapping, idempotency/version conflicts, bounded payloads, and PHI-safe errors/logs.",
+      "verification": "check:api + check:route-policy + targeted E2E"
+    },
+    {
       "path": "app/api/me/recents/route.ts",
       "content_sha256": "14e2b4669c67a7cd205807400d721ff51bbc6e612a563fb264cef5239717d69c",
       "role": "HTTP API route",
@@ -848,11 +870,11 @@
     },
     {
       "path": "app/api/members/route.ts",
-      "content_sha256": "3ae03c3757beda3766425dda543e54ff1e91c8ca83ad6dc02d36bc77fc5ae2cf",
+      "content_sha256": "d79169a9c8feea675e2b770d4ef3e5e0791980a92e4376b0c49f1aa88902d853",
       "role": "HTTP API route",
       "risk": "high",
-      "bytes": 837,
-      "lines": 21,
+      "bytes": 1979,
+      "lines": 46,
       "detected_concerns": [],
       "review_focus": "Check authentication and role authorization, schema validation, status mapping, idempotency/version conflicts, bounded payloads, and PHI-safe errors/logs.",
       "verification": "check:api + check:route-policy + targeted E2E"
@@ -1591,17 +1613,17 @@
     },
     {
       "path": "components/pipeline/AssessmentWorkspace.tsx",
-      "content_sha256": "965f5c410ba7eb0bacd0c3fcb87bccf37f5e15433f593dc493d4b5ceede780dc",
+      "content_sha256": "b1f53b02bdac694daad320ad1df3da525336f85b2cbb37395f2460121597d88a",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 104181,
-      "lines": 2006,
+      "bytes": 104364,
+      "lines": 2007,
       "detected_concerns": [
-        "Large module (2006 lines): split by behavior before adding more responsibilities.",
+        "Large module (2007 lines): split by behavior before adding more responsibilities.",
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (2006 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (2007 lines): split by behavior before adding more responsibilities.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -1811,13 +1833,16 @@
     },
     {
       "path": "components/pipeline/PipelineHeader.tsx",
-      "content_sha256": "502f480430d545a9307df7dbd036558b576f1844912a6abb94afbb8876295b51",
+      "content_sha256": "5c9bab5f347eb4c774a429a5ce5acf0a81613fe8652a52856d9776ee2b9de464",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 14898,
-      "lines": 291,
-      "detected_concerns": [],
-      "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
+      "bytes": 17499,
+      "lines": 329,
+      "detected_concerns": [
+        "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
+        "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
+      ],
+      "review_focus": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -1833,11 +1858,11 @@
     },
     {
       "path": "components/pipeline/PipelineOperatorAcademy.tsx",
-      "content_sha256": "696863e9554adec0da8d94b23a44138554e4fe92d2c6df053006ff4f933d5289",
+      "content_sha256": "b3741de26a3470bdb936f4be809be942fec70de22a5d1bf0166f1d64efcf9dc9",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 3664,
-      "lines": 101,
+      "bytes": 3947,
+      "lines": 108,
       "detected_concerns": [
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup."
       ],
@@ -1944,18 +1969,18 @@
     },
     {
       "path": "components/pipeline/ReferralPacketCanvas.tsx",
-      "content_sha256": "56af40140fceac07538ca0e7c08673ac9947614e3df5ca0143e57dcf88694c49",
+      "content_sha256": "c82d40134eaa995df6e32680aff08cffcb64d9f7040e3cf6995d1ca5d9c985c5",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 139719,
-      "lines": 3476,
+      "bytes": 140061,
+      "lines": 3481,
       "detected_concerns": [
-        "Large module (3476 lines): split by behavior before adding more responsibilities.",
+        "Large module (3481 lines): split by behavior before adding more responsibilities.",
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (3476 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (3481 lines): split by behavior before adding more responsibilities.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -2003,12 +2028,36 @@
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
+      "path": "components/pipeline/StaffProfileSettings.tsx",
+      "content_sha256": "e15dd7451545f0893659058eb000bcece77f82435a39726666e9f0e466f1ddf8",
+      "role": "Pipeline user interface",
+      "risk": "medium",
+      "bytes": 13213,
+      "lines": 254,
+      "detected_concerns": [],
+      "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
+      "verification": "typecheck + lint + build + responsive/accessibility E2E"
+    },
+    {
       "path": "components/pipeline/StructuredNarrativeField.tsx",
       "content_sha256": "7139b8659bc812d85b6e966e4c7698b5fefb1f540b179f05b6211cb4ba4c0a10",
       "role": "Pipeline user interface",
       "risk": "medium",
       "bytes": 7937,
       "lines": 184,
+      "detected_concerns": [
+        "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers."
+      ],
+      "review_focus": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
+      "verification": "typecheck + lint + build + responsive/accessibility E2E"
+    },
+    {
+      "path": "components/pipeline/TeamPresenceList.tsx",
+      "content_sha256": "337cb63682f4716d2a410343b3a0cba33a25202b576e51b073d3b2fc71d6cd98",
+      "role": "Pipeline user interface",
+      "risk": "medium",
+      "bytes": 5341,
+      "lines": 126,
       "detected_concerns": [
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers."
       ],
@@ -2136,10 +2185,10 @@
     },
     {
       "path": "components/pipeline/training/MeetClientHandoffDemo.tsx",
-      "content_sha256": "c8724549862a03c5ce2c4ce715ab967804c7ce287fb68c4d9364fb406de5ae2d",
+      "content_sha256": "8b93030d213b2942b957129960a1622ad817b51dbeb00f299b69660584eaffd2",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 8594,
+      "bytes": 8589,
       "lines": 143,
       "detected_concerns": [],
       "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
@@ -2180,11 +2229,11 @@
     },
     {
       "path": "components/pipeline/training/OperatorGuidedTours.tsx",
-      "content_sha256": "eec0eb090da49d28211a7f4bf39d8639cd91127a28b51e7aa5ff5dada3fec08d",
+      "content_sha256": "81a2540863ea7f71e22d3e316ed3f4d9cc7e3b89605b2e54c59ddad601533f87",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 16236,
-      "lines": 342,
+      "bytes": 16520,
+      "lines": 344,
       "detected_concerns": [],
       "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
@@ -2235,11 +2284,11 @@
     },
     {
       "path": "components/pipeline/training/PipelineDemoCenter.tsx",
-      "content_sha256": "501c2faf667a8e32bccd1a8f4f63cb4ff80ed8c7a3cca4a958302141f51c4eb7",
+      "content_sha256": "f46523dd069eb302325205f3edc479302caf95aecefcc291470cd6a068e8bf66",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 35316,
-      "lines": 673,
+      "bytes": 35570,
+      "lines": 674,
       "detected_concerns": [],
       "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
@@ -2283,11 +2332,11 @@
     },
     {
       "path": "database/migration-checksums.json",
-      "content_sha256": "c3194e7c79a5fc5c17bf7f929a4eb60439b9ecd4be290652e9b5b01978495fe4",
+      "content_sha256": "e6afcbb6befeec5463dcbc21a83f53a6cc359afbef4515fc22815c5ce41c1d41",
       "role": "Database fixture or manifest",
       "risk": "low",
-      "bytes": 2824,
-      "lines": 33,
+      "bytes": 2923,
+      "lines": 34,
       "detected_concerns": [],
       "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
       "verification": "check:platform:fast and owning feature test"
@@ -2579,6 +2628,17 @@
       "verification": "check:database + database:fixtures + rollback/query-plan drill"
     },
     {
+      "path": "database/migrations/0027_staff_profiles.sql",
+      "content_sha256": "e423d8eb2eb1f9eb1cb1712de68f8cc037168f4e9f9cd666a46e6b54def158be",
+      "role": "Forward database migration",
+      "risk": "critical",
+      "bytes": 1316,
+      "lines": 34,
+      "detected_concerns": [],
+      "review_focus": "Check rerun safety, locking/backfill duration, null/default transitions, index strategy, old-code compatibility, and matching rollback/verification.",
+      "verification": "check:database + database:fixtures + rollback/query-plan drill"
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "content_sha256": "d2b5f3b913dac5d1330e635a1a05c2aaeb87100dcf57d8e49b96cb8dd81c03a6",
       "role": "Database rollback",
@@ -2821,6 +2881,17 @@
       "verification": "check:database + database:fixtures + rollback/query-plan drill"
     },
     {
+      "path": "database/rollbacks/0027_staff_profiles.sql",
+      "content_sha256": "99771a44d2452e9fad6d5275bfe880e33925bd5b3876f14c6faea9dd09aada09",
+      "role": "Database rollback",
+      "risk": "high",
+      "bytes": 532,
+      "lines": 16,
+      "detected_concerns": [],
+      "review_focus": "Check data-loss boundaries, exact migration pairing, dependency ordering, transactional safety, and rehearsed restoration path.",
+      "verification": "check:database + database:fixtures + rollback/query-plan drill"
+    },
+    {
       "path": "databricks.yml",
       "content_sha256": "d99c103dd679231da69ad4a7be641d43d780eebb187c7a5343fbbe9ce60edaa7",
       "role": "Build, runtime, or repository configuration",
@@ -2869,6 +2940,17 @@
       "verification": "link/config drift review against executable source"
     },
     {
+      "path": "docs/AGENT_ARCHITECTURE_DIRECTION.md",
+      "content_sha256": "ef689e10fa3166983cf221c3e3e352ccb41419b3090df90ec4bcaecd43c1ad29",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 10791,
+      "lines": 258,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
       "path": "docs/ALAMO_ADMISSIONS_ZONE.md",
       "content_sha256": "6fe511c6e004ab556ccef67d3ca98e65e346503e5a2b8b6100efade3e46fcd2b",
       "role": "Documentation or runbook",
@@ -2892,11 +2974,11 @@
     },
     {
       "path": "docs/ARCHITECTURE.md",
-      "content_sha256": "d65f1ce2a1f3dcab07a0e4969ba257367d18af6da0756e956ed025f1f6500a44",
+      "content_sha256": "4a59e13b6aefbc76edcfe0e4dcaaf9980f69258d8b67d5b5ba76d2f0b38f123a",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 6052,
-      "lines": 74,
+      "bytes": 6404,
+      "lines": 82,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3206,6 +3288,17 @@
       "verification": "link/config drift review against executable source"
     },
     {
+      "path": "docs/HISTORICAL_MULTI_USER_SIMULATION.md",
+      "content_sha256": "f259f05917fbf7d2df9e0f3a6fff608f04a1a8fccabdb184d23c77abdbd4585c",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 7531,
+      "lines": 157,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
       "path": "docs/LIVE_ACCESS_REHEARSAL.md",
       "content_sha256": "8d363d3afad71f2e64737fe662ea616ebf540a33d2bc6fbb63970f8195c62f5a",
       "role": "Documentation or runbook",
@@ -3396,11 +3489,11 @@
     },
     {
       "path": "docs/REFACTORING_PLAYBOOK.md",
-      "content_sha256": "baa9916482850a15ee145b27c296e8c85968807ec058a87a197e3c15c3951ac2",
+      "content_sha256": "52290da164bb5e8d439824dc3f32f66e2442765130100093eb60099fa898e04e",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 20785,
-      "lines": 296,
+      "bytes": 22642,
+      "lines": 310,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3605,7 +3698,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "6e8c9371e6834e328c7db387a5aaa36ba0b03b9c6cb946acb5c364246281c457",
+      "content_sha256": "773cc296688258806c51cbaf53f545ba729ed811946da4a7a19d1ed6e54ff70c",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4179,11 +4272,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "ce66d13d84995113956bcae8b1148f557df84387489893801130db332c451f4a",
+      "content_sha256": "a7403846fbf437bd891e861417469d737b209f49636438c9d6acadaed0272cf0",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 356261,
-      "lines": 1709,
+      "bytes": 369226,
+      "lines": 1756,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4207,11 +4300,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "d9c5fa03f0601228b63fd729a0eca2af59ff689092408b7d9ddd42478b8cd611",
+      "content_sha256": "43163bbff2823be6aba470bd58a5ef80f1d7279f6d727aedef88dfa8ccf3c3a4",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 214719,
-      "lines": 7482,
+      "bytes": 215584,
+      "lines": 7497,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4266,11 +4359,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "88ecf02c7e8571b7b1e784b2e465621ea50bdb4e929c61522fa207b7fc8c7e81",
+      "content_sha256": "71fde47a513ae7756135f5bf353eb442c4dea402ca6133938d54ba08ca568b1a",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 489861,
-      "lines": 9889,
+      "bytes": 512581,
+      "lines": 10353,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4332,7 +4425,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "3855b757bc393d7e8ef3a4e12986d864fd0657e9ff9457049cf619dc9873bd36",
+      "content_sha256": "39860607a25f64a1640fcdbe21964eefe7bdc5c0fcc5004c6151199d0cbfd32f",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -4461,15 +4554,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "b7ef51bba6bc88228741518221e2f929e72f4977e2a75598eeed62b0c8674b4c",
+      "content_sha256": "7790078086c0c2d92a67ad1a0fa08418141c3bdaebda10e164755ded95a2db82",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 256719,
-      "lines": 10055,
+      "bytes": 261266,
+      "lines": 10235,
       "detected_concerns": [
-        "Large module (10055 lines): split by behavior before adding more responsibilities."
+        "Large module (10235 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (10055 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (10235 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -4948,11 +5041,11 @@
     },
     {
       "path": "lib/database/pipeline-database.ts",
-      "content_sha256": "6851aee38dae3a3b6e3a24807d5cc6030419fcfef16f3f0f071790dcf419e6e4",
+      "content_sha256": "6cb73424dfc6d3008535ecdad7e70d7678e2c69822c38ea58d302733c90df0dc",
       "role": "Database access",
       "risk": "critical",
-      "bytes": 4070,
-      "lines": 118,
+      "bytes": 4095,
+      "lines": 119,
       "detected_concerns": [],
       "review_focus": "Check parameterization, transaction and lock scope, statement timeouts, optimistic versions, pool lifecycle, pagination, and retry safety.",
       "verification": "check:database + database:fixtures + rollback/query-plan drill"
@@ -5742,11 +5835,11 @@
     },
     {
       "path": "lib/pipeline/editing-presence.ts",
-      "content_sha256": "b3004b1d1452a1a21768eb4d0a043286e2ddd96c5745a7ab83f319716dac9024",
+      "content_sha256": "9057ef0e787b4dc2aa1baf44af7dd802b44977d0a9ffb063890df5647d8ccc38",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 6224,
-      "lines": 173,
+      "bytes": 8292,
+      "lines": 230,
       "detected_concerns": [],
       "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
       "verification": "check:platform:fast and owning feature test"
@@ -6092,11 +6185,11 @@
     },
     {
       "path": "lib/pipeline/referral-packet-upload.ts",
-      "content_sha256": "44a3fda67be669f85f5222367ffcf4050ef0a1064d062d2738c3d2357883da8e",
+      "content_sha256": "4913ec70f6fd62e439ae322dec9d97d160efc1da53aadc37ebfe81948f0462fb",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 7368,
-      "lines": 214,
+      "bytes": 7578,
+      "lines": 220,
       "detected_concerns": [
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
@@ -6299,6 +6392,17 @@
       "verification": "check:platform:fast and owning feature test"
     },
     {
+      "path": "lib/pipeline/staff-profile.ts",
+      "content_sha256": "412f406e482b9a7ba5084bd5be06d74eabf582f0b3067cf75e991c8a5d4195d1",
+      "role": "Pipeline domain",
+      "risk": "medium",
+      "bytes": 2724,
+      "lines": 85,
+      "detected_concerns": [],
+      "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
       "path": "lib/pipeline/structured-narrative.ts",
       "content_sha256": "bd980ee4fd6342bb63702fd1131fb4faa64c8734277f4955ff803f569ada288e",
       "role": "Pipeline domain",
@@ -6427,11 +6531,11 @@
     },
     {
       "path": "lib/pipeline/workspace-members.ts",
-      "content_sha256": "37cab4863a46c77f63dce402e4ca9649746070ac683e110786d9cfa897d432a1",
+      "content_sha256": "97ead9550e021c33bf8cff44f8f4cf6d8c671a18e2f89f1227d7cbaae67c76dd",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 6460,
-      "lines": 175,
+      "bytes": 12178,
+      "lines": 306,
       "detected_concerns": [],
       "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
       "verification": "check:platform:fast and owning feature test"
@@ -6471,11 +6575,11 @@
     },
     {
       "path": "lib/pipeline/workspace-state.ts",
-      "content_sha256": "2e80f7d94f85018f2daa6bde2184837c0cbec110d94e3e129601e08ca16fe80f",
+      "content_sha256": "b713b599ca8084c6148d376008686ed4c564b6c64c7484f8df962e9f9b660e1e",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 10023,
-      "lines": 266,
+      "bytes": 10546,
+      "lines": 282,
       "detected_concerns": [],
       "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
       "verification": "check:platform:fast and owning feature test"
@@ -6498,6 +6602,17 @@
       "risk": "low",
       "bytes": 4224,
       "lines": 127,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "lib/simulation/historical-simulation-core.mjs",
+      "content_sha256": "c7db182002faac019d87bfab8186f1d87862ad66fdacdc3225dd28c95bcbc637",
+      "role": "Shared server/domain library",
+      "risk": "low",
+      "bytes": 26606,
+      "lines": 617,
       "detected_concerns": [],
       "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
       "verification": "check:platform:fast and owning feature test"
@@ -6668,11 +6783,11 @@
     },
     {
       "path": "package.json",
-      "content_sha256": "1d226458fbf19934cd5c99b1ff078e68e9d5b90c44020adf86fd7a1f86634e7f",
+      "content_sha256": "e207050cb31e185086a8588656ba5df6268965b7a16925f752129d39fcea7046",
       "role": "Build, runtime, or repository configuration",
       "risk": "low",
-      "bytes": 17234,
-      "lines": 228,
+      "bytes": 17487,
+      "lines": 231,
       "detected_concerns": [],
       "review_focus": "Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults.",
       "verification": "check:platform:fast and owning feature test"
@@ -6692,11 +6807,11 @@
     },
     {
       "path": "playwright.operational.config.ts",
-      "content_sha256": "536452b037bdddc27622188bea49a8e475c142c40a1eddb9f862ac10252dea10",
+      "content_sha256": "4f37867b30c33f97abc39e11175d351471650ebd220ce3ce1e309d08d6a77e6c",
       "role": "Repository support file",
       "risk": "low",
-      "bytes": 2887,
-      "lines": 70,
+      "bytes": 3328,
+      "lines": 77,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -7044,6 +7159,296 @@
       "verification": "visual render, dimensions, compression, cache headers, and provenance"
     },
     {
+      "path": "research/admission-inference/PROSPECTIVE_MODEL_PLAN.md",
+      "content_sha256": "dc5c841a02d39d416e731fef39aa516b5022d89683c257f2d1344bfa5c835708",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 7436,
+      "lines": 169,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/README.md",
+      "content_sha256": "bee804b3eada0176bee990176c1fe18c176e65ffff6d18cd88a81b6b5634fba0",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 5868,
+      "lines": 142,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/__init__.py",
+      "content_sha256": "3d46664d479d2171bb5c467ec098bea0f0ac1922ad163bdda3818be32b7ffd48",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 83,
+      "lines": 4,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/cli.py",
+      "content_sha256": "ed4dc4db1310334d67efc950b683f96a3e5b49cb76fdeb6a0a2642b1bb53c8c6",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 7549,
+      "lines": 192,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/config.py",
+      "content_sha256": "bce8f11431b2abfbc04cca3afe2a03afed15ff60886d587d1144c44a9b777705",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 674,
+      "lines": 26,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/contracts.py",
+      "content_sha256": "acd8c8eec4a3e36ad3b800ce77fc11ad8b20ab085533cc05acc151ee8ca7674c",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 10713,
+      "lines": 285,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/evaluation.py",
+      "content_sha256": "cf05fbff958319deeeb95c6ee02828162a2c085a3ca461901242733d783f5ac6",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 14901,
+      "lines": 399,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/features.py",
+      "content_sha256": "9d6f702ad28c8ba2c69145953fa3f441a46ee2b9db799a71ea9fcefb151fbff7",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 6900,
+      "lines": 206,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/metrics.py",
+      "content_sha256": "0d60ba278bf5b7562a7692340b596512b37cb2026b7ddee6a02c06f172afa120",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 7704,
+      "lines": 212,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/models.py",
+      "content_sha256": "93a52e591643b8925b8ea49c3773d17f76d02d519c23fe1965bc8014278fae27",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 5219,
+      "lines": 172,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/pool.py",
+      "content_sha256": "3f5d0c38f1a2347fcf50cc8671061f5421ca7334fb8c6873f053b541107021ea",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 27213,
+      "lines": 729,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/prospective.py",
+      "content_sha256": "bc5327eae6d97c373f645cd314e5a63759374ae72f1c2fa51807eaa15ca4825a",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 30839,
+      "lines": 772,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/admission_inference/reporting.py",
+      "content_sha256": "a39444611c521bbb7f31cd536d14c3a02c22105980610cc29062e508bc22b4cc",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 8136,
+      "lines": 209,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/annotation-schema.json",
+      "content_sha256": "d8d18f4db964ed3026013db8257d7184f5b8e71099bfae03fe05ef4f5e3521b5",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 1882,
+      "lines": 67,
+      "detected_concerns": [
+        "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
+      ],
+      "review_focus": "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/config.json",
+      "content_sha256": "36d3860eda624e20581d4c3ff4348cc38cc2ad79d5f5469c0c9a17e526ae2dca",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 312,
+      "lines": 12,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/evidence-rule-registry.json",
+      "content_sha256": "3786a992f20d8c5a3d2ec84bd3778e6d576588d71945a7e336c66b6d16bc0dde",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 6208,
+      "lines": 124,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/prospective-export.sql",
+      "content_sha256": "016712a3122d673877c1f32a601805675f1edba240d26d0c79fe88dbc7ab46ba",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 2757,
+      "lines": 77,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/prospective-model-contract.json",
+      "content_sha256": "3e5e0d1f3f8929774f18b83bd19c2832b0e61c09433d93cdd0630fb2e02eda13",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 11564,
+      "lines": 364,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/requirements.txt",
+      "content_sha256": "01d6ce35cd9dd568244ef73cd4e20093c5027841896ebab7c7a685fb73681ef2",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 89,
+      "lines": 7,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/run.sh",
+      "content_sha256": "8a767f2b690e6db100a85998351f1f1138c476853774ce74c1b1e5e906d63276",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 708,
+      "lines": 28,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/tests/test_contracts.py",
+      "content_sha256": "7e8211e1c5c6d7273099c991f8dc1e85e30c5f00b1f7026c3f7f318378a4b327",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 3873,
+      "lines": 120,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/tests/test_features.py",
+      "content_sha256": "0870ec23a659462ca930eee98a1df2386b6d3f7fdbd2ccc2df7078c47dce3dbf",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 1490,
+      "lines": 41,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/tests/test_metrics.py",
+      "content_sha256": "0d5075ed7b8c39b785e4feed1148ae18f26c3ced089f2fcac4196eb6f12db4c0",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 680,
+      "lines": 20,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/tests/test_pool.py",
+      "content_sha256": "ff256067480794a165a2011a40879c90cc140e9cccd12a45aa8e6808abd396b9",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 3782,
+      "lines": 99,
+      "detected_concerns": [
+        "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
+      ],
+      "review_focus": "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/tests/test_prospective.py",
+      "content_sha256": "5c6f24cd3814ecbc5ffe133ea9d6afb3c51ae68c135627517413a3333384cf7e",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 7757,
+      "lines": 183,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "research/admission-inference/tests/test_splits.py",
+      "content_sha256": "639ec87fcdc2ce77b3aaf2c36d59bb68b096affc0a2bbc1ddc08fb0e66d7d607",
+      "role": "Repository support file",
+      "risk": "low",
+      "bytes": 566,
+      "lines": 17,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
       "path": "scripts/academy-atlas.mjs",
       "content_sha256": "ff1f8afbf2c14c2fdeb051ffb6da2b0db8563c63149775be9fa72b1e8efa2890",
       "role": "Operator, verification, or data script",
@@ -7242,11 +7647,11 @@
     },
     {
       "path": "scripts/api-route-policy-audit.mjs",
-      "content_sha256": "3416c41c3c8ccd893466c755f01f0e7f533ca1b7f79fdfefde40d4bef7dec847",
+      "content_sha256": "acaf4ee66aabc2cbc6bf56073751883b04942a1d56158e38eb8738b91f3ecead",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 10598,
-      "lines": 208,
+      "bytes": 11237,
+      "lines": 218,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -7874,11 +8279,11 @@
     },
     {
       "path": "scripts/database-readiness.mjs",
-      "content_sha256": "69000590bb72a6c800259ad7d4fcd559a001245b2edf7d7768a4467d39b3e148",
+      "content_sha256": "7aa7c1179730f1f5251a130d7a5dd24390a529ee78e7e8f3432f5fce2511860b",
       "role": "Operator, verification, or data script",
       "risk": "high",
-      "bytes": 36425,
-      "lines": 414,
+      "bytes": 37334,
+      "lines": 427,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -7898,11 +8303,11 @@
     },
     {
       "path": "scripts/database-rollback-drill.mjs",
-      "content_sha256": "328d2fcd1a75ab9f170200a28b2cdd3a7dc4a808b4fac2664b9fd3361729f74d",
+      "content_sha256": "3a7e2cfcf2ef7b1b7f81712fb6785f3be49ed63b989bc1076822e9236fc652a2",
       "role": "Operator, verification, or data script",
       "risk": "high",
-      "bytes": 42995,
-      "lines": 654,
+      "bytes": 44743,
+      "lines": 684,
       "detected_concerns": [
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
@@ -8123,6 +8528,17 @@
       "risk": "low",
       "bytes": 8429,
       "lines": 160,
+      "detected_concerns": [],
+      "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
+      "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
+    },
+    {
+      "path": "scripts/historical-simulation-contracts.mjs",
+      "content_sha256": "5e6848b51c8dab09b2ad309c080404736a80ff0f558b31e3a33a333f811d9ecf",
+      "role": "Operator, verification, or data script",
+      "risk": "low",
+      "bytes": 5709,
+      "lines": 138,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -8575,10 +8991,10 @@
     },
     {
       "path": "scripts/postgres-concurrency-certification.mjs",
-      "content_sha256": "0cbf0a3fcb0748f46b7b766504d20822cd1aa6504117a4371ae6113a9fb5c9a6",
+      "content_sha256": "5259d81262f53ddc7d1d3f2fb9c0ec22067579d9388ce3f36a43ad411d4249fa",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 17354,
+      "bytes": 17340,
       "lines": 412,
       "detected_concerns": [
         "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence.",
@@ -8589,10 +9005,10 @@
     },
     {
       "path": "scripts/postgres-integration-fixtures.mjs",
-      "content_sha256": "3bf33ce567ae8c81dafb098b338c6c86d00c6c4773240027cd9d5d6c6995378f",
+      "content_sha256": "d3a6f099182e9d8e2dfaadb73a581cb97eeebbb4c5e98b4442d94581d5e3b296",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 11446,
+      "bytes": 11468,
       "lines": 212,
       "detected_concerns": [
         "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence."
@@ -8613,10 +9029,10 @@
     },
     {
       "path": "scripts/postgres-live-smoke.mjs",
-      "content_sha256": "195c33c45e8c970f75e9da77d79da2c36b152f8b5ed5f73d6d778a09284d40b8",
+      "content_sha256": "acb4738db21fe06bc64ae7e79ba52c189c4b683c21b140bbe9292c10146589b4",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 9522,
+      "bytes": 9545,
       "lines": 206,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
@@ -8657,6 +9073,17 @@
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
       "review_focus": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+      "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
+    },
+    {
+      "path": "scripts/prepare-historical-simulation.mjs",
+      "content_sha256": "20fbc875fa508d42e886bdb200dcdcb76895d041bfdf45b385747f3af218d6fc",
+      "role": "Operator, verification, or data script",
+      "risk": "low",
+      "bytes": 9257,
+      "lines": 232,
+      "detected_concerns": [],
+      "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
@@ -8910,6 +9337,19 @@
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
+      "path": "scripts/run-historical-simulation.mjs",
+      "content_sha256": "e4361828f91d4fcc8bac34118c429eafe0d8435570297dcc9f363d34268cf5c4",
+      "role": "Operator, verification, or data script",
+      "risk": "low",
+      "bytes": 7759,
+      "lines": 188,
+      "detected_concerns": [
+        "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures."
+      ],
+      "review_focus": "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
+      "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
+    },
+    {
       "path": "scripts/sample-packet-extraction-smoke.mjs",
       "content_sha256": "cde581e45f4548e1b40ef4137fc0cfddcd01efcedf8fedcc8e95221d2f9c7c51",
       "role": "Operator, verification, or data script",
@@ -8951,10 +9391,10 @@
     },
     {
       "path": "scripts/seed-production-reference-data.mjs",
-      "content_sha256": "f207ea3897d9224abd47d81da1fd9f7bc2466bb095f0a1bbcddbca611a9685c6",
+      "content_sha256": "7a1630dc808a8631debc707dc7a06b648d5bce375d6bae8bfef08183ae8712f8",
       "role": "Operator, verification, or data script",
       "risk": "high",
-      "bytes": 2568,
+      "bytes": 2590,
       "lines": 48,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
@@ -9245,11 +9685,11 @@
     },
     {
       "path": "tests/e2e/demo-environment.spec.ts",
-      "content_sha256": "9efe1aa338815a4071d4adb20a5667de405fd47b929989fd531210522f7f8b78",
+      "content_sha256": "3bad1d53a5a01b8f6c655868c41476647018ae56a9a63766c85dfe598fba40dd",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 18650,
-      "lines": 307,
+      "bytes": 20102,
+      "lines": 333,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -9371,6 +9811,17 @@
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {
+      "path": "tests/e2e/operational/historical-corpus.scaffold.spec.ts",
+      "content_sha256": "c0a0b30ccf1fe3f9d489a3881e7c59c7e74497e0b398802b7cba233abbcd17f9",
+      "role": "Browser journey test or snapshot",
+      "risk": "low",
+      "bytes": 31275,
+      "lines": 723,
+      "detected_concerns": [],
+      "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
+      "verification": "run owning Playwright project and review skips/snapshots"
+    },
+    {
       "path": "tests/e2e/operational/referral-duplicate-review.spec.ts",
       "content_sha256": "4468f9b89e44adc52dfd3e719afb56c2cbeb05f7ddf22ff5179d4e39dd840bad",
       "role": "Browser journey test or snapshot",
@@ -9429,11 +9880,11 @@
     },
     {
       "path": "tests/e2e/operator-training.spec.ts",
-      "content_sha256": "2b2843e24bb739fe10b4c630d654d78676a22cf1f9e4d943b540ae57d8cbac9a",
+      "content_sha256": "2974bdf16b52137f182db29799059e7062a9174189e167865701c9b0edb00b16",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 23113,
-      "lines": 397,
+      "bytes": 24412,
+      "lines": 420,
       "detected_concerns": [
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
@@ -9500,6 +9951,19 @@
       "lines": 177,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
+      "verification": "run owning Playwright project and review skips/snapshots"
+    },
+    {
+      "path": "tests/e2e/staff-profile.spec.ts",
+      "content_sha256": "1d489ffef4a3e3c50a9753b40b07cc66f723fe7767ca2037d4eb0f6ada85449f",
+      "role": "Browser journey test or snapshot",
+      "risk": "low",
+      "bytes": 4334,
+      "lines": 94,
+      "detected_concerns": [
+        "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
+      ],
+      "review_focus": "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.",
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {
@@ -9863,11 +10327,11 @@
     },
     {
       "path": "tsconfig.json",
-      "content_sha256": "2978349ab32fc95937211144e41e18d02e1eb6966580277dbe9aff66e0c8d539",
+      "content_sha256": "3ffbeddbb34eb1f72e54425466a7a9a3ed1555a1a196221aa113c56f473977f6",
       "role": "Build, runtime, or repository configuration",
       "risk": "low",
-      "bytes": 1883,
-      "lines": 75,
+      "bytes": 2185,
+      "lines": 81,
       "detected_concerns": [],
       "review_focus": "Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults.",
       "verification": "check:platform:fast and owning feature test"

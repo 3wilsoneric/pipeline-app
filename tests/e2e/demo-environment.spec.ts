@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 test.describe("Pipeline Demo Environment", () => {
   test("creates and opens a real synthetic assessment rehearsal", async ({ page }) => {
@@ -73,6 +73,22 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.getByRole("heading", { name: "Create the referral" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Referral journey stages" })).toBeVisible();
     await expect.poll(() => page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTop)).toBe(0);
+  });
+
+  test("uses the full application body for presentation and demo pages", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto("/training/demo");
+    const center = page.locator('[data-demo-center="true"]');
+    const presentation = page.locator('[data-demo-surface="presentation"]');
+    await expect(presentation).toBeVisible();
+
+    await expectDemoSurfaceToFillBody(presentation, center);
+    expect(await center.evaluate((element) => element.scrollHeight)).toBe(await center.evaluate((element) => element.clientHeight));
+
+    await page.getByRole("tab", { name: "Referral journey" }).click();
+    const journey = page.locator('[data-demo-surface="journey"]');
+    await expect(journey).toBeVisible();
+    await expectDemoSurfaceToFillBody(journey, center);
   });
 
   test("moves from the assessor presentation into Notes Lab and returns for final review", async ({ page }) => {
@@ -251,6 +267,16 @@ test.describe("Pipeline Demo Environment", () => {
     expect(requests).toEqual([]);
   });
 });
+
+async function expectDemoSurfaceToFillBody(surface: Locator, center: Locator) {
+  const [centerBox, surfaceBox] = await Promise.all([center.boundingBox(), surface.boundingBox()]);
+  expect(centerBox).not.toBeNull();
+  expect(surfaceBox).not.toBeNull();
+  if (!centerBox || !surfaceBox) throw new Error("The demo surface must have measurable bounds.");
+  expect(Math.abs(surfaceBox.x - centerBox.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(surfaceBox.width - centerBox.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs((surfaceBox.y + surfaceBox.height) - (centerBox.y + centerBox.height))).toBeLessThanOrEqual(1);
+}
 
 function watchBrowserErrors(page: import("@playwright/test").Page) {
   const errors: string[] = [];

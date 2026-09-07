@@ -4,6 +4,18 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+## Implementation economy
+
+Understand the requested behavior and trace the real flow before proposing code. Then stop at the first option that fully satisfies the behavior, safety, and evidence requirements:
+
+1. Make no code change when the capability already exists or the request does not require one.
+2. Reuse the repository's canonical owner, helper, type, component, or established pattern.
+3. Use the standard library or a native browser, framework, database, or platform capability.
+4. Use an already-installed dependency when it is the smallest correct owner.
+5. Only then add the minimum new implementation and focused executable evidence required by its risk.
+
+Fix shared root causes at their narrowest canonical owner rather than patching each caller. Prefer safe deletion and consolidation over parallel implementations. Do not add speculative abstractions, dependencies, configuration, compatibility layers, or future-facing scaffolding. The smallest diff wins only after it preserves current behavior, trust-boundary validation, error handling, security, accessibility, data integrity, recovery, and the applicable proof obligations. Record any deliberate simplification with its known ceiling and a concrete trigger for revisiting it; never leave an anonymous "later" shortcut.
+
 ## Refactor safety
 
 Pipeline refactoring is currently setup-only. Read `docs/REFACTORING_PLAYBOOK.md`, `docs/refactoring/CONTROL_PLANE_MAP.md`, and `docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md` before structural work.

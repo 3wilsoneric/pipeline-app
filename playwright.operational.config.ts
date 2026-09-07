@@ -3,7 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 const port = process.env.PORT ?? "3197";
 const baseURL = `http://127.0.0.1:${port}`;
 const prebuiltOperational = process.env.PIPELINE_OPERATIONAL_PREBUILT === "true";
-const storeRoot = `.data/playwright-operational/${port}`;
+const historicalRunRoot = process.env.PIPELINE_HISTORICAL_RUN_ROOT;
+const storeRoot = historicalRunRoot ? `${historicalRunRoot}/runtime` : `.data/playwright-operational/${port}`;
 const allowedEmails = [
   "ops-admin@pipeline.local",
   "admissions@pipeline.local",
@@ -26,7 +27,11 @@ export default defineConfig({
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  reporter: [["list"], ["html", { open: "never" }]],
+  outputDir: historicalRunRoot ? `${historicalRunRoot}/test-results` : undefined,
+  reporter: [["list"], ["html", {
+    open: "never",
+    ...(historicalRunRoot ? { outputFolder: `${historicalRunRoot}/playwright-report` } : {}),
+  }]],
   use: {
     baseURL,
     trace: "on-first-retry",
@@ -44,6 +49,8 @@ export default defineConfig({
       PIPELINE_OPERATIONAL_E2E: "true",
       PIPELINE_AUTH_MODE: "headers",
       PIPELINE_TRUSTED_GATEWAY: "true",
+      PIPELINE_ENTRA_SESSION_SECRET: process.env.PIPELINE_ENTRA_SESSION_SECRET
+        ?? "operational-only-admin-god-mode-secret-2026",
       PIPELINE_ALLOWED_EMAILS: allowedEmails,
       PIPELINE_ALLOWED_MUTATION_ORIGINS: `${baseURL},http://localhost:${port}`,
       PIPELINE_EXTRACTION_BACKEND: "mock",

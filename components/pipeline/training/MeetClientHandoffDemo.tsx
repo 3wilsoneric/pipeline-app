@@ -43,7 +43,7 @@ export default function MeetClientHandoffDemo({ preparedBy }: { preparedBy: stri
   const [delivered, setDelivered] = useState(false);
 
   return (
-    <section data-meet-client-demo="true" className="mt-3 overflow-hidden bg-white">
+    <section data-meet-client-demo="true" className="overflow-hidden bg-white">
       <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-[#dfe4e1] bg-white px-2 sm:px-4">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center bg-[#e9f5f1] text-[#0c806b]"><Mail size={17} /></span>

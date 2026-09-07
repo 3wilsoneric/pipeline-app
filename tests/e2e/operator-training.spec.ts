@@ -272,6 +272,29 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("heading", { name: "Review your assigned work" })).toBeVisible();
   });
 
+  test("opens modules as full-page learning workspaces", async ({ page }) => {
+    await mockTrainingProgress(page);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto(trainingUrl);
+    const academy = page.locator('[data-operator-academy="true"]');
+
+    await page.getByRole("button", { name: "Open Finish an assessment" }).click();
+    const learningModule = page.locator('[data-learning-module="true"]');
+    await expect(learningModule).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Learning Center" })).toHaveCount(0);
+
+    const [academyBox, moduleBox] = await Promise.all([academy.boundingBox(), learningModule.boundingBox()]);
+    expect(academyBox).not.toBeNull();
+    expect(moduleBox).not.toBeNull();
+    expect(Math.abs((moduleBox?.x ?? 0) - (academyBox?.x ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((moduleBox?.y ?? 0) - (academyBox?.y ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((moduleBox?.width ?? 0) - (academyBox?.width ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((moduleBox?.height ?? 0) - (academyBox?.height ?? 0))).toBeLessThanOrEqual(1);
+
+    await page.getByRole("button", { name: "Modules" }).click();
+    await expect(page.getByRole("heading", { name: "Learning Center" })).toBeVisible();
+  });
+
   test("keeps the Learning Center and guide usable at a narrow viewport", async ({ page }) => {
     await mockTrainingProgress(page);
     await page.setViewportSize({ width: 320, height: 568 });

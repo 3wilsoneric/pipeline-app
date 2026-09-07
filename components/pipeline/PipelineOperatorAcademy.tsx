@@ -25,6 +25,7 @@ export default function PipelineOperatorAcademy({
   initialProgress: OperatorProgressRecord;
 }) {
   const [progress, setProgress] = useState(() => normalizeOperatorProgress(initialProgress.progress, assignedRoles));
+  const [moduleOpen, setModuleOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,20 +70,26 @@ export default function PipelineOperatorAcademy({
     <main
       data-operator-academy="true"
       data-training-hydrated="true"
-      className="h-full min-h-0 overflow-y-auto bg-[#f6f8f7] text-[#171a18]"
+      className={`h-full min-h-0 bg-[#f6f8f7] text-[#171a18] ${moduleOpen ? "overflow-hidden" : "overflow-y-auto"}`}
     >
-      <div className="mx-auto w-full max-w-[1480px] px-4 pb-12 pt-6 sm:px-6 lg:px-8 lg:pt-9">
-        <header className="pb-5">
-          <h1 className="text-[34px] font-semibold tracking-[-0.045em] text-[#151917] sm:text-[44px]">Learning Center</h1>
-        </header>
+      <div className={moduleOpen ? "h-full min-h-0 w-full" : "w-full px-4 pb-12 pt-6 sm:px-6 lg:px-8 lg:pt-9"}>
+        {!moduleOpen ? (
+          <>
+            <header className="pb-5">
+              <h1 className="text-[34px] font-semibold tracking-[-0.045em] text-[#151917] sm:text-[44px]">Learning Center</h1>
+            </header>
 
-        <OperatorDemoEntry demoUrl={demoUrl} />
-        <OperatorGuidedTours assignedRoles={assignedRoles} progress={progress} />
+            <OperatorDemoEntry demoUrl={demoUrl} />
+          </>
+        ) : null}
+        <OperatorGuidedTours assignedRoles={assignedRoles} progress={progress} onExpandedChange={setModuleOpen} />
 
-        <footer className="mt-5 flex items-center gap-2 text-[10px] leading-4 text-[#6d7773]">
-          <CheckCircle2 size={14} className="shrink-0 text-[#0f8b73]" aria-hidden="true" />
-          Practice with test records. The guide never types, signs, sends, or exports for you.
-        </footer>
+        {!moduleOpen ? (
+          <footer className="mt-5 flex items-center gap-2 text-[10px] leading-4 text-[#6d7773]">
+            <CheckCircle2 size={14} className="shrink-0 text-[#0f8b73]" aria-hidden="true" />
+            Practice with test records. The guide never types, signs, sends, or exports for you.
+          </footer>
+        ) : null}
       </div>
     </main>
   );

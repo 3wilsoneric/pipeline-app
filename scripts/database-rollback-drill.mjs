@@ -33,6 +33,7 @@ const noteLabFieldReviewsRollback = await readFile("database/rollbacks/0023_note
 const workspaceMonthRollback = await readFile("database/rollbacks/0024_workspace_month_provenance.sql", "utf8");
 const homeDashboardLayoutRollback = await readFile("database/rollbacks/0025_home_dashboard_layout.sql", "utf8");
 const importedWorkspaceLifecycleRollback = await readFile("database/rollbacks/0026_imported_workspace_lifecycle.sql", "utf8");
+const staffProfilesRollback = await readFile("database/rollbacks/0027_staff_profiles.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -110,6 +111,8 @@ try {
       ) as home_dashboard_layout_kind,
       exists(select 1 from pipeline.schema_migrations where migration_id='0025_home_dashboard_layout') as home_dashboard_layout_history,
       exists(select 1 from pipeline.schema_migrations where migration_id='0026_imported_workspace_lifecycle') as imported_workspace_lifecycle_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='workspace_members' and column_name='profile_version') as staff_profile_fields,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0027_staff_profiles') as staff_profile_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -168,6 +171,8 @@ try {
       && before[0].home_dashboard_layout_kind
       && before[0].home_dashboard_layout_history
       && before[0].imported_workspace_lifecycle_history
+      && before[0].staff_profile_fields
+      && before[0].staff_profile_history
       && before[0].canvas_content_snapshots
       && before[0].canvas_content_candidates
       && before[0].allo_canvas_content_history
@@ -180,6 +185,27 @@ try {
       && before[0].workspace_month
       && before[0].workspace_month_index
       && before[0].workspace_month_history
+    ),
+  });
+  await connection.unsafe(staffProfilesRollback);
+  const staffProfilesDuring = await connection`
+    select not exists(
+        select 1 from information_schema.columns
+        where table_schema='pipeline' and table_name='workspace_members' and column_name='profile_version'
+      ) as fields_removed,
+      not exists(
+        select 1 from pipeline.schema_migrations where migration_id='0027_staff_profiles'
+      ) as history_removed,
+      exists(
+        select 1 from pipeline.schema_migrations where migration_id='0026_imported_workspace_lifecycle'
+      ) as prior_history_preserved
+  `;
+  checks.push({
+    name: "rollback removes staff profile preferences and preserves prior migration history",
+    ok: Boolean(
+      staffProfilesDuring[0].fields_removed
+      && staffProfilesDuring[0].history_removed
+      && staffProfilesDuring[0].prior_history_preserved
     ),
   });
   await connection.unsafe(importedWorkspaceLifecycleRollback);
@@ -561,6 +587,8 @@ try {
       ) as home_dashboard_layout_kind,
       exists(select 1 from pipeline.schema_migrations where migration_id='0025_home_dashboard_layout') as home_dashboard_layout_history,
       exists(select 1 from pipeline.schema_migrations where migration_id='0026_imported_workspace_lifecycle') as imported_workspace_lifecycle_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='workspace_members' and column_name='profile_version') as staff_profile_fields,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0027_staff_profiles') as staff_profile_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -621,6 +649,8 @@ try {
       && after[0].home_dashboard_layout_kind
       && after[0].home_dashboard_layout_history
       && after[0].imported_workspace_lifecycle_history
+      && after[0].staff_profile_fields
+      && after[0].staff_profile_history
       && after[0].canvas_content_snapshots
       && after[0].canvas_content_candidates
       && after[0].allo_canvas_content_history

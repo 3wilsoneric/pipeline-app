@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pipeline admission inference human review",
+  "description": "Research-only annotation contract for one referral episode.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "annotation_status",
+    "outcome_verified",
+    "pre_decision_verified",
+    "leakage_reviewed",
+    "reviewer_id",
+    "disposition_category",
+    "contributing_factors",
+    "decisive_evidence_span",
+    "review_uncertainty"
+  ],
+  "properties": {
+    "annotation_status": {"const": "verified"},
+    "outcome_verified": {"const": true},
+    "pre_decision_verified": {"const": true},
+    "leakage_reviewed": {"const": true},
+    "reviewer_id": {"type": "string", "minLength": 1},
+    "disposition_category": {
+      "type": "string",
+      "enum": [
+        "accepted_or_admitted",
+        "facility_clinical_or_care_mismatch",
+        "legal_or_policy_restriction",
+        "client_declined_or_interview_incomplete",
+        "placed_elsewhere",
+        "capacity_or_waitlist",
+        "documentation_incomplete",
+        "administrative_close",
+        "unresolved"
+      ]
+    },
+    "contributing_factors": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "medication_support",
+          "behavior_or_safety",
+          "adl_or_medical_support",
+          "substance_use",
+          "legal_status",
+          "client_preference",
+          "documentation",
+          "capacity",
+          "other"
+        ]
+      }
+    },
+    "decisive_evidence_span": {
+      "type": "string",
+      "description": "Exact source span supporting the disposition category."
+    },
+    "review_uncertainty": {
+      "type": "string",
+      "enum": ["low", "moderate", "high", "cannot_determine"]
+    },
+    "reviewer_notes": {"type": "string"}
+  }
+}
