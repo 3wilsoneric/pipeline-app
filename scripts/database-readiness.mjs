@@ -362,6 +362,10 @@ check(
 );
 check("workspace roster rollback is evidence-backed and scoped to migration 0028", workspaceRosterRollback.includes("workspace_member_deactivated") && workspaceRosterRollback.includes("0028_workspace_roster") && !workspaceRosterRollback.includes("drop schema"));
 check(
+  "workspace roster rollback flushes deferred member constraints before older table-shape rollbacks",
+  workspaceRosterRollback.includes("set constraints pipeline.workspace_members_merged_into_fkey immediate"),
+);
+check(
   "rollback scripts delegate transaction ownership to the drill or operator",
   ![
     collaborationRollback,

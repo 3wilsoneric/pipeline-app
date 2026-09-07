@@ -14,6 +14,10 @@ set active = coalesce((reactivation.before_values->>'active')::boolean, true),
 from workspace_roster_reactivations reactivation
 where member.principal_id = reactivation.principal_id;
 
+-- Flush the initially deferred workspace-member self-reference before an
+-- older rollback changes this table's shape in the same transaction.
+set constraints pipeline.workspace_members_merged_into_fkey immediate;
+
 delete from pipeline.audit_events
 where entity_type = 'workspace_member'
   and action = 'workspace_member_deactivated'
