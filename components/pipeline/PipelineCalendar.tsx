@@ -202,6 +202,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
 
   const calendarEvents = events.filter((event) => event.kind !== "referral_assigned");
   const communityOptions = uniqueValues([
+    community,
     ...calendarEvents.map((event) => event.community),
     ...unscheduled.map((item) => item.community),
   ]);
