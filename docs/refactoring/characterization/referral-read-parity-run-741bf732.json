@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "recordType": "machine_observation_not_approval",
+  "purpose": "Freeze representative referral list, filter, facet, ordering, and cursor behavior across local-file and PostgreSQL adapters before store boundaries move.",
+  "capturedAt": "2026-09-07T07:17:14.027Z",
+  "capturedFromCommit": "741bf732ddbcad5f9de05a56ebff931385f5ef3f",
+  "artifactDigestSha256": "1a10becdbc7d067b13f9475e8bf9b9cf4bf24f97cbdd511d233f790f467588da",
+  "testPath": "tests/e2e/operational/referral-store-characterization.spec.ts",
+  "testDigestSha256": "b09f085eee3f576d4c504361dc69e80fc7bf26871fd6dc78ac4a369b222211c2",
+  "fixtureClassification": "synthetic",
+  "containsPhi": false,
+  "postgresMajor": 16,
+  "buildPassed": true,
+  "migrationsApplied": 26,
+  "boundedContract": [
+    "Search selects the same three synthetic referral records on both adapters.",
+    "Client-name ascending order returns the same records in the same order.",
+    "A two-record page exposes a sort-bound cursor; the next page returns only the remaining record and preserves the full matching total.",
+    "County, owner, priority, and tag filters compose to the same one-record result.",
+    "Community, county, owner, priority, stage, tag, and workspace-month facets return the same values and counts."
+  ],
+  "adapters": [
+    {
+      "adapter": "local_file",
+      "ok": true,
+      "durationMs": 2760,
+      "tests": { "expected": 7, "unexpected": 0, "flaky": 0, "skipped": 0 }
+    },
+    {
+      "adapter": "postgres",
+      "ok": true,
+      "durationMs": 2190,
+      "tests": { "expected": 7, "unexpected": 0, "flaky": 0, "skipped": 0 }
+    }
+  ],
+  "claimBoundary": "This representative sample does not cover every list option, every sort, archived/deleted workspaces, every queue or workflow filter, file projections, malformed cursors, or query-plan performance.",
+  "humanReview": {
+    "status": "awaiting_human_review",
+    "approvedBy": null,
+    "approvedAt": null
+  }
+}

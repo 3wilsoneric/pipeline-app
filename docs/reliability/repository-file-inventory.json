@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T07:14:14.803Z",
+  "generated_at": "2026-09-07T07:18:10.455Z",
   "audit_date": "2026-09-07",
-  "git_head": "080e5f9c17693f2dfd4dfbc84684209d9df79ab6",
+  "git_head": "741bf732ddbcad5f9de05a56ebff931385f5ef3f",
   "files": [
     {
       "path": ".dockerignore",
@@ -3816,11 +3816,11 @@
     },
     {
       "path": "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
-      "content_sha256": "1fdf307c37ca456e389c0d780cd201ef0f99983f4613f631351b44f302887c3e",
+      "content_sha256": "e09c817cdbade1b789db2e783d3a4eb54ebfcfbfd5ab62b1d447d02833f1bd19",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 15993,
-      "lines": 168,
+      "bytes": 16408,
+      "lines": 170,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3903,6 +3903,17 @@
       "verification": "link/config drift review against executable source"
     },
     {
+      "path": "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
+      "content_sha256": "183dbe8cfc568533cbc12997564c28338dec4d01597d48ed092b5969fcc33cff",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 1968,
+      "lines": 43,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
       "path": "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
       "content_sha256": "7a32942d86d4b81db65764a9eb7a470858e83ef3c4c59d378b3db6d8b66bee7c",
       "role": "Documentation or runbook",
@@ -3937,11 +3948,11 @@
     },
     {
       "path": "docs/refactoring/evidence-matrix.json",
-      "content_sha256": "8b48bb11b9a8c9754f2ea40844bf6c8eead43b9f10566883fff3895c5e1ee65e",
+      "content_sha256": "4abf489ee42dc47ba370e2b70317f8a2eab2cf6db28690e7b35d79c1045d80b6",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 31505,
-      "lines": 532,
+      "bytes": 31786,
+      "lines": 534,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4124,11 +4135,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "5d1c451f5622ca1227edafbc86be8c83b14e31ad7f55bf70ffd48011c1e05b32",
+      "content_sha256": "64d8851bf0bbcd529e33e2f0d943537b90080ecb3260329a5ecd77f220f8a699",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 353626,
-      "lines": 1701,
+      "bytes": 353968,
+      "lines": 1702,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4152,11 +4163,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "b7e849f47df3cba24ede23f0121dffcbedf4c13f1f9c9593286f603b8342778a",
+      "content_sha256": "999fa1625499a1d072bd33cc5a5c679acb0ad9064ed54ab841e914a693772e3b",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 214097,
-      "lines": 7474,
+      "bytes": 214188,
+      "lines": 7475,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4211,11 +4222,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "0f0ca3005741558f72a8ebcebb53a65ef50031aba7846db18768282bd39e5bbb",
+      "content_sha256": "cbfeac2e971a72c3ed29958e66b6b4495d19600804899a75457cd38d501f2d15",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 485291,
-      "lines": 9801,
+      "bytes": 485875,
+      "lines": 9812,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -8774,7 +8785,7 @@
     },
     {
       "path": "scripts/referral-store-characterization.mjs",
-      "content_sha256": "69df06aee399a0b2b86ceb502e7ac4a12458b5a492bb1728f30384405b30a908",
+      "content_sha256": "1963b9bd2c8bb9c9b62e16a7a4396ac4b9b91bd33ddd578d3aa78bde03268a16",
       "role": "Operator, verification, or data script",
       "risk": "low",
       "bytes": 10016,
@@ -9317,11 +9328,11 @@
     },
     {
       "path": "tests/e2e/operational/referral-store-characterization.spec.ts",
-      "content_sha256": "91094a2f8b228e8373cd5d5866df839698187cd92dd9ceb722735f3d1987980d",
+      "content_sha256": "b09f085eee3f576d4c504361dc69e80fc7bf26871fd6dc78ac4a369b222211c2",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 21538,
-      "lines": 497,
+      "bytes": 26150,
+      "lines": 609,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],

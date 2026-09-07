@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T07:14:14.803Z",
+  "generated_at": "2026-09-07T07:18:10.455Z",
   "audit_date": "2026-09-07",
-  "git_head": "080e5f9c17693f2dfd4dfbc84684209d9df79ab6",
+  "git_head": "741bf732ddbcad5f9de05a56ebff931385f5ef3f",
   "direct": [
     {
       "name": "@azure/identity",
@@ -507,6 +507,7 @@
         "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
         "docs/refactoring/COMPATIBILITY_MATRIX.md",
         "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
+        "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/code-quality-policy.json",
         "docs/refactoring/refactor-eval-scenarios.json",
         "docs/refactoring/referral-store-file-audit-agent-prework.json",
@@ -625,6 +626,7 @@
         "tests/e2e/desktop-readiness.spec.ts",
         "tests/e2e/home-reports.spec.ts",
         "tests/e2e/note-lab-practice.spec.ts",
+        "tests/e2e/operational/referral-store-characterization.spec.ts",
         "tests/e2e/operator-training.spec.ts",
         "tests/e2e/pipeline-smoke.spec.ts",
         "tests/e2e/responsive-accessibility.spec.ts",
@@ -702,6 +704,7 @@
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
         "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
+        "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
         "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
         "docs/refactoring/evidence-matrix.json",

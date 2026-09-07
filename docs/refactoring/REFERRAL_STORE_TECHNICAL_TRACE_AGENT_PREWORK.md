@@ -114,7 +114,9 @@ At observed commit `ea076521`, the same synthetic API characterization passed 5/
 
 Supplemental evidence in `characterization/referral-assessment-handoff-run-080e5f9c.json` adds one successful referral-to-open-assessment reassignment contract. Its first exact-commit run passed local-file mode but exposed an ambiguous PostgreSQL prepared-parameter type in the assessment JSON update; the transaction rolled back. Commit `080e5f9` added the narrow SQL text cast, after which the production build and all 6/6 scenarios passed against both isolated local-file storage and disposable PostgreSQL 16.
 
-This is meaningful parity evidence, but not complete parity. It does not yet exercise every list/facet/file filter, local persistence failure, injected PostgreSQL rollback, same-referral reassignment races, completed/signed assessment reassignment boundaries, workflow transition, capacity limit, malformed local state, or retention purge boundary.
+Supplemental evidence in `characterization/referral-read-parity-run-741bf732.json` adds a representative read contract for composed search/filter behavior, client-name ordering, sort-bound cursor pagination, total counts, and community/county/owner/priority/stage/tag/month facets. The production build and all 7/7 scenarios passed against both adapters on the recorded clean commit.
+
+This is meaningful parity evidence, but not complete parity. It does not yet exercise every list sort or option, archived/file/queue projections, local persistence failure, injected PostgreSQL rollback, same-referral reassignment races, completed/signed assessment reassignment boundaries, workflow transition, capacity limit, malformed local state, or retention purge boundary.
 
 ## Dependency direction and comprehension risks
 

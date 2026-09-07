@@ -116,7 +116,8 @@
             "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
             "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
             "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
-            "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json"
+            "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
+            "docs/refactoring/characterization/referral-read-parity-run-741bf732.json"
           ],
           "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code. Owner purpose statement recorded verbatim on 2026-09-06: \"accomplish gathering the full profile for eventual admission, and with the assessment, make that decision, generally only one person will touch the referral from start to finish, there are a few that will be assigned referral but will only do the assessment and hopefully wotn need to change the workspace creation part\". Owner role direction recorded 2026-09-06: most referral owners carry the workspace from creation through the decision process; two assessors generally receive assignments and also create their own workspaces; one assessment-only assessor receives assigned work and ordinarily changes only assessment information; verified profile corrections by that assessor are permitted and attributable. Workspace ownership, visible history, field-aware saves, name-plus-county human duplicate review, and referral-to-open-assessment reassignment are now executable product prerequisites on the clean integration candidate. The reassignment scenario exposed and then verified a narrow PostgreSQL parameter-typing repair. Machine observations cover these referral-store seams, but human review of the complete architecture narrative and exact-start evidence remains required."
         },
@@ -128,9 +129,10 @@
             "docs/refactoring/ADAPTER_PARITY_CONTRACT.md",
             "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
             "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
-            "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json"
+            "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
+            "docs/refactoring/characterization/referral-read-parity-run-741bf732.json"
           ],
-          "note": "The same clean-commit synthetic API characterization passes against isolated local-file and disposable PostgreSQL 16 stores for create replay, disjoint and conflicting section writes, denied mutations, duplicate packet rejection, duplicate-person review, referral-to-open-assessment reassignment, trash, restore, access changes, and audit cardinality. The handoff scenario first exposed a PostgreSQL parameter-typing defect and then passed 6/6 on both adapters after the narrow repair. Human review must still approve the observable contract and identify missing domain or PostgreSQL-only transaction cases before this item can be satisfied."
+          "note": "The same clean-commit synthetic API characterization passes against isolated local-file and disposable PostgreSQL 16 stores for create replay, disjoint and conflicting section writes, denied mutations, duplicate packet rejection, duplicate-person review, referral-to-open-assessment reassignment, trash, restore, access changes, audit cardinality, representative composed filters, facets, ordering, totals, and cursor pagination. The handoff scenario first exposed a PostgreSQL parameter-typing defect and then passed after the narrow repair; the expanded suite passes 7/7 on both adapters. Human review must still approve the observable contract and identify missing domain or PostgreSQL-only transaction cases before this item can be satisfied."
         },
         {
           "id": "create_and_patch_retry_contract",
