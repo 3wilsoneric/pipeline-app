@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T15:16:24.379Z",
+  "generated_at": "2026-09-07T15:28:02.490Z",
   "audit_date": "2026-09-07",
-  "git_head": "c295f36fb74b0f19778c69c70049c7d76829c948",
+  "git_head": "23ad76145aab4c63505b3dbe39da58d5ba1de70c",
   "files": [
     {
       "path": ".dockerignore",
@@ -1969,7 +1969,7 @@
     },
     {
       "path": "components/pipeline/ReferralPacketCanvas.tsx",
-      "content_sha256": "c82d40134eaa995df6e32680aff08cffcb64d9f7040e3cf6995d1ca5d9c985c5",
+      "content_sha256": "826472304c5154372453ad0da114a132e2f52b1779df84a8a7875737258a0f2d",
       "role": "Pipeline user interface",
       "risk": "medium",
       "bytes": 140061,
@@ -3698,7 +3698,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "773cc296688258806c51cbaf53f545ba729ed811946da4a7a19d1ed6e54ff70c",
+      "content_sha256": "32857072db3155ef43b8fb353f5f8496891f55a2e3f1a1ee9b6d4afd2d227117",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4272,7 +4272,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "a7403846fbf437bd891e861417469d737b209f49636438c9d6acadaed0272cf0",
+      "content_sha256": "76a5fa8fdc412305d0bac413dd572e579818c3f40335322a61e57b9cdaeb979b",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 369226,
@@ -4300,7 +4300,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "43163bbff2823be6aba470bd58a5ef80f1d7279f6d727aedef88dfa8ccf3c3a4",
+      "content_sha256": "7d1a2d3fae047b5dc046d8ea61c6272612595abf5f421dcf2cc81563164939ad",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 215584,
@@ -4359,7 +4359,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "71fde47a513ae7756135f5bf353eb442c4dea402ca6133938d54ba08ca568b1a",
+      "content_sha256": "085f7df50b7361776dfbbe392c38909023f134bcf9937d329a3325c451ec62e3",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 512581,
@@ -4554,7 +4554,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "7790078086c0c2d92a67ad1a0fa08418141c3bdaebda10e164755ded95a2db82",
+      "content_sha256": "c4a3a2b08ccb569857eb9e55dd1a7f16d4ac3af51f8f2a8f93342531f6cfd58a",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 261266,
@@ -9733,11 +9733,11 @@
     },
     {
       "path": "tests/e2e/home-reports.spec.ts",
-      "content_sha256": "e5fa101d2019e69bbd0ee266244f5b8940ed1b9e58900ac7d9cdf0ac3e17a69b",
+      "content_sha256": "13754abe71a13bfc78ca22d0b2a22f5714928c4cb284c4524bc7940a541b2d54",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 14197,
-      "lines": 304,
+      "bytes": 14238,
+      "lines": 305,
       "detected_concerns": [
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup."
       ],

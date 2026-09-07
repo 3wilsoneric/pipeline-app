@@ -2104,7 +2104,7 @@ function WorkspaceSaveControl({
       data-guide-target="create-workspace"
       onClick={onSave}
       disabled={saving || blocked}
-      className="flex h-9 items-center gap-2 bg-[#0f8b73] px-3 text-[11px] font-bold text-white transition-colors hover:bg-[#0b6d5b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
+      className="flex h-9 items-center gap-2 bg-[#0b6f5d] px-3 text-[11px] font-bold text-white transition-colors hover:bg-[#075a4b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
     >
       <Save size={15} />
       <span className="hidden sm:inline">{workspaceSaveLabel(saving, hasReferral, true)}</span>
