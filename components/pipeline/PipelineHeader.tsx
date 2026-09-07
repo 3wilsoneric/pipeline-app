@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CircleHelp, GraduationCap, LogOut, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, CircleHelp, GraduationCap, LogOut, Settings, Trash2, UserRound } from "lucide-react";
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
@@ -16,6 +16,7 @@ import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/c
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
+import TeamPresenceList from "@/components/pipeline/TeamPresenceList";
 
 export default function PipelineHeader() {
   const [user, setUser] = useState<PipelineCurrentUser | null>(null);
@@ -29,6 +30,7 @@ export default function PipelineHeader() {
   const { homeMode, searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
   const canAccessReports = canAccessOperationsReports(user?.roles ?? []);
+  useWorkspacePresenceHeartbeat(Boolean(user));
 
   useEffect(() => {
     router.prefetch(toPipelinePath("/training"));
@@ -177,6 +179,7 @@ export default function PipelineHeader() {
           >
             <UserRound size={18} strokeWidth={1.8} className="shrink-0 text-[#0f8b73]" />
             <span className="hidden truncate text-[12px] font-black uppercase tracking-[0.1em] xl:inline">{signedInName}</span>
+            <span aria-hidden="true" title="Online" className={profilePresenceIndicatorClass(Boolean(user))} />
           </button>
 
           {isProfileMenuOpen ? (
@@ -184,7 +187,7 @@ export default function PipelineHeader() {
               role="dialog"
               aria-label="Profile menu"
               data-profile-menu="true"
-              className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(304px,calc(100vw-2rem))] overflow-hidden rounded-sm border border-[#cfcfcf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_10px_24px_rgba(17,17,17,0.12)]"
+              className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[calc(100vh-88px)] w-[min(304px,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-sm border border-[#cfcfcf] border-t-[3px] border-t-[#0f8b73] bg-white shadow-[0_10px_24px_rgba(17,17,17,0.12)]"
             >
               <div className="flex min-h-[78px] items-center gap-3 px-4 py-3.5">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-[#b8dacf] bg-[#f4faf7] text-[#0f8b73]">
@@ -195,7 +198,9 @@ export default function PipelineHeader() {
                   <div className="mt-1 truncate text-[11px] text-[#737373]">{profileAppearance.detail}</div>
                 </div>
               </div>
+              <TeamPresenceList compact />
               <AssessorSessionMenuAction user={user} closeProfileMenu={() => setIsProfileMenuOpen(false)} />
+              <ProfileSettingsLink active={pathname === "/settings"} onSelect={() => setIsProfileMenuOpen(false)} />
               <ProfileLearningLink active={pathname === "/training"} onSelect={() => setIsProfileMenuOpen(false)} />
               {user?.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role)) ? (
                 <button
@@ -242,7 +247,7 @@ function searchParamsText(searchParams: { toString(): string } | null) {
 }
 
 function getProfileAppearance(user: PipelineCurrentUser | null) {
-  const baseClass = "flex h-12 max-w-[190px] shrink-0 items-center gap-2 rounded-md border px-3 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0";
+  const baseClass = "relative flex h-12 max-w-[190px] shrink-0 items-center gap-2 rounded-md border px-3 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0";
   if (user?.delegation) {
     return {
       buttonClass: `${baseClass} border-[#d6a354] bg-[#fff8ed] text-[#6f470b] hover:bg-[#ffefcf] focus-visible:ring-[#a66b12]`,
@@ -262,6 +267,39 @@ function getProfileAppearance(user: PipelineCurrentUser | null) {
     detail: user?.email ?? "Signed in to Pipeline",
     title: user ? `${user.name} · ${user.email}` : "",
   };
+}
+
+function useWorkspacePresenceHeartbeat(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    const heartbeat = () => {
+      if (cancelled || document.visibilityState === "hidden") return;
+      void fetch(toPipelinePath("/api/me/presence"), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+      }).catch(() => undefined);
+    };
+    const interval = window.setInterval(heartbeat, 30_000);
+    window.addEventListener("focus", heartbeat);
+    document.addEventListener("visibilitychange", heartbeat);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", heartbeat);
+      document.removeEventListener("visibilitychange", heartbeat);
+    };
+  }, [enabled]);
+}
+
+function profilePresenceIndicatorClass(online: boolean) {
+  const base = "absolute bottom-2 left-[27px] h-2.5 w-2.5 rounded-full border-2 border-white max-sm:bottom-0.5 max-sm:left-auto max-sm:right-0.5";
+  return `${base} ${online ? "bg-[#20a464]" : "opacity-0"}`;
+}
+
+function ProfileSettingsLink({ active, onSelect }: { active: boolean; onSelect: () => void }) {
+  return <Link href="/settings" prefetch={true} aria-label="Staff profile View and edit profile preferences" aria-current={active ? "page" : undefined} onClick={onSelect} className={`group grid min-h-[58px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-t border-[#e5e5e5] border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${active ? "border-l-[#0f8b73] bg-[#edf7f3]" : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"}`}><Settings size={17} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black text-[#111111]">Staff profile</span><span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">View and edit profile preferences</span></span><ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></Link>;
 }
 
 function ProfileLearningLink({ active, onSelect }: { active: boolean; onSelect: () => void }) {

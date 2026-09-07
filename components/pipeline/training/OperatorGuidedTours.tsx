@@ -48,7 +48,7 @@ const taskPresentation: Readonly<Record<string, { description: string; icon: Rea
   "run-report": { description: "Choose, review, and export.", icon: <BarChart3 size={26} aria-hidden="true" /> },
 };
 
-export default function OperatorGuidedTours({ assignedRoles, progress }: { assignedRoles: readonly string[]; progress: OperatorTrainingProgress }) {
+export default function OperatorGuidedTours({ assignedRoles, progress, onExpandedChange }: { assignedRoles: readonly string[]; progress: OperatorTrainingProgress; onExpandedChange?: (expanded: boolean) => void }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const tutorials = guidedTutorialsForRoles(assignedRoles).slice().sort((left, right) => priorityOf(left.id) - priorityOf(right.id));
   const selected = tutorials.find((tutorial) => tutorial.id === selectedId) ?? null;
@@ -56,6 +56,7 @@ export default function OperatorGuidedTours({ assignedRoles, progress }: { assig
 
   function selectTask(id: string | null) {
     setSelectedId(id);
+    onExpandedChange?.(id !== null);
     window.requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-operator-academy="true"]')?.scrollTo({ top: 0, behavior: "smooth" }));
   }
 
@@ -159,14 +160,15 @@ function ExpandedTask({
 
   return (
     <section
-      className="mt-5 flex min-h-[calc(100dvh-180px)] flex-col border border-[#cbd5d1] bg-white outline-none"
+      data-learning-module="true"
+      className="flex h-full min-h-0 flex-col bg-white outline-none"
       aria-label={`${tutorial.title} module`}
       tabIndex={0}
       onKeyDown={handleModuleKeys}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <header className="border-b border-[#d5ddda] p-5 sm:p-7 lg:px-9 lg:py-8">
+      <header className="shrink-0 border-b border-[#d5ddda] px-5 py-4 sm:px-7 lg:px-8 lg:py-5">
         <ModulePager
           tutorials={tutorials}
           activeIndex={activeModuleIndex}
@@ -175,23 +177,23 @@ function ExpandedTask({
           onPrevious={() => selectRelativeModule(-1)}
           onNext={() => selectRelativeModule(1)}
         />
-        <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div className="max-w-[780px]">
-            <h2 className="text-[30px] font-black leading-9 tracking-normal text-[#19201d] sm:text-[38px] sm:leading-[42px]">{tutorial.title}</h2>
-            <p className="mt-3 max-w-[680px] text-[17px] font-medium leading-6 text-[#606b67]">{tutorial.summary}</p>
+            <h2 className="text-[28px] font-black leading-8 tracking-normal text-[#19201d] sm:text-[34px] sm:leading-9">{tutorial.title}</h2>
+            <p className="mt-2 max-w-[680px] text-[15px] font-medium leading-6 text-[#606b67]">{tutorial.summary}</p>
           </div>
-          <button type="button" aria-label={`Start guided walkthrough: ${tutorial.title}`} onClick={() => dispatchOperatorGuide({ type: "start", tutorialId: tutorial.id })} className="flex h-12 items-center justify-center gap-3 bg-[#0f8b73] px-6 text-[11px] font-black text-white hover:bg-[#0b715e]">
+          <button type="button" aria-label={`Start guided walkthrough: ${tutorial.title}`} onClick={() => dispatchOperatorGuide({ type: "start", tutorialId: tutorial.id })} className="flex h-11 items-center justify-center gap-3 bg-[#0f8b73] px-6 text-[11px] font-black text-white hover:bg-[#0b715e]">
             {completed ? "Run it again" : "Start guide"} <ArrowRight size={15} aria-hidden="true" />
           </button>
         </div>
       </header>
 
-      <div className="grid flex-1 lg:grid-cols-[270px_minmax(0,1fr)]">
-        <nav aria-label={`${tutorial.title} chapters`} className="border-b border-[#d5ddda] p-4 sm:p-5 lg:border-b-0 lg:border-r lg:p-6">
+      <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[270px_minmax(0,1fr)] lg:overflow-hidden">
+        <nav aria-label={`${tutorial.title} chapters`} className="min-w-0 shrink-0 border-b border-[#d5ddda] p-3 sm:p-4 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-6">
           <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.09em] text-[#6c7772]"><BookOpen size={14} aria-hidden="true" /> Chapters</div>
-          <ol className="grid gap-1 sm:grid-cols-2 lg:grid-cols-1">
+          <ol className="flex min-w-0 gap-1 overflow-x-auto lg:block lg:space-y-1">
             {chapters.map((chapter, index) => (
-              <li key={chapter.id}>
+              <li key={chapter.id} className="w-[190px] shrink-0 lg:w-full">
                 <button
                   type="button"
                   aria-current={index === activeChapterIndex ? "step" : undefined}
@@ -207,7 +209,7 @@ function ExpandedTask({
           </ol>
         </nav>
 
-        <section className="min-w-0 p-5 sm:p-7 lg:px-10 lg:py-8" aria-labelledby={`chapter-${activeChapter.id}`}>
+        <section className="min-w-0 p-5 sm:p-7 lg:min-h-0 lg:overflow-y-auto lg:px-10 lg:py-8" aria-labelledby={`chapter-${activeChapter.id}`}>
           <div className="flex flex-col gap-5 border-b border-[#d9dfdc] pb-6 sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-[700px]">
               <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#0f7c68]">{activeChapterIndex + 1} of {chapters.length}</div>

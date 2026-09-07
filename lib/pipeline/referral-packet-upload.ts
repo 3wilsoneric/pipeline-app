@@ -47,15 +47,7 @@ export async function uploadReferralPacket(
   const mock = isMockUploadUrl(target.signed_url);
 
   if (mock) {
-    const localUpload = new FormData();
-    localUpload.set("packet_id", reservation.packet_id);
-    localUpload.set("file_id", fileId);
-    localUpload.set("file", file, file.name);
-    await fetchPipelineJson(
-      "/api/uploads/local",
-      { method: "POST", body: localUpload },
-      { timeoutMs: 120_000, maxResponseBytes: 256 * 1024 },
-    );
+    await writeLocalReservedFile(reservation.packet_id, fileId, file);
   } else {
     await writeReservedBlob(target.signed_url, reservation.sentinel_url, file);
   }
@@ -99,10 +91,24 @@ export async function uploadReferralSupportingDocument(
   );
   const target = reservation.uploads.find((upload) => upload.file_id === fileId);
   if (!target) throw new Error("Pipeline did not return an upload target for this document.");
-  if (!isMockUploadUrl(target.signed_url)) {
+  if (isMockUploadUrl(target.signed_url)) {
+    await writeLocalReservedFile(reservation.packet_id, fileId, file);
+  } else {
     await writeReservedBlob(target.signed_url, reservation.sentinel_url, file);
   }
   return completeUpload(reservation.packet_id, fileId);
+}
+
+async function writeLocalReservedFile(packetId: string, fileId: string, file: File) {
+  const localUpload = new FormData();
+  localUpload.set("packet_id", packetId);
+  localUpload.set("file_id", fileId);
+  localUpload.set("file", file, file.name);
+  await fetchPipelineJson(
+    "/api/uploads/local",
+    { method: "POST", body: localUpload },
+    { timeoutMs: 120_000, maxResponseBytes: 256 * 1024 },
+  );
 }
 
 async function reserveUpload(

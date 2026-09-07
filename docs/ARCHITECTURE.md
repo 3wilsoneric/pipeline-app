@@ -71,3 +71,11 @@ The August 18, 2026 client-database baseline is immutable. Future new-client and
 - `database/migrations/*` - append-only production schema.
 - `scripts/*` - release, recovery, load, quality, ingestion, and readiness checks.
 - `docs/*` - operating and deployment runbooks.
+
+## Future agent direction
+
+`docs/AGENT_ARCHITECTURE_DIRECTION.md` records a deferred, non-authorizing
+design for one Pipeline Copilot, bounded specialists, deterministic graph and
+validation nodes, risk-based approval lanes, and governed learning. It does not
+describe current runtime behavior or change the existing human-reviewed
+clinical workflow.

@@ -35,6 +35,7 @@
 *.pem
 __pycache__/
 *.py[cod]
+/research/admission-inference/.venv/
 
 # debug
 npm-debug.log*

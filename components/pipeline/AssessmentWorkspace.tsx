@@ -1224,11 +1224,12 @@ export default function AssessmentWorkspace({ referralId, trainingAssessmentMode
 
           {error ? <div role="alert" className="border-b border-[#e1b6ad] bg-[#fff5f2] px-5 py-3 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
           {presence.some((item) => item.section === `assessment:${activeSection}`) ? (
-            <div className="border-b border-[#c9d9d3] bg-[#f2f8f5] px-5 py-2 text-[11px] text-[#315e50]">
-          {presence
-            .filter((item) => item.section === `assessment:${activeSection}`)
-            .map((item) => item.actor_name)
-            .join(", ")} {presence.filter((item) => item.section === `assessment:${activeSection}`).length === 1 ? "is" : "are"} also editing {sectionLabels[activeSection]}.
+            <div className="flex items-center gap-2 border-b border-[#c9d9d3] bg-[#f7fbf9] px-5 py-2 text-[11px] font-semibold text-[#315e50]" aria-live="polite">
+              <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-[#20a464]" />
+              <span>{presence
+                .filter((item) => item.section === `assessment:${activeSection}`)
+                .map((item) => item.actor_name)
+                .join(", ")} {presence.filter((item) => item.section === `assessment:${activeSection}`).length === 1 ? "is" : "are"} also editing {sectionLabels[activeSection]}.</span>
             </div>
           ) : null}
 

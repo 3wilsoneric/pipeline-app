@@ -303,7 +303,6 @@ export default function PipelineDemoCenter({
   const [error, setError] = useState("");
   const canWrite = environment.writable && actor.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role));
   const chapter = demoChapters[chapterIndex] ?? demoChapters[0];
-  const showingHandoff = view === "handoff";
 
   const selectView = (nextView: DemoView) => {
     setView(nextView);
@@ -403,10 +402,10 @@ export default function PipelineDemoCenter({
   };
 
   return (
-    <main ref={scrollContainerRef} data-demo-center="true" className={`h-full min-h-0 overflow-y-auto text-[#171a18] ${showingHandoff ? "bg-white" : "bg-[#f4f7f5]"}`}>
-      <div className={`mx-auto w-full pb-14 ${showingHandoff ? "max-w-[1320px] px-4 pt-3 sm:px-6 lg:px-8" : "max-w-[1540px] px-4 pt-5 sm:px-6 lg:px-8 lg:pt-7"}`}>
-        <header className="border-b border-[#d8dfdc] bg-white">
-          <div className={`flex min-w-0 items-end overflow-x-auto ${showingHandoff ? "gap-1 px-0" : "bg-[#edf2f0] px-3 pt-2"}`} role="tablist" aria-label="Demo Center sections">
+    <main ref={scrollContainerRef} data-demo-center="true" className="h-full min-h-0 overflow-hidden bg-white text-[#171a18]">
+      <div className="flex h-full min-h-0 w-full flex-col">
+        <header className="shrink-0 border-b border-[#d8dfdc] bg-[#edf2f0]">
+          <div className="flex min-w-0 items-end gap-1 overflow-x-auto px-2 pt-1.5 sm:px-3" role="tablist" aria-label="Demo Center sections">
             <DemoTab active={view === "presentation"} label="Presentation" onClick={() => selectView("presentation")} />
             <DemoTab active={view === "journey"} label="Referral journey" onClick={() => selectView("journey")} />
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => selectView("lab")} />
@@ -414,43 +413,45 @@ export default function PipelineDemoCenter({
           </div>
         </header>
 
-        {error ? <div role="alert" className="mt-4 border-l-4 border-[#b95649] bg-[#fff2ef] px-4 py-3 text-[11px] font-bold text-[#8c3d33]">{error}</div> : null}
-        {!environment.writable && (view === "journey" || view === "lab") ? <div className="mt-4 border border-[#dfca97] bg-[#fff9e9] px-4 py-3 text-[11px] leading-5 text-[#765817]"><strong>Practice records are read only.</strong> {environment.reason}</div> : null}
+        {error ? <div role="alert" className="shrink-0 border-l-4 border-[#b95649] bg-[#fff2ef] px-4 py-3 text-[11px] font-bold text-[#8c3d33]">{error}</div> : null}
+        {!environment.writable && (view === "journey" || view === "lab") ? <div className="shrink-0 border-b border-[#dfca97] bg-[#fff9e9] px-4 py-3 text-[11px] leading-5 text-[#765817]"><strong>Practice records are read only.</strong> {environment.reason}</div> : null}
 
-        {view === "presentation" ? (
-          <PresentationDeck
-            initialSlideId={initialPresentationSlide}
-            onStartJourney={() => selectView("journey")}
-            onSlideChange={() => scrollContainerRef.current?.scrollTo({ top: 0 })}
-          />
-        ) : view === "journey" ? (
-          <ReferralJourney
-            chapter={chapter}
-            chapterIndex={chapterIndex}
-            launchingId={launchingId}
-            canWrite={canWrite}
-            onSelect={setChapterIndex}
-            onLaunch={(selected) => {
-              if (selected.destination) {
-                selectView(selected.destination);
-                return;
-              }
-              const scenario = selected.scenarioId ? getPipelineDemoScenario(selected.scenarioId) : null;
-              if (scenario) void launchScenario(scenario, selected.guide, selected.workspaceStage);
-            }}
-          />
-        ) : view === "lab" ? (
-          <ScenarioLab
-            referrals={referrals}
-            loading={loadingCases}
-            launchingId={launchingId}
-            canWrite={canWrite}
-            onLaunch={(scenario) => void launchScenario(scenario)}
-            onOpen={openExisting}
-          />
-        ) : (
-          <MeetClientHandoffDemo preparedBy={actor.name} />
-        )}
+        <div className={`min-h-0 flex-1 ${view === "presentation" || view === "journey" ? "overflow-hidden" : "overflow-y-auto"}`}>
+          {view === "presentation" ? (
+            <PresentationDeck
+              initialSlideId={initialPresentationSlide}
+              onStartJourney={() => selectView("journey")}
+              onSlideChange={() => scrollContainerRef.current?.scrollTo({ top: 0 })}
+            />
+          ) : view === "journey" ? (
+            <ReferralJourney
+              chapter={chapter}
+              chapterIndex={chapterIndex}
+              launchingId={launchingId}
+              canWrite={canWrite}
+              onSelect={setChapterIndex}
+              onLaunch={(selected) => {
+                if (selected.destination) {
+                  selectView(selected.destination);
+                  return;
+                }
+                const scenario = selected.scenarioId ? getPipelineDemoScenario(selected.scenarioId) : null;
+                if (scenario) void launchScenario(scenario, selected.guide, selected.workspaceStage);
+              }}
+            />
+          ) : view === "lab" ? (
+            <ScenarioLab
+              referrals={referrals}
+              loading={loadingCases}
+              launchingId={launchingId}
+              canWrite={canWrite}
+              onLaunch={(scenario) => void launchScenario(scenario)}
+              onOpen={openExisting}
+            />
+          ) : (
+            <MeetClientHandoffDemo preparedBy={actor.name} />
+          )}
+        </div>
       </div>
     </main>
   );
@@ -488,8 +489,8 @@ function PresentationDeck({
   };
 
   return (
-    <section className="mt-3 grid min-h-[620px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[230px_minmax(0,1fr)]">
-      <aside className="border-b border-[#d8dfdc] bg-[#eef3f1] p-3 lg:max-h-[760px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-4">
+    <section data-demo-surface="presentation" className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-white lg:grid-cols-[230px_minmax(0,1fr)] lg:grid-rows-none">
+      <aside className="min-h-0 border-b border-[#d8dfdc] bg-[#eef3f1] p-3 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-4">
         <nav aria-label="Presentation slides" className="flex gap-1 overflow-x-auto lg:block">
           {presentationSlides.map((item, index) => (
             <button key={item.number} type="button" onClick={() => selectSlide(index)} aria-current={index === slideIndex ? "step" : undefined} className={`grid min-h-[50px] w-[176px] shrink-0 grid-cols-[24px_minmax(0,1fr)] items-center gap-2 border-l-2 px-3 text-left lg:mb-1 lg:w-full ${index === slideIndex ? "border-[#0f8b73] bg-white text-[#20302b]" : "border-transparent text-[#63706b] hover:bg-white/70"}`}>
@@ -499,8 +500,8 @@ function PresentationDeck({
           ))}
         </nav>
       </aside>
-      <div className="flex min-w-0 flex-col">
-        <article aria-label={`Presentation slide ${slide.number}`} className="flex flex-1 flex-col px-5 py-7 sm:px-8 lg:px-10 lg:py-9 xl:px-12">
+      <div className="flex min-h-0 min-w-0 flex-col">
+        <article aria-label={`Presentation slide ${slide.number}`} className="min-h-0 flex-1 overflow-y-auto px-5 py-7 sm:px-8 lg:px-10 lg:py-7 xl:px-12">
           <div className="text-[10px] font-bold uppercase tracking-[0.09em] text-[#0c705f]">Step {slide.number} of {presentationSlides.length}</div>
           <h2 className="mt-2 max-w-[900px] text-[28px] font-semibold leading-9 tracking-[-0.035em] text-[#1c2421] sm:text-[32px] sm:leading-[38px]">{slide.title}</h2>
           <div className={hasSupportingVisual ? "mt-6 grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(250px,0.72fr)_minmax(440px,1.28fr)]" : "mt-6 max-w-[920px]"}>
@@ -515,7 +516,7 @@ function PresentationDeck({
             {hasSupportingVisual ? <PresentationVisual key={slide.number} slide={slide} /> : null}
           </div>
         </article>
-        <footer className="flex items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-4 sm:px-8">
+        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-3 sm:px-8">
           <button type="button" disabled={slideIndex === 0} onClick={() => selectSlide(slideIndex - 1)} className="inline-flex h-10 items-center px-2 text-[10px] font-bold text-[#5d6863] disabled:invisible">Previous</button>
           {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center bg-[#0f8b73] px-5 text-[10px] font-bold text-white hover:bg-[#0b6d5b]">Start the referral journey</button> : <button type="button" onClick={() => selectSlide(slideIndex + 1)} className="inline-flex h-10 items-center bg-[#111111] px-5 text-[10px] font-bold text-white">Next</button>}
         </footer>
@@ -586,12 +587,12 @@ function ReferralJourney({ chapter, chapterIndex, launchingId, canWrite, onSelec
   const scenario = chapter.scenarioId ? getPipelineDemoScenario(chapter.scenarioId) : null;
   const disabled = Boolean(scenario && scenario.launch === "assessment" && !chapter.guide && !canWrite) || launchingId !== null;
   return (
-    <section className="mt-5 grid min-h-[520px] min-w-0 overflow-hidden border border-[#cbd5d1] bg-white lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="min-w-0 border-b border-[#d8dfdc] bg-[#eef3f1] lg:border-b-0 lg:border-r">
+    <section data-demo-surface="journey" className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-white lg:grid-cols-[280px_minmax(0,1fr)] lg:grid-rows-none">
+      <aside className="min-h-0 min-w-0 border-b border-[#d8dfdc] bg-[#eef3f1] lg:overflow-y-auto lg:border-b-0 lg:border-r">
         <nav aria-label="Referral journey stages" className="flex w-full min-w-0 gap-1 overflow-x-auto p-2 lg:block">{demoChapters.map((item, index) => <button key={item.number} type="button" onClick={() => onSelect(index)} aria-current={index === chapterIndex ? "step" : undefined} className={`grid min-h-[62px] w-[190px] shrink-0 grid-cols-[30px_minmax(0,1fr)] items-center gap-3 border-l-[3px] px-3 py-2 text-left lg:mb-1 lg:w-full ${index === chapterIndex ? "border-l-[#0f8b73] bg-white" : "border-l-transparent hover:bg-white/70"}`}><span className={`flex h-7 w-7 items-center justify-center border text-[9px] font-black ${index === chapterIndex ? "border-[#0f8b73] bg-[#e4f3ee] text-[#0c705f]" : "border-[#bac8c3] bg-white text-[#58645f]"}`}>{item.number}</span><span className="text-[11px] font-black leading-4 text-[#27302c]">{item.title}</span></button>)}</nav>
       </aside>
-      <div className="flex min-w-0 flex-col">
-        <div className="flex-1 px-5 py-7 sm:px-8 lg:px-10 lg:py-8">
+      <div className="flex min-h-0 min-w-0 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-7 sm:px-8 lg:px-10 lg:py-8">
           <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#0c705f]">Step {chapter.number} of {demoChapters.length}</div>
           <h2 className="mt-2 max-w-[820px] text-[25px] font-semibold tracking-[-0.035em]">{chapter.title}</h2>
           <p className="mt-2 max-w-[820px] text-[12px] leading-6 text-[#56615d]">{chapter.instruction}</p>
@@ -600,7 +601,7 @@ function ReferralJourney({ chapter, chapterIndex, launchingId, canWrite, onSelec
           </div>
           <div className="mt-6 max-w-[900px] border-l-[3px] border-[#0f8b73] bg-[#f1f7f5] px-4 py-3"><span className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">Complete when</span><p className="mt-1 text-[11px] leading-5 text-[#40544d]">{chapter.completeWhen}</p></div>
         </div>
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-4 sm:px-8">
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-3 sm:px-8">
           <button type="button" disabled={chapterIndex === 0} onClick={() => onSelect(Math.max(0, chapterIndex - 1))} className="inline-flex h-10 items-center gap-2 border border-[#cbd5d1] px-4 text-[10px] font-black disabled:invisible"><ArrowLeft size={13} /> Previous</button>
           <div className="flex gap-2">
             <button type="button" disabled={disabled} onClick={() => onLaunch(chapter)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b] disabled:bg-[#aeb9b5]"><Play size={13} />{launchingId === chapter.scenarioId ? "Preparing..." : chapter.destination === "handoff" ? "Open handoff preview" : chapter.guide ? "Open guided practice" : "Open practice record"}</button>
@@ -614,7 +615,7 @@ function ReferralJourney({ chapter, chapterIndex, launchingId, canWrite, onSelec
 
 function ScenarioLab({ referrals, loading, launchingId, canWrite, onLaunch, onOpen }: { referrals: DemoReferralSummary[]; loading: boolean; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onLaunch: (scenario: PipelineDemoScenario) => void; onOpen: (referral: DemoReferralSummary) => void }) {
   return (
-    <section className="mt-5 border border-[#cbd5d1] bg-white">
+    <section data-demo-surface="practice" className="bg-white">
       <div className="grid gap-px bg-[#d8dfdc] md:grid-cols-2 xl:grid-cols-4">
         {pipelineDemoScenarios.map((scenario) => {
           const existing = latestScenarioReferral(referrals, scenario.id);

@@ -1695,8 +1695,13 @@ export default function ReferralPacketCanvas({
         ) : null}
 
         {presence.length > 0 ? (
-          <div className="mb-3 border-l-2 border-[#4b68ad] bg-[#f4f6ff] px-3 py-2 text-[11px] font-bold text-[#354b85]" aria-live="polite">
-            {presence.map((item) => `${item.actor_name} is editing ${presenceSectionLabel(item.section)}`).join(" · ")}
+          <div className="mb-3 flex flex-wrap items-center gap-2 border border-[#cfe4da] bg-[#f7fbf9] px-3 py-2" aria-live="polite" aria-label="People editing this workspace">
+            {presence.map((item) => (
+              <span key={item.lease_id} className="inline-flex items-center gap-2 rounded-full border border-[#c7ded4] bg-white px-2.5 py-1 text-[10px] font-bold text-[#315e50]">
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#20a464]" />
+                {item.actor_name} is editing {presenceSectionLabel(item.section)}
+              </span>
+            ))}
           </div>
         ) : null}
 

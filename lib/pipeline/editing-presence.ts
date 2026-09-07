@@ -24,6 +24,13 @@ export type EditingPresence = {
   expires_at: string;
 };
 
+export type WorkspaceEditingPresence = {
+  actor_id: string;
+  actor_name: string;
+  sections: EditingPresenceSection[];
+  expires_at: string;
+};
+
 type PresenceRow = {
   lease_id: string;
   referral_id: number | string;
@@ -112,6 +119,56 @@ export async function listEditingPresence(referralId: number) {
     order by actor_name, section, lease_id
   `;
   return rows.map(mapPresence);
+}
+
+export async function listWorkspaceEditingPresence(): Promise<WorkspaceEditingPresence[]> {
+  if (getReferralStoreReadiness().mode !== "postgres") {
+    recordStaleLeases(pruneLocalPresence(), "local");
+    const byActor = new Map<string, WorkspaceEditingPresence>();
+    for (const presence of localPresence.values()) {
+      const current = byActor.get(presence.actor_id);
+      if (!current) {
+        byActor.set(presence.actor_id, {
+          actor_id: presence.actor_id,
+          actor_name: presence.actor_name,
+          sections: [presence.section],
+          expires_at: presence.expires_at,
+        });
+        continue;
+      }
+      if (!current.sections.includes(presence.section)) current.sections.push(presence.section);
+      if (presence.expires_at > current.expires_at) current.expires_at = presence.expires_at;
+    }
+    return [...byActor.values()]
+      .map((presence) => ({ ...presence, sections: presence.sections.sort() }))
+      .sort((left, right) => left.actor_name.localeCompare(right.actor_name) || left.actor_id.localeCompare(right.actor_id));
+  }
+
+  const sql = getPipelineSql();
+  const expired = await sql<{ lease_id: string }[]>`
+    delete from pipeline.editing_presence where expires_at <= now() returning lease_id
+  `;
+  recordStaleLeases(expired.length, "postgres");
+  const rows = await sql<Array<{
+    actor_id: string;
+    actor_name: string;
+    sections: EditingPresenceSection[];
+    expires_at: Date | string;
+  }>>`
+    select actor_id, max(actor_name) as actor_name,
+      array_agg(distinct section order by section) as sections,
+      max(expires_at) as expires_at
+    from pipeline.editing_presence
+    where expires_at > now()
+    group by actor_id
+    order by lower(max(actor_name)), actor_id
+  `;
+  return rows.map((row) => ({
+    actor_id: row.actor_id,
+    actor_name: row.actor_name,
+    sections: row.sections,
+    expires_at: toIso(row.expires_at),
+  }));
 }
 
 export async function releaseEditingPresence(leaseId: string, referralId: number, actorId: string) {

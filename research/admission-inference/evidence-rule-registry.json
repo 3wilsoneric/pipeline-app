@@ -1,0 +1,123 @@
+{
+  "registry_version": "0.1.0-draft",
+  "status": "requires_clinical_and_program_policy_approval",
+  "purpose": "Convert assessment answers and source-linked language into qualified evidence claims for completeness, capability, and support review.",
+  "allowed_actions": [
+    "request_missing_information",
+    "capability_review",
+    "support_plan_review",
+    "no_action"
+  ],
+  "forbidden_actions": [
+    "automatic_accept",
+    "automatic_decline",
+    "rank_people",
+    "deprioritize_people"
+  ],
+  "claim_qualifiers": {
+    "assertion": ["present", "absent", "uncertain", "conflicting"],
+    "temporality": ["current", "within_30_days", "within_6_months", "remote", "unknown"],
+    "frequency": ["single_event", "rare", "monthly", "weekly", "daily", "continuous", "unknown"],
+    "severity": ["none", "mild", "moderate", "severe", "unknown"],
+    "functional_impact": ["none", "limited", "material", "requires_continuous_support", "unknown"],
+    "mitigation": ["not_needed", "effective", "partially_effective", "ineffective", "not_available", "unknown"],
+    "trend": ["improving", "stable", "worsening", "episodic", "unknown"],
+    "source": ["client_report", "collateral_report", "clinical_record", "incident_record", "direct_observation", "multiple_sources"],
+    "certainty": ["confirmed", "probable", "possible", "unknown"]
+  },
+  "language_normalization_examples": [
+    {
+      "phrase": "denies current SI or HI",
+      "claim": { "domain": "current_safety", "assertion": "absent", "temporality": "current", "source": "client_report" }
+    },
+    {
+      "phrase": "history of aggression",
+      "claim": { "domain": "aggression", "assertion": "present", "temporality": "unknown", "frequency": "unknown", "severity": "unknown", "mitigation": "unknown" }
+    },
+    {
+      "phrase": "one assault fourteen months ago; no recurrence; responds to redirection",
+      "claim": { "domain": "aggression", "assertion": "present", "temporality": "remote", "frequency": "single_event", "mitigation": "effective", "trend": "stable" }
+    },
+    {
+      "phrase": "daily auditory hallucinations without distress; uses music and staff support effectively",
+      "claim": { "domain": "perceptual_experience", "assertion": "present", "temporality": "current", "frequency": "daily", "functional_impact": "limited", "mitigation": "effective" }
+    }
+  ],
+  "candidate_rules": [
+    {
+      "id": "current_self_harm_context_required",
+      "when": [{ "field": "current_self_harm_ideation", "equals": "yes" }],
+      "require": ["current_self_harm_details", "current_safety_measures"],
+      "action": "request_missing_information",
+      "decision_effect": "none"
+    },
+    {
+      "id": "recent_assault_context_required",
+      "when": [{ "field": "assault_history", "equals": "yes" }],
+      "require": ["last_assault_details", "assaults_last_two_years_count"],
+      "action": "request_missing_information",
+      "decision_effect": "none"
+    },
+    {
+      "id": "medication_refusal_context_required",
+      "when": [{ "field": "medication_adherence", "equals": "no" }],
+      "require": ["last_medication_refusal_date", "medication_refused", "medication_refusals_30_days"],
+      "action": "request_missing_information",
+      "decision_effect": "none"
+    },
+    {
+      "id": "active_substance_use_context_required",
+      "when": [{ "field": "active_substance_use", "equals": "yes" }],
+      "require": ["last_substance_use_date", "use_pattern", "substance_effect_on_baseline", "substance_use_insight"],
+      "action": "request_missing_information",
+      "decision_effect": "none"
+    },
+    {
+      "id": "medical_equipment_capability_review",
+      "when_any": [
+        { "field": "uses_oxygen", "equals": "yes" },
+        { "field": "uses_hospital_bed", "equals": "yes" },
+        { "field": "catheter_care", "equals": "yes" },
+        { "field": "colostomy", "equals": "yes" },
+        { "field": "ileostomy", "equals": "yes" }
+      ],
+      "require": ["physical_health_measures", "additional_health_notes"],
+      "action": "capability_review",
+      "decision_effect": "none"
+    },
+    {
+      "id": "legal_constraint_capability_review",
+      "when_any": [
+        { "field": "pc290_registration", "equals": "yes" },
+        { "field": "arson_history", "equals": "yes" },
+        { "field": "court_requirements", "present": true }
+      ],
+      "require": ["forensic_involvement_details", "court_requirements"],
+      "action": "capability_review",
+      "decision_effect": "none"
+    },
+    {
+      "id": "hallucination_support_context",
+      "when_any": [
+        { "field": "auditory_hallucinations", "equals": "yes" },
+        { "field": "visual_hallucinations", "equals": "yes" },
+        { "field": "olfactory_hallucinations", "equals": "yes" },
+        { "field": "tactile_hallucinations", "equals": "yes" },
+        { "field": "gustatory_hallucinations", "equals": "yes" }
+      ],
+      "require": ["hallucination_distress_impairment", "hallucination_functional_impact", "hallucination_coping_strategies"],
+      "action": "support_plan_review",
+      "decision_effect": "none"
+    }
+  ],
+  "bayesian_prior_policy": {
+    "intercept": "Estimate from prospective outcome prevalence with partial pooling by calendar period; never reuse an old admission rate as clinical truth.",
+    "structured_main_effect": "Normal(0, 0.35) on the log-odds scale unless an approved elicitation supplies a narrower prior.",
+    "interaction_effect": "Normal(0, 0.20) on the log-odds scale and limited to preregistered interactions.",
+    "high_dimensional_text_effect": "Regularized toward zero and evaluated only for incremental value in shadow mode.",
+    "expert_elicitation": "Convert probabilities from standardized vignettes into weak priors with an effective sample size no greater than 10 until prospective validation.",
+    "missingness": "Model missing and unable-to-assess explicitly; never treat either as no.",
+    "correlation_control": "Group related observations into domain nodes so overlapping phrases do not multiply the same evidence.",
+    "updating": "Batch, version, review, and approve posterior updates; never learn online from a single operator decision."
+  }
+}

@@ -33,6 +33,11 @@ const authenticatedBaseMethods = new Set([
   "app/api/auth/assessor-session/route.ts#POST",
   "app/api/auth/assessor-session/route.ts#DELETE",
 ]);
+const authenticatedPipelineSelfMethods = new Set([
+  "app/api/me/presence/route.ts#POST",
+  "app/api/me/profile/route.ts#GET",
+  "app/api/me/profile/route.ts#PATCH",
+]);
 const governedReadMutations = new Set([
   "app/api/operations/reports/route.ts#POST",
 ]);
@@ -93,6 +98,8 @@ for (const absoluteFile of routeFiles) {
       if (route === "/api/note-lab/session") {
         check(`${key} enforces the standalone Note Lab reviewer allowlist`, body.includes("canAccessNoteLab(auth.user)"));
       }
+    } else if (authenticatedPipelineSelfMethods.has(key)) {
+      check(`${key} requires the signed-in Pipeline identity`, body.includes("requireAuthenticatedUser(") && body.includes("canAccessPipeline(auth.user)") && !body.includes("requirePipelineUser("));
     } else if (ownerScopedMethods.has(key)) {
       check(`${key} requires the configured private Academy owner`, body.includes("getDeveloperAcademyOwner("));
     } else {
@@ -117,8 +124,11 @@ for (const absoluteFile of routeFiles) {
     if (route.includes("/assessments/[assessmentId]")) {
       check(`${key} resolves assessment ownership before access`, body.includes("requireReferralAccess("));
     }
-    if (isMutation && !isInternal && !isPublic && !personalStateWrites.has(key) && !ownerScopedMethods.has(key) && !authenticatedBaseMethods.has(key) && !governedReadMutations.has(key)) {
+    if (isMutation && !isInternal && !isPublic && !personalStateWrites.has(key) && !ownerScopedMethods.has(key) && !authenticatedBaseMethods.has(key) && !authenticatedPipelineSelfMethods.has(key) && !governedReadMutations.has(key)) {
       check(`${key} excludes the viewer role from writes`, roleList.length > 0 && !roleList.includes("viewer"));
+    }
+    if (isMutation && authenticatedPipelineSelfMethods.has(key)) {
+      check(`${key} mutates only the signed-in staff member`, body.includes("auth.user"));
     }
     if (governedReadMutations.has(key)) {
       check(`${key} enforces report access and audits the export`, body.includes("getOperationsReport(auth.user") && body.includes("ReportAccessError") && body.includes("recordOperationsReportExport("));

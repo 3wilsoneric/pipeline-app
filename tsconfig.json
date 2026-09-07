@@ -59,7 +59,13 @@
     ".next-home-e2e/types/**/*.ts",
     ".next-home-e2e/dev/types/**/*.ts",
     ".next-training-e2e-final/types/**/*.ts",
-    ".next-training-e2e-final/dev/types/**/*.ts"
+    ".next-training-e2e-final/dev/types/**/*.ts",
+    ".next-training-presentation-e2e/types/**/*.ts",
+    ".next-training-presentation-e2e/dev/types/**/*.ts",
+    ".next-staff-profile-e2e/types/**/*.ts",
+    ".next-staff-profile-e2e/dev/types/**/*.ts",
+    ".next-learning-layout-e2e/types/**/*.ts",
+    ".next-learning-layout-e2e/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
