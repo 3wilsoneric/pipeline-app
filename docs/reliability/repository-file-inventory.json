@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T19:05:38.563Z",
+  "generated_at": "2026-09-07T19:13:59.790Z",
   "audit_date": "2026-09-07",
-  "git_head": "30ab6fd7cbb9e063978a5b928781692ae8656032",
+  "git_head": "24e3c46c0363a255ac770aadd6abe153180cd04e",
   "files": [
     {
       "path": ".dockerignore",
@@ -3720,7 +3720,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "0942b11a32aa6c1a4f93be8b01d7c2538455b20921c5e1ac9f3cf659bc1cf4fd",
+      "content_sha256": "bf222be6dcdcd98ce9deea33d6b34fb7a60be9ff11cc0db89519b4c6866e65dd",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4294,10 +4294,10 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "1be06c0fd3faa0eedd2ae25af97f20243e34656fb57f231da730c0b2dfabe1bd",
+      "content_sha256": "8a0ab09b31ee433193ac504aac875219166c380c6991d001ae1fc1c6d0b374ed",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 369751,
+      "bytes": 369752,
       "lines": 1758,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4322,7 +4322,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "01acfcf469df68d4aed1091f97caf18364f94db971013352fdae99bd275e392f",
+      "content_sha256": "084ba316f9b1f9022f76f744c48b89a22d5df1a22c9752e2db0a7ab33871e1ed",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 215410,
@@ -4381,10 +4381,10 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "c44fa96afd90c785880bfec68652816ca2e4fd011fa283cc408e39f11a4b3fe1",
+      "content_sha256": "bc38abcd74b016aecac280cef0f439e2c46154c8664087bc3d3ff56b023e8f5d",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 514223,
+      "bytes": 514224,
       "lines": 10386,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4576,7 +4576,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "8bc62cc75e603bebab2dea605b677764bf6598b21248158db56980511bbb65dd",
+      "content_sha256": "3b970dd05067e3c4f93949b1807e8eeb2c65f9753cc912bfb2d74e97944f4d37",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 262178,
@@ -7987,11 +7987,11 @@
     },
     {
       "path": "scripts/collaboration-load-smoke.mjs",
-      "content_sha256": "9b4c931c2d610ce3bf03240903cf101459c3a241f2df5437d369d2929fe84880",
+      "content_sha256": "c25f5a95e6882c4866035d453f619f0e07cc82d50d9a05a23b47505a5acf09d0",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 13943,
-      "lines": 331,
+      "bytes": 14945,
+      "lines": 354,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -8433,11 +8433,11 @@
     },
     {
       "path": "scripts/failure-recovery-readiness.mjs",
-      "content_sha256": "89fcdfc31bdcd1e03fb78ea254c32b76c4cf6a7cfde13075578c3ce55e3632b3",
+      "content_sha256": "59c256e8a887687225f6f8c685ddbbc8c8e642b2f0549547c1c1ca6fa8e63618",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 3046,
-      "lines": 33,
+      "bytes": 3334,
+      "lines": 34,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
