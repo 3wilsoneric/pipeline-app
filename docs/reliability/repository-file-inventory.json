@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T06:55:28.162Z",
+  "generated_at": "2026-09-07T06:58:38.019Z",
   "audit_date": "2026-09-07",
-  "git_head": "ea076521654dcbb458ec39f666347d0818209a9a",
+  "git_head": "31fe89e75bc580de295456d14d75299ef4c9b24f",
   "files": [
     {
       "path": ".dockerignore",
@@ -4080,11 +4080,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "8db807005c6f1c66e43b998219b94513ebc8b7b27c5d27b15f7131992d15c29a",
+      "content_sha256": "095deecb507daf638a9d694003c79f22b8e6bef5cece2b72152fe6d8f3710590",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 351293,
-      "lines": 1694,
+      "bytes": 352618,
+      "lines": 1698,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4108,11 +4108,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "d1976178ebf9435e1cc838b7b5ea5ceeda6d80df98760fbaec79e0a6d6af5421",
+      "content_sha256": "316290c46357cea65e9c45adccab3936728ff09a1d9cbb39870c970f7a12f25c",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 213765,
-      "lines": 7470,
+      "bytes": 214011,
+      "lines": 7473,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4167,11 +4167,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "a67cd711aad7092c7447133432609859c9cc6f98f92437491391aa9c4f1b551b",
+      "content_sha256": "d4bb77b9d4f50df736915e27f8ee8d9480db3400e1a08dc9e2d43dbadf4c4aaf",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 481264,
-      "lines": 9724,
+      "bytes": 483557,
+      "lines": 9768,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -8730,11 +8730,11 @@
     },
     {
       "path": "scripts/referral-store-characterization.mjs",
-      "content_sha256": "9ca2312c09f9fb8b43f09bc3e3b35f8139f9b1816f704d3a70fccdbe6623a4e7",
+      "content_sha256": "ab61dbfd6a478bc8182b333d3571ee9c34e0a317d4dab598094624e32c42be1f",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 9192,
-      "lines": 230,
+      "bytes": 10016,
+      "lines": 244,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
         "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence."

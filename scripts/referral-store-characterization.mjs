@@ -130,39 +130,11 @@ async function runCommand(name, command, args, extraEnv = {}, captureJson = fals
     env: { ...process.env, ...extraEnv },
     stdio: captureJson ? ["ignore", "pipe", "pipe"] : "inherit",
   });
-  let stdout = "";
-  let stderr = "";
-  let spawnError = "";
-  if (captureJson) {
-    child.stdout.on("data", (chunk) => { stdout += String(chunk); });
-    child.stderr.on("data", (chunk) => { stderr = `${stderr}${String(chunk)}`.slice(-8_000); });
-  }
-  const exitCode = await new Promise((resolve) => {
-    child.once("error", (error) => {
-      spawnError = error.message;
-      resolve(1);
-    });
-    child.once("exit", (code) => resolve(code ?? 1));
-  });
-  let stats = null;
-  let parseError = "";
-  if (captureJson && !spawnError) {
-    try {
-      const report = JSON.parse(stdout);
-      stats = report.stats ? {
-        expected: Number(report.stats.expected ?? 0),
-        unexpected: Number(report.stats.unexpected ?? 0),
-        flaky: Number(report.stats.flaky ?? 0),
-        skipped: Number(report.stats.skipped ?? 0),
-      } : null;
-    } catch {
-      parseError = "Playwright did not return a valid JSON report.";
-    }
-  }
-  const ok = exitCode === 0 && !spawnError && !parseError && (!captureJson || (stats?.expected === 5 && stats.unexpected === 0));
-  if (!ok && captureJson) {
-    process.stderr.write(`${name} characterization failed.\n${spawnError || parseError || stderr || stdout.slice(-8_000)}\n`);
-  }
+  const output = captureCommandOutput(child, captureJson);
+  const { exitCode, spawnError } = await childResult(child);
+  const { stats, parseError } = parsePlaywrightStats(output.stdout, captureJson, spawnError);
+  const ok = commandPassed({ exitCode, spawnError, parseError, captureJson, stats });
+  reportCapturedFailure({ name, ok, captureJson, spawnError, parseError, output });
   return {
     name,
     ok,
@@ -171,6 +143,48 @@ async function runCommand(name, command, args, extraEnv = {}, captureJson = fals
     stats,
     error: spawnError || parseError || (exitCode === 0 ? null : `${name} exited with ${exitCode}`),
   };
+}
+
+function commandPassed({ exitCode, spawnError, parseError, captureJson, stats }) {
+  if (exitCode !== 0 || spawnError || parseError) return false;
+  return !captureJson || (stats?.expected === 5 && stats.unexpected === 0);
+}
+
+function reportCapturedFailure({ name, ok, captureJson, spawnError, parseError, output }) {
+  if (ok || !captureJson) return;
+  const detail = spawnError || parseError || output.stderr || output.stdout.slice(-8_000);
+  process.stderr.write(`${name} characterization failed.\n${detail}\n`);
+}
+
+function captureCommandOutput(child, enabled) {
+  const output = { stdout: "", stderr: "" };
+  if (!enabled) return output;
+  child.stdout.on("data", (chunk) => { output.stdout += String(chunk); });
+  child.stderr.on("data", (chunk) => { output.stderr = `${output.stderr}${String(chunk)}`.slice(-8_000); });
+  return output;
+}
+
+function childResult(child) {
+  return new Promise((resolve) => {
+    child.once("error", (error) => resolve({ exitCode: 1, spawnError: error.message }));
+    child.once("exit", (code) => resolve({ exitCode: code ?? 1, spawnError: "" }));
+  });
+}
+
+function parsePlaywrightStats(stdout, enabled, spawnError) {
+  if (!enabled || spawnError) return { stats: null, parseError: "" };
+  try {
+    const report = JSON.parse(stdout);
+    const stats = report.stats ? {
+      expected: Number(report.stats.expected ?? 0),
+      unexpected: Number(report.stats.unexpected ?? 0),
+      flaky: Number(report.stats.flaky ?? 0),
+      skipped: Number(report.stats.skipped ?? 0),
+    } : null;
+    return { stats, parseError: "" };
+  } catch {
+    return { stats: null, parseError: "Playwright did not return a valid JSON report." };
+  }
 }
 
 function requirePass(result) {
