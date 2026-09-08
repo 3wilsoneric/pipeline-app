@@ -6,7 +6,7 @@ import { AlertTriangle, FileSearch, FolderOpen, Paperclip } from "lucide-react";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { HistoricalProfileResponse } from "@/lib/pipeline/historical-profile-contracts";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { getWorkspaceCounty, getWorkspaceWorkflowLabel } from "@/lib/pipeline/workspace-presentation";
+import { getWorkspaceCounty } from "@/lib/pipeline/workspace-presentation";
 import { formatClientIdentityTitle, resolveClientCommunity, resolveClientGender } from "@/lib/pipeline/client-identity-presentation.mjs";
 
 export default function ImportedWorkspaceProfile({ referral }: { referral: Referral }) {
@@ -55,7 +55,7 @@ function HistoricalProfileHeader({ referral, county, dob, gender }: { referral: 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-[760px]">
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">
-            <FolderOpen size={14} aria-hidden="true" /> {getWorkspaceWorkflowLabel(referral)}
+            <FolderOpen size={14} aria-hidden="true" /> Client workspace
           </div>
           <h2 className="mt-2 text-[18px] font-black tracking-[-0.02em] text-[#111111]">{identityTitle}</h2>
           <p className="mt-1 text-[11px] leading-5 text-[#59635f]">

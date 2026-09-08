@@ -77,42 +77,30 @@ function ActivityContent({
   metadata: ReferralWorkflowMetadata;
   onOpenFull?: () => void;
 }) {
-  if (compact) return <CompactActivity events={events} metadata={metadata} onOpenFull={onOpenFull} />;
+  if (compact) return <CompactActivity events={events} onOpenFull={onOpenFull} />;
   return <FullActivity events={events} metadata={metadata} />;
 }
 
 function CompactActivity({
   events,
-  metadata,
   onOpenFull,
 }: {
   events: ReferralActivityEvent[];
-  metadata: ReferralWorkflowMetadata;
   onOpenFull?: () => void;
 }) {
   return (
-    <section aria-label="Workspace change history" className="border border-[#d9d9d9] bg-[#fbfcfb] px-3 py-2.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Change history</div>
-          <div className="mt-0.5 text-[10px] text-[#737373]">
-            {ownerNames(metadata) || "No owner assigned"} · {events.length} recent event{events.length === 1 ? "" : "s"}
-          </div>
-        </div>
+    <section aria-label="Workspace change history" className="bg-white py-1.5">
+      <div className="flex items-center justify-between gap-3 text-[10px] text-[#737373]">
+        <span>
+          <span className="font-semibold text-[#404040]">Change history</span>
+          <span aria-hidden="true"> · </span>
+          {events.length} change{events.length === 1 ? "" : "s"}
+        </span>
         {onOpenFull ? (
-          <button type="button" onClick={onOpenFull} className="h-7 border border-[#bfc8c4] bg-white px-2.5 text-[10px] font-black text-[#174f43] hover:border-[#0f8b73]">
-            View change history
+          <button type="button" onClick={onOpenFull} className="font-semibold text-[#0f705f] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]">
+            View<span className="sr-only"> change history</span>
           </button>
         ) : null}
-      </div>
-      <div className="mt-2 grid gap-px bg-[#e4e8e6] sm:grid-cols-3">
-        {events.slice(0, 3).map((event) => (
-          <div key={event.event_id} className="min-w-0 bg-white px-2.5 py-2">
-            <div className="truncate text-[10px] font-black text-[#111111]">{formatAction(event.action)}</div>
-            <div className="mt-0.5 truncate text-[9px] text-[#737373]">{event.actor_name} · {formatTimestamp(event.created_at)}</div>
-          </div>
-        ))}
-        {events.length === 0 ? <div className="bg-white px-2.5 py-2 text-[10px] text-[#737373] sm:col-span-3">No material changes recorded yet.</div> : null}
       </div>
     </section>
   );

@@ -46,7 +46,6 @@ export function buildClientMedicalChart(
   resident: ClinicalResident | null,
   sections: ClientProfileSection[],
   assessments: PipelineAssessmentRecord[],
-  recordStatus: string,
 ): ClientMedicalChartModel {
   const latestAssessment = assessments[0] ?? null;
   const chartValue = (...labels: string[]) => findProfileValue(sections, labels);
@@ -57,7 +56,6 @@ export function buildClientMedicalChart(
       chartFact("Client", identity.name, { span: "wide", required: true }),
       chartFact("Date of birth", formatChartDate(resident?.date_of_birth ?? chartValue("Date of birth")), { required: true }),
       chartFact("Resident number", resident?.resident_number ?? chartValue("Resident number")),
-      chartFact("Status", recordStatus),
       chartFact("Gender", identity.gender ?? chartValue("Gender")),
       chartFact("Community", identity.community, { span: "wide", required: true }),
       chartFact("Unit", resident?.unit),

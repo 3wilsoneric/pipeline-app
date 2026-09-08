@@ -211,24 +211,6 @@ function showWorkspaceTrashControl(referral: Referral | null, canSupervise: bool
   return Boolean(referral && canSupervise && !readOnly);
 }
 
-function HistoricalWorkspaceBadge({ readOnly }: { readOnly: boolean }) {
-  if (!readOnly) return null;
-  return (
-    <span className="hidden shrink-0 border border-[#c9b87f] bg-[#fff9e8] px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-[#715f22] sm:inline">
-      Historical · Read-only
-    </span>
-  );
-}
-
-function HistoricalWorkspaceNotice({ readOnly }: { readOnly: boolean }) {
-  if (!readOnly) return null;
-  return (
-    <div role="status" className="mb-3 border-l-2 border-[#a88b31] bg-[#fff9e8] px-4 py-3 text-[11px] leading-5 text-[#5f5127]">
-      This closed historical workspace preserves imported source material. To begin current work, create a new referral linked to this client.
-    </div>
-  );
-}
-
 const initialFields: Record<FieldKey, PacketField> = {
   name: { label: "NAME", value: "", placeholder: "Client name" },
   gender: { label: "GENDER", value: "", placeholder: "" },
@@ -1679,7 +1661,6 @@ export default function ReferralPacketCanvas({
             <h1 data-testid="workspace-identity-title" className="max-w-[10rem] shrink-0 truncate text-[12px] font-black text-[#111111] sm:max-w-[18rem] lg:max-w-[26rem]" title={workspaceTitle}>
               {workspaceTitle}
             </h1>
-            <HistoricalWorkspaceBadge readOnly={historicalReadOnly} />
             <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">
               <span className="sr-only">Workspace stage</span>
               <select
@@ -1891,8 +1872,6 @@ export default function ReferralPacketCanvas({
           referral={loadedReferral}
           onOpenFull={() => openPage("activity")}
         />
-
-        <HistoricalWorkspaceNotice readOnly={historicalReadOnly} />
 
         <div key={displayedPage} className="pipeline-step-enter">
           {displayedPage === 1 && usesSourceProfile && loadedReferral ? (

@@ -6,12 +6,7 @@ import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presen
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import {
-  getWorkspaceAdmissionOutcome,
-  getWorkspaceCounty,
-  getWorkspaceWorkflowLabel,
-  isImportedWorkspace,
-} from "@/lib/pipeline/workspace-presentation";
+import { getWorkspaceCounty, isImportedWorkspace } from "@/lib/pipeline/workspace-presentation";
 
 export default function ReferralWorkspaceGallery({
   referrals,
@@ -45,8 +40,6 @@ function WorkspaceCard({
   progress?: ReferralProgress;
   onOpen: () => void;
 }) {
-  const workflowLabel = getWorkspaceWorkflowLabel(referral);
-  const outcome = getWorkspaceAdmissionOutcome(referral);
   const identityTitle = formatClientIdentityTitle(referral);
   const county = getWorkspaceCounty(referral);
   const reviewed = referral.packetFields?.filter((field) => ["accepted", "edited"].includes(field.review_status)).length ?? 0;
@@ -63,14 +56,7 @@ function WorkspaceCard({
       className="group min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >
       <span aria-hidden="true" className="relative block min-h-[132px] overflow-hidden border-b border-[#dfe5e2] bg-[#f4f8f6] px-4 py-4">
-        <span className="flex items-start justify-between gap-3">
-          <span className="inline-flex min-h-6 items-center border border-[#9bc7ba] bg-white px-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#0c705f]">
-            {workflowLabel}
-          </span>
-          <span className={`text-[10px] font-black ${outcomeClass(outcome.status)}`}>{outcome.label}</span>
-        </span>
-
-        <span className="mt-5 flex items-end justify-between gap-4">
+        <span className="flex items-end justify-between gap-4">
           <span>
             <strong className="block text-[24px] font-black leading-none tabular-nums text-[#17211d]">{percent}%</strong>
             <span className="mt-1 block text-[9px] font-bold uppercase tracking-[0.08em] text-[#6d7772]">Chart readiness</span>
@@ -125,12 +111,4 @@ function ageLabel(value: string) {
   if (hours < 1) return "Just now";
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
-}
-
-function outcomeClass(status: "admitted" | "accepted" | "denied" | "pending" | "unknown") {
-  if (status === "admitted") return "text-[#0f705d]";
-  if (status === "accepted") return "text-[#405b9d]";
-  if (status === "denied") return "text-[#8c392f]";
-  if (status === "unknown") return "text-[#737373]";
-  return "text-[#6b5a2a]";
 }

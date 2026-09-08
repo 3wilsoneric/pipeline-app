@@ -11,12 +11,7 @@ import {
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import {
-  getWorkspaceAdmissionOutcome,
-  getWorkspaceCounty,
-  getWorkspaceWorkflowLabel,
-  isRecordedWorkspaceCommunity,
-} from "@/lib/pipeline/workspace-presentation";
+import { getWorkspaceCounty, isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
 
 export default function ReferralWorklist({
   referrals,
@@ -37,16 +32,14 @@ export default function ReferralWorklist({
       extractedTotal,
       extractedReviewed,
       identityTitle: formatClientIdentityTitle(referral),
-      outcome: getWorkspaceAdmissionOutcome(referral),
       county: getWorkspaceCounty(referral),
-      workflowLabel: getWorkspaceWorkflowLabel(referral),
     };
   });
 
   return (
     <div role="region" aria-label="Referral worklist">
       <div className="divide-y divide-[#e2e2e2] lg:hidden">
-        {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, outcome, county, workflowLabel }) => (
+        {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, county }) => (
           <CompactReferralRow
             key={referral.id}
             referral={referral}
@@ -54,9 +47,7 @@ export default function ReferralWorklist({
             extractedReviewed={extractedReviewed}
             extractedTotal={extractedTotal}
             identityTitle={identityTitle}
-            outcome={outcome}
             county={county}
-            workflowLabel={workflowLabel}
             onOpen={() => onOpenPacket(referral)}
           />
         ))}
@@ -64,23 +55,22 @@ export default function ReferralWorklist({
 
       <div className="hidden overflow-x-auto lg:block">
         <div className="min-w-[820px]">
-        <div className="grid grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_110px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#666666]">
+        <div className="grid grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#666666]">
           <span>Client</span>
           <span>Data capture</span>
           <span>Owner</span>
           <span>Updated</span>
-          <span className="text-right">Admission</span>
           <span className="sr-only">Open</span>
         </div>
         <div className="divide-y divide-[#e2e2e2]">
-          {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, outcome, county, workflowLabel }) => (
+          {rows.map(({ referral, progress, extractedReviewed, extractedTotal, identityTitle, county }) => (
             <button
               key={referral.id}
               type="button"
               data-guide-target="workspace-results"
               onClick={() => onOpenPacket(referral)}
               aria-label={`Open ${identityTitle} referral workspace`}
-              className="grid w-full grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_110px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
+              className="grid w-full grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
             >
               <span className="flex min-w-0 items-start gap-3 pr-4">
                 <WorkspaceChartThumbnail referral={referral} progress={progress} />
@@ -89,7 +79,6 @@ export default function ReferralWorklist({
                   {workspaceIdentityDetail(referral, county) ? (
                     <span className="mt-1 block truncate text-[9px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
                   ) : null}
-                  <span className="mt-1 block truncate text-[9px] font-semibold text-[#0f705f]">{workflowLabel}</span>
                   {referral.priority !== "standard" ? (
                     <span className="mt-1 block text-[9px] font-semibold text-[#8c392f]">{referral.priority} priority</span>
                   ) : null}
@@ -111,9 +100,6 @@ export default function ReferralWorklist({
 
               <span className="truncate text-[11px] font-semibold text-[#404040]">{normalizeOwnerName(referral.owner)}</span>
               <span className="text-[11px] text-[#737373]">{ageLabel(referral.updatedAt ?? referral.createdAt)}</span>
-              <span className={`text-right text-[11px] ${outcomeTextClass(outcome.status)}`} title={outcome.explanation}>
-                {outcome.label}
-              </span>
               <span className="flex h-8 w-8 items-center justify-center text-[#0f8b73]"><ArrowRight size={15} /></span>
             </button>
           ))}
@@ -130,9 +116,7 @@ function CompactReferralRow({
   extractedReviewed,
   extractedTotal,
   identityTitle,
-  outcome,
   county,
-  workflowLabel,
   onOpen,
 }: {
   referral: Referral;
@@ -140,9 +124,7 @@ function CompactReferralRow({
   extractedReviewed: number;
   extractedTotal: number;
   identityTitle: string;
-  outcome: ReturnType<typeof getWorkspaceAdmissionOutcome>;
   county: string;
-  workflowLabel: string;
   onOpen: () => void;
 }) {
   return (
@@ -161,11 +143,9 @@ function CompactReferralRow({
             {workspaceIdentityDetail(referral, county) ? (
               <span className="mt-1 block truncate text-[10px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
             ) : null}
-            <span className="mt-1 block truncate text-[10px] font-semibold text-[#0f705f]">{workflowLabel}</span>
           </span>
         </span>
-        <span className="flex shrink-0 items-center gap-2" title={outcome.explanation}>
-          <span className={`text-[11px] ${outcomeTextClass(outcome.status)}`}>{outcome.label}</span>
+        <span className="flex shrink-0 items-center gap-2">
           <ArrowRight size={15} className="text-[#0f8b73]" />
         </span>
       </span>
@@ -220,14 +200,6 @@ function WorkspaceChartThumbnail({ referral, progress }: { referral: Referral; p
       </svg>
     </span>
   );
-}
-
-function outcomeTextClass(status: "admitted" | "accepted" | "denied" | "pending" | "unknown") {
-  if (status === "admitted") return "font-semibold text-[#0f705d]";
-  if (status === "accepted") return "font-semibold text-[#405b9d]";
-  if (status === "denied") return "font-semibold text-[#8c392f]";
-  if (status === "unknown") return "font-normal text-[#737373]";
-  return "font-normal text-[#6b5a2a]";
 }
 
 function workspaceIdentityDetail(referral: Referral, county = "") {

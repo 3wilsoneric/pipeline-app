@@ -38,7 +38,6 @@ type ClientDirectoryPayload = {
   freshness: ClinicalFreshness;
 };
 
-type ClientScope = "work" | "current" | "active" | "archive";
 type AdmissionFilter = "any" | "last_30_days" | "last_3_months" | "last_6_months" | "last_12_months" | "older_than_12_months" | "missing";
 type ProfileDataFilter = "any" | "missing_any" | "missing_unit" | "missing_admit_date" | "complete";
 type SortOption = "name" | "community" | "recent_admission" | "pipeline_activity";
@@ -68,12 +67,11 @@ export default function ClientProfileDirectory({
   const [freshness, setFreshness] = useState<ClinicalFreshness | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCompletingRoster, setIsCompletingRoster] = useState(false);
-  const [directoryComplete, setDirectoryComplete] = useState(false);
+  const [, setDirectoryComplete] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(DISPLAY_INCREMENT);
   const [knownCommunities, setKnownCommunities] = useState<CommunityOption[]>([]);
-  const [scope, setScope] = useState<ClientScope>("work");
   const [communityFilter, setCommunityFilter] = useState("");
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
   const [profileDataFilter, setProfileDataFilter] = useState<ProfileDataFilter>("any");
@@ -196,7 +194,6 @@ export default function ClientProfileDirectory({
 
   const filteredClients = useMemo(() => clients
     .filter((client) => {
-      if (!matchesDirectoryScope(client, scope)) return false;
       if (communityFilter && !client.community_names.includes(communityFilter)) return false;
       if (admissionFilter !== "any" && !matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf)) return false;
       if (profileDataFilter !== "any" && !matchesProfileDataFilter(client, profileDataFilter)) return false;
@@ -208,22 +205,13 @@ export default function ClientProfileDirectory({
       communityFilter,
       dataAsOf,
       profileDataFilter,
-      scope,
       sort,
     ]);
   const visibleClients = filteredClients.slice(0, displayLimit);
-  const hasDirectoryFilters = scope !== "work"
-    || Boolean(communityFilter)
+  const hasDirectoryFilters = Boolean(communityFilter)
     || admissionFilter !== "any"
     || profileDataFilter !== "any";
   const hasAppliedFilters = hasDirectoryFilters || Boolean(query.trim());
-  const hasClinicalClients = clients.some((client) => client.workspace_origin === "alamo_platform");
-  const scopeCounts = useMemo(() => ({
-    work: clients.filter((client) => matchesDirectoryScope(client, "work")).length,
-    current: clients.filter((client) => matchesDirectoryScope(client, "current")).length,
-    active: clients.filter((client) => matchesDirectoryScope(client, "active")).length,
-    archive: clients.filter((client) => matchesDirectoryScope(client, "archive")).length,
-  }), [clients]);
   const countLabel = isLoading && clients.length === 0
     ? "Loading clients..."
     : isCompletingRoster
@@ -238,7 +226,6 @@ export default function ClientProfileDirectory({
       : "";
 
   const clearFilters = () => {
-    setScope("work");
     setCommunityFilter("");
     setAdmissionFilter("any");
     setProfileDataFilter("any");
@@ -293,12 +280,6 @@ export default function ClientProfileDirectory({
             </div>
           </div>
 
-          <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:flex sm:items-end sm:gap-5" role="tablist" aria-label="Client directory scope">
-            <ScopeButton active={scope === "work"} label="Current work" mobileLabel="Work" count={scopeCounts.work} complete={directoryComplete} onClick={() => { setScope("work"); setDisplayLimit(DISPLAY_INCREMENT); }} />
-            <ScopeButton active={scope === "current"} label="Current census" mobileLabel="Census" count={scopeCounts.current} complete={directoryComplete} onClick={() => { setScope("current"); setDisplayLimit(DISPLAY_INCREMENT); }} disabled={directoryComplete && !hasClinicalClients} />
-            <ScopeButton active={scope === "active"} label="Active referrals" mobileLabel="Active" count={scopeCounts.active} complete={directoryComplete} onClick={() => { setScope("active"); setDisplayLimit(DISPLAY_INCREMENT); }} />
-            <ScopeButton active={scope === "archive"} label="Archive" mobileLabel="Archive" count={scopeCounts.archive} complete={directoryComplete} onClick={() => { setScope("archive"); setDisplayLimit(DISPLAY_INCREMENT); }} />
-          </div>
         </section>
 
         <section aria-label="Client filters" className="grid grid-cols-2 gap-2 border-b border-[#e1e5e3] py-3 lg:grid-cols-[1.15fr_1fr_1fr_0.9fr_auto]">
@@ -390,13 +371,6 @@ export default function ClientProfileDirectory({
   );
 }
 
-function matchesDirectoryScope(client: DirectoryClient, scope: ClientScope) {
-  if (scope === "work") return client.current_resident || client.active_referral_count > 0;
-  if (scope === "current") return client.current_resident;
-  if (scope === "active") return client.active_referral_count > 0;
-  return !client.current_resident && client.active_referral_count === 0;
-}
-
 function directoryCacheKey(userId: string | undefined, query: string) {
   return `${(userId ?? "unknown-user").trim().toLowerCase()}\n${query.trim().toLowerCase()}`;
 }
@@ -421,40 +395,6 @@ function writeDirectoryCache(key: string, payload: ClientDirectoryPayload) {
     if (typeof oldest !== "string") break;
     directoryCache.delete(oldest);
   }
-}
-
-function ScopeButton({
-  active,
-  label,
-  mobileLabel,
-  count,
-  complete,
-  onClick,
-  disabled = false,
-}: {
-  active: boolean;
-  label: string;
-  mobileLabel: string;
-  count: number;
-  complete: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      title={disabled ? "Current census is unavailable while the clinical directory is offline" : label}
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex h-10 min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 text-[12px] font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] disabled:cursor-not-allowed disabled:text-[#a1a7a4] sm:shrink-0 sm:justify-start sm:gap-2 ${active ? "border-[#0f8b73] text-[#0c705f]" : "border-transparent text-[#59635e] hover:border-[#a9ccc2] hover:text-[#0c705f]"}`}
-    >
-      <span className="sm:hidden">{mobileLabel}</span>
-      <span className="hidden sm:inline">{label}</span>
-      <span className="text-[10px] font-semibold tabular-nums text-[#69716c]">{complete ? count : "..."}</span>
-    </button>
-  );
 }
 
 function DirectorySelect({
@@ -496,15 +436,6 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
   });
   const gender = resolveClientGender(client.gender);
   const community = resolveClientCommunity(client.current_community, client.community_names[0]);
-  const profileKind = client.current_resident
-    ? "Current census"
-    : client.active_referral_count > 0
-      ? "Active referral"
-      : client.historical_workspace_count > 0
-        ? "Historical archive"
-        : client.episode_count > 0
-          ? "Prior resident"
-          : "Client record";
   const location = [community, client.unit ? `Unit ${client.unit}` : null].filter(Boolean).join(" · ");
 
   return (
@@ -515,10 +446,7 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       className="group w-full min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >
       <span aria-hidden="true" className="block min-h-[156px] border-b border-[#dfe5e2] bg-[#f4f8f6] p-4">
-        <span className="flex items-center justify-between gap-3">
-          <span className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
-          <span className="text-[10px] font-bold text-[#68716c]">{profileKind}</span>
-        </span>
+        <span className="text-[10px] font-black uppercase tracking-[0.08em] text-[#0c705f]">Client chart</span>
         <span className="mt-3 grid grid-cols-2 gap-px border border-[#bdc9c4] bg-[#bdc9c4]">
           <ChartPreviewCell label="Community" value={community} />
           <ChartPreviewCell label="Unit" value={client.unit ? `Unit ${client.unit}` : null} />
@@ -531,7 +459,9 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
         <span className="flex items-start justify-between gap-3">
           <span className="min-w-0">
             <strong className="block truncate text-[16px] font-black leading-5 text-[#151a18]" title={identityTitle}>{identityTitle}</strong>
-            <span className="mt-1 block truncate text-[11px] text-[#68716d]">{[gender, location].filter(Boolean).join(" · ") || profileKind}</span>
+            {[gender, location].filter(Boolean).length > 0 ? (
+              <span className="mt-1 block truncate text-[11px] text-[#68716d]">{[gender, location].filter(Boolean).join(" · ")}</span>
+            ) : null}
           </span>
           <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[#0f8b73] transition-transform group-hover:translate-x-0.5"><ArrowRight size={17} /></span>
         </span>

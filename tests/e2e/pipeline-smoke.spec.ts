@@ -1121,10 +1121,10 @@ test.describe("Referral home and packet canvas", () => {
     });
 
     await page.goto(`/?view=referrals&screen=packet&referralId=${historicalReferral.id}&workspaceStage=assessment`);
-    await expect(page.getByText("Historical · Read-only", { exact: true })).toBeVisible();
-    await expect(page.getByRole("status").filter({ hasText: "This closed historical workspace preserves imported source material." })).toBeVisible();
+    await expect(page.getByText("Historical · Read-only", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/closed historical workspace/i)).toHaveCount(0);
     await expect(page.getByTestId("workspace-identity-title")).toHaveText("Morgan Historical");
-    await expect(page.getByText("Historical · Admitted", { exact: true })).toBeVisible();
+    await expect(page.getByText("Client workspace", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Assessment", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Chart", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Save workspace" })).toHaveCount(0);
@@ -1701,7 +1701,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("textbox", { name: "SSN", exact: true })).toHaveValue("111-11-1111");
     const compactHistory = page.getByRole("region", { name: "Workspace change history" });
     await expect(compactHistory).toBeVisible();
-    await expect(compactHistory.getByText("Playwright QA", { exact: false }).first()).toBeVisible();
+    await expect(compactHistory.getByText("Change history", { exact: true })).toBeVisible();
     await compactHistory.getByRole("button", { name: "View change history", exact: true }).click();
     const fullHistory = page.getByRole("region", { name: "Referral ownership and activity" });
     await expect(fullHistory).toBeVisible();

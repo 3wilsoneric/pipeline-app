@@ -21,7 +21,6 @@ import {
   resolveClientCommunity,
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
-import { getWorkspaceAdmissionOutcome } from "@/lib/pipeline/workspace-presentation";
 
 type SuggestedSearchMode = PipelineQuestionSearchMode;
 
@@ -600,29 +599,23 @@ function fileClientName(file: Pick<ReferralFile, "referralName" | "community">) 
 }
 
 function workspaceSearchResultDetail(referral: Referral) {
-  const context = referral.workspaceStatus === "historical"
-    ? `Historical · ${getWorkspaceAdmissionOutcome(referral).label} · Source owner: ${referral.owner || "Not recorded"}`
-    : referral.owner || "Unassigned";
   return formatClientIdentityDetail(
     resolveClientGender(referral.gender),
     resolveClientCommunity(referral.community),
-    context,
+    referral.owner || null,
   );
 }
 
 function workspaceSearchResultKind(referral: Referral) {
-  return referral.workspaceStatus === "historical" ? "Historical workspace" : "Workspace";
+  void referral;
+  return "Workspace";
 }
 
 function clientSearchResultDetail(client: ClientWorkspaceDirectoryItem) {
-  let context = "Prior resident";
-  if (client.current_resident) context = `Current resident${client.unit ? ` · Unit ${client.unit}` : ""}`;
-  else if (client.active_referral_count > 0) context = `${client.active_referral_count} active referral${client.active_referral_count === 1 ? "" : "s"}`;
-  else if (client.historical_workspace_count > 0) context = "Historical archive";
   return formatClientIdentityDetail(
     resolveClientGender(client.gender),
     resolveClientCommunity(client.current_community, client.community_names[0]),
-    context,
+    client.unit ? `Unit ${client.unit}` : null,
   );
 }
 
