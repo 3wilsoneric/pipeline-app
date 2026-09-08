@@ -127,9 +127,10 @@ function ageLabel(value: string) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function outcomeClass(status: "admitted" | "accepted" | "denied" | "pending") {
+function outcomeClass(status: "admitted" | "accepted" | "denied" | "pending" | "unknown") {
   if (status === "admitted") return "text-[#0f705d]";
   if (status === "accepted") return "text-[#405b9d]";
   if (status === "denied") return "text-[#8c392f]";
+  if (status === "unknown") return "text-[#737373]";
   return "text-[#6b5a2a]";
 }

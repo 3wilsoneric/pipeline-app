@@ -11,10 +11,11 @@ The authoritative operator guide is `docs/AZURE_PRODUCTION_SETUP.md`.
    Action encryption key.
 5. Push the immutable commit tag to private ACR.
 6. Run `runtime.bicep` what-if, then deploy the web revision and jobs.
-7. Run the manual VNet-scoped database bootstrap/migration job.
-8. Verify `/api/health/live`, then `/api/health`.
-9. Run synthetic auth, packet, extraction, collaboration, and log checks.
-10. Promote staff in small groups. Retention remains disabled until approved.
+7. Run the VNet-scoped backup job and require its encrypted Blob verification to succeed.
+8. Run the manual VNet-scoped database bootstrap/migration job.
+9. Verify `/api/health/live`, then `/api/health`.
+10. Run synthetic auth, packet, extraction, collaboration, and log checks.
+11. Promote staff in small groups. Retention remains disabled until approved.
 
 ## Boundaries
 

@@ -10,7 +10,7 @@ import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { requireExtractionBackend } from "@/lib/extraction/backend-config";
 import { completePacketUpload, extractionErrorResponse } from "@/lib/extraction/extraction-service";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requirePacketAccess } from "@/lib/pipeline/referral-access";
+import { requireMutablePacketAccess } from "@/lib/pipeline/referral-access";
 import { reconcileUploadedDocumentRequirements } from "@/lib/pipeline/document-requirement-reconciliation";
 
 export async function POST(request: Request) {
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
     const validation = validateCompleteUploadRequest(body.value);
     if (!validation.ok) return jsonError(validation.message, validation.status);
-    const access = await requirePacketAccess(auth.user, validation.value.packet_id);
+    const access = await requireMutablePacketAccess(auth.user, validation.value.packet_id, "files");
     if (!access.ok) return access.response;
 
     let result;

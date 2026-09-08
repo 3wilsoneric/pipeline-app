@@ -75,10 +75,11 @@ try {
       '0011_historical_material_workspaces',
       '0015_assessor_workflow',
       '0024_workspace_month_provenance',
-      '0026_imported_workspace_lifecycle'
+      '0026_imported_workspace_lifecycle',
+      '0029_historical_workspace_archive'
     )
   `;
-  if (migrations.length !== 4) throw new Error("missing_migration");
+  if (migrations.length !== 5) throw new Error("missing_migration");
 
   const memberRows = await connection`
     select principal_id, display_name
@@ -167,7 +168,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
   const dateOfBirth = sqlDate(profile?.date_of_birth);
   const admissionDate = sqlDate(profile?.admit_date);
   const stage = admissionDate ? "Accepted / Admitted" : importedInProgressStage;
-  const closedAt = admissionDate ? `${admissionDate}T12:00:00.000Z` : null;
+  const closedAt = admissionDate ? `${admissionDate}T12:00:00.000Z` : new Date().toISOString();
   const receivedDate = sqlDate(workspace.first_material_at);
   const workspaceMonth = resolveWorkspaceMonth({
     workspaceMonth: workspace.workspace_month,
@@ -178,13 +179,14 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
   const owner = workspace.primary_owner ? members.get(normalizeName(workspace.primary_owner)) : null;
   const ownerName = owner?.display_name ?? "Unassigned";
   const ownerId = owner?.principal_id ?? null;
-  const workflowStatus = admissionDate ? "accepted" : ownerId ? "profile_incomplete" : "intake_unassigned";
-  const tags = ["allo-import", ...(owner ? [] : ["owner-review"])];
+  const workflowStatus = admissionDate ? "accepted" : "closed";
+  const historicalOutcome = admissionDate ? "admitted" : "not_recorded";
+  const tags = ["allo-import", "historical", ...(owner ? [] : ["owner-review"])];
   const firstFile = workspace.files[0] ?? null;
   const data = {
     clientId: externalClientId,
     workspaceOrigin: "allo",
-    workspaceStatus: "active",
+    workspaceStatus: "historical",
     sourceWorkspaceId: workspace.source_workspace_id,
     sourceWorkspaceName: workspace.source_workspace_name,
     sourceProjectId: workspace.project_id ?? undefined,
@@ -192,6 +194,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
     sourceMaterialCount: workspace.material_count,
     stage,
     workflowStatus,
+    historicalOutcome,
     name: workspace.display_name,
     date: receivedDate ?? "",
     community,
@@ -203,7 +206,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
     documentStatus: firstFile ? "Uploaded" : "Missing",
     ownerId: ownerId ?? undefined,
     owner: ownerName,
-    note: `Imported workspace with ${workspace.material_count} material${workspace.material_count === 1 ? "" : "s"}.`,
+    note: `Imported historical workspace with ${workspace.material_count} material${workspace.material_count === 1 ? "" : "s"}.`,
     createdAt: workspace.first_material_at ?? new Date().toISOString(),
     dob: dateOfBirth ?? "",
     admissionDate: admissionDate ?? "",
@@ -238,7 +241,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
       ${workspaceMonth.month ? `${workspaceMonth.month}-01` : null}::date, ${workspaceMonth.basis},
       ${tags}, ${data.note}, ${searchText},
       ${tx.json(data)}, ${closedAt}::timestamptz,
-      'allo', 'active', ${workspace.source_workspace_id}, ${workspace.source_workspace_name},
+      'allo', 'historical', ${workspace.source_workspace_id}, ${workspace.source_workspace_name},
       ${workspace.project_id}, ${workspace.project_name}, ${workspace.material_count}, ${workspaceImportBatchId}::uuid,
       'allo_workspace_import', 'Allo workspace import', 'allo_workspace_import', 'Allo workspace import',
       coalesce(${workspace.first_material_at}::timestamptz, now()), coalesce(${workspace.first_material_at}::timestamptz, now())
@@ -248,13 +251,13 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
       person_id = excluded.person_id,
       stage = case
         when pipeline.referrals.workspace_status = 'archived'
-          or pipeline.referrals.workflow_status not in ('intake_unassigned', 'profile_incomplete')
+          or pipeline.referrals.stage in ('Accepted / Admitted', 'Declined')
           then pipeline.referrals.stage
         else excluded.stage
       end,
       workflow_status = case
         when pipeline.referrals.workspace_status = 'archived'
-          or pipeline.referrals.workflow_status not in ('intake_unassigned', 'profile_incomplete')
+          or pipeline.referrals.workflow_status in ('accepted', 'declined')
           then pipeline.referrals.workflow_status
         else excluded.workflow_status
       end,
@@ -293,12 +296,7 @@ async function processWorkspace(tx, workspace, workspaceImportBatchId, members, 
         true
       ),
       tags = (select array_agg(distinct tag) from unnest(pipeline.referrals.tags || excluded.tags) tag),
-      closed_at = case
-        when pipeline.referrals.workspace_status = 'archived'
-          or pipeline.referrals.workflow_status not in ('intake_unassigned', 'profile_incomplete')
-          then pipeline.referrals.closed_at
-        else excluded.closed_at
-      end,
+      closed_at = coalesce(pipeline.referrals.closed_at, excluded.closed_at),
       updated_at = greatest(pipeline.referrals.updated_at, excluded.updated_at)
     returning referral_id, (xmax = 0) as inserted
   `;

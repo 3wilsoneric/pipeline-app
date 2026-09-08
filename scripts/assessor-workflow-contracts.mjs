@@ -487,7 +487,13 @@ check("email delivery is idempotent and audited without recipient addresses or f
   && !deliveryAudit.includes("attachment_names"));
 check("attachment inventory failures do not take down the signed chart", admissionSummaryRoute.includes("loadAdmissionPacketInventory")
   && admissionSummaryRoute.includes("Admission packet files are temporarily unavailable"));
-check("every workspace exposes the assessment Chart, including imported records", referralPacketCanvas.includes('{ page: 3, label: "Chart" }') && referralPacketCanvas.includes("importedWorkspaceSteps") && referralPacketCanvas.includes("activePage === 3"));
+check("current workspaces expose Assessment and Chart while historical imports stay on their read-only Profile",
+  referralPacketCanvas.includes('{ page: 2, label: "Assessment" }')
+    && referralPacketCanvas.includes('{ page: 3, label: "Chart" }')
+    && referralPacketCanvas.includes('const importedWorkspaceSteps')
+    && referralPacketCanvas.includes('{ page: 1, label: "Profile" }')
+    && referralPacketCanvas.includes('displayedPage === 3')
+    && referralPacketCanvas.includes('HistoricalWorkspaceNotice'));
 check("the Chart workspace contains only the complete chart and Meet the Client outputs", assessmentChartWorkspace.includes('label="Complete chart"') && assessmentChartWorkspace.includes('label="Meet the Client"') && assessmentChartWorkspace.includes("<CompleteAssessmentChart") && assessmentChartWorkspace.includes("<MeetClientChart") && !assessmentChartWorkspace.includes("DecisionPanel") && !assessmentChartWorkspace.includes("overrideReason"));
 check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes("<AdmissionPacketSummary")
   && assessmentChartWorkspace.includes("listed admission files")

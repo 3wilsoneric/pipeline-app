@@ -116,13 +116,13 @@ for (const absoluteFile of routeFiles) {
       check(`${key} enforces referral-record access`, enforcesReferralAccess(body));
     }
     if (route.includes("/packets/[packetId]")) {
-      check(`${key} enforces packet ownership access`, body.includes("requirePacketAccess("));
+      check(`${key} enforces packet ownership access`, enforcesPacketAccess(body));
     }
     if (route.includes("/files/[documentId]")) {
-      check(`${key} resolves document ownership before access`, body.includes("requireReferralAccess("));
+      check(`${key} resolves document ownership before access`, enforcesReferralAccess(body));
     }
     if (route.includes("/assessments/[assessmentId]")) {
-      check(`${key} resolves assessment ownership before access`, body.includes("requireReferralAccess("));
+      check(`${key} resolves assessment ownership before access`, enforcesReferralAccess(body));
     }
     if (isMutation && !isInternal && !isPublic && !personalStateWrites.has(key) && !ownerScopedMethods.has(key) && !authenticatedBaseMethods.has(key) && !authenticatedPipelineSelfMethods.has(key) && !governedReadMutations.has(key)) {
       check(`${key} excludes the viewer role from writes`, roleList.length > 0 && !roleList.includes("viewer"));
@@ -206,10 +206,15 @@ function pipelineRoles(body) {
 }
 
 function enforcesReferralAccess(body) {
-  return body.includes("requireReferralAccess(") || (
+  return body.includes("requireReferralAccess(")
+    || body.includes("requireMutableReferralAccess(") || (
     body.includes("canAccessReferral(auth.user, snapshot.referral)") &&
     body.includes("getReferralWorkflowSnapshot(")
   );
+}
+
+function enforcesPacketAccess(body) {
+  return body.includes("requirePacketAccess(") || body.includes("requireMutablePacketAccess(");
 }
 
 function sameItems(actual, expected) {

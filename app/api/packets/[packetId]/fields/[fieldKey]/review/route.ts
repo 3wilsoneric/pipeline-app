@@ -11,7 +11,7 @@ import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { requireExtractionBackend } from "@/lib/extraction/backend-config";
 import { extractionErrorResponse, reviewPacketField } from "@/lib/extraction/extraction-service";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requirePacketAccess } from "@/lib/pipeline/referral-access";
+import { requireMutablePacketAccess } from "@/lib/pipeline/referral-access";
 
 export async function POST(
   request: Request,
@@ -27,7 +27,7 @@ export async function POST(
     if (!backend.ok) return backend.response;
 
     const { packetId, fieldKey } = await context.params;
-    const access = await requirePacketAccess(auth.user, packetId);
+    const access = await requireMutablePacketAccess(auth.user, packetId);
     if (!access.ok) return access.response;
     const body = await readJsonBody<ReviewFieldRequest>(request);
     if (!body.ok) return jsonError(body.message, body.status);

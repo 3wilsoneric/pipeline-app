@@ -6,7 +6,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { updateEhrHandoff } from "@/lib/pipeline/workflow-store";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
 export const runtime = "nodejs";
@@ -28,7 +28,7 @@ export async function POST(
     const { referralId: rawReferralId } = await context.params;
     const referralId = Number.parseInt(rawReferralId, 10);
     if (!Number.isInteger(referralId) || referralId < 1) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, referralId);
+    const access = await requireMutableReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
 
     const body = await readJsonBody(request);

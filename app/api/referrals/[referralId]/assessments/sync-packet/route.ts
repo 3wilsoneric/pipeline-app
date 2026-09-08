@@ -18,7 +18,7 @@ import {
 import { assessmentToolFieldForExtractionKey } from "@/lib/assessment/assessment-tool-schema";
 import { jsonError, readJsonBody, type ExtractedField } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 
 export const runtime = "nodejs";
@@ -45,7 +45,7 @@ export async function POST(
     const { referralId: rawReferralId } = await context.params;
     const referralId = Number.parseInt(rawReferralId, 10);
     if (!Number.isInteger(referralId) || referralId < 1) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, referralId);
+    const access = await requireMutableReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
     const referral = access.referral;
     const assessmentAssignee = assessmentAssigneeForReferral(auth.user, referral);

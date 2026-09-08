@@ -7,7 +7,7 @@ import { withApiLogging } from "@/lib/observability/api-logging";
 import { reconcileReferralToClinicalRoster } from "@/lib/pipeline/referral-clinical-reconciliation";
 import { createResidentLink, requireResidentLinkStore } from "@/lib/pipeline/resident-link-store";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -28,7 +28,7 @@ export async function POST(
     const { referralId } = await context.params;
     const id = Number.parseInt(referralId, 10);
     if (!Number.isInteger(id) || id < 1) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, id);
+    const access = await requireMutableReferralAccess(auth.user, id);
     if (!access.ok) return access.response;
     const referral = access.referral;
     if (!referral.clientId) {

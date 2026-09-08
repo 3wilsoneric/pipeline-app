@@ -14,7 +14,7 @@ import {
 import { canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireMutableReferralAccess, requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -62,7 +62,7 @@ export async function PATCH(
     try {
       const current = await getAssessment(assessmentId);
       if (!current) return jsonError("Assessment not found.", 404);
-      const access = await requireReferralAccess(auth.user, current.referral_id);
+      const access = await requireMutableReferralAccess(auth.user, current.referral_id);
       if (!access.ok) return access.response;
       if (!canWorkAssessment(auth.user, current.assessor_id)) {
         return jsonError("Only the assigned assessor or a supervisor can edit this assessment.", 403);

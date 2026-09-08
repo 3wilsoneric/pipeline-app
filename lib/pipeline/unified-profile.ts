@@ -307,7 +307,7 @@ async function getPipelineOnlyClientProfile(
       unit: null,
       admit_date: isoDateOrNull(latest?.admissionDate),
       care_level: null,
-      episode_count: referrals.length,
+      episode_count: referrals.filter((referral) => isoDateOrNull(referral.admissionDate)).length,
       resident_profile: null,
       resident_profiles: [],
       resident_episode_history: [],
@@ -504,7 +504,8 @@ function buildPipelineProjection(input: {
   assessments: PipelineAssessmentRecord[];
   documents: UnifiedClientProfileResponse["pipeline"]["documents"];
 }): UnifiedClientProfileResponse["pipeline"] {
-  const requirements = input.referrals.flatMap((referral) => referral.requirements ?? []);
+  const operationalReferrals = input.referrals.filter(isOperationalReferral);
+  const requirements = operationalReferrals.flatMap((referral) => referral.requirements ?? []);
   const latestAssessment = input.assessments[0] ?? null;
   const latestCoverage = latestAssessment ? getAssessmentToolCoverage(latestAssessment) : null;
   const openRequirements = requirements.filter((item) => !["reviewed", "waived"].includes(item.status));
@@ -515,16 +516,28 @@ function buildPipelineProjection(input: {
     requirements,
     summary: {
       referral_count: input.referrals.length,
-      active_referral_count: input.referrals.filter((referral) => !["Accepted / Admitted", "Declined"].includes(referral.stage)).length,
+      active_referral_count: operationalReferrals.length,
       assessment_count: input.assessments.length,
       latest_assessment_status: latestAssessment?.status ?? null,
       latest_assessment_completion_pct: latestCoverage?.percent ?? null,
       open_requirement_count: openRequirements.length,
       blocker_count: blockers.length,
       document_count: input.documents.length,
-      actions_needed: getActionsNeeded(input.referrals, input.assessments, blockers),
+      actions_needed: operationalReferrals.length > 0
+        ? getActionsNeeded(
+            operationalReferrals,
+            input.assessments.filter((assessment) => operationalReferrals.some((referral) => referral.id === assessment.referral_id)),
+            blockers,
+          )
+        : [],
     },
   };
+}
+
+function isOperationalReferral(referral: Referral) {
+  return referral.workspaceStatus !== "historical"
+    && referral.workspaceStatus !== "archived"
+    && !["Accepted / Admitted", "Declined"].includes(referral.stage);
 }
 
 function dedupeDocuments(documents: UnifiedClientProfileResponse["pipeline"]["documents"]) {

@@ -15,7 +15,10 @@ import type { ReferralWorklistBucket } from "@/lib/pipeline/operations-types";
 import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { searchSiteDestinations } from "@/lib/pipeline/site-search";
 import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
-import { listPipelineClientWorkspaces } from "@/lib/pipeline/client-workspace-store";
+import {
+  getClinicalClientWorkspaceSummaries,
+  listPipelineClientWorkspaces,
+} from "@/lib/pipeline/client-workspace-store";
 
 export const runtime = "nodejs";
 
@@ -149,7 +152,7 @@ export async function GET(request: Request) {
         ? searchLocal(query, auth.user)
         : Promise.resolve(emptyLocalSearch()),
       includeClinical
-        ? searchClinical(query, request)
+        ? searchClinical(query, request, auth.user)
         : Promise.resolve(emptyClinicalSearch()),
     ]);
 
@@ -232,15 +235,34 @@ function emptyClinicalSearch() {
   return { clients: [], total: 0, warning: null, available: false };
 }
 
-async function searchClinical(query: string, request: Request) {
+async function searchClinical(
+  query: string,
+  request: Request,
+  user: Parameters<typeof getClinicalClientWorkspaceSummaries>[0],
+) {
   if (!getClinicalDataReadiness().connected) {
     return { clients: [], total: 0, warning: null, available: false };
   }
 
   try {
     const result = await getClinicalClients(request, { query, limit: 12 });
+    const summaries = await getClinicalClientWorkspaceSummaries(
+      user,
+      result.clients.map((client) => ({
+        canonicalClientId: client.canonical_client_id,
+        residentNumbers: client.resident_numbers,
+      })),
+    ).catch(() => new Map());
     return {
-      clients: result.clients,
+      clients: result.clients.map((client) => ({
+        ...client,
+        workspace_origin: "alamo_platform" as const,
+        pipeline_client_id: null,
+        referral_count: summaries.get(client.canonical_client_id)?.referralCount ?? 0,
+        active_referral_count: summaries.get(client.canonical_client_id)?.activeReferralCount ?? 0,
+        historical_workspace_count: summaries.get(client.canonical_client_id)?.historicalWorkspaceCount ?? 0,
+        document_count: summaries.get(client.canonical_client_id)?.documentCount ?? 0,
+      })),
       total: result.total,
       warning: result.total > 0 ? result.freshness.warning : null,
       available: true,

@@ -150,6 +150,15 @@ check("Blob adapter has no shared-key credential path", blobAdapter.includes("De
 check("runtime reads secrets from Key Vault", runtime.includes("keyVaultUrl") && runtime.includes("identity: keyVaultSecretIdentity"));
 check("database bootstrap is one-time and explicit", runtime.includes("param initialDatabaseBootstrap bool = false") && runtime.includes("if (initialDatabaseBootstrap)"));
 check("routine database migrations use the migrator-only job", runtime.includes("databaseMigrationJob") && runtime.includes("pipeline-database-migration-url"));
+check(
+  "production deploy verifies an Azure logical backup before migration",
+  runtime.includes("resource databaseBackupJob")
+    && runtime.includes("scripts/database-backup-to-azure-blob.mjs")
+    && runtime.includes("PIPELINE_BACKUP_STORAGE_ACCOUNT")
+    && deployment.includes("Create and verify pre-migration database backup")
+    && deployment.indexOf("Create and verify pre-migration database backup")
+      < deployment.indexOf("Apply checksum-guarded database changes"),
+);
 check("bootstrap revokes the administrator credential", databaseBootstrap.includes("administrator_credential_revoked: true") && databaseBootstrap.includes("alter role"));
 check("initial setup cannot rotate database URLs after finalization", initialConfiguration.includes("Initial database setup is already finalized"));
 check("database finalization reads stable output-only foundation state", databaseFinalization.includes("--name pipeline-foundation-state"));

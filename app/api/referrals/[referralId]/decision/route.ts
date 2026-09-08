@@ -5,7 +5,11 @@ import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot, recordAdmissionDecision } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { canRecordAdmissionDecision, requireReferralAccess } from "@/lib/pipeline/referral-access";
+import {
+  canRecordAdmissionDecision,
+  requireMutableReferralAccess,
+  requireReferralAccess,
+} from "@/lib/pipeline/referral-access";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
 export const runtime = "nodejs";
@@ -46,7 +50,7 @@ export async function PUT(
     if (!readiness.ok) return readiness.response;
     const referralId = await parseReferralId(context);
     if (!referralId) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, referralId);
+    const access = await requireMutableReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
 
     const body = await readJsonBody(request);

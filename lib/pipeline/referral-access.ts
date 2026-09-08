@@ -49,6 +49,24 @@ export async function requireReferralAccess(
   return { ok: true as const, referral };
 }
 
+type ReferralMutationKind = "update" | "trash" | "assessment" | "assessment_import" | "files";
+
+const historicalMutationMessages: Record<ReferralMutationKind, string> = {
+  update: "Historical workspaces are read-only. Create a new referral for current activity.",
+  trash: "Historical workspaces are read-only and cannot be moved to trash.",
+  assessment: "Historical workspaces are read-only. Create a new referral before starting an assessment.",
+  assessment_import: "Historical workspaces are read-only. Create a new referral before importing an assessment.",
+  files: "Historical workspaces are read-only and cannot receive new files.",
+};
+
+export async function requireMutableReferralAccess(
+  user: PipelineUser,
+  referralId: number,
+  mutation: ReferralMutationKind = "update",
+) {
+  return rejectHistoricalMutation(await requireReferralAccess(user, referralId), mutation);
+}
+
 export async function requirePacketAccess(user: PipelineUser, packetId: string) {
   const reservedReferralId = await readPacketReferralId(packetId);
   const referral = reservedReferralId
@@ -61,6 +79,25 @@ export async function requirePacketAccess(user: PipelineUser, packetId: string) 
     };
   }
   return { ok: true as const, referral };
+}
+
+export async function requireMutablePacketAccess(
+  user: PipelineUser,
+  packetId: string,
+  mutation: ReferralMutationKind = "update",
+) {
+  return rejectHistoricalMutation(await requirePacketAccess(user, packetId), mutation);
+}
+
+function rejectHistoricalMutation(
+  access: Awaited<ReturnType<typeof requireReferralAccess>>,
+  mutation: ReferralMutationKind,
+) {
+  if (!access.ok || access.referral.workspaceStatus !== "historical") return access;
+  return {
+    ok: false as const,
+    response: Response.json({ error: historicalMutationMessages[mutation] }, { status: 422 }),
+  };
 }
 
 export function assignedOwnerForCreate(user: PipelineUser, owner: string) {

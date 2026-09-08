@@ -82,6 +82,7 @@ param tags object = {
 
 var webName = take('${namePrefix}-${environment}-web', 32)
 var databaseBootstrapJobName = take('${namePrefix}-${environment}-database-bootstrap', 32)
+var databaseBackupJobName = take('${namePrefix}-${environment}-database-backup', 32)
 var databaseMigrationJobName = take('${namePrefix}-${environment}-database-migrate', 32)
 var revisionSuffix = take(toLower(replace(deploymentId, '-', '')), 16)
 // The app registration requests v2 access tokens. Their aud claim is the API
@@ -513,6 +514,60 @@ resource databaseMigrationJob 'Microsoft.App/jobs@2025-01-01' = {
   }
 }
 
+resource databaseBackupJob 'Microsoft.App/jobs@2025-01-01' = {
+  name: databaseBackupJobName
+  location: location
+  tags: tags
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${runtimeIdentityResourceId}': {}
+    }
+  }
+  properties: {
+    environmentId: containerEnvironment.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      triggerType: 'Manual'
+      replicaTimeout: 900
+      replicaRetryLimit: 0
+      manualTriggerConfig: {
+        parallelism: 1
+        replicaCompletionCount: 1
+      }
+      registries: [
+        {
+          server: containerRegistryLoginServer
+          identity: runtimeIdentityResourceId
+        }
+      ]
+      secrets: databaseMigrationSecrets
+    }
+    template: {
+      containers: [
+        {
+          name: 'database-backup'
+          image: containerImage
+          command: ['node']
+          args: ['scripts/database-backup-to-azure-blob.mjs']
+          env: [
+            { name: 'PIPELINE_DATABASE_URL', secretRef: 'database-migration-url' }
+            { name: 'PIPELINE_DATABASE_SSL_MODE', value: 'require' }
+            { name: 'PIPELINE_BACKUP_STORAGE_ACCOUNT', value: storageAccountName }
+            { name: 'PIPELINE_BACKUP_CONTAINER', value: 'artifacts' }
+            { name: 'PIPELINE_BACKUP_REASON', value: 'pre-migration' }
+            { name: 'AZURE_CLIENT_ID', value: runtimeIdentityClientId }
+          ]
+          resources: {
+            cpu: json('0.5')
+            memory: '1Gi'
+          }
+        }
+      ]
+    }
+  }
+}
+
 var scheduledJobs = [
   {
     name: 'extraction-dispatch'
@@ -631,6 +686,7 @@ output livenessUrl string = 'https://${web.properties.configuration.ingress.fqdn
 output readinessUrl string = 'https://${web.properties.configuration.ingress.fqdn}/api/health'
 output pipelineApiScope string = pipelineApiScope
 output databaseBootstrapJobName string = databaseBootstrapJobName
+output databaseBackupJobName string = databaseBackupJob.name
 output databaseMigrationJobName string = databaseMigrationJob.name
 output scheduledJobNames array = map(filter(scheduledJobs, job => job.enabled), job => take('${namePrefix}-${environment}-${job.name}', 32))
 output runtimeAlertRuleCount int = enableRuntimeAlerts ? 2 : 0

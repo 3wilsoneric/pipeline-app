@@ -1,4 +1,4 @@
-import { requirePipelineUser } from "@/lib/auth/pipeline-auth";
+import { requirePipelineUser, type PipelineUser } from "@/lib/auth/pipeline-auth";
 import { canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { getAssessment } from "@/lib/assessment/assessment-store";
 import { jsonError } from "@/lib/extraction/contracts";
@@ -9,6 +9,9 @@ import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
 
 export const runtime = "nodejs";
+
+const workflowRoles = new Set(["admin", "assessment_coordinator", "reviewer"]);
+const workflowSupervisorRoles = new Set(["admin", "assessment_coordinator"]);
 
 export async function GET(
   request: Request,
@@ -29,7 +32,6 @@ export async function GET(
     const assessment = snapshot.context.assessmentId
       ? await getAssessment(snapshot.context.assessmentId)
       : null;
-    const canUpdate = auth.user.roles.some((role) => role === "admin" || role === "assessment_coordinator" || role === "reviewer");
 
     return Response.json({
       ...snapshot,
@@ -37,12 +39,21 @@ export async function GET(
         target,
         blockers: getReferralTransitionBlockers(snapshot.referral, target, snapshot.context),
       })),
-      capabilities: {
-        can_update: canUpdate,
-        can_recommend: canUpdate && Boolean(assessment?.signed_at) && canWorkAssessment(auth.user, assessment?.assessor_id ?? null),
-        can_decide: canRecordAdmissionDecision(auth.user),
-        can_authorize_manual_intake: auth.user.roles.some((role) => role === "admin" || role === "assessment_coordinator"),
-      },
+      capabilities: workflowCapabilities(auth.user, assessment, access.referral.workspaceStatus !== "historical"),
     }, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   });
+}
+
+function workflowCapabilities(
+  user: PipelineUser,
+  assessment: { signed_at?: string | null; assessor_id?: string | null } | null,
+  mutable: boolean,
+) {
+  const canUpdate = mutable && user.roles.some((role) => workflowRoles.has(role));
+  return {
+    can_update: canUpdate,
+    can_recommend: canUpdate && Boolean(assessment?.signed_at) && canWorkAssessment(user, assessment?.assessor_id ?? null),
+    can_decide: mutable && canRecordAdmissionDecision(user),
+    can_authorize_manual_intake: mutable && user.roles.some((role) => workflowSupervisorRoles.has(role)),
+  };
 }

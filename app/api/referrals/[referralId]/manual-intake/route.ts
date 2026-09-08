@@ -3,7 +3,7 @@ import { pipelineAccountableActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import { patchReferral, requireReferralStore } from "@/lib/pipeline/referral-store";
 import type { ManualIntakeAuthorization } from "@/lib/pipeline/referral-types";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
@@ -25,7 +25,7 @@ export async function POST(
     const { referralId: rawReferralId } = await context.params;
     const referralId = Number.parseInt(rawReferralId, 10);
     if (!Number.isInteger(referralId) || referralId < 1) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, referralId);
+    const access = await requireMutableReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
 
     const body = await readJsonBody<{ if_match?: unknown; if_match_section?: unknown; reason?: unknown; client_mutation_id?: unknown }>(request);

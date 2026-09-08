@@ -193,10 +193,9 @@ function SearchNavigationButton({
   return (
     <button
       type="button"
-      aria-label={searchOpen ? "Close search" : "Open search"}
-      aria-pressed={searchOpen}
+      aria-label="Focus search"
       data-active={searchOpen ? "true" : undefined}
-      title={searchOpen ? "Close search" : "Search"}
+      title="Search"
       onClick={onOpenSearch}
       className={`${className} ${searchOpen ? "border-[#c4832c] bg-[#fff3dc] text-[#8a5a10] shadow-[0_4px_14px_rgba(196,131,44,0.14)]" : inactiveClassName}`}
     >

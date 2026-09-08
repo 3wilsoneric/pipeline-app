@@ -35,6 +35,7 @@ const homeDashboardLayoutRollback = await readFile("database/rollbacks/0025_home
 const importedWorkspaceLifecycleRollback = await readFile("database/rollbacks/0026_imported_workspace_lifecycle.sql", "utf8");
 const staffProfilesRollback = await readFile("database/rollbacks/0027_staff_profiles.sql", "utf8");
 const workspaceRosterRollback = await readFile("database/rollbacks/0028_workspace_roster.sql", "utf8");
+const historicalWorkspaceArchiveRollback = await readFile("database/rollbacks/0029_historical_workspace_archive.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -115,6 +116,7 @@ try {
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='workspace_members' and column_name='profile_version') as staff_profile_fields,
       exists(select 1 from pipeline.schema_migrations where migration_id='0027_staff_profiles') as staff_profile_history,
       exists(select 1 from pipeline.schema_migrations where migration_id='0028_workspace_roster') as workspace_roster_history,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0029_historical_workspace_archive') as historical_workspace_archive_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -176,6 +178,7 @@ try {
       && before[0].staff_profile_fields
       && before[0].staff_profile_history
       && before[0].workspace_roster_history
+      && before[0].historical_workspace_archive_history
       && before[0].canvas_content_snapshots
       && before[0].canvas_content_candidates
       && before[0].allo_canvas_content_history
@@ -188,6 +191,90 @@ try {
       && before[0].workspace_month
       && before[0].workspace_month_index
       && before[0].workspace_month_history
+    ),
+  });
+  const historicalRollbackPerson = await connection`
+    insert into pipeline.people (external_client_id, display_name)
+    values ('rollback-historical-client', 'Synthetic Historical Client')
+    returning person_id
+  `;
+  const historicalRollbackReferral = await connection`
+    insert into pipeline.referrals (
+      person_id, stage, community, priority, source, tags, search_text, data,
+      workspace_origin, workspace_status, source_workspace_id, workflow_status,
+      created_by, created_by_name, updated_by, updated_by_name
+    ) values (
+      ${historicalRollbackPerson[0].person_id}::uuid, 'Packet Review', 'San Pablo', 'standard',
+      'synthetic rollback', array['source'], 'synthetic historical rollback',
+      ${connection.json({ workspaceStatus: "active", workflowStatus: "profile_incomplete" })},
+      'allo', 'historical', 'rollback-historical-workspace', 'closed',
+      'rollback-drill', 'Rollback drill', 'system:historical-workspace-archive',
+      'Historical workspace archive migration'
+    ) returning referral_id
+  `;
+  await connection`
+    update pipeline.referrals
+    set closed_at = now(),
+        tags = array_append(tags, 'historical'),
+        data = data || ${connection.json({
+          workspaceStatus: "historical",
+          workflowStatus: "closed",
+          historicalOutcome: "not_recorded",
+        })}::jsonb,
+        version = 2
+    where referral_id = ${historicalRollbackReferral[0].referral_id}
+  `;
+  await connection`
+    insert into pipeline.audit_events (
+      entity_type, entity_id, action, actor_id, actor_name,
+      from_version, to_version, changed_fields, metadata
+    ) values (
+      'referral', ${String(historicalRollbackReferral[0].referral_id)}, 'historical_workspace_closed',
+      'system:historical-workspace-archive', 'Historical workspace archive migration',
+      1, 2, array['workspace_status', 'workflow_status', 'closed_at'],
+      ${connection.json({
+        before_workspace_status: "active",
+        before_workflow_status: "profile_incomplete",
+        before_closed_at: null,
+        had_historical_tag: false,
+        historical_outcome: "not_recorded",
+      })}
+    )
+  `;
+  await connection.unsafe(historicalWorkspaceArchiveRollback);
+  const historicalArchiveDuring = await connection`
+    select
+      not exists(
+        select 1 from pipeline.schema_migrations where migration_id='0029_historical_workspace_archive'
+      ) as history_removed,
+      exists(
+        select 1 from pipeline.schema_migrations where migration_id='0028_workspace_roster'
+      ) as prior_history_preserved,
+      exists(
+        select 1 from pipeline.referrals
+        where referral_id = ${historicalRollbackReferral[0].referral_id}
+          and workspace_status = 'active'
+          and workflow_status = 'profile_incomplete'
+          and closed_at is null
+          and not ('historical' = any(tags))
+          and data->>'workspaceStatus' = 'active'
+          and data->>'workflowStatus' = 'profile_incomplete'
+          and not (data ? 'historicalOutcome')
+      ) as referral_restored,
+      not exists(
+        select 1 from pipeline.audit_events
+        where entity_type = 'referral'
+          and entity_id = ${String(historicalRollbackReferral[0].referral_id)}
+          and action = 'historical_workspace_closed'
+      ) as migration_audit_removed
+  `;
+  checks.push({
+    name: "rollback restores historical workspace archive evidence and preserves prior migration history",
+    ok: Boolean(
+      historicalArchiveDuring[0].history_removed
+      && historicalArchiveDuring[0].prior_history_preserved
+      && historicalArchiveDuring[0].referral_restored
+      && historicalArchiveDuring[0].migration_audit_removed
     ),
   });
   await connection`
@@ -643,6 +730,7 @@ try {
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='workspace_members' and column_name='profile_version') as staff_profile_fields,
       exists(select 1 from pipeline.schema_migrations where migration_id='0027_staff_profiles') as staff_profile_history,
       exists(select 1 from pipeline.schema_migrations where migration_id='0028_workspace_roster') as workspace_roster_history,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0029_historical_workspace_archive') as historical_workspace_archive_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -706,6 +794,7 @@ try {
       && after[0].staff_profile_fields
       && after[0].staff_profile_history
       && after[0].workspace_roster_history
+      && after[0].historical_workspace_archive_history
       && after[0].canvas_content_snapshots
       && after[0].canvas_content_candidates
       && after[0].allo_canvas_content_history

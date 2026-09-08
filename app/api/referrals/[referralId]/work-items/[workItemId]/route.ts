@@ -7,7 +7,7 @@ import type { RequirementStatus } from "@/lib/pipeline/referral-types";
 import { patchReferralWorkItem } from "@/lib/pipeline/workflow-store";
 import { withApiLogging } from "@/lib/observability/api-logging";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import { touchWorkspaceMember } from "@/lib/pipeline/workspace-members";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
 
@@ -38,7 +38,7 @@ export async function PATCH(
     const { referralId: rawReferralId, workItemId } = await context.params;
     const referralId = Number.parseInt(rawReferralId, 10);
     if (!Number.isInteger(referralId) || referralId < 1) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, referralId);
+    const access = await requireMutableReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
     if (!isSafeId(workItemId)) return jsonError("workItemId is invalid.");
 

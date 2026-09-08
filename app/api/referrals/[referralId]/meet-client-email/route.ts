@@ -23,7 +23,7 @@ import {
   completeMeetClientDelivery,
   reserveMeetClientDelivery,
 } from "@/lib/pipeline/meet-client-delivery-audit";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { getReferralWorkflowSnapshot } from "@/lib/pipeline/workflow-store";
@@ -45,7 +45,7 @@ export async function POST(
 
     const referralId = await parseReferralId(context);
     if (!referralId) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, referralId);
+    const access = await requireMutableReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
     const prepared = await prepareEmailRequest(request);
     if (!prepared.ok) return prepared.response;

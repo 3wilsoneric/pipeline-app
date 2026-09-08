@@ -9,9 +9,42 @@ const profileModule = loadTypeScriptModule(process.cwd(), "lib/pipeline/historic
 const store = read("lib/pipeline/historical-profile-store.ts");
 const contracts = read("lib/pipeline/historical-profile-contracts.ts");
 const route = read("app/api/referrals/[referralId]/historical-profile/route.ts");
-const assessmentRoute = read("app/api/referrals/[referralId]/assessments/route.ts");
+const workflowRoute = read("app/api/referrals/[referralId]/workflow/route.ts");
+const referralAccess = read("lib/pipeline/referral-access.ts");
+const mutableReferralRoutes = [
+  "app/api/assessments/[assessmentId]/addenda/route.ts",
+  "app/api/assessments/[assessmentId]/route.ts",
+  "app/api/assessments/[assessmentId]/schedule/route.ts",
+  "app/api/assessments/[assessmentId]/sign/route.ts",
+  "app/api/assessments/[assessmentId]/start/route.ts",
+  "app/api/referrals/[referralId]/assessments/import/route.ts",
+  "app/api/referrals/[referralId]/assessments/route.ts",
+  "app/api/referrals/[referralId]/assessments/sync-packet/route.ts",
+  "app/api/referrals/[referralId]/census-reconciliation/route.ts",
+  "app/api/referrals/[referralId]/decision/route.ts",
+  "app/api/referrals/[referralId]/ehr-handoff/route.ts",
+  "app/api/referrals/[referralId]/manual-intake/route.ts",
+  "app/api/referrals/[referralId]/meet-client-email/route.ts",
+  "app/api/referrals/[referralId]/recommendation/route.ts",
+  "app/api/referrals/[referralId]/route.ts",
+  "app/api/referrals/[referralId]/transition/route.ts",
+  "app/api/referrals/[referralId]/work-items/[workItemId]/route.ts",
+].map(read);
+const mutablePacketRoutes = [
+  "app/api/packets/[packetId]/fields/[fieldKey]/retry/route.ts",
+  "app/api/packets/[packetId]/fields/[fieldKey]/review/route.ts",
+].map(read);
+const uploadRoutes = [
+  "app/api/uploads/create-url/route.ts",
+  "app/api/uploads/local/route.ts",
+  "app/api/uploads/complete/route.ts",
+].map(read);
+const referralStore = read("lib/pipeline/referral-store.ts");
 const canvas = read("components/pipeline/ReferralPacketCanvas.tsx");
 const historicalWorkspace = read("components/pipeline/HistoricalReferralProfile.tsx");
+const importedWorkspaceStepsStart = canvas.indexOf("const importedWorkspaceSteps");
+const importedWorkspaceStepsEnd = canvas.indexOf("] as const;", importedWorkspaceStepsStart);
+const importedWorkspaceSteps = canvas.slice(importedWorkspaceStepsStart, importedWorkspaceStepsEnd);
 
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -130,19 +163,35 @@ check("imported profile API is authenticated, access-scoped, and no-store",
   route.includes("requirePipelineUser") && route.includes("requireReferralAccess")
     && route.includes('workspaceOrigin !== "allo"') && route.includes('workspaceOrigin !== "import"')
     && route.includes("private, no-store"));
-check("imported workspaces can create normal assessments",
-  !assessmentRoute.includes("Historical workspaces are read-only profiles and cannot create assessments."));
-check("imported workspaces expose Profile, Assessment, and Chart",
-  canvas.includes("const importedWorkspaceSteps")
-    && canvas.includes("{ page: 1, label: \"Profile\" }")
-    && canvas.includes("{ page: 2, label: \"Assessment\" }")
-    && canvas.includes("{ page: 3, label: \"Chart\" }")
-    && canvas.includes("activePage === 2")
-    && canvas.includes("activePage === 3"));
-check("imported workspaces keep ordinary save and file controls",
+check("historical workspaces cannot create new assessments",
+  referralAccess.includes("Historical workspaces are read-only. Create a new referral before starting an assessment.")
+    && referralAccess.includes("Historical workspaces are read-only. Create a new referral before importing an assessment."));
+check("historical workflow reads advertise no mutation capabilities",
+  workflowRoute.includes('access.referral.workspaceStatus !== "historical"')
+    && workflowRoute.includes("can_update: canUpdate")
+    && workflowRoute.includes("can_decide: mutable &&")
+    && workflowRoute.includes("can_authorize_manual_intake: mutable &&"));
+check("historical workspace mutation is blocked at both API and storage boundaries",
+  referralAccess.includes("Historical workspaces are read-only. Create a new referral for current activity.")
+    && referralAccess.includes("Historical workspaces are read-only and cannot be moved to trash.")
+    && mutableReferralRoutes.every((source) => source.includes("requireMutableReferralAccess"))
+    && mutablePacketRoutes.every((source) => source.includes("requireMutablePacketAccess"))
+    && referralStore.includes("HistoricalWorkspaceReadOnlyError")
+    && referralStore.match(/assertMutableWorkspace\(current\)/g)?.length === 4);
+check("historical workspaces cannot receive new files",
+  referralAccess.includes("Historical workspaces are read-only and cannot receive new files.")
+    && uploadRoutes.every((source) => /requireMutable(?:Referral|Packet)Access/.test(source)));
+check("historical workspaces expose one read-only Profile surface",
+  importedWorkspaceStepsStart >= 0
+    && importedWorkspaceSteps.includes("{ page: 1, label: \"Profile\" }")
+    && !importedWorkspaceSteps.includes("Assessment")
+    && !importedWorkspaceSteps.includes("Chart")
+    && canvas.includes("historicalReadOnly"));
+check("historical workspaces hide mutation controls while preserving read-only files",
   canvas.includes("<WorkspaceSaveControl")
     && canvas.includes("<WorkspaceFilesPage")
-    && !canvas.includes("readOnly={isHistoricalWorkspace}"));
+    && canvas.includes("readOnly={presentation.readOnly}")
+    && canvas.includes("This closed historical workspace preserves imported source material"));
 check("imported profile UI preserves source content without a lower-status label",
   historicalWorkspace.includes("Client information, notes, and documents carried into Pipeline")
     && historicalWorkspace.includes("Source information keeps its original provenance")

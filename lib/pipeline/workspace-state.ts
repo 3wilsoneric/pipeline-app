@@ -196,6 +196,7 @@ function resolveDocuments(
 
 function resolveLifecycle(referral: Referral): WorkspaceLifecycleState {
   if (referral.workspaceStatus === "archived" || referral.deletedAt) return "archived";
+  if (referral.workspaceStatus === "historical") return "read_only";
   return "active";
 }
 

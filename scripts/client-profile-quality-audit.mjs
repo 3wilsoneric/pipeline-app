@@ -85,7 +85,6 @@ const surfaceContracts = [
   ["lib/pipeline/recent-destinations.ts", "cleanRecentDestination"],
   ["lib/pipeline/client-workspace-store.ts", "normalizeClientName(row.display_name"],
   ["lib/pipeline/calendar-store.ts", "calendarClientName(row.client_name"],
-  ["lib/pipeline/home-briefing.ts", "normalizeClientName(row.client_name"],
   ["lib/pipeline/client-file-import-store.ts", "normalizeClientName(row.source_client_name"],
 ];
 const missingSurfaceContracts = [];

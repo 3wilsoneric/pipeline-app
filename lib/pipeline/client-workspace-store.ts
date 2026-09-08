@@ -25,6 +25,8 @@ export type ClinicalClientWorkspaceIdentity = {
 
 export type ClinicalClientWorkspaceSummary = {
   referralCount: number;
+  activeReferralCount: number;
+  historicalWorkspaceCount: number;
   documentCount: number;
 };
 
@@ -96,7 +98,12 @@ export async function getClinicalClientWorkspaceSummaries(
 ) {
   const summaries = new Map<string, ClinicalClientWorkspaceSummary>();
   for (const client of clients) {
-    summaries.set(client.canonicalClientId, { referralCount: 0, documentCount: 0 });
+    summaries.set(client.canonicalClientId, {
+      referralCount: 0,
+      activeReferralCount: 0,
+      historicalWorkspaceCount: 0,
+      documentCount: 0,
+    });
   }
   if (clients.length === 0 || getReferralStoreReadiness().mode !== "postgres") return summaries;
 
@@ -124,6 +131,8 @@ export async function getClinicalClientWorkspaceSummaries(
   const rows = await sql<{
     canonical_client_id: string;
     referral_count: number | string;
+    active_referral_count: number | string;
+    historical_workspace_count: number | string;
     document_count: number | string;
   }[]>`
     with requested_clients as (
@@ -157,7 +166,15 @@ export async function getClinicalClientWorkspaceSummaries(
           where access_referral.referral_id = rl.referral_id
         )
     ), referral_counts as (
-      select people.canonical_client_id, count(distinct referral.referral_id)::integer as referral_count
+      select
+        people.canonical_client_id,
+        count(distinct referral.referral_id)::integer as referral_count,
+        count(distinct referral.referral_id) filter (
+          where referral.workspace_status = 'active' and referral.closed_at is null
+        )::integer as active_referral_count,
+        count(distinct referral.referral_id) filter (
+          where referral.workspace_status = 'historical'
+        )::integer as historical_workspace_count
       from reviewed_people people
       join visible_referrals referral on referral.person_id = people.person_id
       group by people.canonical_client_id
@@ -188,6 +205,8 @@ export async function getClinicalClientWorkspaceSummaries(
     select
       requested.canonical_client_id,
       coalesce(referrals.referral_count, 0)::integer as referral_count,
+      coalesce(referrals.active_referral_count, 0)::integer as active_referral_count,
+      coalesce(referrals.historical_workspace_count, 0)::integer as historical_workspace_count,
       coalesce(documents.document_count, 0)::integer as document_count
     from requested_clients requested
     left join referral_counts referrals using (canonical_client_id)
@@ -196,6 +215,8 @@ export async function getClinicalClientWorkspaceSummaries(
   for (const row of rows) {
     summaries.set(row.canonical_client_id, {
       referralCount: Number(row.referral_count),
+      activeReferralCount: Number(row.active_referral_count),
+      historicalWorkspaceCount: Number(row.historical_workspace_count),
       documentCount: Number(row.document_count),
     });
   }
@@ -209,6 +230,9 @@ type PipelineClientRow = {
   community: string | null;
   admission_date: string | null;
   referral_count: number | string;
+  active_referral_count: number | string;
+  historical_workspace_count: number | string;
+  admitted_stay_count: number | string;
   document_count: number | string;
   total_count: number | string;
 };
@@ -251,6 +275,15 @@ async function listPostgresPipelineClientWorkspaces(
         (array_agg(nullif(vr.data->>'admissionDate', '') order by vr.updated_at desc, vr.referral_id desc)
           filter (where coalesce(vr.data->>'admissionDate', '') <> ''))[1]::text as admission_date,
         count(distinct vr.referral_id)::integer as referral_count,
+        count(distinct vr.referral_id) filter (
+          where vr.workspace_status = 'active' and vr.closed_at is null
+        )::integer as active_referral_count,
+        count(distinct vr.referral_id) filter (
+          where vr.workspace_status = 'historical'
+        )::integer as historical_workspace_count,
+        count(distinct vr.referral_id) filter (
+          where coalesce(vr.data->>'admissionDate', '') <> ''
+        )::integer as admitted_stay_count,
         (
           select count(*)::integer
           from pipeline.documents d
@@ -367,8 +400,10 @@ function mapPipelineClientRow(row: PipelineClientRow): ClientWorkspaceDirectoryI
     unit: null,
     admit_date: isoDateOrNull(row.admission_date),
     care_level: null,
-    episode_count: Number(row.referral_count),
+    episode_count: Number(row.admitted_stay_count),
     referral_count: Number(row.referral_count),
+    active_referral_count: Number(row.active_referral_count),
+    historical_workspace_count: Number(row.historical_workspace_count),
     document_count: Number(row.document_count),
   };
 }
@@ -403,10 +438,18 @@ function mapLocalPipelineClient(clientId: string, referrals: Referral[]): Client
     unit: null,
     admit_date: isoDateOrNull(latest.admissionDate),
     care_level: null,
-    episode_count: sorted.length,
+    episode_count: sorted.filter((referral) => isoDateOrNull(referral.admissionDate)).length,
     referral_count: sorted.length,
+    active_referral_count: sorted.filter(isOperationalReferral).length,
+    historical_workspace_count: sorted.filter((referral) => referral.workspaceStatus === "historical").length,
     document_count: documentNames.size,
   };
+}
+
+function isOperationalReferral(referral: Referral) {
+  return referral.workspaceStatus !== "historical"
+    && referral.workspaceStatus !== "archived"
+    && !["Accepted / Admitted", "Declined"].includes(referral.stage);
 }
 
 function isoDateOrNull(value: string | null | undefined) {

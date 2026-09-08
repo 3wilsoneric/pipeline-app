@@ -62,6 +62,8 @@ export async function GET(request: Request) {
         workspace_origin: "alamo_platform",
         pipeline_client_id: null,
         referral_count: summaries.get(client.canonical_client_id)?.referralCount ?? 0,
+        active_referral_count: summaries.get(client.canonical_client_id)?.activeReferralCount ?? 0,
+        historical_workspace_count: summaries.get(client.canonical_client_id)?.historicalWorkspaceCount ?? 0,
         document_count: summaries.get(client.canonical_client_id)?.documentCount ?? 0,
       }));
       const nextCursor = clinical.next_cursor

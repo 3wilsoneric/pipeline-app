@@ -8,7 +8,6 @@ import ClientProfileView from "@/components/pipeline/ClientProfileView";
 import OperationsDashboard from "@/components/pipeline/OperationsDashboard";
 import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
-import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
 import ReferralHome from "@/components/pipeline/ReferralHome";
 import ReferralPacketCanvas from "@/components/pipeline/ReferralPacketCanvas";
@@ -38,7 +37,7 @@ type PipelineScreen = "home" | "referrals" | "packet" | "calendar" | "profiles" 
 type ReferralSelection = { id: number; name?: string; gender?: string; community?: Referral["community"] };
 
 export default function PipelineOverviewRoute() {
-  const { searchTerm, setSearchTerm, searchOpen, setSearchOpen } = usePipelineShell();
+  const { searchTerm, setSearchTerm, setSearchOpen } = usePipelineShell();
   const searchParams = useSearchParams();
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
@@ -148,22 +147,6 @@ export default function PipelineOverviewRoute() {
     replacePipelineHistory(params.size ? `/?${params.toString()}` : "/");
   };
 
-  const globalSearchPanel = searchOpen ? (
-    <PipelineSearchPanel
-      autoFocus
-      canAccessReports={reportAccess === true}
-      onOpenPacket={(referral) => {
-        setSearchOpen(false);
-        navigate("packet", referral);
-      }}
-      onOpenProfile={(clientId) => {
-        setSearchOpen(false);
-        navigate("profile", undefined, clientId);
-      }}
-      onOpenDestination={(destination) => navigate(destination)}
-    />
-  ) : null;
-
   if (screen === "home") {
     return (
       <PipelineWelcome
@@ -171,6 +154,10 @@ export default function PipelineOverviewRoute() {
         onOpenPacket={(referral) => navigate("packet", referral)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
+        onViewAllSearchResults={(query) => {
+          setSearchTerm(query);
+          navigate("referrals");
+        }}
         onResumeDraft={resumeReferralDraft}
         currentWorkOpen={currentWorkOpen}
         onOpenCurrentWork={openCurrentWork}
@@ -211,6 +198,7 @@ export default function PipelineOverviewRoute() {
       <ClientProfileView
         residentKey={selectedClientId}
         onBack={() => navigate("profiles")}
+        onOpenWorkspace={(referral) => navigate("packet", referral)}
       />
     );
   } else if (screen === "operations") {
@@ -240,17 +228,9 @@ export default function PipelineOverviewRoute() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
-      {searchOpen ? (
-        <div className="pipeline-search-enter h-full min-h-0 flex-1 overflow-y-auto bg-white px-5 pb-8 pt-3 md:px-8">
-          <div className="mx-auto w-full max-w-[1240px]">
-            {globalSearchPanel}
-          </div>
-        </div>
-      ) : (
-        <div className="pipeline-route-enter h-full min-h-0 flex-1 overflow-hidden">
-          {page}
-        </div>
-      )}
+      <div className="pipeline-route-enter h-full min-h-0 flex-1 overflow-hidden">
+        {page}
+      </div>
     </div>
   );
 }

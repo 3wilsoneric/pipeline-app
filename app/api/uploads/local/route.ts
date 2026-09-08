@@ -4,7 +4,7 @@ import { getExtractionBackendMode } from "@/lib/extraction/backend-config";
 import { maxUploadFileBytes } from "@/lib/extraction/contracts";
 import { extractionErrorResponse, ingestLocalMockPacketFile } from "@/lib/extraction/extraction-service";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requirePacketAccess } from "@/lib/pipeline/referral-access";
+import { requireMutablePacketAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     if (!packetId || !fileId || !(packet instanceof File)) {
       return Response.json({ error: "packet_id, file_id, and file are required." }, { status: 400 });
     }
-    const access = await requirePacketAccess(auth.user, packetId);
+    const access = await requireMutablePacketAccess(auth.user, packetId, "files");
     if (!access.ok) return access.response;
     if (packet.size < 5 || packet.size > maxUploadFileBytes) {
       return Response.json({ error: "The initial packet must be between 5 bytes and 100 MB." }, { status: 413 });

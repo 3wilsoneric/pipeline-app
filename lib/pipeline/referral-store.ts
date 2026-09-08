@@ -285,6 +285,19 @@ export class SuspectedDuplicateReferralError extends Error {
   }
 }
 
+export class HistoricalWorkspaceReadOnlyError extends Error {
+  constructor(public readonly referralId: number) {
+    super("Historical workspaces are read-only. Create a new referral for current activity.");
+    this.name = "HistoricalWorkspaceReadOnlyError";
+  }
+}
+
+function assertMutableWorkspace(referral: Referral) {
+  if (referral.workspaceStatus === "historical") {
+    throw new HistoricalWorkspaceReadOnlyError(referral.id);
+  }
+}
+
 const globalForReferralStore = globalThis as typeof globalThis & {
   __pipelineReferralStore?: ReferralStoreState;
 };
@@ -853,6 +866,7 @@ async function patchLocalReferral(
   if (index < 0) return null;
 
   const current = state.referrals[index];
+  assertMutableWorkspace(current);
   const idempotencyKey = referralPatchIdempotencyKey(metadata);
   if (idempotencyKey && state.patchMutations.get(idempotencyKey) === id) {
     return { ok: true, referral: current, revision: state.revision, idempotentReplay: true };
@@ -1025,6 +1039,7 @@ async function softDeleteLocalReferral(
   const index = state.referrals.findIndex((referral) => referral.id === id);
   if (index < 0 || isDeletedReferral(state.referrals[index])) return null;
   const current = state.referrals[index];
+  assertMutableWorkspace(current);
   if (expectedVersion !== undefined && expectedVersion !== current.version) {
     return { ok: false, conflict: true, referral: current };
   }
@@ -1820,6 +1835,7 @@ async function patchPostgresReferral(
     }
     const current = await getReferralInTransaction(tx, id, true);
     if (!current) return null;
+    assertMutableWorkspace(current);
     const currentVersion = current.version ?? 1;
     const clientId = current.clientId ?? buildLocalClientId(current.id);
     const safePatch = sanitizePatch(patch);
@@ -2046,6 +2062,7 @@ async function softDeletePostgresReferral(
     `;
     if (!currentRows[0]) return null;
     const current = mapReferralRow(currentRows[0]);
+    assertMutableWorkspace(current);
     if (expectedVersion !== undefined && expectedVersion !== current.version) {
       return { ok: false, conflict: true, referral: current };
     }

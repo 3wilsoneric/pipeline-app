@@ -33,6 +33,7 @@ const historicalWorkspaceImport = read("scripts/import-allo-material-workspaces.
 const historicalAdmissionBackfill = read("scripts/backfill-allo-admission-evidence.mjs");
 const historicalWorkspaceCommon = read("scripts/allo-workspace-import-common.mjs");
 const importedWorkspaceLifecycleMigration = read("database/migrations/0026_imported_workspace_lifecycle.sql");
+const historicalWorkspaceArchiveMigration = read("database/migrations/0029_historical_workspace_archive.sql");
 
 const checks = [];
 const check = (name, value) => checks.push({ name, ok: Boolean(value) });
@@ -76,9 +77,9 @@ check("checklist reconciliation preserves reviewed evidence", documentReconcilia
 check("supporting drop zones upload immediately for saved referrals", referralPacketUpload.includes('"preview_only"') && referralCanvas.includes("refreshed.referral") && referralCanvas.includes("linkedRequirement?.evidenceDocumentId"));
 check("initial uploads require an explicit document type", referralCanvas.includes('aria-label="Initial document type"') && referralPacketUpload.includes('"face_sheet" | "referral_packet"'));
 check("every material canvas becomes one idempotent imported workspace", historicalWorkspaceMigration.includes("referrals_source_workspace_unique_idx") && historicalWorkspaceImport.includes("on conflict (workspace_origin, source_workspace_id)"));
-check("imported workspaces use active lifecycle state with explicit in-progress or completed workflow", historicalWorkspaceImport.includes("'allo', 'active'") && historicalWorkspaceImport.includes("workflowStatus") && historicalWorkspaceImport.includes("admissionDate ? \"accepted\""));
-check("repeat imports preserve archived and progressed workspace state", historicalWorkspaceImport.includes("pipeline.referrals.workspace_status = 'archived'") && historicalWorkspaceImport.includes("workflow_status not in ('intake_unassigned', 'profile_incomplete')"));
-check("legacy imported workspaces are reclassified without losing source provenance", importedWorkspaceLifecycleMigration.includes("workspace_origin in ('allo', 'import')") && importedWorkspaceLifecycleMigration.includes("workspace_status = 'active'") && importedWorkspaceLifecycleMigration.includes("imported_workspace_reclassified"));
+check("imported workspaces use a closed historical lifecycle with truthful known or unknown outcomes", historicalWorkspaceImport.includes("'allo', 'historical'") && historicalWorkspaceImport.includes('workflowStatus = admissionDate ? "accepted" : "closed"') && historicalWorkspaceImport.includes('historicalOutcome = admissionDate ? "admitted" : "not_recorded"'));
+check("repeat imports preserve archived and terminal workspace state", historicalWorkspaceImport.includes("pipeline.referrals.workspace_status = 'archived'") && historicalWorkspaceImport.includes("workflow_status in ('accepted', 'declined')"));
+check("legacy imported workspaces are archived without losing source provenance or inventing outcomes", importedWorkspaceLifecycleMigration.includes("workspace_origin in ('allo', 'import')") && historicalWorkspaceArchiveMigration.includes("workspace_status = 'historical'") && historicalWorkspaceArchiveMigration.includes("not_recorded") && historicalWorkspaceArchiveMigration.includes("historical_workspace_closed"));
 check("imported workspace preparation does not infer workflow stages", !historicalWorkspacePrepare.includes("historicalStageFor") && !historicalWorkspacePrepare.includes("historical_stage") && !historicalWorkspaceCommon.includes("historical_stage"));
 check("unique client-history admission evidence is preserved without inventing decisions", historicalWorkspaceImport.includes("profile?.admit_date") && historicalAdmissionBackfill.includes("unique_admitted_profile_match") && !historicalAdmissionBackfill.includes("admissionDecision"));
 check("admission evidence backfill is dry-run first and doubly confirmed", historicalAdmissionBackfill.includes("--dry-run") && historicalAdmissionBackfill.includes("BACKFILL-ALLO-ADMISSION-EVIDENCE"));

@@ -14,7 +14,7 @@ import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 
@@ -30,7 +30,7 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     if (!safeAssessmentId(assessmentId)) return jsonError("assessmentId is invalid.");
     const assessment = await getAssessment(assessmentId);
     if (!assessment) return jsonError("Assessment not found.", 404);
-    const access = await requireReferralAccess(auth.user, assessment.referral_id);
+    const access = await requireMutableReferralAccess(auth.user, assessment.referral_id);
     if (!access.ok) return access.response;
     if (!canWorkAssessment(auth.user, assessment.assessor_id)) {
       return jsonError("Only the assigned assessor or a supervisor can schedule this assessment.", 403);

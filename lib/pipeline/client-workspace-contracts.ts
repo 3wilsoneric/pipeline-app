@@ -7,6 +7,8 @@ export type ClientWorkspaceDirectoryItem = ClinicalClientDirectoryItem & {
   workspace_origin: "alamo_platform" | "pipeline";
   pipeline_client_id: string | null;
   referral_count: number;
+  active_referral_count: number;
+  historical_workspace_count: number;
   document_count: number;
 };
 

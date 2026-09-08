@@ -14,7 +14,7 @@ import {
 import { assessmentAssigneeForReferral, canWorkAssessment } from "@/lib/assessment/assessment-access";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
 import { withApiLogging } from "@/lib/observability/api-logging";
 
 export const runtime = "nodejs";
@@ -36,7 +36,7 @@ export async function POST(
     const { referralId: rawReferralId } = await context.params;
     const referralId = Number.parseInt(rawReferralId, 10);
     if (!Number.isInteger(referralId) || referralId < 1) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, referralId);
+    const access = await requireMutableReferralAccess(auth.user, referralId, "assessment_import");
     if (!access.ok) return access.response;
     const referral = access.referral;
     const assessmentAssignee = assessmentAssigneeForReferral(auth.user, referral);

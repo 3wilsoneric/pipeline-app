@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:b8b6cdd777389fa7",
-  "fingerprint": "b8b6cdd777389fa72c65a6159d77f99b8ca3ed061d3bca70b22f6a6e8c266656",
+  "generatedAt": "source-fingerprint:34dedddfb671cd12",
+  "fingerprint": "34dedddfb671cd12b0f7e8ac4040c17e3857f75d6e9cd47ddeb0b44625998904",
   "totals": {
-    "files": 852,
-    "lines": 283408,
-    "coveredFiles": 852
+    "files": 854,
+    "lines": 284255,
+    "coveredFiles": 854
   },
   "entries": [
     {
@@ -1014,7 +1014,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 175,
+      "lines": 177,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -1130,7 +1130,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 110,
+      "lines": 114,
       "moduleIds": [
         "assessment-decision-handoff",
         "medication-decision-ehr"
@@ -1244,7 +1244,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 345,
+      "lines": 346,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1293,7 +1293,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 49,
+      "lines": 60,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1382,7 +1382,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 311,
+      "lines": 333,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -1759,7 +1759,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 655,
+      "lines": 671,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1771,7 +1771,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1273,
+      "lines": 1367,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1891,7 +1891,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 207,
+      "lines": 206,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -1951,7 +1951,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 328,
+      "lines": 349,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -1987,7 +1987,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 362,
+      "lines": 342,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1999,7 +1999,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 626,
+      "lines": 712,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2023,7 +2023,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 347,
+      "lines": 349,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2083,7 +2083,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3545,
+      "lines": 3595,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2131,7 +2131,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 249,
+      "lines": 250,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2143,7 +2143,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 136,
+      "lines": 137,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2371,7 +2371,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 35,
+      "lines": 36,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -2714,6 +2714,18 @@
       ]
     },
     {
+      "path": "database/migrations/0029_historical_workspace_archive.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 100,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -2996,6 +3008,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 28,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0029_historical_workspace_archive.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 52,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -3728,7 +3752,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 38,
+      "lines": 39,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6103,7 +6127,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 24,
+      "lines": 26,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6115,7 +6139,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 428,
+      "lines": 471,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -6439,7 +6463,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 93,
+      "lines": 130,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -6656,7 +6680,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3222,
+      "lines": 3239,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -6815,7 +6839,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 744,
+      "lines": 757,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -6971,7 +6995,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 247,
+      "lines": 259,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -6983,7 +7007,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 282,
+      "lines": 283,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7799,7 +7823,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 218,
+      "lines": 223,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -7847,7 +7871,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 526,
+      "lines": 532,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8015,7 +8039,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 200,
+      "lines": 199,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8027,7 +8051,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 102,
+      "lines": 103,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8039,7 +8063,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 540,
+      "lines": 544,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8411,7 +8435,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 445,
+      "lines": 464,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -8435,7 +8459,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 739,
+      "lines": 828,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8663,7 +8687,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 160,
+      "lines": 209,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8735,7 +8759,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 536,
+      "lines": 534,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8807,7 +8831,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 181,
+      "lines": 190,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10045,7 +10069,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 3108,
+      "lines": 3207,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

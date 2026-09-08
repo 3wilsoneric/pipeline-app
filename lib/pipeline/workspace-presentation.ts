@@ -3,9 +3,9 @@ import { extractImportedClientMetadata } from "./client-identity-presentation.mj
 import { resolveReferralWorkflowStatus, workflowStatusLabels } from "./workflow-status";
 
 export type WorkspaceAdmissionOutcome = {
-  status: "admitted" | "accepted" | "denied" | "pending";
-  label: "Admitted" | "Accepted" | "Denied" | "In progress";
-  evidence: "recorded" | "census_match" | "open";
+  status: "admitted" | "accepted" | "denied" | "pending" | "unknown";
+  label: "Admitted" | "Accepted" | "Denied" | "In progress" | "Outcome not recorded";
+  evidence: "recorded" | "census_match" | "open" | "historical";
   explanation: string;
 };
 
@@ -139,6 +139,15 @@ export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmis
     };
   }
 
+  if (referral.workspaceStatus === "historical") {
+    return {
+      status: "unknown",
+      label: "Outcome not recorded",
+      evidence: "historical",
+      explanation: "The workspace is closed historical source material, but its decision was not recovered from the structured import.",
+    };
+  }
+
   return {
     status: "pending",
     label: "In progress",
@@ -153,6 +162,9 @@ export function isImportedWorkspace(referral: Pick<Referral, "workspaceOrigin">)
 
 export function getWorkspaceWorkflowLabel(referral: Referral) {
   if (referral.workspaceStatus === "archived") return "Archived";
+  if (referral.workspaceStatus === "historical") {
+    return `Historical · ${getWorkspaceAdmissionOutcome(referral).label}`;
+  }
   const workflowStatus = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
   if (isImportedWorkspace(referral)) {
     const outcome = getWorkspaceAdmissionOutcome(referral);

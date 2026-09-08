@@ -169,7 +169,11 @@ const results = await Promise.all([
   }),
   run("browser code imports clinical contracts without the server-only adapter", () => {
     const browserSearch = read("components/pipeline/PipelineSearchPanel.tsx");
-    assert(browserSearch.includes('from "@/lib/clinical/clinical-contracts"'), "Browser code must use public clinical types");
+    assert(
+      browserSearch.includes('from "@/lib/clinical/clinical-contracts"')
+        || browserSearch.includes('from "@/lib/pipeline/client-workspace-contracts"'),
+      "Browser code must use public clinical or client-workspace types",
+    );
     assert(!browserSearch.includes('from "@/lib/clinical/clinical-data"'), "Browser code must not import the server-only adapter");
     const profileDirectory = read("components/pipeline/ClientProfileDirectory.tsx");
     const profileView = read("components/pipeline/ClientProfileView.tsx");

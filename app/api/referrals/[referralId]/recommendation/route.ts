@@ -4,7 +4,7 @@ import { isAssessmentSupervisor } from "@/lib/assessment/assessment-access";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
-import { requireReferralAccess } from "@/lib/pipeline/referral-access";
+import { requireMutableReferralAccess, requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { requireReferralStore } from "@/lib/pipeline/referral-store";
 import { getReferralWorkflowSnapshot, recordAssessmentRecommendation } from "@/lib/pipeline/workflow-store";
 import { validateClientMutationId } from "@/lib/pipeline/client-mutation-id";
@@ -35,7 +35,7 @@ export async function PUT(request: Request, context: { params: Promise<{ referra
     if (!readiness.ok) return readiness.response;
     const referralId = await parseReferralId(context);
     if (!referralId) return jsonError("referralId is invalid.");
-    const access = await requireReferralAccess(auth.user, referralId);
+    const access = await requireMutableReferralAccess(auth.user, referralId);
     if (!access.ok) return access.response;
     const body = await readJsonBody(request);
     if (!body.ok) return jsonError(body.message, body.status);

@@ -257,7 +257,37 @@ jobs:
           echo "liveness_url=$(jq -r '.livenessUrl.value' runtime-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "readiness_url=$(jq -r '.readinessUrl.value' runtime-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "database_bootstrap_job=$(jq -r '.databaseBootstrapJobName.value' runtime-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "database_backup_job=$(jq -r '.databaseBackupJobName.value' runtime-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "database_migration_job=$(jq -r '.databaseMigrationJobName.value' runtime-outputs.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Create and verify pre-migration database backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          job='${{ steps.runtime.outputs.database_backup_job }}'
+          az containerapp job start \
+            --resource-group '${{ vars.AZURE_RESOURCE_GROUP }}' \
+            --name "$job" \
+            --output none
+          for attempt in {1..90}; do
+            status="$(az containerapp job execution list \
+              --resource-group '${{ vars.AZURE_RESOURCE_GROUP }}' \
+              --name "$job" \
+              --query 'sort_by(@,&properties.startTime)[-1].properties.status' \
+              --output tsv)"
+            if [[ "$status" == "Succeeded" ]]; then
+              break
+            fi
+            if [[ "$status" == "Failed" || "$status" == "Stopped" || "$status" == "Degraded" ]]; then
+              echo "The pre-migration database backup failed with status $status." >&2
+              exit 1
+            fi
+            if [[ "$attempt" == 90 ]]; then
+              echo "The pre-migration database backup did not finish within 15 minutes." >&2
+              exit 1
+            fi
+            sleep 10
+          done
 
       - name: Apply checksum-guarded database changes
         shell: bash

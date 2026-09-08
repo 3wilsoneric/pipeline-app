@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CircleHelp, GraduationCap, LogOut, Settings, Trash2, UserRound } from "lucide-react";
@@ -25,7 +25,8 @@ export default function PipelineHeader() {
   const pathname = normalizePathname(usePathname());
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeSearchParams = new URLSearchParams(usePipelineLocationSearch(searchParamsText(searchParams)));
+  const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
+  const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const auth = usePipelineAuth();
   const { homeMode, searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
@@ -101,6 +102,26 @@ export default function PipelineHeader() {
     navigatePipelineDestination(pathname, destination, router);
   };
 
+  const focusHomeSearch = useCallback(() => {
+    setHomeMode("welcome");
+    const onHome = pathname === "/" && activeSearchParams.size === 0;
+    if (!onHome) navigatePipelineDestination(pathname, "/", router);
+    setSearchOpen(true);
+  }, [activeSearchParams, pathname, router, setHomeMode, setSearchOpen]);
+
+  useEffect(() => {
+    const focusSearchFromKeyboard = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      const shortcut = event.key === "/" || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k");
+      if (!shortcut) return;
+      event.preventDefault();
+      focusHomeSearch();
+    };
+    window.addEventListener("keydown", focusSearchFromKeyboard);
+    return () => window.removeEventListener("keydown", focusSearchFromKeyboard);
+  }, [focusHomeSearch]);
+
   return (
     <header className="relative flex h-[68px] shrink-0 items-center overflow-visible bg-white px-3 max-[359px]:px-1 sm:h-[74px] sm:px-5 lg:px-6 xl:h-[82px] xl:px-8">
       <div className="relative z-10 flex shrink-0 items-center">
@@ -145,7 +166,7 @@ export default function PipelineHeader() {
             searchOpen={searchOpen}
             showSearch={pathname === "/"}
             showReports={canAccessReports}
-            onOpenSearch={() => setSearchOpen((current) => !current)}
+            onOpenSearch={focusHomeSearch}
             onNavigate={navigateTo}
           />
         </div>

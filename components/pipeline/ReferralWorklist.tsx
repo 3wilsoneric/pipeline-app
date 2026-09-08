@@ -222,10 +222,11 @@ function WorkspaceChartThumbnail({ referral, progress }: { referral: Referral; p
   );
 }
 
-function outcomeTextClass(status: "admitted" | "accepted" | "denied" | "pending") {
+function outcomeTextClass(status: "admitted" | "accepted" | "denied" | "pending" | "unknown") {
   if (status === "admitted") return "font-semibold text-[#0f705d]";
   if (status === "accepted") return "font-semibold text-[#405b9d]";
   if (status === "denied") return "font-semibold text-[#8c392f]";
+  if (status === "unknown") return "font-normal text-[#737373]";
   return "font-normal text-[#6b5a2a]";
 }
 

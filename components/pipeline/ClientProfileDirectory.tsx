@@ -38,7 +38,7 @@ type ClientDirectoryPayload = {
   freshness: ClinicalFreshness;
 };
 
-type ClientScope = "all" | "current" | "pipeline";
+type ClientScope = "work" | "current" | "active" | "archive";
 type AdmissionFilter = "any" | "last_30_days" | "last_3_months" | "last_6_months" | "last_12_months" | "older_than_12_months" | "missing";
 type ProfileDataFilter = "any" | "missing_any" | "missing_unit" | "missing_admit_date" | "complete";
 type SortOption = "name" | "community" | "recent_admission" | "pipeline_activity";
@@ -73,7 +73,7 @@ export default function ClientProfileDirectory({
   const [reloadKey, setReloadKey] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(DISPLAY_INCREMENT);
   const [knownCommunities, setKnownCommunities] = useState<CommunityOption[]>([]);
-  const [scope, setScope] = useState<ClientScope>("all");
+  const [scope, setScope] = useState<ClientScope>("work");
   const [communityFilter, setCommunityFilter] = useState("");
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
   const [profileDataFilter, setProfileDataFilter] = useState<ProfileDataFilter>("any");
@@ -196,8 +196,7 @@ export default function ClientProfileDirectory({
 
   const filteredClients = useMemo(() => clients
     .filter((client) => {
-      if (scope === "current" && !client.current_resident) return false;
-      if (scope === "pipeline" && client.referral_count === 0 && client.document_count === 0) return false;
+      if (!matchesDirectoryScope(client, scope)) return false;
       if (communityFilter && !client.community_names.includes(communityFilter)) return false;
       if (admissionFilter !== "any" && !matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf)) return false;
       if (profileDataFilter !== "any" && !matchesProfileDataFilter(client, profileDataFilter)) return false;
@@ -213,16 +212,17 @@ export default function ClientProfileDirectory({
       sort,
     ]);
   const visibleClients = filteredClients.slice(0, displayLimit);
-  const hasDirectoryFilters = scope !== "all"
+  const hasDirectoryFilters = scope !== "work"
     || Boolean(communityFilter)
     || admissionFilter !== "any"
     || profileDataFilter !== "any";
   const hasAppliedFilters = hasDirectoryFilters || Boolean(query.trim());
   const hasClinicalClients = clients.some((client) => client.workspace_origin === "alamo_platform");
   const scopeCounts = useMemo(() => ({
-    all: clients.length,
-    current: clients.filter((client) => client.current_resident).length,
-    pipeline: clients.filter((client) => client.referral_count > 0 || client.document_count > 0).length,
+    work: clients.filter((client) => matchesDirectoryScope(client, "work")).length,
+    current: clients.filter((client) => matchesDirectoryScope(client, "current")).length,
+    active: clients.filter((client) => matchesDirectoryScope(client, "active")).length,
+    archive: clients.filter((client) => matchesDirectoryScope(client, "archive")).length,
   }), [clients]);
   const countLabel = isLoading && clients.length === 0
     ? "Loading clients..."
@@ -238,7 +238,7 @@ export default function ClientProfileDirectory({
       : "";
 
   const clearFilters = () => {
-    setScope("all");
+    setScope("work");
     setCommunityFilter("");
     setAdmissionFilter("any");
     setProfileDataFilter("any");
@@ -293,10 +293,11 @@ export default function ClientProfileDirectory({
             </div>
           </div>
 
-          <div className="mt-3 grid min-w-0 grid-cols-3 gap-2 sm:flex sm:items-end sm:gap-5" role="tablist" aria-label="Client directory scope">
-            <ScopeButton active={scope === "all"} label="All clients" mobileLabel="All" count={scopeCounts.all} complete={directoryComplete} onClick={() => { setScope("all"); setDisplayLimit(DISPLAY_INCREMENT); }} />
+          <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:flex sm:items-end sm:gap-5" role="tablist" aria-label="Client directory scope">
+            <ScopeButton active={scope === "work"} label="Current work" mobileLabel="Work" count={scopeCounts.work} complete={directoryComplete} onClick={() => { setScope("work"); setDisplayLimit(DISPLAY_INCREMENT); }} />
             <ScopeButton active={scope === "current"} label="Current census" mobileLabel="Census" count={scopeCounts.current} complete={directoryComplete} onClick={() => { setScope("current"); setDisplayLimit(DISPLAY_INCREMENT); }} disabled={directoryComplete && !hasClinicalClients} />
-            <ScopeButton active={scope === "pipeline"} label="Pipeline activity" mobileLabel="Pipeline" count={scopeCounts.pipeline} complete={directoryComplete} onClick={() => { setScope("pipeline"); setDisplayLimit(DISPLAY_INCREMENT); }} />
+            <ScopeButton active={scope === "active"} label="Active referrals" mobileLabel="Active" count={scopeCounts.active} complete={directoryComplete} onClick={() => { setScope("active"); setDisplayLimit(DISPLAY_INCREMENT); }} />
+            <ScopeButton active={scope === "archive"} label="Archive" mobileLabel="Archive" count={scopeCounts.archive} complete={directoryComplete} onClick={() => { setScope("archive"); setDisplayLimit(DISPLAY_INCREMENT); }} />
           </div>
         </section>
 
@@ -387,6 +388,13 @@ export default function ClientProfileDirectory({
       </div>
     </main>
   );
+}
+
+function matchesDirectoryScope(client: DirectoryClient, scope: ClientScope) {
+  if (scope === "work") return client.current_resident || client.active_referral_count > 0;
+  if (scope === "current") return client.current_resident;
+  if (scope === "active") return client.active_referral_count > 0;
+  return !client.current_resident && client.active_referral_count === 0;
 }
 
 function directoryCacheKey(userId: string | undefined, query: string) {
@@ -488,7 +496,15 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
   });
   const gender = resolveClientGender(client.gender);
   const community = resolveClientCommunity(client.current_community, client.community_names[0]);
-  const profileKind = client.current_resident ? "Current census" : "Client workspace";
+  const profileKind = client.current_resident
+    ? "Current census"
+    : client.active_referral_count > 0
+      ? "Active referral"
+      : client.historical_workspace_count > 0
+        ? "Historical archive"
+        : client.episode_count > 0
+          ? "Prior resident"
+          : "Client record";
   const location = [community, client.unit ? `Unit ${client.unit}` : null].filter(Boolean).join(" · ");
 
   return (

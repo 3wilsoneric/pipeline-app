@@ -3,8 +3,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, Search } from "lucide-react";
 
-import type { ClinicalClientDirectoryItem } from "@/lib/clinical/clinical-contracts";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
+import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineSiteDestination, PipelineSiteScreen } from "@/lib/pipeline/site-search";
 import { searchSiteDestinations } from "@/lib/pipeline/site-search";
@@ -21,6 +21,7 @@ import {
   resolveClientCommunity,
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { getWorkspaceAdmissionOutcome } from "@/lib/pipeline/workspace-presentation";
 
 type SuggestedSearchMode = PipelineQuestionSearchMode;
 
@@ -36,7 +37,7 @@ type SearchResult = {
   interpreted_query: string;
   referrals: Referral[];
   files: ReferralFile[];
-  clients: ClinicalClientDirectoryItem[];
+  clients: ClientWorkspaceDirectoryItem[];
   destinations?: PipelineSiteDestination[];
   clinical_warning?: string | null;
   counts: {
@@ -93,6 +94,8 @@ export default function PipelineSearchPanel({
   canAccessReports = false,
   autoFocus = false,
   resting = false,
+  onSearchFocused,
+  onViewAllResults,
   className = "",
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
@@ -101,6 +104,8 @@ export default function PipelineSearchPanel({
   canAccessReports?: boolean;
   autoFocus?: boolean;
   resting?: boolean;
+  onSearchFocused?: () => void;
+  onViewAllResults?: (query: string) => void;
   className?: string;
 }) {
   const [searchText, setSearchText] = useState("");
@@ -112,6 +117,7 @@ export default function PipelineSearchPanel({
   const [searchNonce, setSearchNonce] = useState(0);
   const [selectedQuestionIntent, setSelectedQuestionIntent] = useState<string>();
   const submitRequestedRef = useRef(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const visibleSuggestions = suggestedSearches;
   const normalizedQuery = searchText.trim();
@@ -123,7 +129,12 @@ export default function PipelineSearchPanel({
     }
     return interpretPipelineQuestion(normalizedQuery, { includeReports: canAccessReports });
   }, [canAccessReports, normalizedQuery, selectedQuestionIntent, selectedSuggestion]);
-  const showSuggestions = !normalizedQuery && (!resting || isFocused) && !result && !error;
+  const showSuggestions = shouldShowSearchSuggestions({ normalizedQuery, resting, isFocused, result, error });
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    searchInputRef.current?.focus();
+  }, [autoFocus]);
 
   useEffect(() => {
     if (selectedSuggestion) return;
@@ -258,6 +269,7 @@ export default function PipelineSearchPanel({
       <form onSubmit={submitSearch} className={`relative flex items-center bg-transparent ${resting ? "border-b border-[#b3b3b3]" : ""}`}>
         <Search size={resting ? 22 : 20} className="shrink-0 text-[#c4832c]" />
         <input
+          ref={searchInputRef}
           autoFocus={autoFocus}
           aria-label="Search or ask"
           value={searchText}
@@ -268,7 +280,10 @@ export default function PipelineSearchPanel({
             setResult(null);
             setError("");
           }}
-          onFocus={() => setIsFocused(true)}
+          onFocus={() => {
+            setIsFocused(true);
+            onSearchFocused?.();
+          }}
           placeholder="Find a client, workspace, or document, or ask how something works..."
           className={`${resting ? "h-16 text-[17px]" : "h-12 text-[15px]"} min-w-0 flex-1 bg-transparent px-3 text-[#111111] outline-none placeholder:text-[#8a8a8a]`}
         />
@@ -339,6 +354,8 @@ export default function PipelineSearchPanel({
           onOpenPacket={onOpenPacket}
           onOpenProfile={onOpenProfile}
           onOpenDestination={onOpenDestination}
+          onViewAllResults={onViewAllResults}
+          viewAllQuery={selectedSuggestion ? "" : result.query}
         />
       ) : null}
     </section>
@@ -416,12 +433,16 @@ function SearchResponse({
   onOpenPacket,
   onOpenProfile,
   onOpenDestination,
+  onViewAllResults,
+  viewAllQuery,
 }: {
   result: SearchResult;
   isSearching: boolean;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onOpenDestination: (screen: PipelineSiteScreen) => void;
+  onViewAllResults?: (query: string) => void;
+  viewAllQuery: string;
 }) {
   const displayedCount = (result.destinations?.length ?? 0)
     + result.referrals.length
@@ -460,8 +481,8 @@ function SearchResponse({
           <SearchResultRow
             key={`referral-${referral.id}`}
             title={formatClientIdentityTitle(referral)}
-            detail={formatClientIdentityDetail(resolveClientGender(referral.gender), resolveClientCommunity(referral.community), referral.owner || "Unassigned")}
-            kind="Workspace"
+            detail={workspaceSearchResultDetail(referral)}
+            kind={workspaceSearchResultKind(referral)}
             ariaLabel={`Open workspace for ${formatClientIdentityTitle(referral)}`}
             onClick={() => onOpenPacket(referral)}
           />
@@ -490,9 +511,7 @@ function SearchResponse({
               gender: client.gender,
               community: client.current_community || client.community_names[0],
             })}
-            detail={formatClientIdentityDetail(resolveClientGender(client.gender), resolveClientCommunity(client.current_community, client.community_names[0]), client.current_resident
-              ? `Current resident${client.unit ? ` · Unit ${client.unit}` : ""}`
-              : "Prior resident")}
+            detail={clientSearchResultDetail(client)}
             kind="Client"
             ariaLabel={`Open profile for ${formatClientIdentityTitle({
               name: client.display_name,
@@ -508,12 +527,79 @@ function SearchResponse({
           {result.clinical_warning}
         </div>
       ) : null}
+      <SearchViewAllAction
+        displayedCount={displayedCount}
+        total={result.counts.total}
+        query={viewAllQuery}
+        onViewAllResults={onViewAllResults}
+      />
     </div>
+  );
+}
+
+function SearchViewAllAction({
+  displayedCount,
+  total,
+  query,
+  onViewAllResults,
+}: {
+  displayedCount: number;
+  total: number;
+  query: string;
+  onViewAllResults?: (query: string) => void;
+}) {
+  if (displayedCount >= total || !onViewAllResults) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onViewAllResults(query)}
+      className="flex min-h-12 w-full items-center justify-between border-t border-[#d9d9d9] px-5 text-left text-[11px] font-black text-[#0f8b73] hover:bg-[#f2f8f6] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0f8b73] md:px-6"
+    >
+      <span>View all results</span>
+      <ArrowRight size={15} aria-hidden="true" />
+    </button>
   );
 }
 
 function fileClientName(file: Pick<ReferralFile, "referralName" | "community">) {
   return formatClientIdentityTitle({ name: file.referralName, community: file.community });
+}
+
+function workspaceSearchResultDetail(referral: Referral) {
+  const context = referral.workspaceStatus === "historical"
+    ? `Historical · ${getWorkspaceAdmissionOutcome(referral).label} · Source owner: ${referral.owner || "Not recorded"}`
+    : referral.owner || "Unassigned";
+  return formatClientIdentityDetail(
+    resolveClientGender(referral.gender),
+    resolveClientCommunity(referral.community),
+    context,
+  );
+}
+
+function workspaceSearchResultKind(referral: Referral) {
+  return referral.workspaceStatus === "historical" ? "Historical workspace" : "Workspace";
+}
+
+function clientSearchResultDetail(client: ClientWorkspaceDirectoryItem) {
+  let context = "Prior resident";
+  if (client.current_resident) context = `Current resident${client.unit ? ` · Unit ${client.unit}` : ""}`;
+  else if (client.active_referral_count > 0) context = `${client.active_referral_count} active referral${client.active_referral_count === 1 ? "" : "s"}`;
+  else if (client.historical_workspace_count > 0) context = "Historical archive";
+  return formatClientIdentityDetail(
+    resolveClientGender(client.gender),
+    resolveClientCommunity(client.current_community, client.community_names[0]),
+    context,
+  );
+}
+
+function shouldShowSearchSuggestions(input: {
+  normalizedQuery: string;
+  resting: boolean;
+  isFocused: boolean;
+  result: SearchResult | null;
+  error: string;
+}) {
+  return !input.normalizedQuery && (!input.resting || input.isFocused) && !input.result && !input.error;
 }
 
 function emptySearchResult(query: string, destinations: PipelineSiteDestination[] = []): SearchResult {

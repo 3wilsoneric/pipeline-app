@@ -188,9 +188,46 @@ const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
 
 const importedWorkspaceSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
   { page: 1, label: "Profile" },
-  { page: 2, label: "Assessment" },
-  { page: 3, label: "Chart" },
 ] as const;
+
+function mutableReferralId(loadedReferral: Referral | null, routeReferralId?: number) {
+  if (!loadedReferral || loadedReferral.id !== routeReferralId || loadedReferral.workspaceStatus === "historical") return null;
+  return routeReferralId;
+}
+
+function visibleWorkspacePage(
+  activePage: WorkspaceView,
+  steps: ReadonlyArray<{ page: WorkspaceStage; label: string }>,
+): WorkspaceView {
+  if (typeof activePage !== "number" || steps.some((step) => step.page === activePage)) return activePage;
+  return steps[0]?.page ?? 1;
+}
+
+function showWorkspaceEditingControls(trainingAssessmentMode: TrainingAssessmentMode | undefined, readOnly: boolean) {
+  return !trainingAssessmentMode && !readOnly;
+}
+
+function showWorkspaceTrashControl(referral: Referral | null, canSupervise: boolean, readOnly: boolean) {
+  return Boolean(referral && canSupervise && !readOnly);
+}
+
+function HistoricalWorkspaceBadge({ readOnly }: { readOnly: boolean }) {
+  if (!readOnly) return null;
+  return (
+    <span className="hidden shrink-0 border border-[#c9b87f] bg-[#fff9e8] px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-[#715f22] sm:inline">
+      Historical · Read-only
+    </span>
+  );
+}
+
+function HistoricalWorkspaceNotice({ readOnly }: { readOnly: boolean }) {
+  if (!readOnly) return null;
+  return (
+    <div role="status" className="mb-3 border-l-2 border-[#a88b31] bg-[#fff9e8] px-4 py-3 text-[11px] leading-5 text-[#5f5127]">
+      This closed historical workspace preserves imported source material. To begin current work, create a new referral linked to this client.
+    </div>
+  );
+}
 
 const initialFields: Record<FieldKey, PacketField> = {
   name: { label: "NAME", value: "", placeholder: "Client name" },
@@ -338,6 +375,7 @@ export default function ReferralPacketCanvas({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [duplicateReview, setDuplicateReview] = useState<ReferralDuplicateReview | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const editableReferralId = mutableReferralId(loadedReferral, referral?.id);
   const canvasRef = useRef<HTMLDivElement>(null);
   const loadedReferralRef = useRef<Referral | null>(null);
   const fieldsRef = useRef(fields);
@@ -400,12 +438,11 @@ export default function ReferralPacketCanvas({
   }, [ownerPrincipalId]);
 
   useEffect(() => {
-    const referralId = referral?.id;
+    const referralId = editableReferralId;
     if (!referralId) {
       setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
       return;
     }
-    if (!loadedReferral || loadedReferral.id !== referralId) return;
     setAssessmentSummary({ captured: 0, total: 52, status: "not_started" });
     let cancelled = false;
     fetchPipelineJson<AssessmentListResponse>(`/api/referrals/${referralId}/assessments`, { cache: "no-store" })
@@ -429,7 +466,7 @@ export default function ReferralPacketCanvas({
     return () => {
       cancelled = true;
     };
-  }, [loadedReferral, referral?.id]);
+  }, [editableReferralId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -635,6 +672,10 @@ export default function ReferralPacketCanvas({
         setRemoteChange(null);
         setExtractionConflict(null);
         setSavedAt("Workspace loaded");
+        if (record.workspaceStatus === "historical") {
+          setDraftRecoveryLoading(false);
+          return;
+        }
         const setters = {
           setFields,
           setConserved,
@@ -690,7 +731,7 @@ export default function ReferralPacketCanvas({
   useEffect(() => {
     const extractedFields = loadedReferral?.packetFields;
     const sourceFile = loadedReferral?.documentName;
-    if (!extractedFields?.length) return;
+    if (loadedReferral?.workspaceStatus === "historical" || !extractedFields?.length) return;
 
     setFields((current) => {
       const next = populateFormFromExtraction(
@@ -708,7 +749,7 @@ export default function ReferralPacketCanvas({
       }
       return next;
     });
-  }, [loadedReferral?.documentName, loadedReferral?.packetFields]);
+  }, [loadedReferral?.documentName, loadedReferral?.packetFields, loadedReferral?.workspaceStatus]);
 
   const receiveRemoteReferral = (latest: Referral, updatedBy?: string, force = false) => {
     const base = loadedReferralRef.current;
@@ -749,7 +790,8 @@ export default function ReferralPacketCanvas({
   };
 
   useEffect(() => {
-    if (!referral?.id) return;
+    const referralId = editableReferralId;
+    if (!referralId) return;
     let cancelled = false;
     let checking = false;
 
@@ -759,13 +801,13 @@ export default function ReferralPacketCanvas({
       checking = true;
       try {
         const change = await fetchPipelineJson<ReferralChangeSnapshot>(
-          `/api/referrals/${referral.id}/changes?after=${current.version ?? 1}`,
+          `/api/referrals/${referralId}/changes?after=${current.version ?? 1}`,
           { cache: "no-store" },
         );
         if (cancelled) return;
         setPresence(dedupePresence(change.presence.filter((item) => !item.is_me)));
         if (change.changed) {
-          const payload = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}`, { cache: "no-store" });
+          const payload = await fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referralId}`, { cache: "no-store" });
           if (!cancelled && payload.referral) receiveRemoteReferral(payload.referral, change.updated_by?.name);
         }
       } catch {
@@ -784,17 +826,18 @@ export default function ReferralPacketCanvas({
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshOnFocus);
     };
-  }, [referral?.id]);
+  }, [editableReferralId]);
 
   useEffect(() => {
-    if (!referral?.id) return;
+    const referralId = editableReferralId;
+    if (!referralId) return;
     const leaseId = crypto.randomUUID();
     const section = presenceSection(activePage);
     let cancelled = false;
 
     const heartbeat = async () => {
       try {
-        await fetchPipelineJson(`/api/referrals/${referral.id}/presence`, {
+        await fetchPipelineJson(`/api/referrals/${referralId}/presence`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ lease_id: leaseId, section }),
@@ -811,13 +854,13 @@ export default function ReferralPacketCanvas({
     return () => {
       cancelled = true;
       window.clearInterval(interval);
-      void fetchPipelineJson(`/api/referrals/${referral.id}/presence`, {
+      void fetchPipelineJson(`/api/referrals/${referralId}/presence`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lease_id: leaseId }),
       }).catch(() => undefined);
     };
-  }, [activePage, referral?.id]);
+  }, [activePage, editableReferralId]);
 
   const updateField = (key: FieldKey, value: string) => {
     setDuplicateReview((current) => duplicateIdentityFields.has(key) ? null : current);
@@ -1581,7 +1624,10 @@ export default function ReferralPacketCanvas({
     admissionDocumentCount,
     attachmentCount,
   );
-  const { usesSourceProfile, steps: workspaceSteps } = workspacePresentation;
+  const { readOnly: historicalReadOnly, usesSourceProfile, steps: workspaceSteps } = workspacePresentation;
+  const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
+  const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, historicalReadOnly);
+  const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, historicalReadOnly);
   const referralContextPacketFields = (loadedReferral?.packetFields ?? []).filter(
     (field) => extractedCanvasFieldKeys(field.field_key).length > 0,
   );
@@ -1633,12 +1679,13 @@ export default function ReferralPacketCanvas({
             <h1 data-testid="workspace-identity-title" className="max-w-[10rem] shrink-0 truncate text-[12px] font-black text-[#111111] sm:max-w-[18rem] lg:max-w-[26rem]" title={workspaceTitle}>
               {workspaceTitle}
             </h1>
+            <HistoricalWorkspaceBadge readOnly={historicalReadOnly} />
             <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">
               <span className="sr-only">Workspace stage</span>
               <select
                 data-guide-target="assessment-stage chart-stage"
                 aria-label="Workspace stage"
-                value={typeof activePage === "number" ? activePage : 1}
+                value={typeof displayedPage === "number" ? displayedPage : 1}
                 onChange={(event) => openPage(Number(event.target.value) as WorkspaceStage)}
                 className="h-10 w-full border-0 border-b-2 border-b-[#0f8b73] border-t border-t-[#eeeeee] bg-white px-2 text-[12px] font-black text-[#111111] outline-none"
               >
@@ -1652,29 +1699,29 @@ export default function ReferralPacketCanvas({
                   type="button"
                   data-guide-target={page === 2 ? "assessment-stage" : page === 3 ? "chart-stage" : undefined}
                   onClick={() => openPage(page)}
-                  aria-current={activePage === page ? "page" : undefined}
+                  aria-current={displayedPage === page ? "page" : undefined}
                   className={`flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-[11px] font-black transition-colors ${
-                    activePage === page
+                    displayedPage === page
                       ? "border-[#0f8b73] text-[#111111]"
                       : "border-transparent text-[#737373] hover:text-[#0f8b73]"
                   }`}
                 >
-                  <span className={`text-[9px] ${activePage === page ? "text-[#0c705f]" : "text-[#595959]"}`}>0{page}</span>
+                  <span className={`text-[9px] ${displayedPage === page ? "text-[#0c705f]" : "text-[#595959]"}`}>0{page}</span>
                   <span className="whitespace-nowrap">{label}</span>
                 </button>
               ))}
             </nav>
 
             <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:border-l lg:border-[#d9d9d9] lg:pl-2">
-              {loadedReferral && !trainingAssessmentMode ? (
+              {loadedReferral && editingControlsVisible ? (
                 <button
                   type="button"
                   onClick={() => openPage("workflow")}
-                  aria-current={activePage === "workflow" ? "page" : undefined}
+                  aria-current={displayedPage === "workflow" ? "page" : undefined}
                   aria-label="Admission workflow"
                   title="Workflow"
                   className={`flex h-9 items-center gap-1.5 px-2 text-[10px] font-black transition-colors sm:px-3 ${
-                    activePage === "workflow"
+                    displayedPage === "workflow"
                       ? "bg-[#eaf6f2] text-[#0c705f]"
                       : "text-[#737373] hover:bg-[#f3f6f4] hover:text-[#0c705f]"
                   }`}
@@ -1686,11 +1733,11 @@ export default function ReferralPacketCanvas({
               <button
                 type="button"
                 onClick={() => openPage("files")}
-                aria-current={activePage === "files" ? "page" : undefined}
+                aria-current={displayedPage === "files" ? "page" : undefined}
                 aria-label="Workspace files"
                 title="Files"
                 className={`flex h-9 items-center gap-1.5 px-2 text-[10px] font-black transition-colors sm:px-3 ${
-                  activePage === "files"
+                  displayedPage === "files"
                     ? "bg-[#eaf6f2] text-[#0c705f]"
                     : "text-[#737373] hover:bg-[#f3f6f4] hover:text-[#0c705f]"
                 }`}
@@ -1701,11 +1748,11 @@ export default function ReferralPacketCanvas({
               <button
                 type="button"
                 onClick={() => openPage("activity")}
-                aria-current={activePage === "activity" ? "page" : undefined}
+                aria-current={displayedPage === "activity" ? "page" : undefined}
                 aria-label="Workspace activity"
                 title="Activity"
                 className={`flex h-9 items-center gap-1.5 px-2 text-[10px] font-black transition-colors sm:px-3 ${
-                  activePage === "activity"
+                  displayedPage === "activity"
                     ? "bg-[#eef2ff] text-[#3d5799]"
                     : "text-[#737373] hover:bg-[#f3f6f4] hover:text-[#3d5799]"
                 }`}
@@ -1713,7 +1760,7 @@ export default function ReferralPacketCanvas({
                 <History size={15} />
                 <span className="hidden xl:inline">Activity</span>
               </button>
-              {!trainingAssessmentMode ? (
+              {editingControlsVisible ? (
                 <>
                   <div className="max-w-[9rem] text-right sm:max-w-[14rem] xl:max-w-[20rem]" aria-live="polite">
                     <div className="truncate text-[10px] font-normal text-[#737373] sm:text-[11px]">{savedAt === "Workspace loaded" ? "All changes saved" : savedAt}</div>
@@ -1727,7 +1774,7 @@ export default function ReferralPacketCanvas({
                   />
                 </>
               ) : null}
-              {loadedReferral && canSupervise ? (
+              {trashControlVisible ? (
                 <button
                   type="button"
                   aria-label="Move workspace to trash"
@@ -1840,17 +1887,19 @@ export default function ReferralPacketCanvas({
         ) : null}
 
         <WorkspaceChangeHistory
-          activePage={activePage}
+          activePage={displayedPage}
           referral={loadedReferral}
           onOpenFull={() => openPage("activity")}
         />
 
-        <div key={activePage} className="pipeline-step-enter">
-          {activePage === 1 && usesSourceProfile && loadedReferral ? (
+        <HistoricalWorkspaceNotice readOnly={historicalReadOnly} />
+
+        <div key={displayedPage} className="pipeline-step-enter">
+          {displayedPage === 1 && usesSourceProfile && loadedReferral ? (
             <PacketPage id="source-profile" title="Profile">
               <ImportedWorkspaceProfile key={loadedReferral.id} referral={loadedReferral} />
             </PacketPage>
-          ) : activePage === 1 ? (
+          ) : displayedPage === 1 ? (
           <PacketPage id="packet-page-1" title="Intake">
             <IntakeDocumentChecklist
               initialPacket={initialPacket}
@@ -2013,14 +2062,14 @@ export default function ReferralPacketCanvas({
               </aside>
             </div>
           </PacketPage>
-          ) : activePage === "files" ? (
+          ) : displayedPage === "files" ? (
             <WorkspaceFilesPage
               presentation={workspacePresentation}
               documents={documents}
               uploadingDocumentIds={uploadingDocumentIds}
               onAttach={attachDocument}
             />
-          ) : activePage === "workflow" && loadedReferral ? (
+          ) : displayedPage === "workflow" && loadedReferral ? (
             <PacketPage id="admission-workflow" title="Workflow">
               <ReferralWorkflowPanel
                 referral={loadedReferral}
@@ -2030,7 +2079,7 @@ export default function ReferralPacketCanvas({
                 onOpenFiles={() => openPage("files")}
               />
             </PacketPage>
-          ) : activePage === 2 ? (
+          ) : displayedPage === 2 ? (
             <PacketPage id="packet-page-2" title="Assessment">
                 <AssessmentWorkspace
                   referralId={loadedReferral?.id ?? referral?.id}
@@ -2050,7 +2099,7 @@ export default function ReferralPacketCanvas({
                   }}
                 />
             </PacketPage>
-          ) : activePage === 3 ? (
+          ) : displayedPage === 3 ? (
             <PacketPage id="packet-charts" title="Chart">
               <AssessmentChartWorkspace referralId={loadedReferral?.id ?? referral?.id} />
             </PacketPage>
@@ -2136,7 +2185,9 @@ function getWorkspacePresentation(
   attachmentCount: number,
 ) {
   const usesSourceProfile = referral ? isImportedWorkspace(referral) : false;
+  const readOnly = referral?.workspaceStatus === "historical";
   return {
+    readOnly,
     usesSourceProfile,
     steps: usesSourceProfile ? importedWorkspaceSteps : packetSteps,
     filesLabel: "Files",
@@ -2211,6 +2262,7 @@ function WorkspaceFilesPage({
         documents={documents}
         uploadingDocumentIds={uploadingDocumentIds}
         onAttach={onAttach}
+        readOnly={presentation.readOnly}
       />
       <DocumentGroup
         title={presentation.supportingTitle}
@@ -2219,6 +2271,7 @@ function WorkspaceFilesPage({
         documents={documents}
         uploadingDocumentIds={uploadingDocumentIds}
         onAttach={onAttach}
+        readOnly={presentation.readOnly}
       />
     </PacketPage>
   );
@@ -2258,14 +2311,11 @@ function IntakeDocumentChecklist({
     getRequirementReviewValue(item, documents[item.id], referral)
   )).length;
   const hasInitialPacket = Boolean(initialPacket || (recordedName && recordedStatus !== "Missing"));
-  const [documentsOpen, setDocumentsOpen] = useState(false);
 
   return (
     <section aria-label="Document checklist" className="mb-6">
       <details
         data-testid="document-checklist-panel"
-        open={documentsOpen}
-        onToggle={(event) => setDocumentsOpen(event.currentTarget.open)}
         className="group bg-white"
       >
         <summary

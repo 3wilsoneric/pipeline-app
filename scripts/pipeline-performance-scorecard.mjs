@@ -175,7 +175,7 @@ const coldNetwork = {
 const journeys = [];
 const navigationPhases = {};
 await measureJourney("referrals_to_search", "navigation", async () => {
-  await activate(page.getByRole("button", { name: "Open search", exact: true }));
+  await activate(page.getByRole("button", { name: "Focus search", exact: true }));
   await page.getByLabel("Search or ask", { exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("typed_search", "filter", async () => {

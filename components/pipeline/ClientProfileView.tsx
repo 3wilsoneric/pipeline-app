@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Private no-store thumbnails require the signed-in browser request. */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, CircleAlert, ExternalLink, FileText, ImageOff, LoaderCircle, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CircleAlert, ExternalLink, FileText, ImageOff, LoaderCircle, Search, X } from "lucide-react";
 
 import type {
   ClinicalClientRecord,
@@ -35,23 +35,34 @@ import {
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
-import type { ReferralFile } from "@/lib/pipeline/referral-types";
+import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records";
 import type { UnifiedClientProfileResponse } from "@/lib/pipeline/unified-profile-contracts";
+import { getWorkspaceWorkflowLabel } from "@/lib/pipeline/workspace-presentation";
 import ClientAssessmentSummary from "@/components/pipeline/ClientAssessmentSummary";
 import ClientMedicalChart from "@/components/pipeline/ClientMedicalChart";
 
 export default function ClientProfileView({
   residentKey,
   onBack,
+  onOpenWorkspace,
 }: {
   residentKey: string;
   onBack: () => void;
+  onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
 }) {
-  return <ClientProfileLoader key={residentKey} residentKey={residentKey} onBack={onBack} />;
+  return <ClientProfileLoader key={residentKey} residentKey={residentKey} onBack={onBack} onOpenWorkspace={onOpenWorkspace} />;
 }
 
-function ClientProfileLoader({ residentKey, onBack }: { residentKey: string; onBack: () => void }) {
+function ClientProfileLoader({
+  residentKey,
+  onBack,
+  onOpenWorkspace,
+}: {
+  residentKey: string;
+  onBack: () => void;
+  onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+}) {
   const [profile, setProfile] = useState<UnifiedClientProfileResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -124,6 +135,7 @@ function ClientProfileLoader({ residentKey, onBack }: { residentKey: string; onB
     <ResidentProfile
       profile={profile}
       onBack={onBack}
+      onOpenWorkspace={onOpenWorkspace}
       onConnectionChanged={() => setReloadKey((value) => value + 1)}
     />
   );
@@ -139,10 +151,12 @@ function profileLoadMessage(error: unknown) {
 function ResidentProfile({
   profile,
   onBack,
+  onOpenWorkspace,
   onConnectionChanged,
 }: {
   profile: UnifiedClientProfileResponse;
   onBack: () => void;
+  onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onConnectionChanged: () => void;
 }) {
   const client = profile.client;
@@ -185,7 +199,12 @@ function ResidentProfile({
     resident,
     chart.sections,
     profile.pipeline.assessments,
-    clientRecordStatus(client.current_resident, pipelineOnly, profile.pipeline.summary.referral_count),
+    clientRecordStatus(
+      client.current_resident,
+      pipelineOnly,
+      profile.pipeline.summary.referral_count,
+      profile.pipeline.summary.active_referral_count,
+    ),
   );
   const hasPipelineHistory = ["confirmed", "pipeline_only"].includes(profile.pipeline.connection.status);
 
@@ -204,7 +223,11 @@ function ResidentProfile({
           <ClientMedicalChart
             chart={medicalChart}
             dataAsOf={profile.data_as_of}
-            sourceLabel={pipelineOnly ? "Referral intake" : client.current_resident ? "Current census" : "Longitudinal record"}
+            sourceLabel={clientProfileSourceLabel(
+              pipelineOnly,
+              client.current_resident,
+              profile.pipeline.summary.active_referral_count,
+            )}
           />
         </div>
 
@@ -223,6 +246,12 @@ function ResidentProfile({
               />
             </ProfileSection>
           ) : null}
+
+          <ClientWorkspaceHistorySection
+            referrals={profile.pipeline.referrals}
+            activeReferralCount={profile.pipeline.summary.active_referral_count}
+            onOpenWorkspace={onOpenWorkspace}
+          />
 
           <ProfileSection title="Client information" detail="Clinical, support, and stay details">
             <CuratedClientRecord sections={chart.detailSections} />
@@ -255,6 +284,60 @@ function ResidentProfile({
         </div>
       </div>
     </main>
+  );
+}
+
+function ClientWorkspaceHistory({
+  referrals,
+  onOpenWorkspace,
+}: {
+  referrals: Referral[];
+  onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+}) {
+  return (
+    <div className="divide-y divide-[#d9dfdc] border-y border-[#d9dfdc]" role="list" aria-label="Client workspace history">
+      {referrals.map((referral) => {
+        const historical = referral.workspaceStatus === "historical";
+        return (
+          <button
+            key={referral.id}
+            type="button"
+            role="listitem"
+            onClick={() => onOpenWorkspace(referral)}
+            className="group grid w-full gap-2 px-4 py-3 text-left hover:bg-[#f4f8f6] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0f8b73] sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.7fr)_auto] sm:items-center"
+          >
+            <span className="min-w-0">
+              <strong className="block truncate text-[13px] text-[#17231e]">{referral.community}</strong>
+              <span className="mt-1 block text-[10px] text-[#69726e]">Workspace #{referral.id} · {referral.owner ? `Source owner: ${referral.owner}` : "Source owner not recorded"}</span>
+            </span>
+            <span className="min-w-0 text-[11px] font-semibold text-[#4f5a55]">
+              {getWorkspaceWorkflowLabel(referral)}
+            </span>
+            <span className="flex items-center gap-2 text-[10px] font-black text-[#0f8b73]">
+              {historical ? "View read-only" : "Open"}
+              <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ClientWorkspaceHistorySection({
+  referrals,
+  activeReferralCount,
+  onOpenWorkspace,
+}: {
+  referrals: Referral[];
+  activeReferralCount: number;
+  onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+}) {
+  if (referrals.length === 0) return null;
+  return (
+    <ProfileSection title="Workspace history" detail={`${activeReferralCount} active · ${referrals.length} total`}>
+      <ClientWorkspaceHistory referrals={referrals} onOpenWorkspace={onOpenWorkspace} />
+    </ProfileSection>
   );
 }
 
@@ -1091,10 +1174,21 @@ function formatCount(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-function clientRecordStatus(currentResident: boolean, pipelineOnly: boolean, referralCount: number) {
+function clientRecordStatus(
+  currentResident: boolean,
+  pipelineOnly: boolean,
+  referralCount: number,
+  activeReferralCount: number,
+) {
   if (currentResident) return "Current resident";
   if (!pipelineOnly) return "Prior resident";
-  return referralCount > 0 ? "Referral record" : "Client file record";
+  if (activeReferralCount > 0) return "Active referral";
+  return referralCount > 0 ? "Historical archive" : "Client file record";
+}
+
+function clientProfileSourceLabel(pipelineOnly: boolean, currentResident: boolean, activeReferralCount: number) {
+  if (pipelineOnly) return activeReferralCount > 0 ? "Referral intake" : "Historical archive";
+  return currentResident ? "Current census" : "Longitudinal record";
 }
 
 
