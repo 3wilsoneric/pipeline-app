@@ -9,7 +9,8 @@ test("clarifies workflow questions without replacing record search", async ({ pa
   });
 
   await page.goto("/?view=referrals");
-  await page.getByRole("button", { name: "Focus search" }).click();
+  await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
+  await page.keyboard.press("/");
 
   const input = page.getByRole("textbox", { name: "Search or ask" });
   await input.fill("how do i assine an assesment to an assesor?");

@@ -117,6 +117,7 @@ export default function PipelineSearchPanel({
   const [searchNonce, setSearchNonce] = useState(0);
   const [selectedQuestionIntent, setSelectedQuestionIntent] = useState<string>();
   const submitRequestedRef = useRef(false);
+  const searchPanelRef = useRef<HTMLElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const visibleSuggestions = suggestedSearches;
@@ -135,6 +136,28 @@ export default function PipelineSearchPanel({
     if (!autoFocus) return;
     searchInputRef.current?.focus();
   }, [autoFocus]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (event.target instanceof Node && !searchPanelRef.current?.contains(event.target)) {
+        setIsFocused(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setIsFocused(false);
+      searchInputRef.current?.blur();
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isFocused]);
 
   useEffect(() => {
     if (selectedSuggestion) return;
@@ -265,9 +288,18 @@ export default function PipelineSearchPanel({
   };
 
   return (
-    <section aria-label="Search and ask" className={className}>
+    <section
+      ref={searchPanelRef}
+      aria-label="Search and ask"
+      className={className}
+      onBlur={(event) => {
+        if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) {
+          setIsFocused(false);
+        }
+      }}
+    >
       <form onSubmit={submitSearch} className={`relative flex items-center bg-transparent ${resting ? "border-b border-[#b3b3b3]" : ""}`}>
-        <Search size={resting ? 22 : 20} className="shrink-0 text-[#c4832c]" />
+        <Search size={20} className="shrink-0 text-[#c4832c]" />
         <input
           ref={searchInputRef}
           autoFocus={autoFocus}
@@ -285,7 +317,7 @@ export default function PipelineSearchPanel({
             onSearchFocused?.();
           }}
           placeholder="Find a client, workspace, or document, or ask how something works..."
-          className={`${resting ? "h-16 text-[17px]" : "h-12 text-[15px]"} min-w-0 flex-1 bg-transparent px-3 text-[#111111] outline-none placeholder:text-[#8a8a8a]`}
+          className="h-12 min-w-0 flex-1 bg-transparent px-3 text-[15px] text-[#111111] outline-none placeholder:text-[#8a8a8a]"
         />
         <button
           type="submit"
@@ -331,32 +363,34 @@ export default function PipelineSearchPanel({
 
         </>
       ) : null}
-      {isSearching && !result ? (
+      {isFocused && isSearching && !result ? (
         <div className="px-1 py-4 text-[13px] text-[#737373]" role="status" aria-live="polite">
           Searching...
         </div>
       ) : null}
-      {error ? (
+      {isFocused && error ? (
         <div className="border-l-2 border-[#a63d2f] bg-[#fff7f5] px-4 py-3 text-[13px] font-semibold text-[#59332d]" role="alert">
           {error}
         </div>
       ) : null}
-      {questionInterpretation ? (
-        <QuestionResponse
-          interpretation={questionInterpretation}
-          onChoose={(intent) => setSelectedQuestionIntent(intent.id)}
-          onAction={useQuestionAction}
-        />
-      ) : result ? (
-        <SearchResponse
-          result={result}
-          isSearching={isSearching}
-          onOpenPacket={onOpenPacket}
-          onOpenProfile={onOpenProfile}
-          onOpenDestination={onOpenDestination}
-          onViewAllResults={onViewAllResults}
-          viewAllQuery={selectedSuggestion ? "" : result.query}
-        />
+      {isFocused ? (
+        questionInterpretation ? (
+          <QuestionResponse
+            interpretation={questionInterpretation}
+            onChoose={(intent) => setSelectedQuestionIntent(intent.id)}
+            onAction={useQuestionAction}
+          />
+        ) : result ? (
+          <SearchResponse
+            result={result}
+            isSearching={isSearching}
+            onOpenPacket={onOpenPacket}
+            onOpenProfile={onOpenProfile}
+            onOpenDestination={onOpenDestination}
+            onViewAllResults={onViewAllResults}
+            viewAllQuery={selectedSuggestion ? "" : result.query}
+          />
+        ) : null
       ) : null}
     </section>
   );

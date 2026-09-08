@@ -76,11 +76,7 @@ export default function PipelineWelcome({
     <>
       <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-2 sm:px-6 lg:px-8">
-          <section aria-label="Search Pipeline" className="border-y border-[#d9dfdc] bg-white px-2 py-1 sm:px-4">
-            <div className="flex items-center justify-between gap-4 px-1 pt-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#66706b]">
-              <span>Search every record</span>
-              <span className="hidden sm:inline">Press / or ⌘K</span>
-            </div>
+          <section aria-label="Search Pipeline" className="mx-auto w-full max-w-[760px] bg-white px-1">
             <PipelineSearchPanel
               resting
               autoFocus={searchOpen}

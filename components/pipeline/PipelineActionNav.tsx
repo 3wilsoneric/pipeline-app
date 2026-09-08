@@ -1,23 +1,17 @@
 "use client";
 
-import { BarChart3, CalendarDays, FolderOpen, Plus, Search, UsersRound } from "lucide-react";
+import { BarChart3, CalendarDays, FolderOpen, Plus, UsersRound } from "lucide-react";
 import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 
 export type PipelineNavTarget = "referrals" | "calendar" | "profiles" | "operations" | "packet" | null;
 
 export default function PipelineActionNav({
   active = null,
-  searchOpen = false,
-  showSearch = true,
   showReports = false,
-  onOpenSearch,
   onNavigate,
 }: {
   active?: PipelineNavTarget;
-  searchOpen?: boolean;
-  showSearch?: boolean;
   showReports?: boolean;
-  onOpenSearch: () => void;
   onNavigate: (target: Exclude<PipelineNavTarget, null>) => void;
 }) {
   const utilitySize = "h-11 w-11 px-0 max-sm:h-9 max-sm:w-9 xl:h-[50px] xl:w-[50px]";
@@ -26,8 +20,6 @@ export default function PipelineActionNav({
   const navItem =
     "group flex shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-lg border-2 outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current";
   const labelClass = "hidden xl:inline";
-  const inactiveSearch =
-    "border-transparent bg-transparent text-[#8a5a10] hover:border-[#c4832c] hover:bg-[#fff3dc] hover:shadow-[0_4px_14px_rgba(196,131,44,0.14)]";
   const inactiveReferrals =
     "border-transparent bg-transparent hover:border-[#0f8b73] hover:bg-[#e7f3ee] hover:shadow-[0_4px_14px_rgba(15,139,115,0.14)]";
   const inactiveProfiles =
@@ -37,13 +29,6 @@ export default function PipelineActionNav({
 
   return (
     <div data-testid="primary-navigation" className="flex flex-nowrap items-center gap-1.5 max-sm:gap-0.5 min-[360px]:max-sm:gap-1 xl:gap-2.5">
-      <SearchNavigationButton
-        visible={showSearch}
-        searchOpen={searchOpen}
-        onOpenSearch={onOpenSearch}
-        className={`${navItem} ${utilitySize}`}
-        inactiveClassName={inactiveSearch}
-      />
       <nav aria-label="Primary navigation" className="flex flex-nowrap items-center gap-1.5 max-sm:gap-0.5 min-[360px]:max-sm:gap-1 xl:gap-2.5">
         <button
           type="button"
@@ -173,33 +158,5 @@ export default function PipelineActionNav({
         <Plus size={21} className="shrink-0" />
       </button>
     </div>
-  );
-}
-
-function SearchNavigationButton({
-  visible,
-  searchOpen,
-  onOpenSearch,
-  className,
-  inactiveClassName,
-}: {
-  visible: boolean;
-  searchOpen: boolean;
-  onOpenSearch: () => void;
-  className: string;
-  inactiveClassName: string;
-}) {
-  if (!visible) return null;
-  return (
-    <button
-      type="button"
-      aria-label="Focus search"
-      data-active={searchOpen ? "true" : undefined}
-      title="Search"
-      onClick={onOpenSearch}
-      className={`${className} ${searchOpen ? "border-[#c4832c] bg-[#fff3dc] text-[#8a5a10] shadow-[0_4px_14px_rgba(196,131,44,0.14)]" : inactiveClassName}`}
-    >
-      <Search size={20} className="shrink-0" />
-    </button>
   );
 }

@@ -157,11 +157,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Platform pages" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
-    const [pipelinePosition, searchPosition] = await Promise.all([
-      page.locator('[data-pipeline-home="true"]').boundingBox(),
-      page.getByRole("button", { name: "Focus search" }).boundingBox(),
-    ]);
-    expect(pipelinePosition?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(searchPosition?.x ?? 0);
+    await expect(page.getByRole("button", { name: "Focus search" })).toHaveCount(0);
     await expect(page.getByText("Referral workspaces", { exact: true }).last()).toBeVisible();
     await expect(page.getByLabel("Select referral packet")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Current work", exact: true })).toHaveCount(0);
@@ -184,7 +180,6 @@ test.describe("Referral home and packet canvas", () => {
     await expect(inactiveProfiles).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(inactiveProfiles).toHaveCSS("border-color", "rgba(0, 0, 0, 0)");
     for (const navItem of [
-      page.getByRole("button", { name: "Focus search" }),
       activeReferrals,
       inactiveProfiles,
       page.getByRole("button", { name: "Create new referral" }),
@@ -208,7 +203,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Clear workspace search" }).click();
     await expect(workspaceSearch).toHaveValue("");
 
-    await page.getByRole("button", { name: "Focus search" }).click();
+    await page.keyboard.press("/");
     await expect(page.getByLabel("Search or ask")).toBeVisible();
     await expect(page.getByLabel("Search or ask")).toBeFocused();
     await expect(page.getByText("Referral workspaces", { exact: true })).toHaveCount(0);
@@ -627,7 +622,7 @@ test.describe("Referral home and packet canvas", () => {
       }
     }
 
-    await page.getByRole("button", { name: "Focus search" }).click();
+    await page.keyboard.press("/");
     await expect(page.getByLabel("Search or ask")).toBeVisible();
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByLabel("Search or ask")).toHaveCount(0);
@@ -743,7 +738,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]')).toHaveClass(/bg-\[#eef1ff\]/);
     await expect(page.getByRole("combobox", { name: "Filter calendar by event type" })).not.toContainText("Referral assignments");
     await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveCount(4);
-    await expect(page.getByRole("button", { name: "Focus search" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Focus search" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
 
     await page.getByRole("button", { name: /Ready to schedule\s+1/ }).click();
@@ -2461,7 +2456,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Clients", { exact: true })).toBeVisible();
     await expect(page.getByText("Reports", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Focus search" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Focus search" })).toHaveCount(0);
     await expect(page.getByText("New referral", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Search", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Referral workspaces", { exact: true })).toHaveCount(0);
@@ -2475,7 +2470,6 @@ test.describe("Pipeline home", () => {
     await referralsLink.hover();
     await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Focus search" }).click();
     await expect(page.getByLabel("Search or ask")).toBeVisible();
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
     await page.getByLabel("Search or ask").click();
@@ -2485,6 +2479,9 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("button", { name: "Which assessments are ready to schedule?" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Show scheduled assessments." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Show uploaded documents." })).toBeVisible();
+    await page.getByText("Upcoming assessments", { exact: true }).click();
+    await expect(page.getByText("5 suggested searches", { exact: true })).toHaveCount(0);
+    await page.getByLabel("Search or ask").click();
     await page.getByRole("button", { name: "Show my assigned workspaces." }).click();
     await expect(
       page.getByText("Results", { exact: true }).or(
@@ -2562,7 +2559,6 @@ test.describe("Pipeline home", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("button", { name: "Focus search" }).click();
     await page.getByLabel("Search or ask").fill("Historical packet");
     const fileResult = page.getByRole("link", { name: `Open file ${fileName}` });
     await expect(fileResult).toHaveAttribute("href", "/api/files/search-file-1/download");
@@ -2612,7 +2608,6 @@ test.describe("Pipeline home", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("button", { name: "Focus search" }).click();
     await page.getByLabel("Search or ask").fill("Maldonado");
     await expect(page.getByRole("button", { name: "Open workspace for Krishna Maldonado" })).toBeVisible();
     await expect(page.getByText("1 result · checking clients", { exact: true })).toBeVisible();
@@ -2669,7 +2664,7 @@ test.describe("Pipeline home", () => {
 
     await page.goto("/?view=referrals");
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "Focus search" }).click();
+    await page.keyboard.press("/");
     await page.getByLabel("Search or ask").fill("Avery");
     await page.getByLabel("Search or ask").press("Enter");
 
@@ -2709,7 +2704,6 @@ test.describe("Pipeline home", () => {
 
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "Focus search" }).click();
     const globalSearch = page.getByLabel("Search or ask");
     await globalSearch.fill("profles");
     const profilesResult = page.getByRole("button", { name: "Open Clients from search" });

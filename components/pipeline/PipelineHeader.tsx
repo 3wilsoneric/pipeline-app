@@ -163,10 +163,7 @@ export default function PipelineHeader() {
         <div className="pointer-events-auto w-max">
           <PipelineActionNav
             active={activeNav}
-            searchOpen={searchOpen}
-            showSearch={pathname === "/"}
             showReports={canAccessReports}
-            onOpenSearch={focusHomeSearch}
             onNavigate={navigateTo}
           />
         </div>

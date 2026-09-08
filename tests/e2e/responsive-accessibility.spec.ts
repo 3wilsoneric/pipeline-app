@@ -26,7 +26,7 @@ test.describe("Responsive and accessible application shell", () => {
     await expect(page.getByRole("button", { name: "Open reports" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Focus search" }).click();
+    await page.getByLabel("Search or ask").click();
     await expect(page.getByLabel("Search or ask")).toBeVisible();
     await expect(page.getByText("5 suggested searches", { exact: true })).toBeVisible();
     await expectNoPageOverflow(page);
