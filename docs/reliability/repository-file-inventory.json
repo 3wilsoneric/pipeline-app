@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T16:59:39.718Z",
+  "generated_at": "2026-09-08T17:30:56.922Z",
   "audit_date": "2026-09-08",
-  "git_head": "f75aa677d5b49f147e3b952e9dbe25d6b81e700b",
+  "git_head": "86951d8396830c6ab55707fccc733099d52398d9",
   "files": [
     {
       "path": ".dockerignore",
@@ -1637,17 +1637,17 @@
     },
     {
       "path": "components/pipeline/AssessmentWorkspace.tsx",
-      "content_sha256": "e416e15e1d63dbd5913fb90a42ade0c99fac9b35319c69d0ba4537e184afd8a9",
+      "content_sha256": "caa5e13c3594c44c75f8628767145026a874dd5caf23d9b304348206024f49b4",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 104187,
-      "lines": 2002,
+      "bytes": 109579,
+      "lines": 2136,
       "detected_concerns": [
-        "Large module (2002 lines): split by behavior before adding more responsibilities.",
+        "Large module (2136 lines): split by behavior before adding more responsibilities.",
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (2002 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (2136 lines): split by behavior before adding more responsibilities.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -1993,18 +1993,18 @@
     },
     {
       "path": "components/pipeline/ReferralPacketCanvas.tsx",
-      "content_sha256": "06926782faa35d02816570b7940070f47b37e0fe8d7da59592550bf508876910",
+      "content_sha256": "317fb37f4b56f19442b84711de0fbdba62681dd7045cf2e0f24dae62b06c4277",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 151855,
-      "lines": 3740,
+      "bytes": 151923,
+      "lines": 3741,
       "detected_concerns": [
-        "Large module (3740 lines): split by behavior before adding more responsibilities.",
+        "Large module (3741 lines): split by behavior before adding more responsibilities.",
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (3740 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (3741 lines): split by behavior before adding more responsibilities.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -3814,7 +3814,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "2fbebd839b3c843f18ca6818a0db781fb623dd02a35bec88d16039da536db325",
+      "content_sha256": "d9c86d51196edaeb0c4a9c1e5f7e685b7e30241b4d265e24787362562c70a67d",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4388,10 +4388,10 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "f5656d1318e201c70a19d4e8ed49c5fc3031071a2c02d8db38d013fa377b15e6",
+      "content_sha256": "4e17d7089bd4f0f0d3570b94774a0cfdfa80c3375ec7c1095f03eaacec946f13",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 373598,
+      "bytes": 373584,
       "lines": 1772,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4416,10 +4416,10 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "50d124fdaaa853067253209d496fe620cff98a6824fc48d4ed22623396cf1126",
+      "content_sha256": "4889bc68a0f41940354c558a38820610c00cfb96b504ed162df5891d1b48a8e9",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 216252,
+      "bytes": 216238,
       "lines": 7508,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4475,7 +4475,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "62a5b97fea52464baaf729b4288b83c41a1e9ca11a8a6df4f7cd4351de5ccfee",
+      "content_sha256": "acb608b6c41f9080e8019efc9f0cef66158fd3ce5e769dbdf130924f0df01083",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 519970,
@@ -4670,7 +4670,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "7f81cbdbb3893186bc4c99f514c2971a70f305a7f84ae20be3dbe6e2a3fa2f5b",
+      "content_sha256": "ca08c83537a00023483af223046b2fac9c1ad54b73a13dce790d6c7eaec2a415",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 265287,
@@ -10054,17 +10054,17 @@
     },
     {
       "path": "tests/e2e/pipeline-smoke.spec.ts",
-      "content_sha256": "e22b45b8a64f70aee332e8da710929c686c9cd997ba9491faf017d1d47930c49",
+      "content_sha256": "e9866332a54634129afe9a52d7247596c568f50b5e079316a2b5ac863b3e6696",
       "role": "Browser journey test or snapshot",
       "risk": "medium",
-      "bytes": 162590,
-      "lines": 3209,
+      "bytes": 163523,
+      "lines": 3219,
       "detected_concerns": [
-        "Large module (3209 lines): split by behavior before adding more responsibilities.",
+        "Large module (3219 lines): split by behavior before adding more responsibilities.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
-      "review_focus": "Large module (3209 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (3219 lines): split by behavior before adding more responsibilities.",
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {

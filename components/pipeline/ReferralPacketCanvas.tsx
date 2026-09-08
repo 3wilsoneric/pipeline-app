@@ -2198,6 +2198,7 @@ export default function ReferralPacketCanvas({
                   assignedAssessorId={loadedReferral?.ownerId}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
+                  onContinueToWorkflow={() => openPage("workflow")}
                   onAssessmentSaved={async (assessment) => {
                     if (assessment.status !== "complete") return;
                     const current = loadedReferralRef.current;

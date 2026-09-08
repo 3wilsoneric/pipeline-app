@@ -1976,6 +1976,9 @@ test.describe("Referral home and packet canvas", () => {
     const beginDialog = page.getByRole("dialog", { name: "Begin assessment" });
     await expect(beginDialog).toBeVisible();
     await beginDialog.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    const assessmentReadiness = assessmentInterview.getByRole("region", { name: "Assessment readiness" });
+    await expect(assessmentReadiness).toContainText("required areas remain");
+    await expect(assessmentReadiness.getByRole("button", { name: /^Next required:/ })).toBeVisible();
     const assessmentSectionNav = assessmentInterview.getByRole("navigation", { name: "Assessment sections" });
     await expect(assessmentSectionNav.getByRole("button")).toHaveCount(assessmentInterviewSections.length);
     for (const section of assessmentInterviewSections) {
@@ -2004,6 +2007,11 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByLabel(/Resident number/).fill(`EM-${randomUUID().slice(0, 8)}`);
     await page.getByLabel(/Date of birth/).fill("1984-06-12");
     await expect(page.getByText("All changes saved", { exact: true })).toBeVisible({ timeout: 8_000 });
+    await page.getByRole("button", { name: "Close assessment", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Resume assessment", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Resume assessment", exact: true }).click();
+    await expect(assessmentInterview).toBeVisible();
+    await expect(assessmentReadiness.getByRole("button", { name: /^Next required:/ })).toBeVisible();
 
     const assessmentsBeforeSignature = await page.request.get(`/api/referrals/${referralId}/assessments`);
     const assessmentsBeforeSignaturePayload = await assessmentsBeforeSignature.json() as { assessments: Array<PipelineAssessmentRecord> };
@@ -2025,6 +2033,9 @@ test.describe("Referral home and packet canvas", () => {
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Sign assessment", exact: true }).click();
     await expect(assessmentInterview.getByText("Assessment signed", { exact: true })).toBeVisible();
+    await expect(assessmentReadiness.getByText("Assessment signed and locked", { exact: true })).toBeVisible();
+    await assessmentReadiness.getByRole("button", { name: "Continue to recommendation" }).click();
+    await expect(page.getByRole("region", { name: "Admission workflow" })).toBeVisible();
 
     const history = await page.request.get(`/api/referrals/${referralId}/assessments`);
     expect(history.ok()).toBeTruthy();
@@ -2065,7 +2076,6 @@ test.describe("Referral home and packet canvas", () => {
     expect(workItemPayload.work_items.filter((item) => item.type === "profile_field")).toHaveLength(3);
     expect(workItemPayload.work_items.find((item) => item.type === "tb_test")).toMatchObject({ status: "needed", version: 1 });
 
-    await page.getByRole("button", { name: "Close assessment", exact: true }).click();
     await page.getByRole("button", { name: "Workspace activity" }).click();
     const activityPanel = page.getByRole("region", { name: "Referral ownership and activity" });
     await expect(activityPanel).toBeVisible();

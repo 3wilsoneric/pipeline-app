@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:cfe7aebfe153b54a",
-  "fingerprint": "cfe7aebfe153b54aea453a719b6437d4b412081d429fbc53d4ce884219a1e58b",
+  "generatedAt": "source-fingerprint:839d61ff345b504d",
+  "fingerprint": "839d61ff345b504d6c9710ac1cd6296427d02eb4b90df85c191ae60b7944cb82",
   "totals": {
     "files": 859,
-    "lines": 285345,
+    "lines": 285490,
     "coveredFiles": 859
   },
   "entries": [
@@ -1723,7 +1723,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2002,
+      "lines": 2136,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2095,7 +2095,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3740,
+      "lines": 3741,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -10129,7 +10129,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 3209,
+      "lines": 3219,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
