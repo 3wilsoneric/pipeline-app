@@ -40,7 +40,7 @@
       ],
       "staticPrompts": [
         {
-          "prompt": "Large module (3233 lines): split by behavior before adding more responsibilities.",
+          "prompt": "Large module (3234 lines): split by behavior before adding more responsibilities.",
           "disposition": "confirmed",
           "reason": "The module contains separable contracts, adapter selection, two adapters, queries, mappings, mutation policy, audit construction, projections, and cross-store synchronization. Iteration one moves only two pure type declarations.",
           "owner": "Eric",

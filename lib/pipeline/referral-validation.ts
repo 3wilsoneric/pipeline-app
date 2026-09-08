@@ -1,11 +1,11 @@
 import { pipelineCommunities } from "./community-config";
 import { normalizeCalendarDate } from "./calendar-date";
 import { boardStages } from "./referral-workflow";
-import type { ReferralPatch } from "./referral-store";
 import type {
   AdmissionRequirement,
-  Referral,
   Priority,
+  Referral,
+  ReferralPatch,
 } from "./referral-types";
 import { referralCanvasFieldKeys } from "./referral-types";
 

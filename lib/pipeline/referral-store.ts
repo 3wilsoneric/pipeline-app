@@ -25,12 +25,15 @@ import type {
   AdmissionRequirement,
   Priority,
   Referral,
+  ReferralCreateInput,
   ReferralFile,
+  ReferralPatch,
   ReferralSection,
   ReferralSectionVersions,
   ReferralWorkflowStatus,
   WorkspaceStatus,
 } from "@/lib/pipeline/referral-types";
+export type { ReferralCreateInput, ReferralPatch } from "@/lib/pipeline/referral-types";
 import {
   defaultReferralSectionVersions,
   getReferralPatchSections,
@@ -91,12 +94,10 @@ export type StoredReferralAuditEvent = {
   created_at: string;
 };
 
-export type ReferralCreateInput = Omit<Referral, "id" | "version" | "sectionVersions" | "updatedBy">;
 export type ReferralCreateOptions = {
   confirmedDistinctReferralIds?: number[];
   canReviewSuspectedDuplicate?: (referral: Referral) => boolean;
 };
-export type ReferralPatch = Partial<Omit<Referral, "id" | "version" | "clientId" | "sectionVersions" | "updatedBy">>;
 export type ReferralQueueView = "my_work" | "unassigned" | "packet_review" | "assessment" | "decision";
 
 export type ReferralListOptions = {

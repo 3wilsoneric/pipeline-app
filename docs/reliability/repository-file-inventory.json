@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T23:48:13.203Z",
+  "generated_at": "2026-09-08T23:50:35.113Z",
   "audit_date": "2026-09-08",
-  "git_head": "1956139851eb83d6d785762461466355af0524e4",
+  "git_head": "4bb3067c6549d70b6cba6aaef811d3743d2bd3e0",
   "files": [
     {
       "path": ".dockerignore",
@@ -4399,7 +4399,7 @@
     },
     {
       "path": "docs/refactoring/referral-store-file-audit.json",
-      "content_sha256": "87c4ec3b47611a6070e866964acfff84ef6716b7c293309b6a4193c53b5402fc",
+      "content_sha256": "062046396246d39d5c39b152f34c49951a3a1e15bafbee97b538f3b35e08def7",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 9387,
@@ -4432,11 +4432,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "00f4b2aca6eac7f20885e4d9e22fdf3db5b9323a31ada058f30804c928089d91",
+      "content_sha256": "e936c35974c86de39bc06246c6d4cc27400bb4189dc9bcaa9fd03f569878cc4f",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 373863,
-      "lines": 1773,
+      "bytes": 374810,
+      "lines": 1776,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4460,11 +4460,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "5f8ffa69ffeea890fca843d42c495f8167364b66409b1d3b4aa4dda2d17c4413",
+      "content_sha256": "94351f604d5c9f6a55e5fddaa148f0ee910fab6eb3d1278d5767f88ea838fbd3",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 216394,
-      "lines": 7511,
+      "bytes": 216591,
+      "lines": 7514,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4519,11 +4519,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "b3508ffe13eba3eff70093c3972cfac012420133ad40eb71380ae1e6a8cab39e",
+      "content_sha256": "9e40fc213328ed0241ab3a7e6c85a6a9f798e4c59afc1bd6896832f44e3a293d",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 520509,
-      "lines": 10513,
+      "bytes": 522182,
+      "lines": 10546,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -6457,36 +6457,36 @@
     },
     {
       "path": "lib/pipeline/referral-store.ts",
-      "content_sha256": "7c5e433aae360352c29bf87c087e0c37f7943be6e1b7712623e204f09b0daf34",
+      "content_sha256": "4e5afe0fe56c5c334fa9b799c94cfb0a602a293b9aa6cfa610623631955ea0d2",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 124364,
-      "lines": 3233,
+      "bytes": 124273,
+      "lines": 3234,
       "detected_concerns": [
-        "Large module (3233 lines): split by behavior before adding more responsibilities.",
+        "Large module (3234 lines): split by behavior before adding more responsibilities.",
         "Contains runtime console logging; verify messages cannot include PHI, tokens, query strings, or upstream bodies.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (3233 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (3234 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
       "path": "lib/pipeline/referral-types.ts",
-      "content_sha256": "5de2ae16404b8924fa3ca3383fe7bf14fdf5e9265c51fa9571bed7afbd89e52d",
+      "content_sha256": "440b9d4a6afb94ee09d01abcdc44c4567fe06c52f29d27f4505d32a6c9d6c545",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 9056,
-      "lines": 311,
+      "bytes": 9277,
+      "lines": 314,
       "detected_concerns": [],
       "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
       "path": "lib/pipeline/referral-validation.ts",
-      "content_sha256": "edc2b13d839dae1483ff4763c2841e31c29cba41ad325cba549a4fe4009b40ed",
+      "content_sha256": "655e84fb348ef9bee46cf4994e1c496805344fec615f487d16bae4f4f89d98d1",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 20578,
+      "bytes": 20540,
       "lines": 535,
       "detected_concerns": [],
       "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",

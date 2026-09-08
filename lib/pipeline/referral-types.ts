@@ -286,6 +286,9 @@ export type Referral = {
   ehrHandoff?: EhrHandoffRecord;
 };
 
+export type ReferralCreateInput = Omit<Referral, "id" | "version" | "sectionVersions" | "updatedBy">;
+export type ReferralPatch = Partial<Omit<Referral, "id" | "version" | "clientId" | "sectionVersions" | "updatedBy">>;
+
 export type ReferralFile = {
   id: string;
   name: string;
