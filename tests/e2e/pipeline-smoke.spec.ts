@@ -2202,6 +2202,19 @@ test.describe("Referral home and packet canvas", () => {
     await workflowPanel.getByLabel("Clinical rationale").fill("Synthetic acceptance recommendation for the EHR handoff journey.");
     await workflowPanel.getByRole("button", { name: "Submit recommendation" }).click();
     await expect(workflowPanel.getByText("Recommendation submitted", { exact: true })).toBeVisible();
+    const handoffReadiness = workflowPanel.getByRole("region", { name: "Decision and handoff readiness" });
+    await expect(handoffReadiness.getByText("Signed", { exact: true })).toBeVisible();
+    await expect(handoffReadiness.getByText("Accept", { exact: true })).toBeVisible();
+    const decisionReadiness = workflowPanel.getByRole("region", { name: "Supervisor decision readiness" });
+    await expect(decisionReadiness.getByText("Accept recommendation recorded", { exact: true })).toBeVisible();
+    const decisionSelect = workflowPanel.getByRole("combobox", { name: "Decision", exact: true });
+    await expect(decisionSelect).toHaveValue("");
+    await expect(workflowPanel.getByRole("button", { name: "Record decision" })).toBeDisabled();
+    await decisionSelect.selectOption("accepted");
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain("Record the accepted admission decision?");
+      await dialog.accept();
+    });
     await workflowPanel.getByRole("button", { name: "Record decision" }).click();
     await expect(workflowPanel.getByText("Supervisor decision recorded", { exact: true })).toBeVisible();
 
@@ -2232,6 +2245,10 @@ test.describe("Referral home and packet canvas", () => {
     });
     await workflowPanel.getByRole("button", { name: "Retry handoff" }).click();
     await expect(workflowPanel.getByText("EHR handoff queued", { exact: true })).toBeVisible();
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain("Confirm the downstream transfer succeeded");
+      await dialog.accept();
+    });
     await workflowPanel.getByRole("button", { name: "Record sent" }).click();
     await expect(workflowPanel.getByText("EHR handoff recorded as sent", { exact: true })).toBeVisible();
     await expect(workflowPanel.getByText("Handoff recorded as sent.", { exact: true })).toBeVisible();

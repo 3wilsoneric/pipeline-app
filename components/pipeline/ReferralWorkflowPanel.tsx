@@ -51,6 +51,8 @@ type PendingWorkflowDetail =
   | { kind: "requirement"; item: AdmissionRequirement; status: RequirementStatus }
   | { kind: "ehr_failure" };
 
+type DecisionOutcomeDraft = AdmissionDecision["outcome"] | "";
+
 const requirementStatuses: Array<{ value: RequirementStatus; label: string }> = [
   { value: "needed", label: "Needed" },
   { value: "requested", label: "Requested" },
@@ -76,7 +78,7 @@ export default function ReferralWorkflowPanel({
   const [recommendationOutcome, setRecommendationOutcome] = useState<AssessmentRecommendation["outcome"]>("accept");
   const [recommendationCode, setRecommendationCode] = useState("");
   const [recommendationNote, setRecommendationNote] = useState("");
-  const [decisionOutcome, setDecisionOutcome] = useState<AdmissionDecision["outcome"]>("accepted");
+  const [decisionOutcome, setDecisionOutcome] = useState<DecisionOutcomeDraft>("");
   const [decisionCode, setDecisionCode] = useState("");
   const [decisionNote, setDecisionNote] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
@@ -99,7 +101,7 @@ export default function ReferralWorkflowPanel({
       setRecommendationNote(payload.recommendation?.reasonNote ?? "");
     }
     if (!decisionDirty.current) {
-      setDecisionOutcome(payload.decision?.outcome ?? "accepted");
+      setDecisionOutcome(payload.decision?.outcome ?? "");
       setDecisionCode(payload.decision?.reasonCode ?? "");
       setDecisionNote(payload.decision?.reasonNote ?? "");
     }
@@ -196,6 +198,23 @@ export default function ReferralWorkflowPanel({
       return;
     }
     void saveRequirement(item, status);
+  };
+
+  const submitDecision = () => {
+    if (!decisionOutcome) return;
+    if (!window.confirm(decisionConfirmationMessage(decisionOutcome, Boolean(workflow.decision)))) return;
+    void runMutation(
+      `decision:${currentReferral.version}:${sections.decision}`,
+      `/api/referrals/${currentReferral.id}/decision`,
+      "PUT",
+      { if_match: currentReferral.version, if_match_section: sections.decision, outcome: decisionOutcome, reason_code: decisionCode, reason_note: decisionNote, override_reason: overrideReason },
+      workflow.decision ? "Supervisor decision updated" : "Supervisor decision recorded",
+    );
+  };
+
+  const recordHandoffSent = () => {
+    if (!window.confirm("Record this EHR handoff as sent? Confirm the downstream transfer succeeded before continuing.")) return;
+    void updateHandoff("mark_sent");
   };
 
   const renderStageProgress = () => (
@@ -297,23 +316,18 @@ export default function ReferralWorkflowPanel({
       {workflow.decision ? <RecordSummary title={`${formatOutcome(workflow.decision.outcome)} decision`} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} /> : null}
       {workflow.capabilities.can_decide ? (
         <>
+          <DecisionReadiness workflow={workflow} outcome={decisionOutcome} note={decisionNote} overrideReason={overrideReason} />
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <WorkflowSelect label="Decision" value={decisionOutcome} onChange={(value) => { decisionDirty.current = true; setDecisionOutcome(value as AdmissionDecision["outcome"]); }} options={[{ value: "accepted", label: "Accept" }, { value: "declined", label: "Decline" }]} />
+            <WorkflowSelect label="Decision" value={decisionOutcome} onChange={(value) => { decisionDirty.current = true; setDecisionOutcome(value as DecisionOutcomeDraft); }} options={[{ value: "", label: "Select a decision" }, { value: "accepted", label: "Accept" }, { value: "declined", label: "Decline" }]} />
             <WorkflowInput label="Reason code (optional)" value={decisionCode} onChange={(value) => { decisionDirty.current = true; setDecisionCode(value); }} />
           </div>
-          <WorkflowTextArea label="Decision rationale" value={decisionNote} onChange={(value) => { decisionDirty.current = true; setDecisionNote(value); }} />
+          <WorkflowTextArea label="Decision rationale (required for decline)" value={decisionNote} onChange={(value) => { decisionDirty.current = true; setDecisionNote(value); }} />
           {!workflow.recommendation ? <WorkflowTextArea label="Supervisor override reason" value={overrideReason} onChange={(value) => { decisionDirty.current = true; setOverrideReason(value); }} /> : null}
           <PrimaryButton
             busy={busy.startsWith("decision:")}
             disabled={decisionSubmissionIsBlocked(workflow, decisionOutcome, decisionNote, overrideReason)}
-            onClick={() => void runMutation(
-              `decision:${currentReferral.version}:${sections.decision}`,
-              `/api/referrals/${currentReferral.id}/decision`,
-              "PUT",
-              { if_match: currentReferral.version, if_match_section: sections.decision, outcome: decisionOutcome, reason_code: decisionCode, reason_note: decisionNote, override_reason: overrideReason },
-              "Supervisor decision recorded",
-            )}
-          >Record decision</PrimaryButton>
+            onClick={submitDecision}
+          >{workflow.decision ? "Update decision" : "Record decision"}</PrimaryButton>
         </>
       ) : null}
     </WorkflowDisclosure>
@@ -348,7 +362,7 @@ export default function ReferralWorkflowPanel({
       <div className="flex flex-wrap gap-2">
         {handoffStatus === "failed" ? <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={() => void updateHandoff("retry")}>Retry handoff</PrimaryButton> : null}
         {handoffStatus !== "queued" && handoffStatus !== "sent" && handoffStatus !== "failed" ? <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update || currentReferral.stage !== "Accepted / Admitted"} onClick={() => void updateHandoff("queue")}>Queue EHR handoff</PrimaryButton> : null}
-        {handoffStatus === "queued" ? <><PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={() => void updateHandoff("mark_sent")}>Record sent</PrimaryButton><SecondaryButton disabled={Boolean(busy)} onClick={() => setPendingDetail({ kind: "ehr_failure" })}>Record failed</SecondaryButton></> : null}
+        {handoffStatus === "queued" ? <><PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={recordHandoffSent}>Record sent</PrimaryButton><SecondaryButton disabled={Boolean(busy)} onClick={() => setPendingDetail({ kind: "ehr_failure" })}>Record failed</SecondaryButton></> : null}
         {handoffStatus === "sent" ? <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> Handoff recorded as sent.</div> : null}
       </div>
     </WorkflowDisclosure>
@@ -366,6 +380,7 @@ export default function ReferralWorkflowPanel({
       {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
 
       {renderStageProgress()}
+      <DecisionHandoffOverview workflow={workflow} incompleteMoveIn={incompleteMoveIn} handoffStatus={handoffStatus} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
         <div className="space-y-5">
@@ -507,13 +522,113 @@ function disclosureState(open: boolean) {
   return open ? "ready" : "pending";
 }
 
+function DecisionHandoffOverview({
+  workflow,
+  incompleteMoveIn,
+  handoffStatus,
+}: {
+  workflow: WorkflowResponse;
+  incompleteMoveIn: AdmissionRequirement[];
+  handoffStatus: EhrHandoffStatus;
+}) {
+  const declined = workflow.decision?.outcome === "declined";
+  const steps = [
+    { label: "Assessment", value: workflow.context.assessmentSigned ? "Signed" : "Signature needed", complete: Boolean(workflow.context.assessmentSigned) },
+    { label: "Recommendation", value: workflow.recommendation ? formatOutcome(workflow.recommendation.outcome) : "Not recorded", complete: Boolean(workflow.recommendation) },
+    { label: "Supervisor decision", value: workflow.decision ? formatOutcome(workflow.decision.outcome) : "Not recorded", complete: Boolean(workflow.decision) },
+    { label: "EHR handoff", value: declined ? "Not required" : handoffDescription(handoffStatus), complete: declined || handoffStatus === "sent" },
+  ];
+  return (
+    <section aria-label="Decision and handoff readiness" className="border border-[#cfd8d3] bg-[#f8faf9]">
+      <div className="grid gap-px bg-[#dfe5e2] sm:grid-cols-2 xl:grid-cols-4">
+        {steps.map((step) => (
+          <div key={step.label} className="bg-white px-4 py-3">
+            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#68716c]">
+              {step.complete ? <CheckCircle2 size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}
+              {step.label}
+            </div>
+            <div className="mt-1 text-[11px] font-black text-[#202522]">{step.value}</div>
+          </div>
+        ))}
+      </div>
+      <p className="border-t border-[#dfe5e2] px-4 py-3 text-[11px] font-semibold leading-5 text-[#4f5c57]">{decisionHandoffNextAction(workflow, incompleteMoveIn, handoffStatus)}</p>
+    </section>
+  );
+}
+
+function DecisionReadiness({
+  workflow,
+  outcome,
+  note,
+  overrideReason,
+}: {
+  workflow: WorkflowResponse;
+  outcome: DecisionOutcomeDraft;
+  note: string;
+  overrideReason: string;
+}) {
+  const items = [
+    { label: "Signed assessment", complete: Boolean(workflow.context.assessmentSigned) },
+    { label: workflow.recommendation ? `${formatOutcome(workflow.recommendation.outcome)} recommendation recorded` : "Supervisor override documented", complete: Boolean(workflow.recommendation || overrideReason.trim()) },
+    { label: outcome ? `${formatOutcome(outcome)} selected` : "Decision selected", complete: Boolean(outcome) },
+    ...(outcome === "declined" ? [{ label: "Decline rationale documented", complete: Boolean(note.trim()) }] : []),
+  ];
+  return (
+    <section aria-label="Supervisor decision readiness" className="mt-3 border-l-2 border-[#0f8b73] bg-[#f3faf7] px-3 py-3">
+      <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#176f60]">Decision readiness</div>
+      <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+        {items.map((item) => (
+          <li key={item.label} className={`flex items-center gap-2 text-[10px] font-bold ${item.complete ? "text-[#285b50]" : "text-[#7a4c0d]"}`}>
+            {item.complete ? <CheckCircle2 size={13} /> : <Circle size={11} />}
+            {item.label}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function decisionHandoffNextAction(
+  workflow: WorkflowResponse,
+  incompleteMoveIn: AdmissionRequirement[],
+  handoffStatus: EhrHandoffStatus,
+) {
+  if (!workflow.context.assessmentSigned) return "Complete and sign the assessment before the decision can be recorded.";
+  if (!workflow.recommendation && !workflow.decision) return "Record the clinical recommendation, or document a supervisor override with the decision.";
+  if (!workflow.decision) return "The signed assessment and clinical recommendation are ready for supervisor review.";
+  if (workflow.decision.outcome === "declined") return "The referral is closed by the supervisor's decline decision; no EHR handoff is required.";
+  return acceptedHandoffNextAction(workflow, incompleteMoveIn, handoffStatus);
+}
+
+function acceptedHandoffNextAction(
+  workflow: WorkflowResponse,
+  incompleteMoveIn: AdmissionRequirement[],
+  handoffStatus: EhrHandoffStatus,
+) {
+  if (incompleteMoveIn.length > 0) return `${incompleteMoveIn.length} required move-in item${incompleteMoveIn.length === 1 ? " remains" : "s remain"} before admission.`;
+  if (workflow.referral.stage !== "Accepted / Admitted") return "Admission requirements are complete. Advance the referral to Accepted / Admitted.";
+  if (handoffStatus === "queued") return "Confirm the downstream transfer, then record the handoff as sent or failed.";
+  if (handoffStatus === "failed") return "Review the recorded failure, correct the downstream issue, and retry the handoff.";
+  if (handoffStatus === "sent") return "The accepted referral and EHR handoff are complete.";
+  return "The accepted referral is ready to queue for EHR handoff.";
+}
+
+function decisionConfirmationMessage(outcome: AdmissionDecision["outcome"], updating: boolean) {
+  const action = updating ? "Update" : "Record";
+  const effect = outcome === "declined"
+    ? "This closes the referral and writes the decision to its activity history."
+    : "This advances the referral into post-assessment admission work and writes the decision to its activity history.";
+  return `${action} the ${outcome} admission decision? ${effect}`;
+}
+
 function decisionSubmissionIsBlocked(
   workflow: WorkflowResponse,
-  outcome: AdmissionDecision["outcome"],
+  outcome: DecisionOutcomeDraft,
   note: string,
   overrideReason: string,
 ) {
-  return !workflow.context.assessmentSigned
+  return !outcome
+    || !workflow.context.assessmentSigned
     || (outcome === "declined" && !note.trim())
     || (!workflow.recommendation && !overrideReason.trim());
 }
@@ -539,7 +654,7 @@ function WorkflowTextArea({ label, value, onChange }: { label: string; value: st
 }
 
 function WorkflowSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }> }) {
-  return <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-9 w-full border border-[#c9ceca] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+  return <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">{label}</span><select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-9 w-full border border-[#c9ceca] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
 
 function RecordSummary({ title, actor, date, note }: { title: string; actor: string; date: string; note: string }) {

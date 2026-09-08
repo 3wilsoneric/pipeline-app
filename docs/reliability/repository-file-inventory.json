@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T17:30:56.922Z",
+  "generated_at": "2026-09-08T18:57:06.081Z",
   "audit_date": "2026-09-08",
-  "git_head": "86951d8396830c6ab55707fccc733099d52398d9",
+  "git_head": "f192a22be9f91f413d2ccbb830c3fc1225fb66f9",
   "files": [
     {
       "path": ".dockerignore",
@@ -2020,11 +2020,11 @@
     },
     {
       "path": "components/pipeline/ReferralWorkflowPanel.tsx",
-      "content_sha256": "9877466dd477e51da864415537c7e61d5e1fb6c7b70d791217e156fe7334f6c2",
+      "content_sha256": "95131e082bf48f9c68c572d9b6efcd9efe49d15f40d58a74dec25971521f18d0",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 30230,
-      "lines": 567,
+      "bytes": 36415,
+      "lines": 682,
       "detected_concerns": [
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
@@ -3814,7 +3814,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "d9c86d51196edaeb0c4a9c1e5f7e685b7e30241b4d265e24787362562c70a67d",
+      "content_sha256": "d2e736340d532c8c2e65f7122e0641bd87c147b5dc580921e38e71c2115abd47",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4388,10 +4388,10 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "4e17d7089bd4f0f0d3570b94774a0cfdfa80c3375ec7c1095f03eaacec946f13",
+      "content_sha256": "cfa7760e653e58f507318472debe4b46f3322172d74a8a6966763482365608cb",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 373584,
+      "bytes": 373586,
       "lines": 1772,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4416,10 +4416,10 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "4889bc68a0f41940354c558a38820610c00cfb96b504ed162df5891d1b48a8e9",
+      "content_sha256": "426ecb81955a57f8b3749e0ae0b0c9f34ced6d6f6b0120d2458ca1ceabeefecf",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 216238,
+      "bytes": 216240,
       "lines": 7508,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4475,7 +4475,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "acb608b6c41f9080e8019efc9f0cef66158fd3ce5e769dbdf130924f0df01083",
+      "content_sha256": "314a4aa915083d5f483b4dea5e795fcc6204bdf306853e90bdd2261905c517cc",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 519970,
@@ -4670,7 +4670,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "ca08c83537a00023483af223046b2fac9c1ad54b73a13dce790d6c7eaec2a415",
+      "content_sha256": "cb2ea6d7b68fedae7d81fd29c101fc437213a7766e55d497e75b57e1a336595c",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 265287,
@@ -10054,17 +10054,17 @@
     },
     {
       "path": "tests/e2e/pipeline-smoke.spec.ts",
-      "content_sha256": "e9866332a54634129afe9a52d7247596c568f50b5e079316a2b5ac863b3e6696",
+      "content_sha256": "38b52b2731c457f2822fefd1661417f7a102ec55c0890d0524e365234055fe42",
       "role": "Browser journey test or snapshot",
       "risk": "medium",
-      "bytes": 163523,
-      "lines": 3219,
+      "bytes": 164656,
+      "lines": 3236,
       "detected_concerns": [
-        "Large module (3219 lines): split by behavior before adding more responsibilities.",
+        "Large module (3236 lines): split by behavior before adding more responsibilities.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
-      "review_focus": "Large module (3219 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (3236 lines): split by behavior before adding more responsibilities.",
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {

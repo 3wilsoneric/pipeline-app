@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T17:30:56.922Z",
+  "generated_at": "2026-09-08T18:57:06.081Z",
   "audit_date": "2026-09-08",
-  "git_head": "86951d8396830c6ab55707fccc733099d52398d9",
+  "git_head": "f192a22be9f91f413d2ccbb830c3fc1225fb66f9",
   "direct": [
     {
       "name": "@azure/identity",
@@ -7500,8 +7500,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1062,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-assessor-execution/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-refactor-assessor-execution/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-supervisor-decision/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-refactor-supervisor-decision/node_modules/@img/sharp-wasm32"
     ]
   }
 }
