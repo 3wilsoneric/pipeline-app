@@ -152,34 +152,29 @@ export default function HomeModuleDashboard({
 
   return (
     <section aria-label="Customizable Home" className="mt-2">
-      <div className="mb-3 flex min-h-11 items-center justify-end gap-3">
-        {editing ? <span className="mr-auto text-[11px] font-bold text-[#65706b]">Arrange Home</span> : null}
+      {editing ? (
+        <div className="mb-3 flex min-h-11 items-center justify-end gap-3">
+          <span className="mr-auto text-[11px] font-bold text-[#65706b]">Arrange Home</span>
         <div className="flex items-center gap-2">
           <span className="sr-only" aria-live="polite">{saveStatus}</span>
-          {editing ? (
-            <button
-              type="button"
-              onClick={() => setLibraryOpen(true)}
-              className="flex h-10 items-center gap-2 px-3 text-[11px] font-black text-[#176f60] hover:bg-[#f0f7f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
-            >
-              <Plus size={16} aria-hidden="true" /> Add module
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => setLibraryOpen(true)}
+            className="flex h-10 items-center gap-2 px-3 text-[11px] font-black text-[#176f60] hover:bg-[#f0f7f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
+          >
+            <Plus size={16} aria-hidden="true" /> Add module
+          </button>
           <button
             type="button"
             aria-pressed={editing}
-            onClick={editing ? finishEditing : beginEditing}
-            className={`flex h-10 items-center gap-2 px-4 text-[11px] font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${
-              editing
-                ? "bg-[#0f8b73] text-white hover:bg-[#0b725f]"
-                : "text-[#315e52] hover:bg-[#f0f7f4]"
-            }`}
+            onClick={finishEditing}
+            className="flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-black text-white hover:bg-[#0b725f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
           >
-            {editing ? <Check size={15} aria-hidden="true" /> : <Pencil size={14} aria-hidden="true" />}
-            {editing ? "Done" : "Edit Home"}
+            <Check size={15} aria-hidden="true" /> Done
           </button>
         </div>
-      </div>
+        </div>
+      ) : <span className="sr-only" aria-live="polite">{saveStatus}</span>}
 
       {layout.module_ids.length === 0 ? (
         <div className="border border-dashed border-[#b8c9c3] bg-[#f7faf9] px-6 py-14 text-center">
@@ -244,6 +239,19 @@ export default function HomeModuleDashboard({
           })}
         </div>
       )}
+
+      {!editing && layout.module_ids.length > 0 ? (
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            aria-pressed="false"
+            onClick={beginEditing}
+            className="flex h-8 items-center gap-1.5 px-2 text-[10px] font-semibold text-[#68716d] hover:bg-[#f4f7f5] hover:text-[#176f60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
+          >
+            <Pencil size={12} aria-hidden="true" /> Edit Home
+          </button>
+        </div>
+      ) : null}
 
       {libraryOpen ? (
         <HomeModuleLibrary
