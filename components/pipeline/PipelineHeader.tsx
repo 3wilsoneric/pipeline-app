@@ -130,16 +130,16 @@ export default function PipelineHeader() {
           aria-label={isWelcomeSurface ? "Alamo Platform" : undefined}
           aria-hidden={!isWelcomeSurface}
           data-platform-brand="alamo"
-          className={`hidden h-12 w-[128px] cursor-default items-center gap-2 overflow-hidden whitespace-nowrap text-[17px] font-semibold text-[#595959] transition-opacity duration-150 ease-out motion-reduce:transition-none sm:flex ${
-            isWelcomeSurface ? "opacity-100" : "pointer-events-none opacity-0"
+          className={`flex h-12 cursor-default items-center gap-2 overflow-hidden whitespace-nowrap text-[17px] font-semibold text-[#595959] transition-opacity duration-150 ease-out motion-reduce:transition-none ${
+            isWelcomeSurface ? "max-w-[128px] opacity-100" : "pointer-events-none max-w-0 opacity-0"
           }`}
         >
-          <span><span className="font-black text-[#08745f]">Alamo</span><span className="ml-1">Health</span></span>
+          <span className="hidden sm:inline"><span className="font-black text-[#08745f]">Alamo</span><span className="ml-1">Health</span></span>
         </div>
         <span
           aria-hidden="true"
-          className={`mx-4 hidden h-8 w-px bg-[#d9d9d9] transition-opacity duration-150 ease-out motion-reduce:transition-none sm:block ${
-            isWelcomeSurface ? "opacity-100" : "opacity-0"
+          className={`hidden h-8 bg-[#d9d9d9] transition-opacity duration-150 ease-out motion-reduce:transition-none sm:block ${
+            isWelcomeSurface ? "mx-4 w-px opacity-100" : "mx-0 w-0 opacity-0"
           }`}
         />
         <button
