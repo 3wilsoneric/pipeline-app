@@ -27,6 +27,8 @@ export default function PipelineWelcome({
   currentWorkOpen,
   onOpenCurrentWork,
   onCloseCurrentWork,
+  editHome = false,
+  onFinishEditingHome,
   canAccessReports = false,
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
@@ -37,6 +39,8 @@ export default function PipelineWelcome({
   currentWorkOpen: boolean;
   onOpenCurrentWork: () => void;
   onCloseCurrentWork: () => void;
+  editHome?: boolean;
+  onFinishEditingHome?: () => void;
   canAccessReports?: boolean;
 }) {
   const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(null);
@@ -108,6 +112,8 @@ export default function PipelineWelcome({
               ) : null}
               <HomeModuleDashboard
                 viewerId={briefing.viewer.id}
+                initialEditing={editHome}
+                onFinishEditing={onFinishEditingHome}
                 modules={{
                   "current-work": <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} />,
                   "new-assignments": <SinceLastVisitAssignments viewerId={briefing.viewer.id} onOpenPacket={onOpenPacket} />,

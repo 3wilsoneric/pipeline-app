@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { BadgeCheck, BriefcaseBusiness, LoaderCircle, Phone, Save, UserRound } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, BadgeCheck, BriefcaseBusiness, LayoutDashboard, LoaderCircle, Phone, Save, UserRound } from "lucide-react";
 
 import TeamPresenceList from "@/components/pipeline/TeamPresenceList";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
@@ -168,6 +169,20 @@ export default function StaffProfileSettings() {
 
             <aside className="space-y-5">
               <TeamPresenceList />
+              <section className="border border-[#d9dfdb] bg-white p-5">
+                <div className="flex items-center gap-2">
+                  <LayoutDashboard size={17} className="text-[#0f8b73]" aria-hidden="true" />
+                  <h2 className="text-[13px] font-black text-[#111111]">Home layout</h2>
+                </div>
+                <p className="mt-2 text-[10px] leading-5 text-[#666666]">Choose, remove, and arrange the modules on your Home screen.</p>
+                <Link
+                  href="/?editHome=1"
+                  aria-label="Edit Home"
+                  className="mt-3 flex h-10 items-center justify-between border-t border-[#e2e6e3] pt-2 text-[11px] font-black text-[#176f60] outline-none hover:text-[#0b725f] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
+                >
+                  Edit Home <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              </section>
               <section className="border border-[#d9dfdb] bg-[#fbfcfb] p-5">
                 <h2 className="text-[13px] font-black text-[#111111]">What stays locked</h2>
                 <p className="mt-2 text-[10px] leading-5 text-[#666666]">Name, email, access roles, and identity status are managed by the organization. This prevents a profile edit from changing access, assignments, or who appears in the audit trail.</p>

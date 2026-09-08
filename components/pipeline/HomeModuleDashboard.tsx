@@ -9,7 +9,6 @@ import {
   GripVertical,
   LibraryBig,
   Minus,
-  Pencil,
   Plus,
   RotateCcw,
   UserPlus,
@@ -72,12 +71,16 @@ const definitionsById = Object.fromEntries(
 export default function HomeModuleDashboard({
   viewerId,
   modules,
+  initialEditing = false,
+  onFinishEditing,
 }: {
   viewerId: string;
   modules: Record<PipelineHomeModuleId, ReactNode>;
+  initialEditing?: boolean;
+  onFinishEditing?: () => void;
 }) {
   const [layout, setLayout] = useState(defaultPipelineHomeDashboardLayout);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(initialEditing);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [draggedModuleId, setDraggedModuleId] = useState<PipelineHomeModuleId | null>(null);
   const [saveStatus, setSaveStatus] = useState("");
@@ -127,6 +130,7 @@ export default function HomeModuleDashboard({
     setEditing(false);
     setSaveStatus("Home saved");
     setLibraryOpen(false);
+    onFinishEditing?.();
   };
 
   const beginPointerDrag = (event: ReactPointerEvent<HTMLButtonElement>, moduleId: PipelineHomeModuleId) => {
@@ -239,19 +243,6 @@ export default function HomeModuleDashboard({
           })}
         </div>
       )}
-
-      {!editing && layout.module_ids.length > 0 ? (
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            aria-pressed="false"
-            onClick={beginEditing}
-            className="flex h-8 items-center gap-1.5 px-2 text-[10px] font-semibold text-[#68716d] hover:bg-[#f4f7f5] hover:text-[#176f60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
-          >
-            <Pencil size={12} aria-hidden="true" /> Edit Home
-          </button>
-        </div>
-      ) : null}
 
       {libraryOpen ? (
         <HomeModuleLibrary

@@ -43,6 +43,7 @@ export default function PipelineOverviewRoute() {
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
   const screen = getScreenFromParams(activeSearchParams);
   const currentWorkOpen = screen === "home" && activeSearchParams.get("work") === "current";
+  const editHome = screen === "home" && activeSearchParams.get("editHome") === "1";
   const selectedClientId = screen === "profile" ? activeSearchParams.get("clientId") ?? undefined : undefined;
   const routeReferral = screen === "packet" ? getReferralFromParams(activeSearchParams) : undefined;
   const newReferralDraftKey = screen === "packet" && !routeReferral
@@ -86,6 +87,7 @@ export default function PipelineOverviewRoute() {
     params.delete("work");
     params.delete("trainingAssessment");
     params.delete("assessmentSection");
+    params.delete("editHome");
     if (nextScreen === "referrals") {
       params.set("view", "referrals");
       params.delete("screen");
@@ -147,6 +149,12 @@ export default function PipelineOverviewRoute() {
     replacePipelineHistory(params.size ? `/?${params.toString()}` : "/");
   };
 
+  const finishEditingHome = () => {
+    const params = new URLSearchParams(activeSearchParams.toString());
+    params.delete("editHome");
+    replacePipelineHistory(params.size ? `/?${params.toString()}` : "/");
+  };
+
   if (screen === "home") {
     return (
       <PipelineWelcome
@@ -162,6 +170,8 @@ export default function PipelineOverviewRoute() {
         currentWorkOpen={currentWorkOpen}
         onOpenCurrentWork={openCurrentWork}
         onCloseCurrentWork={closeCurrentWork}
+        editHome={editHome}
+        onFinishEditingHome={finishEditingHome}
       />
     );
   }

@@ -23,10 +23,9 @@ test.describe("role-scoped home and reports", () => {
   });
 
   test("customizes, reorders, saves, and restores the user's Home modules", async ({ page }) => {
-    await page.goto("/");
-
+    await page.goto("/settings");
+    await page.getByRole("link", { name: "Edit Home", exact: true }).click();
     await expect(page.getByRole("region", { name: "Current work" })).toBeVisible();
-    await page.getByRole("button", { name: "Edit Home" }).click();
     await page.getByRole("button", { name: "Add module" }).click();
 
     const library = page.getByRole("dialog", { name: "Home module library" });
@@ -46,7 +45,8 @@ test.describe("role-scoped home and reports", () => {
     ))).toEqual(["scheduling-queue", "current-work", "new-assignments"]);
 
     await page.getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("button", { name: "Edit Home" })).toBeVisible();
+    await expect(page).not.toHaveURL(/editHome=1/);
+    await expect(page.getByRole("button", { name: "Edit Home" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Move / })).toHaveCount(0);
 
     await page.reload();
@@ -57,7 +57,8 @@ test.describe("role-scoped home and reports", () => {
     ))).toEqual(["scheduling-queue", "current-work", "new-assignments"]);
 
     await page.setViewportSize({ width: 320, height: 720 });
-    await page.getByRole("button", { name: "Edit Home" }).click();
+    await page.goto("/settings");
+    await page.getByRole("link", { name: "Edit Home", exact: true }).click();
     await expect(page.getByRole("button", { name: "Add module" })).toBeInViewport();
     await expect(page.getByRole("button", { name: "Done" })).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
