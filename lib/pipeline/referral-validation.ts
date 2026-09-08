@@ -1,4 +1,5 @@
 import { pipelineCommunities } from "./community-config";
+import { normalizeCalendarDate } from "./calendar-date";
 import { boardStages } from "./referral-workflow";
 import type { ReferralPatch } from "./referral-store";
 import type {
@@ -117,6 +118,7 @@ export function validateReferralCreateInput(
   }
 
   const enumChecks = [
+    validateCalendarDates(value, ["date", "dob", "admissionDate"]),
     validateEnum(value.stage, "stage", boardStages),
     validateEnum(value.community, "community", pipelineCommunities),
     validateEnum(value.priority, "priority", priorities),
@@ -170,6 +172,7 @@ export function validateReferralPatch(
     ["gender", "gender"],
     ["reportedAge", "reportedAge"],
     ["ssn", "ssn"],
+    ["admissionDate", "admissionDate"],
     ["responsiblePerson", "responsiblePerson"],
     ["currentMedications", "currentMedications"],
     ["phone", "phone"],
@@ -186,8 +189,8 @@ export function validateReferralPatch(
     const result = validateString(value[field], label, stringLimits[field], false);
     if (!result.ok) return result;
   }
-
   const enumChecks = [
+    validateCalendarDates(value, ["date", "dob", "admissionDate"]),
     optionalEnum(value.stage, "stage", boardStages),
     optionalEnum(value.community, "community", pipelineCommunities),
     optionalEnum(value.priority, "priority", priorities),
@@ -493,6 +496,19 @@ function validateTimestamp(value: unknown, field: string) {
   if (!result.ok) return result;
   if (Number.isNaN(Date.parse(value as string))) return invalid(`${field} must be a valid timestamp.`);
   return result;
+}
+
+function validateCalendarDates(
+  value: Record<string, unknown>,
+  fields: readonly ("date" | "dob" | "admissionDate")[],
+): ValidationSuccess<true> | ValidationFailure {
+  for (const field of fields) {
+    if (!(field in value) || value[field] === undefined || value[field] === "") continue;
+    if (typeof value[field] !== "string" || normalizeCalendarDate(value[field]) === null) {
+      return invalid(`${field} must be a real calendar date in YYYY-MM-DD or M/D/YYYY format.`);
+    }
+  }
+  return valid();
 }
 
 function validateEnum<T extends string>(value: unknown, field: string, allowed: readonly T[]) {

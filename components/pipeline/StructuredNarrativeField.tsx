@@ -17,10 +17,22 @@ export default function StructuredNarrativeField({
   field,
   kind,
   onChange,
+  saveStatus,
+  saveError,
+  saving = false,
+  hasUnsavedChanges = false,
+  saveActionLabel = "Save now",
+  onSave,
 }: {
   field: ReferralCanvasPacketField;
   kind: StructuredNarrativeKind;
   onChange: (value: string) => void;
+  saveStatus?: string;
+  saveError?: string;
+  saving?: boolean;
+  hasUnsavedChanges?: boolean;
+  saveActionLabel?: string;
+  onSave?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -83,6 +95,12 @@ export default function StructuredNarrativeField({
           onChange={(sectionKey, value) => {
             onChange(serializeStructuredNarrative(sections, { ...values, [sectionKey]: value }));
           }}
+          saveStatus={saveStatus}
+          saveError={saveError}
+          saving={saving}
+          hasUnsavedChanges={hasUnsavedChanges}
+          saveActionLabel={saveActionLabel}
+          onSave={onSave}
           onClose={closeEditor}
         />
       ) : null}
@@ -95,12 +113,24 @@ function StructuredNarrativeDialog({
   sections,
   values,
   onChange,
+  saveStatus,
+  saveError,
+  saving,
+  hasUnsavedChanges,
+  saveActionLabel,
+  onSave,
   onClose,
 }: {
   title: string;
   sections: readonly StructuredNarrativeSection[];
   values: Record<string, string>;
   onChange: (sectionKey: string, value: string) => void;
+  saveStatus?: string;
+  saveError?: string;
+  saving: boolean;
+  hasUnsavedChanges: boolean;
+  saveActionLabel: string;
+  onSave?: () => void;
   onClose: () => void;
 }) {
   const firstFieldRef = useRef<HTMLTextAreaElement>(null);
@@ -167,14 +197,30 @@ function StructuredNarrativeDialog({
           </div>
         </div>
 
-        <footer className="flex min-h-[70px] items-center justify-end border-t border-[#d9d9d9] px-5 sm:px-8">
+        <footer className="flex min-h-[70px] flex-wrap items-center justify-between gap-3 border-t border-[#d9d9d9] px-5 py-3 sm:px-8">
+          <div className="min-w-0" aria-live="polite">
+            {saveError ? <div role="alert" className="text-[11px] font-semibold text-[#a4473c]">{saveError}</div> : null}
+            {!saveError && saveStatus ? <div className="text-[11px] text-[#737373]">{saveStatus === "Workspace loaded" ? "All changes saved" : saveStatus}</div> : null}
+          </div>
+          <div className="flex items-center gap-2">
+            {onSave ? (
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={saving || !hasUnsavedChanges}
+                className="h-10 border border-[#0f8b73] px-5 text-[11px] font-black uppercase tracking-[0.08em] text-[#0c705f] hover:bg-[#effaf5] disabled:cursor-not-allowed disabled:border-[#c9ceca] disabled:text-[#8a8a8a]"
+              >
+                {saving ? "Saving..." : saveActionLabel}
+              </button>
+            ) : null}
           <button
             type="button"
             onClick={onClose}
             className="h-10 bg-[#111111] px-6 text-[11px] font-black uppercase tracking-[0.08em] text-white hover:bg-[#0f8b73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
           >
-            Done
+            Close editor
           </button>
+          </div>
         </footer>
       </section>
     </div>,

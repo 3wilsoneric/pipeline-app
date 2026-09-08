@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, CheckCircle2, Circle, ClipboardCheck, LoaderCircle, Send, ShieldCheck } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, Circle, ClipboardCheck, LoaderCircle, Send, ShieldCheck } from "lucide-react";
 
+import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { createMutationId } from "@/lib/pipeline/referral-packet-upload";
 import { referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
@@ -46,6 +47,10 @@ type ReferralWorkflowPanelProps = {
   onOpenFiles: () => void;
 };
 
+type PendingWorkflowDetail =
+  | { kind: "requirement"; item: AdmissionRequirement; status: RequirementStatus }
+  | { kind: "ehr_failure" };
+
 const requirementStatuses: Array<{ value: RequirementStatus; label: string }> = [
   { value: "needed", label: "Needed" },
   { value: "requested", label: "Requested" },
@@ -76,6 +81,7 @@ export default function ReferralWorkflowPanel({
   const [decisionNote, setDecisionNote] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [manualIntakeReason, setManualIntakeReason] = useState("");
+  const [pendingDetail, setPendingDetail] = useState<PendingWorkflowDetail | null>(null);
   const mutationIds = useRef(new Map<string, string>());
   const recommendationDirty = useRef(false);
   const decisionDirty = useRef(false);
@@ -164,25 +170,17 @@ export default function ReferralWorkflowPanel({
   const forwardTransition = workflow.transitions.find((transition) => transition.target !== "Declined");
   const incompleteMoveIn = workflow.work_items.filter((item) => item.requiredFor === "move_in" && item.blocker && !isRequirementComplete(item.status));
   const handoffStatus = currentReferral.ehrHandoff?.status ?? "not_ready";
+  const decisionDisclosureIsOpen = shouldOpenDecisionDisclosure(workflow);
+  const decisionDisclosureKey = disclosureState(decisionDisclosureIsOpen);
 
-  const updateRequirement = async (item: AdmissionRequirement, status: RequirementStatus) => {
+  const saveRequirement = async (item: AdmissionRequirement, status: RequirementStatus, detail = "") => {
     const patch: Record<string, unknown> = { status };
     if (status === "requested") {
-      const requestedFrom = window.prompt("Who is expected to provide this item?", item.requestedFrom ?? "")?.trim();
-      if (!requestedFrom) return;
-      patch.requestedFrom = requestedFrom;
+      patch.requestedFrom = detail;
       patch.followUpAt = item.followUpAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000).toISOString();
     }
-    if (status === "waived") {
-      const reason = window.prompt("Why is this requirement being waived?", item.waiverReason ?? "")?.trim();
-      if (!reason) return;
-      patch.waiverReason = reason;
-    }
-    if (status === "unavailable" || status === "not_applicable") {
-      const reason = window.prompt(status === "unavailable" ? "Why is this unavailable?" : "Why does this not apply?", item.unavailableReason ?? "")?.trim();
-      if (!reason) return;
-      patch.unavailableReason = reason;
-    }
+    if (status === "waived") patch.waiverReason = detail;
+    if (status === "unavailable" || status === "not_applicable") patch.unavailableReason = detail;
     await runMutation(
       `requirement:${item.id}:${item.version ?? 1}:${status}`,
       `/api/referrals/${currentReferral.id}/work-items/${item.id}`,
@@ -191,6 +189,170 @@ export default function ReferralWorkflowPanel({
       `${item.label} updated`,
     );
   };
+
+  const updateRequirement = (item: AdmissionRequirement, status: RequirementStatus) => {
+    if (["requested", "waived", "unavailable", "not_applicable"].includes(status)) {
+      setPendingDetail({ kind: "requirement", item, status });
+      return;
+    }
+    void saveRequirement(item, status);
+  };
+
+  const renderStageProgress = () => (
+    <div className="grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-4 xl:grid-cols-7">
+      {referralStageDefinitions.map((definition) => {
+        const active = definition.stage === currentReferral.stage;
+        const complete = referralStageDefinitions.findIndex((item) => item.stage === currentReferral.stage) > referralStageDefinitions.findIndex((item) => item.stage === definition.stage)
+          && !(currentReferral.stage === "Declined" && definition.stage === "Accepted / Admitted");
+        return (
+          <div key={definition.stage} className={`min-w-0 bg-white px-3 py-3 ${active ? "shadow-[inset_0_-3px_0_#0f8b73]" : ""}`}>
+            <div className="flex items-center gap-2 text-[10px] font-black text-[#202522]">{complete ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className={active ? "fill-[#0f8b73] text-[#0f8b73]" : "text-[#a0a0a0]"} />}<span className="truncate">{definition.label}</span></div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderCurrentGate = () => (
+    <WorkflowCard icon={<ClipboardCheck size={17} />} title="Current gate" detail={currentReferral.stage}>
+      {forwardTransition ? (
+        <>
+          {forwardTransition.blockers.length > 0 ? (
+            <div className="space-y-2">
+              {forwardTransition.blockers.map((blocker) => <div key={blocker.code} className="text-[11px] leading-5 text-[#7a4c0d]">{blocker.label}</div>)}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <SecondaryButton onClick={onOpenIntake}>Open intake</SecondaryButton>
+                <SecondaryButton onClick={onOpenFiles}>Open files</SecondaryButton>
+                <SecondaryButton onClick={onOpenAssessment}>Open assessment</SecondaryButton>
+              </div>
+            </div>
+          ) : (
+            <PrimaryButton
+              busy={busy === `transition:${forwardTransition.target}`}
+              disabled={!workflow.capabilities.can_update}
+              onClick={() => void runMutation(
+                `transition:${forwardTransition.target}:${currentReferral.version}`,
+                `/api/referrals/${currentReferral.id}/transition`,
+                "POST",
+                { if_match: currentReferral.version, if_match_section: sections.workflow, target_stage: forwardTransition.target },
+                `Moved to ${forwardTransition.target}`,
+              )}
+            >Advance to {forwardTransition.target}</PrimaryButton>
+          )}
+        </>
+      ) : <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> This referral is in a terminal stage.</div>}
+
+      {!currentReferral.manualIntakeAuthorization && workflow.capabilities.can_authorize_manual_intake && ["New", "Packet Needed"].includes(currentReferral.stage) ? (
+        <div className="mt-4 border-t border-[#e3e6e4] pt-4">
+          <label className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]" htmlFor="manual-intake-reason">Chart-only exception</label>
+          <textarea id="manual-intake-reason" value={manualIntakeReason} onChange={(event) => setManualIntakeReason(event.target.value)} rows={2} placeholder="Explain why intake must proceed without packet extraction" className="mt-2 w-full border border-[#c9ceca] px-3 py-2 text-[11px] outline-none focus:border-[#0f8b73]" />
+          <SecondaryButton disabled={manualIntakeReason.trim().length < 10 || Boolean(busy)} onClick={() => void runMutation(
+            `manual-intake:${currentReferral.version}`,
+            `/api/referrals/${currentReferral.id}/manual-intake`,
+            "POST",
+            { if_match: currentReferral.version, if_match_section: sections.documents, reason: manualIntakeReason.trim() },
+            "Manual chart intake authorized",
+          )}>Authorize manual intake</SecondaryButton>
+        </div>
+      ) : null}
+    </WorkflowCard>
+  );
+
+  const renderClinicalRecommendation = () => (
+    <WorkflowDisclosure
+      key={`recommendation-${workflow.context.assessmentId || workflow.recommendation ? "ready" : "pending"}`}
+      icon={<ShieldCheck size={17} />}
+      title="Clinical recommendation"
+      detail={workflow.context.assessmentSigned ? "Signed assessment available" : "Assessment signature required"}
+      defaultOpen={Boolean(workflow.context.assessmentId || workflow.recommendation)}
+    >
+      {workflow.recommendation ? <RecordSummary title={`${formatOutcome(workflow.recommendation.outcome)} recommendation`} actor={workflow.recommendation.recommendedByName} date={workflow.recommendation.recommendedAt} note={workflow.recommendation.reasonNote} /> : null}
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <WorkflowSelect label="Recommendation" value={recommendationOutcome} onChange={(value) => { recommendationDirty.current = true; setRecommendationOutcome(value as AssessmentRecommendation["outcome"]); }} options={[{ value: "accept", label: "Recommend acceptance" }, { value: "decline", label: "Recommend decline" }, { value: "needs_more_information", label: "Needs more information" }]} />
+        <WorkflowInput label="Reason code (optional)" value={recommendationCode} onChange={(value) => { recommendationDirty.current = true; setRecommendationCode(value); }} />
+      </div>
+      <WorkflowTextArea label="Clinical rationale" value={recommendationNote} onChange={(value) => { recommendationDirty.current = true; setRecommendationNote(value); }} />
+      <PrimaryButton
+        busy={busy.startsWith("recommendation:")}
+        disabled={!workflow.capabilities.can_recommend || !workflow.context.assessmentId || (recommendationOutcome !== "accept" && !recommendationNote.trim())}
+        onClick={() => void runMutation(
+          `recommendation:${currentReferral.version}:${sections.decision}`,
+          `/api/referrals/${currentReferral.id}/recommendation`,
+          "PUT",
+          { if_match: currentReferral.version, if_match_section: sections.decision, assessment_id: workflow.context.assessmentId, outcome: recommendationOutcome, reason_code: recommendationCode, reason_note: recommendationNote },
+          "Recommendation submitted",
+        )}
+      >Submit recommendation</PrimaryButton>
+    </WorkflowDisclosure>
+  );
+
+  const renderSupervisorDecision = () => (
+    <WorkflowDisclosure
+      key={`decision-${decisionDisclosureKey}`}
+      icon={<CheckCircle2 size={17} />}
+      title="Supervisor decision"
+      detail={workflow.capabilities.can_decide ? "Supervisor authority" : "Visible to the assigned team"}
+      defaultOpen={decisionDisclosureIsOpen}
+    >
+      {workflow.decision ? <RecordSummary title={`${formatOutcome(workflow.decision.outcome)} decision`} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} /> : null}
+      {workflow.capabilities.can_decide ? (
+        <>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <WorkflowSelect label="Decision" value={decisionOutcome} onChange={(value) => { decisionDirty.current = true; setDecisionOutcome(value as AdmissionDecision["outcome"]); }} options={[{ value: "accepted", label: "Accept" }, { value: "declined", label: "Decline" }]} />
+            <WorkflowInput label="Reason code (optional)" value={decisionCode} onChange={(value) => { decisionDirty.current = true; setDecisionCode(value); }} />
+          </div>
+          <WorkflowTextArea label="Decision rationale" value={decisionNote} onChange={(value) => { decisionDirty.current = true; setDecisionNote(value); }} />
+          {!workflow.recommendation ? <WorkflowTextArea label="Supervisor override reason" value={overrideReason} onChange={(value) => { decisionDirty.current = true; setOverrideReason(value); }} /> : null}
+          <PrimaryButton
+            busy={busy.startsWith("decision:")}
+            disabled={decisionSubmissionIsBlocked(workflow, decisionOutcome, decisionNote, overrideReason)}
+            onClick={() => void runMutation(
+              `decision:${currentReferral.version}:${sections.decision}`,
+              `/api/referrals/${currentReferral.id}/decision`,
+              "PUT",
+              { if_match: currentReferral.version, if_match_section: sections.decision, outcome: decisionOutcome, reason_code: decisionCode, reason_note: decisionNote, override_reason: overrideReason },
+              "Supervisor decision recorded",
+            )}
+          >Record decision</PrimaryButton>
+        </>
+      ) : null}
+    </WorkflowDisclosure>
+  );
+
+  const renderRequirements = () => (
+    <WorkflowCard icon={<ClipboardCheck size={17} />} title="Admission requirements" detail={`${incompleteMoveIn.length} blocking move-in item${incompleteMoveIn.length === 1 ? "" : "s"} remaining`}>
+      <div className="divide-y divide-[#e4e7e5] border-y border-[#d9d9d9]">
+        {workflow.work_items.map((item) => (
+          <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:items-center">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[11px] font-black text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker ? <span className="text-[9px] font-black uppercase text-[#9a6115]">Required</span> : null}</div>
+              <div className="mt-1 text-[10px] leading-4 text-[#737373]">{item.nextStep}</div>
+            </div>
+            <select aria-label={`${item.label} status`} value={item.status} disabled={!workflow.capabilities.can_update || Boolean(busy)} onChange={(event) => updateRequirement(item, event.target.value as RequirementStatus)} className="h-9 w-full border border-[#c9ceca] bg-white px-2 text-[10px] font-black outline-none focus:border-[#0f8b73]">
+              {requirementStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+    </WorkflowCard>
+  );
+
+  const renderEhrHandoff = () => (
+    <WorkflowDisclosure
+      key={`ehr-${currentReferral.stage === "Accepted / Admitted" || handoffStatus !== "not_ready" ? "ready" : "pending"}`}
+      icon={<Send size={17} />}
+      title="EHR handoff"
+      detail={handoffDescription(handoffStatus)}
+      defaultOpen={currentReferral.stage === "Accepted / Admitted" || handoffStatus !== "not_ready"}
+    >
+      <div className="flex flex-wrap gap-2">
+        {handoffStatus === "failed" ? <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={() => void updateHandoff("retry")}>Retry handoff</PrimaryButton> : null}
+        {handoffStatus !== "queued" && handoffStatus !== "sent" && handoffStatus !== "failed" ? <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update || currentReferral.stage !== "Accepted / Admitted"} onClick={() => void updateHandoff("queue")}>Queue EHR handoff</PrimaryButton> : null}
+        {handoffStatus === "queued" ? <><PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={() => void updateHandoff("mark_sent")}>Record sent</PrimaryButton><SecondaryButton disabled={Boolean(busy)} onClick={() => setPendingDetail({ kind: "ehr_failure" })}>Record failed</SecondaryButton></> : null}
+        {handoffStatus === "sent" ? <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> Handoff recorded as sent.</div> : null}
+      </div>
+    </WorkflowDisclosure>
+  );
 
   return (
     <section aria-label="Admission workflow" className="space-y-6 py-2 sm:px-2">
@@ -203,146 +365,39 @@ export default function ReferralWorkflowPanel({
       {message ? <WorkflowNotice tone="success">{message}</WorkflowNotice> : null}
       {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
 
-      <div className="grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-4 xl:grid-cols-7">
-        {referralStageDefinitions.map((definition) => {
-          const active = definition.stage === currentReferral.stage;
-          const complete = referralStageDefinitions.findIndex((item) => item.stage === currentReferral.stage) > referralStageDefinitions.findIndex((item) => item.stage === definition.stage)
-            && !(currentReferral.stage === "Declined" && definition.stage === "Accepted / Admitted");
-          return (
-            <div key={definition.stage} className={`min-w-0 bg-white px-3 py-3 ${active ? "shadow-[inset_0_-3px_0_#0f8b73]" : ""}`}>
-              <div className="flex items-center gap-2 text-[10px] font-black text-[#202522]">{complete ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className={active ? "fill-[#0f8b73] text-[#0f8b73]" : "text-[#a0a0a0]"} />}<span className="truncate">{definition.label}</span></div>
-            </div>
-          );
-        })}
-      </div>
+      {renderStageProgress()}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
         <div className="space-y-5">
-          <WorkflowCard icon={<ClipboardCheck size={17} />} title="Current gate" detail={currentReferral.stage}>
-            {forwardTransition ? (
-              <>
-                {forwardTransition.blockers.length > 0 ? (
-                  <div className="space-y-2">
-                    {forwardTransition.blockers.map((blocker) => <div key={blocker.code} className="text-[11px] leading-5 text-[#7a4c0d]">{blocker.label}</div>)}
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <SecondaryButton onClick={onOpenIntake}>Open intake</SecondaryButton>
-                      <SecondaryButton onClick={onOpenFiles}>Open files</SecondaryButton>
-                      <SecondaryButton onClick={onOpenAssessment}>Open assessment</SecondaryButton>
-                    </div>
-                  </div>
-                ) : (
-                  <PrimaryButton
-                    busy={busy === `transition:${forwardTransition.target}`}
-                    disabled={!workflow.capabilities.can_update}
-                    onClick={() => void runMutation(
-                      `transition:${forwardTransition.target}:${currentReferral.version}`,
-                      `/api/referrals/${currentReferral.id}/transition`,
-                      "POST",
-                      { if_match: currentReferral.version, if_match_section: sections.workflow, target_stage: forwardTransition.target },
-                      `Moved to ${forwardTransition.target}`,
-                    )}
-                  >Advance to {forwardTransition.target}</PrimaryButton>
-                )}
-              </>
-            ) : <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> This referral is in a terminal stage.</div>}
-
-            {!currentReferral.manualIntakeAuthorization && workflow.capabilities.can_authorize_manual_intake && ["New", "Packet Needed"].includes(currentReferral.stage) ? (
-              <div className="mt-4 border-t border-[#e3e6e4] pt-4">
-                <label className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#595959]" htmlFor="manual-intake-reason">Chart-only exception</label>
-                <textarea id="manual-intake-reason" value={manualIntakeReason} onChange={(event) => setManualIntakeReason(event.target.value)} rows={2} placeholder="Explain why intake must proceed without packet extraction" className="mt-2 w-full border border-[#c9ceca] px-3 py-2 text-[11px] outline-none focus:border-[#0f8b73]" />
-                <SecondaryButton disabled={manualIntakeReason.trim().length < 10 || Boolean(busy)} onClick={() => void runMutation(
-                  `manual-intake:${currentReferral.version}`,
-                  `/api/referrals/${currentReferral.id}/manual-intake`,
-                  "POST",
-                  { if_match: currentReferral.version, if_match_section: sections.documents, reason: manualIntakeReason.trim() },
-                  "Manual chart intake authorized",
-                )}>Authorize manual intake</SecondaryButton>
-              </div>
-            ) : null}
-          </WorkflowCard>
-
-          <WorkflowCard icon={<ShieldCheck size={17} />} title="Clinical recommendation" detail={workflow.context.assessmentSigned ? "Signed assessment available" : "Assessment signature required"}>
-            {workflow.recommendation ? <RecordSummary title={`${formatOutcome(workflow.recommendation.outcome)} recommendation`} actor={workflow.recommendation.recommendedByName} date={workflow.recommendation.recommendedAt} note={workflow.recommendation.reasonNote} /> : null}
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <WorkflowSelect label="Recommendation" value={recommendationOutcome} onChange={(value) => { recommendationDirty.current = true; setRecommendationOutcome(value as AssessmentRecommendation["outcome"]); }} options={[{ value: "accept", label: "Recommend acceptance" }, { value: "decline", label: "Recommend decline" }, { value: "needs_more_information", label: "Needs more information" }]} />
-              <WorkflowInput label="Reason code (optional)" value={recommendationCode} onChange={(value) => { recommendationDirty.current = true; setRecommendationCode(value); }} />
-            </div>
-            <WorkflowTextArea label="Clinical rationale" value={recommendationNote} onChange={(value) => { recommendationDirty.current = true; setRecommendationNote(value); }} />
-            <PrimaryButton
-              busy={busy.startsWith("recommendation:")}
-              disabled={!workflow.capabilities.can_recommend || !workflow.context.assessmentId || (recommendationOutcome !== "accept" && !recommendationNote.trim())}
-              onClick={() => void runMutation(
-                `recommendation:${currentReferral.version}:${sections.decision}`,
-                `/api/referrals/${currentReferral.id}/recommendation`,
-                "PUT",
-                { if_match: currentReferral.version, if_match_section: sections.decision, assessment_id: workflow.context.assessmentId, outcome: recommendationOutcome, reason_code: recommendationCode, reason_note: recommendationNote },
-                "Recommendation submitted",
-              )}
-            >Submit recommendation</PrimaryButton>
-          </WorkflowCard>
-
-          <WorkflowCard icon={<CheckCircle2 size={17} />} title="Supervisor decision" detail={workflow.capabilities.can_decide ? "Supervisor authority" : "Visible to the assigned team"}>
-            {workflow.decision ? <RecordSummary title={`${formatOutcome(workflow.decision.outcome)} decision`} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} /> : null}
-            {workflow.capabilities.can_decide ? (
-              <>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <WorkflowSelect label="Decision" value={decisionOutcome} onChange={(value) => { decisionDirty.current = true; setDecisionOutcome(value as AdmissionDecision["outcome"]); }} options={[{ value: "accepted", label: "Accept" }, { value: "declined", label: "Decline" }]} />
-                  <WorkflowInput label="Reason code (optional)" value={decisionCode} onChange={(value) => { decisionDirty.current = true; setDecisionCode(value); }} />
-                </div>
-                <WorkflowTextArea label="Decision rationale" value={decisionNote} onChange={(value) => { decisionDirty.current = true; setDecisionNote(value); }} />
-                {!workflow.recommendation ? <WorkflowTextArea label="Supervisor override reason" value={overrideReason} onChange={(value) => { decisionDirty.current = true; setOverrideReason(value); }} /> : null}
-                <PrimaryButton
-                  busy={busy.startsWith("decision:")}
-                  disabled={!workflow.context.assessmentSigned || (decisionOutcome === "declined" && !decisionNote.trim()) || (!workflow.recommendation && !overrideReason.trim())}
-                  onClick={() => void runMutation(
-                    `decision:${currentReferral.version}:${sections.decision}`,
-                    `/api/referrals/${currentReferral.id}/decision`,
-                    "PUT",
-                    { if_match: currentReferral.version, if_match_section: sections.decision, outcome: decisionOutcome, reason_code: decisionCode, reason_note: decisionNote, override_reason: overrideReason },
-                    "Supervisor decision recorded",
-                  )}
-                >Record decision</PrimaryButton>
-              </>
-            ) : null}
-          </WorkflowCard>
+          {renderCurrentGate()}
+          {renderClinicalRecommendation()}
+          {renderSupervisorDecision()}
         </div>
 
         <div className="space-y-5">
-          <WorkflowCard icon={<ClipboardCheck size={17} />} title="Admission requirements" detail={`${incompleteMoveIn.length} blocking move-in item${incompleteMoveIn.length === 1 ? "" : "s"} remaining`}>
-            <div className="divide-y divide-[#e4e7e5] border-y border-[#d9d9d9]">
-              {workflow.work_items.map((item) => (
-                <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:items-center">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-[11px] font-black text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker ? <span className="text-[9px] font-black uppercase text-[#9a6115]">Required</span> : null}</div>
-                    <div className="mt-1 text-[10px] leading-4 text-[#737373]">{item.nextStep}</div>
-                  </div>
-                  <select aria-label={`${item.label} status`} value={item.status} disabled={!workflow.capabilities.can_update || Boolean(busy)} onChange={(event) => void updateRequirement(item, event.target.value as RequirementStatus)} className="h-9 w-full border border-[#c9ceca] bg-white px-2 text-[10px] font-black outline-none focus:border-[#0f8b73]">
-                    {requirementStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-                  </select>
-                </div>
-              ))}
-            </div>
-          </WorkflowCard>
-
-          <WorkflowCard icon={<Send size={17} />} title="EHR handoff" detail={handoffDescription(handoffStatus)}>
-            <div className="flex flex-wrap gap-2">
-              {handoffStatus === "failed" ? <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={() => void updateHandoff("retry")}>Retry handoff</PrimaryButton> : null}
-              {handoffStatus !== "queued" && handoffStatus !== "sent" && handoffStatus !== "failed" ? <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update || currentReferral.stage !== "Accepted / Admitted"} onClick={() => void updateHandoff("queue")}>Queue EHR handoff</PrimaryButton> : null}
-              {handoffStatus === "queued" ? <><PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={() => void updateHandoff("mark_sent")}>Record sent</PrimaryButton><SecondaryButton disabled={Boolean(busy)} onClick={() => void updateHandoff("mark_failed")}>Record failed</SecondaryButton></> : null}
-              {handoffStatus === "sent" ? <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> Handoff recorded as sent.</div> : null}
-            </div>
-          </WorkflowCard>
+          {renderRequirements()}
+          {renderEhrHandoff()}
         </div>
       </div>
+      {pendingDetail ? (
+        <WorkflowDetailDialog
+          pending={pendingDetail}
+          onConfirm={(detail) => {
+            const current = pendingDetail;
+            setPendingDetail(null);
+            if (current.kind === "ehr_failure") {
+              void updateHandoff("mark_failed", detail);
+            } else {
+              void saveRequirement(current.item, current.status, detail);
+            }
+          }}
+          onClose={() => setPendingDetail(null)}
+        />
+      ) : null}
     </section>
   );
 
-  async function updateHandoff(action: "queue" | "mark_sent" | "mark_failed" | "retry") {
-    let failureReason = "";
-    if (action === "mark_failed") {
-      failureReason = window.prompt("Why did the EHR handoff fail?")?.trim() ?? "";
-      if (!failureReason) return;
-    }
+  async function updateHandoff(action: "queue" | "mark_sent" | "mark_failed" | "retry", failureReason = "") {
     await runMutation(
       `ehr:${action}:${currentReferral.version}:${sections.decision}`,
       `/api/referrals/${currentReferral.id}/ehr-handoff`,
@@ -355,6 +410,112 @@ export default function ReferralWorkflowPanel({
 
 function WorkflowCard({ icon, title, detail, children }: { icon: React.ReactNode; title: string; detail: string; children: React.ReactNode }) {
   return <section className="border border-[#d9d9d9] bg-white"><header className="flex items-center gap-3 border-b border-[#e4e7e5] bg-[#f8faf9] px-4 py-3"><span className="text-[#0f8b73]">{icon}</span><div><h3 className="text-[12px] font-black text-[#202522]">{title}</h3><p className="mt-0.5 text-[10px] text-[#737373]">{detail}</p></div></header><div className="p-4">{children}</div></section>;
+}
+
+function WorkflowDisclosure({
+  icon,
+  title,
+  detail,
+  defaultOpen,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  detail: string;
+  defaultOpen: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <details className="group border border-[#d9d9d9] bg-white" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="flex cursor-pointer list-none items-center gap-3 bg-[#f8faf9] px-4 py-3 outline-none hover:bg-[#f2f6f4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73] [&::-webkit-details-marker]:hidden">
+        <span className="text-[#0f8b73]">{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[12px] font-black text-[#202522]">{title}</span>
+          <span className="mt-0.5 block text-[10px] text-[#737373]">{detail}</span>
+        </span>
+        <ChevronDown size={15} className="text-[#737373] transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-[#e4e7e5] p-4">{children}</div>
+    </details>
+  );
+}
+
+function WorkflowDetailDialog({
+  pending,
+  onConfirm,
+  onClose,
+}: {
+  pending: PendingWorkflowDetail;
+  onConfirm: (detail: string) => void;
+  onClose: () => void;
+}) {
+  if (pending.kind === "ehr_failure") {
+    return (
+      <ActionDetailDialog
+        title="Record EHR handoff failure"
+        description="This reason is recorded in the referral activity log for follow-up."
+        label="Failure reason"
+        confirmLabel="Record failure"
+        minimumLength={3}
+        onConfirm={onConfirm}
+        onClose={onClose}
+      />
+    );
+  }
+
+  const presentation = requirementDetailPresentation(pending.item, pending.status);
+  return <ActionDetailDialog {...presentation} onConfirm={onConfirm} onClose={onClose} />;
+}
+
+function requirementDetailPresentation(item: AdmissionRequirement, status: RequirementStatus) {
+  if (status === "requested") {
+    return {
+      title: `Request ${item.label}`,
+      description: "Record who is expected to provide this item. Pipeline will set a seven-day follow-up when none exists.",
+      label: "Expected provider",
+      initialValue: item.requestedFrom ?? "",
+      confirmLabel: "Mark requested",
+      minimumLength: 1,
+    };
+  }
+  if (status === "waived") {
+    return {
+      title: `Waive ${item.label}`,
+      description: "The waiver and its reason remain visible in the referral record.",
+      label: "Waiver reason",
+      initialValue: item.waiverReason ?? "",
+      confirmLabel: "Record waiver",
+      minimumLength: 3,
+    };
+  }
+  return {
+    title: status === "unavailable" ? `Mark ${item.label} unavailable` : `Mark ${item.label} not applicable`,
+    description: "Record why this requirement cannot or does not need to be completed.",
+    label: "Reason",
+    initialValue: item.unavailableReason ?? "",
+    confirmLabel: status === "unavailable" ? "Mark unavailable" : "Mark not applicable",
+    minimumLength: 3,
+  };
+}
+
+function shouldOpenDecisionDisclosure(workflow: WorkflowResponse) {
+  return Boolean(workflow.recommendation || workflow.decision || (workflow.capabilities.can_decide && workflow.context.assessmentSigned));
+}
+
+function disclosureState(open: boolean) {
+  return open ? "ready" : "pending";
+}
+
+function decisionSubmissionIsBlocked(
+  workflow: WorkflowResponse,
+  outcome: AdmissionDecision["outcome"],
+  note: string,
+  overrideReason: string,
+) {
+  return !workflow.context.assessmentSigned
+    || (outcome === "declined" && !note.trim())
+    || (!workflow.recommendation && !overrideReason.trim());
 }
 
 function WorkflowNotice({ tone, children }: { tone: "success" | "error"; children: React.ReactNode }) {

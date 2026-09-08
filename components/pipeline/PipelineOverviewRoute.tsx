@@ -186,7 +186,7 @@ export default function PipelineOverviewRoute() {
         trainingAssessmentMode={getTrainingAssessmentMode(activeSearchParams)}
         trainingAssessmentSection={getTrainingAssessmentSection(activeSearchParams)}
         onWorkspaceStageChange={(stage) => {
-          const params = new URLSearchParams(activeSearchParams.toString());
+          const params = new URLSearchParams(window.location.search);
           if (stage === "intake") params.delete("workspaceStage");
           else params.set("workspaceStage", stage);
           replacePipelineHistory(`/?${params.toString()}`);

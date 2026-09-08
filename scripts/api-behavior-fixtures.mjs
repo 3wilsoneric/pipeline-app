@@ -1347,6 +1347,19 @@ function referralHardeningResults() {
         "requirements.label is required.",
       );
     }),
+    run("referral create rejects impossible calendar dates", () => {
+      assertInvalid(
+        referralValidation.validateReferralCreateInput({ ...validReferral(), dob: "02/31/1984" }),
+        "dob must be a real calendar date in YYYY-MM-DD or M/D/YYYY format.",
+      );
+    }),
+    run("referral patch validates every editable calendar date", () => {
+      assertInvalid(
+        referralValidation.validateReferralPatch({ admissionDate: "2026-04-31" }),
+        "admissionDate must be a real calendar date in YYYY-MM-DD or M/D/YYYY format.",
+      );
+      assertValid(referralValidation.validateReferralPatch({ date: "2024-02-29", dob: "2/29/2024", admissionDate: "" }));
+    }),
     run("referral patch rejects server-owned fields", () => {
       assertInvalid(
         referralValidation.validateReferralPatch({ version: 9 }),

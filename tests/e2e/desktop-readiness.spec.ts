@@ -199,6 +199,9 @@ test.describe("desktop feature enabled", () => {
     expect(await autosaved.json()).toMatchObject({
       draft: { fields: { name: { value: "Casey Hartwell" } } },
     });
+    await page.waitForTimeout(1_500);
+    expect(new URL(page.url()).searchParams.get("referralId")).toBeNull();
+    await page.getByRole("button", { name: "Create workspace", exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId"), { timeout: 15_000 }).not.toBeNull();
     const referralId = Number(new URL(page.url()).searchParams.get("referralId"));
     expect(referralId).toBeGreaterThan(0);
@@ -257,7 +260,7 @@ test.describe("desktop feature enabled", () => {
     await expect(page.getByRole("combobox", { name: "Community:", exact: true })).toHaveValue("San Pablo");
   });
 
-  test("merges disjoint edits when two tabs materialize the same intake", async ({ context, page }) => {
+  test("merges disjoint edits when two tabs explicitly create the same intake", async ({ context, page }) => {
     await page.goto("/?view=referrals");
     const draftId = randomUUID();
     const draftKey = `new-${draftId}`;
@@ -283,6 +286,10 @@ test.describe("desktop feature enabled", () => {
       otherPage.getByRole("combobox", { name: "County:", exact: true }).selectOption("Marin County"),
     ]);
 
+    await Promise.all([
+      page.getByRole("button", { name: "Create workspace", exact: true }).click(),
+      otherPage.getByRole("button", { name: "Create workspace", exact: true }).click(),
+    ]);
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId"), { timeout: 20_000 }).not.toBeNull();
     await expect.poll(() => new URL(otherPage.url()).searchParams.get("referralId"), { timeout: 20_000 }).not.toBeNull();
     const referralId = Number(new URL(page.url()).searchParams.get("referralId"));

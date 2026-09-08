@@ -14,6 +14,7 @@ import {
 } from "@/lib/persistence/store-adapter";
 import { decodeKeysetCursor, encodeKeysetCursor, isAfterDescendingCursor } from "@/lib/pipeline/keyset-cursor";
 import { normalizeClientName } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { normalizeCalendarDate } from "@/lib/pipeline/calendar-date";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { isSensitiveReferralActivityField } from "@/lib/pipeline/referral-activity-presentation";
 import { isUnassignedOwner, normalizeOwnerName, normalizeReferralOwners } from "@/lib/pipeline/referral-ownership";
@@ -2665,14 +2666,7 @@ function referralSearchText(referral: Partial<Referral>) {
 }
 
 function dateToSql(value: string | undefined) {
-  if (!value) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00.000Z`))) return value;
-  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value.trim());
-  if (!match) return null;
-  const month = match[1].padStart(2, "0");
-  const day = match[2].padStart(2, "0");
-  const iso = `${match[3]}-${month}-${day}`;
-  return Number.isFinite(Date.parse(`${iso}T00:00:00.000Z`)) ? iso : null;
+  return normalizeCalendarDate(value);
 }
 
 function isClosedStage(stage: Referral["stage"]) {

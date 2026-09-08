@@ -155,38 +155,76 @@ function FullActivity({ events, metadata }: { events: ReferralActivityEvent[]; m
             <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#0f8b73]">Recent changes</div>
             <div className="text-[10px] text-[#737373]">{events.length === 100 ? "Latest 100 recorded events" : `${events.length} recorded event${events.length === 1 ? "" : "s"}`}</div>
           </div>
-          <div className="mt-3 divide-y divide-[#eeeeee] border-y border-[#d9d9d9]">
-            {events.map((event) => (
-              <div key={event.event_id} className="py-3 text-[11px]">
-                <div className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_180px_150px] sm:gap-4">
-                  <span className="font-black text-[#111111]">{formatAction(event.action)}</span>
-                  <span className="text-[#595959]">{event.actor_name}</span>
-                  <time className="text-[#737373] sm:text-right" dateTime={event.created_at}>{formatTimestamp(event.created_at)}</time>
-                </div>
-                {event.reason ? <div className="mt-1 text-[10px] text-[#595959]"><span className="font-black">Reason:</span> {event.reason}</div> : null}
-                {event.changes.length > 0 ? (
-                  <div className="mt-2 space-y-1 border-l-2 border-[#dfe7e3] pl-2">
-                    {event.changes.map((change) => (
-                      <div key={change.field} className="grid gap-0.5 text-[10px] sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-3">
-                        <span className="font-black text-[#595959]">{change.label}</span>
-                        <span className="min-w-0 break-words text-[#737373]">
-                          {change.masked
-                            ? "Value changed (masked)"
-                            : change.values_available
-                              ? <><span>{change.before}</span> <span aria-hidden="true">→</span> <span>{change.after}</span></>
-                              : "Change recorded; historical values unavailable"}
-                        </span>
+          <div className="mt-3 border-y border-[#d9d9d9]">
+            {groupActivityByDay(events).map((group) => (
+              <section key={group.date} aria-label={group.label} className="border-b border-[#d9d9d9] last:border-b-0">
+                <h4 className="bg-[#f8faf9] px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#68716c]">{group.label}</h4>
+                <div className="divide-y divide-[#eeeeee]">
+                  {group.events.map((event) => (
+                    <div key={event.event_id} className="px-3 py-3 text-[11px]">
+                      <div className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_180px_150px] sm:gap-4">
+                        <span className="font-black text-[#111111]">{formatAction(event.action)}</span>
+                        <span className="text-[#595959]">{event.actor_name}</span>
+                        <time className="text-[#737373] sm:text-right" dateTime={event.created_at}>{formatTimestamp(event.created_at)}</time>
                       </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+                      {event.reason ? <div className="mt-1 text-[10px] text-[#595959]"><span className="font-black">Reason:</span> {event.reason}</div> : null}
+                      {event.changes.length > 0 ? (
+                        <div className="mt-2 space-y-1 border-l-2 border-[#dfe7e3] pl-2">
+                          {event.changes.map((change) => (
+                            <div key={change.field} className="grid gap-0.5 text-[10px] sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-3">
+                              <span className="font-black text-[#595959]">{change.label}</span>
+                              <span className="min-w-0 break-words text-[#737373]">
+                                {change.masked
+                                  ? "Value changed (masked)"
+                                  : change.values_available
+                                    ? <><span>{change.before}</span> <span aria-hidden="true">→</span> <span>{change.after}</span></>
+                                    : "Change recorded; historical values unavailable"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         </div>
       ) : null}
     </section>
   );
+}
+
+function groupActivityByDay(events: ReferralActivityEvent[]) {
+  const groups = new Map<string, ReferralActivityEvent[]>();
+  for (const event of events) {
+    const date = localDateKey(event.created_at);
+    groups.set(date, [...(groups.get(date) ?? []), event]);
+  }
+  return [...groups.entries()].map(([date, groupedEvents]) => ({
+    date,
+    label: activityDateLabel(date),
+    events: groupedEvents,
+  }));
+}
+
+function localDateKey(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function activityDateLabel(dateKey: string) {
+  if (dateKey === "Unknown date") return dateKey;
+  const today = new Date();
+  const todayKey = localDateKey(today.toISOString());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (dateKey === todayKey) return "Today";
+  if (dateKey === localDateKey(yesterday.toISOString())) return "Yesterday";
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
 }
 
 function ownerNames(metadata: ReferralWorkflowMetadata) {

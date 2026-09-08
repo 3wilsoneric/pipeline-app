@@ -493,7 +493,7 @@ check("current workspaces expose Assessment and Chart while historical imports s
     && referralPacketCanvas.includes('const importedWorkspaceSteps')
     && referralPacketCanvas.includes('{ page: 1, label: "Profile" }')
     && referralPacketCanvas.includes('displayedPage === 3')
-    && referralPacketCanvas.includes('HistoricalWorkspaceNotice'));
+    && referralPacketCanvas.includes('usesSourceProfile'));
 check("the Chart workspace contains only the complete chart and Meet the Client outputs", assessmentChartWorkspace.includes('label="Complete chart"') && assessmentChartWorkspace.includes('label="Meet the Client"') && assessmentChartWorkspace.includes("<CompleteAssessmentChart") && assessmentChartWorkspace.includes("<MeetClientChart") && !assessmentChartWorkspace.includes("DecisionPanel") && !assessmentChartWorkspace.includes("overrideReason"));
 check("the supervisor sees the exact packet before confirming delivery", assessmentChartWorkspace.includes("<AdmissionPacketSummary")
   && assessmentChartWorkspace.includes("listed admission files")

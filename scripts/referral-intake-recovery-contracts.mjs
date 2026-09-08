@@ -32,8 +32,6 @@ const overview = read("components/pipeline/PipelineOverviewRoute.tsx");
 const upload = read("lib/pipeline/referral-packet-upload.ts");
 const retention = read("app/api/internal/retention/route.ts");
 const azureRuntime = read("infra/azure/runtime.bicep");
-const worklist = read("components/pipeline/ReferralWorklist.tsx");
-const workspacePresentation = read("lib/pipeline/workspace-presentation.ts");
 const browserProof = read("tests/e2e/desktop-readiness.spec.ts");
 const referralRoute = read("app/api/referrals/route.ts");
 const referralStore = read("lib/pipeline/referral-store.ts");
@@ -69,10 +67,10 @@ check("unfinished private drafts are resumable without creating a second queue",
   recoveryList.includes('aria-label="Unfinished referral intake"')
     && overview.includes("resumeReferralDraft")
     && overview.includes("params.set(\"draftId\", draftKey.slice(4))"));
-check("canonical workspace lists expose deterministic intake status",
-  worklist.includes("getWorkspaceWorkflowLabel")
-    && workspacePresentation.includes("resolveReferralWorkflowStatus")
-    && workspacePresentation.includes("workflowStatusLabels"));
+check("unfinished intake remains private until its owner explicitly creates a workspace",
+  canvas.includes('return expanded ? "Create workspace" : "Create"')
+    && !canvas.includes("materializationAttemptRef")
+    && !canvas.includes("shouldPauseDraftMaterialization"));
 check("automatic retries are limited to idempotent upload boundaries",
   upload.includes("retryIdempotentOperation")
     && upload.includes('method: "PUT"')
@@ -83,9 +81,9 @@ check("existing retention removes expired recovery state",
 check("existing Azure runtime reconciles interrupted extraction work",
   azureRuntime.includes("/api/internal/extraction/reconcile")
     && azureRuntime.includes("*/5 * * * *"));
-check("browser proof covers early materialization and exact draft resume",
+check("browser proof covers explicit materialization and exact draft resume",
   browserProof.includes("lists and resumes an interrupted pre-workspace intake")
-    && browserProof.includes("merges disjoint edits when two tabs materialize the same intake")
+    && browserProof.includes("merges disjoint edits when two tabs explicitly create the same intake")
     && browserProof.includes("documentStatus: \"Missing\"")
     && browserProof.includes("Packet uploaded and ready for review"));
 
