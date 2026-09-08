@@ -10,9 +10,10 @@ test("clarifies workflow questions without replacing record search", async ({ pa
 
   await page.goto("/?view=referrals");
   await expect(page.getByRole("heading", { name: "Referral workspaces", exact: true })).toBeVisible();
-  await page.keyboard.press("/");
+  await page.getByRole("button", { name: "Pipeline home" }).click();
 
   const input = page.getByRole("textbox", { name: "Search or ask" });
+  await expect(input).toBeVisible();
   await input.fill("how do i assine an assesment to an assesor?");
 
   await expect(page.getByRole("heading", { name: "Did you mean?" })).toBeVisible();
