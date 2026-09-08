@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T21:58:23.662Z",
+  "generated_at": "2026-09-08T22:13:50.803Z",
   "audit_date": "2026-09-08",
-  "git_head": "28a66b4faebcd31be3293cfef9ab634119150464",
+  "git_head": "adb66732183dbbcec81fe3dcea1ad9cf3a3b06ec",
   "direct": [
     {
       "name": "@azure/identity",
@@ -298,8 +298,8 @@
     },
     {
       "name": "eslint-config-next",
-      "requested": "16.2.11",
-      "resolved": "16.2.11",
+      "requested": "16.3.4",
+      "resolved": "16.3.4",
       "scope": "development",
       "license": "MIT",
       "purpose": "Next.js lint rules",
@@ -417,8 +417,8 @@
     },
     {
       "name": "next",
-      "requested": "16.2.11",
-      "resolved": "16.2.11",
+      "requested": "16.3.4",
+      "resolved": "16.3.4",
       "scope": "runtime",
       "license": "MIT",
       "purpose": "Application framework and server runtime",
@@ -1832,7 +1832,7 @@
     },
     {
       "name": "@img/sharp-darwin-arm64",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-darwin-arm64",
       "license": "Apache-2.0",
       "development": false,
@@ -1844,7 +1844,7 @@
     },
     {
       "name": "@img/sharp-darwin-x64",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-darwin-x64",
       "license": "Apache-2.0",
       "development": false,
@@ -1856,7 +1856,7 @@
     },
     {
       "name": "@img/sharp-freebsd-wasm32",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-freebsd-wasm32",
       "license": "Apache-2.0",
       "development": false,
@@ -1868,7 +1868,7 @@
     },
     {
       "name": "@img/sharp-libvips-darwin-arm64",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "path": "node_modules/@img/sharp-libvips-darwin-arm64",
       "license": "LGPL-3.0-or-later",
       "development": false,
@@ -1880,7 +1880,7 @@
     },
     {
       "name": "@img/sharp-libvips-darwin-x64",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "path": "node_modules/@img/sharp-libvips-darwin-x64",
       "license": "LGPL-3.0-or-later",
       "development": false,
@@ -1892,7 +1892,7 @@
     },
     {
       "name": "@img/sharp-libvips-linux-arm",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "path": "node_modules/@img/sharp-libvips-linux-arm",
       "license": "LGPL-3.0-or-later",
       "development": false,
@@ -1904,7 +1904,7 @@
     },
     {
       "name": "@img/sharp-libvips-linux-arm64",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "path": "node_modules/@img/sharp-libvips-linux-arm64",
       "license": "LGPL-3.0-or-later",
       "development": false,
@@ -1916,7 +1916,7 @@
     },
     {
       "name": "@img/sharp-libvips-linux-ppc64",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "path": "node_modules/@img/sharp-libvips-linux-ppc64",
       "license": "LGPL-3.0-or-later",
       "development": false,
@@ -1928,7 +1928,7 @@
     },
     {
       "name": "@img/sharp-libvips-linux-riscv64",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "path": "node_modules/@img/sharp-libvips-linux-riscv64",
       "license": "LGPL-3.0-or-later",
       "development": false,
@@ -1940,7 +1940,7 @@
     },
     {
       "name": "@img/sharp-libvips-linux-s390x",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "path": "node_modules/@img/sharp-libvips-linux-s390x",
       "license": "LGPL-3.0-or-later",
       "development": false,
@@ -1952,7 +1952,7 @@
     },
     {
       "name": "@img/sharp-libvips-linux-x64",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "path": "node_modules/@img/sharp-libvips-linux-x64",
       "license": "LGPL-3.0-or-later",
       "development": false,
@@ -1964,7 +1964,7 @@
     },
     {
       "name": "@img/sharp-libvips-linuxmusl-arm64",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "path": "node_modules/@img/sharp-libvips-linuxmusl-arm64",
       "license": "LGPL-3.0-or-later",
       "development": false,
@@ -1976,7 +1976,7 @@
     },
     {
       "name": "@img/sharp-libvips-linuxmusl-x64",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "path": "node_modules/@img/sharp-libvips-linuxmusl-x64",
       "license": "LGPL-3.0-or-later",
       "development": false,
@@ -1988,7 +1988,7 @@
     },
     {
       "name": "@img/sharp-linux-arm",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-linux-arm",
       "license": "Apache-2.0",
       "development": false,
@@ -2000,7 +2000,7 @@
     },
     {
       "name": "@img/sharp-linux-arm64",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-linux-arm64",
       "license": "Apache-2.0",
       "development": false,
@@ -2012,7 +2012,7 @@
     },
     {
       "name": "@img/sharp-linux-ppc64",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-linux-ppc64",
       "license": "Apache-2.0",
       "development": false,
@@ -2024,7 +2024,7 @@
     },
     {
       "name": "@img/sharp-linux-riscv64",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-linux-riscv64",
       "license": "Apache-2.0",
       "development": false,
@@ -2036,7 +2036,7 @@
     },
     {
       "name": "@img/sharp-linux-s390x",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-linux-s390x",
       "license": "Apache-2.0",
       "development": false,
@@ -2048,7 +2048,7 @@
     },
     {
       "name": "@img/sharp-linux-x64",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-linux-x64",
       "license": "Apache-2.0",
       "development": false,
@@ -2060,7 +2060,7 @@
     },
     {
       "name": "@img/sharp-linuxmusl-arm64",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-linuxmusl-arm64",
       "license": "Apache-2.0",
       "development": false,
@@ -2072,7 +2072,7 @@
     },
     {
       "name": "@img/sharp-linuxmusl-x64",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-linuxmusl-x64",
       "license": "Apache-2.0",
       "development": false,
@@ -2084,7 +2084,7 @@
     },
     {
       "name": "@img/sharp-wasm32",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-wasm32",
       "license": "Apache-2.0 AND LGPL-3.0-or-later AND MIT",
       "development": false,
@@ -2096,7 +2096,7 @@
     },
     {
       "name": "@img/sharp-webcontainers-wasm32",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-webcontainers-wasm32",
       "license": "Apache-2.0",
       "development": false,
@@ -2108,7 +2108,7 @@
     },
     {
       "name": "@img/sharp-win32-arm64",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-win32-arm64",
       "license": "Apache-2.0 AND LGPL-3.0-or-later",
       "development": false,
@@ -2120,7 +2120,7 @@
     },
     {
       "name": "@img/sharp-win32-ia32",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-win32-ia32",
       "license": "Apache-2.0 AND LGPL-3.0-or-later",
       "development": false,
@@ -2132,7 +2132,7 @@
     },
     {
       "name": "@img/sharp-win32-x64",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/@img/sharp-win32-x64",
       "license": "Apache-2.0 AND LGPL-3.0-or-later",
       "development": false,
@@ -2372,7 +2372,7 @@
     },
     {
       "name": "@next/env",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/@next/env",
       "license": "MIT",
       "development": false,
@@ -2384,7 +2384,7 @@
     },
     {
       "name": "@next/eslint-plugin-next",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/@next/eslint-plugin-next",
       "license": "MIT",
       "development": true,
@@ -2396,7 +2396,7 @@
     },
     {
       "name": "@next/swc-darwin-arm64",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/@next/swc-darwin-arm64",
       "license": "MIT",
       "development": false,
@@ -2408,7 +2408,7 @@
     },
     {
       "name": "@next/swc-darwin-x64",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/@next/swc-darwin-x64",
       "license": "MIT",
       "development": false,
@@ -2420,7 +2420,7 @@
     },
     {
       "name": "@next/swc-linux-arm64-gnu",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/@next/swc-linux-arm64-gnu",
       "license": "MIT",
       "development": false,
@@ -2432,7 +2432,7 @@
     },
     {
       "name": "@next/swc-linux-arm64-musl",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/@next/swc-linux-arm64-musl",
       "license": "MIT",
       "development": false,
@@ -2444,7 +2444,7 @@
     },
     {
       "name": "@next/swc-linux-x64-gnu",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/@next/swc-linux-x64-gnu",
       "license": "MIT",
       "development": false,
@@ -2456,7 +2456,7 @@
     },
     {
       "name": "@next/swc-linux-x64-musl",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/@next/swc-linux-x64-musl",
       "license": "MIT",
       "development": false,
@@ -2468,7 +2468,7 @@
     },
     {
       "name": "@next/swc-win32-arm64-msvc",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/@next/swc-win32-arm64-msvc",
       "license": "MIT",
       "development": false,
@@ -2480,7 +2480,7 @@
     },
     {
       "name": "@next/swc-win32-x64-msvc",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/@next/swc-win32-x64-msvc",
       "license": "MIT",
       "development": false,
@@ -2576,7 +2576,7 @@
     },
     {
       "name": "@swc/helpers",
-      "version": "0.5.15",
+      "version": "0.5.23",
       "path": "node_modules/@swc/helpers",
       "license": "Apache-2.0",
       "development": false,
@@ -4160,7 +4160,7 @@
     },
     {
       "name": "eslint-config-next",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/eslint-config-next",
       "license": "MIT",
       "development": true,
@@ -4448,7 +4448,7 @@
     },
     {
       "name": "fastq",
-      "version": "1.20.1",
+      "version": "1.20.3",
       "path": "node_modules/fastq",
       "license": "ISC",
       "development": true,
@@ -5408,7 +5408,7 @@
     },
     {
       "name": "js-yaml",
-      "version": "4.3.1",
+      "version": "4.3.2",
       "path": "node_modules/js-yaml",
       "license": "MIT",
       "development": true,
@@ -6008,7 +6008,7 @@
     },
     {
       "name": "next",
-      "version": "16.2.11",
+      "version": "16.3.4",
       "path": "node_modules/next",
       "license": "MIT",
       "development": false,
@@ -6764,7 +6764,7 @@
     },
     {
       "name": "sharp",
-      "version": "0.35.3",
+      "version": "0.35.4",
       "path": "node_modules/sharp",
       "license": "Apache-2.0",
       "development": false,
@@ -7501,10 +7501,10 @@
   ],
   "installed": {
     "resolvedPackages": 520,
-    "dependencyEdges": 1062,
+    "dependencyEdges": 1063,
     "problems": [
       "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-client-activation/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-refactor-client-activation/node_modules/@img/sharp-wasm32"
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-client-activation/node_modules/@img/sharp-wasm32"
     ]
   }
 }

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:960b77ba0b36cef8",
-  "fingerprint": "960b77ba0b36cef80258c0f0da3b13ab5b613205a90694de28912a795975f86b",
+  "generatedAt": "source-fingerprint:3229c21a6ebac6f0",
+  "fingerprint": "3229c21a6ebac6f06b613f0eadc0d69708e6a62512553d6ca755d7610bbb08d5",
   "totals": {
     "files": 860,
-    "lines": 286398,
+    "lines": 286415,
     "coveredFiles": 860
   },
   "entries": [
@@ -4535,7 +4535,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1772,
+      "lines": 1773,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4571,7 +4571,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7508,
+      "lines": 7511,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4631,7 +4631,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10502,
+      "lines": 10513,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -7283,7 +7283,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 7970,
+      "lines": 7971,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -7295,7 +7295,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 231,
+      "lines": 232,
       "moduleIds": [
         "developer-toolchain",
         "system-map"

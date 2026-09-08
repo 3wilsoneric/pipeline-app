@@ -13,7 +13,7 @@ This is a deterministic inventory of the current worktree. It covers every repos
 - Direct dependencies: 28
 - Locked dependency locations: 531
 - Installed unique package versions: 520
-- Installed dependency edges: 1062
+- Installed dependency edges: 1063
 - Locked packages with install hooks: 2
 - Locked entries without a declared lockfile license: 0
 - Locked entries with a non-npm-registry source: 0
@@ -22,7 +22,7 @@ This is a deterministic inventory of the current worktree. It covers every repos
 ## Immediate Findings
 
 - Installed-tree note: extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-client-activation/node_modules/@emnapi/runtime. This is a lockfile-declared optional platform package, not an undeclared application dependency.
-- Installed-tree note: extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-refactor-client-activation/node_modules/@img/sharp-wasm32. This is a lockfile-declared optional platform package, not an undeclared application dependency.
+- Installed-tree note: extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-client-activation/node_modules/@img/sharp-wasm32. This is a lockfile-declared optional platform package, not an undeclared application dependency.
 - Critical/high files require behavior tests and boundary verification; static review alone is not release evidence.
 - Large UI and fixture modules are called out individually so future work does not add more responsibilities to them.
 - Generated audit files are listed but must be regenerated rather than edited manually.
@@ -52,11 +52,11 @@ This is a deterministic inventory of the current worktree. It covers every repos
 | axe-core | development | ^4.11.1 -> 4.11.1 | MPL-2.0 | Automated accessibility checks | 5 | Treating automated scans as complete accessibility coverage and ignoring keyboard/focus/manual checks. |
 | babel-plugin-react-compiler | development | 1.0.0 -> 1.0.0 | MIT | React compiler transform | 5 | Compiler/runtime incompatibility, changed memoization behavior, and transforms not exercised in development mode. |
 | eslint | development | ^9 -> 9.39.4 | MIT | Static code-quality enforcement | 10 | Rule drift, ignored directories, and warnings that do not fail CI. |
-| eslint-config-next | development | 16.2.11 -> 16.2.11 | MIT | Next.js lint rules | 6 | Framework/config version mismatch and disabled server/client boundary rules. |
+| eslint-config-next | development | 16.3.4 -> 16.3.4 | MIT | Next.js lint rules | 6 | Framework/config version mismatch and disabled server/client boundary rules. |
 | fflate | runtime | ^0.8.3 -> 0.8.3 | MIT | Browser-side ZIP generation for bounded exports | 5 | Zip bombs, unbounded in-memory archives, unsafe filenames, and exporting data without authorization or formula escaping. |
 | jose | runtime | ^6.2.8 -> 6.2.8 | MIT | JWT signing and validation | 6 | Missing issuer/audience/algorithm checks, clock-skew mistakes, key rotation, and accepting untrusted claims as authorization. |
 | lucide-react | runtime | ^0.577.0 -> 0.577.0 | ISC | Shared interface icons | 58 | Unlabelled icon-only controls, inconsistent sizing, and importing the full icon set into client bundles. |
-| next | runtime | 16.2.11 -> 16.2.11 | MIT | Application framework and server runtime | 233 | Server/client boundary leaks, cache semantics, route-handler behavior, dynamic rendering drift, and framework-version API changes. |
+| next | runtime | 16.3.4 -> 16.3.4 | MIT | Application framework and server runtime | 233 | Server/client boundary leaks, cache semantics, route-handler behavior, dynamic rendering drift, and framework-version API changes. |
 | pdfjs-dist | runtime | ^6.2.108 -> 6.2.108 | Apache-2.0 | PDF parsing, page rendering, and previews | 7 | Worker configuration, malformed/oversized PDFs, page-count limits, memory cleanup, CSP compatibility, and version drift. |
 | postcss | development | 8.5.26 -> 8.5.26 | MIT | CSS transformation runtime | 9 | Plugin ordering, parser vulnerabilities, and output differences between local and CI builds. |
 | postgres | runtime | ^3.4.9 -> 3.4.9 | Unlicense | PostgreSQL client | 117 | Pool exhaustion, missing transaction boundaries, unsafe dynamic SQL, statement timeouts, retrying non-idempotent writes, and connection leaks. |
@@ -465,14 +465,14 @@ Every existing repository file is listed below. `Review focus` names the most li
 | `docs/refactoring/referral-store-file-audit-agent-prework.json` | Documentation or runbook | low | 11558 B / 225 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/slice-assurance-record.example.json` | Documentation or runbook | low | 5997 B / 165 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/reliability/COMPLEXITY_RATCHET_ADOPTION_2026-09-04.md` | Documentation or runbook | low | 2002 B / 49 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
-| `docs/reliability/complete-repository-audit-latest.md` | Generated audit evidence | medium | 373582 B / 1772 lines | Do not edit manually; regenerate and verify that inventory counts match the current worktree. | regenerate with npm run audit:repository |
+| `docs/reliability/complete-repository-audit-latest.md` | Generated audit evidence | medium | 373863 B / 1773 lines | Do not edit manually; regenerate and verify that inventory counts match the current worktree. | regenerate with npm run audit:repository |
 | `docs/reliability/cyclomatic-complexity-baseline.json` | Documentation or runbook | medium | 3228296 B / 94204 lines | Large module (94204 lines): split by behavior before adding more responsibilities. | link/config drift review against executable source |
-| `docs/reliability/dependency-inventory.json` | Generated audit evidence | medium | 216236 B / 7508 lines | Do not edit manually; regenerate and verify that inventory counts match the current worktree. | regenerate with npm run audit:repository |
+| `docs/reliability/dependency-inventory.json` | Generated audit evidence | medium | 216394 B / 7511 lines | Do not edit manually; regenerate and verify that inventory counts match the current worktree. | regenerate with npm run audit:repository |
 | `docs/reliability/refactor-baseline-2026-08-27-setup.json` | Documentation or runbook | medium | 285515 B / 10598 lines | Large module (10598 lines): split by behavior before adding more responsibilities. | link/config drift review against executable source |
 | `docs/reliability/refactor-baseline-2026-08-27-setup.md` | Documentation or runbook | low | 4783 B / 108 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/reliability/refactor-baseline-2026-08-27.json` | Documentation or runbook | medium | 284013 B / 10538 lines | Large module (10538 lines): split by behavior before adding more responsibilities. | link/config drift review against executable source |
 | `docs/reliability/refactor-baseline-2026-08-27.md` | Documentation or runbook | low | 4777 B / 108 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
-| `docs/reliability/repository-file-inventory.json` | Generated audit evidence | medium | 519970 B / 10502 lines | Do not edit manually; regenerate and verify that inventory counts match the current worktree. | regenerate with npm run audit:repository |
+| `docs/reliability/repository-file-inventory.json` | Generated audit evidence | medium | 520509 B / 10513 lines | Do not edit manually; regenerate and verify that inventory counts match the current worktree. | regenerate with npm run audit:repository |
 | `docs/training/CHANGE_GOVERNANCE.md` | Documentation or runbook | low | 1802 B / 35 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/training/CURRICULUM.md` | Documentation or runbook | low | 2175 B / 50 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/training/LOOM_VIDEO_GUIDE.md` | Documentation or runbook | low | 1523 B / 39 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
@@ -567,7 +567,7 @@ Every existing repository file is listed below. `Review focus` names the most li
 | `lib/note-lab/note-lab-contracts.ts` | Shared server/domain library | low | 11819 B / 356 lines | Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior. | check:platform:fast and owning feature test |
 | `lib/note-lab/note-lab-engine.ts` | Shared server/domain library | low | 15479 B / 380 lines | Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior. | check:platform:fast and owning feature test |
 | `lib/note-lab/note-lab-samples.ts` | Shared server/domain library | low | 7522 B / 178 lines | Explicitly suppresses a rejected promise; verify this is genuinely optional and observable. | check:platform:fast and owning feature test |
-| `lib/note-lab/note-lab-store.ts` | Shared server/domain library | low | 13290 B / 357 lines | Explicitly suppresses a rejected promise; verify this is genuinely optional and observable. | check:platform:fast and owning feature test |
+| `lib/note-lab/note-lab-store.ts` | Shared server/domain library | low | 13318 B / 357 lines | Explicitly suppresses a rejected promise; verify this is genuinely optional and observable. | check:platform:fast and owning feature test |
 | `lib/note-lab/note-lab-taxonomy-core.d.mts` | Shared server/domain library | low | 2755 B / 90 lines | Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior. | check:platform:fast and owning feature test |
 | `lib/note-lab/note-lab-taxonomy-core.mjs` | Shared server/domain library | low | 12058 B / 266 lines | Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior. | check:platform:fast and owning feature test |
 | `lib/notifications/meet-client-attachment-policy.ts` | Shared server/domain library | low | 1110 B / 29 lines | Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior. | check:platform:fast and owning feature test |
@@ -686,8 +686,8 @@ Every existing repository file is listed below. `Review focus` names the most li
 | `lib/training/operator-training-types.ts` | Shared server/domain library | low | 2941 B / 128 lines | Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior. | check:platform:fast and owning feature test |
 | `lib/training/operator-training-video-catalog.ts` | Shared server/domain library | low | 2532 B / 66 lines | Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete. | check:platform:fast and owning feature test |
 | `next.config.ts` | Build, runtime, or repository configuration | low | 2984 B / 79 lines | Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete. | check:platform:fast and owning feature test |
-| `package-lock.json` | Build, runtime, or repository configuration | medium | 277433 B / 7970 lines | Large module (7970 lines): split by behavior before adding more responsibilities. | check:platform:fast and owning feature test |
-| `package.json` | Build, runtime, or repository configuration | low | 17487 B / 231 lines | Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults. | check:platform:fast and owning feature test |
+| `package-lock.json` | Build, runtime, or repository configuration | medium | 277448 B / 7971 lines | Large module (7971 lines): split by behavior before adding more responsibilities. | check:platform:fast and owning feature test |
+| `package.json` | Build, runtime, or repository configuration | low | 17509 B / 232 lines | Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults. | check:platform:fast and owning feature test |
 | `playwright.config.ts` | Build, runtime, or repository configuration | low | 4834 B / 110 lines | Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete. | check:platform:fast and owning feature test |
 | `playwright.operational.config.ts` | Repository support file | low | 3328 B / 77 lines | Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete. | check:platform:fast and owning feature test |
 | `postcss.config.mjs` | Build, runtime, or repository configuration | low | 266 B / 15 lines | Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults. | check:platform:fast and owning feature test |
@@ -1080,7 +1080,7 @@ These are inspection prompts, not automatically confirmed defects. Each must be 
 - `lib/training/operator-training-access.ts`: Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.
 - `lib/training/operator-training-video-catalog.ts`: Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.
 - `next.config.ts`: Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.
-- `package-lock.json`: Large module (7970 lines): split by behavior before adding more responsibilities.
+- `package-lock.json`: Large module (7971 lines): split by behavior before adding more responsibilities.
 - `playwright.config.ts`: Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.
 - `playwright.operational.config.ts`: Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.
 - `public/brand/pipeline-mark.svg`: Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.
@@ -1262,32 +1262,32 @@ Duplicate package names at different paths or versions are intentionally retaine
 | @humanwhocodes/module-importer | 1.0.1 | dev | Apache-2.0 | yes | npm registry | none | `node_modules/@humanwhocodes/module-importer` |
 | @humanwhocodes/retry | 0.4.3 | dev | Apache-2.0 | yes | npm registry | none | `node_modules/@humanwhocodes/retry` |
 | @img/colour | 1.1.0 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@img/colour` |
-| @img/sharp-darwin-arm64 | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-darwin-arm64` |
-| @img/sharp-darwin-x64 | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-darwin-x64` |
-| @img/sharp-freebsd-wasm32 | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-freebsd-wasm32` |
-| @img/sharp-libvips-darwin-arm64 | 1.3.2 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-darwin-arm64` |
-| @img/sharp-libvips-darwin-x64 | 1.3.2 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-darwin-x64` |
-| @img/sharp-libvips-linux-arm | 1.3.2 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-arm` |
-| @img/sharp-libvips-linux-arm64 | 1.3.2 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-arm64` |
-| @img/sharp-libvips-linux-ppc64 | 1.3.2 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-ppc64` |
-| @img/sharp-libvips-linux-riscv64 | 1.3.2 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-riscv64` |
-| @img/sharp-libvips-linux-s390x | 1.3.2 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-s390x` |
-| @img/sharp-libvips-linux-x64 | 1.3.2 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-x64` |
-| @img/sharp-libvips-linuxmusl-arm64 | 1.3.2 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linuxmusl-arm64` |
-| @img/sharp-libvips-linuxmusl-x64 | 1.3.2 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linuxmusl-x64` |
-| @img/sharp-linux-arm | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-arm` |
-| @img/sharp-linux-arm64 | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-arm64` |
-| @img/sharp-linux-ppc64 | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-ppc64` |
-| @img/sharp-linux-riscv64 | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-riscv64` |
-| @img/sharp-linux-s390x | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-s390x` |
-| @img/sharp-linux-x64 | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-x64` |
-| @img/sharp-linuxmusl-arm64 | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linuxmusl-arm64` |
-| @img/sharp-linuxmusl-x64 | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linuxmusl-x64` |
-| @img/sharp-wasm32 | 0.35.3 | runtime, optional | Apache-2.0 AND LGPL-3.0-or-later AND MIT | yes | npm registry | none | `node_modules/@img/sharp-wasm32` |
-| @img/sharp-webcontainers-wasm32 | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-webcontainers-wasm32` |
-| @img/sharp-win32-arm64 | 0.35.3 | runtime, optional | Apache-2.0 AND LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-win32-arm64` |
-| @img/sharp-win32-ia32 | 0.35.3 | runtime, optional | Apache-2.0 AND LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-win32-ia32` |
-| @img/sharp-win32-x64 | 0.35.3 | runtime, optional | Apache-2.0 AND LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-win32-x64` |
+| @img/sharp-darwin-arm64 | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-darwin-arm64` |
+| @img/sharp-darwin-x64 | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-darwin-x64` |
+| @img/sharp-freebsd-wasm32 | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-freebsd-wasm32` |
+| @img/sharp-libvips-darwin-arm64 | 1.3.3 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-darwin-arm64` |
+| @img/sharp-libvips-darwin-x64 | 1.3.3 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-darwin-x64` |
+| @img/sharp-libvips-linux-arm | 1.3.3 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-arm` |
+| @img/sharp-libvips-linux-arm64 | 1.3.3 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-arm64` |
+| @img/sharp-libvips-linux-ppc64 | 1.3.3 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-ppc64` |
+| @img/sharp-libvips-linux-riscv64 | 1.3.3 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-riscv64` |
+| @img/sharp-libvips-linux-s390x | 1.3.3 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-s390x` |
+| @img/sharp-libvips-linux-x64 | 1.3.3 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linux-x64` |
+| @img/sharp-libvips-linuxmusl-arm64 | 1.3.3 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linuxmusl-arm64` |
+| @img/sharp-libvips-linuxmusl-x64 | 1.3.3 | runtime, optional | LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-libvips-linuxmusl-x64` |
+| @img/sharp-linux-arm | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-arm` |
+| @img/sharp-linux-arm64 | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-arm64` |
+| @img/sharp-linux-ppc64 | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-ppc64` |
+| @img/sharp-linux-riscv64 | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-riscv64` |
+| @img/sharp-linux-s390x | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-s390x` |
+| @img/sharp-linux-x64 | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linux-x64` |
+| @img/sharp-linuxmusl-arm64 | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linuxmusl-arm64` |
+| @img/sharp-linuxmusl-x64 | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-linuxmusl-x64` |
+| @img/sharp-wasm32 | 0.35.4 | runtime, optional | Apache-2.0 AND LGPL-3.0-or-later AND MIT | yes | npm registry | none | `node_modules/@img/sharp-wasm32` |
+| @img/sharp-webcontainers-wasm32 | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/@img/sharp-webcontainers-wasm32` |
+| @img/sharp-win32-arm64 | 0.35.4 | runtime, optional | Apache-2.0 AND LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-win32-arm64` |
+| @img/sharp-win32-ia32 | 0.35.4 | runtime, optional | Apache-2.0 AND LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-win32-ia32` |
+| @img/sharp-win32-x64 | 0.35.4 | runtime, optional | Apache-2.0 AND LGPL-3.0-or-later | yes | npm registry | none | `node_modules/@img/sharp-win32-x64` |
 | @jridgewell/gen-mapping | 0.3.13 | dev | MIT | yes | npm registry | none | `node_modules/@jridgewell/gen-mapping` |
 | @jridgewell/remapping | 2.3.5 | dev | MIT | yes | npm registry | none | `node_modules/@jridgewell/remapping` |
 | @jridgewell/resolve-uri | 3.1.2 | dev | MIT | yes | npm registry | none | `node_modules/@jridgewell/resolve-uri` |
@@ -1307,16 +1307,16 @@ Duplicate package names at different paths or versions are intentionally retaine
 | @napi-rs/canvas-win32-x64-msvc | 1.0.5 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@napi-rs/canvas-win32-x64-msvc` |
 | @napi-rs/wasm-runtime | 0.2.12 | dev, optional | MIT | yes | npm registry | none | `node_modules/@napi-rs/wasm-runtime` |
 | @napi-rs/wasm-runtime | 1.1.1 | dev, optional | MIT | no | npm registry | none | `node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@napi-rs/wasm-runtime` |
-| @next/env | 16.2.11 | runtime | MIT | yes | npm registry | none | `node_modules/@next/env` |
-| @next/eslint-plugin-next | 16.2.11 | dev | MIT | yes | npm registry | none | `node_modules/@next/eslint-plugin-next` |
-| @next/swc-darwin-arm64 | 16.2.11 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-darwin-arm64` |
-| @next/swc-darwin-x64 | 16.2.11 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-darwin-x64` |
-| @next/swc-linux-arm64-gnu | 16.2.11 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-linux-arm64-gnu` |
-| @next/swc-linux-arm64-musl | 16.2.11 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-linux-arm64-musl` |
-| @next/swc-linux-x64-gnu | 16.2.11 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-linux-x64-gnu` |
-| @next/swc-linux-x64-musl | 16.2.11 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-linux-x64-musl` |
-| @next/swc-win32-arm64-msvc | 16.2.11 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-win32-arm64-msvc` |
-| @next/swc-win32-x64-msvc | 16.2.11 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-win32-x64-msvc` |
+| @next/env | 16.3.4 | runtime | MIT | yes | npm registry | none | `node_modules/@next/env` |
+| @next/eslint-plugin-next | 16.3.4 | dev | MIT | yes | npm registry | none | `node_modules/@next/eslint-plugin-next` |
+| @next/swc-darwin-arm64 | 16.3.4 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-darwin-arm64` |
+| @next/swc-darwin-x64 | 16.3.4 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-darwin-x64` |
+| @next/swc-linux-arm64-gnu | 16.3.4 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-linux-arm64-gnu` |
+| @next/swc-linux-arm64-musl | 16.3.4 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-linux-arm64-musl` |
+| @next/swc-linux-x64-gnu | 16.3.4 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-linux-x64-gnu` |
+| @next/swc-linux-x64-musl | 16.3.4 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-linux-x64-musl` |
+| @next/swc-win32-arm64-msvc | 16.3.4 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-win32-arm64-msvc` |
+| @next/swc-win32-x64-msvc | 16.3.4 | runtime, optional | MIT | yes | npm registry | none | `node_modules/@next/swc-win32-x64-msvc` |
 | @nodable/entities | 3.0.0 | runtime | MIT | yes | npm registry | none | `node_modules/@nodable/entities` |
 | @nodelib/fs.scandir | 2.1.5 | dev | MIT | yes | npm registry | none | `node_modules/@nodelib/fs.scandir` |
 | @nodelib/fs.stat | 2.0.5 | dev | MIT | yes | npm registry | none | `node_modules/@nodelib/fs.stat` |
@@ -1324,7 +1324,7 @@ Duplicate package names at different paths or versions are intentionally retaine
 | @nolyfill/is-core-module | 1.0.39 | dev | MIT | yes | npm registry | none | `node_modules/@nolyfill/is-core-module` |
 | @playwright/test | 1.61.1 | runtime | Apache-2.0 | yes | npm registry | none | `node_modules/@playwright/test` |
 | @rtsao/scc | 1.1.0 | dev | MIT | yes | npm registry | none | `node_modules/@rtsao/scc` |
-| @swc/helpers | 0.5.15 | runtime | Apache-2.0 | yes | npm registry | none | `node_modules/@swc/helpers` |
+| @swc/helpers | 0.5.23 | runtime | Apache-2.0 | yes | npm registry | none | `node_modules/@swc/helpers` |
 | @tailwindcss/node | 4.2.2 | dev | MIT | yes | npm registry | none | `node_modules/@tailwindcss/node` |
 | @tailwindcss/oxide | 4.2.2 | dev | MIT | yes | npm registry | none | `node_modules/@tailwindcss/oxide` |
 | @tailwindcss/oxide-android-arm64 | 4.2.2 | dev, optional | MIT | yes | npm registry | none | `node_modules/@tailwindcss/oxide-android-arm64` |
@@ -1456,7 +1456,7 @@ Duplicate package names at different paths or versions are intentionally retaine
 | escalade | 3.2.0 | dev | MIT | yes | npm registry | none | `node_modules/escalade` |
 | escape-string-regexp | 4.0.0 | dev | MIT | yes | npm registry | none | `node_modules/escape-string-regexp` |
 | eslint | 9.39.4 | dev | MIT | yes | npm registry | none | `node_modules/eslint` |
-| eslint-config-next | 16.2.11 | dev | MIT | yes | npm registry | none | `node_modules/eslint-config-next` |
+| eslint-config-next | 16.3.4 | dev | MIT | yes | npm registry | none | `node_modules/eslint-config-next` |
 | eslint-import-resolver-node | 0.3.9 | dev | MIT | yes | npm registry | none | `node_modules/eslint-import-resolver-node` |
 | eslint-import-resolver-typescript | 3.10.1 | dev | ISC | yes | npm registry | none | `node_modules/eslint-import-resolver-typescript` |
 | eslint-module-utils | 2.12.1 | dev | MIT | yes | npm registry | none | `node_modules/eslint-module-utils` |
@@ -1480,7 +1480,7 @@ Duplicate package names at different paths or versions are intentionally retaine
 | fast-levenshtein | 2.0.6 | dev | MIT | yes | npm registry | none | `node_modules/fast-levenshtein` |
 | fast-xml-builder | 1.3.0 | runtime | MIT | yes | npm registry | none | `node_modules/fast-xml-builder` |
 | fast-xml-parser | 5.10.1 | runtime | MIT | yes | npm registry | none | `node_modules/fast-xml-parser` |
-| fastq | 1.20.1 | dev | ISC | yes | npm registry | none | `node_modules/fastq` |
+| fastq | 1.20.3 | dev | ISC | yes | npm registry | none | `node_modules/fastq` |
 | fdir | 6.5.0 | dev | MIT | yes | npm registry | none | `node_modules/tinyglobby/node_modules/fdir` |
 | fflate | 0.8.3 | runtime | MIT | yes | npm registry | none | `node_modules/fflate` |
 | file-entry-cache | 8.0.0 | dev | MIT | yes | npm registry | none | `node_modules/file-entry-cache` |
@@ -1560,7 +1560,7 @@ Duplicate package names at different paths or versions are intentionally retaine
 | jiti | 2.6.1 | dev | MIT | yes | npm registry | none | `node_modules/jiti` |
 | jose | 6.2.8 | runtime | MIT | yes | npm registry | none | `node_modules/jose` |
 | js-tokens | 4.0.0 | dev | MIT | yes | npm registry | none | `node_modules/js-tokens` |
-| js-yaml | 4.3.1 | dev | MIT | yes | npm registry | none | `node_modules/js-yaml` |
+| js-yaml | 4.3.2 | dev | MIT | yes | npm registry | none | `node_modules/js-yaml` |
 | jsesc | 3.1.0 | dev | MIT | yes | npm registry | none | `node_modules/jsesc` |
 | json-buffer | 3.0.1 | dev | MIT | yes | npm registry | none | `node_modules/json-buffer` |
 | json-schema-traverse | 0.4.1 | dev | MIT | yes | npm registry | none | `node_modules/json-schema-traverse` |
@@ -1610,7 +1610,7 @@ Duplicate package names at different paths or versions are intentionally retaine
 | nanoid | 3.3.18 | runtime | MIT | yes | npm registry | none | `node_modules/nanoid` |
 | napi-postinstall | 0.3.4 | dev | MIT | yes | npm registry | none | `node_modules/napi-postinstall` |
 | natural-compare | 1.4.0 | dev | MIT | yes | npm registry | none | `node_modules/natural-compare` |
-| next | 16.2.11 | runtime | MIT | yes | npm registry | none | `node_modules/next` |
+| next | 16.3.4 | runtime | MIT | yes | npm registry | none | `node_modules/next` |
 | node-exports-info | 1.6.0 | dev | MIT | yes | npm registry | none | `node_modules/node-exports-info` |
 | node-fetch | 2.7.0 | runtime | MIT | yes | npm registry | none | `node_modules/node-fetch` |
 | node-releases | 2.0.54 | dev | MIT | yes | npm registry | none | `node_modules/node-releases` |
@@ -1673,7 +1673,7 @@ Duplicate package names at different paths or versions are intentionally retaine
 | set-function-length | 1.2.2 | dev | MIT | yes | npm registry | none | `node_modules/set-function-length` |
 | set-function-name | 2.0.2 | dev | MIT | yes | npm registry | none | `node_modules/set-function-name` |
 | set-proto | 1.0.0 | dev | MIT | yes | npm registry | none | `node_modules/set-proto` |
-| sharp | 0.35.3 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/sharp` |
+| sharp | 0.35.4 | runtime, optional | Apache-2.0 | yes | npm registry | none | `node_modules/sharp` |
 | shebang-command | 2.0.0 | dev | MIT | yes | npm registry | none | `node_modules/shebang-command` |
 | shebang-regex | 3.0.0 | dev | MIT | yes | npm registry | none | `node_modules/shebang-regex` |
 | side-channel | 1.1.0 | dev | MIT | yes | npm registry | none | `node_modules/side-channel` |

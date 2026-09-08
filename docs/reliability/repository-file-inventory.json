@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T21:58:23.662Z",
+  "generated_at": "2026-09-08T22:13:50.803Z",
   "audit_date": "2026-09-08",
-  "git_head": "28a66b4faebcd31be3293cfef9ab634119150464",
+  "git_head": "adb66732183dbbcec81fe3dcea1ad9cf3a3b06ec",
   "files": [
     {
       "path": ".dockerignore",
@@ -3825,7 +3825,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "0bf57827e08538b71ed3b7a630a3afcf35b4339c0f053b26c02f1da545e619a2",
+      "content_sha256": "5e1fc086dd72dc44e383657c9142a4d93fac8c2a0bff1a315c928e9459be4ff8",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4399,11 +4399,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "1931d508e3890560a41a9370f94f47f08b9d81a99a3d7dd51d064e36471ea85b",
+      "content_sha256": "ac7a33a73a071494dfad2c4a2a206dcac1e53e6e6c7b056bbb8fc58ab9a2cc1b",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 373582,
-      "lines": 1772,
+      "bytes": 373863,
+      "lines": 1773,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4427,11 +4427,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "c75dc5baed6ac06cdcef8b05591c35887408dba4d5c58cc0769f22a2259cb454",
+      "content_sha256": "6d7f16bab17193d7ffbd32c27f1947c86ee9b600e9a51febd31fc03bfc45f5dc",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 216236,
-      "lines": 7508,
+      "bytes": 216394,
+      "lines": 7511,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4486,11 +4486,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "ec85cd6e343f53482de8dfc3019726f2d6780c84cf2434cce406ca623d5c5a4c",
+      "content_sha256": "03d3aa40c18ebb79e79d63b9c4afae30e6552e9feda9330dcd9000281d8d1961",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 519970,
-      "lines": 10502,
+      "bytes": 520509,
+      "lines": 10513,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4681,7 +4681,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "560d0857033d612a0c256acebc49822e691a61685876b7d9284e94f3c7ca5776",
+      "content_sha256": "50c1a42e4fbbb2e9444ea10b211192f80c341fee69ce215fcd40061bee1bfde1",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 265601,
@@ -5578,10 +5578,10 @@
     },
     {
       "path": "lib/note-lab/note-lab-store.ts",
-      "content_sha256": "b7bf467363b124890b3a3bfb66bbb8e4652cca4c7f27121b7dc851547bc230e0",
+      "content_sha256": "ed08e3711629c7be0bc56815bc6453c884b1884f0888444118b29453a25ad060",
       "role": "Shared server/domain library",
       "risk": "low",
-      "bytes": 13290,
+      "bytes": 13318,
       "lines": 357,
       "detected_concerns": [
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
@@ -6930,24 +6930,24 @@
     },
     {
       "path": "package-lock.json",
-      "content_sha256": "5804394b15f06b3efe7ded3d7797278c39ab74a77191a017e17ddac34c55ee2b",
+      "content_sha256": "4dc7cf52950f21d5127e4b7cee128f3951ebe3f6cfba7dbd4ec70c68e067102e",
       "role": "Build, runtime, or repository configuration",
       "risk": "medium",
-      "bytes": 277433,
-      "lines": 7970,
+      "bytes": 277448,
+      "lines": 7971,
       "detected_concerns": [
-        "Large module (7970 lines): split by behavior before adding more responsibilities."
+        "Large module (7971 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (7970 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (7971 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
       "path": "package.json",
-      "content_sha256": "e207050cb31e185086a8588656ba5df6268965b7a16925f752129d39fcea7046",
+      "content_sha256": "a5ce86ebd87d347d6c92fa21bc2ed884efa72058207ea6e74e9fb54606ecd582",
       "role": "Build, runtime, or repository configuration",
       "risk": "low",
-      "bytes": 17487,
-      "lines": 231,
+      "bytes": 17509,
+      "lines": 232,
       "detected_concerns": [],
       "review_focus": "Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults.",
       "verification": "check:platform:fast and owning feature test"

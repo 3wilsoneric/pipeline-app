@@ -262,7 +262,7 @@ function mapPostgresReview(row: PostgresReviewRow): NoteLabFieldReview {
 
 async function ensureLocalLoaded() {
   if (localState.initialized) return;
-  const source = await readFile(localPath(), "utf8").catch(() => null);
+  const source = await readFile(/* turbopackIgnore: true */ localPath(), "utf8").catch(() => null);
   if (source) {
     try {
       const parsed = JSON.parse(source) as LocalEnvelope;
