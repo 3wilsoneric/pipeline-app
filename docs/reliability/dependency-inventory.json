@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T22:13:50.803Z",
+  "generated_at": "2026-09-08T23:48:13.203Z",
   "audit_date": "2026-09-08",
-  "git_head": "adb66732183dbbcec81fe3dcea1ad9cf3a3b06ec",
+  "git_head": "1956139851eb83d6d785762461466355af0524e4",
   "direct": [
     {
       "name": "@azure/identity",
@@ -519,11 +519,13 @@
         "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
         "docs/refactoring/COMPATIBILITY_MATRIX.md",
         "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
+        "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json",
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/code-quality-policy.json",
         "docs/refactoring/refactor-eval-scenarios.json",
         "docs/refactoring/referral-store-file-audit-agent-prework.json",
+        "docs/refactoring/referral-store-file-audit.json",
         "eslint.config.mjs",
         "lib/academy/academy-atlas.generated.json",
         "lib/academy/academy-curriculum.ts",
@@ -974,6 +976,7 @@
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/WORKFLOW_BUILD_QUEUE.md",
         "docs/academy/ARCHITECTURE_GUIDE.md",
+        "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
         "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
         "docs/refactoring/refactor-slices.json",
@@ -7503,8 +7506,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-client-activation/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-client-activation/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-store-v2/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-store-v2/node_modules/@img/sharp-wasm32"
     ]
   }
 }

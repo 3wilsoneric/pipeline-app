@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-07",
+  "updatedAt": "2026-09-08",
   "statusDefinitions": {
     "satisfied": "Existing evidence is executable or reviewable and may be cited now.",
     "partial": "Useful evidence exists, but the slice-specific contract is incomplete.",
@@ -13,19 +13,19 @@
     {
       "id": "current_file_and_dependency_inventory",
       "phase": "before_start",
-      "status": "partial",
+      "status": "satisfied",
       "gates": ["audit:repository", "check:code-quality"],
       "files": [
         "docs/reliability/complete-repository-audit-latest.md",
         "docs/reliability/dependency-inventory.json",
         "docs/reliability/repository-file-inventory.json"
       ],
-      "note": "A generated hash-backed audit and locked-dependency inventory match clean integration candidate 92fa991c49b9905bc3532bb49506e9f595d6988a. Human review and a final exact-start freeze in the approved execution worktree are still required before a slice starts."
+      "note": "The generated every-file, hash-backed repository and locked-dependency inventories were refreshed in the dedicated execution worktree from exact starting commit 1956139851eb83d6d785762461466355af0524e4 immediately before activation."
     },
     {
       "id": "runtime_types_and_worktree_alignment",
       "phase": "before_start",
-      "status": "partial",
+      "status": "satisfied",
       "gates": ["check:code-quality"],
       "files": [
         "docs/refactoring/CODE_QUALITY_POLICY.md",
@@ -33,7 +33,7 @@
         "docs/refactoring/DEPENDENCY_CEILING_DISPOSITION_PROPOSAL.md",
         "docs/refactoring/WORKTREE_RUNBOOK.md"
       ],
-      "note": "@types/node is aligned with Node 22 and the setup runs in a dedicated codex/refactor-* worktree. Eric approved the inherited 531-location ceiling on 2026-09-07; the policy now rejects 532 or more unless separately approved and requires a future supported removal to lower the ratchet. The 2026-09-07 worktree inventory identifies the branches fully contained in the integration candidate and the four branches with unique work still needing explicit preserve-or-abandon decisions."
+      "note": "@types/node is aligned with Node 22, the 531-location dependency ceiling remains enforced, and activation is bound to /Users/eric/pipeline-refactor-referral-store-v2 on codex/refactor-referral-store-v2 from exact main commit 1956139851eb83d6d785762461466355af0524e4."
     },
     {
       "id": "green_complexity_ratchet",
@@ -62,18 +62,18 @@
     {
       "id": "commit_attached_refactor_gates",
       "phase": "before_start",
-      "status": "partial",
+      "status": "satisfied",
       "files": [
         ".github/workflows/ci.yml",
         ".github/workflows/refactor-agent.yml",
         "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"
       ],
-      "note": "The guarded cloud controller dispatches focused and independent checks. The integration candidate now makes CI and security workflows run on every pull request, removes the PR exclusion from the path-selected browser, operational, and PostgreSQL jobs, and runs CodeQL on pull requests. A 2026-09-07 GitHub API recheck confirms main protection still requires only verify, so the six recorded job contexts must be observed on the candidate pull request and then enforced before implementation."
+      "note": "Pull request 25 bound exact starting commit 1956139851eb83d6d785762461466355af0524e4 to passing verify, browser, operational, PostgreSQL, CodeQL, and dependency-review contexts before the slice was activated."
     },
     {
       "id": "risk_ranked_exact_start_baseline",
       "phase": "before_start",
-      "status": "partial",
+      "status": "satisfied",
       "gates": ["codebase:baseline", "check:refactor-assurance"],
       "files": [
         "scripts/codebase-refactor-baseline.mjs",
@@ -81,7 +81,7 @@
         "docs/refactoring/characterization/refactor-baseline-machine-run-4d50f4ea.json",
         "docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json"
       ],
-      "note": "A clean consolidated run at 92fa991c49b9905bc3532bb49506e9f595d6988a identifies referral-store.ts as the top critical-review target with four overlapping hotspot rankings. Repository hygiene and engineering-quality checks passed, all 20 seeded defects were killed, the broader safety corpus passed, and the production build succeeded. The fast platform gate stopped only at the exact owner-approved inherited complexity failures. Human review and a fresh run from the final exact approved starting commit remain required."
+      "note": "The exact-start run identifies referral-store.ts as the highest-priority critical control-plane target. Codebase baseline, production build, API and assessor checks, 2,000 workflow-fuzz traces covering 840,009 cases, 27/27 critical-safety tests, and the approved complexity ratchet passed before activation; exact adapter characterization was repeated at 1956139851eb83d6d785762461466355af0524e4."
     },
     {
       "id": "honest_high_assurance_claim_boundary",
@@ -120,7 +120,7 @@
         {
           "id": "behavior_characterization",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:api", "check:assessor-workflow", "check:workflow-fuzz"],
           "files": [
             "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
@@ -129,12 +129,12 @@
             "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
             "docs/refactoring/characterization/referral-read-parity-run-741bf732.json"
           ],
-          "note": "Existing rules are strong; freeze representative return values, audit events, database effects, and errors before moving code. Owner purpose statement recorded verbatim on 2026-09-06: \"accomplish gathering the full profile for eventual admission, and with the assessment, make that decision, generally only one person will touch the referral from start to finish, there are a few that will be assigned referral but will only do the assessment and hopefully wotn need to change the workspace creation part\". Owner role direction recorded 2026-09-06: most referral owners carry the workspace from creation through the decision process; two assessors generally receive assignments and also create their own workspaces; one assessment-only assessor receives assigned work and ordinarily changes only assessment information; verified profile corrections by that assessor are permitted and attributable. Workspace ownership, visible history, field-aware saves, name-plus-county human duplicate review, and referral-to-open-assessment reassignment are now executable product prerequisites on the clean integration candidate. The reassignment scenario exposed and then verified a narrow PostgreSQL parameter-typing repair. Machine observations cover these referral-store seams, but human review of the complete architecture narrative and exact-start evidence remains required."
+          "note": "The owner-approved narrative and exact-start characterization freeze return values, audit cardinality, database effects, duplicate review, access denial, same/disjoint-section writes, referral-to-assessment assignment, trash, restore, and retry behavior. All nine scenarios pass in local-file and PostgreSQL 16 at 1956139851eb83d6d785762461466355af0524e4."
         },
         {
           "id": "local_postgres_parity",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "files": [
             "docs/refactoring/ADAPTER_PARITY_CONTRACT.md",
             "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
@@ -142,24 +142,24 @@
             "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
             "docs/refactoring/characterization/referral-read-parity-run-741bf732.json"
           ],
-          "note": "The same clean-commit synthetic API characterization passes against isolated local-file and disposable PostgreSQL 16 stores for create replay, disjoint and conflicting section writes, denied mutations, duplicate packet rejection, duplicate-person review, referral-to-open-assessment reassignment, trash, restore, access changes, audit cardinality, representative composed filters, facets, ordering, totals, and cursor pagination. The handoff scenario first exposed a PostgreSQL parameter-typing defect and then passed after the narrow repair; the expanded suite passes 7/7 on both adapters. Human review must still approve the observable contract and identify missing domain or PostgreSQL-only transaction cases before this item can be satisfied."
+          "note": "The exact-start synthetic API characterization passes the same nine scenarios against isolated local-file and disposable PostgreSQL 16 stores, including replay, concurrency sections, denial, duplicates, assignment, trash/restore, audit cardinality, filters, facets, ordering, totals, and cursor pagination. Intentional local transaction limitations remain explicit."
         },
         {
           "id": "create_and_patch_retry_contract",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:api", "database:concurrency"],
           "files": [
             "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
             "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
             "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json"
           ],
-          "note": "Clean-commit executable evidence freezes create replay with a changed replay payload, disjoint section success, same-section one-winner conflict behavior, exact-set duplicate confirmation, stale trash and restore rejection, audit cardinality, and the 30-day restore deadline on both adapters. Human owner review, direct database-effect review, and any missing command-specific concurrency cases remain required before this item can be satisfied."
+          "note": "Exact-start executable evidence freezes changed-payload create replay, disjoint-section success, same-section one-winner conflict behavior, exact-set duplicate confirmation, stale trash and restore rejection, audit cardinality, and the 30-day restore deadline on both adapters. Eric approved this bounded contract through the owner fast lane."
         },
         {
           "id": "runtime_authorization",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:route-policy", "test:e2e:operational:high"],
           "files": [
             "docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md",
@@ -194,7 +194,7 @@
         {
           "id": "owner_validated_assurance_model",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": [
             "docs/refactoring/canonical-responsibilities.json",
@@ -204,7 +204,7 @@
             "docs/refactoring/referral-store-file-audit-agent-prework.json",
             "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md"
           ],
-          "note": "The referral responsibilities, comprehension questions, stale-write, retry, and audit-atomicity obligations are agent-drafted setup candidates. Under owner_fast_lane, Eric may authorize their machine trace without a separate reviewer or fresh-context comprehension pass. This item remains partial until the slice assurance record binds that owner authorization, the exact approved obligations, and the executable pre-change machine evidence."
+          "note": "The referral-store assurance record binds Eric's owner-fast-lane authorization, the exact two critical obligations, all five registry invariants, the architecture comprehension trace, and exact-start executable machine evidence at 1956139851eb83d6d785762461466355af0524e4."
         },
         {
           "id": "convergence_and_residual_risk",

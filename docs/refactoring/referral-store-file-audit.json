@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-store-boundaries",
+  "startingCommit": "1956139851eb83d6d785762461466355af0524e4",
+  "generatedInventory": "docs/reliability/repository-file-inventory.json",
+  "humanOwner": "Eric",
+  "reviewedAt": "2026-09-08T23:42:00.000Z",
+  "files": [
+    {
+      "path": "lib/pipeline/referral-store.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Server-only persistence may depend on stable referral types, pure policy, database adapters, and workflow policy; server routes and services may depend on its public API. Browser modules must not gain runtime imports from it.",
+      "purpose": "Selects and implements referral persistence, queries, mutation policy, audit construction, duplicate review, trash and restore, and referral-coupled work-item and assessment effects.",
+      "callers": [
+        "Referral, trash, file, search, activity, assessment, workflow, operations, calendar, health, and reconciliation routes and services"
+      ],
+      "publicExports": [
+        "ReferralCreateInput",
+        "ReferralPatch",
+        "ReferralStore",
+        "createReferral",
+        "patchReferral",
+        "softDeleteReferral",
+        "restoreReferral",
+        "listReferrals",
+        "getReferral"
+      ],
+      "sideEffects": [
+        "Local JSON reads and atomic replacement with process-global state",
+        "PostgreSQL referral, people, work-item, assessment, idempotency, audit, and revision reads and writes",
+        "Aggregate local-load warning"
+      ],
+      "failureBehavior": "Returns typed conflicts, blockers, or null for expected outcomes and throws for duplicate, capacity, cursor, race, database, and local persistence failures. PostgreSQL coupled effects roll back transactionally; local cross-store effects are intentionally not equivalent.",
+      "tests": [
+        "npm run characterize:referral-store",
+        "npm run check:api",
+        "npm run check:workflow-fuzz",
+        "npm run database:assurance:integration",
+        "npm run database:concurrency"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (3233 lines): split by behavior before adding more responsibilities.",
+          "disposition": "confirmed",
+          "reason": "The module contains separable contracts, adapter selection, two adapters, queries, mappings, mutation policy, audit construction, projections, and cross-store synchronization. Iteration one moves only two pure type declarations.",
+          "owner": "Eric",
+          "followUp": "Future responsibility moves require their own characterized iteration."
+        },
+        {
+          "prompt": "Contains runtime console logging; verify messages cannot include PHI, tokens, query strings, or upstream bodies.",
+          "disposition": "expected",
+          "reason": "The local-load warning uses fixed service and event fields and does not interpolate the exception or referral data.",
+          "owner": "Eric",
+          "followUp": "Retain aggregate-only logging in later adapter work."
+        },
+        {
+          "prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+          "disposition": "deferred",
+          "reason": "The persistence queue recovers a prior rejected state before its next serialized write; this iteration does not touch the queue or weaken rejection of the failed command.",
+          "owner": "Eric",
+          "followUp": "Characterize operator-visible local persistence readiness before any queue extraction."
+        }
+      ],
+      "decision": "split",
+      "decisionReason": "Move the two pure mutation shapes to the existing stable type owner and preserve store re-exports. Defer every runtime split."
+    },
+    {
+      "path": "lib/pipeline/referral-types.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Stable domain and mutation shapes may depend only on stable domain vocabularies and type-only contracts; application, policy, persistence, route, and browser layers may depend on them.",
+      "purpose": "Defines canonical referral, ownership, section, workflow, requirement, decision, handoff, assessment-projection, and file shapes shared across Pipeline.",
+      "callers": [
+        "Referral store, workflow, assessment, operations, calendar, activity, validation, API routes, and browser components"
+      ],
+      "publicExports": [
+        "Referral",
+        "ReferralFile",
+        "ReferralSectionVersions",
+        "ReferralOwner",
+        "ReferralCreateInput",
+        "ReferralPatch"
+      ],
+      "sideEffects": [],
+      "failureBehavior": "Type-only module; incompatible shapes fail TypeScript and production-build checks without runtime effects.",
+      "tests": [
+        "npm run build",
+        "npm run characterize:referral-store"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Reuse the existing stable type owner for the two pure mutation shapes; do not broaden it into a general infrastructure contract."
+    },
+    {
+      "path": "lib/pipeline/referral-validation.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Pure public-input validation may depend on canonical referral types and bounded vocabulary constants; it must not depend on storage, routes, browser code, or external services.",
+      "purpose": "Validates referral create and public patch payloads, including server-owned fields, limits, enums, hashes, documents, projections, work items, decisions, and timestamps.",
+      "callers": [
+        "app/api/referrals/route.ts",
+        "app/api/referrals/[referralId]/route.ts"
+      ],
+      "publicExports": [
+        "ReferralValidationResult",
+        "validateReferralCreateInput",
+        "validateReferralPatch"
+      ],
+      "sideEffects": [],
+      "failureBehavior": "Returns a bounded public validation failure before a route invokes persistence.",
+      "tests": [
+        "npm run check:api",
+        "npm run characterize:referral-store",
+        "npm run build"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Keep validation as the trust boundary while changing its type-only dependency from the effectful store to the stable type owner."
+    },
+    {
+      "path": "lib/pipeline/referral-sections.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Pure optimistic-section policy may depend on referral field and section types; routes, collaboration UI, workflow, and stores may depend on it.",
+      "purpose": "Maps mutable referral fields to optimistic-concurrency sections and owns defaults, normalization, incrementing, classification, and section-name validation.",
+      "callers": [
+        "Referral item route, packet canvas, referral store, and workflow store"
+      ],
+      "publicExports": [
+        "defaultReferralSectionVersions",
+        "normalizeReferralSectionVersions",
+        "getReferralPatchSections",
+        "incrementReferralSections",
+        "isReferralSection"
+      ],
+      "sideEffects": [],
+      "failureBehavior": "Malformed or missing section-version input normalizes to defaults; unsupported patch keys claim no section and callers own conflict responses.",
+      "tests": [
+        "npm run characterize:referral-store",
+        "npm run check:workflow-fuzz",
+        "npm run test:critical-safety"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "It already owns one cohesive pure policy and remains unchanged in iteration one."
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
+      "plannedNew": true,
+      "dependencyDirection": "Governance documentation may cite approved repository evidence and controls but has no runtime dependents.",
+      "purpose": "Records the owner-authorized architecture understanding, scope, invariants, failure behavior, and proof boundary for this slice.",
+      "callers": [
+        "TARS start and completion review"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "An incomplete or stale narrative fails the refactor start review; it has no runtime failure mode.",
+      "tests": [
+        "npm run check:refactor-setup"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The playbook requires a durable, exact-start architecture record."
+    },
+    {
+      "path": "docs/refactoring/referral-store-file-audit.json",
+      "plannedNew": true,
+      "dependencyDirection": "Governance data may cite the repository inventory and active slice; only refactor validators consume it.",
+      "purpose": "Records the disposition, side effects, tests, and exact static concerns for every scoped or explicitly allowlisted file.",
+      "callers": [
+        "scripts/code-quality-readiness.mjs"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing files, prompts, metadata, or scope dispositions fail the active-slice quality gate.",
+      "tests": [
+        "npm run check:code-quality",
+        "npm run check:refactor-setup"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The active refactor gate requires one exact file-audit disposition."
+    }
+  ],
+  "reviewedBy": "Owner-authorized TARS machine trace",
+  "approvedAt": "2026-09-08T23:42:00.000Z"
+}

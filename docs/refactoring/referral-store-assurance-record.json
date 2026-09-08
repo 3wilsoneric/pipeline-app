@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-store-boundaries",
+  "status": "baseline_approved",
+  "startingCommit": "1956139851eb83d6d785762461466355af0524e4",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-08T23:42:00.000Z"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "referral_same_section_one_winner",
+    "referral_retry_and_audit_atomicity"
+  ],
+  "preChangeMachineTrace": [
+    "npm run codebase:baseline passed at 4a0cef4a878fde66a524b90251a964ae049283ca",
+    "npm run complexity:check passed the owner-approved inherited ratchet at 4a0cef4a878fde66a524b90251a964ae049283ca",
+    "npm run check:api passed at 4a0cef4a878fde66a524b90251a964ae049283ca",
+    "npm run check:assessor-workflow passed at 4a0cef4a878fde66a524b90251a964ae049283ca",
+    "npm run check:workflow-fuzz passed 2,000 traces and 840,009 cases at 4a0cef4a878fde66a524b90251a964ae049283ca",
+    "npm run test:critical-safety passed 27/27 at 4a0cef4a878fde66a524b90251a964ae049283ca",
+    "npm run characterize:referral-store passed 9/9 local-file and 9/9 PostgreSQL 16 scenarios at exact starting commit 1956139851eb83d6d785762461466355af0524e4",
+    "Pull request 25 passed verify, browser, operational, PostgreSQL, CodeQL, and dependency-review checks at exact starting commit 1956139851eb83d6d785762461466355af0524e4"
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Optimistic referral and section versions reject stale same-section writes.",
+      "Create retries with the same mutation identifier remain replay-idempotent; versioned patch, trash, and restore commands preserve their characterized conflict behavior.",
+      "Audit writes remain transactionally coupled to material mutations.",
+      "Soft-deleted referrals remain recoverable for 30 days; restore, assignment, work-item, and assessment side effects remain unchanged.",
+      "Suspected-duplicate review is a separate product behavior change: name and county may identify candidates for human review but never become automatic identity or merge keys."
+    ],
+    "evidence": [
+      "outputs/refactor-characterization/referral-store exact-start 9/9 local-file and 9/9 PostgreSQL 16 run",
+      "https://github.com/3wilsoneric/pipeline-app/pull/25"
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "residualRisks": []
+}

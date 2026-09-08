@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "mode": "setup_only",
+  "mode": "active",
   "approvalMode": "owner_fast_lane",
   "ownerFastLaneRecord": "docs/refactoring/owner-fast-lane.json",
-  "updatedAt": "2026-09-07",
+  "updatedAt": "2026-09-08",
   "slices": [
     {
       "id": "referral-store-boundaries",
       "priority": 1,
-      "status": "not_started",
+      "status": "in_progress",
       "owner": "Eric",
       "paths": [
         "lib/pipeline/referral-store.ts",
@@ -16,7 +16,22 @@
         "lib/pipeline/referral-validation.ts",
         "lib/pipeline/referral-sections.ts"
       ],
-      "allowedChangePaths": [],
+      "allowedChangePaths": [
+        "lib/pipeline/referral-store.ts",
+        "lib/pipeline/referral-types.ts",
+        "lib/pipeline/referral-validation.ts",
+        "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
+        "docs/refactoring/referral-store-file-audit.json"
+      ],
+      "architectureNarrative": "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
+      "fileAuditDisposition": "docs/refactoring/referral-store-file-audit.json",
+      "assuranceRecord": "docs/refactoring/referral-store-assurance-record.json",
+      "approvedBy": "Eric",
+      "approvedAt": "2026-09-08T23:42:00.000Z",
+      "worktreePath": "/Users/eric/pipeline-refactor-referral-store-v2",
+      "branch": "codex/refactor-referral-store-v2",
+      "startingCommit": "1956139851eb83d6d785762461466355af0524e4",
+      "rollbackOperator": "Eric",
       "invariants": [
         "Optimistic referral and section versions reject stale same-section writes.",
         "Create retries with the same mutation identifier remain replay-idempotent; versioned patch, trash, and restore commands preserve their characterized conflict behavior.",
