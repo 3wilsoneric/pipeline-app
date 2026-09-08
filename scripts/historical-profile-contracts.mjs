@@ -189,9 +189,10 @@ check("historical workspaces expose one read-only Profile surface",
     && canvas.includes("historicalReadOnly"));
 check("historical workspaces hide mutation controls while preserving read-only files",
   canvas.includes("<WorkspaceSaveControl")
+    && canvas.includes("const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, historicalReadOnly);")
+    && canvas.includes("{editingControlsVisible ? (")
     && canvas.includes("<WorkspaceFilesPage")
-    && canvas.includes("readOnly={presentation.readOnly}")
-    && canvas.includes("This closed historical workspace preserves imported source material"));
+    && canvas.includes("readOnly={presentation.readOnly}"));
 check("imported profile UI preserves source content without a lower-status label",
   historicalWorkspace.includes("Client information, notes, and documents carried into Pipeline")
     && historicalWorkspace.includes("Source information keeps its original provenance")

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T19:38:32.200Z",
+  "generated_at": "2026-09-08T21:58:23.662Z",
   "audit_date": "2026-09-08",
-  "git_head": "32c5d9aea20427257d5cbbc62df0ea534a1dc429",
+  "git_head": "28a66b4faebcd31be3293cfef9ab634119150464",
   "direct": [
     {
       "name": "@azure/identity",
@@ -376,6 +376,7 @@
         "components/pipeline/PipelineSearchPanel.tsx",
         "components/pipeline/PipelineTrash.tsx",
         "components/pipeline/PipelineWelcome.tsx",
+        "components/pipeline/ReferralClientActivationPanel.tsx",
         "components/pipeline/ReferralDraftResumeList.tsx",
         "components/pipeline/ReferralFilePreviewDialog.tsx",
         "components/pipeline/ReferralHome.tsx",
@@ -820,7 +821,8 @@
         "scripts/seed-production-reference-data.mjs",
         "scripts/stage-client-file-import.mjs",
         "scripts/storage-consistency-replay.mjs",
-        "scripts/verify-database-migration-0007.mjs"
+        "scripts/verify-database-migration-0007.mjs",
+        "tests/e2e/pipeline-smoke.spec.ts"
       ]
     },
     {
@@ -862,6 +864,7 @@
         "components/pipeline/PipelineTrash.tsx",
         "components/pipeline/PipelineWelcome.tsx",
         "components/pipeline/ReferralActivityPanel.tsx",
+        "components/pipeline/ReferralClientActivationPanel.tsx",
         "components/pipeline/ReferralDraftResumeList.tsx",
         "components/pipeline/ReferralFilePreviewDialog.tsx",
         "components/pipeline/ReferralHome.tsx",
@@ -7500,8 +7503,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1062,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-admission-activation/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-refactor-admission-activation/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-client-activation/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-refactor-client-activation/node_modules/@img/sharp-wasm32"
     ]
   }
 }

@@ -51,6 +51,11 @@ const mutants = [
     'status: "human_review",\n      reason: "source_resident_number_missing"', 'status: "matched",\n      reason: "source_resident_number_missing"'),
   mutant("ID-02", "DOB conflict is treated as a match", "lib/pipeline/master-record-matching.ts",
     'status: "blocked_conflict",\n      reason: "date_of_birth_conflict"', 'status: "matched",\n      reason: "date_of_birth_conflict"'),
+  mutant("ID-03", "ambiguous roster name-and-DOB candidates select the first person", "lib/pipeline/referral-clinical-reconciliation.ts",
+    'if (candidates.length !== 1) return null;', 'if (candidates.length === 0) return null;'),
+  mutant("ID-04", "roster matching proceeds without a date of birth", "lib/pipeline/referral-clinical-reconciliation.ts",
+    '  const dateOfBirth = normalizedDate(referral.dob);\n  if (nameTokens.length < 2 || !dateOfBirth) return null;\n\n  const candidates = residents\n    .filter((resident) => normalizedDate(resident.date_of_birth) === dateOfBirth)',
+    '  const dateOfBirth = normalizedDate(referral.dob);\n  if (nameTokens.length < 2) return null;\n\n  const candidates = residents\n    .filter(() => true)'),
 ];
 
 try {

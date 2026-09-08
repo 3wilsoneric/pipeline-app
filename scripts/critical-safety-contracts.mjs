@@ -7,6 +7,7 @@ const workflow = loadTypeScriptModule(root, "lib/pipeline/referral-workflow.ts")
 const extraction = loadTypeScriptModule(root, "lib/extraction/extraction-state.ts");
 const worker = loadTypeScriptModule(root, "lib/extraction/worker-report-validation.ts");
 const matching = loadTypeScriptModule(root, "lib/pipeline/master-record-matching.ts");
+const clinicalMatching = loadTypeScriptModule(root, "lib/pipeline/referral-clinical-reconciliation.ts");
 const upload = loadTypeScriptModule(root, "lib/extraction/durable-upload-reconciliation.ts");
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
@@ -103,6 +104,40 @@ check("resident-number match with a different DOB is blocked", matching.decideMa
   date_of_birth: "1990-01-01",
   display_name: "Synthetic Person",
 }, identityCandidates).status === "blocked_conflict");
+
+const rosterCandidate = {
+  resident_id: "R-1",
+  resident_key: "337:R-1",
+  canonical_client_id: "client-1",
+  resident_number: "SYN-1",
+  display_name: "Synthetic Person",
+  first_name: "Synthetic",
+  last_name: "Person",
+  date_of_birth: "1980-01-01",
+  community_id: "337",
+  community_name: "San Pablo",
+  unit: null,
+  age: null,
+  admit_date: "2026-08-01",
+  length_of_stay_days: null,
+  care_level: null,
+  payor: null,
+  primary_diagnosis: null,
+  physician: null,
+  diet: null,
+};
+check("a unique roster name-and-DOB match creates review evidence only", clinicalMatching.findClinicalResidentMatch(
+  { name: "Synthetic Person", dob: "1980-01-01" },
+  [rosterCandidate],
+)?.resident.resident_key === rosterCandidate.resident_key);
+check("ambiguous roster name-and-DOB matches do not create a candidate", clinicalMatching.findClinicalResidentMatch(
+  { name: "Synthetic Person", dob: "1980-01-01" },
+  [rosterCandidate, { ...rosterCandidate, resident_id: "R-2", resident_key: "343:R-2", community_id: "343" }],
+) === null);
+check("a roster name without date of birth does not create a candidate", clinicalMatching.findClinicalResidentMatch(
+  { name: "Synthetic Person", dob: "" },
+  [rosterCandidate],
+) === null);
 
 check("partial upload finalization is retryable", upload.decideDurableUploadRecovery({
   database_state: "reserved",

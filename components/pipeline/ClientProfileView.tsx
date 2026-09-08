@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Private no-store thumbnails require the signed-in browser request. */
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, CircleAlert, ExternalLink, FileText, ImageOff, LoaderCircle, Search, X } from "lucide-react";
 
 import type {
@@ -38,6 +38,7 @@ import { recordRecentDestination } from "@/lib/pipeline/recent-destinations";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import type { PipelineResidentLink } from "@/lib/pipeline/resident-link-records";
 import type { UnifiedClientProfileResponse } from "@/lib/pipeline/unified-profile-contracts";
+import { createMutationId } from "@/lib/pipeline/referral-packet-upload";
 import ClientAssessmentSummary from "@/components/pipeline/ClientAssessmentSummary";
 import ClientMedicalChart from "@/components/pipeline/ClientMedicalChart";
 
@@ -222,6 +223,12 @@ function ResidentProfile({
           {profile.pipeline.connection.status === "candidate" ? (
             <ProfileSection title="Identity review" detail="Confirm the client before records are joined">
               <IdentityReviewControls profile={profile} onConnectionChanged={onConnectionChanged} />
+            </ProfileSection>
+          ) : null}
+
+          {profile.pipeline.connection.status === "unlinked" && profile.pipeline.connection.suggestions.length > 0 ? (
+            <ProfileSection title="Identity connection" detail="Create a review candidate before records are joined">
+              <IdentitySuggestionControls profile={profile} onConnectionChanged={onConnectionChanged} />
             </ProfileSection>
           ) : null}
 
@@ -1143,6 +1150,83 @@ function IdentityReviewControls({
           ))}
         </div>
       ) : <EmptyChartMessage>The possible match is no longer available. Refresh this profile.</EmptyChartMessage>}
+      {error ? <div className="mt-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-3 py-2 text-[11px] text-[#59332d]" role="alert">{error}</div> : null}
+    </div>
+  );
+}
+
+function IdentitySuggestionControls({
+  profile,
+  onConnectionChanged,
+}: {
+  profile: UnifiedClientProfileResponse;
+  onConnectionChanged: () => void;
+}) {
+  const resident = profile.resident;
+  const canCreate = profile.pipeline.permissions?.can_create_identity_candidate ?? false;
+  const [busyReferralId, setBusyReferralId] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const mutationIds = useRef(new Map<number, string>());
+
+  async function createCandidate(suggestion: UnifiedClientProfileResponse["pipeline"]["connection"]["suggestions"][number]) {
+    if (!resident || !window.confirm(
+      `Create an identity review candidate between ${suggestion.client_name} and ${resident.display_name}? This will not join records until someone confirms the match.`,
+    )) return;
+
+    const mutationId = mutationIds.current.get(suggestion.referral_id) ?? createMutationId();
+    mutationIds.current.set(suggestion.referral_id, mutationId);
+    setBusyReferralId(suggestion.referral_id);
+    setError("");
+    try {
+      await fetchPipelineJson("/api/resident-links", {
+        method: "POST",
+        body: JSON.stringify({
+          client_mutation_id: mutationId,
+          pipeline_client_id: suggestion.pipeline_client_id,
+          display_name: suggestion.client_name,
+          date_of_birth: resident.date_of_birth,
+          referral_id: suggestion.referral_id,
+          resident_key: resident.resident_key,
+          resident_number: resident.resident_number ?? resident.resident_id,
+          community_id: resident.community_id,
+          match_method: suggestion.match_method === "resident_number_exact" ? "resident_number_exact" : "manual",
+          match_confidence: suggestion.confidence,
+        }),
+      });
+      mutationIds.current.delete(suggestion.referral_id);
+      onConnectionChanged();
+    } catch (mutationError) {
+      setError(mutationError instanceof Error ? mutationError.message : "The identity review candidate could not be created.");
+    } finally {
+      setBusyReferralId(null);
+    }
+  }
+
+  if (!resident) {
+    return <EmptyChartMessage>The current governed resident record is unavailable, so no identity candidate can be created.</EmptyChartMessage>;
+  }
+
+  return (
+    <div>
+      <p className="text-[11px] leading-5 text-[#4f5c57]">These are possible referral matches only. Review the evidence, create a candidate, then confirm or reject it in a separate step.</p>
+      <div className="mt-3 divide-y divide-[#d9d9d9] border-y border-[#d9d9d9]">
+        {profile.pipeline.connection.suggestions.map((suggestion) => (
+          <div key={suggestion.referral_id} className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="min-w-0">
+              <div className="text-[12px] font-black text-[#202522]">{suggestion.client_name}</div>
+              <div className="mt-1 text-[10px] text-[#737373]">{suggestion.community} · workspace #{suggestion.referral_id}</div>
+              <ul className="mt-2 space-y-1 text-[10px] text-[#4f5c57]">
+                {suggestion.reasons.map((reason) => <li key={reason}>• {reason}</li>)}
+              </ul>
+            </div>
+            {canCreate ? (
+              <button type="button" disabled={busyReferralId !== null} onClick={() => void createCandidate(suggestion)} className="h-9 border border-[#0f8b73] bg-white px-3 text-[10px] font-black text-[#0f6f5e] hover:bg-[#eff8f5] disabled:opacity-40">
+                {busyReferralId === suggestion.referral_id ? "Creating..." : "Create review candidate"}
+              </button>
+            ) : <span className="text-[10px] font-black uppercase text-[#8a5a10]">Reviewer action required</span>}
+          </div>
+        ))}
+      </div>
       {error ? <div className="mt-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-3 py-2 text-[11px] text-[#59332d]" role="alert">{error}</div> : null}
     </div>
   );

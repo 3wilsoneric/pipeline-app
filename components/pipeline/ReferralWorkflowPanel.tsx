@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, CheckCircle2, ChevronDown, Circle, ClipboardCheck, LoaderCircle, Send, ShieldCheck } from "lucide-react";
 
 import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
+import ReferralClientActivationPanel from "@/components/pipeline/ReferralClientActivationPanel";
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { createMutationId } from "@/lib/pipeline/referral-packet-upload";
 import { referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
@@ -37,6 +38,8 @@ type WorkflowResponse = {
     can_recommend: boolean;
     can_decide: boolean;
     can_authorize_manual_intake: boolean;
+    can_reconcile_identity: boolean;
+    can_review_identity: boolean;
   };
 };
 
@@ -46,6 +49,7 @@ type ReferralWorkflowPanelProps = {
   onOpenIntake: () => void;
   onOpenAssessment: () => void;
   onOpenFiles: () => void;
+  onOpenProfile: (canonicalClientId: string) => void;
 };
 
 type PendingWorkflowDetail =
@@ -77,6 +81,7 @@ export default function ReferralWorkflowPanel({
   onOpenIntake,
   onOpenAssessment,
   onOpenFiles,
+  onOpenProfile,
 }: ReferralWorkflowPanelProps) {
   const [workflow, setWorkflow] = useState<WorkflowResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -407,6 +412,14 @@ export default function ReferralWorkflowPanel({
         <div className="space-y-5">
           {renderRequirements()}
           {renderEhrHandoff()}
+          {currentReferral.stage === "Accepted / Admitted" ? (
+            <ReferralClientActivationPanel
+              referralId={currentReferral.id}
+              canReconcile={workflow.capabilities.can_reconcile_identity}
+              canReview={workflow.capabilities.can_review_identity}
+              onOpenProfile={onOpenProfile}
+            />
+          ) : null}
         </div>
       </div>
       {pendingDetail ? (

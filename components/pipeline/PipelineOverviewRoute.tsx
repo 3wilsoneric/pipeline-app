@@ -201,6 +201,7 @@ export default function PipelineOverviewRoute() {
           replacePipelineHistory(`/?${params.toString()}`);
         }}
         onReferralDeleted={() => navigate("referrals")}
+        onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
       />
     );
   } else if (screen === "profile" && selectedClientId) {

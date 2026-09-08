@@ -28,7 +28,7 @@ export async function GET(
             ["admin", "assessment_coordinator", "reviewer"].includes(role),
           ),
           can_review_identity: auth.user.roles.some((role) =>
-            ["admin", "reviewer"].includes(role),
+            ["admin", "assessment_coordinator", "reviewer"].includes(role),
           ),
         }, auth.user, { requestId }),
         { headers: privateHeaders() },

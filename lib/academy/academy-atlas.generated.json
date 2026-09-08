@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:a63db54053c247fd",
-  "fingerprint": "a63db54053c247fd7595a7cd32908f87c40a15ac5788a6c6ec9a6fc3e724520e",
+  "generatedAt": "source-fingerprint:960b77ba0b36cef8",
+  "fingerprint": "960b77ba0b36cef80258c0f0da3b13ab5b613205a90694de28912a795975f86b",
   "totals": {
-    "files": 859,
-    "lines": 285855,
-    "coveredFiles": 859
+    "files": 860,
+    "lines": 286398,
+    "coveredFiles": 860
   },
   "entries": [
     {
@@ -1293,7 +1293,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 60,
+      "lines": 62,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1783,7 +1783,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1332,
+      "lines": 1416,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1999,7 +1999,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 354,
+      "lines": 355,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2054,6 +2054,18 @@
       ]
     },
     {
+      "path": "components/pipeline/ReferralClientActivationPanel.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 270,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/ReferralDraftResumeList.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2095,7 +2107,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3741,
+      "lines": 3744,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2119,7 +2131,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 824,
+      "lines": 837,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -8387,7 +8399,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 160,
+      "lines": 195,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8747,7 +8759,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 209,
+      "lines": 210,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9624,7 +9636,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 141,
+      "lines": 146,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10129,7 +10141,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 3246,
+      "lines": 3375,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

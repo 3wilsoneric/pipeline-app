@@ -2262,6 +2262,99 @@ test.describe("Referral home and packet canvas", () => {
     await expect(workflowPanel.getByText("EHR handoff recorded as sent", { exact: true })).toBeVisible();
     await expect(workflowPanel.getByText("Handoff recorded as sent.", { exact: true })).toBeVisible();
     await expect(workflowPanel.getByText(/admitted-client profile appears only after the governed Alamo roster contains the person/i)).toBeVisible();
+
+    const admittedProfile = workflowPanel.getByRole("region", { name: "Admitted client profile" });
+    await expect(admittedProfile).toBeVisible();
+    await expect(admittedProfile.getByRole("button", { name: "Check Alamo roster" })).toBeVisible();
+
+    const resident = (clinicalFixture.resident as { resident: Record<string, unknown> }).resident;
+    const linkId = "7d95fd3a-09c3-42a8-9412-dd58c71562cd";
+    const candidate = {
+      link_id: linkId,
+      person_id: "5bf423f8-4c3c-46ec-809b-61fc1f040621",
+      pipeline_client_id: `ehr-client-${referral.id}`,
+      referral_id: referral.id,
+      resident_key: resident.resident_key,
+      resident_number: resident.resident_number,
+      community_id: resident.community_id,
+      status: "candidate",
+      match_method: "manual",
+      match_confidence: 0.95,
+      version: 1,
+      created_by: { id: "playwright", name: "Playwright QA" },
+      reviewed_by: null,
+      review_note: null,
+      created_at: now,
+      reviewed_at: null,
+      updated_at: now,
+      audit_events: [],
+    };
+    let activationState: "unlinked" | "candidate" | "confirmed" = "unlinked";
+
+    await page.route(`**/api/referrals/${referral.id}/census-reconciliation`, async (route) => {
+      expect(route.request().method()).toBe("POST");
+      activationState = "candidate";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "candidate_created",
+          link: candidate,
+          confidence: 0.95,
+          method: "exact_name_dob",
+          data_as_of: "2026-08-07",
+        }),
+      });
+    });
+    await page.route(/\/api\/resident-links\?.*$/, async (route) => {
+      const links = activationState === "unlinked"
+        ? []
+        : [{ ...candidate, status: activationState, version: activationState === "confirmed" ? 2 : 1 }];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          links,
+          total: links.length,
+          next_cursor: null,
+          generated_at: now,
+          store: { mode: "postgres", multi_instance_safe: true },
+        }),
+      });
+    });
+    await page.route("**/api/clinical/residents/**", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.resident) });
+    });
+    await page.route(`**/api/resident-links/${linkId}`, async (route) => {
+      expect(route.request().postDataJSON()).toEqual({ action: "confirm", if_match: 1 });
+      activationState = "confirmed";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, link: { ...candidate, status: "confirmed", version: 2 }, revision: 2 }),
+      });
+    });
+
+    await admittedProfile.getByRole("button", { name: "Check Alamo roster" }).click();
+    await expect(admittedProfile.getByText("Review required", { exact: true })).toBeVisible();
+    await expect(admittedProfile.getByText("Avery Example", { exact: true })).toBeVisible();
+    page.once("dialog", (dialog) => dialog.accept());
+    await admittedProfile.getByRole("button", { name: "Confirm identity" }).click();
+    await expect(admittedProfile.getByText("Client identity confirmed", { exact: true })).toBeVisible();
+    await page.route("**/api/profiles/client-sanitized-100", async (route) => {
+      const profile = structuredClone(unifiedProfileFixture);
+      (profile.pipeline as unknown as { connection: Record<string, unknown> }).connection = {
+        status: "confirmed",
+        confirmed_link: { ...candidate, status: "confirmed", version: 2 },
+        candidates: [],
+        suggestions: [],
+        message: "Pipeline records are joined through a reviewed resident link.",
+      };
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(profile) });
+    });
+    await admittedProfile.getByRole("button", { name: "Open client profile" }).click();
+    await expect(page).toHaveURL(/screen=profile.*clientId=client-sanitized-100/);
+    await expect(page.getByRole("main", { name: "Client profile for Avery Example" })).toBeVisible();
   });
 
   test("requires a documented reason and closes a declined referral", async ({ page }) => {
@@ -3165,7 +3258,7 @@ test.describe("Pipeline home", () => {
       updated_at: "2026-08-09T12:00:00.000Z",
       audit_events: [],
     };
-    let connectionStatus: "candidate" | "confirmed" = "candidate";
+    let connectionStatus: "unlinked" | "candidate" | "confirmed" = "unlinked";
 
     await page.route("**/api/clinical/clients**", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(clinicalFixture.clients) });
@@ -3192,8 +3285,25 @@ test.describe("Pipeline home", () => {
           reasons: string[];
         }>;
         message: string;
-      } = connectionStatus === "candidate"
+      } = connectionStatus === "unlinked"
         ? {
+            status: "unlinked",
+            confirmed_link: null,
+            candidates: [],
+            suggestions: [{
+              referral_id: referral.id,
+              pipeline_client_id: referral.clientId,
+              client_name: referral.name,
+              community: referral.community,
+              stage: referral.stage,
+              received_at: referral.date,
+              confidence: 0.95,
+              match_method: "exact_name_dob",
+              reasons: ["Name and date of birth match exactly", "Community matches the current census"],
+            }],
+            message: "A possible referral match is available for review.",
+          }
+        : connectionStatus === "candidate" ? {
             status: "candidate",
             confirmed_link: null,
             candidates: [candidate],
@@ -3210,8 +3320,24 @@ test.describe("Pipeline home", () => {
       (profile.pipeline as unknown as { connection: typeof connection }).connection = connection;
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(profile) });
     });
-    await page.route("**/api/resident-links/**", async (route) => {
-      const body = route.request().postDataJSON() as { action: string; if_match: number };
+    await page.route("**/api/resident-links**", async (route) => {
+      const url = new URL(route.request().url());
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      if (url.pathname === "/api/resident-links") {
+        expect(route.request().method()).toBe("POST");
+        expect(body).toMatchObject({
+          pipeline_client_id: referral.clientId,
+          referral_id: referral.id,
+          resident_key: resident.resident_key,
+          community_id: resident.community_id,
+          match_method: "manual",
+          match_confidence: 0.95,
+        });
+        expect(body.client_mutation_id).toEqual(expect.any(String));
+        connectionStatus = "candidate";
+        await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ ok: true, link: candidate, revision: 1 }) });
+        return;
+      }
       expect(body).toEqual({ action: "confirm", if_match: 1 });
       connectionStatus = "confirmed";
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, link: { ...candidate, status: "confirmed", version: 2 }, revision: 2 }) });
@@ -3220,6 +3346,9 @@ test.describe("Pipeline home", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await page.getByRole("button", { name: /Avery Example/ }).click();
+    await expect(page.getByRole("heading", { name: "Identity connection", exact: true })).toBeVisible();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Create review candidate" }).click();
     await expect(page.getByRole("heading", { name: "Identity review", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);
     await expect(page.getByText(/version 1/i)).toHaveCount(0);

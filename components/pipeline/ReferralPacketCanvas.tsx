@@ -132,6 +132,7 @@ type ReferralPacketCanvasProps = {
   onReferralSaved?: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onReferralDeleted?: () => void;
   onWorkspaceStageChange?: (stage: WorkspaceStageName) => void;
+  onOpenProfile?: (canonicalClientId: string) => void;
 };
 
 type DirtyDraftKey = ReferralCanvasDirtyKey;
@@ -313,6 +314,7 @@ export default function ReferralPacketCanvas({
   onReferralSaved,
   onReferralDeleted,
   onWorkspaceStageChange,
+  onOpenProfile = () => undefined,
 }: ReferralPacketCanvasProps = {}) {
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
     ...initialFields,
@@ -2187,6 +2189,7 @@ export default function ReferralPacketCanvas({
                 onOpenIntake={() => openPage(1)}
                 onOpenAssessment={() => openPage(2)}
                 onOpenFiles={() => openPage("files")}
+                onOpenProfile={onOpenProfile}
               />
             </PacketPage>
           ) : displayedPage === 2 ? (
