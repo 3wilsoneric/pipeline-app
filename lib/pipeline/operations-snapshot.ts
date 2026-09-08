@@ -417,6 +417,7 @@ async function buildSupervisorExceptionSnapshot(
       owner: referral?.owner ?? null,
       due_at: null,
       age_hours: ageHours(link.updated_at, operational.now),
+      profile_id: link.resident_key,
     });
   }
 
@@ -526,6 +527,7 @@ function requirementException(
     owner: item.owner,
     due_at: item.due_at,
     age_hours: null,
+    profile_id: null,
   };
 }
 
@@ -549,6 +551,7 @@ function workException(
     owner: item.owner,
     due_at: item.assignment_due_at,
     age_hours: item.age_hours,
+    profile_id: item.client_id ?? null,
   };
 }
 

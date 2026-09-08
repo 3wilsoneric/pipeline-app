@@ -312,4 +312,107 @@ test.describe("role-scoped home and reports", () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/^pipeline-assessment_completion-\d{4}-\d{2}\.csv$/);
   });
+
+  test("turns canonical supervisor exceptions into direct recovery work", async ({ page }) => {
+    await page.route("**/api/operations/supervisor-queue", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated_at: "2026-09-08T17:00:00.000Z",
+          total: 3,
+          counts: {
+            unassigned_referral: 1,
+            decision_needed: 1,
+            resident_link_collision: 1,
+          },
+          items: [
+            {
+              id: "unassigned_referral:424242",
+              kind: "unassigned_referral",
+              severity: "critical",
+              label: "Referral has no owner",
+              detail: "Assign an accountable assessor.",
+              referral_id: 424242,
+              resident_link_id: null,
+              client_name: "Zachary Laman- LA JAIL",
+              community: "San Pablo",
+              owner: null,
+              due_at: "2026-09-07T17:00:00.000Z",
+              age_hours: 24,
+              profile_id: "pipeline-client-424242",
+            },
+            {
+              id: "decision_needed:424243",
+              kind: "decision_needed",
+              severity: "attention",
+              label: "Admission decision is needed",
+              detail: "Review the signed assessment and recommendation.",
+              referral_id: 424243,
+              resident_link_id: null,
+              client_name: "Morgan Rivera",
+              community: "San Francisco",
+              owner: "Annette Everhart",
+              due_at: null,
+              age_hours: 6,
+              profile_id: "pipeline-client-424243",
+            },
+            {
+              id: "resident_link_collision:link-1",
+              kind: "resident_link_collision",
+              severity: "review",
+              label: "Resident link collision needs review",
+              detail: "Verify the governed resident identity before connecting records.",
+              referral_id: null,
+              resident_link_id: "link-1",
+              client_name: "Taylor Morgan",
+              community: "San Pablo",
+              owner: null,
+              due_at: null,
+              age_hours: 3,
+              profile_id: "resident-42",
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto("/?screen=operations");
+    const commandCenter = page.getByRole("region", { name: "Supervisor command center" });
+    await expect(commandCenter).toBeVisible();
+    await expect(commandCenter.getByText("Zachary Laman", { exact: true })).toBeVisible();
+    await expect(commandCenter.getByText("Zachary Laman- LA JAIL", { exact: true })).toHaveCount(0);
+    await expect(commandCenter.getByText("Unassigned", { exact: true })).toHaveCount(2);
+    await expect(commandCenter.getByText("Annette Everhart", { exact: true })).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await commandCenter.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+    await commandCenter.getByRole("button", { name: "Assign for Zachary Laman" }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424242");
+
+    await page.goBack();
+    await expect(commandCenter).toBeVisible();
+    await commandCenter.getByRole("button", { name: "Review match for Taylor Morgan" }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("clientId")).toBe("resident-42");
+  });
+
+  test("keeps the report workflow available when the command-center queue is unavailable", async ({ page }) => {
+    await page.route("**/api/operations/supervisor-queue", async (route) => {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Supervisor queue is temporarily unavailable." }),
+      });
+    });
+
+    await page.goto("/?screen=operations");
+
+    const commandCenter = page.getByRole("region", { name: "Supervisor command center" });
+    await expect(commandCenter.getByRole("alert")).toContainText("Supervisor queue is temporarily unavailable.");
+    await expect(commandCenter.getByRole("button", { name: "Retry" })).toBeVisible();
+    await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Report library" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
+  });
 });

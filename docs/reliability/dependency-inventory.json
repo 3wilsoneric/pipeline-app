@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-07T21:56:18.911Z",
-  "audit_date": "2026-09-07",
-  "git_head": "840772c1dfb1e3d8d3f64f17d434db6db01faa33",
+  "generated_at": "2026-09-08T16:59:39.718Z",
+  "audit_date": "2026-09-08",
+  "git_head": "f75aa677d5b49f147e3b952e9dbe25d6b81e700b",
   "direct": [
     {
       "name": "@azure/identity",
@@ -356,6 +356,7 @@
       "review_focus": "Unlabelled icon-only controls, inconsistent sizing, and importing the full icon set into client bundles.",
       "referenced_by": [
         "app/(pipeline)/error.tsx",
+        "components/pipeline/ActionDetailDialog.tsx",
         "components/pipeline/AssessmentChartWorkspace.tsx",
         "components/pipeline/AssessmentWorkspace.tsx",
         "components/pipeline/AssessorSessionControl.tsx",
@@ -386,6 +387,7 @@
         "components/pipeline/ReferralWorkspaceGallery.tsx",
         "components/pipeline/StaffProfileSettings.tsx",
         "components/pipeline/StructuredNarrativeField.tsx",
+        "components/pipeline/SupervisorCommandCenter.tsx",
         "components/pipeline/WorkspaceActivityFeed.tsx",
         "components/pipeline/academy/AcademyCurriculumView.tsx",
         "components/pipeline/academy/AcademyJourneyLibrary.tsx",
@@ -470,6 +472,7 @@
         "components/pipeline/ReferralProgressPanel.tsx",
         "components/pipeline/ReferralWorkflowPanel.tsx",
         "components/pipeline/ReferralWorkflowTracker.tsx",
+        "components/pipeline/StaffProfileSettings.tsx",
         "components/pipeline/TeamPresenceList.tsx",
         "components/pipeline/WorkspaceActivityFeed.tsx",
         "components/pipeline/academy/AcademyRepositoryAtlas.tsx",
@@ -487,6 +490,7 @@
         "database/migrations/0015_assessor_workflow.sql",
         "database/migrations/0020_allo_canvas_content.sql",
         "database/migrations/0026_imported_workspace_lifecycle.sql",
+        "database/migrations/0029_historical_workspace_archive.sql",
         "databricks/pipeline_extraction_worker.py",
         "design.md",
         "docs/AGENT_ARCHITECTURE_DIRECTION.md",
@@ -833,6 +837,7 @@
         "components/auth/PipelineAuthProvider.tsx",
         "components/auth/PipelineSignIn.tsx",
         "components/desktop/DesktopRuntime.tsx",
+        "components/pipeline/ActionDetailDialog.tsx",
         "components/pipeline/AssessmentChartWorkspace.tsx",
         "components/pipeline/AssessmentWorkspace.tsx",
         "components/pipeline/AssessorSessionControl.tsx",
@@ -868,6 +873,7 @@
         "components/pipeline/ReferralWorkspaceGallery.tsx",
         "components/pipeline/StaffProfileSettings.tsx",
         "components/pipeline/StructuredNarrativeField.tsx",
+        "components/pipeline/SupervisorCommandCenter.tsx",
         "components/pipeline/TeamPresenceList.tsx",
         "components/pipeline/WorkspaceActivityFeed.tsx",
         "components/pipeline/academy/AcademyCurriculumView.tsx",
@@ -917,6 +923,7 @@
       "purpose": "React DOM rendering",
       "review_focus": "Hydration mismatch, focus loss, route-announcer conflicts, and browser-only APIs during server rendering.",
       "referenced_by": [
+        "components/pipeline/ActionDetailDialog.tsx",
         "components/pipeline/AssessmentWorkspace.tsx",
         "components/pipeline/CurrentWorkOverlay.tsx",
         "components/pipeline/DeleteWorkspaceDialog.tsx",
@@ -7493,8 +7500,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1062,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-workflow-hardening/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-workflow-hardening/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-supervisor-command-center/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.3 /Users/eric/pipeline-refactor-supervisor-command-center/node_modules/@img/sharp-wasm32"
     ]
   }
 }

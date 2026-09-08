@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:e0a159dcb3b03142",
-  "fingerprint": "e0a159dcb3b03142cdedc7c40026ed645eda2697f097ec0cfc4dd846322eafe2",
+  "generatedAt": "source-fingerprint:cfe7aebfe153b54a",
+  "fingerprint": "cfe7aebfe153b54aea453a719b6437d4b412081d429fbc53d4ce884219a1e58b",
   "totals": {
-    "files": 858,
-    "lines": 284826,
-    "coveredFiles": 858
+    "files": 859,
+    "lines": 285345,
+    "coveredFiles": 859
   },
   "entries": [
     {
@@ -1867,7 +1867,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 319,
+      "lines": 325,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1999,7 +1999,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 352,
+      "lines": 354,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2180,6 +2180,18 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 230,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/SupervisorCommandCenter.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 307,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -4511,7 +4523,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1763,
+      "lines": 1772,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4547,7 +4559,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7501,
+      "lines": 7508,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4607,7 +4619,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10421,
+      "lines": 10502,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6463,7 +6475,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 893,
+      "lines": 896,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -6475,7 +6487,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 232,
+      "lines": 233,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -9936,7 +9948,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 316,
+      "lines": 419,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

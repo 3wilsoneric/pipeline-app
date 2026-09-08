@@ -192,6 +192,7 @@ export type SupervisorExceptionItem = {
   owner: string | null;
   due_at: string | null;
   age_hours: number | null;
+  profile_id: string | null;
 };
 
 export type SupervisorExceptionSnapshot = {

@@ -215,6 +215,8 @@ export default function PipelineOverviewRoute() {
     page = reportAccess === true ? (
       <OperationsDashboard
         onOpenPacket={(referral) => navigate("packet", referral)}
+        onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
+        onOpenProfiles={() => navigate("profiles")}
       />
     ) : null;
   } else if (screen === "calendar") {
