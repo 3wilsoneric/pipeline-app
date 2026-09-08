@@ -2740,8 +2740,8 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("img", { name: "Alamo Platform" })).toHaveCount(0);
     await expect.poll(async () => {
       const workspacePipelinePosition = await page.locator('[data-pipeline-home="true"]').boundingBox();
-      return workspacePipelinePosition?.x ?? Number.POSITIVE_INFINITY;
-    }).toBeLessThan(welcomePipelinePosition?.x ?? 0);
+      return Math.abs((workspacePipelinePosition?.x ?? Number.POSITIVE_INFINITY) - (welcomePipelinePosition?.x ?? 0));
+    }).toBeLessThan(1);
     await page.getByRole("button", { name: "Pipeline home" }).click();
 
     await expect(page.getByRole("heading", { name: /Welcome( back)?, / })).toHaveCount(0);
