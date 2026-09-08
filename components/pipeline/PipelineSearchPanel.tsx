@@ -133,7 +133,9 @@ export default function PipelineSearchPanel({
 
   useEffect(() => {
     if (!autoFocus) return;
-    searchInputRef.current?.focus();
+    setIsFocused(true);
+    const frame = window.requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
   }, [autoFocus]);
 
   useEffect(() => {
@@ -286,16 +288,33 @@ export default function PipelineSearchPanel({
     void runSearchMode(action.mode, normalizedQuery);
   };
 
+  const openSearch = () => {
+    setIsFocused(true);
+    onSearchFocused?.();
+    window.requestAnimationFrame(() => searchInputRef.current?.focus());
+  };
+
+  if (resting && !isFocused) {
+    return (
+      <section ref={searchPanelRef} aria-label="Search and ask" className={`flex min-h-12 items-center ${className}`}>
+        <button
+          type="button"
+          aria-label="Open search"
+          title="Search"
+          onClick={openSearch}
+          className="flex h-10 w-10 items-center justify-center text-[#68716d] hover:bg-[#f4f7f5] hover:text-[#0f705f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f8b73]"
+        >
+          <Search size={19} aria-hidden="true" />
+        </button>
+      </section>
+    );
+  }
+
   return (
     <section
       ref={searchPanelRef}
       aria-label="Search and ask"
       className={className}
-      onBlur={(event) => {
-        if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) {
-          setIsFocused(false);
-        }
-      }}
     >
       <form onSubmit={submitSearch} className={`relative flex items-center bg-transparent ${resting ? "border-b border-[#b3b3b3]" : ""}`}>
         <Search size={20} className="shrink-0 text-[#c4832c]" />

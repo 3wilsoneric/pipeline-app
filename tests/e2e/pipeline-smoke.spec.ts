@@ -2446,7 +2446,8 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("region", { name: "Ready to schedule" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Data completion" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Recent" })).toHaveCount(0);
-    await expect(page.getByLabel("Search or ask")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open search" })).toBeVisible();
+    await expect(page.getByLabel("Search or ask")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pipeline home" })).toBeVisible();
     await expect(page.getByRole("img", { name: "Alamo Platform" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Back to Alamo Platform" })).toHaveCount(0);
@@ -2470,9 +2471,11 @@ test.describe("Pipeline home", () => {
     await referralsLink.hover();
     await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
 
+    await page.getByRole("button", { name: "Open search" }).click();
     await expect(page.getByLabel("Search or ask")).toBeVisible();
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Playwright\./ })).toHaveCount(0);
-    await page.getByLabel("Search or ask").click();
+    const expandedSearch = page.getByRole("region", { name: "Search Pipeline" });
+    expect((await expandedSearch.boundingBox())?.width ?? 0).toBeGreaterThan(900);
     await expect(page.getByText("5 suggested searches", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Show my assigned workspaces." })).toBeVisible();
     await expect(page.getByRole("button", { name: "Show unassigned workspaces." })).toBeVisible();
@@ -2481,7 +2484,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("button", { name: "Show uploaded documents." })).toBeVisible();
     await page.getByText("Upcoming assessments", { exact: true }).click();
     await expect(page.getByText("5 suggested searches", { exact: true })).toHaveCount(0);
-    await page.getByLabel("Search or ask").click();
+    await page.getByRole("button", { name: "Open search" }).click();
     await page.getByRole("button", { name: "Show my assigned workspaces." }).click();
     await expect(
       page.getByText("Results", { exact: true }).or(
@@ -2559,6 +2562,7 @@ test.describe("Pipeline home", () => {
     });
 
     await page.goto("/");
+    await page.getByRole("button", { name: "Open search" }).click();
     await page.getByLabel("Search or ask").fill("Historical packet");
     const fileResult = page.getByRole("link", { name: `Open file ${fileName}` });
     await expect(fileResult).toHaveAttribute("href", "/api/files/search-file-1/download");
@@ -2608,6 +2612,7 @@ test.describe("Pipeline home", () => {
     });
 
     await page.goto("/");
+    await page.getByRole("button", { name: "Open search" }).click();
     await page.getByLabel("Search or ask").fill("Maldonado");
     await expect(page.getByRole("button", { name: "Open workspace for Krishna Maldonado" })).toBeVisible();
     await expect(page.getByText("1 result · checking clients", { exact: true })).toBeVisible();
@@ -2704,6 +2709,7 @@ test.describe("Pipeline home", () => {
 
     await page.goto("/");
     await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Open search" }).click();
     const globalSearch = page.getByLabel("Search or ask");
     await globalSearch.fill("profles");
     const profilesResult = page.getByRole("button", { name: "Open Clients from search" });
