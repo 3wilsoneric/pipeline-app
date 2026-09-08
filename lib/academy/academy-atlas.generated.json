@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:a69cdc2fa8cadb81",
-  "fingerprint": "a69cdc2fa8cadb8182a1aca5f2e820bccca16a0fac9ebf981c9f7bae9575c65a",
+  "generatedAt": "source-fingerprint:b7a145acd109e5a0",
+  "fingerprint": "b7a145acd109e5a01e9fe2be27d3fe4de4f0208ec3d060830ed427732edf4a85",
   "totals": {
-    "files": 854,
-    "lines": 284235,
-    "coveredFiles": 854
+    "files": 856,
+    "lines": 284399,
+    "coveredFiles": 856
   },
   "entries": [
     {
@@ -2371,7 +2371,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 36,
+      "lines": 37,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -2726,6 +2726,18 @@
       ]
     },
     {
+      "path": "database/migrations/0030_annette_everhart_display_name.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 82,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -3020,6 +3032,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 52,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0030_annette_everhart_display_name.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 81,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
