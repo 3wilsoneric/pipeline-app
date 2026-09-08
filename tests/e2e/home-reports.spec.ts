@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const testAssessor = {
   id: "provisional:allo:annette",
-  name: "Annette",
+  name: "Annette Everhart",
 } as const;
 
 test.describe("role-scoped home and reports", () => {

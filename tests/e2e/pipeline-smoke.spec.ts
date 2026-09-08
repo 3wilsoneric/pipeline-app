@@ -15,7 +15,7 @@ import type { Referral } from "../../lib/pipeline/referral-types";
 
 const testAssessor = {
   id: "provisional:allo:annette",
-  name: "Annette",
+  name: "Annette Everhart",
 } as const;
 
 const clinicalFixture = JSON.parse(

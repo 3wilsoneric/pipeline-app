@@ -4,7 +4,7 @@
   "members": [
     {
       "principal_id": "provisional:allo:annette",
-      "display_name": "Annette",
+      "display_name": "Annette Everhart",
       "source_identity": "annette",
       "roles": ["reviewer", "viewer"]
     },
