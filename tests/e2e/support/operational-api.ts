@@ -208,13 +208,29 @@ export async function resolveOperationalMoveInRequirements(
   context: APIRequestContext,
   referralId: number,
 ) {
+  return resolveOperationalRequirements(context, referralId, ["move_in"], "move-in");
+}
+
+export async function resolveOperationalDecisionRequirements(
+  context: APIRequestContext,
+  referralId: number,
+) {
+  return resolveOperationalRequirements(context, referralId, ["admission_decision"], "decision");
+}
+
+async function resolveOperationalRequirements(
+  context: APIRequestContext,
+  referralId: number,
+  gates: string[],
+  reasonLabel: string,
+) {
   const response = await context.get(`/api/referrals/${referralId}/work-items`);
   const bodyText = await response.text();
   expect(response.status(), bodyText.slice(0, 1_000)).toBe(200);
   const body = asRecord(JSON.parse(bodyText));
   const workItems = Array.isArray(body.work_items) ? body.work_items.map(asRecord) : [];
   const unresolved = workItems.filter((item) => (
-    item.requiredFor === "move_in"
+    gates.includes(String(item.requiredFor))
     && item.blocker === true
     && !["received", "reviewed", "waived", "not_applicable"].includes(String(item.status))
   ));
@@ -227,7 +243,7 @@ export async function resolveOperationalMoveInRequirements(
         if_match: version,
         patch: {
           status: "waived",
-          waiverReason: "Synthetic product-assurance move-in exception. Contains no PHI.",
+          waiverReason: `Synthetic product-assurance ${reasonLabel} exception. Contains no PHI.`,
         },
       },
     });

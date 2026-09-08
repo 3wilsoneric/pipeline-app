@@ -2207,10 +2207,15 @@ test.describe("Referral home and packet canvas", () => {
     await expect(handoffReadiness.getByText("Accept", { exact: true })).toBeVisible();
     const decisionReadiness = workflowPanel.getByRole("region", { name: "Supervisor decision readiness" });
     await expect(decisionReadiness.getByText("Accept recommendation recorded", { exact: true })).toBeVisible();
+    await expect(decisionReadiness.getByText("1 decision requirement remaining", { exact: true })).toBeVisible();
     const decisionSelect = workflowPanel.getByRole("combobox", { name: "Decision", exact: true });
     await expect(decisionSelect).toHaveValue("");
     await expect(workflowPanel.getByRole("button", { name: "Record decision" })).toBeDisabled();
     await decisionSelect.selectOption("accepted");
+    await expect(workflowPanel.getByRole("button", { name: "Record decision" })).toBeDisabled();
+    await workflowPanel.getByLabel("Signed medication list status").selectOption("received");
+    await expect(workflowPanel.getByText("Signed medication list updated", { exact: true })).toBeVisible();
+    await expect(decisionReadiness.getByText("Decision requirements resolved", { exact: true })).toBeVisible();
     page.once("dialog", async (dialog) => {
       expect(dialog.message()).toContain("Record the accepted admission decision?");
       await dialog.accept();
@@ -2227,8 +2232,12 @@ test.describe("Referral home and packet canvas", () => {
       await workflowPanel.getByLabel(`${label} status`).selectOption("received");
       await expect(workflowPanel.getByText(`${label} updated`, { exact: true })).toBeVisible();
     }
-    await workflowPanel.getByRole("button", { name: "Advance to Accepted / Admitted" }).click();
-    await expect(workflowPanel.getByText("Moved to Accepted / Admitted", { exact: true })).toBeVisible();
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain("Mark this referral admitted?");
+      await dialog.accept();
+    });
+    await workflowPanel.getByRole("button", { name: "Mark admitted" }).click();
+    await expect(workflowPanel.getByText("Admission recorded", { exact: true })).toBeVisible();
     await workflowPanel.getByRole("button", { name: "Queue EHR handoff" }).click();
     await expect(workflowPanel.getByText("EHR handoff queued", { exact: true })).toBeVisible();
     await workflowPanel.getByRole("button", { name: "Record failed" }).click();
@@ -2252,6 +2261,7 @@ test.describe("Referral home and packet canvas", () => {
     await workflowPanel.getByRole("button", { name: "Record sent" }).click();
     await expect(workflowPanel.getByText("EHR handoff recorded as sent", { exact: true })).toBeVisible();
     await expect(workflowPanel.getByText("Handoff recorded as sent.", { exact: true })).toBeVisible();
+    await expect(workflowPanel.getByText(/admitted-client profile appears only after the governed Alamo roster contains the person/i)).toBeVisible();
   });
 
   test("requires a documented reason and closes a declined referral", async ({ page }) => {

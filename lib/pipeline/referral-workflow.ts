@@ -1,7 +1,7 @@
 import type { ReferralWorkflowStatus } from "@/lib/reliability/referral-operating-model";
 import { isUnassignedOwner } from "./referral-ownership";
 import type { Referral } from "./referral-types";
-import { isRequirementComplete, type WorkflowContext } from "./workflow-records";
+import { getBlockingRequirementsForGates, type WorkflowContext } from "./workflow-records";
 import { hasInitialDocument, hasManualIntakeAuthorization } from "./workflow-status";
 
 export type ReferralStage =
@@ -205,10 +205,11 @@ export function getReferralTransitionBlockers(
     if (getDecisionOutcome(referral, context) !== "accepted") {
       blockers.push({ code: "admission_decision_required", label: "Record an admission decision of yes before acceptance." });
     }
-    for (const requirement of context.requirements ?? referral.requirements ?? []) {
-      if (requirement.requiredFor === "move_in" && requirement.blocker && !isRequirementComplete(requirement.status)) {
-        blockers.push({ code: `requirement:${requirement.type}`, label: `${requirement.label} is still required.` });
-      }
+    for (const requirement of getBlockingRequirementsForGates(
+      context.requirements ?? referral.requirements ?? [],
+      ["admission_decision", "move_in"],
+    )) {
+      blockers.push({ code: `requirement:${requirement.type}`, label: `${requirement.label} is still required.` });
     }
     return blockers;
   }

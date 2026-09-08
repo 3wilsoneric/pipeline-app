@@ -227,6 +227,17 @@ export function isRequirementComplete(status: RequirementStatus) {
     || status === "not_applicable";
 }
 
+export function getBlockingRequirementsForGates(
+  requirements: readonly AdmissionRequirement[],
+  gates: readonly RequirementGate[],
+) {
+  return requirements.filter((requirement) =>
+    gates.includes(requirement.requiredFor)
+      && requirement.blocker
+      && !isRequirementComplete(requirement.status),
+  );
+}
+
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }

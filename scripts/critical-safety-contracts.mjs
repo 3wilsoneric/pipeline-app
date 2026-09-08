@@ -40,6 +40,13 @@ check("move-in requirements block acceptance", hasBlocker(
   }),
   "requirement:tb_test",
 ));
+check("unresolved admission-decision requirements block admission", hasBlocker(
+  workflow.getReferralTransitionBlockers(referral("Community Review"), "Accepted / Admitted", {
+    decision: { outcome: "accepted" },
+    requirements: [{ id: "requirement", type: "medication_list", label: "Signed medication list", status: "needed", requiredFor: "admission_decision", blocker: true }],
+  }),
+  "requirement:medication_list",
+));
 check("declining requires a declined decision", hasBlocker(
   workflow.getReferralTransitionBlockers(referral("Assessment"), "Declined", {}),
   "decline_decision_required",

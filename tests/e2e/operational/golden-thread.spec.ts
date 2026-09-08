@@ -9,6 +9,7 @@ import {
 import {
   asPacketStatus,
   asRecord,
+  asReferralPayload,
   asUploadReservation,
   completeOperationalAssessment,
   createOperationalAssessment,
@@ -17,6 +18,7 @@ import {
   mutateOperationalEhrHandoff,
   readOperationalReferral,
   recordOperationalAcceptance,
+  resolveOperationalDecisionRequirements,
   resolveOperationalMoveInRequirements,
   scheduleOperationalAssessment,
   signOperationalAssessment,
@@ -172,6 +174,17 @@ test.describe("role-separated referral golden thread", () => {
       assessment = await signOperationalAssessment(assessor, assessment);
       referral = await readOperationalReferral(assessor, referral.id);
       referral = await submitOperationalRecommendation(assessor, referral, assessment);
+      const blockedDecision = await supervisor.put(`/api/referrals/${referral.id}/decision`, {
+        data: {
+          if_match: referral.version,
+          if_match_section: referral.sectionVersions.decision,
+          outcome: "accepted",
+        },
+      });
+      expect(blockedDecision.status()).toBe(422);
+      expect(asRecord(await blockedDecision.json()).error).toContain("Signed medication list");
+      expect(await resolveOperationalDecisionRequirements(supervisor, referral.id)).toBeGreaterThan(0);
+      referral = await readOperationalReferral(supervisor, referral.id);
       referral = await recordOperationalAcceptance(supervisor, referral);
 
       const blockedMoveIn = await supervisor.post(`/api/referrals/${referral.id}/transition`, {
@@ -185,6 +198,25 @@ test.describe("role-separated referral golden thread", () => {
       expect(await resolveOperationalMoveInRequirements(supervisor, referral.id)).toBeGreaterThan(0);
       referral = await readOperationalReferral(supervisor, referral.id);
       referral = await transitionOperationalReferral(supervisor, referral, "Accepted / Admitted");
+
+      const admittedRequirementsResponse = await supervisor.get(`/api/referrals/${referral.id}/work-items`);
+      expect(admittedRequirementsResponse.status()).toBe(200);
+      const admittedRequirements = asRecord(await admittedRequirementsResponse.json()).work_items;
+      const agreement = Array.isArray(admittedRequirements)
+        ? admittedRequirements.map(asRecord).find((item) => item.type === "signed_admission_agreement")
+        : undefined;
+      expect(agreement).toBeDefined();
+      const reopenedAgreement = await supervisor.patch(`/api/referrals/${referral.id}/work-items/${String(agreement?.id)}`, {
+        data: { if_match: Number(agreement?.version), patch: { status: "needed" } },
+      });
+      const reopenedAgreementBody = await reopenedAgreement.json();
+      expect(reopenedAgreement.status(), JSON.stringify(reopenedAgreementBody)).toBe(200);
+      referral = asReferralPayload(reopenedAgreementBody).referral;
+      const blockedHandoff = await mutateOperationalEhrHandoff(supervisor, referral, "queue");
+      expect(blockedHandoff.response.status()).toBe(422);
+      expect(blockedHandoff.body.error).toContain("Signed admission agreement");
+      expect(await resolveOperationalMoveInRequirements(supervisor, referral.id)).toBe(1);
+      referral = await readOperationalReferral(supervisor, referral.id);
 
       const queued = await mutateOperationalEhrHandoff(supervisor, referral, "queue");
       expect(queued.response.status()).toBe(200);

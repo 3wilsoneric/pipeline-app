@@ -14,9 +14,10 @@ import type {
   AssessmentRecommendation,
   EhrHandoffStatus,
   Referral,
+  RequirementGate,
   RequirementStatus,
 } from "@/lib/pipeline/referral-types";
-import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
+import { getBlockingRequirementsForGates, isRequirementComplete } from "@/lib/pipeline/workflow-records";
 
 type WorkflowResponse = {
   referral: Referral;
@@ -53,14 +54,21 @@ type PendingWorkflowDetail =
 
 type DecisionOutcomeDraft = AdmissionDecision["outcome"] | "";
 
-const requirementStatuses: Array<{ value: RequirementStatus; label: string }> = [
-  { value: "needed", label: "Needed" },
-  { value: "requested", label: "Requested" },
-  { value: "received", label: "Received" },
-  { value: "reviewed", label: "Reviewed" },
-  { value: "waived", label: "Waived" },
-  { value: "unavailable", label: "Unavailable" },
-  { value: "not_applicable", label: "Not applicable" },
+type RequirementGroupPresentation = {
+  label: string;
+  detail: string;
+  items: AdmissionRequirement[];
+};
+
+const requirementStatuses: RequirementStatus[] = [
+  "needed",
+  "requested",
+  "received",
+  "reviewed",
+  "waived",
+  "expired",
+  "unavailable",
+  "not_applicable",
 ];
 
 export default function ReferralWorkflowPanel({
@@ -170,7 +178,10 @@ export default function ReferralWorkflowPanel({
   const currentReferral = workflow.referral;
   const sections = normalizeReferralSectionVersions(currentReferral.sectionVersions);
   const forwardTransition = workflow.transitions.find((transition) => transition.target !== "Declined");
-  const incompleteMoveIn = workflow.work_items.filter((item) => item.requiredFor === "move_in" && item.blocker && !isRequirementComplete(item.status));
+  const incompleteDecision = getBlockingRequirementsForGates(workflow.work_items, ["admission_decision"]);
+  const incompleteMoveIn = getBlockingRequirementsForGates(workflow.work_items, ["move_in"]);
+  const incompleteEhr = getBlockingRequirementsForGates(workflow.work_items, ["ehr_export"]);
+  const ehrIsBlocked = incompleteDecision.length + incompleteMoveIn.length + incompleteEhr.length > 0;
   const handoffStatus = currentReferral.ehrHandoff?.status ?? "not_ready";
   const decisionDisclosureIsOpen = shouldOpenDecisionDisclosure(workflow);
   const decisionDisclosureKey = disclosureState(decisionDisclosureIsOpen);
@@ -217,6 +228,19 @@ export default function ReferralWorkflowPanel({
     void updateHandoff("mark_sent");
   };
 
+  const submitTransition = (target: ReferralStage) => {
+    if (target === "Accepted / Admitted" && !window.confirm(
+      "Mark this referral admitted? Confirm the accepted decision and every required admission item are complete. This closes the active referral stage and enables EHR handoff.",
+    )) return;
+    void runMutation(
+      `transition:${target}:${currentReferral.version}`,
+      `/api/referrals/${currentReferral.id}/transition`,
+      "POST",
+      { if_match: currentReferral.version, if_match_section: sections.workflow, target_stage: target },
+      target === "Accepted / Admitted" ? "Admission recorded" : `Moved to ${target}`,
+    );
+  };
+
   const renderStageProgress = () => (
     <div className="grid gap-px border-y border-[#d9d9d9] bg-[#d9d9d9] sm:grid-cols-4 xl:grid-cols-7">
       {referralStageDefinitions.map((definition) => {
@@ -249,17 +273,11 @@ export default function ReferralWorkflowPanel({
             <PrimaryButton
               busy={busy === `transition:${forwardTransition.target}`}
               disabled={!workflow.capabilities.can_update}
-              onClick={() => void runMutation(
-                `transition:${forwardTransition.target}:${currentReferral.version}`,
-                `/api/referrals/${currentReferral.id}/transition`,
-                "POST",
-                { if_match: currentReferral.version, if_match_section: sections.workflow, target_stage: forwardTransition.target },
-                `Moved to ${forwardTransition.target}`,
-              )}
-            >Advance to {forwardTransition.target}</PrimaryButton>
+              onClick={() => submitTransition(forwardTransition.target)}
+            >{transitionActionLabel(forwardTransition.target)}</PrimaryButton>
           )}
         </>
-      ) : <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> This referral is in a terminal stage.</div>}
+      ) : <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> {terminalStageMessage(currentReferral)}</div>}
 
       {!currentReferral.manualIntakeAuthorization && workflow.capabilities.can_authorize_manual_intake && ["New", "Packet Needed"].includes(currentReferral.stage) ? (
         <div className="mt-4 border-t border-[#e3e6e4] pt-4">
@@ -316,7 +334,7 @@ export default function ReferralWorkflowPanel({
       {workflow.decision ? <RecordSummary title={`${formatOutcome(workflow.decision.outcome)} decision`} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} /> : null}
       {workflow.capabilities.can_decide ? (
         <>
-          <DecisionReadiness workflow={workflow} outcome={decisionOutcome} note={decisionNote} overrideReason={overrideReason} />
+          <DecisionReadiness workflow={workflow} outcome={decisionOutcome} note={decisionNote} overrideReason={overrideReason} incompleteDecision={incompleteDecision} />
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <WorkflowSelect label="Decision" value={decisionOutcome} onChange={(value) => { decisionDirty.current = true; setDecisionOutcome(value as DecisionOutcomeDraft); }} options={[{ value: "", label: "Select a decision" }, { value: "accepted", label: "Accept" }, { value: "declined", label: "Decline" }]} />
             <WorkflowInput label="Reason code (optional)" value={decisionCode} onChange={(value) => { decisionDirty.current = true; setDecisionCode(value); }} />
@@ -325,7 +343,7 @@ export default function ReferralWorkflowPanel({
           {!workflow.recommendation ? <WorkflowTextArea label="Supervisor override reason" value={overrideReason} onChange={(value) => { decisionDirty.current = true; setOverrideReason(value); }} /> : null}
           <PrimaryButton
             busy={busy.startsWith("decision:")}
-            disabled={decisionSubmissionIsBlocked(workflow, decisionOutcome, decisionNote, overrideReason)}
+            disabled={decisionSubmissionIsBlocked(workflow, decisionOutcome, decisionNote, overrideReason, incompleteDecision)}
             onClick={submitDecision}
           >{workflow.decision ? "Update decision" : "Record decision"}</PrimaryButton>
         </>
@@ -334,18 +352,15 @@ export default function ReferralWorkflowPanel({
   );
 
   const renderRequirements = () => (
-    <WorkflowCard icon={<ClipboardCheck size={17} />} title="Admission requirements" detail={`${incompleteMoveIn.length} blocking move-in item${incompleteMoveIn.length === 1 ? "" : "s"} remaining`}>
-      <div className="divide-y divide-[#e4e7e5] border-y border-[#d9d9d9]">
-        {workflow.work_items.map((item) => (
-          <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:items-center">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[11px] font-black text-[#202522]">{isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}<span>{item.label}</span>{item.blocker ? <span className="text-[9px] font-black uppercase text-[#9a6115]">Required</span> : null}</div>
-              <div className="mt-1 text-[10px] leading-4 text-[#737373]">{item.nextStep}</div>
-            </div>
-            <select aria-label={`${item.label} status`} value={item.status} disabled={!workflow.capabilities.can_update || Boolean(busy)} onChange={(event) => updateRequirement(item, event.target.value as RequirementStatus)} className="h-9 w-full border border-[#c9ceca] bg-white px-2 text-[10px] font-black outline-none focus:border-[#0f8b73]">
-              {requirementStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-            </select>
-          </div>
+    <WorkflowCard icon={<ClipboardCheck size={17} />} title="Admission requirements" detail={admissionRequirementSummary(workflow.work_items)}>
+      <div className="space-y-5">
+        {requirementGroups(workflow.work_items).map((group) => (
+          <RequirementGroup
+            key={group.label}
+            group={group}
+            disabled={!workflow.capabilities.can_update || Boolean(busy)}
+            onChange={updateRequirement}
+          />
         ))}
       </div>
     </WorkflowCard>
@@ -360,10 +375,10 @@ export default function ReferralWorkflowPanel({
       defaultOpen={currentReferral.stage === "Accepted / Admitted" || handoffStatus !== "not_ready"}
     >
       <div className="flex flex-wrap gap-2">
-        {handoffStatus === "failed" ? <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={() => void updateHandoff("retry")}>Retry handoff</PrimaryButton> : null}
-        {handoffStatus !== "queued" && handoffStatus !== "sent" && handoffStatus !== "failed" ? <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update || currentReferral.stage !== "Accepted / Admitted"} onClick={() => void updateHandoff("queue")}>Queue EHR handoff</PrimaryButton> : null}
+        {handoffStatus === "failed" ? <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update || ehrIsBlocked} onClick={() => void updateHandoff("retry")}>Retry handoff</PrimaryButton> : null}
+        {handoffStatus !== "queued" && handoffStatus !== "sent" && handoffStatus !== "failed" ? <PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update || currentReferral.stage !== "Accepted / Admitted" || ehrIsBlocked} onClick={() => void updateHandoff("queue")}>Queue EHR handoff</PrimaryButton> : null}
         {handoffStatus === "queued" ? <><PrimaryButton busy={busy.startsWith("ehr:")} disabled={!workflow.capabilities.can_update} onClick={recordHandoffSent}>Record sent</PrimaryButton><SecondaryButton disabled={Boolean(busy)} onClick={() => setPendingDetail({ kind: "ehr_failure" })}>Record failed</SecondaryButton></> : null}
-        {handoffStatus === "sent" ? <div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> Handoff recorded as sent.</div> : null}
+        {handoffStatus === "sent" ? <div className="space-y-2"><div className="flex items-center gap-2 text-[11px] font-black text-[#0f6f5e]"><CheckCircle2 size={15} /> Handoff recorded as sent.</div><p className="text-[10px] leading-4 text-[#68716c]">The admitted-client profile appears only after the governed Alamo roster contains the person and an explicit identity link is confirmed.</p></div> : null}
       </div>
     </WorkflowDisclosure>
   );
@@ -380,7 +395,7 @@ export default function ReferralWorkflowPanel({
       {error ? <WorkflowNotice tone="error">{error}</WorkflowNotice> : null}
 
       {renderStageProgress()}
-      <DecisionHandoffOverview workflow={workflow} incompleteMoveIn={incompleteMoveIn} handoffStatus={handoffStatus} />
+      <DecisionHandoffOverview workflow={workflow} incompleteDecision={incompleteDecision} incompleteMoveIn={incompleteMoveIn} incompleteEhr={incompleteEhr} handoffStatus={handoffStatus} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
         <div className="space-y-5">
@@ -514,6 +529,114 @@ function requirementDetailPresentation(item: AdmissionRequirement, status: Requi
   };
 }
 
+function RequirementGroup({
+  group,
+  disabled,
+  onChange,
+}: {
+  group: RequirementGroupPresentation;
+  disabled: boolean;
+  onChange: (item: AdmissionRequirement, status: RequirementStatus) => void;
+}) {
+  return (
+    <section aria-label={`${group.label} requirements`}>
+      <div className="mb-2 flex items-end justify-between gap-3">
+        <div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.08em] text-[#44504b]">{group.label}</h4>
+          <p className="mt-0.5 text-[9px] text-[#737c77]">{group.detail}</p>
+        </div>
+        <span className="shrink-0 text-[9px] font-black text-[#68716c]">{resolvedRequirementCount(group.items)} / {group.items.length} resolved</span>
+      </div>
+      <div className="divide-y divide-[#e4e7e5] border-y border-[#d9d9d9]">
+        {group.items.map((item) => (
+          <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_150px] sm:items-center">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-black text-[#202522]">
+                {isRequirementComplete(item.status) ? <Check size={13} className="text-[#0f8b73]" /> : <Circle size={11} className="text-[#a0a0a0]" />}
+                <span>{item.label}</span>
+                {item.blocker ? <span className="text-[9px] font-black uppercase text-[#9a6115]">Required</span> : null}
+              </div>
+              <div className="mt-1 text-[10px] leading-4 text-[#737373]">{requirementStatusDetail(item)}</div>
+            </div>
+            <select aria-label={`${item.label} status`} value={item.status} disabled={disabled} onChange={(event) => onChange(item, event.target.value as RequirementStatus)} className="h-9 w-full border border-[#c9ceca] bg-white px-2 text-[10px] font-black outline-none focus:border-[#0f8b73]">
+              {requirementStatuses.map((status) => <option key={status} value={status}>{formatRequirementStatus(status)}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function requirementGroups(items: AdmissionRequirement[]): RequirementGroupPresentation[] {
+  const definitions: Array<{ label: string; detail: string; gates: RequirementGate[] }> = [
+    { label: "Decision readiness", detail: "Blocking items must be resolved before an acceptance decision.", gates: ["admission_decision"] },
+    { label: "Move-in readiness", detail: "Required move-in items must be resolved before admission is recorded.", gates: ["move_in"] },
+    { label: "EHR readiness", detail: "These items must be resolved before the downstream handoff.", gates: ["ehr_export"] },
+    { label: "Intake and assessment", detail: "Earlier profile and assessment requirements remain available for review.", gates: ["profile_completion", "pre_assessment"] },
+  ];
+  return definitions.flatMap((definition) => {
+    const groupItems = items.filter((item) => definition.gates.includes(item.requiredFor));
+    return groupItems.length > 0 ? [{ ...definition, items: groupItems }] : [];
+  });
+}
+
+function resolvedRequirementCount(items: AdmissionRequirement[]) {
+  return items.filter((item) => isRequirementComplete(item.status)).length;
+}
+
+function requirementStatusDetail(item: AdmissionRequirement) {
+  if (item.status === "requested") {
+    const followUp = item.followUpAt ? ` · follow up ${formatRequirementDate(item.followUpAt)}` : "";
+    return `Requested from ${item.requestedFrom || "provider"}${followUp}`;
+  }
+  if (item.status === "waived") return `Waived · ${item.waiverReason || "reason recorded in activity"}`;
+  if (item.status === "unavailable") return `Unavailable · ${item.unavailableReason || "reason recorded in activity"}`;
+  if (item.status === "not_applicable") return `Not applicable · ${item.unavailableReason || "reason recorded in activity"}`;
+  if (item.status === "received") return item.evidenceDocumentName ? `Received · ${item.evidenceDocumentName}` : "Received; review the source evidence.";
+  if (item.status === "reviewed") return item.evidenceDocumentName ? `Reviewed · ${item.evidenceDocumentName}` : "Reviewed and resolved.";
+  if (item.status === "expired") return "Expired; request current evidence before continuing.";
+  return item.nextStep;
+}
+
+function formatRequirementDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+}
+
+function formatRequirementStatus(status: RequirementStatus) {
+  const label = status.replace("_", " ");
+  return `${label[0].toUpperCase()}${label.slice(1)}`;
+}
+
+function admissionRequirementSummary(items: AdmissionRequirement[]) {
+  const openBlockers = getBlockingRequirementsForGates(items, ["admission_decision", "move_in", "ehr_export"]);
+  if (openBlockers.length === 0) return "Admission and handoff blockers are resolved";
+  return `${openBlockers.length} blocking requirement${openBlockers.length === 1 ? "" : "s"} remaining`;
+}
+
+function admissionReadinessLabel(workflow: WorkflowResponse, blockerCount: number) {
+  if (workflow.decision?.outcome === "declined") return "Not required";
+  if (workflow.decision?.outcome !== "accepted") return "After acceptance";
+  if (blockerCount > 0) return `${blockerCount} blocker${blockerCount === 1 ? "" : "s"} remaining`;
+  return workflow.referral.stage === "Accepted / Admitted" ? "Recorded" : "Ready to record";
+}
+
+function requirementNextAction(requirements: AdmissionRequirement[], suffix: string) {
+  const next = [...requirements].sort((left, right) => left.dueAt.localeCompare(right.dueAt))[0];
+  return `${next.label} is still required ${suffix}.`;
+}
+
+function transitionActionLabel(target: ReferralStage) {
+  return target === "Accepted / Admitted" ? "Mark admitted" : `Advance to ${target}`;
+}
+
+function terminalStageMessage(referral: Referral) {
+  return referral.stage === "Accepted / Admitted"
+    ? "Admission is recorded. Complete the EHR handoff below."
+    : "This referral is closed as declined.";
+}
+
 function shouldOpenDecisionDisclosure(workflow: WorkflowResponse) {
   return Boolean(workflow.recommendation || workflow.decision || (workflow.capabilities.can_decide && workflow.context.assessmentSigned));
 }
@@ -524,23 +647,30 @@ function disclosureState(open: boolean) {
 
 function DecisionHandoffOverview({
   workflow,
+  incompleteDecision,
   incompleteMoveIn,
+  incompleteEhr,
   handoffStatus,
 }: {
   workflow: WorkflowResponse;
+  incompleteDecision: AdmissionRequirement[];
   incompleteMoveIn: AdmissionRequirement[];
+  incompleteEhr: AdmissionRequirement[];
   handoffStatus: EhrHandoffStatus;
 }) {
   const declined = workflow.decision?.outcome === "declined";
+  const admitted = workflow.referral.stage === "Accepted / Admitted";
+  const admissionBlockers = incompleteDecision.length + incompleteMoveIn.length;
   const steps = [
     { label: "Assessment", value: workflow.context.assessmentSigned ? "Signed" : "Signature needed", complete: Boolean(workflow.context.assessmentSigned) },
     { label: "Recommendation", value: workflow.recommendation ? formatOutcome(workflow.recommendation.outcome) : "Not recorded", complete: Boolean(workflow.recommendation) },
     { label: "Supervisor decision", value: workflow.decision ? formatOutcome(workflow.decision.outcome) : "Not recorded", complete: Boolean(workflow.decision) },
+    { label: "Admission", value: admissionReadinessLabel(workflow, admissionBlockers), complete: declined || admitted },
     { label: "EHR handoff", value: declined ? "Not required" : handoffDescription(handoffStatus), complete: declined || handoffStatus === "sent" },
   ];
   return (
     <section aria-label="Decision and handoff readiness" className="border border-[#cfd8d3] bg-[#f8faf9]">
-      <div className="grid gap-px bg-[#dfe5e2] sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-px bg-[#dfe5e2] sm:grid-cols-2 xl:grid-cols-5">
         {steps.map((step) => (
           <div key={step.label} className="bg-white px-4 py-3">
             <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.08em] text-[#68716c]">
@@ -551,7 +681,7 @@ function DecisionHandoffOverview({
           </div>
         ))}
       </div>
-      <p className="border-t border-[#dfe5e2] px-4 py-3 text-[11px] font-semibold leading-5 text-[#4f5c57]">{decisionHandoffNextAction(workflow, incompleteMoveIn, handoffStatus)}</p>
+      <p className="border-t border-[#dfe5e2] px-4 py-3 text-[11px] font-semibold leading-5 text-[#4f5c57]">{decisionHandoffNextAction(workflow, incompleteDecision, incompleteMoveIn, incompleteEhr, handoffStatus)}</p>
     </section>
   );
 }
@@ -561,15 +691,18 @@ function DecisionReadiness({
   outcome,
   note,
   overrideReason,
+  incompleteDecision,
 }: {
   workflow: WorkflowResponse;
   outcome: DecisionOutcomeDraft;
   note: string;
   overrideReason: string;
+  incompleteDecision: AdmissionRequirement[];
 }) {
   const items = [
     { label: "Signed assessment", complete: Boolean(workflow.context.assessmentSigned) },
     { label: workflow.recommendation ? `${formatOutcome(workflow.recommendation.outcome)} recommendation recorded` : "Supervisor override documented", complete: Boolean(workflow.recommendation || overrideReason.trim()) },
+    { label: incompleteDecision.length === 0 ? "Decision requirements resolved" : `${incompleteDecision.length} decision requirement${incompleteDecision.length === 1 ? "" : "s"} remaining`, complete: incompleteDecision.length === 0 },
     { label: outcome ? `${formatOutcome(outcome)} selected` : "Decision selected", complete: Boolean(outcome) },
     ...(outcome === "declined" ? [{ label: "Decline rationale documented", complete: Boolean(note.trim()) }] : []),
   ];
@@ -590,27 +723,34 @@ function DecisionReadiness({
 
 function decisionHandoffNextAction(
   workflow: WorkflowResponse,
+  incompleteDecision: AdmissionRequirement[],
   incompleteMoveIn: AdmissionRequirement[],
+  incompleteEhr: AdmissionRequirement[],
   handoffStatus: EhrHandoffStatus,
 ) {
   if (!workflow.context.assessmentSigned) return "Complete and sign the assessment before the decision can be recorded.";
   if (!workflow.recommendation && !workflow.decision) return "Record the clinical recommendation, or document a supervisor override with the decision.";
+  if (!workflow.decision && incompleteDecision.length > 0) return requirementNextAction(incompleteDecision, "before the supervisor can accept the referral");
   if (!workflow.decision) return "The signed assessment and clinical recommendation are ready for supervisor review.";
   if (workflow.decision.outcome === "declined") return "The referral is closed by the supervisor's decline decision; no EHR handoff is required.";
-  return acceptedHandoffNextAction(workflow, incompleteMoveIn, handoffStatus);
+  return acceptedHandoffNextAction(workflow, incompleteDecision, incompleteMoveIn, incompleteEhr, handoffStatus);
 }
 
 function acceptedHandoffNextAction(
   workflow: WorkflowResponse,
+  incompleteDecision: AdmissionRequirement[],
   incompleteMoveIn: AdmissionRequirement[],
+  incompleteEhr: AdmissionRequirement[],
   handoffStatus: EhrHandoffStatus,
 ) {
-  if (incompleteMoveIn.length > 0) return `${incompleteMoveIn.length} required move-in item${incompleteMoveIn.length === 1 ? " remains" : "s remain"} before admission.`;
-  if (workflow.referral.stage !== "Accepted / Admitted") return "Admission requirements are complete. Advance the referral to Accepted / Admitted.";
+  const admissionBlockers = [...incompleteDecision, ...incompleteMoveIn];
+  if (admissionBlockers.length > 0) return requirementNextAction(admissionBlockers, "before admission can be recorded");
+  if (workflow.referral.stage !== "Accepted / Admitted") return "Admission requirements are complete. Confirm the move-in and mark the person admitted.";
+  if (incompleteEhr.length > 0) return requirementNextAction(incompleteEhr, "before the EHR handoff can be queued");
   if (handoffStatus === "queued") return "Confirm the downstream transfer, then record the handoff as sent or failed.";
   if (handoffStatus === "failed") return "Review the recorded failure, correct the downstream issue, and retry the handoff.";
-  if (handoffStatus === "sent") return "The accepted referral and EHR handoff are complete.";
-  return "The accepted referral is ready to queue for EHR handoff.";
+  if (handoffStatus === "sent") return "Pipeline's admission and EHR handoff are complete; roster availability and identity linking remain governed separately.";
+  return "The admitted referral is ready to queue for EHR handoff.";
 }
 
 function decisionConfirmationMessage(outcome: AdmissionDecision["outcome"], updating: boolean) {
@@ -626,9 +766,11 @@ function decisionSubmissionIsBlocked(
   outcome: DecisionOutcomeDraft,
   note: string,
   overrideReason: string,
+  incompleteDecision: AdmissionRequirement[],
 ) {
   return !outcome
     || !workflow.context.assessmentSigned
+    || (outcome === "accepted" && incompleteDecision.length > 0)
     || (outcome === "declined" && !note.trim())
     || (!workflow.recommendation && !overrideReason.trim());
 }

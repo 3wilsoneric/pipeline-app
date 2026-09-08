@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-08T18:57:06.081Z",
+  "generated_at": "2026-09-08T19:38:32.200Z",
   "audit_date": "2026-09-08",
-  "git_head": "f192a22be9f91f413d2ccbb830c3fc1225fb66f9",
+  "git_head": "32c5d9aea20427257d5cbbc62df0ea534a1dc429",
   "files": [
     {
       "path": ".dockerignore",
@@ -2020,11 +2020,11 @@
     },
     {
       "path": "components/pipeline/ReferralWorkflowPanel.tsx",
-      "content_sha256": "95131e082bf48f9c68c572d9b6efcd9efe49d15f40d58a74dec25971521f18d0",
+      "content_sha256": "25bc658f9855684b882eb712a73695c047319f98cc6490a78e222e63efb9cccf",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 36415,
-      "lines": 682,
+      "bytes": 43719,
+      "lines": 824,
       "detected_concerns": [
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
@@ -3814,7 +3814,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "d2e736340d532c8c2e65f7122e0641bd87c147b5dc580921e38e71c2115abd47",
+      "content_sha256": "0e0e320e6d9795d9cc187900a619bf3829fce23f0744f350b38ed2e4f9b4fc33",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4388,10 +4388,10 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "cfa7760e653e58f507318472debe4b46f3322172d74a8a6966763482365608cb",
+      "content_sha256": "d558ca24142d4ecbb7f12f453c8ca3552286090112db63e792a4c486c17ec45d",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 373586,
+      "bytes": 373588,
       "lines": 1772,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4416,10 +4416,10 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "426ecb81955a57f8b3749e0ae0b0c9f34ced6d6f6b0120d2458ca1ceabeefecf",
+      "content_sha256": "eab25a3342d154dbb0c7e1f5f02a9219e2df06212da0e01d34962d0b15e275d2",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 216240,
+      "bytes": 216242,
       "lines": 7508,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4475,7 +4475,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "314a4aa915083d5f483b4dea5e795fcc6204bdf306853e90bdd2261905c517cc",
+      "content_sha256": "438b651a77744625ca12cf70dc8cd9b0735798c92973b8ca129dd76f2ba5817d",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 519970,
@@ -4670,7 +4670,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "cb2ea6d7b68fedae7d81fd29c101fc437213a7766e55d497e75b57e1a336595c",
+      "content_sha256": "51cc74051635be5477582361f9cdf2a92f3fdd14ad1f86aac2d51f589a7ae20d",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 265287,
@@ -6450,11 +6450,11 @@
     },
     {
       "path": "lib/pipeline/referral-workflow.ts",
-      "content_sha256": "259335865aad3f4290219e3b7b61e19492d9afd130f915b84090557d8cdb9d30",
+      "content_sha256": "aa223fbee266d8dd3645c44f0b3b511d57b6c1618b38333e085d562b258adfcb",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 9558,
-      "lines": 290,
+      "bytes": 9525,
+      "lines": 291,
       "detected_concerns": [],
       "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
       "verification": "check:platform:fast and owning feature test"
@@ -6610,11 +6610,11 @@
     },
     {
       "path": "lib/pipeline/workflow-records.ts",
-      "content_sha256": "428176d1b23781ace860452c5fa50d22d23fa0f1cb9ab3aa820ce1fc2ad8c11e",
+      "content_sha256": "5e96a32b476ceff33918f0e9f14155d8420e24ae149c7ee2e924f11177b04cc5",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 7066,
-      "lines": 233,
+      "bytes": 7385,
+      "lines": 244,
       "detected_concerns": [],
       "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
       "verification": "check:platform:fast and owning feature test"
@@ -6632,15 +6632,15 @@
     },
     {
       "path": "lib/pipeline/workflow-store.ts",
-      "content_sha256": "f8bf426122d2904c8c25ce094a9b43b13f1532d120b10c51d8d0d674be5de97e",
+      "content_sha256": "639d7da9842d92e9c0e4b01751bfc18fbeb339f7e962066e70f1f3f612b69e9f",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 53660,
-      "lines": 1310,
+      "bytes": 54062,
+      "lines": 1322,
       "detected_concerns": [
-        "Large module (1310 lines): split by behavior before adding more responsibilities."
+        "Large module (1322 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (1310 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (1322 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -8320,11 +8320,11 @@
     },
     {
       "path": "scripts/critical-safety-contracts.mjs",
-      "content_sha256": "86f2c4ee18e801edd644a1a8521ab4c403a02f4816e1d163f3120883e4f30497",
+      "content_sha256": "48f3896d7bd1050196fc9c8ea52233e1e8f2cb5da07a326847a9f39d07afdc94",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 6460,
-      "lines": 153,
+      "bytes": 6887,
+      "lines": 160,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -9551,11 +9551,11 @@
     },
     {
       "path": "scripts/seeded-defect-certification.mjs",
-      "content_sha256": "a466232a560c1390715396e8ff78561f308b92f9e51486f821ea380e49742f49",
+      "content_sha256": "5517dc81e6af45160c8007dde0e47a453f7c500ed7bad9f26037a3c00d97c22a",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 7831,
-      "lines": 139,
+      "bytes": 7970,
+      "lines": 141,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
         "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence."
@@ -9939,11 +9939,11 @@
     },
     {
       "path": "tests/e2e/operational/golden-thread.spec.ts",
-      "content_sha256": "a10dc95f57f949965e131da91aef27e7b63223adbd6f3c56f5729577effb95a0",
+      "content_sha256": "f167df851f623e6120e4cd99f6c4732b21278f597fb0121b0d7cf093a7d78182",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 11577,
-      "lines": 254,
+      "bytes": 13569,
+      "lines": 286,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
       "verification": "run owning Playwright project and review skips/snapshots"
@@ -10054,17 +10054,17 @@
     },
     {
       "path": "tests/e2e/pipeline-smoke.spec.ts",
-      "content_sha256": "38b52b2731c457f2822fefd1661417f7a102ec55c0890d0524e365234055fe42",
+      "content_sha256": "ab51ec06cfa651a44978fc7d4a82a7b99dbc555405009292c499ca3ff4175c42",
       "role": "Browser journey test or snapshot",
       "risk": "medium",
-      "bytes": 164656,
-      "lines": 3236,
+      "bytes": 165459,
+      "lines": 3246,
       "detected_concerns": [
-        "Large module (3236 lines): split by behavior before adding more responsibilities.",
+        "Large module (3246 lines): split by behavior before adding more responsibilities.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
-      "review_focus": "Large module (3236 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (3246 lines): split by behavior before adding more responsibilities.",
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {
@@ -10117,11 +10117,11 @@
     },
     {
       "path": "tests/e2e/support/operational-api.ts",
-      "content_sha256": "92d4f3edd610a461a8c4d4453d1a46277b814432ceba32de225992922558a158",
+      "content_sha256": "049afa9876a388e345564fbd5e13956d46b9c42bdfcf2e213c5474d39e43263d",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 13178,
-      "lines": 388,
+      "bytes": 13648,
+      "lines": 404,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
       "verification": "run owning Playwright project and review skips/snapshots"

@@ -25,11 +25,12 @@ import type {
 } from "@/lib/pipeline/referral-types";
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import { normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
-import type {
-  AdmissionDecisionInput,
-  AssessmentRecommendationInput,
-  WorkflowContext,
-  WorkItemPatch,
+import {
+  getBlockingRequirementsForGates,
+  type AdmissionDecisionInput,
+  type AssessmentRecommendationInput,
+  type WorkflowContext,
+  type WorkItemPatch,
 } from "@/lib/pipeline/workflow-records";
 
 export type ReferralWorkflowSnapshot = {
@@ -421,28 +422,13 @@ export async function recordAdmissionDecision(
   if (normalizeReferralSectionVersions(snapshot.referral.sectionVersions).decision !== expectedDecisionVersion) {
     return { ok: false, conflict: true, referral: snapshot.referral, record: snapshot.decision ?? undefined };
   }
-  if (!snapshot.context.assessmentSigned) {
+  const blockers = getAdmissionDecisionBlockers(snapshot, input);
+  if (blockers.length > 0) {
     return {
       ok: false,
       blocked: true,
       referral: snapshot.referral,
-      blockers: [{ code: "assessment_required", label: "Sign the assessment before recording the admission decision." }],
-    };
-  }
-  if (!snapshot.recommendation && !input.overrideReason?.trim()) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: snapshot.referral,
-      blockers: [{ code: "recommendation_required", label: "An assessor recommendation is required, or the supervisor must record an override reason." }],
-    };
-  }
-  if (input.outcome === "declined" && !input.reasonNote?.trim()) {
-    return {
-      ok: false,
-      blocked: true,
-      referral: snapshot.referral,
-      blockers: [{ code: "decline_reason_required", label: "Record why there will be no admission." }],
+      blockers,
     };
   }
 
@@ -1252,8 +1238,9 @@ function getEhrHandoffBlockers(
     if (snapshot.referral.stage !== "Accepted / Admitted" || snapshot.decision?.outcome !== "accepted") {
       return [{ code: "accepted_referral_required", label: "Accept the referral before queueing the EHR handoff." }];
     }
-    const incomplete = snapshot.work_items.filter((item) =>
-      item.requiredFor === "ehr_export" && item.blocker && !["received", "reviewed", "waived", "not_applicable"].includes(item.status),
+    const incomplete = getBlockingRequirementsForGates(
+      snapshot.work_items,
+      ["admission_decision", "move_in", "ehr_export"],
     );
     if (incomplete.length > 0) {
       return incomplete.map((item) => ({ code: `requirement:${item.type}`, label: `${item.label} is still required for EHR handoff.` }));
@@ -1261,6 +1248,31 @@ function getEhrHandoffBlockers(
     if (current?.status === "sent") {
       return [{ code: "ehr_handoff_already_sent", label: "This EHR handoff has already been recorded as sent." }];
     }
+  }
+  return [];
+}
+
+function getAdmissionDecisionBlockers(
+  snapshot: ReferralWorkflowSnapshot,
+  input: AdmissionDecisionInput,
+) {
+  if (!snapshot.context.assessmentSigned) {
+    return [{ code: "assessment_required", label: "Sign the assessment before recording the admission decision." }];
+  }
+  if (!snapshot.recommendation && !input.overrideReason?.trim()) {
+    return [{ code: "recommendation_required", label: "An assessor recommendation is required, or the supervisor must record an override reason." }];
+  }
+  if (input.outcome === "accepted") {
+    const incomplete = getBlockingRequirementsForGates(snapshot.work_items, ["admission_decision"]);
+    if (incomplete.length > 0) {
+      return incomplete.map((requirement) => ({
+        code: `requirement:${requirement.type}`,
+        label: `${requirement.label} is still required before acceptance.`,
+      }));
+    }
+  }
+  if (input.outcome === "declined" && !input.reasonNote?.trim()) {
+    return [{ code: "decline_reason_required", label: "Record why there will be no admission." }];
   }
   return [];
 }
