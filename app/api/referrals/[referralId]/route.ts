@@ -75,8 +75,6 @@ export async function DELETE(
     const { referralId } = await context.params;
     const id = Number.parseInt(referralId, 10);
     if (!Number.isInteger(id) || id < 1) return jsonError("referralId is invalid.");
-    const access = await requireMutableReferralAccess(auth.user, id, "trash");
-    if (!access.ok) return access.response;
     const body = await readJsonBody<{ if_match?: number; client_mutation_id?: unknown }>(request);
     if (!body.ok) return jsonError(body.message, body.status);
     const expectedVersion = body.value?.if_match;
@@ -95,6 +93,8 @@ export async function DELETE(
         idempotentReplay: true,
       }, { headers: { "Cache-Control": "no-store, max-age=0" } });
     }
+    const access = await requireMutableReferralAccess(auth.user, id, "trash");
+    if (!access.ok) return access.response;
     const result = await softDeleteReferral(id, pipelineAuditActor(auth.user), expectedVersion, mutationId.value);
     if (!result) return jsonError("Referral not found.", 404);
     if (!result.ok) {
