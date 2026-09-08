@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:b2c4068d94dbd8db",
-  "fingerprint": "b2c4068d94dbd8db0423531cc7e0c1ba55ae0f09bf47de11d359453756721cb2",
+  "generatedAt": "source-fingerprint:e937fc9ef82cfad5",
+  "fingerprint": "e937fc9ef82cfad54db32255fe0c6793aa8c6a972387b6fe748dc44b496069e0",
   "totals": {
-    "files": 860,
-    "lines": 286421,
-    "coveredFiles": 860
+    "files": 863,
+    "lines": 286861,
+    "coveredFiles": 863
   },
   "entries": [
     {
@@ -4378,7 +4378,19 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 181,
+      "lines": 199,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 81,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4409,12 +4421,38 @@
       ]
     },
     {
+      "path": "docs/refactoring/referral-store-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "critical",
+      "lines": 49,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
       "path": "docs/refactoring/referral-store-file-audit-agent-prework.json",
       "subsystem": "Documentation",
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "critical",
       "lines": 225,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
+      "path": "docs/refactoring/referral-store-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "critical",
+      "lines": 249,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -4535,7 +4573,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1773,
+      "lines": 1776,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4571,7 +4609,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7511,
+      "lines": 7514,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4631,7 +4669,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10513,
+      "lines": 10546,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6752,7 +6790,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3233,
+      "lines": 3234,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -6765,7 +6803,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 311,
+      "lines": 314,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",

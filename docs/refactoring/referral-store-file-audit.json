@@ -177,6 +177,70 @@
       "staticPrompts": [],
       "decision": "keep",
       "decisionReason": "The active refactor gate requires one exact file-audit disposition."
+    },
+    {
+      "path": "lib/academy/academy-atlas.generated.json",
+      "plannedNew": false,
+      "dependencyDirection": "Generated Academy inventory records repository topology for training and has no runtime dependency on referral persistence.",
+      "purpose": "Keeps the source-grounded Academy atlas synchronized with the approved refactor records and type-owner move.",
+      "callers": [
+        "scripts/academy-atlas.mjs",
+        "scripts/academy-readiness.mjs"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Stale generated inventory fails Academy freshness checks without affecting runtime behavior.",
+      "tests": [
+        "npm run academy:atlas:check",
+        "npm run academy:check"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (10442 lines): split by behavior before adding more responsibilities.",
+          "disposition": "expected",
+          "reason": "This is a deterministic generated repository atlas, not an authored runtime module; generation remains owned by scripts/academy-atlas.mjs.",
+          "owner": "Eric",
+          "followUp": "Do not hand-edit or split the generated atlas; change its generator only through a separately approved slice."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "This generated artifact changed only because the approved refactor documentation and source topology changed."
+    },
+    {
+      "path": "docs/academy/academy-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Academy freshness metadata depends on generated source fingerprints and has no runtime dependents.",
+      "purpose": "Records the reviewed source and atlas fingerprints used by the Academy readiness gate.",
+      "callers": [
+        "scripts/academy-readiness.mjs"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "A stale fingerprint blocks certification without changing application behavior.",
+      "tests": [
+        "npm run academy:check"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Refresh only the machine-computed fingerprints required after the approved source change."
+    },
+    {
+      "path": "docs/training/training-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Operator-training freshness metadata depends on governed product-source fingerprints and has no runtime dependents.",
+      "purpose": "Records the source and curriculum fingerprints used by operator-training readiness checks.",
+      "callers": [
+        "scripts/operator-training-readiness.mjs"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "A stale fingerprint blocks certification without changing application behavior.",
+      "tests": [
+        "npm run training:check"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Refresh only the machine-computed fingerprints required after the approved type dependency change."
     }
   ],
   "reviewedBy": "Owner-authorized TARS machine trace",
