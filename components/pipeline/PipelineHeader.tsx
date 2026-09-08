@@ -118,8 +118,12 @@ export default function PipelineHeader() {
       event.preventDefault();
       focusHomeSearch();
     };
+    document.documentElement.dataset.pipelineKeyboardShortcutsReady = "true";
     window.addEventListener("keydown", focusSearchFromKeyboard);
-    return () => window.removeEventListener("keydown", focusSearchFromKeyboard);
+    return () => {
+      window.removeEventListener("keydown", focusSearchFromKeyboard);
+      delete document.documentElement.dataset.pipelineKeyboardShortcutsReady;
+    };
   }, [focusHomeSearch]);
 
   return (

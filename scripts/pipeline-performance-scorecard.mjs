@@ -174,6 +174,7 @@ const coldNetwork = {
 
 const journeys = [];
 const navigationPhases = {};
+await page.locator('html[data-pipeline-keyboard-shortcuts-ready="true"]').waitFor({ state: "attached" });
 await measureJourney("referrals_to_search", "navigation", async () => {
   await page.keyboard.press("/");
   await page.getByLabel("Search or ask", { exact: true }).waitFor({ state: "visible" });

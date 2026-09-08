@@ -203,6 +203,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Clear workspace search" }).click();
     await expect(workspaceSearch).toHaveValue("");
 
+    await page.locator('html[data-pipeline-keyboard-shortcuts-ready="true"]').waitFor({ state: "attached" });
     await page.keyboard.press("/");
     await expect(page.getByLabel("Search or ask")).toBeVisible();
     await expect(page.getByLabel("Search or ask")).toBeFocused();
