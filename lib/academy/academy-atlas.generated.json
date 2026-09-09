@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:2b6846ce4baa8f16",
-  "fingerprint": "2b6846ce4baa8f168a8a2da348cbad6e028691abac32c666869bd9fd5345784b",
+  "generatedAt": "source-fingerprint:7a7c4a8d04bcdfcf",
+  "fingerprint": "7a7c4a8d04bcdfcfd23f6560f10bbcafc0a46f6db7b313ba5cc772da646db70c",
   "totals": {
-    "files": 870,
-    "lines": 288789,
-    "coveredFiles": 870
+    "files": 879,
+    "lines": 290513,
+    "coveredFiles": 879
   },
   "entries": [
     {
@@ -4073,6 +4073,42 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/workflow-and-handoff-machine-run-2afc85b.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 42,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 52,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 42,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -4210,7 +4246,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 556,
+      "lines": 562,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4438,7 +4474,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 232,
+      "lines": 267,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4544,6 +4580,42 @@
       ]
     },
     {
+      "path": "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 112,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/workflow-and-handoff-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 172,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/workflow-and-handoff-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 310,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/WORKTREE_RUNBOOK.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -4633,7 +4705,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1785,
+      "lines": 1795,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4669,7 +4741,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7521,
+      "lines": 7529,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4729,7 +4801,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10628,
+      "lines": 10730,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6736,12 +6808,24 @@
       ]
     },
     {
+      "path": "lib/pipeline/referral-owner-identity.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 10,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/referral-ownership.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 134,
+      "lines": 127,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7057,7 +7141,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 244,
+      "lines": 462,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -7081,7 +7165,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 1322,
+      "lines": 1162,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -7393,7 +7477,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 233,
+      "lines": 234,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -8053,7 +8137,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 532,
+      "lines": 544,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9909,6 +9993,18 @@
       ]
     },
     {
+      "path": "scripts/workflow-store-characterization.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "critical",
+      "lines": 253,
+      "moduleIds": [
+        "admissions-operating-model",
+        "workflow-state"
+      ]
+    },
+    {
       "path": "scripts/workspace-month-contracts.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -10219,6 +10315,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/operational/workflow-store-characterization.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "critical",
+      "lines": 506,
+      "moduleIds": [
+        "admissions-operating-model",
+        "workflow-state"
       ]
     },
     {

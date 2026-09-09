@@ -23,23 +23,23 @@ import type {
   EhrHandoffRecord,
   Referral,
 } from "@/lib/pipeline/referral-types";
-import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import { normalizeReferralSectionVersions } from "@/lib/pipeline/referral-sections";
 import {
-  getBlockingRequirementsForGates,
+  getAdmissionDecisionBlockers,
+  getEhrHandoffBlockers,
+  getWorkItemAuditAction,
+  normalizeWorkItem,
+  validateWorkItem,
+  workflowStatusAfterWorkItem,
+  workItemChangedFields,
   type AdmissionDecisionInput,
   type AssessmentRecommendationInput,
   type WorkflowContext,
+  type WorkflowRecordSnapshot,
   type WorkItemPatch,
 } from "@/lib/pipeline/workflow-records";
 
-export type ReferralWorkflowSnapshot = {
-  referral: Referral;
-  context: WorkflowContext;
-  work_items: AdmissionRequirement[];
-  decision: AdmissionDecision | null;
-  recommendation: AssessmentRecommendation | null;
-};
+export type ReferralWorkflowSnapshot = WorkflowRecordSnapshot;
 
 export type WorkflowRecordMutation<T> =
   | { ok: true; record: T; referral: Referral }
@@ -1023,33 +1023,6 @@ async function patchPostgresWorkItem(
   return { ok: true, record, referral: fallback };
 }
 
-function workflowStatusAfterWorkItem(
-  snapshot: ReferralWorkflowSnapshot,
-  requirements: AdmissionRequirement[],
-): Referral["workflowStatus"] {
-  const current = snapshot.referral.workflowStatus;
-  if (current && ["accepted", "declined", "closed"].includes(current)) return current;
-  if (snapshot.recommendation) return "decision_pending";
-  if (snapshot.context.assessmentSigned) return "assessment_signed";
-  if (snapshot.context.assessmentComplete) return "assessment_ready_to_sign";
-  if (snapshot.context.assessmentExists) {
-    const waiting = requirements.some((requirement) =>
-      requirement.blocker
-        && requirement.status === "requested"
-        && ["profile_completion", "pre_assessment", "admission_decision"].includes(requirement.requiredFor),
-    );
-    if (waiting) return "waiting_for_information";
-    if (!snapshot.context.assessmentStarted) {
-      if (snapshot.context.assessmentScheduleStatus === "scheduled" || snapshot.context.assessmentScheduleStatus === "rescheduled") {
-        return "assessment_scheduled";
-      }
-      return "ready_to_schedule";
-    }
-    return "assessment_in_progress";
-  }
-  return current;
-}
-
 async function writeWorkflowAudit(
   tx: TransactionSql,
   entityType: string,
@@ -1176,139 +1149,6 @@ function legacyDecision(referral: Referral): AdmissionDecision | null {
     decidedAt: referral.assessment?.completedAt ?? referral.updatedAt ?? referral.createdAt,
     version: 1,
   };
-}
-
-function normalizeWorkItem(item: AdmissionRequirement): AdmissionRequirement {
-  return {
-    ...item,
-    ownerId: item.ownerId?.trim() || undefined,
-    owner: normalizeOwnerName(item.owner),
-    dueAt: item.dueAt,
-    nextStep: item.nextStep.trim(),
-    evidenceDocumentId: item.evidenceDocumentId?.trim() || undefined,
-    evidenceDocumentName: item.evidenceDocumentName?.trim() || undefined,
-    waiverReason: item.waiverReason?.trim() || undefined,
-    fieldKey: item.fieldKey?.trim() || undefined,
-    requestedFrom: item.requestedFrom?.trim() || undefined,
-    requestedAt: item.requestedAt?.trim() || undefined,
-    followUpAt: item.followUpAt?.trim() || undefined,
-    unavailableReason: item.unavailableReason?.trim() || undefined,
-  };
-}
-
-function validateWorkItem(item: AdmissionRequirement) {
-  if (item.status === "waived" && !item.waiverReason) {
-    return { code: "waiver_reason_required", label: "Record why this requirement is being waived." };
-  }
-  if (item.status === "requested" && !item.requestedFrom) {
-    return { code: "requested_from_required", label: "Record who is expected to provide the missing information." };
-  }
-  if (item.status === "requested" && !item.followUpAt) {
-    return { code: "follow_up_required", label: "Set a follow-up date for requested information." };
-  }
-  if (["unavailable", "not_applicable"].includes(item.status) && !item.unavailableReason) {
-    return {
-      code: "availability_reason_required",
-      label: item.status === "unavailable"
-        ? "Record why this information is unavailable."
-        : "Record why this requirement does not apply.",
-    };
-  }
-  if (!item.nextStep) return { code: "next_action_required", label: "Every open requirement needs a next action." };
-  if (!item.dueAt) return { code: "due_date_required", label: "Every open requirement needs a due date." };
-  return null;
-}
-
-function getEhrHandoffBlockers(
-  snapshot: ReferralWorkflowSnapshot,
-  action: "queue" | "mark_sent" | "mark_failed" | "retry",
-  failureReason: string,
-) {
-  const current = snapshot.referral.ehrHandoff;
-  if (action === "mark_failed" && !failureReason.trim()) {
-    return [{ code: "ehr_failure_reason_required", label: "Record why the EHR handoff failed." }];
-  }
-  if ((action === "mark_sent" || action === "mark_failed") && current?.status !== "queued") {
-    return [{ code: "ehr_handoff_not_queued", label: "Queue the EHR handoff before recording its result." }];
-  }
-  if (action === "retry" && current?.status !== "failed") {
-    return [{ code: "ehr_handoff_not_failed", label: "Only a failed EHR handoff can be retried." }];
-  }
-  if (action === "queue" || action === "retry") {
-    if (snapshot.referral.stage !== "Accepted / Admitted" || snapshot.decision?.outcome !== "accepted") {
-      return [{ code: "accepted_referral_required", label: "Accept the referral before queueing the EHR handoff." }];
-    }
-    const incomplete = getBlockingRequirementsForGates(
-      snapshot.work_items,
-      ["admission_decision", "move_in", "ehr_export"],
-    );
-    if (incomplete.length > 0) {
-      return incomplete.map((item) => ({ code: `requirement:${item.type}`, label: `${item.label} is still required for EHR handoff.` }));
-    }
-    if (current?.status === "sent") {
-      return [{ code: "ehr_handoff_already_sent", label: "This EHR handoff has already been recorded as sent." }];
-    }
-  }
-  return [];
-}
-
-function getAdmissionDecisionBlockers(
-  snapshot: ReferralWorkflowSnapshot,
-  input: AdmissionDecisionInput,
-) {
-  if (!snapshot.context.assessmentSigned) {
-    return [{ code: "assessment_required", label: "Sign the assessment before recording the admission decision." }];
-  }
-  if (!snapshot.recommendation && !input.overrideReason?.trim()) {
-    return [{ code: "recommendation_required", label: "An assessor recommendation is required, or the supervisor must record an override reason." }];
-  }
-  if (input.outcome === "accepted") {
-    const incomplete = getBlockingRequirementsForGates(snapshot.work_items, ["admission_decision"]);
-    if (incomplete.length > 0) {
-      return incomplete.map((requirement) => ({
-        code: `requirement:${requirement.type}`,
-        label: `${requirement.label} is still required before acceptance.`,
-      }));
-    }
-  }
-  if (input.outcome === "declined" && !input.reasonNote?.trim()) {
-    return [{ code: "decline_reason_required", label: "Record why there will be no admission." }];
-  }
-  return [];
-}
-
-function workItemChangedFields(current: AdmissionRequirement, next: AdmissionRequirement) {
-  const fields: Array<keyof AdmissionRequirement> = [
-    "status",
-    "owner",
-    "dueAt",
-    "nextStep",
-    "blocker",
-    "evidenceDocumentId",
-    "evidenceDocumentName",
-    "waiverReason",
-    "fieldKey",
-    "requestedFrom",
-    "requestedAt",
-    "followUpAt",
-    "unavailableReason",
-  ];
-  return fields.filter((field) => current[field] !== next[field]);
-}
-
-function getWorkItemAuditAction(
-  current: AdmissionRequirement,
-  next: AdmissionRequirement,
-  changedFields: Array<keyof AdmissionRequirement>,
-) {
-  if (next.status === "waived" && current.status !== "waived") return "work_item_waived";
-  if (next.status === "requested" && current.status !== "requested") return "work_item_requested";
-  if (next.status === "unavailable" && current.status !== "unavailable") return "work_item_unavailable";
-  if (next.status === "not_applicable" && current.status !== "not_applicable") return "work_item_not_applicable";
-  if (changedFields.includes("evidenceDocumentId") || changedFields.includes("evidenceDocumentName")) return "work_item_evidence_recorded";
-  if (changedFields.includes("owner")) return "work_item_reassigned";
-  if (changedFields.includes("dueAt") || changedFields.includes("nextStep")) return "work_item_circle_back_updated";
-  return "work_item_updated";
 }
 
 function toIso(value: Date | string) {

@@ -302,24 +302,26 @@
         {
           "id": "state_machine_characterization",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:workflow-fuzz", "test:critical-safety", "certify:seeded-defects"],
-          "note": "Rules are characterized; add golden database effects and emitted audit events for representative transitions. Owner decision recorded 2026-09-06: the head supervisor may deny a clearly unsuitable referral before assessment completion, but the decision requires an attributable reason and durable history; approval otherwise depends on the completed assessment and gathered profile."
+          "files": ["docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json", "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md"],
+          "note": "Exact-start workflow fuzz passed 2,000 traces and 840,009 cases. Evidence commit 88149a3 passed six public-boundary scenarios on both local-file and PostgreSQL 16, including ordered stages, stale conflicts, terminal-decision collision, and audit-neutral replay. The owner's earlier early-decline direction remains an explicit product-policy gap rather than an uncharacterized structural change."
         },
       {
         "id": "runtime_role_matrix",
         "phase": "before_start",
-        "status": "partial",
+        "status": "satisfied",
         "gates": ["check:route-policy", "test:e2e:operational:high"],
-        "files": ["docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md"],
-        "note": "Complete executable allow and deny coverage for recommendation, terminal decision, assignment, and EHR handoff mutations. Owner role direction recorded 2026-09-06: final approval or denial belongs to the head supervisor who performs no assessments and makes the decision after discussion with the CEO or other leadership; assessment participation alone does not grant terminal-decision authority."
+        "files": ["docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md", "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json", "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md"],
+        "note": "Route policy plus matched adapter scenarios cover assigned-assessor recommendation, assessor terminal-decision denial, viewer mutation denial, wrong-resource private denial, supervisor decision, work-item mutation, and EHR handoff. Final approval or denial remains head-supervisor/admin authority; assessment participation alone grants no terminal decision capability."
         },
         {
           "id": "retry_and_idempotency_contract",
           "phase": "before_start",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["test:critical-safety", "database:concurrency", "test:e2e:operational:high"],
-          "note": "Define and execute the replay contract for recommendation, terminal decision, work-item, and EHR handoff commands. These routes currently use optimistic versions without client mutation identifiers, so the owner must distinguish at-most-once conflict safety from same-result idempotency before preserving or changing retry behavior."
+          "files": ["docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json", "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md"],
+          "note": "The active routes accept validated client mutation identifiers and optimistic whole/section or work-item versions. The owner-approved contract reuses one identifier only for the same logical command/resource, returns the acknowledged stored result without a second material write, and treats different stale commands as conflicts requiring review. Recommendation, transition, terminal decision, work item, and EHR replay/collision behavior is executable at the public boundary."
         },
         {
           "id": "mutation_effectiveness",
@@ -332,37 +334,41 @@
         {
           "id": "shadow_projection_diff",
           "phase": "before_cutover",
-          "status": "conditional",
+          "status": "not_applicable",
           "files": ["docs/refactoring/SHADOW_COMPARISON_CONTRACT.md"],
-          "note": "Required if a replacement implementation or projection path is introduced."
+          "note": "No replacement implementation, projection path, adapter, route, schema, or cutover was introduced. The existing workflow store remains the sole effectful owner, so shadow comparison is not applicable to this structural extraction.",
+          "approvedBy": "Eric",
+          "approvedAt": "2026-09-09T04:16:58Z"
         },
         {
           "id": "migration_compatibility",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:release", "database:rollback:drill"],
-        "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md"],
-        "note": "Run the previous/current artifact and schema combinations in a disposable environment before completion."
+          "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md", "docs/refactoring/workflow-and-handoff-assurance-record.json"],
+          "note": "The candidate introduced no schema, migration, stored-data, or adapter change. The 30-migration append-only release check passed, and the disposable PostgreSQL 16 integration profile exercised the complete transactional rollback drill and restored the original schema."
         },
         {
           "id": "owner_validated_assurance_model",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": [
             "docs/refactoring/canonical-responsibilities.json",
             "docs/refactoring/architecture-comprehension-probes.json",
-            "docs/refactoring/proof-obligations.json"
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/workflow-and-handoff-assurance-record.json"
           ],
-          "note": "The finite workflow, authorization, retry, terminal-state, and truthful EHR-handoff obligations are setup candidates. The owner must validate the model and its executable conformance boundary before implementation."
+          "note": "Eric authorized the owner-fast-lane slice. The exact-start machine trace maps workflow_transition_and_handoff, authentication_and_resource_authorization, and transaction_local_audit_and_retry to the terminal-decision and EHR replay probes, with workflow_authorized_finite_state_safety and ehr_handoff_truthful_at_most_once_effect as the approved proof obligations."
         },
         {
           "id": "convergence_and_residual_risk",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
-          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind model/conformance evidence, required gates, comprehension, two clean adversarial passes, rollback, and residual risks to one workflow candidate commit."
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/workflow-and-handoff-assurance-record.json", "docs/refactoring/characterization/workflow-and-handoff-machine-run-2afc85b.json"],
+          "note": "The completed owner-fast-lane assurance record binds both verified obligations, every required gate, exact pre/post matched characterization, a green complexity ratchet, no dependency-cycle regression, zero unresolved critical/high findings, and rollback evidence to candidate 2afc85bfb3e9fbf437e5034e6671904c20584e1f. Standard-lane independent adversarial and fresh-context comprehension passes remain advisory under the recorded owner-fast-lane authorization."
         }
       ]
     },

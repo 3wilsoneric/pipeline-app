@@ -1,20 +1,13 @@
 import type { ReferralOwner, ReferralOwnerResponsibility } from "./referral-types";
+import { isUnassignedOwner, normalizeOwnerName } from "./referral-owner-identity";
 
-const unassignedOwnerValues = new Set(["", "pending", "unassigned", "unknown"]);
+export { isUnassignedOwner, normalizeOwnerName } from "./referral-owner-identity";
 
 type AssignedUser = {
   id: string;
   email?: string;
   name: string;
 };
-
-export function isUnassignedOwner(value: unknown) {
-  return typeof value !== "string" || unassignedOwnerValues.has(value.trim().toLowerCase());
-}
-
-export function normalizeOwnerName(value: unknown) {
-  return isUnassignedOwner(value) ? "Unassigned" : String(value).trim().replace(/\s+/g, " ");
-}
 
 export function normalizedOwnerAliases(user: AssignedUser) {
   return [...new Set([user.name, user.email]

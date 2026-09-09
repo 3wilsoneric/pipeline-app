@@ -521,7 +521,19 @@ check(
     && !assessmentWorkspace.includes("assessmentWorkbookTemplatePath")
     && !assessmentWorkspace.includes('role="tablist" aria-label="Assessment sections"'),
 );
-check("requested information requires a source and follow-up date", workflowStore.includes("requested_from_required") && workflowStore.includes("follow_up_required"));
+const requestedRequirement = {
+  status: "requested",
+  requestedFrom: "County case manager",
+  followUpAt: "2026-09-16T12:00:00.000Z",
+  nextStep: "Confirm the missing information.",
+  dueAt: "2026-09-16T12:00:00.000Z",
+};
+check(
+  "requested information requires a source and follow-up date",
+  records.validateWorkItem({ ...requestedRequirement, requestedFrom: undefined })?.code === "requested_from_required"
+    && records.validateWorkItem({ ...requestedRequirement, followUpAt: undefined })?.code === "follow_up_required"
+    && records.validateWorkItem(requestedRequirement) === null,
+);
 check("legacy profile requirements are materialized without invented values", migration.includes("'profile_field'") && migration.includes("when definition.field_key = 'date_of_birth'") && migration.includes("else 'needed'"));
 check("legacy backfill never invents a signature", migration.includes("then 'assessment_ready_to_sign'") && !migration.includes("then 'assessment_signed'"));
 check("workflow rollback is transaction-neutral", !/^\s*(begin|commit)\s*;/im.test(rollback));
