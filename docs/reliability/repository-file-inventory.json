@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T03:08:35.118Z",
+  "generated_at": "2026-09-09T03:10:57.020Z",
   "audit_date": "2026-09-09",
-  "git_head": "a0ce4ebfb4b5314e765828a2f9d8d2fca6a5ba22",
+  "git_head": "ddae87966532b4c92eacc9cab59734d2ed6351b2",
   "files": [
     {
       "path": ".dockerignore",
@@ -3825,7 +3825,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "9ddcb1c520032f83d5ad9205e8b2fb457930bcd9bef5f98c643fa9b595e1fbbc",
+      "content_sha256": "8380deeb4c20ab2180e24957707ee06335fcd86d006fda053416ba2f80135d95",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4506,7 +4506,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "510704408c81a9056aa2f57fa561ac094ecc6e49964d8e6fc20ae427c645c5c9",
+      "content_sha256": "d4c2262bb98a17865a8539bff928482be5f01498209a08e4c46b40ea75d921b3",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 216990,
@@ -4565,7 +4565,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "63e387c7254ab86b31db57fca195e4921b20be3c7f46a932cbcc74042aea8244",
+      "content_sha256": "b8a83077830a66cf21142999f9dedc1477f9b2e8537e3011f46337902ef66f59",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 525839,
@@ -4631,7 +4631,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "cf4c3621abb887f39b9a8b76e82076370cb9d0ce4cf1025232281a15c7e28754",
+      "content_sha256": "6232d23e45b21301d1ee166c7711f91c2dc926801058d745c1865a9fffa0b157",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -4760,15 +4760,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "f6f0d58561bb4713dc0d04e73b597d7a71442c2cae38b85945138fb99e4740e2",
+      "content_sha256": "ec39f4a8c287fb69bc4f32e724439717af92d81a6b1b254948a910b920bb066b",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 268300,
-      "lines": 10502,
+      "bytes": 268626,
+      "lines": 10514,
       "detected_concerns": [
-        "Large module (10502 lines): split by behavior before adding more responsibilities."
+        "Large module (10514 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (10502 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (10514 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
