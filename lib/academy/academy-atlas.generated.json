@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:549d60f6eb7785b4",
-  "fingerprint": "549d60f6eb7785b405652d38345fb3f5a1ab80e98d2751191404030d0b2505a0",
+  "generatedAt": "source-fingerprint:73340a32cb300a0d",
+  "fingerprint": "73340a32cb300a0d6bc6179d6d5322b9909202a596f8cb755731e9e661e593ca",
   "totals": {
     "files": 882,
-    "lines": 291751,
+    "lines": 291754,
     "coveredFiles": 882
   },
   "entries": [
@@ -74,7 +74,7 @@
       "kind": "repository-file",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 266,
+      "lines": 269,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"

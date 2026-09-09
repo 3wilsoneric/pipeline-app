@@ -102,6 +102,9 @@ jobs:
           PIPELINE_REFERRAL_STORE_PATH: .data/playwright/referrals-3000.json
           PIPELINE_ASSESSMENT_STORE_PATH: .data/playwright/assessments-3000.json
           PIPELINE_RESIDENT_LINK_STORE_PATH: .data/playwright/resident-links-3000.json
+          PIPELINE_CLINICAL_DATA_MODE: alamo_api
+          PIPELINE_ALAMO_AUTH_MODE: delegated
+          PIPELINE_ALAMO_API_BASE_URL: http://127.0.0.1:3299
           PIPELINE_LOCAL_DOCUMENT_ROOT: .data/playwright/documents-3000
           PIPELINE_ENABLE_SYNTHETIC_PROFILES: "true"
           PIPELINE_NOTE_LAB_ENABLED: "true"
