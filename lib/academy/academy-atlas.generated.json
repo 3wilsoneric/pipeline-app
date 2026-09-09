@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:3c62822b85432108",
-  "fingerprint": "3c62822b85432108bf077405a5c6138404295e94b9ac3b25d97762d81a678e38",
+  "generatedAt": "source-fingerprint:e45402315570c4a5",
+  "fingerprint": "e45402315570c4a524e681a518827f0b4c8b1f9f8cdfd7e423b97eb88499bf0b",
   "totals": {
     "files": 896,
-    "lines": 293447,
+    "lines": 293451,
     "coveredFiles": 896
   },
   "entries": [
@@ -4729,7 +4729,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 164,
+      "lines": 168,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"

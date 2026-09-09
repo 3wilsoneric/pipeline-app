@@ -572,7 +572,7 @@
           "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": ["docs/refactoring/test-suite-structure-assurance-record.json", "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json"],
-          "note": "Candidate 9191f26c7d6d34795fff9c4be3e3ed71d5b23750 binds exact assertion manifests, 27/27 seeded-defect kills, complete browser and high-assurance operational runs, platform checks, rollback evidence, and no unresolved critical or high residual risk."
+          "note": "Candidate 3f284a3688983209dd081170a987bb539e7d1428 binds exact assertion manifests, 27/27 seeded-defect kills, complete browser and high-assurance operational runs, a 44/44 McMaster evidence matrix, three compiled performance runs, platform checks, rollback evidence, and no unresolved critical or high residual risk."
         }
       ]
     }

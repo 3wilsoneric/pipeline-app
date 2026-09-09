@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T16:39:48.437Z",
+  "generated_at": "2026-09-09T16:42:34.209Z",
   "audit_date": "2026-09-09",
-  "git_head": "64c3bd558389a399d0bfb8ea44375af13bc6ff00",
+  "git_head": "3f284a3688983209dd081170a987bb539e7d1428",
   "files": [
     {
       "path": ".dockerignore",
@@ -3858,7 +3858,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "3796a365e77da62f324e698a63bda4e52badc8724df780859ddf1bf09835955d",
+      "content_sha256": "aa3a3b208f9e748d0c9f9347540e6433343aeeb21584b297d2884fbd675df374",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4414,10 +4414,10 @@
     },
     {
       "path": "docs/refactoring/evidence-matrix.json",
-      "content_sha256": "785d1e910ae2a0e386b28ac82374111a9d26f7a6ca61fe470dfbecbc2b1f8092",
+      "content_sha256": "0fd84c54ed6e240a4817f44445e09bbe0b4d1ac486619975c188bcd2655f6d7a",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 38509,
+      "bytes": 38576,
       "lines": 581,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -4658,11 +4658,11 @@
     },
     {
       "path": "docs/refactoring/test-suite-structure-assurance-record.json",
-      "content_sha256": "cfdcc3ee3864e6f78a6041f3f9cc520ca3c35999b211a2f6cda38a411636ddb5",
+      "content_sha256": "735dbbb4935efc66a75de1e3db924968593e598fbe5949521ed0aa5689f3b573",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 10879,
-      "lines": 164,
+      "bytes": 11746,
+      "lines": 168,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4713,7 +4713,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "679f55c00f09ced03e38c05f79819bc362b2c6a528d870570163a878576f090d",
+      "content_sha256": "33838efb8e75ad2726a3e747e69e374ab0b6bbf0090326d6b6d24ccddd0956ef",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 386349,
@@ -4741,7 +4741,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "fe4c5a7388123b3373f6997fa8f54b3c267d4bc00c11fa5fab8422545bacdd2d",
+      "content_sha256": "067ec1b8f3e81f6d97fb806fe1e7eacb63a91f32e821dd107183780616a4b173",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 218283,
@@ -4800,7 +4800,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "1b1834da3c248f047acc5e2c767993b1b3b2a8b353ba9619d900158f345d31ab",
+      "content_sha256": "a2e0365a043caea2586222b34c290337ed531eeabe9cff0621e208d0999fad8a",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 541494,
@@ -4866,7 +4866,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "8f40fd103aad6c25e682a424e6ee835e1d2e5ec82c0e51cbdf7fec9334685e80",
+      "content_sha256": "cca47296ab7874577c371578658ffc23b5d20d3396435dce3638fa27ef72a2f0",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -4995,7 +4995,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "1c46d7670eec0bced200e734c5a95676cf98dfafe0607502cfc597dbe77b61b7",
+      "content_sha256": "9787cc199d59818e2469f6e47fa90b5214d25ebee164118bc0b04cd659dddea0",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 277415,

@@ -3,7 +3,7 @@
   "sliceId": "test-suite-structure",
   "status": "complete",
   "startingCommit": "e5d058454ed4bf226ceee91fa0c494be1b2ff8b7",
-  "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750",
+  "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428",
   "humanOwner": "Eric",
   "approvalMode": "owner_fast_lane",
   "ownerAuthorization": {
@@ -45,13 +45,14 @@
         "test_helpers_do_not_hide_failure"
       ],
       "baseCommit": "e5d058454ed4bf226ceee91fa0c494be1b2ff8b7",
-      "headCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750",
+      "headCommit": "3f284a3688983209dd081170a987bb539e7d1428",
       "purpose": "Separate the independent Pipeline home journeys from the referral workflow owner, share immutable sanitized fixture data only, make assertion preservation a CI gate, and replace the save-reconciliation source proxy with executable behavior.",
       "changedFiles": [
         "tests/e2e/pipeline-smoke.spec.ts",
         "tests/e2e/pipeline-home.spec.ts",
         "tests/e2e/support/pipeline-clinical-fixtures.ts",
         "scripts/test-assertion-inventory.mjs",
+        "scripts/mcmaster-certification-matrix.mjs",
         "scripts/referral-intake-recovery-contracts.mjs",
         "package.json"
       ],
@@ -61,6 +62,7 @@
       ],
       "focusedEvidence": [
         "The candidate assertion gate reproduced both ordered case manifests and the critical-journey digest exactly after the file split.",
+        "The McMaster evidence matrix resolved all 44 certified requirements after the five moved home/profile journeys were redirected to their canonical test owner, and the three-run compiled performance certification passed every budget.",
         "The complete browser suite passed 118 applicable journeys with 15 explicit feature or environment skips.",
         "The high-assurance operational suite passed all 14 applicable multi-user, collision, role, and golden-thread scenarios with 22 separately gated database-characterization skips.",
         "The test-effectiveness suite killed all 27 certified seeded defects and the full platform-fast gate passed TypeScript, ESLint, behavioral, security, recovery, chaos, and infrastructure checks."
@@ -88,7 +90,7 @@
   "proofResults": [
     {
       "obligationId": "test_restructure_preserves_behavior_detection",
-      "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750",
+      "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428",
       "status": "verified",
       "methods": ["mechanical", "mutation", "integration"],
       "evidence": [
@@ -107,7 +109,7 @@
     },
     {
       "obligationId": "test_helpers_do_not_hide_failure",
-      "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750",
+      "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428",
       "status": "verified",
       "methods": ["mechanical", "mutation", "integration"],
       "evidence": [
@@ -125,16 +127,18 @@
     }
   ],
   "gateResults": [
-    {"command": "npm run check:platform:fast", "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750", "outcome": "passed", "evidence": "All 43 platform-fast stages passed, including TypeScript, zero-warning ESLint, behavior, security, recovery, chaos, query, infrastructure, and synthetic-scale checks."},
-    {"command": "npm run certify:test-effectiveness", "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750", "outcome": "passed", "evidence": "Exact assertion inventories matched, critical safety passed, 27/27 seeded mutants were killed, and identity, storage, ALLO-content, and extraction-quality certification passed."},
-    {"command": "npm run test:e2e", "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750", "outcome": "passed", "evidence": "The complete browser run passed 118 applicable journeys; 15 feature-flag or environment-specific scenarios remained explicitly gated."},
-    {"command": "npm run test:e2e:operational:high", "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750", "outcome": "passed", "evidence": "All 14 applicable high-assurance multi-user, collision, role, golden-thread, and capacity scenarios passed; 22 database-specific characterization scenarios remained explicitly gated."},
-    {"command": "npm run check:refactor-assurance", "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750", "outcome": "passed", "evidence": "The candidate-bound owner-fast-lane obligation, assertion, rollback, and convergence record passed the assurance checker."},
-    {"command": "npm run certify:refactor", "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750", "outcome": "passed", "evidence": "Refactor setup, repository quality, complexity, platform, test-effectiveness, TypeScript, ESLint, and the Next.js production build passed for the bounded test-only candidate."}
+    {"command": "npm run check:platform:fast", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "All 43 platform-fast stages passed, including TypeScript, zero-warning ESLint, behavior, security, recovery, chaos, query, infrastructure, and synthetic-scale checks."},
+    {"command": "npm run certify:test-effectiveness", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "Exact assertion inventories matched, critical safety passed, 27/27 seeded mutants were killed, and identity, storage, ALLO-content, and extraction-quality certification passed."},
+    {"command": "npm run test:e2e", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "The complete browser run passed 118 applicable journeys; 15 feature-flag or environment-specific scenarios remained explicitly gated."},
+    {"command": "npm run test:e2e:operational:high", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "All 14 applicable high-assurance multi-user, collision, role, golden-thread, and capacity scenarios passed; 22 database-specific characterization scenarios remained explicitly gated."},
+    {"command": "npm run check:mcmaster", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "All 44 McMaster certification requirements resolved to their canonical evidence owners and all 35 performance contracts passed."},
+    {"command": "npm run certify:mcmaster:performance", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "Three compiled production-artifact runs passed every interaction, rendering, transfer, API, and navigation budget with zero observed API errors."},
+    {"command": "npm run check:refactor-assurance", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "The candidate-bound owner-fast-lane obligation, assertion, rollback, and convergence record passed the assurance checker."},
+    {"command": "npm run certify:refactor", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "Refactor setup, repository quality, complexity, platform, test-effectiveness, TypeScript, ESLint, and the Next.js production build passed for the bounded test-only candidate."}
   ],
   "adversarialPasses": [],
   "rollbackAndRecovery": {
-    "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750",
+    "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428",
     "method": "Revert the bounded test-suite commits after exact start e5d058454ed4bf226ceee91fa0c494be1b2ff8b7. No runtime route, schema, migration, stored data, or production configuration rollback is required.",
     "exercisedEvidence": [
       "The candidate changes only test ownership, sanitized fixtures, verification commands, and governance inventories.",
@@ -146,7 +150,7 @@
   },
   "residualRisks": [],
   "convergence": {
-    "candidateCommit": "9191f26c7d6d34795fff9c4be3e3ed71d5b23750",
+    "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428",
     "allObligationsVerified": true,
     "requiredGatesPassed": true,
     "behaviorPreserved": true,
