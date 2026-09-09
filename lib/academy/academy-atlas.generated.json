@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:3dc1f2dcb6729060",
-  "fingerprint": "3dc1f2dcb6729060d4fed83adc9d497e1e397abce42c82760b13e5a742bbeb02",
+  "generatedAt": "source-fingerprint:15411a80188707ba",
+  "fingerprint": "15411a80188707ba07261bc7635362ce1c7573a43e5ca9f2eb295ae1ec2d8ce7",
   "totals": {
-    "files": 868,
-    "lines": 287947,
-    "coveredFiles": 868
+    "files": 869,
+    "lines": 288599,
+    "coveredFiles": 869
   },
   "entries": [
     {
@@ -3927,6 +3927,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/assessment-store-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "critical",
+      "lines": 463,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -3963,7 +3975,7 @@
       ]
     },
     {
-      "path": "docs/refactoring/characterization/assessment-store-boundaries-machine-run-76d5e25.json",
+      "path": "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json",
       "subsystem": "Documentation",
       "kind": "configuration",
       "runtime": "documentation",
@@ -4186,7 +4198,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 547,
+      "lines": 555,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4414,7 +4426,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 202,
+      "lines": 231,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4609,7 +4621,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1776,
+      "lines": 1784,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4645,7 +4657,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7514,
+      "lines": 7520,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4705,7 +4717,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10546,
+      "lines": 10617,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5137,7 +5149,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 151,
+      "lines": 225,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -5209,7 +5221,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 2187,
+      "lines": 2136,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -8485,7 +8497,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 195,
+      "lines": 231,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9722,7 +9734,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 146,
+      "lines": 154,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
