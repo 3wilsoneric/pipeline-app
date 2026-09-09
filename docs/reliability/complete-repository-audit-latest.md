@@ -6,10 +6,10 @@ This is a deterministic inventory of the current worktree. It covers every repos
 
 ## Executive Summary
 
-- Existing repository files: 932
+- Existing repository files: 935
 - Tracked paths pending deletion: 0
-- Risk classification: 63 critical, 157 high, 190 medium, 522 low
-- Files with concrete static review flags: 202
+- Risk classification: 63 critical, 157 high, 190 medium, 525 low
+- Files with concrete static review flags: 204
 - Direct dependencies: 28
 - Locked dependency locations: 531
 - Installed unique package versions: 520
@@ -21,15 +21,15 @@ This is a deterministic inventory of the current worktree. It covers every repos
 
 ## Immediate Findings
 
-- Installed-tree note: extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-workflow-handoff/node_modules/@emnapi/runtime. This is a lockfile-declared optional platform package, not an undeclared application dependency.
-- Installed-tree note: extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-workflow-handoff/node_modules/@img/sharp-wasm32. This is a lockfile-declared optional platform package, not an undeclared application dependency.
+- Installed-tree note: extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-canvas/node_modules/@emnapi/runtime. This is a lockfile-declared optional platform package, not an undeclared application dependency.
+- Installed-tree note: extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-canvas/node_modules/@img/sharp-wasm32. This is a lockfile-declared optional platform package, not an undeclared application dependency.
 - Critical/high files require behavior tests and boundary verification; static review alone is not release evidence.
 - Large UI and fixture modules are called out individually so future work does not add more responsibilities to them.
 - Generated audit files are listed but must be regenerated rather than edited manually.
 
 ## Human Triage Required
 
-- Review all 202 current static flags; this generator does not auto-dismiss findings from an older audit.
+- Review all 204 current static flags; this generator does not auto-dismiss findings from an older audit.
 - Resolve or explicitly accept all 0 tracked pending deletions in the same change as their replacements.
 - Review all 2 installed-tree problems and every direct dependency with zero repository references.
 - Record confirmed findings, owners, and disposition in the approved refactor slice rather than editing this generated report.
@@ -56,13 +56,13 @@ This is a deterministic inventory of the current worktree. It covers every repos
 | fflate | runtime | ^0.8.3 -> 0.8.3 | MIT | Browser-side ZIP generation for bounded exports | 5 | Zip bombs, unbounded in-memory archives, unsafe filenames, and exporting data without authorization or formula escaping. |
 | jose | runtime | ^6.2.8 -> 6.2.8 | MIT | JWT signing and validation | 6 | Missing issuer/audience/algorithm checks, clock-skew mistakes, key rotation, and accepting untrusted claims as authorization. |
 | lucide-react | runtime | ^0.577.0 -> 0.577.0 | ISC | Shared interface icons | 58 | Unlabelled icon-only controls, inconsistent sizing, and importing the full icon set into client bundles. |
-| next | runtime | 16.3.4 -> 16.3.4 | MIT | Application framework and server runtime | 239 | Server/client boundary leaks, cache semantics, route-handler behavior, dynamic rendering drift, and framework-version API changes. |
+| next | runtime | 16.3.4 -> 16.3.4 | MIT | Application framework and server runtime | 240 | Server/client boundary leaks, cache semantics, route-handler behavior, dynamic rendering drift, and framework-version API changes. |
 | pdfjs-dist | runtime | ^6.2.108 -> 6.2.108 | Apache-2.0 | PDF parsing, page rendering, and previews | 7 | Worker configuration, malformed/oversized PDFs, page-count limits, memory cleanup, CSP compatibility, and version drift. |
 | postcss | development | 8.5.26 -> 8.5.26 | MIT | CSS transformation runtime | 9 | Plugin ordering, parser vulnerabilities, and output differences between local and CI builds. |
 | postgres | runtime | ^3.4.9 -> 3.4.9 | Unlicense | PostgreSQL client | 126 | Pool exhaustion, missing transaction boundaries, unsafe dynamic SQL, statement timeouts, retrying non-idempotent writes, and connection leaks. |
 | react | runtime | 19.2.4 -> 19.2.4 | MIT | User-interface runtime | 81 | Effect races, stale closures, unstable keys, hydration mismatches, and state duplicated across server/client boundaries. |
 | react-dom | runtime | 19.2.4 -> 19.2.4 | MIT | React DOM rendering | 16 | Hydration mismatch, focus loss, route-announcer conflicts, and browser-only APIs during server rendering. |
-| server-only | runtime | ^0.0.1 -> 0.0.1 | MIT | Build-time server-boundary guard | 101 | Missing imports in credential/data modules and false confidence when transitive client imports bypass the intended boundary. |
+| server-only | runtime | ^0.0.1 -> 0.0.1 | MIT | Build-time server-boundary guard | 102 | Missing imports in credential/data modules and false confidence when transitive client imports bypass the intended boundary. |
 | tailwindcss | development | ^4 -> 4.2.2 | MIT | Utility CSS generation | 7 | Unbounded content scanning, stale classes, generated CSS growth, and version-specific syntax. |
 | tesseract.js | runtime | ^7.0.0 -> 7.0.0 | Apache-2.0 | Fallback OCR engine | 7 | CPU and memory denial of service, unbounded worker creation, language-data loading, cleanup, and low-confidence output treated as truth. |
 | typescript | development | ^5 -> 5.9.3 | Apache-2.0 | Static type checking and compiler APIs | 18 | Compiler-version drift, skipped checks, broad assertions, and emitted/runtime behavior assumed from types. |
@@ -433,6 +433,7 @@ Every existing repository file is listed below. `Review focus` names the most li
 | `docs/refactoring/README.md` | Documentation or runbook | low | 10633 B / 150 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md` | Documentation or runbook | low | 9416 B / 125 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/REFACTOR_SLICE_TEMPLATE.md` | Documentation or runbook | low | 2298 B / 98 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
+| `docs/refactoring/REFERRAL_CANVAS_TECHNICAL_TRACE_AGENT_PREWORK.md` | Documentation or runbook | low | 16738 B / 189 lines | Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup. | link/config drift review against executable source |
 | `docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md` | Documentation or runbook | low | 8609 B / 81 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md` | Documentation or runbook | low | 8056 B / 100 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md` | Documentation or runbook | low | 16526 B / 169 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
@@ -449,6 +450,7 @@ Every existing repository file is listed below. `Review focus` names the most li
 | `docs/refactoring/characterization/refactor-baseline-machine-run-4d50f4ea.json` | Documentation or runbook | low | 2610 B / 69 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json` | Documentation or runbook | low | 2665 B / 70 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json` | Documentation or runbook | low | 3954 B / 77 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
+| `docs/refactoring/characterization/referral-canvas-audit-run-5e015d2.json` | Documentation or runbook | low | 4765 B / 112 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/characterization/referral-read-parity-run-741bf732.json` | Documentation or runbook | low | 1968 B / 43 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json` | Documentation or runbook | low | 3950 B / 75 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json` | Documentation or runbook | low | 2638 B / 62 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
@@ -472,6 +474,7 @@ Every existing repository file is listed below. `Review focus` names the most li
 | `docs/refactoring/refactor-guidance-run.example.json` | Documentation or runbook | low | 1591 B / 59 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/refactor-holdout-manifest.example.json` | Documentation or runbook | low | 757 B / 28 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/refactor-slices.json` | Documentation or runbook | low | 11520 B / 267 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
+| `docs/refactoring/referral-canvas-file-audit-agent-prework.json` | Documentation or runbook | low | 13812 B / 200 lines | Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup. | link/config drift review against executable source |
 | `docs/refactoring/referral-store-assurance-record.json` | Documentation or runbook | low | 12934 B / 185 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/referral-store-file-audit-agent-prework.json` | Documentation or runbook | low | 11558 B / 225 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
 | `docs/refactoring/referral-store-file-audit.json` | Documentation or runbook | low | 14873 B / 291 lines | Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions. | link/config drift review against executable source |
@@ -1056,7 +1059,9 @@ These are inspection prompts, not automatically confirmed defects. Each must be 
 - `docs/ENTRA_AUTHENTICATION.md`: Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.
 - `docs/PRODUCTION_DATA_OPERATIONS.md`: Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.
 - `docs/refactoring/CODE_QUALITY_POLICY.md`: Contains unsafe type escape; replace with validation or a narrow type.
+- `docs/refactoring/REFERRAL_CANVAS_TECHNICAL_TRACE_AGENT_PREWORK.md`: Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.
 - `docs/refactoring/assessment-store-file-audit.json`: Uses SELECT *; verify response growth, schema coupling, and PHI minimization.
+- `docs/refactoring/referral-canvas-file-audit-agent-prework.json`: Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.
 - `docs/reliability/cyclomatic-complexity-baseline.json`: Large module (94204 lines): split by behavior before adding more responsibilities. Large repository object (3153 KiB): confirm it belongs in Git and is compressed. Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures. Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup. Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.
 - `docs/reliability/refactor-baseline-2026-08-27-setup.json`: Large module (10598 lines): split by behavior before adding more responsibilities.
 - `docs/reliability/refactor-baseline-2026-08-27.json`: Large module (10538 lines): split by behavior before adding more responsibilities.

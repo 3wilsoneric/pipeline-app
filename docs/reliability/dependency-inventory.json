@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T04:41:30.141Z",
+  "generated_at": "2026-09-09T05:41:34.558Z",
   "audit_date": "2026-09-09",
-  "git_head": "79ac12b0c6ee270585a5dbfdb623baf1c8f34668",
+  "git_head": "5e015d2bd979da98c26da7b858600a0bcba7403a",
   "direct": [
     {
       "name": "@azure/identity",
@@ -521,6 +521,7 @@
         "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
         "docs/refactoring/COMPATIBILITY_MATRIX.md",
         "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
+        "docs/refactoring/REFERRAL_CANVAS_TECHNICAL_TRACE_AGENT_PREWORK.md",
         "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/assessment-store-file-audit.json",
@@ -995,6 +996,7 @@
         "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
         "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
         "docs/refactoring/refactor-slices.json",
+        "docs/refactoring/referral-canvas-file-audit-agent-prework.json",
         "lib/academy/academy-access.ts",
         "lib/academy/academy-curriculum.ts",
         "lib/academy/academy-progress-store.ts",
@@ -7521,8 +7523,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-workflow-handoff/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-workflow-handoff/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-canvas/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-canvas/node_modules/@img/sharp-wasm32"
     ]
   }
 }

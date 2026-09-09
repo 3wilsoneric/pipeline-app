@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "recordType": "machine_observation_not_approval",
+  "sliceId": "referral-canvas-components",
+  "purpose": "Record existing focused workflow behavior and setup health before any Referral Canvas component refactor, while explicitly preserving the gaps found by the technical trace.",
+  "fixtureClassification": "synthetic",
+  "containsPhi": false,
+  "capturedAt": "2026-09-09T05:35:37Z",
+  "capturedFromCommit": "5e015d2bd979da98c26da7b858600a0bcba7403a",
+  "worktree": "/Users/eric/pipeline-refactor-referral-canvas",
+  "branch": "codex/refactor-referral-canvas",
+  "testArtifacts": [
+    {
+      "path": "tests/e2e/pipeline-smoke.spec.ts",
+      "sha256": "efcfb295766dca0283f15f9f52a474ac84b3d2fdd7e3ea1270e1fbcab6ee308f"
+    },
+    {
+      "path": "scripts/critical-safety-contracts.mjs",
+      "sha256": "968caec6a58f5d0347cd0edeb6c887fb327b21133274eba167d0f45291f5ce06"
+    }
+  ],
+  "commands": [
+    {
+      "command": "PORT=3119 npx playwright test -c playwright.config.ts tests/e2e/pipeline-smoke.spec.ts --grep 'coordinates section edits|recovers a tab-scoped draft|requires explicit human review before joining'",
+      "exitCode": 0,
+      "result": "3 passed",
+      "covered": [
+        "two-session section edits, presence leases, and remote conflict presentation",
+        "tab-scoped referral draft recovery after refresh followed by section autosave",
+        "explicit candidate creation and separate human confirmation before joining records"
+      ]
+    },
+    {
+      "command": "PORT=3120 npx playwright test -c playwright.config.ts tests/e2e/pipeline-smoke.spec.ts --grep 'schedules, completes, signs, and recalls an assessment'",
+      "exitCode": 0,
+      "result": "1 passed",
+      "covered": [
+        "assessment scheduling, beginning, completion, signing, and recall happy path"
+      ]
+    },
+    {
+      "command": "npm run test:critical-safety",
+      "exitCode": 0,
+      "result": "32 checks passed",
+      "covered": [
+        "workflow gates and terminal decisions",
+        "extraction lease and provenance invariants",
+        "pure master-matching identity rules, including resident-number plus conflicting DOB",
+        "upload finalization safety"
+      ]
+    },
+    {
+      "command": "npm run check:refactor-guidance && npm run check:refactor-setup",
+      "exitCode": 0,
+      "result": "passed with expected setup warnings",
+      "covered": [
+        "guidance fixtures and active control structure",
+        "repository inventory drift",
+        "refactor evidence and assurance structure"
+      ],
+      "warnings": [
+        "referral-canvas-components is not start-ready because its owner, approval, approved file disposition, assurance record, autosave/conflict recovery evidence, identity/evidence characterization, and owner assurance record are incomplete",
+        "registry has no active slice"
+      ]
+    }
+  ],
+  "knownUncoveredFindings": [
+    {
+      "id": "RC-01",
+      "severity": "critical",
+      "classification": "confirmed_code_path_defect",
+      "summary": "Resident-link create/confirm does not enforce the referral-versus-governed-resident DOB conflict at the server mutation boundary."
+    },
+    {
+      "id": "RC-02",
+      "severity": "high",
+      "classification": "confirmed_split_commit_failure_mode",
+      "summary": "Extraction evidence review can commit before the referral projection fails, with no automatic repair contract."
+    },
+    {
+      "id": "RC-03",
+      "severity": "high",
+      "classification": "confirmed_decision_ui_and_recovery_defect",
+      "summary": "The final identity review omits candidate evidence and does not hydrate current state after a stale-version response."
+    },
+    {
+      "id": "RC-04",
+      "severity": "medium",
+      "classification": "confirmed_accessibility_defect",
+      "summary": "Custom modal dialogs do not implement focus entry, containment, and invoker-focus restoration."
+    },
+    {
+      "id": "RC-05",
+      "severity": "medium",
+      "classification": "evidence_gap",
+      "summary": "Immediate assessment unmount during recovery/working-set timer windows and in-flight saves is not characterized."
+    },
+    {
+      "id": "RC-06",
+      "severity": "medium",
+      "classification": "recovery_contract_gap",
+      "summary": "A fresh assessment command invocation generates a new mutation id after an ambiguous response."
+    }
+  ],
+  "claimBoundary": "These commands preserve only their named behaviors on the recorded commit. They do not cover the listed findings, authorize a structural slice, certify refactor readiness, or establish whole-application correctness.",
+  "humanReview": {
+    "status": "awaiting_owner_authorization",
+    "approvedBy": null,
+    "approvedAt": null
+  }
+}
