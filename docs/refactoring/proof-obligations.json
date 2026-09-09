@@ -204,6 +204,28 @@
       "claimBoundary": "Helpers and journeys included in the approved test-structure slice audit.",
       "status": "planned",
       "humanValidated": false
+    },
+    {
+      "id": "referral_home_directory_presentation_preserves_navigation_and_recovery",
+      "sliceId": "referral-home-directory-components",
+      "criticality": "critical",
+      "property": "Separating Referral Home presentation and pure directory derivation from its effectful coordinator preserves search, filtering, list and gallery layouts, activity, file browsing, identity review, paging, responsive navigation, and last-good-snapshot recovery without creating a second request or persistence owner.",
+      "assuranceMethods": ["mechanical", "integration", "operational_recovery"],
+      "tracePaths": [
+        "components/pipeline/ReferralHome.tsx",
+        "components/pipeline/ReferralHomeDirectory.tsx",
+        "components/pipeline/referral-home-directory-model.ts"
+      ],
+      "verificationGates": [
+        "check:assessor-workflow",
+        "check:workspace-month",
+        "test:e2e",
+        "test:e2e:desktop",
+        "test:e2e:operational:high"
+      ],
+      "claimBoundary": "The characterized Referral Home directory states, supported browsers, responsive viewports, and synthetic workflows at the approved exact start and candidate commits.",
+      "status": "planned",
+      "humanValidated": false
     }
   ]
 }

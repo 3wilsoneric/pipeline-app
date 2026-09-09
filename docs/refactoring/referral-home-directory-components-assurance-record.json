@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-home-directory-components",
+  "status": "in_progress",
+  "startingCommit": "07fac35ffa0390734304d246d6b95b8dc225aa31",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T19:31:32Z",
+    "directive": "oaky go, fast lane"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": ["referral_home_directory_presentation_preserves_navigation_and_recovery"],
+  "preChangeMachineTrace": [
+    "At exact starting commit 07fac35ffa0390734304d246d6b95b8dc225aa31, 15 focused Home-directory Chromium journeys passed across nine viewport widths.",
+    "The exact-start complexity ratchet passed.",
+    "The exact-start baseline records ReferralHome.tsx at 1,308 lines, complexity 356, 15 dependencies, and maximum branch depth six."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Search, filter, list, gallery, activity, file browsing, identity review, paging, and recovery keep their current click paths and behavior.",
+      "ReferralHome remains the sole owner of requests, revision polling, cursors, loading and error state, preview and review state, and the persisted layout preference.",
+      "Extracted presentation and pure-model modules do not become parallel network, persistence, authorization, or canonical-state owners.",
+      "Labels, roles, guide targets, DOM order, responsive layouts, and visual styling remain unchanged.",
+      "No route, request shape, role policy, workflow, schema, migration, stored data, audit, or extraction behavior changes."
+    ],
+    "evidence": ["docs/refactoring/characterization/referral-home-directory-components-machine-run-07fac35.json"]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": {
+    "candidateCommit": null,
+    "method": "Revert the bounded commits after exact start 07fac35ffa0390734304d246d6b95b8dc225aa31; no schema, stored-data, route, request, or environment rollback is required.",
+    "evidence": ["The exact-start browser and structural characterization is immutable and replayable."],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-09T19:31:32Z"
+  },
+  "convergence": {
+    "candidateCommit": null,
+    "requiredEvidenceComplete": false,
+    "boundedClaimsOnly": true
+  }
+}

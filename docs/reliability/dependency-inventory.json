@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T18:21:26.757Z",
+  "generated_at": "2026-09-09T20:30:00.986Z",
   "audit_date": "2026-09-09",
-  "git_head": "ba92d371ef2bb92435d1a6803b62c499a70414fc",
+  "git_head": "07fac35ffa0390734304d246d6b95b8dc225aa31",
   "direct": [
     {
       "name": "@azure/identity",
@@ -386,6 +386,7 @@
         "components/pipeline/ReferralDraftResumeList.tsx",
         "components/pipeline/ReferralFilePreviewDialog.tsx",
         "components/pipeline/ReferralHome.tsx",
+        "components/pipeline/ReferralHomeDirectory.tsx",
         "components/pipeline/ReferralPacketCanvas.tsx",
         "components/pipeline/ReferralProgressPanel.tsx",
         "components/pipeline/ReferralWorkflowPanel.tsx",
@@ -475,6 +476,7 @@
         "components/pipeline/PipelineWelcome.tsx",
         "components/pipeline/ReferralFilePreviewDialog.tsx",
         "components/pipeline/ReferralHome.tsx",
+        "components/pipeline/ReferralHomeDirectory.tsx",
         "components/pipeline/ReferralPacketCanvas.tsx",
         "components/pipeline/ReferralProgressPanel.tsx",
         "components/pipeline/ReferralWorkflowPanel.tsx",
@@ -485,6 +487,7 @@
         "components/pipeline/academy/AcademyRepositoryAtlas.tsx",
         "components/pipeline/assessment-workspace-state.ts",
         "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
+        "components/pipeline/referral-home-directory-model.ts",
         "components/pipeline/training/DemoEnvironmentBanner.tsx",
         "components/pipeline/training/FullWorkflowWalkthroughPreview.tsx",
         "components/pipeline/training/OperatorDemoEntry.tsx",
@@ -533,6 +536,7 @@
         "docs/refactoring/assessment-workspace-components-assurance-record.json",
         "docs/refactoring/characterization/assessment-workspace-components-machine-run-927b953.json",
         "docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json",
+        "docs/refactoring/characterization/referral-home-directory-components-machine-run-07fac35.json",
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/code-quality-policy.json",
         "docs/refactoring/evidence-matrix.json",
@@ -897,6 +901,7 @@
         "components/pipeline/ReferralDraftResumeList.tsx",
         "components/pipeline/ReferralFilePreviewDialog.tsx",
         "components/pipeline/ReferralHome.tsx",
+        "components/pipeline/ReferralHomeDirectory.tsx",
         "components/pipeline/ReferralPacketCanvas.tsx",
         "components/pipeline/ReferralProgressPanel.tsx",
         "components/pipeline/ReferralWorkflowPanel.tsx",
@@ -963,6 +968,7 @@
         "components/pipeline/PipelineCalendar.tsx",
         "components/pipeline/ReferralFilePreviewDialog.tsx",
         "components/pipeline/ReferralHome.tsx",
+        "components/pipeline/ReferralHomeDirectory.tsx",
         "components/pipeline/StructuredNarrativeField.tsx",
         "components/pipeline/training/FullWorkflowWalkthroughPreview.tsx",
         "docs/COMPLETE_REPOSITORY_AUDIT_2026-08-22.md",
@@ -7537,8 +7543,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-assessment-workspace-components/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-assessment-workspace-components/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-home-directory-components/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-home-directory-components/node_modules/@img/sharp-wasm32"
     ]
   }
 }

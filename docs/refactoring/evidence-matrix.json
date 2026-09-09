@@ -638,6 +638,69 @@
           "note": "The slice changes only client-side module ownership and introduces no schema, migration, stored-data, route, request-shape, provider, or cutover change."
         }
       ]
+    },
+    {
+      "id": "referral-home-directory-components",
+      "budgetProfile": "interactive_ui",
+      "items": [
+        {
+          "id": "home_directory_interaction_characterization",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["test:e2e", "test:e2e:responsive"],
+          "files": [
+            "docs/refactoring/REFERRAL_HOME_DIRECTORY_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/characterization/referral-home-directory-components-machine-run-07fac35.json"
+          ],
+          "note": "At exact starting commit 07fac35ffa0390734304d246d6b95b8dc225aa31, 15 focused Chromium journeys passed search, filter, gallery, activity, last-good-snapshot recovery, file browsing, empty and failure recovery, mobile browsing, and navigation across 320 to 1440 pixel viewports."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/REFERRAL_HOME_DIRECTORY_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/referral-home-directory-components-file-audit.json",
+            "docs/refactoring/referral-home-directory-components-assurance-record.json"
+          ],
+          "note": "Eric authorized the bounded Referral Home directory split through owner_fast_lane on 2026-09-09. The assurance model keeps ReferralHome as the sole effectful coordinator and permits only callback-driven presentation and pure derivation owners."
+        },
+        {
+          "id": "accessibility_visual_and_cross_browser",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["test:e2e:desktop", "test:e2e:cross-browser", "test:e2e:visual"],
+          "note": "Exact-start responsive evidence is recorded; candidate-bound desktop, cross-browser, and unchanged visual evidence remains required."
+        },
+        {
+          "id": "interaction_performance_and_artifacts",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["certify:mcmaster:performance", "check:artifacts"],
+          "note": "Candidate-bound compiled interaction budgets and production artifact checks remain required."
+        },
+        {
+          "id": "convergence_and_recovery",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/referral-home-directory-components-assurance-record.json"],
+          "note": "Rollback is a bounded code revert with no data migration; final candidate convergence remains required."
+        },
+        {
+          "id": "migration_and_cutover",
+          "phase": "before_cutover",
+          "status": "not_applicable",
+          "approvedBy": "Eric",
+          "approvedAt": "2026-09-09T19:31:32Z",
+          "files": ["docs/refactoring/REFERRAL_HOME_DIRECTORY_COMPONENTS_ARCHITECTURE_NARRATIVE.md"],
+          "note": "The slice changes only client-side module ownership and introduces no schema, migration, stored-data, route, request-shape, provider, or cutover change."
+        }
+      ]
     }
   ]
 }

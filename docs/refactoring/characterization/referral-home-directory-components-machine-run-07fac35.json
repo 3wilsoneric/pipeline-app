@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-home-directory-components",
+  "startingCommit": "07fac35ffa0390734304d246d6b95b8dc225aa31",
+  "generatedAt": "2026-09-09T19:31:32Z",
+  "commands": [
+    "npm run codebase:baseline",
+    "npm run complexity:check",
+    "PIPELINE_NEXT_DIST_DIR=.next-referral-home-start PORT=3202 npx playwright test tests/e2e/pipeline-smoke.spec.ts tests/e2e/responsive-navigation.spec.ts tests/e2e/responsive-accessibility.spec.ts --project=chromium -g 'opening surface|gallery and scoped activity|only useful filters|last successful referral snapshot|browses all uploaded files|useful empty and failure recovery|navigation complete and unclipped'"
+  ],
+  "results": {
+    "focusedBrowserTests": { "passed": 15, "failed": 0, "durationSeconds": 58.9 },
+    "complexityCheck": "passed",
+    "baseline": {
+      "files": 642,
+      "lines": 124622,
+      "cycles": 8,
+      "duplicateGroups": 71,
+      "controlPlaneDuplicateGroups": 56,
+      "referralHome": { "lines": 1308, "complexity": 356, "dependencies": 15, "maxBranchDepth": 6 }
+    }
+  },
+  "coveredBehavior": [
+    "opening workspace directory",
+    "list and gallery layouts plus scoped activity",
+    "community, county, owner, priority, and month filters",
+    "last successful referral snapshot retained after refresh failure",
+    "linked and identity-review file browsing",
+    "empty, loading, and retry states",
+    "mobile month/community browse dialog and keyboard dismissal",
+    "unclipped navigation and stable layout selection from 320 to 1440 pixels"
+  ],
+  "containsPhi": false
+}
