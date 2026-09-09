@@ -100,8 +100,14 @@ function summarize(sourceFiles, runnerName, assertionNames) {
 }
 
 function comparable(summary) {
-  const { cases: _cases, ...result } = summary;
-  return result;
+  return {
+    sourceFiles: summary.sourceFiles,
+    caseCount: summary.caseCount,
+    assertionCount: summary.assertionCount,
+    caseManifestDigest: summary.caseManifestDigest,
+    titleDigest: summary.titleDigest,
+    hooks: summary.hooks,
+  };
 }
 
 const playwright = summarize(

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T16:16:25.429Z",
+  "generated_at": "2026-09-09T16:17:34.506Z",
   "audit_date": "2026-09-09",
-  "git_head": "a1debf7c0093fda275661d92aa0d6c986fec3f3b",
+  "git_head": "85cc321446e6227f9f6df1d5aa83ae5345ac85d5",
   "files": [
     {
       "path": ".dockerignore",
@@ -4741,7 +4741,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "60be2890463d3f5530aa01feafaf62e7428595ee493bcb8db748894519896af5",
+      "content_sha256": "d3a00e04d9fec2f0452b07f449174f5dd35cd6b41855276ecdc1a94d30bf88e8",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 218283,
@@ -4800,7 +4800,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "2ff6b9a756e926c61d20226f1b9904b0f4a5cc5a5e039e2cb4351df6f8b5e437",
+      "content_sha256": "b141890c6773650e70917906260f6515a4c9a6842c832493c4d8b8cb2101ddcf",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 541492,
@@ -9983,11 +9983,11 @@
     },
     {
       "path": "scripts/test-assertion-inventory.mjs",
-      "content_sha256": "c596fda97e624f4c75af406cd205f4a31d505dcaede25a0beae2295a0459fc8b",
+      "content_sha256": "2af4854d6bc5e820a0c504abd16a7bc1f679eb5fb4a0cf3dd2cedc46c2967fc4",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 4972,
-      "lines": 156,
+      "bytes": 5155,
+      "lines": 162,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
