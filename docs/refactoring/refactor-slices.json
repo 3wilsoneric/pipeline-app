@@ -8,7 +8,7 @@
     {
       "id": "referral-store-boundaries",
       "priority": 1,
-      "status": "in_progress",
+      "status": "soaking",
       "owner": "Eric",
       "paths": [
         "lib/pipeline/referral-store.ts",
@@ -23,6 +23,9 @@
         "lib/academy/academy-atlas.generated.json",
         "docs/academy/academy-registry.json",
         "docs/training/training-registry.json",
+        "docs/refactoring/refactor-slices.json",
+        "docs/refactoring/evidence-matrix.json",
+        "docs/refactoring/referral-store-assurance-record.json",
         "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/referral-store-file-audit.json"
       ],

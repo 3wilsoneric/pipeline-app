@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:e937fc9ef82cfad5",
-  "fingerprint": "e937fc9ef82cfad54db32255fe0c6793aa8c6a972387b6fe748dc44b496069e0",
+  "generatedAt": "source-fingerprint:8e9d8cfe3aca06ec",
+  "fingerprint": "8e9d8cfe3aca06ecba37e523d8a908059968dbf7f58f6949b1a0e0199dfe3152",
   "totals": {
     "files": 863,
-    "lines": 286861,
+    "lines": 287031,
     "coveredFiles": 863
   },
   "entries": [
@@ -4378,7 +4378,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 199,
+      "lines": 202,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4426,7 +4426,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "critical",
-      "lines": 49,
+      "lines": 174,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -4452,7 +4452,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "critical",
-      "lines": 249,
+      "lines": 291,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",

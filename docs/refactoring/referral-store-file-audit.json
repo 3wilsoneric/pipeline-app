@@ -241,6 +241,48 @@
       "staticPrompts": [],
       "decision": "keep",
       "decisionReason": "Refresh only the machine-computed fingerprints required after the approved type dependency change."
+    },
+    {
+      "path": "docs/refactoring/refactor-slices.json",
+      "plannedNew": false,
+      "dependencyDirection": "Refactor governance records describe and validate the active slice and have no runtime dependents.",
+      "purpose": "Records the approved slice boundary, exact worktree, required gates, and lifecycle status.",
+      "callers": ["scripts/refactor-setup-readiness.mjs", "scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "An invalid registry blocks slice advancement without affecting runtime behavior.",
+      "tests": ["npm run check:refactor-setup"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Update only the approved generated-artifact boundary and release lifecycle status."
+    },
+    {
+      "path": "docs/refactoring/evidence-matrix.json",
+      "plannedNew": false,
+      "dependencyDirection": "Refactor evidence status depends on executed gates and has no runtime dependents.",
+      "purpose": "Records candidate-bound satisfaction of the slice's before-complete evidence.",
+      "callers": ["scripts/refactor-evidence-readiness.mjs"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing evidence blocks slice advancement without affecting runtime behavior.",
+      "tests": ["npm run check:refactor-setup"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Update only items supported by candidate-bound executed evidence."
+    },
+    {
+      "path": "docs/refactoring/referral-store-assurance-record.json",
+      "plannedNew": true,
+      "dependencyDirection": "The slice assurance record depends on approved invariants, obligations, and candidate-bound evidence and has no runtime dependents.",
+      "purpose": "Binds the verified obligations, required gates, rollback evidence, and bounded convergence claim to the exact candidate commit.",
+      "callers": ["scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "An incomplete or inconsistent record blocks soaking and completion without affecting runtime behavior.",
+      "tests": ["npm run check:refactor-assurance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "This is the required machine-readable completion boundary for the owner-authorized slice."
     }
   ],
   "reviewedBy": "Owner-authorized TARS machine trace",

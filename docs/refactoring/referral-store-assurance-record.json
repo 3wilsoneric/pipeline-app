@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "sliceId": "referral-store-boundaries",
-  "status": "baseline_approved",
+  "status": "candidate_verified",
   "startingCommit": "1956139851eb83d6d785762461466355af0524e4",
-  "candidateCommit": null,
+  "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
   "humanOwner": "Eric",
   "approvalMode": "owner_fast_lane",
   "ownerAuthorization": {
@@ -36,13 +36,138 @@
       "Suspected-duplicate review is a separate product behavior change: name and county may identify candidates for human review but never become automatic identity or merge keys."
     ],
     "evidence": [
-      "outputs/refactor-characterization/referral-store exact-start 9/9 local-file and 9/9 PostgreSQL 16 run",
-      "https://github.com/3wilsoneric/pipeline-app/pull/25"
+      "outputs/refactor-characterization/referral-store-2026-09-08T23-59-24.881Z.json records 9/9 local-file and 9/9 PostgreSQL 16 scenarios at candidate 5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
+      "npm run test:e2e:operational:high passed 14 applicable browser workflow tests with 10 intentionally gated scenarios at the candidate",
+      "npm run database:assurance:integration passed 49/49 controls in an isolated PostgreSQL 16 database",
+      "npm run check:performance passed all 15 recorded performance checks on the compiled standalone candidate"
     ]
   },
-  "iterations": [],
-  "proofResults": [],
-  "gateResults": [],
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "referral_state_persistence",
+      "obligationIds": [
+        "referral_same_section_one_winner",
+        "referral_retry_and_audit_atomicity"
+      ],
+      "baseCommit": "1956139851eb83d6d785762461466355af0524e4",
+      "headCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
+      "purpose": "Move the pure referral mutation input types to the canonical type owner while preserving the store's public re-export and every runtime path.",
+      "changedFiles": [
+        "lib/pipeline/referral-store.ts",
+        "lib/pipeline/referral-types.ts",
+        "lib/pipeline/referral-validation.ts"
+      ],
+      "preChangeCharacterization": [
+        "The exact starting commit passed the same nine local-file and PostgreSQL referral-store scenarios."
+      ],
+      "focusedEvidence": [
+        "The exact candidate passed the same nine local-file and PostgreSQL referral-store scenarios with the same test digest.",
+        "The candidate passed API, workflow fuzz, critical safety, database concurrency, and production build gates."
+      ],
+      "baselineDelta": {
+        "before": "1956139851eb83d6d785762461466355af0524e4: 629 files, 121,902 lines, 8 cycles, 65 duplicate groups, 56 control-plane duplicate groups, 470 dead-export candidates, and 13 critical-review files.",
+        "after": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad: 629 files, 121,906 lines, 8 cycles, 65 duplicate groups, 56 control-plane duplicate groups, 470 dead-export candidates, and 13 critical-review files.",
+        "comparison": "No cycle, duplication, dead-export, or critical-review regression; the four-line increase is the stable type-owner declaration plus compatibility re-export.",
+        "regressions": []
+      },
+      "tradeoffs": [
+        {
+          "dimension": "dependency",
+          "change": "Referral validation now imports ReferralPatch from the stable type owner instead of the effectful store module.",
+          "reason": "This removes an inverted type dependency while preserving store API compatibility.",
+          "approvedBy": "Eric"
+        }
+      ],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-09T00:05:00.000Z"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "referral_same_section_one_winner",
+      "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
+      "status": "verified",
+      "methods": ["property_based", "concurrency", "mutation"],
+      "evidence": [
+        "Candidate characterization passed same-section one-winner and disjoint-section merge behavior on local-file and PostgreSQL adapters.",
+        "npm run check:workflow-fuzz passed 2,000 generated traces and 840,009 cases.",
+        "npm run database:concurrency passed the 24-contender stale-version race with exactly one winner.",
+        "npm run certify:seeded-defects killed all 23 seeded workflow, extraction, and identity defects."
+      ],
+      "implementationTrace": [
+        "lib/pipeline/referral-types.ts:ReferralPatch",
+        "lib/pipeline/referral-sections.ts:getReferralPatchSections",
+        "lib/pipeline/referral-store.ts:patchLocalReferral",
+        "lib/pipeline/referral-store.ts:patchPostgresReferral"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-09T00:05:00.000Z"
+    },
+    {
+      "obligationId": "referral_retry_and_audit_atomicity",
+      "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
+      "status": "verified",
+      "methods": ["mechanical", "integration", "concurrency", "mutation"],
+      "evidence": [
+        "Candidate characterization passed create, patch, trash, and restore replay/conflict behavior with audit cardinality on both adapters.",
+        "npm run database:assurance:integration passed 49/49 PostgreSQL controls including transactional rollback and audit constraints.",
+        "npm run database:concurrency passed idempotency, outbox, optimistic-write, lock-timeout, and deadlock recovery checks.",
+        "npm run database:integrity reported zero critical violations and zero advisory records in the isolated candidate database."
+      ],
+      "implementationTrace": [
+        "lib/pipeline/referral-types.ts:ReferralCreateInput",
+        "lib/pipeline/referral-types.ts:ReferralPatch",
+        "lib/pipeline/referral-store.ts:createReferral",
+        "lib/pipeline/referral-store.ts:patchReferral",
+        "lib/pipeline/referral-store.ts:softDeleteReferral",
+        "lib/pipeline/referral-store.ts:restoreReferral"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-09T00:05:00.000Z"
+    }
+  ],
+  "gateResults": [
+    {"command": "npm run check:api", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "Candidate-bound API behavior fixtures exited 0 on 2026-09-08."},
+    {"command": "npm run check:assessor-workflow", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "Candidate-bound assessor workflow contracts exited 0 on 2026-09-08."},
+    {"command": "npm run check:workflow-fuzz", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "Candidate-bound deterministic workflow fuzz passed 2,000 traces and 840,009 cases."},
+    {"command": "npm run test:critical-safety", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "Candidate-bound critical safety contracts passed all 27 checks."},
+    {"command": "npm run database:assurance:integration", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "outputs/database-assurance/integration-2026-09-09T00-01-41-542Z.md records 49/49 controls passed in isolated PostgreSQL 16."},
+    {"command": "npm run database:concurrency", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "A dedicated isolated database passed all 24-actor mutation, queue, lock, and deadlock checks."},
+    {"command": "npm run check:performance", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "Compiled standalone scorecard passed all 15 checks: 58.3ms TTFB, 164ms FCP/LCP, 32ms INP, 2ms ordinary API p95, 2.5ms heavy API p95, and zero API errors."},
+    {"command": "npm run database:query-plans", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "A fresh dedicated PostgreSQL 16 database selected all required referral, community, trash, document, and assessment indexes."},
+    {"command": "npm run database:capacity", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "25,000 synthetic referrals and 200 queries at concurrency 16 produced 15.29ms p95 against a 250ms budget and left no residue."},
+    {"command": "npm run check:refactor-assurance", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "Assurance fixtures and the active owner-fast-lane record passed at the exact candidate."},
+    {"command": "npm run certify:refactor", "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad", "outcome": "passed", "evidence": "Refactor setup, complexity ratchet, platform gates, test-effectiveness certification, TypeScript, ESLint, and Next.js production build all passed."}
+  ],
   "adversarialPasses": [],
-  "residualRisks": []
+  "rollbackAndRecovery": {
+    "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
+    "method": "Revert the type-owner implementation commit a008a43b5f20d393102dcfaa5a7ea6ba98a53a09 and refresh generated Academy/training metadata; no schema or data rollback is required.",
+    "exercisedEvidence": [
+      "npm run database:rollback:drill passed all 27 transactional schema recovery checks and restored the original schema.",
+      "The implementation diff contains no migration, stored-data, route, workflow, or browser behavior change.",
+      "The exact starting commit remains available as 1956139851eb83d6d785762461466355af0524e4."
+    ],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-09T00:05:00.000Z"
+  },
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
+    "allObligationsVerified": true,
+    "requiredGatesPassed": true,
+    "behaviorPreserved": true,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": true,
+    "noUnresolvedCriticalOrHigh": true,
+    "acceptedBy": null,
+    "acceptedAt": null,
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T00:05:00.000Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
 }

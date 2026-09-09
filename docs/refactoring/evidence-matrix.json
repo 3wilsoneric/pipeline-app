@@ -166,30 +166,30 @@
             "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
             "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json"
           ],
-          "note": "Static route coverage and clean-commit executed allow and deny evidence cover create, patch, trash, restore, and duplicate confirmation across local-file and PostgreSQL adapters, including anonymous, read-only, wrong-resource, cross-origin, hidden-candidate, and guessed-id denial with no side effects. Human review must still validate coverage against the final allowed file audit and any additional mutation entry points before completion."
+          "note": "At candidate 5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad, static route coverage and the high-assurance operational browser suite cover create, patch, trash, restore, duplicate confirmation, anonymous, read-only, wrong-resource, cross-origin, hidden-candidate, and guessed-id denial with no unauthorized side effects."
         },
         {
           "id": "performance_and_query_budget",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["database:query-plans", "database:concurrency", "check:performance"],
         "files": ["docs/PERFORMANCE_BASELINE_2026-08-20.md"],
-        "note": "The platform baseline exists; rerun the store profile against the approved slice and review query-plan deltas."
+        "note": "At candidate 5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad, the compiled standalone scorecard passed all budgets; dedicated PostgreSQL 16 planner fixtures selected every required index; the 24-actor concurrency suite passed; and 25,000 synthetic referrals with 200 reads at concurrency 16 produced 15.29ms p95 against a 250ms budget."
         },
         {
           "id": "migration_compatibility",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:release", "database:rollback:drill"],
         "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md"],
-        "note": "Static compatibility policy exists; N/N-1 behavior still needs a disposable PostgreSQL rehearsal."
+        "note": "At candidate 5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad, release compatibility passed and the disposable PostgreSQL rollback drill exercised all 27 scoped recovery checks inside one transaction, restoring the original schema. The refactor adds no migration or stored-data change."
         },
         {
           "id": "expanded_mutation_sample",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["certify:seeded-defects"],
-          "note": "Add store-specific mutants for audit attribution, section versions, idempotency, and transaction coupling."
+          "note": "At candidate 5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad, seeded-defect certification killed all 23 mutations; referral-specific characterization and concurrency evidence separately cover section winners, replay idempotency, audit cardinality, rollback, lock timeout, and deadlock recovery."
         },
         {
           "id": "owner_validated_assurance_model",
@@ -209,10 +209,10 @@
         {
           "id": "convergence_and_residual_risk",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
-          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind verified obligations, required gates, post-change comprehension, two clean adversarial passes, rollback evidence, and human-accepted medium/low residual risks to one referral candidate commit."
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json", "docs/refactoring/referral-store-assurance-record.json"],
+          "note": "The owner-fast-lane convergence record binds both verified obligations, every required gate, behavior preservation, rollback evidence, zero unresolved critical/high findings, and zero accepted residual risks to candidate 5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad. Independent adversarial and fresh-context passes remain advisory under the owner-authorized fast lane."
         }
       ]
     },
