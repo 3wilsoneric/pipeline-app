@@ -55,6 +55,9 @@ const dobConflicts = sources.slice(0, 5).map((source) => matching.decideMasterId
 }, master));
 check("resident-number matches with conflicting DOB are blocked", dobConflicts.every((decision) =>
   decision.status === "blocked_conflict"), dobConflicts.length);
+check("resident-link creation and confirmation share the DOB conflict rule",
+  matching.identityDatesConflict("1999-12-31", "1980-01-01")
+    && !matching.identityDatesConflict("1980-01-01", "1980-01-01"), 2);
 
 const missingDob = matching.decideMasterIdentityMatch({ ...sources[0], date_of_birth: null }, master);
 check("missing DOB requires review instead of a silent join", missingDob.status === "human_review", 1);

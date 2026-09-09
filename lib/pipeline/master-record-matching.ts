@@ -43,11 +43,40 @@ export type CensusTruth = {
   as_of: string;
 };
 
+export type GovernedIdentityConflict =
+  | "community_conflict"
+  | "resident_number_conflict"
+  | "date_of_birth_conflict";
+
+type IdentityEvidence = {
+  community_id: string;
+  resident_number?: string | null;
+  resident_id?: string | null;
+  date_of_birth?: string | null;
+};
+
+export function findGovernedIdentityConflict(
+  pipeline: IdentityEvidence,
+  governed: IdentityEvidence,
+): GovernedIdentityConflict | null {
+  if (pipeline.community_id !== governed.community_id) return "community_conflict";
+  const suppliedResidentNumber = normalizeIdentityResidentNumber(pipeline.resident_number);
+  const governedResidentNumbers = [governed.resident_number, governed.resident_id]
+    .map(normalizeIdentityResidentNumber)
+    .filter(Boolean);
+  if (suppliedResidentNumber && !governedResidentNumbers.includes(suppliedResidentNumber)) {
+    return "resident_number_conflict";
+  }
+  return identityDatesConflict(pipeline.date_of_birth, governed.date_of_birth)
+    ? "date_of_birth_conflict"
+    : null;
+}
+
 export function decideMasterIdentityMatch(
   source: SourceIdentity,
   candidates: readonly MasterIdentity[],
 ): MasterIdentityDecision {
-  const residentNumber = normalizeResidentNumber(source.resident_number);
+  const residentNumber = normalizeIdentityResidentNumber(source.resident_number);
   if (!residentNumber) {
     return {
       status: "human_review",
@@ -57,7 +86,7 @@ export function decideMasterIdentityMatch(
   }
 
   const residentMatches = candidates.filter(
-    (candidate) => normalizeResidentNumber(candidate.resident_number) === residentNumber,
+    (candidate) => normalizeIdentityResidentNumber(candidate.resident_number) === residentNumber,
   );
   if (residentMatches.length === 0) {
     return { status: "no_match", reason: "resident_number_not_found" };
@@ -83,7 +112,7 @@ export function decideMasterIdentityMatch(
       candidate_person_ids: personIds,
     };
   }
-  if (candidateDobs.length !== 1 || candidateDobs[0] !== sourceDob) {
+  if (candidateDobs.length !== 1 || identityDatesConflict(sourceDob, candidateDobs[0])) {
     return {
       status: "blocked_conflict",
       reason: "date_of_birth_conflict",
@@ -148,11 +177,20 @@ function nameAndDobCandidates(source: SourceIdentity, candidates: readonly Maste
     .map((candidate) => candidate.canonical_person_id));
 }
 
-function normalizeResidentNumber(value: string | null) {
+export function normalizeIdentityResidentNumber(value: string | null | undefined) {
   return String(value ?? "").trim().toUpperCase().replace(/\s+/g, "") || null;
 }
 
-function normalizeDate(value: string | null) {
+export function identityDatesConflict(
+  sourceDateOfBirth: string | null | undefined,
+  governedDateOfBirth: string | null | undefined,
+) {
+  const source = normalizeDate(sourceDateOfBirth);
+  const governed = normalizeDate(governedDateOfBirth);
+  return Boolean(source && governed && source !== governed);
+}
+
+function normalizeDate(value: string | null | undefined) {
   const normalized = String(value ?? "").trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
 }

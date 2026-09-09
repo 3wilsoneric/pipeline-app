@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:7a7c4a8d04bcdfcf",
-  "fingerprint": "7a7c4a8d04bcdfcfd23f6560f10bbcafc0a46f6db7b313ba5cc772da646db70c",
+  "generatedAt": "source-fingerprint:549d60f6eb7785b4",
+  "fingerprint": "549d60f6eb7785b405652d38345fb3f5a1ab80e98d2751191404030d0b2505a0",
   "totals": {
-    "files": 879,
-    "lines": 290513,
-    "coveredFiles": 879
+    "files": 882,
+    "lines": 291751,
+    "coveredFiles": 882
   },
   "entries": [
     {
@@ -1358,7 +1358,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 95,
+      "lines": 175,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -1370,7 +1370,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 162,
+      "lines": 170,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -1783,7 +1783,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1416,
+      "lines": 1542,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2107,7 +2107,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3744,
+      "lines": 3814,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -4035,6 +4035,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/referral-canvas-audit-run-5e015d2.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 112,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
       "subsystem": "Documentation",
       "kind": "configuration",
@@ -4481,6 +4493,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/REFERRAL_CANVAS_TECHNICAL_TRACE_AGENT_PREWORK.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 189,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -4511,6 +4535,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 169,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/referral-canvas-file-audit-agent-prework.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 200,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4705,7 +4741,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1795,
+      "lines": 1800,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4741,7 +4777,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7529,
+      "lines": 7531,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4801,7 +4837,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10730,
+      "lines": 10767,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5680,7 +5716,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 430,
+      "lines": 451,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -5732,7 +5768,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 646,
+      "lines": 665,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -5758,7 +5794,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 272,
+      "lines": 383,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -5823,7 +5859,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 507,
+      "lines": 509,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -6609,7 +6645,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 172,
+      "lines": 210,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -7489,7 +7525,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 110,
+      "lines": 115,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -8593,7 +8629,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 231,
+      "lines": 261,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9169,7 +9205,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 87,
+      "lines": 90,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -10371,7 +10407,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 3376,
+      "lines": 3556,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

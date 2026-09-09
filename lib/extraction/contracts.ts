@@ -158,6 +158,27 @@ export type ReviewFieldResponse = {
   audit_event?: FieldAuditEvent;
 };
 
+export function resolveReviewFieldOutcome(
+  proposedValue: string | null | undefined,
+  input: Pick<ReviewFieldRequest, "action" | "value">,
+): Pick<ReviewFieldResponse, "review_status" | "final_value"> {
+  if (input.action === "reject") return { review_status: "rejected", final_value: null };
+  if (input.action === "edit") {
+    return { review_status: "edited", final_value: input.value?.trim() ?? proposedValue ?? null };
+  }
+  return { review_status: "accepted", final_value: proposedValue ?? null };
+}
+
+export function isReviewFieldReplay(
+  current: Pick<ExtractedField, "version" | "review_status" | "proposed_value" | "final_value">,
+  input: ReviewFieldRequest,
+) {
+  if (current.version !== input.if_match + 1) return false;
+  const intended = resolveReviewFieldOutcome(current.proposed_value, input);
+  return current.review_status === intended.review_status
+    && (current.final_value ?? null) === intended.final_value;
+}
+
 export type RetryFieldRequest = {
   reviewer_id?: string;
   force_claude?: boolean;
