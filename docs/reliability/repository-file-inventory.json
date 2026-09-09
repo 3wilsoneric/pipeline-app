@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T16:15:30.548Z",
+  "generated_at": "2026-09-09T16:16:25.429Z",
   "audit_date": "2026-09-09",
-  "git_head": "21f46d9c33c7da28769ad9e775509a2058092c30",
+  "git_head": "a1debf7c0093fda275661d92aa0d6c986fec3f3b",
   "files": [
     {
       "path": ".dockerignore",
@@ -4669,7 +4669,7 @@
     },
     {
       "path": "docs/refactoring/test-suite-structure-file-audit.json",
-      "content_sha256": "4bf559f5e9bb8bbae0ad656f09beb1cdbd0cc98e7bf6ef5c0d5afb1d64378340",
+      "content_sha256": "6c223e854524c86eb6cb2444157b4ac9769c1e726f6d06b2e9519ed01143de33",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 18106,
@@ -4713,7 +4713,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "06cd73e07f8bed8318109c3ccc5acccb79a72919a44e2a6d85591c23f3516899",
+      "content_sha256": "4c20ae8a687c6954c72431c2e6d85e3c4cb170f3e120a9f0b0c16727ac25b6da",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 386347,
@@ -4741,7 +4741,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "f990d9f682c34d45f4f34befc8dd4d39fa54f9c96f70f2013e02ea193567c0fc",
+      "content_sha256": "60be2890463d3f5530aa01feafaf62e7428595ee493bcb8db748894519896af5",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 218283,
@@ -4800,7 +4800,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "635946b9a19b0a665aa379499030d33fcf8663e67b46039e380c09689b210913",
+      "content_sha256": "2ff6b9a756e926c61d20226f1b9904b0f4a5cc5a5e039e2cb4351df6f8b5e437",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 541492,

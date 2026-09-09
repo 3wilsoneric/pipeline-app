@@ -224,7 +224,7 @@
       "failureBehavior": "Stale topology blocks Academy certification.",
       "tests": ["npm run academy:check"],
       "staticPrompts": [
-        {"prompt": "Large module (10802 lines): split by behavior before adding more responsibilities.", "disposition": "expected", "reason": "This is a deterministic generated repository atlas, not an authored runtime or test module.", "owner": "Eric"}
+        {"prompt": "Large module (10838 lines): split by behavior before adding more responsibilities.", "disposition": "expected", "reason": "This is a deterministic generated repository atlas, not an authored runtime or test module.", "owner": "Eric"}
       ],
       "decision": "keep",
       "decisionReason": "Refresh generated inventory only."
