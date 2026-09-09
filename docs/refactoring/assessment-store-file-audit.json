@@ -151,6 +151,28 @@
       "decisionReason": "The authorization boundary is already cohesive and is held constant by this iteration."
     },
     {
+      "path": "public/templates/pipeline-assessment-workbook.xlsx",
+      "plannedNew": false,
+      "dependencyDirection": "The downloadable workbook mirrors canonical assessment field keys and fixed source-cell mappings; import tooling and operators consume it, while application schema remains authoritative.",
+      "purpose": "Provides the offline assessment questionnaire and deterministic Pipeline_Data import mapping for the canonical assessment schema.",
+      "callers": [
+        "Assessment workbook download and import workflows",
+        "scripts/assessment-workbook-contracts.mjs"
+      ],
+      "publicExports": [],
+      "sideEffects": [
+        "Operators may enter PHI locally before uploading the workbook through the governed assessment import surface"
+      ],
+      "failureBehavior": "Missing or duplicated field keys, stale fixed-cell references, or broken formulas fail the workbook contract and could omit assessment answers during import; the schema-current workbook must not ship until the contract passes.",
+      "tests": [
+        "npm run check:assessment-workbook",
+        "Artifact Tool range inspection, formula-error scan, and rendered visual comparison"
+      ],
+      "staticPrompts": [],
+      "decision": "replace",
+      "decisionReason": "Refresh the existing generated workbook in place to add only the two canonical continence fields and update their directly dependent counts and formulas."
+    },
+    {
       "path": "docs/refactoring/ASSESSMENT_STORE_ARCHITECTURE_NARRATIVE.md",
       "plannedNew": true,
       "dependencyDirection": "Governance documentation may cite approved repository evidence and controls but has no runtime dependents.",

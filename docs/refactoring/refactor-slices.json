@@ -77,6 +77,7 @@
         "package.json",
         "scripts/assessment-store-characterization.mjs",
         "tests/e2e/operational/assessment-store-characterization.spec.ts",
+        "public/templates/pipeline-assessment-workbook.xlsx",
         "lib/academy/academy-atlas.generated.json",
         "docs/academy/academy-registry.json",
         "docs/training/training-registry.json",
