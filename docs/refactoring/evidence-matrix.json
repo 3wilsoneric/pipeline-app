@@ -243,32 +243,33 @@
         {
           "id": "runtime_authorization",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:route-policy", "test:e2e:operational:high"],
-        "files": ["docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md"],
-        "note": "Static route coverage exists; add executed assessor, supervisor, wrong-resource, and worker denial cases."
+        "files": ["docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md", "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json"],
+        "note": "At exact candidate dab27df822b87df466331407c1415bb81ea84109, route-policy checks and the high-assurance operational suite passed assessor, supervisor, viewer, outsider, reviewer, and internal-worker boundaries. The matched adapter characterization also proved viewer and wrong-resource mutation denials leave assessment, referral workflow, and audit state unchanged."
         },
         {
           "id": "performance_and_query_budget",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["database:query-plans", "database:concurrency", "check:performance"],
         "files": ["docs/PERFORMANCE_BASELINE_2026-08-20.md"],
-        "note": "The platform baseline exists; rerun the store profile against the approved slice and review query-plan deltas."
+        "note": "At exact candidate dab27df822b87df466331407c1415bb81ea84109, two compiled McMaster runs passed every Core Web Vital, transfer, useful-content, warm-navigation, guide-interaction, and API latency budget. PostgreSQL query-plan checks selected every required index, the 24-actor concurrency suite passed, and 25,000 synthetic referrals at concurrency 16 produced 14.82ms p95 against the 250ms budget with no residue."
         },
         {
           "id": "signed_history_compatibility",
           "phase": "before_complete",
-          "status": "missing",
-          "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md"],
-          "note": "Prove new code reads historical drafts, signatures, field evidence, and addenda without rewriting them."
+          "status": "satisfied",
+          "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md", "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json"],
+          "note": "Candidate-bound assessor workflow and critical-safety fixtures preserve legacy completed assessments as ready to sign. The matched adapter characterization reads and mutates historical drafts, retained extraction provenance/review, signatures, and append-only addenda without rewriting signed content; the workbook contract also preserves all 157 canonical field keys."
         },
         {
           "id": "expanded_mutation_sample",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["certify:seeded-defects"],
-          "note": "Add mutants for signer attribution, immutable signatures, provenance loss, and reassignment credit."
+          "files": ["scripts/critical-safety-contracts.mjs", "scripts/seeded-defect-certification.mjs", "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json"],
+          "note": "The candidate killed all 27 seeded defects, including four assessment lifecycle mutants for signed projection, legacy completion, cancellation recovery, and provenance review. Exact adapter characterization separately exercises signer attribution, immutable signed content, append-only addenda, field evidence, schedule override, and wrong-resource denial."
         },
         {
           "id": "owner_validated_assurance_model",
@@ -287,10 +288,10 @@
         {
           "id": "convergence_and_residual_risk",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
-          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind verified obligations, historical compatibility, required gates, post-change comprehension, adversarial review, recovery, and accepted residual risks to one assessment candidate commit."
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/assessment-store-assurance-record.json", "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json"],
+          "note": "The completed owner-fast-lane assurance record binds both verified obligations, required gates, exact pre/post matched characterization, historical compatibility, zero unresolved critical/high findings, and rollback evidence to candidate dab27df822b87df466331407c1415bb81ea84109. Standard-lane independent adversarial and fresh-context comprehension passes are advisory under the recorded owner-fast-lane authorization."
         }
       ]
     },

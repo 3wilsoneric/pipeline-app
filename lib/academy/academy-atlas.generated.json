@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:15411a80188707ba",
-  "fingerprint": "15411a80188707ba07261bc7635362ce1c7573a43e5ca9f2eb295ae1ec2d8ce7",
+  "generatedAt": "source-fingerprint:2b6846ce4baa8f16",
+  "fingerprint": "2b6846ce4baa8f168a8a2da348cbad6e028691abac32c666869bd9fd5345784b",
   "totals": {
-    "files": 869,
-    "lines": 288599,
-    "coveredFiles": 869
+    "files": 870,
+    "lines": 288789,
+    "coveredFiles": 870
   },
   "entries": [
     {
@@ -3920,7 +3920,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "critical",
-      "lines": 59,
+      "lines": 172,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -3932,7 +3932,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "critical",
-      "lines": 463,
+      "lines": 482,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -3976,6 +3976,18 @@
     },
     {
       "path": "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "critical",
+      "lines": 43,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json",
       "subsystem": "Documentation",
       "kind": "configuration",
       "runtime": "documentation",
@@ -4198,7 +4210,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 555,
+      "lines": 556,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4426,7 +4438,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 231,
+      "lines": 232,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4621,7 +4633,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1784,
+      "lines": 1785,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4657,7 +4669,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7520,
+      "lines": 7521,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4717,7 +4729,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10617,
+      "lines": 10628,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"

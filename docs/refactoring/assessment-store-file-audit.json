@@ -393,6 +393,25 @@
       "decisionReason": "The exact-start adapter evidence is the behavior-preservation baseline for the iteration."
     },
     {
+      "path": "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json",
+      "plannedNew": true,
+      "dependencyDirection": "Committed synthetic machine evidence depends on the exact test digest and candidate commit and has no runtime dependents.",
+      "purpose": "Records the matched local-file and PostgreSQL assessment lifecycle characterization at the exact runtime candidate.",
+      "callers": [
+        "TARS completion review and assessment-store assurance record"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing, failing, or mismatched adapter evidence blocks completion without changing application behavior.",
+      "tests": [
+        "npm run check:assessment-store-characterization",
+        "npm run check:refactor-assurance"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The exact-candidate adapter evidence closes the behavior-preservation comparison against the exact-start baseline."
+    },
+    {
       "path": "lib/academy/academy-atlas.generated.json",
       "plannedNew": false,
       "dependencyDirection": "Generated Academy inventory records repository topology for training and has no runtime dependency on assessment persistence.",
@@ -410,7 +429,7 @@
       ],
       "staticPrompts": [
         {
-          "prompt": "Large module (10514 lines): split by behavior before adding more responsibilities.",
+          "prompt": "Large module (10526 lines): split by behavior before adding more responsibilities.",
           "disposition": "expected",
           "reason": "This is a deterministic generated repository atlas, not an authored runtime module; generation remains owned by scripts/academy-atlas.mjs.",
           "owner": "Eric",

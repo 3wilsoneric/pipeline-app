@@ -61,7 +61,7 @@
     {
       "id": "assessment-store-boundaries",
       "priority": 2,
-      "status": "in_progress",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "lib/assessment/assessment-store.ts",
@@ -88,7 +88,8 @@
         "docs/refactoring/assessment-store-assurance-record.json",
         "docs/refactoring/ASSESSMENT_STORE_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/assessment-store-file-audit.json",
-        "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json"
+        "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json",
+        "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json"
       ],
       "architectureNarrative": "docs/refactoring/ASSESSMENT_STORE_ARCHITECTURE_NARRATIVE.md",
       "fileAuditDisposition": "docs/refactoring/assessment-store-file-audit.json",

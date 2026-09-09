@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T03:11:31.200Z",
+  "generated_at": "2026-09-09T03:23:48.253Z",
   "audit_date": "2026-09-09",
-  "git_head": "6024abc1e8e7e35cc83aa9394a84762909b7eedd",
+  "git_head": "1f2f4ee5183be0cac93dffe4d947d70316dfb466",
   "direct": [
     {
       "name": "@azure/identity",
@@ -733,6 +733,7 @@
         "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
         "docs/refactoring/assessment-store-file-audit.json",
         "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json",
+        "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json",
         "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
