@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:88eca5f6871b4480",
-  "fingerprint": "88eca5f6871b44807f232143990244a69b87503d78cae4aa9ac11c0562b31754",
+  "generatedAt": "source-fingerprint:ca2587958dc565b9",
+  "fingerprint": "ca2587958dc565b9b88e2ffa28aed6fcd75cfdd9ccdd6fd1151dd4efeef9882b",
   "totals": {
-    "files": 882,
-    "lines": 291800,
-    "coveredFiles": 882
+    "files": 889,
+    "lines": 292422,
+    "coveredFiles": 889
   },
   "entries": [
     {
@@ -1706,6 +1706,18 @@
       ]
     },
     {
+      "path": "components/pipeline/assessment-workspace-state.ts",
+      "subsystem": "Pipeline UI",
+      "kind": "typescript-module",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 220,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "components/pipeline/AssessmentChartWorkspace.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -1723,7 +1735,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 2136,
+      "lines": 1951,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -1751,6 +1763,18 @@
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "components/pipeline/ClientIdentityReview.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 296,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
       ]
     },
     {
@@ -1783,7 +1807,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1542,
+      "lines": 1268,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2042,6 +2066,18 @@
       ]
     },
     {
+      "path": "components/pipeline/referral-canvas-save-state.ts",
+      "subsystem": "Pipeline UI",
+      "kind": "typescript-module",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 117,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/ReferralActivityPanel.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2107,7 +2143,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3814,
+      "lines": 3712,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -4047,6 +4083,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/referral-canvas-machine-run-eafa505.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 28,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
       "subsystem": "Documentation",
       "kind": "configuration",
@@ -4258,7 +4306,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 562,
+      "lines": 574,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4486,7 +4534,19 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 267,
+      "lines": 295,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_CANVAS_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 95,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4541,12 +4601,36 @@
       ]
     },
     {
+      "path": "docs/refactoring/referral-canvas-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 47,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/referral-canvas-file-audit-agent-prework.json",
       "subsystem": "Documentation",
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
       "lines": 200,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/referral-canvas-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 252,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4741,7 +4825,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1800,
+      "lines": 1807,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4777,7 +4861,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7531,
+      "lines": 7535,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4837,7 +4921,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10767,
+      "lines": 10844,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"

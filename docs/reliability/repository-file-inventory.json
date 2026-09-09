@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T15:21:00.307Z",
+  "generated_at": "2026-09-09T15:23:36.779Z",
   "audit_date": "2026-09-09",
-  "git_head": "eafa505265a02f6def87c7ea8dd036284ceafecd",
+  "git_head": "587f4122cb2cfd8e1a335b565c36e5bd202de306",
   "files": [
     {
       "path": ".dockerignore",
@@ -3858,7 +3858,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "6794d0760499e53119d3f204a004ec46a001fae92c1ddc14331627c6d002f6a2",
+      "content_sha256": "314b817a75b7ed48bbd233595502c9c91ba4a16deb9dd67626a3654871d10355",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4546,11 +4546,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "e8639685f5caf1a99195dce0268e2b9e45b2aa597ae2c70421c05a9310758ef6",
+      "content_sha256": "002e6d2ce14df2299213ba077e59c3b1c1f6ae20e8af9ecae1c4c74d64d0a0ca",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 12994,
-      "lines": 292,
+      "bytes": 13140,
+      "lines": 295,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4581,11 +4581,11 @@
     },
     {
       "path": "docs/refactoring/referral-canvas-file-audit.json",
-      "content_sha256": "a08e92288d30ddc9b07c8a580ad57a9d2689bb8865929a22b2e0a7a7eef90dbe",
+      "content_sha256": "971f44a7872f1247f48583d6c1b859b806811739dd28cca6be75c391c3d5eaf5",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 12475,
-      "lines": 203,
+      "bytes": 15125,
+      "lines": 252,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4669,7 +4669,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "c82f665e9ff77e15bfceeb9a2338c673b6caa7084a0d42104c8e878c17de8eb2",
+      "content_sha256": "096019153fd52a6dd13ff9bf255a765df8ea1e2c8792d8db5878e3789b09de8c",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 383997,
@@ -4697,7 +4697,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "b1a8a5db644231ba2b41d961ecb955c7c5038049184602e5a7b5f6229d975664",
+      "content_sha256": "1fa2ee1d039e282d285763e259ca2cc93504ce75e59698bedbe1fd30c3b657ca",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 218118,
@@ -4756,7 +4756,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "2f63ec241179c8d41156298f1ecc182f129bd048d69ecad87efd85efc000d7bc",
+      "content_sha256": "8119f36e91daa34c9db5f6f34305b8405d85c549f05ddd41a8b7b2078de6a99e",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 537456,
@@ -4822,7 +4822,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "093ed5b5ba18bea1fd0c0cef9f370b2fd82ed3f4c51f46620642843d6f7c4996",
+      "content_sha256": "0ed662bf3b42d8bf59da76b8fbb41477976cdd884cc4a520aaf65db5e0d816d5",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -4951,15 +4951,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "1d4390f4889877b4a978eaf3659dac376eaa6210c964de0a4b602e248658322b",
+      "content_sha256": "b5a0fed7694b50d7fca0f93458087504b23eee6252bb96245d847010d1e1df4d",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 272938,
-      "lines": 10670,
+      "bytes": 275180,
+      "lines": 10754,
       "detected_concerns": [
-        "Large module (10670 lines): split by behavior before adding more responsibilities."
+        "Large module (10754 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (10670 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (10754 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
