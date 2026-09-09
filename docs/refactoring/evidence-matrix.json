@@ -701,6 +701,69 @@
           "note": "The slice changes only client-side module ownership and introduces no schema, migration, stored-data, route, request-shape, provider, or cutover change."
         }
       ]
+    },
+    {
+      "id": "calendar-components",
+      "budgetProfile": "interactive_ui",
+      "items": [
+        {
+          "id": "calendar_interaction_characterization",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["test:e2e", "test:e2e:responsive"],
+          "files": [
+            "docs/refactoring/CALENDAR_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/characterization/calendar-components-machine-run-67a6b06.json"
+          ],
+          "note": "At exact starting commit 67a6b067bc9d3000131a391d6920b03ee765ca0c, the existing Calendar smoke journey and the new focused view/filter/cache/overlay characterization passed. The focused scheduling journey also exposed a deterministic duplicate-assessment retry defect, which Eric authorized this hotspot slice to correct."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/CALENDAR_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/calendar-components-file-audit.json",
+            "docs/refactoring/calendar-components-assurance-record.json"
+          ],
+          "note": "Eric authorized the bounded Calendar hotspot slice through owner_fast_lane on 2026-09-09. The assurance model keeps PipelineCalendar as the sole effectful coordinator, permits only callback presentation and pure derivation owners, and adds one explicit data-integrity correction for conflict override."
+        },
+        {
+          "id": "accessibility_visual_and_cross_browser",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["test:e2e:desktop", "test:e2e:cross-browser", "test:e2e:visual"],
+          "note": "Must pass without updating approved visual baselines."
+        },
+        {
+          "id": "interaction_performance_and_artifacts",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["certify:mcmaster:performance", "check:artifacts"],
+          "note": "Must bind three compiled performance runs and artifact budgets to the candidate."
+        },
+        {
+          "id": "convergence_and_recovery",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/calendar-components-assurance-record.json"],
+          "note": "Must bind focused and full evidence, the duplicate-assessment regression, bounded scope, rollback, and residual risk to the exact candidate."
+        },
+        {
+          "id": "migration_and_cutover",
+          "phase": "before_cutover",
+          "status": "not_applicable",
+          "approvedBy": "Eric",
+          "approvedAt": "2026-09-09T21:48:57Z",
+          "files": ["docs/refactoring/CALENDAR_COMPONENTS_ARCHITECTURE_NARRATIVE.md"],
+          "note": "The slice changes client-side module ownership and conflict-retry assessment reuse only; it introduces no schema, migration, stored-data transformation, route, provider, or environment cutover."
+        }
+      ]
     }
   ]
 }

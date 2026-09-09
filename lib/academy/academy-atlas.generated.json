@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8e813980c488121a",
-  "fingerprint": "8e813980c488121a0e51a58d3dbb27d2709ec82e48af82b717fec4b98cd7cc1e",
+  "generatedAt": "source-fingerprint:7e6e9c7f855814f2",
+  "fingerprint": "7e6e9c7f855814f2834a499dc934d8b434ac6248cda157074dd37f612fc8e8c4",
   "totals": {
-    "files": 908,
-    "lines": 294931,
-    "coveredFiles": 908
+    "files": 915,
+    "lines": 296158,
+    "coveredFiles": 915
   },
   "entries": [
     {
@@ -1934,6 +1934,18 @@
       ]
     },
     {
+      "path": "components/pipeline/pipeline-calendar-model.ts",
+      "subsystem": "Pipeline UI",
+      "kind": "typescript-module",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 381,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/pipeline-shell-context.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -1987,7 +1999,19 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 964,
+      "lines": 416,
+      "moduleIds": [
+        "assessment-calendar-profiles-ui",
+        "read-models-search-operations"
+      ]
+    },
+    {
+      "path": "components/pipeline/PipelineCalendarPresentation.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 382,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -3980,7 +4004,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 180,
+      "lines": 194,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4071,12 +4095,48 @@
       ]
     },
     {
+      "path": "docs/refactoring/CALENDAR_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 58,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/calendar-components-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 60,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/calendar-components-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 228,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/canonical-responsibilities.json",
       "subsystem": "Documentation",
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 315,
+      "lines": 346,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4128,6 +4188,18 @@
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/calendar-components-machine-run-67a6b06.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 43,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
       ]
     },
     {
@@ -4426,7 +4498,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 707,
+      "lines": 770,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4510,7 +4582,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 232,
+      "lines": 254,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4654,7 +4726,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 447,
+      "lines": 506,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5017,7 +5089,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1827,
+      "lines": 1837,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5053,7 +5125,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7551,
+      "lines": 7555,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5113,7 +5185,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 11054,
+      "lines": 11136,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -10687,6 +10759,18 @@
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
+      ]
+    },
+    {
+      "path": "tests/e2e/pipeline-calendar.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 338,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
       ]
     },
     {

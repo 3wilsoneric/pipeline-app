@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "calendar-components",
+  "status": "in_progress",
+  "startingCommit": "67a6b067bc9d3000131a391d6920b03ee765ca0c",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T21:48:57Z",
+    "directive": "yeah go hard at this, it has to work perfect, ask questions etc, but its a real hotspot"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "calendar_presentation_preserves_schedule_and_conflict_safety"
+  ],
+  "preChangeMachineTrace": [
+    "At exact starting commit 67a6b067bc9d3000131a391d6920b03ee765ca0c, the existing Calendar smoke journey passed.",
+    "The focused view, filter, cache-recovery, overlay, and responsive characterization passed at the exact start.",
+    "The focused schedule-conflict characterization exposed duplicate assessment creation on override; the owner authorized correcting this hotspot defect.",
+    "The exact-start baseline records PipelineCalendar.tsx at 964 lines, complexity 442, six dependencies, and branch depth four."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Month, week, agenda, filters, team and personal schedule, paging, drawers, and responsive behavior keep their current click paths and presentation.",
+      "PipelineCalendar remains the sole owner of requests, polling, cache and recovery state, overlays, scheduling mutations, and appointment-status mutations.",
+      "Conflict override reuses the assessment resolved or created by the original attempt and cannot create a duplicate assessment.",
+      "Extracted presentation and pure-model modules do not become parallel network, persistence, authorization, timer, or canonical-state owners.",
+      "No route, role policy, schema, migration, stored-data, audit, or extraction behavior changes."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/calendar-components-machine-run-67a6b06.json"
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": null,
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": null,
+    "allObligationsVerified": false,
+    "requiredGatesPassed": false,
+    "behaviorPreserved": false,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": false,
+    "noUnresolvedCriticalOrHigh": false,
+    "acceptedBy": null,
+    "acceptedAt": null,
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T21:48:57Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}

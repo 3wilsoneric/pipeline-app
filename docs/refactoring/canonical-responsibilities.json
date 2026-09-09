@@ -309,6 +309,37 @@
       ],
       "verificationGates": ["test:e2e", "test:e2e:cross-browser", "test:e2e:visual", "test:e2e:operational:high"],
       "humanValidated": false
+    },
+    {
+      "id": "calendar_interaction_coordination",
+      "title": "Calendar queries, schedule mutations, recovery state, and presentation",
+      "sliceIds": ["calendar-components"],
+      "ownershipKind": "ui_shell_boundary",
+    "canonicalOwnerPaths": [
+      "components/pipeline/PipelineCalendar.tsx",
+      "components/pipeline/PipelineCalendarPresentation.tsx",
+      "components/pipeline/pipeline-calendar-model.ts"
+    ],
+      "allowedRepresentations": [
+        "server-confirmed calendar snapshot",
+        "request-keyed last-good cache",
+        "schedule mutation draft",
+        "callback-driven calendar presentation",
+        "pure date, filter, conflict, and drawer derivation"
+      ],
+      "invariants": [
+        "PipelineCalendar remains the only request, polling, cache, recovery, overlay, and mutation owner.",
+        "A conflict override reuses the assessment from the original scheduling attempt.",
+        "Presentation and model modules cannot fetch, persist, authorize, create timers, or create canonical state.",
+        "Calendar accessibility, Pacific-time conversion, responsive behavior, and last-good-snapshot recovery remain stable."
+      ],
+      "forbiddenParallelOwners": [
+        "Presentation components issuing calendar or assessment requests",
+        "Retrying a schedule conflict by creating a second assessment",
+        "Multiple unsynchronized owners of filters, cache, overlays, or mutation state"
+      ],
+      "verificationGates": ["test:e2e", "test:e2e:cross-browser", "test:e2e:visual", "test:e2e:operational:high"],
+      "humanValidated": false
     }
   ]
 }
