@@ -17,8 +17,6 @@ import {
   encodeKeysetCursor,
   isAfterDescendingCursor,
 } from "@/lib/pipeline/keyset-cursor";
-import type { ReferralWorkflowStatus } from "@/lib/pipeline/referral-types";
-
 import {
   assessmentToolFieldDefinitions,
   assignAssessmentToolValue,
@@ -33,7 +31,11 @@ import {
   type AssessmentToolFieldKey,
   type UnmappedAssessmentField,
 } from "./assessment-tool-schema";
-import { getAssessmentCompletionSummary } from "./assessment-completion";
+import {
+  getAssessmentCompletionBlockers,
+  getPendingAssessmentFields,
+  getReferralWorkflowStatusAfterAssessment,
+} from "./assessment-lifecycle-validation";
 import {
   preserveCanonicalClientId,
   type AssessmentCompletionReport,
@@ -500,7 +502,7 @@ async function createLocalAssessment(
       unmapped_fields: input.unmapped_fields ?? [],
       audit_events: [createAuditEvent(assessmentId, input.referral_id, "assessment_created", actor, [])],
     };
-    const blockers = completionBlockers(assessment);
+    const blockers = getAssessmentCompletionBlockers(assessment);
     if (status === "complete" && blockers.length > 0) {
       return { ok: false, blocked: true, assessment, blockers };
     }
@@ -539,7 +541,7 @@ async function patchLocalAssessment(
     assertPatchMatchesSection(patch, options.section);
     const prepared = prepareAssessmentPatch(current, patch, actor);
     const candidate = prepared.candidate;
-    const blockers = completionBlockers(candidate);
+    const blockers = getAssessmentCompletionBlockers(candidate);
     if (candidate.status === "complete" && blockers.length > 0) {
       return { ok: false, blocked: true, assessment: current, blockers };
     }
@@ -933,7 +935,7 @@ async function createPostgresAssessment(
     unmapped_fields: input.unmapped_fields ?? [],
     audit_events: [],
   };
-  const blockers = completionBlockers(assessment);
+  const blockers = getAssessmentCompletionBlockers(assessment);
   if (status === "complete" && blockers.length > 0) {
     return { ok: false, blocked: true, assessment, blockers };
   }
@@ -991,7 +993,7 @@ async function patchPostgresAssessment(
       if (!referralRows[0]) throw new Error("The assessment referral no longer exists.");
     }
     const candidate = prepared.candidate;
-    const blockers = completionBlockers(candidate);
+    const blockers = getAssessmentCompletionBlockers(candidate);
     if (candidate.status === "complete" && blockers.length > 0) {
       return { ok: false, blocked: true, assessment: current, blockers };
     }
@@ -1133,7 +1135,7 @@ function prepareAssessmentPatch(
     patch.review_extraction ?? [],
   );
   const reviewedFields = Array.from(new Set([...acceptedFields, ...individuallyReviewedFields]));
-  const noPendingEvidence = pendingFields(fieldProvenance).length === 0;
+  const noPendingEvidence = getPendingAssessmentFields(fieldProvenance).length === 0;
   const nextStatus = patch.signer ? "complete" : patch.status ?? (
     (patch.accept_pending || individuallyReviewedFields.length > 0)
       && current.status === "needs_review"
@@ -1346,7 +1348,7 @@ async function syncLocalReferralWorkflow(
   const referral = await loadLocalAssessmentReferral(assessment.referral_id);
   if (!referral) throw new Error("The assessment referral no longer exists.");
   const { patchReferral } = await import("@/lib/pipeline/referral-store");
-  const workflowStatus = workflowStatusAfterAssessment(assessment, action);
+  const workflowStatus = getReferralWorkflowStatusAfterAssessment(assessment, action);
   if (referral.workflowStatus === workflowStatus) return;
   const result = await patchReferral(
     referral.id,
@@ -1367,7 +1369,7 @@ async function syncPostgresReferralWorkflow(
   actor: AssessmentActor,
   action: AssessmentAuditAction,
 ) {
-  const workflowStatus = workflowStatusAfterAssessment(assessment, action);
+  const workflowStatus = getReferralWorkflowStatusAfterAssessment(assessment, action);
   const rows = await tx<{ version: number; workflow_status: string }[]>`
     update pipeline.referrals
     set workflow_status = ${workflowStatus},
@@ -1402,25 +1404,6 @@ async function syncPostgresReferralWorkflow(
     set revision = revision + 1, updated_at = now()
     where store_name in ('referrals', 'workflow')
   `;
-}
-
-function workflowStatusAfterAssessment(
-  assessment: PipelineAssessmentRecord,
-  action: AssessmentAuditAction,
-): ReferralWorkflowStatus {
-  if (assessment.signed_at) return "assessment_signed";
-  if (action === "assessment_cancelled" || action === "assessment_no_show") return "ready_to_schedule";
-  // Completed legacy records predate explicit start/sign events. Keep their
-  // clinical content ready for review without inventing either timestamp.
-  if (assessment.status === "complete") return "assessment_ready_to_sign";
-  if (!assessment.started_at) {
-    if (assessment.schedule_status === "scheduled" || assessment.schedule_status === "rescheduled") {
-      return "assessment_scheduled";
-    }
-    return "ready_to_schedule";
-  }
-  if (completionBlockers(assessment).length === 0) return "assessment_ready_to_sign";
-  return "assessment_in_progress";
 }
 
 async function importPostgresAssessmentExtraction(input: AssessmentImportInput): Promise<AssessmentMutation | null> {
@@ -1973,40 +1956,6 @@ function mergeImportedData(
     if (hasValue(incoming[contextKey])) assignValue(data, contextKey, incoming[contextKey]);
   }
   return { data, fieldProvenance, unmappedFields };
-}
-
-function completionBlockers(assessment: PipelineAssessmentRecord) {
-  const blockers: { code: string; label: string; fields?: AssessmentToolFieldKey[] }[] = [];
-  if (!assessment.assessor_id || !assessment.assessor?.trim()) {
-    blockers.push({
-      code: "assessment_assessor_required",
-      label: "Assign an active staff member before completing this assessment.",
-      fields: ["assessor"],
-    });
-  }
-  const completeness = getAssessmentCompletionSummary(assessment);
-  if (completeness.missing.length > 0) {
-    blockers.push({
-      code: "assessment_data_incomplete",
-      label: "Complete the required identity and core clinical assessment sections before finishing.",
-      fields: [...new Set(completeness.missing.flatMap((rule) => rule.fields))],
-    });
-  }
-  const pending = pendingFields(assessment.field_provenance);
-  if (pending.length > 0) {
-    blockers.push({
-      code: "assessment_extraction_unreviewed",
-      label: "Confirm or correct the imported assessment values before finishing.",
-      fields: pending,
-    });
-  }
-  return blockers;
-}
-
-function pendingFields(provenance: PipelineAssessmentRecord["field_provenance"]) {
-  return assessmentToolFieldDefinitions
-    .filter((definition) => provenance[definition.key]?.at(-1)?.review_status === "pending")
-    .map((definition) => definition.key);
 }
 
 function normalizeAssessmentRecord(value: PipelineAssessmentRecord): PipelineAssessmentRecord {

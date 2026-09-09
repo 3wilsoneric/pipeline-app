@@ -1,0 +1,42 @@
+{
+  "ok": true,
+  "profile": "assessment_store_characterization",
+  "captured_at": "2026-09-09T02:29:24.440Z",
+  "captured_from_commit": "14ed5cae392037df5f41c7aa2ad7a9ddb0f3be54",
+  "test_path": "tests/e2e/operational/assessment-store-characterization.spec.ts",
+  "test_digest": "49feacfca3f426d09d5104976b7c02d5f9b53373ed8f2abbc79809bfd0bfab1c",
+  "fixture_classification": "synthetic",
+  "postgres_major": 16,
+  "adapters": [
+    {
+      "adapter": "local_file",
+      "ok": true,
+      "duration_ms": 2349,
+      "tests": {
+        "expected": 6,
+        "unexpected": 0,
+        "flaky": 0,
+        "skipped": 0
+      },
+      "error": null
+    },
+    {
+      "adapter": "postgres",
+      "ok": true,
+      "duration_ms": 2820,
+      "tests": {
+        "expected": 6,
+        "unexpected": 0,
+        "flaky": 0,
+        "skipped": 0
+      },
+      "error": null
+    }
+  ],
+  "normalized_nondeterminism": [
+    "Store-generated referral, assessment, audit, and addendum identifiers are asserted within an adapter, not compared across adapters.",
+    "Storage timestamps are checked for lifecycle ordering and immutability, not equality across adapters."
+  ],
+  "failure": null,
+  "duration_ms": 19604
+}

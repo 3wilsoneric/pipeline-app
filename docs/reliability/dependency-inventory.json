@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T00:13:22.684Z",
+  "generated_at": "2026-09-09T03:23:48.253Z",
   "audit_date": "2026-09-09",
-  "git_head": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
+  "git_head": "1f2f4ee5183be0cac93dffe4d947d70316dfb466",
   "direct": [
     {
       "name": "@azure/identity",
@@ -138,6 +138,7 @@
         "tests/e2e/note-lab-access.spec.ts",
         "tests/e2e/note-lab-navigation.spec.ts",
         "tests/e2e/note-lab-practice.spec.ts",
+        "tests/e2e/operational/assessment-store-characterization.spec.ts",
         "tests/e2e/operational/concurrent-referral-edits.scaffold.spec.ts",
         "tests/e2e/operational/golden-thread.spec.ts",
         "tests/e2e/operational/high-traffic-capacity.scaffold.spec.ts",
@@ -520,9 +521,11 @@
         "docs/refactoring/COMPATIBILITY_MATRIX.md",
         "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
         "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
+        "docs/refactoring/assessment-store-file-audit.json",
         "docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json",
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/code-quality-policy.json",
+        "docs/refactoring/evidence-matrix.json",
         "docs/refactoring/refactor-eval-scenarios.json",
         "docs/refactoring/referral-store-file-audit-agent-prework.json",
         "docs/refactoring/referral-store-file-audit.json",
@@ -728,6 +731,9 @@
         "docs/refactoring/ENGINEERING_RESEARCH_BASIS.md",
         "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md",
         "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
+        "docs/refactoring/assessment-store-file-audit.json",
+        "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json",
+        "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json",
         "docs/refactoring/characterization/referral-assessment-handoff-run-080e5f9c.json",
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
@@ -775,6 +781,7 @@
         "scripts/alerting-readiness.mjs",
         "scripts/api-behavior-fixtures.mjs",
         "scripts/apply-database-migrations.mjs",
+        "scripts/assessment-store-characterization.mjs",
         "scripts/audit-material-workspaces.mjs",
         "scripts/backfill-allo-admission-evidence.mjs",
         "scripts/bootstrap-azure-foundation.sh",
@@ -7506,8 +7513,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-store-v2/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-store-v2/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-assessment-store/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-assessment-store/node_modules/@img/sharp-wasm32"
     ]
   }
 }

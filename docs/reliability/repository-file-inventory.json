@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T00:13:22.684Z",
+  "generated_at": "2026-09-09T03:23:48.253Z",
   "audit_date": "2026-09-09",
-  "git_head": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
+  "git_head": "1f2f4ee5183be0cac93dffe4d947d70316dfb466",
   "files": [
     {
       "path": ".dockerignore",
@@ -3825,7 +3825,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "97d5de25c606dd0ea6267f87eeb23d963257e1777a959cf29fdf686a3d160df7",
+      "content_sha256": "7c9e89e09473fcfa257995583fdc35c03abb2c11356981d80d5fe77905e47139",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -3863,6 +3863,17 @@
       "risk": "low",
       "bytes": 2162,
       "lines": 93,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/ASSESSMENT_STORE_ARCHITECTURE_NARRATIVE.md",
+      "content_sha256": "ebccb9c73d8a5a97ecb76ec7e0871dcf67ea72f95858089607435962f7bdf767",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 9253,
+      "lines": 103,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4101,6 +4112,30 @@
       "verification": "link/config drift review against executable source"
     },
     {
+      "path": "docs/refactoring/assessment-store-assurance-record.json",
+      "content_sha256": "5d0ce60e2ae13ff820e8a26d91c60cdf63d82e3a9e44ce08b47c928c459f1f8c",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 12661,
+      "lines": 172,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/assessment-store-file-audit.json",
+      "content_sha256": "dfd17754a6c2b7d4c058fa7b7bf9b07a4adbf5ccd6a44bc22261097d4b50a4f7",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 26840,
+      "lines": 482,
+      "detected_concerns": [
+        "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
+      ],
+      "review_focus": "Uses SELECT *; verify response growth, schema coupling, and PHI minimization.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
       "path": "docs/refactoring/canonical-responsibilities.json",
       "content_sha256": "d9e7ac03e5cf61986a3af2c1d6601e69f201cff1d4b92d83836b145c923f19e2",
       "role": "Documentation or runbook",
@@ -4118,6 +4153,28 @@
       "risk": "low",
       "bytes": 1059,
       "lines": 31,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json",
+      "content_sha256": "d627e9c87c46d5257c49b83cdc09fe34038397dca835ef41ed580c192e08a3a1",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 1208,
+      "lines": 43,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json",
+      "content_sha256": "eff879fe98b4e04b17d457696fb670ffc89bb3a671e64b0a61bcab7f4f7da304",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 1207,
+      "lines": 43,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4212,11 +4269,11 @@
     },
     {
       "path": "docs/refactoring/evidence-matrix.json",
-      "content_sha256": "5c65c81cf06757da2b4d53cb95e8d5ff78d6929c55ad3411e5c875894cc923f8",
+      "content_sha256": "12d59c904fbe8bb7974383eb46c509e5c25f2443aa720be88c394fd75dcb40a3",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 31472,
-      "lines": 547,
+      "bytes": 34832,
+      "lines": 556,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4366,22 +4423,22 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "5281843be2775680870e7a8916fe832e433e6b07c4a02d1c9c97bdd3d41ec0b9",
+      "content_sha256": "6b0244cf000a4c8b3026b784085e01850ecf43b5ccbe0782da1e05b95ca69c76",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 7839,
-      "lines": 202,
+      "bytes": 9554,
+      "lines": 232,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
     },
     {
       "path": "docs/refactoring/referral-store-assurance-record.json",
-      "content_sha256": "e4fe6f6320b14ffbeca7ef02121ca74b1953b4b474fc84f064c66916a571440d",
+      "content_sha256": "9e222bfef90084ca29a75d3ba22f98bf884a8301fa9e26227dddc2fcb875a4dd",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 11816,
-      "lines": 174,
+      "bytes": 12934,
+      "lines": 185,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4432,11 +4489,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "190cc08e3d3c2042590af7a1367b97581226f9cfeea63e25582b4b662fa1826e",
+      "content_sha256": "bc128aaf3dd7f7c5a034056a5d00ff84cc81786391f95cb01071d54db4989180",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 374811,
-      "lines": 1776,
+      "bytes": 377425,
+      "lines": 1785,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4460,11 +4517,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "bbf1c57cf36b75425f7c4c91041a8cff3f63b6eb9f6f05e31d68b7f5007687cb",
+      "content_sha256": "6bbb2dce7765ce6d482c55fd6c07ca3daa280933b5838e379398264312a9a0bd",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 216591,
-      "lines": 7514,
+      "bytes": 217088,
+      "lines": 7521,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4519,11 +4576,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "1dc22d74e6b5580c6ff551c284c7c0c619a895c4334d0105963ecc71daea05a0",
+      "content_sha256": "4a1865fab3ce1f511e1b2903a627c6342dadaacd5eb88d5ec3214c23f66f8311",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 522183,
-      "lines": 10546,
+      "bytes": 526432,
+      "lines": 10628,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4585,7 +4642,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "b7d6d27055e62aba15538c69c915c068542414066a0d36957abb6a90bdc37c80",
+      "content_sha256": "ecadd1c49b67fd5322f537d360a4e9ff8f1e0b5cf92c2c5f0e9025d3571fbe32",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -4714,15 +4771,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "53950ee8353263190dce727b3907457cb8bc0e96bad99df1b33b0ec6d64098d4",
+      "content_sha256": "f786d1c058ab8bd4a7f4388c9a9e5c83dc07d1c40f7aff0b6ddf34ccbea3a703",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 266631,
-      "lines": 10442,
+      "bytes": 268989,
+      "lines": 10526,
       "detected_concerns": [
-        "Large module (10442 lines): split by behavior before adding more responsibilities."
+        "Large module (10526 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (10442 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (10526 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -4874,11 +4931,11 @@
     },
     {
       "path": "lib/assessment/assessment-lifecycle-validation.ts",
-      "content_sha256": "292b16c6a90a57c40aec3810144b9ef1121f958348af7e0402f4f99559e2935c",
+      "content_sha256": "23333e03781f4e0dbf2de43e342f86a95ece9c8ada34ec9db92dbce03cbbcaa4",
       "role": "Assessment domain",
       "risk": "medium",
-      "bytes": 6066,
-      "lines": 151,
+      "bytes": 8789,
+      "lines": 225,
       "detected_concerns": [],
       "review_focus": "Check schema evolution, list-vs-string fields, resident/date identity, required-field gates, edit versions, and repeated-assessment history.",
       "verification": "check:platform:fast and owning feature test"
@@ -4940,18 +4997,18 @@
     },
     {
       "path": "lib/assessment/assessment-store.ts",
-      "content_sha256": "aab41c5debdf5b7cf3b2ac5b98bacb27f347988adb170d7017cca9a24cb24116",
+      "content_sha256": "cf8741888b5f1ff44983a8fad1fad6a44525da72171d4bcb57373642db3f75cf",
       "role": "Assessment domain",
       "risk": "medium",
-      "bytes": 86167,
-      "lines": 2187,
+      "bytes": 84062,
+      "lines": 2136,
       "detected_concerns": [
-        "Large module (2187 lines): split by behavior before adding more responsibilities.",
+        "Large module (2136 lines): split by behavior before adding more responsibilities.",
         "Contains runtime console logging; verify messages cannot include PHI, tokens, query strings, or upstream bodies.",
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (2187 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (2136 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -6976,11 +7033,11 @@
     },
     {
       "path": "package.json",
-      "content_sha256": "a5ce86ebd87d347d6c92fa21bc2ed884efa72058207ea6e74e9fb54606ecd582",
+      "content_sha256": "f3cc7bdfd015fce23c70e225e5511f7d7fc1eb8afb7b310b5e254b9a5ac42d59",
       "role": "Build, runtime, or repository configuration",
       "risk": "low",
-      "bytes": 17509,
-      "lines": 232,
+      "bytes": 17610,
+      "lines": 233,
       "detected_concerns": [],
       "review_focus": "Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults.",
       "verification": "check:platform:fast and owning feature test"
@@ -7252,10 +7309,10 @@
     },
     {
       "path": "public/templates/pipeline-assessment-workbook.xlsx",
-      "content_sha256": "e7328e7886ab8bedb93021476cd4a464324d5561600b7ba363f985a456e24bfd",
+      "content_sha256": "813d4866a4571745aa666a0b12a097505b3cae8fda6916379a35c3a53d2b9860",
       "role": "Static asset",
       "risk": "low",
-      "bytes": 333996,
+      "bytes": 334319,
       "lines": null,
       "detected_concerns": [],
       "review_focus": "Check unnecessary bytes, stale branding, accessible alternatives, correct dimensions, cache behavior, and license/provenance.",
@@ -7876,6 +7933,20 @@
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
+      "path": "scripts/assessment-store-characterization.mjs",
+      "content_sha256": "d975c36a4e008aa9476b98da29a58fecde3c31d824ac5b2b9d51e42787ad41db",
+      "role": "Operator, verification, or data script",
+      "risk": "low",
+      "bytes": 10026,
+      "lines": 244,
+      "detected_concerns": [
+        "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
+        "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence."
+      ],
+      "review_focus": "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
+      "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
+    },
+    {
       "path": "scripts/assessment-workbook-contracts.mjs",
       "content_sha256": "7196fa962bfc965e77b11791a0459df9a88e6ca0d29235fea8ae5fd0581f06a1",
       "role": "Operator, verification, or data script",
@@ -8364,11 +8435,11 @@
     },
     {
       "path": "scripts/critical-safety-contracts.mjs",
-      "content_sha256": "1792c7e1bf634d05aaf8e72cc121f3d318c97be7db58a419d40ea53912b06e36",
+      "content_sha256": "968caec6a58f5d0347cd0edeb6c887fb327b21133274eba167d0f45291f5ce06",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 8217,
-      "lines": 195,
+      "bytes": 9784,
+      "lines": 231,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -9595,11 +9666,11 @@
     },
     {
       "path": "scripts/seeded-defect-certification.mjs",
-      "content_sha256": "cbfdc50bb96e0b2f001520790e6bc1aba17ee6797452063bd87bd5d4fd3b104d",
+      "content_sha256": "e0b3b8367125ead054e1a0bd3fabdb260091afb8f0eca03c7bab36e5a4678915",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 8722,
-      "lines": 146,
+      "bytes": 9793,
+      "lines": 154,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
         "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence."
@@ -9966,6 +10037,17 @@
       "risk": "low",
       "bytes": 6949,
       "lines": 100,
+      "detected_concerns": [],
+      "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
+      "verification": "run owning Playwright project and review skips/snapshots"
+    },
+    {
+      "path": "tests/e2e/operational/assessment-store-characterization.spec.ts",
+      "content_sha256": "49feacfca3f426d09d5104976b7c02d5f9b53373ed8f2abbc79809bfd0bfab1c",
+      "role": "Browser journey test or snapshot",
+      "risk": "low",
+      "bytes": 20347,
+      "lines": 455,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
       "verification": "run owning Playwright project and review skips/snapshots"

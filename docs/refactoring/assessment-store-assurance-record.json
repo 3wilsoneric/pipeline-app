@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "assessment-store-boundaries",
+  "status": "complete",
+  "startingCommit": "ba76a0c2871c443eb297fe5bfe0a700eda426aa1",
+  "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109",
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T02:20:44Z"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "assessment_signed_immutability",
+    "assessment_authorized_atomic_workflow_sync"
+  ],
+  "preChangeMachineTrace": [
+    "The exact starting commit passed six assessment lifecycle scenarios against the isolated local-file adapter.",
+    "The exact starting commit passed the same six assessment lifecycle scenarios against a disposable PostgreSQL 16 database.",
+    "The characterization covers replay, conflict, authorization, provenance, scheduling, signing, addenda, audit, and referral workflow synchronization.",
+    "TypeScript and focused ESLint checks passed at pre-change evidence commit 14ed5cae392037df5f41c7aa2ad7a9ddb0f3be54.",
+    "Main commit ba76a0c2871c443eb297fe5bfe0a700eda426aa1 passed the complete CI, security, certification, and guarded production deployment gates before the slice branch was created."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Signed assessments remain immutable except through append-only addenda.",
+      "Field provenance and review state survive every persistence boundary.",
+      "Assessor and supervisor permissions remain distinct and fail closed.",
+      "Local and PostgreSQL adapters preserve intended domain parity."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json records 6/6 local-file and 6/6 PostgreSQL 16 scenarios at the implementation-free pre-change evidence commit.",
+      "docs/refactoring/characterization/assessment-store-boundaries-machine-run-dab27df.json records the same 6/6 local-file and 6/6 PostgreSQL 16 scenarios with the unchanged test digest at exact candidate dab27df822b87df466331407c1415bb81ea84109.",
+      "npm run test:e2e:operational:high passed all 14 applicable multi-user, role-boundary, duplicate-review, and capacity scenarios at the candidate; 16 explicitly gated private or focused characterization scenarios were skipped.",
+      "PIPELINE_MCM_RUNS=2 npm run certify:mcmaster:performance passed both compiled-application runs, including guide interactions, navigation, Core Web Vitals, transfer, useful-content, and API budgets."
+    ]
+  },
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "assessment_lifecycle_persistence",
+      "obligationIds": [
+        "assessment_signed_immutability",
+        "assessment_authorized_atomic_workflow_sync"
+      ],
+      "baseCommit": "ba76a0c2871c443eb297fe5bfe0a700eda426aa1",
+      "headCommit": "dab27df822b87df466331407c1415bb81ea84109",
+      "purpose": "Move pure assessment completion, pending-evidence, and referral-workflow projection policy into the existing lifecycle owner, repair the schema-derived workbook drift, and add focused mutation evidence without changing persistence, routes, migrations, or product behavior.",
+      "changedFiles": [
+        "lib/assessment/assessment-store.ts",
+        "lib/assessment/assessment-lifecycle-validation.ts",
+        "public/templates/pipeline-assessment-workbook.xlsx",
+        "scripts/critical-safety-contracts.mjs",
+        "scripts/seeded-defect-certification.mjs"
+      ],
+      "preChangeCharacterization": [
+        "The exact-start evidence passed the same six local-file and PostgreSQL scenarios with test digest 49feacfca3f426d09d5104976b7c02d5f9b53373ed8f2abbc79809bfd0bfab1c."
+      ],
+      "focusedEvidence": [
+        "The exact candidate passed the same six scenarios on both adapters with the unchanged test digest.",
+        "The workbook contract covers all 157 canonical assessment fields and passed formula, validation, mapping, and rendered-layout inspection.",
+        "The candidate killed all 27 seeded defects, including four assessment lifecycle mutations.",
+        "The candidate passed the complete refactor, database, performance, authorization, API, assessor workflow, and operational browser gates."
+      ],
+      "baselineDelta": {
+        "before": "The assessment store contained 2,187 lines, complexity 589, fan-in 22, and 8 direct dependencies.",
+        "after": "At candidate dab27df822b87df466331407c1415bb81ea84109 the assessment store contains 2,136 lines, complexity 571, fan-in 22, and 7 direct dependencies; the repository baseline is 631 files, 122,672 lines, 8 cycles, 71 duplicate groups, 56 control-plane duplicate groups, 471 dead-export candidates, and 13 critical-review files.",
+        "comparison": "The runtime store is smaller and less complex with one fewer dependency. No route, schema, migration, transaction, authorization, audit, UI, or adapter behavior changed.",
+        "regressions": []
+      },
+      "tradeoffs": [
+        {
+          "dimension": "scope",
+          "change": "Only pure lifecycle decisions moved; adapter queries, queues, transactions, and audit effects remain in the store.",
+          "reason": "This is the narrowest responsibility boundary supported by matched local and PostgreSQL evidence.",
+          "approvedBy": "Eric"
+        }
+      ],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-09T03:16:08Z"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "assessment_signed_immutability",
+      "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109",
+      "status": "verified",
+      "methods": ["exhaustive_finite", "mechanical", "integration", "mutation"],
+      "evidence": [
+        "Candidate characterization passed schedule, start, complete, sign, signed-content rejection, append-only addendum, signer attribution, and stale-conflict behavior on local-file and PostgreSQL adapters.",
+        "npm run check:assessor-workflow and npm run check:assessment-workbook passed legacy completion, signature, provenance, and all 157 canonical field contracts.",
+        "npm run database:assurance:integration passed all 49 PostgreSQL controls and npm run database:integrity reported zero critical or advisory violations.",
+        "npm run certify:seeded-defects killed all 27 mutants, including signed-project, legacy-completion, cancellation, and provenance assessment defects."
+      ],
+      "implementationTrace": [
+        "lib/assessment/assessment-lifecycle-validation.ts:getAssessmentCompletionBlockers",
+        "lib/assessment/assessment-lifecycle-validation.ts:getPendingAssessmentFields",
+        "lib/assessment/assessment-lifecycle-validation.ts:getReferralWorkflowStatusAfterAssessment",
+        "lib/assessment/assessment-store.ts:applyAssessmentLifecycleMutation"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-09T03:16:08Z"
+    },
+    {
+      "obligationId": "assessment_authorized_atomic_workflow_sync",
+      "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109",
+      "status": "verified",
+      "methods": ["exhaustive_finite", "integration", "concurrency", "mutation"],
+      "evidence": [
+        "Candidate characterization passed viewer and wrong-resource denials with no durable side effects, import replay/provenance, schedule collision and supervisor override, and referral workflow synchronization on both adapters.",
+        "npm run check:route-policy and the high-assurance operational suite passed assessor, supervisor, viewer, outsider, reviewer, and internal-worker boundaries.",
+        "npm run database:concurrency passed 24-actor optimistic-write, idempotency, outbox, queue, lock-timeout, deadlock, and rollback checks.",
+        "npm run certify:seeded-defects killed all 27 reviewed mutants."
+      ],
+      "implementationTrace": [
+        "lib/assessment/assessment-access.ts:canAccessAssessment",
+        "lib/assessment/assessment-access.ts:canMutateAssessment",
+        "lib/assessment/assessment-store.ts:patchAssessment",
+        "lib/assessment/assessment-store.ts:importAssessmentExtraction",
+        "lib/assessment/assessment-store.ts:applyAssessmentLifecycleMutation"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-09T03:16:08Z"
+    }
+  ],
+  "gateResults": [
+    {"command": "npm run check:api", "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109", "outcome": "passed", "evidence": "Candidate-bound API behavior fixtures exited 0."},
+    {"command": "npm run check:assessor-workflow", "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109", "outcome": "passed", "evidence": "Candidate-bound assessor workflow contracts exited 0."},
+    {"command": "npm run check:assessment-workbook", "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109", "outcome": "passed", "evidence": "The workbook matched all 157 canonical fields, mappings, formulas, dropdowns, and counts."},
+    {"command": "npm run database:assurance:integration", "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109", "outcome": "passed", "evidence": "outputs/database-assurance/integration-2026-09-09T03-09-56-860Z.md records 49/49 controls passed in isolated PostgreSQL 16."},
+    {"command": "npm run database:concurrency", "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109", "outcome": "passed", "evidence": "The isolated PostgreSQL run passed all 24-actor mutation, idempotency, queue, lock, deadlock, and rollback checks."},
+    {"command": "npm run check:performance", "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109", "outcome": "passed", "evidence": "The two-run compiled McMaster profile passed all Core Web Vitals, transfer, useful-content, warm-journey, guide-interaction, and API latency budgets."},
+    {"command": "npm run database:query-plans", "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109", "outcome": "passed", "evidence": "A fresh PostgreSQL 16 database selected every required referral, community, trash, document, and assessment index."},
+    {"command": "npm run database:capacity", "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109", "outcome": "passed", "evidence": "25,000 synthetic referrals and 200 queries at concurrency 16 produced 14.82ms p95 against a 250ms budget and left no residue."},
+    {"command": "npm run check:refactor-assurance", "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109", "outcome": "passed", "evidence": "The candidate-bound owner-fast-lane obligation, gate, recovery, and convergence record passed the assurance checker."},
+    {"command": "npm run certify:refactor", "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109", "outcome": "passed", "evidence": "Refactor setup, repository audit, guidance, complexity, platform, test-effectiveness, TypeScript, ESLint, production build, and database assurance gates exited 0."}
+  ],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": {
+    "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109",
+    "method": "Revert runtime extraction commit c32726bd4b7f8e34da9b79592762e6152dbce927, workbook alignment commit a0ce4eb, and focused test commit dab27df822b87df466331407c1415bb81ea84109, then refresh generated Academy and training metadata; no schema or stored-data rollback is required.",
+    "exercisedEvidence": [
+      "npm run database:rollback:drill passed the complete transactional schema recovery drill and restored the original schema.",
+      "The implementation contains no migration, stored-data rewrite, route, authentication, or UI change.",
+      "The exact starting commit remains available as ba76a0c2871c443eb297fe5bfe0a700eda426aa1."
+    ],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-09T03:16:08Z"
+  },
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": "dab27df822b87df466331407c1415bb81ea84109",
+    "allObligationsVerified": true,
+    "requiredGatesPassed": true,
+    "behaviorPreserved": true,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": true,
+    "noUnresolvedCriticalOrHigh": true,
+    "acceptedBy": "Eric",
+    "acceptedAt": "2026-09-09T03:16:08Z",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T02:20:44Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}

@@ -9,6 +9,7 @@ const worker = loadTypeScriptModule(root, "lib/extraction/worker-report-validati
 const matching = loadTypeScriptModule(root, "lib/pipeline/master-record-matching.ts");
 const clinicalMatching = loadTypeScriptModule(root, "lib/pipeline/referral-clinical-reconciliation.ts");
 const upload = loadTypeScriptModule(root, "lib/extraction/durable-upload-reconciliation.ts");
+const assessmentLifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
 const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
 
@@ -63,6 +64,37 @@ check("future queued work cannot be claimed", !extraction.leaseCanBeClaimed("que
 check("an expired running lease can be reclaimed", extraction.leaseCanBeClaimed("running", 0, 99, 100));
 check("an unexpired running lease cannot be reclaimed", !extraction.leaseCanBeClaimed("running", 0, 101, 100));
 check("successful extraction cannot requeue", !extraction.isAllowedExtractionTransition("succeeded", "queued"));
+
+check("a signed assessment always projects to the signed workflow state", assessmentLifecycle.getReferralWorkflowStatusAfterAssessment({
+  signed_at: "2026-09-01T12:00:00.000Z",
+  status: "complete",
+  started_at: "2026-09-01T10:00:00.000Z",
+  schedule_status: "completed",
+  field_provenance: {},
+}, "assessment_signed") === "assessment_signed");
+check("legacy completed assessment content remains ready to sign", assessmentLifecycle.getReferralWorkflowStatusAfterAssessment({
+  signed_at: null,
+  status: "complete",
+  started_at: null,
+  schedule_status: "unscheduled",
+  field_provenance: {},
+}, "assessment_completed") === "assessment_ready_to_sign");
+check("a cancelled scheduled assessment returns to ready to schedule", assessmentLifecycle.getReferralWorkflowStatusAfterAssessment({
+  signed_at: null,
+  status: "draft",
+  started_at: null,
+  schedule_status: "scheduled",
+  field_provenance: {},
+}, "assessment_cancelled") === "ready_to_schedule");
+check("pending assessment provenance remains completion-blocking review work", sameValues(
+  assessmentLifecycle.getPendingAssessmentFields({
+    assessor: [{ review_status: "pending" }],
+  }),
+  ["assessor"],
+));
+check("accepted assessment provenance is no longer pending review", assessmentLifecycle.getPendingAssessmentFields({
+  assessor: [{ review_status: "accepted" }],
+}).length === 0);
 
 const validReport = {
   extraction_job_id: "11111111-1111-4111-8111-111111111111",
@@ -191,4 +223,8 @@ function throwsCode(operation) {
   } catch (error) {
     return error && typeof error === "object" && "code" in error ? String(error.code) : "unknown";
   }
+}
+
+function sameValues(actual, expected) {
+  return JSON.stringify(actual) === JSON.stringify(expected);
 }
