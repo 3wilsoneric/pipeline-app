@@ -575,6 +575,69 @@
           "note": "Candidate 3f284a3688983209dd081170a987bb539e7d1428 binds exact assertion manifests, 27/27 seeded-defect kills, complete browser and high-assurance operational runs, a 44/44 McMaster evidence matrix, three compiled performance runs, platform checks, rollback evidence, and no unresolved critical or high residual risk."
         }
       ]
+    },
+    {
+      "id": "assessment-workspace-components",
+      "budgetProfile": "interactive_ui",
+      "items": [
+        {
+          "id": "assessment_interaction_characterization",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["test:e2e", "test:e2e:desktop"],
+          "files": [
+            "docs/refactoring/ASSESSMENT_WORKSPACE_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/characterization/assessment-workspace-components-machine-run-927b953.json"
+          ],
+          "note": "At exact starting commit 927b953b23557b14b8ca74c11a241a41bbe9a473, the focused assessment lifecycle journey passed scheduling, starting, answer guidance, autosave, close/resume, completion, signing, workflow continuation, durable recall, and signed-write rejection. The desktop journey separately passed encrypted offline assessment edits and post-reconnect synchronization."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/ASSESSMENT_WORKSPACE_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/assessment-workspace-components-file-audit.json",
+            "docs/refactoring/assessment-workspace-components-assurance-record.json"
+          ],
+          "note": "Eric authorized the bounded assessment workspace presentation split through owner_fast_lane on 2026-09-09. The assurance model keeps AssessmentWorkspace as the sole effectful coordinator and permits only callback-driven field and scheduling presentation owners."
+        },
+        {
+          "id": "accessibility_visual_and_cross_browser",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["test:e2e:desktop", "test:e2e:cross-browser", "test:e2e:visual"],
+          "note": "Run the complete desktop, cross-browser, and unchanged-snapshot visual suites on the exact candidate commit."
+        },
+        {
+          "id": "interaction_performance_and_artifacts",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["certify:mcmaster:performance", "check:artifacts"],
+          "note": "Run the compiled interaction scorecard and production artifact audit on the exact candidate commit."
+        },
+        {
+          "id": "convergence_and_recovery",
+          "phase": "before_complete",
+          "status": "missing",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/assessment-workspace-components-assurance-record.json"],
+          "note": "Bind all required gates, proof results, baseline delta, and commit-revert recovery to one exact candidate before completion."
+        },
+        {
+          "id": "migration_and_cutover",
+          "phase": "before_cutover",
+          "status": "not_applicable",
+          "approvedBy": "Eric",
+          "approvedAt": "2026-09-09T17:40:20Z",
+          "files": ["docs/refactoring/ASSESSMENT_WORKSPACE_COMPONENTS_ARCHITECTURE_NARRATIVE.md"],
+          "note": "The slice changes only client-side module ownership and introduces no schema, migration, stored-data, route, request-shape, provider, or cutover change."
+        }
+      ]
     }
   ]
 }

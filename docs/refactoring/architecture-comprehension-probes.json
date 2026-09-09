@@ -137,7 +137,7 @@
     },
     {
       "id": "canvas_autosave_remount_conflict",
-      "sliceIds": ["referral-canvas-components"],
+      "sliceIds": ["referral-canvas-components", "assessment-workspace-components"],
       "responsibilityId": "referral_canvas_draft_and_conflict_state",
       "question": "Trace a local edit through save queuing, navigation or remount, server conflict, recovery draft, and explicit resolution. Identify cleanup for timers, focus, and presence and prove accepted work is not silently discarded.",
       "codePaths": [

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "assessment-workspace-components",
+  "status": "approved",
+  "startingCommit": "927b953b23557b14b8ca74c11a241a41bbe9a473",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T17:40:20Z",
+    "directive": "do the next slice, fast lane"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "assessment_workspace_presentation_preserves_draft_safety"
+  ],
+  "preChangeMachineTrace": [
+    "At exact starting commit 927b953b23557b14b8ca74c11a241a41bbe9a473, the focused assessment lifecycle Chromium journey passed in 57.5 seconds including build time.",
+    "At the same commit, the focused encrypted offline assessment and reconnect journey passed in 41.4 seconds including its isolated desktop build.",
+    "The exact-start repository baseline records AssessmentWorkspace.tsx as a critical-review hotspot at 1,951 lines, complexity 607, 15 dependencies, and branch depth eight."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Assessment scheduling, starting, editing, autosave, offline recovery, conflict resolution, signing, addenda, and workflow continuation keep their current click paths and behavior.",
+      "The AssessmentWorkspace coordinator remains the sole client owner of network calls, durable mutation orchestration, timers, presence leases, and recovery state.",
+      "Extracted presentation components receive values and callbacks only and never become parallel persistence or authorization owners.",
+      "Field labels, accessibility roles, guide targets, responsive layouts, and visual styling remain unchanged.",
+      "No route, request shape, role policy, schema, migration, stored data, or audit behavior changes."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/assessment-workspace-components-machine-run-927b953.json records the exact-start lifecycle, offline recovery, and structural baseline."
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": null,
+  "residualRisks": [],
+  "convergence": null
+}

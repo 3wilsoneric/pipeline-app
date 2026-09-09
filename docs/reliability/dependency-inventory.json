@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T16:42:34.209Z",
+  "generated_at": "2026-09-09T17:47:39.514Z",
   "audit_date": "2026-09-09",
-  "git_head": "3f284a3688983209dd081170a987bb539e7d1428",
+  "git_head": "927b953b23557b14b8ca74c11a241a41bbe9a473",
   "direct": [
     {
       "name": "@azure/identity",
@@ -528,6 +528,8 @@
         "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/assessment-store-file-audit.json",
+        "docs/refactoring/assessment-workspace-components-assurance-record.json",
+        "docs/refactoring/characterization/assessment-workspace-components-machine-run-927b953.json",
         "docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json",
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/code-quality-policy.json",
@@ -7531,8 +7533,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-test-suite-structure/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-test-suite-structure/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-assessment-workspace-components/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-assessment-workspace-components/node_modules/@img/sharp-wasm32"
     ]
   }
 }

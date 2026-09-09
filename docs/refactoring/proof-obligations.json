@@ -157,6 +157,25 @@
       "humanValidated": false
     },
     {
+      "id": "assessment_workspace_presentation_preserves_draft_safety",
+      "sliceId": "assessment-workspace-components",
+      "criticality": "critical",
+      "property": "Separating assessment presentation controls from the effectful coordinator preserves scheduling, start, field editing, extraction review, autosave, offline recovery, conflict resolution, signing, addenda, and workflow-continuation behavior without creating a second network or persistence owner.",
+      "assuranceMethods": ["mechanical", "integration", "operational_recovery"],
+      "tracePaths": [
+        "components/pipeline/AssessmentWorkspace.tsx"
+      ],
+      "verificationGates": [
+        "check:assessor-workflow",
+        "test:e2e",
+        "test:e2e:desktop",
+        "test:e2e:operational:high"
+      ],
+      "claimBoundary": "The characterized assessment workspace states, supported browsers, and synthetic workflow journeys at the approved exact start and candidate commits.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
       "id": "test_restructure_preserves_behavior_detection",
       "sliceId": "test-suite-structure",
       "criticality": "critical",
