@@ -302,6 +302,9 @@ test.describe("workflow store characterization", () => {
 
 type WorkflowActors = Awaited<ReturnType<typeof workflowActors>>;
 
+const syntheticSurnames = ["Aldrin", "Bishop", "Chandra", "Deckard", "Ellison", "Fisher"] as const;
+let referralSequence = 0;
+
 async function workflowActors(baseURL: string | undefined) {
   const url = requireOperationalBaseURL(baseURL);
   const [coordinator, assessor, otherAssessor, supervisor, supervisorPeer, viewer] = await Promise.all([
@@ -340,10 +343,12 @@ async function workflowActors(baseURL: string | undefined) {
 }
 
 async function createWorkflowReferral(context: APIRequestContext) {
+  const surname = syntheticSurnames[referralSequence++];
+  if (!surname) throw new Error("Workflow characterization exhausted its synthetic referral names.");
   return createOperationalReferral(
     context,
     pipelineActors.assessmentCoordinator,
-    { tags: ["workflow-characterization"], county: "Los Angeles" },
+    { name: `Workflow ${surname}`, tags: ["workflow-characterization"], county: "Los Angeles" },
     { assigneeId: pipelineActors.assessorA.id },
   );
 }
