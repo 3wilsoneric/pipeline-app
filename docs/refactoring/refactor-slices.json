@@ -212,7 +212,7 @@
     {
       "id": "referral-canvas-components",
       "priority": 4,
-      "status": "in_progress",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "components/pipeline/ReferralPacketCanvas.tsx",

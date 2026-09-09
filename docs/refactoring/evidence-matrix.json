@@ -507,10 +507,10 @@
         {
           "id": "convergence_and_residual_risk",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
-          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind supported-browser behavior, performance, visual/accessibility evidence, comprehension, adversarial review, recovery, and accepted platform uncertainty to one UI candidate commit."
+          "files": ["docs/refactoring/referral-canvas-assurance-record.json", "docs/refactoring/characterization/referral-canvas-machine-run-eafa505.json"],
+          "note": "Candidate d666af6d4714756b02e082a991af0bb561e9afde binds preserved focused journeys, full/desktop/cross-browser/visual/operational browser evidence, compiled performance, artifact limits, both critical obligations, and commit-revert recovery with no unresolved critical or high residual risk."
         }
       ]
     },
