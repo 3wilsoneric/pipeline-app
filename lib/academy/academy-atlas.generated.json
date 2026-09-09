@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ca2587958dc565b9",
-  "fingerprint": "ca2587958dc565b9b88e2ffa28aed6fcd75cfdd9ccdd6fd1151dd4efeef9882b",
+  "generatedAt": "source-fingerprint:c71fa3622ff6efa0",
+  "fingerprint": "c71fa3622ff6efa0bd2a69e06b3150816d385a2c4cec9569ab0a51fd1ac22b5e",
   "totals": {
     "files": 889,
-    "lines": 292422,
+    "lines": 292439,
     "coveredFiles": 889
   },
   "entries": [
@@ -4534,7 +4534,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 295,
+      "lines": 296,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4630,7 +4630,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 252,
+      "lines": 266,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -9793,7 +9793,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 93,
+      "lines": 95,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"

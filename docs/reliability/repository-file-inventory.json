@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T15:23:36.779Z",
+  "generated_at": "2026-09-09T15:27:33.883Z",
   "audit_date": "2026-09-09",
-  "git_head": "587f4122cb2cfd8e1a335b565c36e5bd202de306",
+  "git_head": "922a818905439ab510855667c6128ae173fc4eb7",
   "files": [
     {
       "path": ".dockerignore",
@@ -3858,7 +3858,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "314b817a75b7ed48bbd233595502c9c91ba4a16deb9dd67626a3654871d10355",
+      "content_sha256": "13d1a4c38dd11f3dd7aec271891a755d571003aeb354908225c9058fedc348c9",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4546,11 +4546,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "002e6d2ce14df2299213ba077e59c3b1c1f6ae20e8af9ecae1c4c74d64d0a0ca",
+      "content_sha256": "1103be280133825dd20600a14b92d0cdfc7d7109400006df9c07ba6b1b8169eb",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 13140,
-      "lines": 295,
+      "bytes": 13198,
+      "lines": 296,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4581,11 +4581,11 @@
     },
     {
       "path": "docs/refactoring/referral-canvas-file-audit.json",
-      "content_sha256": "971f44a7872f1247f48583d6c1b859b806811739dd28cca6be75c391c3d5eaf5",
+      "content_sha256": "43512e0e200dae80c518b6d7f13a20fdf8239dcac9b61af7dc57ee2ca4486d49",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 15125,
-      "lines": 252,
+      "bytes": 16127,
+      "lines": 266,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4697,7 +4697,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "1fa2ee1d039e282d285763e259ca2cc93504ce75e59698bedbe1fd30c3b657ca",
+      "content_sha256": "e5038972c53824b93a85f57fe4c560f5ca8bb00dba71ce369191bff0913bfabb",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 218118,
@@ -4756,7 +4756,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "8119f36e91daa34c9db5f6f34305b8405d85c549f05ddd41a8b7b2078de6a99e",
+      "content_sha256": "7e862148d3d2d31a089dbdd52e039c79953f841905b04cb01ec104fe250089ef",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 537456,
@@ -4822,7 +4822,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "0ed662bf3b42d8bf59da76b8fbb41477976cdd884cc4a520aaf65db5e0d816d5",
+      "content_sha256": "3f154d1195deda9881648361f81c267c11a37bb7b08716a8bb84fe32794f0871",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -4951,7 +4951,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "b5a0fed7694b50d7fca0f93458087504b23eee6252bb96245d847010d1e1df4d",
+      "content_sha256": "2d6b880e8fd89c790b3301b805d9fa22d74eb483423aa22bbb7ef613d65ac56e",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 275180,
@@ -9700,11 +9700,11 @@
     },
     {
       "path": "scripts/referral-intake-recovery-contracts.mjs",
-      "content_sha256": "fc4e09e70049d60529ffec9cb696b88b89b048f76d7f9761be313e069ab0d2ff",
+      "content_sha256": "73c43eddaeca50bfc12ee719cb7aecdbd55e1c0e2ddfdeb77c373270a5a11d11",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 5179,
-      "lines": 93,
+      "bytes": 5368,
+      "lines": 95,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"

@@ -171,6 +171,20 @@
       "decisionReason": "The machine gate requires an exact file-audit disposition."
     },
     {
+      "path": "scripts/referral-intake-recovery-contracts.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "The contract reads the canvas orchestrator and its focused save-state owner; runtime code never imports this validation script.",
+      "purpose": "Verifies referral recovery, idempotent creation, save reconciliation, and upload boundaries after the structural split.",
+      "callers": ["npm run check:platform:fast"],
+      "publicExports": [],
+      "sideEffects": ["reads tracked source files", "exits nonzero on contract failure"],
+      "failureBehavior": "Blocks certification when either the orchestration call site or canonical save-reconciliation owner loses the governed behavior.",
+      "tests": ["npm run check:platform:fast", "npm run certify:refactor"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The architecture-aware contract must follow the responsibility to its canonical owner without weakening its assertion."
+    },
+    {
       "path": "docs/refactoring/referral-canvas-assurance-record.json",
       "plannedNew": true,
       "dependencyDirection": "The assurance validator consumes this candidate-bound record; runtime code has no dependency on it.",

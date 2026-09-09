@@ -27,6 +27,7 @@ check("impossible field counts are rejected", draftTypes.parsePipelineReferralDr
 
 const listRoute = read("app/api/me/referral-drafts/route.ts");
 const canvas = read("components/pipeline/ReferralPacketCanvas.tsx");
+const canvasSaveState = read("components/pipeline/referral-canvas-save-state.ts");
 const recoveryList = read("components/pipeline/ReferralDraftResumeList.tsx");
 const overview = read("components/pipeline/PipelineOverviewRoute.tsx");
 const upload = read("lib/pipeline/referral-packet-upload.ts");
@@ -58,7 +59,8 @@ check("successful saves preserve edits and replacement files made in flight",
     && canvas.includes("snapshot.pendingDocuments")
     && canvas.includes("pendingDocumentsRef.current[requirementId] !== uploadedFile")
     && canvas.includes("reconcileSavedDirtyKeys(")
-    && canvas.includes("Saved; newer changes remain"));
+    && canvasSaveState.includes("draftKeySignature(key, current) === saved.signatures.get(key)")
+    && canvasSaveState.includes("Saved; newer changes remain"));
 check("extraction cannot replace locally dirty fields",
   canvas.includes("!dirtyKeys.has(key)")
     && canvas.includes("mergeExtractedFields(")
