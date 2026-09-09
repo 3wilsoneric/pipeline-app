@@ -9,7 +9,7 @@ import type {
 } from "./referral-types";
 import type { AssessmentScheduleStatus, AssessmentWorkflowStatus } from "@/lib/assessment/assessment-records";
 import type { AssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
-import { normalizeOwnerName } from "./referral-ownership";
+import { normalizeOwnerName } from "./referral-owner-identity";
 
 export type WorkflowContext = {
   assessmentExists?: boolean;
