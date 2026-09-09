@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "test-suite-structure",
+  "status": "baseline_approved",
+  "startingCommit": "e5d058454ed4bf226ceee91fa0c494be1b2ff8b7",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T15:52:00Z",
+    "directive": "okay go, with both referral canvas and test suite, fast lane"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "test_restructure_preserves_behavior_detection",
+    "test_helpers_do_not_hide_failure"
+  ],
+  "preChangeMachineTrace": [
+    "At exact starting commit e5d058454ed4bf226ceee91fa0c494be1b2ff8b7 the Playwright owner contains 46 named journeys, 743 direct expect calls, and explicit beforeAll/afterAll/beforeEach ownership.",
+    "The API behavior owner contains 108 named executable cases and 353 direct assertion calls.",
+    "The critical concurrent-edit journey has 18 direct expectations with digest e9cfd01d102f67b4205bef8d7b2767ff7ac24de24245f82ea4022ed3323f8a16.",
+    "The exact starting commit is the merged, independently green referral-canvas release candidate."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "User-visible assertions remain in journey tests rather than disappearing into helpers.",
+      "Synthetic test isolation and deterministic cleanup remain explicit.",
+      "Source-string checks do not replace executable behavior checks.",
+      "The seeded-defect kill rate remains 100 percent for the certified critical set."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json binds case identity, per-case assertion structure, hook ownership, and the critical journey trace to the exact start.",
+      "The required platform, mutation-effectiveness, browser, operational, and assurance gates remain mandatory before completion."
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": null,
+  "residualRisks": [],
+  "convergence": null
+}

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8a4e0030150522aa",
-  "fingerprint": "8a4e0030150522aa6d98e8dfcbacd3dc4072e28a5600768683101f6e4c05fb8a",
+  "generatedAt": "source-fingerprint:e8d883d35047c3f4",
+  "fingerprint": "e8d883d35047c3f40c1e82169df7ac3087c346d30a3ca9ebd9862e8bb7bf9bb5",
   "totals": {
-    "files": 889,
-    "lines": 292564,
-    "coveredFiles": 889
+    "files": 893,
+    "lines": 293059,
+    "coveredFiles": 893
   },
   "entries": [
     {
@@ -4133,6 +4133,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 32,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/characterization/workflow-and-handoff-machine-run-2afc85b.json",
       "subsystem": "Documentation",
       "kind": "configuration",
@@ -4306,7 +4318,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 574,
+      "lines": 579,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4534,7 +4546,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 296,
+      "lines": 325,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4700,6 +4712,42 @@
       ]
     },
     {
+      "path": "docs/refactoring/TEST_SUITE_STRUCTURE_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 32,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/test-suite-structure-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 47,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/test-suite-structure-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 302,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -4825,7 +4873,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1807,
+      "lines": 1811,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4921,7 +4969,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10844,
+      "lines": 10888,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T15:38:47.063Z",
+  "generated_at": "2026-09-09T16:04:27.349Z",
   "audit_date": "2026-09-09",
-  "git_head": "d666af6d4714756b02e082a991af0bb561e9afde",
+  "git_head": "e5d058454ed4bf226ceee91fa0c494be1b2ff8b7",
   "direct": [
     {
       "name": "@azure/identity",
@@ -7527,8 +7527,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-canvas-components/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-canvas-components/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-test-suite-structure/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-test-suite-structure/node_modules/@img/sharp-wasm32"
     ]
   }
 }
