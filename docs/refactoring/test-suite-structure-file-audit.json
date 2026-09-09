@@ -19,7 +19,7 @@
       "failureBehavior": "Direct expectations and uncaught fixture failures fail the journey.",
       "tests": ["npm run test:e2e"],
       "staticPrompts": [
-        {"prompt": "Large module (3556 lines): split by behavior before adding more responsibilities.", "disposition": "confirmed", "reason": "This slice moves the independent Pipeline home journey group while preserving all referral journey assertions and hooks.", "owner": "Eric"},
+        {"prompt": "Large module (2656 lines): split by behavior before adding more responsibilities.", "disposition": "confirmed", "reason": "The independent Pipeline home journey group moved out while all referral journey assertions and hooks stayed visible; further splits require their own preserved assertion boundary.", "owner": "Eric"},
         {"prompt": "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.", "disposition": "confirmed", "reason": "Storage use is synthetic browser-test state; desktop and referral recovery suites retain explicit user scoping, expiry, and cleanup checks.", "owner": "Eric"},
         {"prompt": "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.", "disposition": "confirmed", "reason": "The URL is the loopback-only clinical fixture server selected by the Playwright environment and closed by afterAll.", "owner": "Eric"}
       ],
@@ -36,7 +36,9 @@
       "sideEffects": ["creates isolated synthetic records", "installs per-test network routes"],
       "failureBehavior": "Direct user-visible expectations and route assertion failures fail the journey.",
       "tests": ["npm run test:e2e"],
-      "staticPrompts": [],
+      "staticPrompts": [
+        {"prompt": "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.", "disposition": "confirmed", "reason": "The moved home journeys use only synthetic Playwright browser state; assertion preservation and the full browser run cover the unchanged scoping and cleanup behavior.", "owner": "Eric"}
+      ],
       "decision": "move",
       "decisionReason": "The existing describe block is independent of the referral fixture server and has its own product responsibility."
     },

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T16:04:27.349Z",
+  "generated_at": "2026-09-09T16:15:30.548Z",
   "audit_date": "2026-09-09",
-  "git_head": "e5d058454ed4bf226ceee91fa0c494be1b2ff8b7",
+  "git_head": "21f46d9c33c7da28769ad9e775509a2058092c30",
   "direct": [
     {
       "name": "@azure/identity",
@@ -107,6 +107,7 @@
         "package.json",
         "scripts/complete-repository-audit.mjs",
         "scripts/generate-pwa-icons.mjs",
+        "tests/e2e/pipeline-home.spec.ts",
         "tests/e2e/pipeline-smoke.spec.ts"
       ]
     },
@@ -151,6 +152,7 @@
         "tests/e2e/operator-packet-smoke.spec.ts",
         "tests/e2e/operator-training.spec.ts",
         "tests/e2e/performance-navigation.spec.ts",
+        "tests/e2e/pipeline-home.spec.ts",
         "tests/e2e/pipeline-smoke.spec.ts",
         "tests/e2e/production-readiness.spec.ts",
         "tests/e2e/responsive-accessibility.spec.ts",
@@ -659,6 +661,7 @@
         "tests/e2e/note-lab-practice.spec.ts",
         "tests/e2e/operational/referral-store-characterization.spec.ts",
         "tests/e2e/operator-training.spec.ts",
+        "tests/e2e/pipeline-home.spec.ts",
         "tests/e2e/pipeline-smoke.spec.ts",
         "tests/e2e/responsive-accessibility.spec.ts",
         "tests/e2e/responsive-navigation.spec.ts",
@@ -1141,6 +1144,7 @@
         "scripts/cyclomatic-complexity-audit.mjs",
         "scripts/platform-readiness.mjs",
         "scripts/supply-chain-readiness.mjs",
+        "scripts/test-assertion-inventory.mjs",
         "scripts/ts-module-loader.mjs"
       ]
     }

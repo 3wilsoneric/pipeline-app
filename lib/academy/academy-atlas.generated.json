@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:e8d883d35047c3f4",
-  "fingerprint": "e8d883d35047c3f40c1e82169df7ac3087c346d30a3ca9ebd9862e8bb7bf9bb5",
+  "generatedAt": "source-fingerprint:629719ccccf1ba75",
+  "fingerprint": "629719ccccf1ba75f9f91b2d7d4b574ad4dfa1706cda868b20489190f93aee03",
   "totals": {
-    "files": 893,
-    "lines": 293059,
-    "coveredFiles": 893
+    "files": 896,
+    "lines": 293307,
+    "coveredFiles": 896
   },
   "entries": [
     {
@@ -4741,7 +4741,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 302,
+      "lines": 304,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4873,7 +4873,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1811,
+      "lines": 1815,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4909,7 +4909,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7535,
+      "lines": 7539,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4969,7 +4969,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10888,
+      "lines": 10923,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -7645,7 +7645,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 234,
+      "lines": 235,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -9841,7 +9841,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 95,
+      "lines": 125,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -10074,6 +10074,18 @@
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/test-assertion-inventory.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 156,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
       ]
     },
     {
@@ -10534,12 +10546,24 @@
       ]
     },
     {
+      "path": "tests/e2e/pipeline-home.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 844,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/pipeline-smoke.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 3556,
+      "lines": 2656,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10612,6 +10636,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 226,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/support/pipeline-clinical-fixtures.ts",
+      "subsystem": "Browser tests",
+      "kind": "typescript-module",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 72,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

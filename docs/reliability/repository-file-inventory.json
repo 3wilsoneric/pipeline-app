@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T16:04:27.349Z",
+  "generated_at": "2026-09-09T16:15:30.548Z",
   "audit_date": "2026-09-09",
-  "git_head": "e5d058454ed4bf226ceee91fa0c494be1b2ff8b7",
+  "git_head": "21f46d9c33c7da28769ad9e775509a2058092c30",
   "files": [
     {
       "path": ".dockerignore",
@@ -3858,7 +3858,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "2484e2a1571d624a52dcd6636e4e905858afd586f6144e2b5146a34d9b468ab2",
+      "content_sha256": "f990037e22ad15237579240bb89ca1a9a1381a34f96e307b48604faf3f3a8153",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4669,11 +4669,11 @@
     },
     {
       "path": "docs/refactoring/test-suite-structure-file-audit.json",
-      "content_sha256": "a1febc0da3aaabfc47485dad2fc5c963d3d8980e302c139fa6466aecbca24d2f",
+      "content_sha256": "4bf559f5e9bb8bbae0ad656f09beb1cdbd0cc98e7bf6ef5c0d5afb1d64378340",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 17699,
-      "lines": 302,
+      "bytes": 18106,
+      "lines": 304,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4713,11 +4713,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "e74d2274261fdcab4e50e73e8120d6d846e3e18679cbeab7b23cd589b734a52d",
+      "content_sha256": "06cd73e07f8bed8318109c3ccc5acccb79a72919a44e2a6d85591c23f3516899",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 385293,
-      "lines": 1811,
+      "bytes": 386347,
+      "lines": 1815,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4741,11 +4741,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "46b06574ecb332d16646b958f33280ecf053e65919f4904f90ba0c3cea5cbefb",
+      "content_sha256": "f990d9f682c34d45f4f34befc8dd4d39fa54f9c96f70f2013e02ea193567c0fc",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 218106,
-      "lines": 7535,
+      "bytes": 218283,
+      "lines": 7539,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4800,11 +4800,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "e62fe80cfafd10b697f9b66a2091421da426bf468a1a1e926be2d0b0fab9a827",
+      "content_sha256": "635946b9a19b0a665aa379499030d33fcf8663e67b46039e380c09689b210913",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 539732,
-      "lines": 10888,
+      "bytes": 541492,
+      "lines": 10923,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4866,7 +4866,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "920bdb7ec3e0bfa62f1cb6da764d5915d882db541005f5537d921bc17141ff90",
+      "content_sha256": "9a21846b70f28d6a528b575d539a32a022377a61f7ec0fe8e876d34b3d39a6db",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -4995,15 +4995,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "5c14bf41ec466e734c50249582b38441072ca3451e77840190815d6690279a35",
+      "content_sha256": "7942bb74ba510c61d3f70a05b5e07d7380b080da5646e2a7411cd2a71c64c4d0",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 276502,
-      "lines": 10802,
+      "bytes": 277414,
+      "lines": 10838,
       "detected_concerns": [
-        "Large module (10802 lines): split by behavior before adding more responsibilities."
+        "Large module (10838 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (10802 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (10838 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -7268,11 +7268,11 @@
     },
     {
       "path": "package.json",
-      "content_sha256": "1cec124bc66a4a1d4b88ada8d16590f514c661aa244235f200eda8fe5511d7f5",
+      "content_sha256": "2cc5a91454b8ecdd5eca23828de6e92d8cae39910a0f5b8f09962d6ca172e6c9",
       "role": "Build, runtime, or repository configuration",
       "risk": "low",
-      "bytes": 17707,
-      "lines": 234,
+      "bytes": 17832,
+      "lines": 235,
       "detected_concerns": [],
       "review_focus": "Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults.",
       "verification": "check:platform:fast and owning feature test"
@@ -9744,11 +9744,11 @@
     },
     {
       "path": "scripts/referral-intake-recovery-contracts.mjs",
-      "content_sha256": "73c43eddaeca50bfc12ee719cb7aecdbd55e1c0e2ddfdeb77c373270a5a11d11",
+      "content_sha256": "326f5e90a2522e848b1bfe8aea93ed084a5f1789239d463f2f757d0639f757af",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 5368,
-      "lines": 95,
+      "bytes": 6150,
+      "lines": 125,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -9977,6 +9977,17 @@
       "risk": "low",
       "bytes": 5184,
       "lines": 114,
+      "detected_concerns": [],
+      "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
+      "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
+    },
+    {
+      "path": "scripts/test-assertion-inventory.mjs",
+      "content_sha256": "c596fda97e624f4c75af406cd205f4a31d505dcaede25a0beae2295a0459fc8b",
+      "role": "Operator, verification, or data script",
+      "risk": "low",
+      "bytes": 4972,
+      "lines": 156,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -10439,18 +10450,31 @@
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {
+      "path": "tests/e2e/pipeline-home.spec.ts",
+      "content_sha256": "ce1e75b3aa3c7cff0959103b02b2510d2cfa7ae7e6bff7b221fee7913671f710",
+      "role": "Browser journey test or snapshot",
+      "risk": "low",
+      "bytes": 42299,
+      "lines": 844,
+      "detected_concerns": [
+        "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup."
+      ],
+      "review_focus": "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
+      "verification": "run owning Playwright project and review skips/snapshots"
+    },
+    {
       "path": "tests/e2e/pipeline-smoke.spec.ts",
-      "content_sha256": "fe9c859ffe77534e84f4901d31207b13d6233effb19b874d89d18319b9b38ab3",
+      "content_sha256": "8c7b1bba233cbe32fde284e9bb0c8844021d9ac33632864e5875b73d1f307801",
       "role": "Browser journey test or snapshot",
       "risk": "medium",
-      "bytes": 180159,
-      "lines": 3556,
+      "bytes": 136221,
+      "lines": 2656,
       "detected_concerns": [
-        "Large module (3556 lines): split by behavior before adding more responsibilities.",
+        "Large module (2656 lines): split by behavior before adding more responsibilities.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
-      "review_focus": "Large module (3556 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (2656 lines): split by behavior before adding more responsibilities.",
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {
@@ -10519,6 +10543,17 @@
       "risk": "low",
       "bytes": 6228,
       "lines": 226,
+      "detected_concerns": [],
+      "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
+      "verification": "run owning Playwright project and review skips/snapshots"
+    },
+    {
+      "path": "tests/e2e/support/pipeline-clinical-fixtures.ts",
+      "content_sha256": "9cc4ddb1266b2d3d45a3001a37e6b3ccef291a4032823e5d78feb46596a40b1b",
+      "role": "Browser journey test or snapshot",
+      "risk": "low",
+      "bytes": 2011,
+      "lines": 72,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
       "verification": "run owning Playwright project and review skips/snapshots"
