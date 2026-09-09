@@ -7,6 +7,8 @@ import {
   PacketFieldsResponse,
   PacketRecord,
   PacketStatusResponse,
+  isReviewFieldReplay,
+  resolveReviewFieldOutcome,
   ReviewFieldRequest,
   ReviewFieldResponse,
   RetryFieldResponse,
@@ -424,6 +426,14 @@ export function reviewField(
   const field = packetFields.find((item) => item.field_key === fieldKey);
   if (!field) return null;
   if (field.version !== input.if_match) {
+    if (isReviewFieldReplay(field, input)) {
+      return {
+        field_key: fieldKey,
+        version: field.version,
+        review_status: field.review_status,
+        final_value: field.final_value ?? null,
+      };
+    }
     throw new DocumentProcessingError(
       "field_version_conflict",
       409,
@@ -433,18 +443,10 @@ export function reviewField(
   const previousStatus = field.review_status;
   const previousValue = field.final_value ?? field.proposed_value;
 
-  const finalValue =
-    input.action === "reject"
-      ? null
-      : input.action === "edit"
-        ? input.value ?? field.proposed_value
-        : field.proposed_value;
-  const reviewStatus =
-    input.action === "edit"
-      ? "edited"
-      : input.action === "reject"
-        ? "rejected"
-        : "accepted";
+  const { final_value: finalValue, review_status: reviewStatus } = resolveReviewFieldOutcome(
+    field.proposed_value,
+    input,
+  );
 
   field.review_status = reviewStatus;
   field.final_value = finalValue;

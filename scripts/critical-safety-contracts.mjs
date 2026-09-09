@@ -5,6 +5,7 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 const root = process.cwd();
 const workflow = loadTypeScriptModule(root, "lib/pipeline/referral-workflow.ts");
 const extraction = loadTypeScriptModule(root, "lib/extraction/extraction-state.ts");
+const extractionContracts = loadTypeScriptModule(root, "lib/extraction/contracts.ts");
 const worker = loadTypeScriptModule(root, "lib/extraction/worker-report-validation.ts");
 const matching = loadTypeScriptModule(root, "lib/pipeline/master-record-matching.ts");
 const clinicalMatching = loadTypeScriptModule(root, "lib/pipeline/referral-clinical-reconciliation.ts");
@@ -64,6 +65,24 @@ check("future queued work cannot be claimed", !extraction.leaseCanBeClaimed("que
 check("an expired running lease can be reclaimed", extraction.leaseCanBeClaimed("running", 0, 99, 100));
 check("an unexpired running lease cannot be reclaimed", !extraction.leaseCanBeClaimed("running", 0, 101, 100));
 check("successful extraction cannot requeue", !extraction.isAllowedExtractionTransition("succeeded", "queued"));
+const reviewedField = {
+  version: 2,
+  review_status: "edited",
+  proposed_value: "Original",
+  final_value: "Corrected",
+};
+check("an identical field-review retry is replay safe", extractionContracts.isReviewFieldReplay(
+  reviewedField,
+  { if_match: 1, action: "edit", value: " Corrected " },
+));
+check("a later field version cannot masquerade as the original retry", !extractionContracts.isReviewFieldReplay(
+  { ...reviewedField, version: 3 },
+  { if_match: 1, action: "edit", value: "Corrected" },
+));
+check("a different correction conflicts instead of replaying", !extractionContracts.isReviewFieldReplay(
+  reviewedField,
+  { if_match: 1, action: "edit", value: "Different" },
+));
 
 check("a signed assessment always projects to the signed workflow state", assessmentLifecycle.getReferralWorkflowStatusAfterAssessment({
   signed_at: "2026-09-01T12:00:00.000Z",
@@ -136,6 +155,17 @@ check("resident-number match with a different DOB is blocked", matching.decideMa
   date_of_birth: "1990-01-01",
   display_name: "Synthetic Person",
 }, identityCandidates).status === "blocked_conflict");
+check("the resident-link boundary detects normalized DOB conflicts", matching.identityDatesConflict(
+  "1990-01-01",
+  "1980-01-01",
+));
+check("missing DOB evidence does not invent a conflict", !matching.identityDatesConflict(
+  null,
+  "1980-01-01",
+));
+check("resident-number comparison ignores harmless spacing and case", matching.normalizeIdentityResidentNumber(
+  " syn 1 ",
+) === matching.normalizeIdentityResidentNumber("SYN1"));
 
 const rosterCandidate = {
   resident_id: "R-1",

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T04:41:30.141Z",
+  "generated_at": "2026-09-09T05:41:34.558Z",
   "audit_date": "2026-09-09",
-  "git_head": "79ac12b0c6ee270585a5dbfdb623baf1c8f34668",
+  "git_head": "5e015d2bd979da98c26da7b858600a0bcba7403a",
   "files": [
     {
       "path": ".dockerignore",
@@ -4046,6 +4046,19 @@
       "verification": "link/config drift review against executable source"
     },
     {
+      "path": "docs/refactoring/REFERRAL_CANVAS_TECHNICAL_TRACE_AGENT_PREWORK.md",
+      "content_sha256": "c2806c9d28ea5773002953a3df9aff277da6c7f4eb84fd53b2059cb020add31c",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 16738,
+      "lines": 189,
+      "detected_concerns": [
+        "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup."
+      ],
+      "review_focus": "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
       "path": "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
       "content_sha256": "f7ce6b26546f94d1578f590f5ee29d49715fc6a947a9900cbbf39a0a1f5d6639",
       "role": "Documentation or runbook",
@@ -4219,6 +4232,17 @@
       "risk": "low",
       "bytes": 3954,
       "lines": 77,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-canvas-audit-run-5e015d2.json",
+      "content_sha256": "a1720a7f09e4e7d274d7af29e8e4ba4077a7315ed0e1781af3401ec5daaa9bc2",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 4765,
+      "lines": 112,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4477,6 +4501,19 @@
       "verification": "link/config drift review against executable source"
     },
     {
+      "path": "docs/refactoring/referral-canvas-file-audit-agent-prework.json",
+      "content_sha256": "552df57d635350dbf4dc9341c506ae292847fda3ea69a8f2af3dcfd3417780ee",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 13812,
+      "lines": 200,
+      "detected_concerns": [
+        "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup."
+      ],
+      "review_focus": "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
       "path": "docs/refactoring/referral-store-assurance-record.json",
       "content_sha256": "9e222bfef90084ca29a75d3ba22f98bf884a8301fa9e26227dddc2fcb875a4dd",
       "role": "Documentation or runbook",
@@ -4555,7 +4592,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "ed6f98d3ae90a40dbca9893869145c2bed2c6a892f21258a23455910a3114a79",
+      "content_sha256": "f02528ac69f2ecebf35d8f4d94edbbe21e2f91f3d6601ffe1ccc87178467ccd1",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 380606,
@@ -4583,7 +4620,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "07ff2cdab5fac787d435ddb34df987a47bcc049dbe17445b74c3f509891e7f62",
+      "content_sha256": "428937e115aff14f5b0f7b653340d6e207d0e8442dd49f9cca8fe5979196b636",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 217694,
@@ -4642,7 +4679,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "ece71fa4889a817efb719056c40cdbe7c46755b037ba3e5b36ff22b06f228dfb",
+      "content_sha256": "c3616748f50157584a8682e042f339df648313f1acb99d4900e75ef6c655f214",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 531770,

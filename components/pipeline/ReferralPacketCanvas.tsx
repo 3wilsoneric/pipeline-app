@@ -113,6 +113,12 @@ type FieldKey = ReferralCanvasFieldKey;
 
 type PacketField = ReferralCanvasPacketField;
 
+type PacketFieldReviewResult = ReviewFieldResponse & {
+  packet_fields?: PacketFieldsResponse;
+  referral?: Referral;
+  projection_status?: "synchronized" | "not_linked";
+};
+
 type Requirement = {
   id: string;
   label: string;
@@ -1450,7 +1456,7 @@ export default function ReferralPacketCanvas({
     setReviewBusyFieldKey(extractedField.field_key);
     let fieldReviewSaved = false;
     try {
-      const result = await fetchPipelineJson<ReviewFieldResponse>(
+      const result = await fetchPipelineJson<PacketFieldReviewResult>(
         `/api/packets/${encodeURIComponent(loadedReferral.packetId)}/fields/${encodeURIComponent(extractedField.field_key)}/review`,
         {
           method: "POST",
@@ -1464,59 +1470,38 @@ export default function ReferralPacketCanvas({
       );
       fieldReviewSaved = true;
 
-      const localFields = loadedReferral.packetFields.map((field) => (
-        field.field_key === result.field_key
-          ? {
-              ...field,
-              version: result.version,
-              review_status: result.review_status,
-              final_value: result.final_value,
-            }
-          : field
-      ));
-      const currentPacket = await fetchPipelineJson<PacketFieldsResponse>(
-        `/api/packets/${encodeURIComponent(loadedReferral.packetId)}/fields`,
-        { cache: "no-store" },
-      ).catch(() => null);
-      const packetFields = currentPacket?.fields ?? localFields;
-
-      const mappedKeys = new Set(extractedCanvasFieldKeys(extractedField.field_key));
-      const extractionDirtyKeys = new Set(dirtyKeysRef.current);
-      for (const key of mappedKeys) extractionDirtyKeys.delete(key);
-      const mappedFields = populateFormFromExtraction(
-        fieldsRef.current,
+      const currentPacket = result.packet_fields ?? await fetchPipelineJson<PacketFieldsResponse>(
+          `/api/packets/${encodeURIComponent(loadedReferral.packetId)}/fields`,
+          { cache: "no-store" },
+        ).catch(() => null);
+      const packetFields = reviewedPacketFields(loadedReferral.packetFields, result, currentPacket);
+      const {
+        mappedFieldKeys,
+        mappedFields,
+        referralPatch,
+        currentReferral,
+      } = prepareReviewedExtraction({
+        fieldKey: extractedField.field_key,
         packetFields,
-        loadedReferral.documentName || "Uploaded packet",
-        extractionDirtyKeys,
-        allowManualOverride ? mappedKeys : new Set(),
-      );
-      const mappedFieldKeys = new Set<PersistedFieldKey>(
-        persistedFieldKeys.filter((key) => (
-          mappedKeys.has(key)
-          && (
-            mappedFields[key].value !== fieldsRef.current[key].value
-            || mappedFields[key].sourceFile !== fieldsRef.current[key].sourceFile
-          )
-        )),
-      );
-      const mappedPatch = buildCanvasPatch({
-        keys: mappedFieldKeys,
-        fields: mappedFields,
+        currentPacket,
+        currentFields: fieldsRef.current,
+        dirtyKeys: dirtyKeysRef.current,
+        allowManualOverride,
+        documentName: loadedReferral.documentName || "Uploaded packet",
+        requirements: loadedReferral.requirements ?? [],
         conserved: conservedRef.current,
         tags: normalizeTags(tagsInputRef.current),
-        requirements: loadedReferral.requirements ?? [],
+        projectionWasServerOwned: result.projection_status === "synchronized" && Boolean(result.referral),
+        currentReferral: result.referral ?? loadedReferralRef.current ?? loadedReferral,
       });
-      const referralPatch: ReferralPatch = {
-        ...mappedPatch,
-        packetFields,
-        ...(currentPacket
-          ? {
-              packetReadiness: currentPacket.ehr_readiness,
-              packetCompleteness: currentPacket.packet_completeness,
-            }
-          : {}),
-      };
-      const currentReferral = loadedReferralRef.current ?? loadedReferral;
+      if (Object.keys(referralPatch).length === 0) {
+        loadedReferralRef.current = currentReferral;
+        setLoadedReferral(currentReferral);
+        applyReviewedExtraction(mappedFieldKeys, mappedFields, currentReferral);
+        setExtractionConflict(null);
+        setSavedAt(action === "edit" ? "Correction saved" : "Extracted value confirmed");
+        return;
+      }
       const touchedSections = getReferralPatchSections(referralPatch as Record<string, unknown>);
       const expectedSections = normalizeReferralSectionVersions(currentReferral.sectionVersions);
       const reviewMutationKey = JSON.stringify(["extraction-review", currentReferral.id, currentReferral.version, referralPatch]);
@@ -1547,7 +1532,7 @@ export default function ReferralPacketCanvas({
       setExtractionConflict(null);
       setSavedAt(action === "edit" ? "Correction saved" : "Extracted value confirmed");
     } catch (error) {
-      if (error instanceof PipelineApiError && error.status === 409 && !fieldReviewSaved && loadedReferral.packetId) {
+      if (shouldReloadExtractionConflict(error, fieldReviewSaved)) {
         const latestPacket = await fetchPipelineJson<PacketFieldsResponse>(
           `/api/packets/${encodeURIComponent(loadedReferral.packetId)}/fields`,
           { cache: "no-store" },
@@ -3181,6 +3166,25 @@ function initialDocumentCategoryFromReferral(referral: Referral): InitialDocumen
     : "referral_packet";
 }
 
+function isPacketProjectionPendingError(error: unknown) {
+  if (!(error instanceof PipelineApiError) || error.status !== 409) return false;
+  const payload = error.payload;
+  return Boolean(
+    payload
+    && typeof payload === "object"
+    && !Array.isArray(payload)
+    && "code" in payload
+    && payload.code === "packet_projection_pending",
+  );
+}
+
+function shouldReloadExtractionConflict(error: unknown, fieldReviewSaved: boolean) {
+  return error instanceof PipelineApiError
+    && error.status === 409
+    && !fieldReviewSaved
+    && !isPacketProjectionPendingError(error);
+}
+
 function documentNames(documents: Record<string, string>) {
   return Object.values(documents).filter(Boolean).sort().join(", ");
 }
@@ -3200,6 +3204,72 @@ function buildCanvasPatch(input: {
       ? { packet: { name: packet.file.name, size: packet.file.size, hash: packet.hash } }
       : {}),
   });
+}
+
+function reviewedPacketFields(
+  existing: ExtractedField[],
+  result: PacketFieldReviewResult,
+  currentPacket: PacketFieldsResponse | null,
+) {
+  if (currentPacket) return currentPacket.fields;
+  return existing.map((field) => field.field_key === result.field_key
+    ? {
+        ...field,
+        version: result.version,
+        review_status: result.review_status,
+        final_value: result.final_value,
+      }
+    : field);
+}
+
+function prepareReviewedExtraction(input: {
+  fieldKey: string;
+  packetFields: ExtractedField[];
+  currentPacket: PacketFieldsResponse | null;
+  currentFields: Record<FieldKey, PacketField>;
+  dirtyKeys: ReadonlySet<DirtyDraftKey>;
+  allowManualOverride: boolean;
+  documentName: string;
+  requirements: Referral["requirements"];
+  conserved: "yes" | "no" | "";
+  tags: string[];
+  projectionWasServerOwned: boolean;
+  currentReferral: Referral;
+}) {
+  const mappedKeys = new Set(extractedCanvasFieldKeys(input.fieldKey));
+  const extractionDirtyKeys = new Set(input.dirtyKeys);
+  for (const key of mappedKeys) extractionDirtyKeys.delete(key);
+  const mappedFields = populateFormFromExtraction(
+    input.currentFields,
+    input.packetFields,
+    input.documentName,
+    extractionDirtyKeys,
+    input.allowManualOverride ? mappedKeys : new Set(),
+  );
+  const mappedFieldKeys = new Set<PersistedFieldKey>(
+    persistedFieldKeys.filter((key) => mappedKeys.has(key) && (
+      mappedFields[key].value !== input.currentFields[key].value
+      || mappedFields[key].sourceFile !== input.currentFields[key].sourceFile
+    )),
+  );
+  const mappedPatch = buildCanvasPatch({
+    keys: mappedFieldKeys,
+    fields: mappedFields,
+    conserved: input.conserved,
+    tags: input.tags,
+    requirements: input.requirements,
+  });
+  const referralPatch: ReferralPatch = {
+    ...mappedPatch,
+    ...(!input.projectionWasServerOwned ? { packetFields: input.packetFields } : {}),
+    ...(!input.projectionWasServerOwned && input.currentPacket
+      ? {
+          packetReadiness: input.currentPacket.ehr_readiness,
+          packetCompleteness: input.currentPacket.packet_completeness,
+        }
+      : {}),
+  };
+  return { mappedFieldKeys, mappedFields, referralPatch, currentReferral: input.currentReferral };
 }
 
 function currentDraftValues(

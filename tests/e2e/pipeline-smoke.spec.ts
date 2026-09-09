@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { createCanvas } from "@napi-rs/canvas";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { createServer, type Server } from "node:http";
 import path from "node:path";
 
 import {
@@ -11,7 +12,15 @@ import {
 } from "../../lib/assessment/assessment-tool-schema";
 import { assessmentInterviewQuestions, assessmentInterviewSections } from "../../lib/assessment/assessment-interview-schema";
 import type { PipelineAssessmentRecord } from "../../lib/assessment/assessment-records";
+import type { PacketFieldsResponse, ReviewFieldResponse } from "../../lib/extraction/contracts";
 import type { Referral } from "../../lib/pipeline/referral-types";
+import type { PipelineResidentLink } from "../../lib/pipeline/resident-link-records";
+
+type PacketFieldReviewResult = ReviewFieldResponse & {
+  packet_fields?: PacketFieldsResponse;
+  referral?: Referral;
+  projection_status?: "synchronized" | "not_linked";
+};
 
 const testAssessor = {
   id: "provisional:allo:annette",
@@ -87,6 +96,11 @@ const clientDirectoryFixture = {
   })),
 };
 
+const clinicalMockPort = Number(process.env.PIPELINE_E2E_CLINICAL_PORT ?? "3299");
+let clinicalMockServer: Server;
+let governedResidentDob = "1984-06-12";
+let governedResidentNumber = "SYN-R-100";
+
 const assessmentServerOwnedFields = new Set<AssessmentToolFieldKey>([
   "assessor",
   "unable_to_assess_reasons",
@@ -135,7 +149,40 @@ function uniqueAlphabeticNameToken() {
 }
 
 test.describe("Referral home and packet canvas", () => {
+  test.beforeAll(async () => {
+    clinicalMockServer = createServer((request, response) => {
+      if (request.headers.authorization !== "Bearer playwright-clinical-token") {
+        response.writeHead(401, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({ code: "unauthorized" }));
+        return;
+      }
+      if (!request.url?.startsWith("/api/integrations/pipeline/clinical/residents/")) {
+        response.writeHead(404, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({ code: "not_found" }));
+        return;
+      }
+      const payload = structuredClone(clinicalFixture.resident) as {
+        resident: Record<string, unknown>;
+      };
+      payload.resident.date_of_birth = governedResidentDob;
+      payload.resident.resident_number = governedResidentNumber;
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify(payload));
+    });
+    await new Promise<void>((resolve, reject) => {
+      clinicalMockServer.once("error", reject);
+      clinicalMockServer.listen(clinicalMockPort, "127.0.0.1", resolve);
+    });
+  });
+
+  test.afterAll(async () => {
+    if (!clinicalMockServer) return;
+    await new Promise<void>((resolve, reject) => clinicalMockServer.close((error) => error ? reject(error) : resolve()));
+  });
+
   test.beforeEach(async ({ page }) => {
+    governedResidentDob = "1984-06-12";
+    governedResidentNumber = "SYN-R-100";
     const errors: string[] = [];
     page.on("console", (message) => {
       if (message.type() === "error" && !message.text().includes("/_next/webpack-hmr")) {
@@ -1477,6 +1524,82 @@ test.describe("Referral home and packet canvas", () => {
     expect(malformed.status()).toBe(400);
   });
 
+  test("blocks conflicting governed identity evidence without creating or confirming a link", async ({ page }) => {
+    const createReferral = async (dateOfBirth: string) => {
+      const response = await page.request.post("/api/referrals", {
+        data: {
+          client_mutation_id: randomUUID(),
+          assignee_id: testAssessor.id,
+          referral: {
+            name: `Identity ${uniqueAlphabeticNameToken()}`,
+            date: "2026-09-09",
+            stage: "New",
+            community: "San Pablo",
+            county: "Contra Costa County",
+            source: "Identity boundary test",
+            priority: "standard",
+            tags: [],
+            documentName: "",
+            documentStatus: "Missing",
+            owner: testAssessor.name,
+            note: "",
+            createdAt: new Date().toISOString(),
+            dob: dateOfBirth,
+            phone: "",
+            email: "",
+            payer: "",
+            requirements: [],
+          },
+        },
+      });
+      const payload = await response.json() as { referral?: Referral; error?: string };
+      expect(response.status(), JSON.stringify(payload)).toBe(201);
+      expect(payload.referral).toBeTruthy();
+      return payload.referral!;
+    };
+    const createCandidate = (referral: Referral) => page.request.post("/api/resident-links", {
+      headers: { Authorization: "Bearer playwright-clinical-token" },
+      data: {
+        client_mutation_id: randomUUID(),
+        pipeline_client_id: referral.clientId,
+        display_name: referral.name,
+        date_of_birth: referral.dob,
+        referral_id: referral.id,
+        resident_key: "337:R-100",
+        resident_number: governedResidentNumber,
+        community_id: "337",
+        match_method: "manual",
+        match_confidence: 0.95,
+      },
+    });
+
+    const conflictingReferral = await createReferral("1990-01-01");
+    const blockedCreate = await createCandidate(conflictingReferral);
+    expect(blockedCreate.status()).toBe(409);
+    await expect(blockedCreate.json()).resolves.toMatchObject({ code: "resident_date_of_birth_conflict" });
+    const afterBlockedCreate = await page.request.get(`/api/resident-links?referral_id=${conflictingReferral.id}`);
+    await expect(afterBlockedCreate.json()).resolves.toMatchObject({ total: 0, links: [] });
+
+    const matchingReferral = await createReferral(governedResidentDob);
+    const created = await createCandidate(matchingReferral);
+    const createdPayload = await created.json() as { link?: PipelineResidentLink; error?: string };
+    expect(created.status(), JSON.stringify(createdPayload)).toBe(201);
+    expect(createdPayload.link?.status).toBe("candidate");
+
+    governedResidentDob = "1999-12-31";
+    const blockedConfirmation = await page.request.patch(`/api/resident-links/${createdPayload.link!.link_id}`, {
+      headers: { Authorization: "Bearer playwright-clinical-token" },
+      data: { action: "confirm", if_match: createdPayload.link!.version },
+    });
+    expect(blockedConfirmation.status()).toBe(409);
+    await expect(blockedConfirmation.json()).resolves.toMatchObject({ code: "resident_date_of_birth_conflict" });
+
+    const unchanged = await page.request.get(`/api/resident-links/${createdPayload.link!.link_id}`);
+    const unchangedPayload = await unchanged.json() as { link: PipelineResidentLink };
+    expect(unchangedPayload.link).toMatchObject({ status: "candidate", version: 1 });
+    expect(unchangedPayload.link.audit_events.map((event) => event.action)).toEqual(["resident_link_created"]);
+  });
+
   test("fails document metadata and previews closed with bounded pagination", async ({ page }) => {
     const documentId = "10000000-0000-4000-8000-000000000001";
     expect((await page.request.get("/api/files/not-a-document")).status()).toBe(404);
@@ -1637,6 +1760,39 @@ test.describe("Referral home and packet canvas", () => {
       final_value: "1951-08-15",
       review_status: "edited",
     });
+    const reviewedDobField = referralList.referrals[0]?.packetFields?.find(
+      (field) => field.field_key === "demographics.date_of_birth",
+    );
+    expect(reviewedDobField).toBeTruthy();
+    const fieldsBeforeReplay = await page.request.get(`/api/packets/${referralPayload.referral.packetId}/fields`);
+    const fieldsBeforeReplayPayload = await fieldsBeforeReplay.json() as PacketFieldsResponse;
+    const dobAuditCountBeforeReplay = fieldsBeforeReplayPayload.audit_events?.filter(
+      (event) => event.field_key === "demographics.date_of_birth" && event.action === "edit",
+    ).length ?? 0;
+    const replay = await page.request.post(
+      `/api/packets/${referralPayload.referral.packetId}/fields/demographics.date_of_birth/review`,
+      {
+        data: {
+          if_match: reviewedDobField!.version - 1,
+          action: "edit",
+          value: "1951-08-15",
+        },
+      },
+    );
+    const replayPayload = await replay.json() as PacketFieldReviewResult;
+    expect(replay.status(), JSON.stringify(replayPayload)).toBe(200);
+    expect(replayPayload).toMatchObject({
+      version: reviewedDobField!.version,
+      review_status: "edited",
+      final_value: "1951-08-15",
+      projection_status: "synchronized",
+      referral: { id: Number(referralId), version: referralPayload.referral.version },
+    });
+    const fieldsAfterReplay = await page.request.get(`/api/packets/${referralPayload.referral.packetId}/fields`);
+    const fieldsAfterReplayPayload = await fieldsAfterReplay.json() as PacketFieldsResponse;
+    expect(fieldsAfterReplayPayload.audit_events?.filter(
+      (event) => event.field_key === "demographics.date_of_birth" && event.action === "edit",
+    ).length ?? 0).toBe(dobAuditCountBeforeReplay);
 
     const historyPatch = await page.request.patch(`/api/referrals/${referralId}`, {
       data: {
@@ -1680,6 +1836,11 @@ test.describe("Referral home and packet canvas", () => {
       page.request.post(reviewUrl, { data: { if_match: dobField!.version, action: "edit", value: "1951-08-17" } }),
     ]);
     expect([firstReview.status(), competingReview.status()].sort((left, right) => left - right)).toEqual([200, 409]);
+    const winningReview = firstReview.ok() ? firstReview : competingReview;
+    const winningReviewPayload = await winningReview.json() as PacketFieldReviewResult;
+    expect(winningReviewPayload.referral?.packetFields?.find(
+      (field) => field.field_key === "demographics.date_of_birth",
+    )?.final_value).toBe(winningReviewPayload.final_value);
 
     await page.goto("/?view=referrals");
     await expect(page.getByRole("region", { name: "Referral worklist" })).toBeVisible();
@@ -1698,7 +1859,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(clientIdentityTitle);
     await expect(page.getByRole("textbox", { name: "GENDER", exact: true })).toHaveValue("Synthetic gender");
     await expect(page.getByRole("textbox", { name: "AGE", exact: true })).toHaveValue("74");
-    await expect(page.getByRole("textbox", { name: "DOB", exact: true })).toHaveValue("1951-08-15");
+    await expect(page.getByRole("textbox", { name: "DOB", exact: true })).toHaveValue(winningReviewPayload.final_value ?? "");
     await expect(page.getByRole("textbox", { name: "SSN", exact: true })).toHaveValue("111-11-1111");
     const compactHistory = page.getByRole("region", { name: "Workspace change history" });
     await expect(compactHistory).toBeVisible();
@@ -3270,6 +3431,11 @@ test.describe("Pipeline home", () => {
         return;
       }
       const profile = structuredClone(unifiedProfileFixture);
+      const profileResident = profile.resident as Record<string, unknown> | null;
+      if (profileResident) {
+        profileResident.date_of_birth = referral.dob;
+        profileResident.resident_number = "SYN-R-100";
+      }
       const connection: {
         status: string;
         confirmed_link: typeof candidate | null;
@@ -3321,6 +3487,14 @@ test.describe("Pipeline home", () => {
       (profile.pipeline as unknown as { connection: typeof connection }).connection = connection;
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(profile) });
     });
+    await page.route(`**/api/referrals/${referral.id}`, async (route) => {
+      expect(route.request().method()).toBe("GET");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ referral }),
+      });
+    });
     await page.route("**/api/resident-links**", async (route) => {
       const url = new URL(route.request().url());
       const body = route.request().postDataJSON() as Record<string, unknown>;
@@ -3354,6 +3528,12 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);
     await expect(page.getByText(/version 1/i)).toHaveCount(0);
     await page.getByRole("button", { name: "Review" }).click();
+    const evidence = page.getByLabel("Identity evidence comparison");
+    await expect(evidence).toBeVisible();
+    await expect(evidence.getByText("Referral record", { exact: true })).toBeVisible();
+    await expect(evidence.getByText("Governed resident record", { exact: true })).toBeVisible();
+    await expect(evidence.getByText("Workspace #101", { exact: true })).toBeVisible();
+    await expect(evidence.getByText("Date of birth matches", { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Confirm connection" }).click();
     await expect(page.getByRole("heading", { name: "Identity review", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Referral history", exact: true })).toHaveCount(0);

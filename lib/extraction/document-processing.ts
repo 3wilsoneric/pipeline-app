@@ -19,6 +19,10 @@ import type {
   ReviewFieldRequest,
   ReviewFieldResponse,
 } from "@/lib/extraction/contracts";
+import {
+  isReviewFieldReplay,
+  resolveReviewFieldOutcome,
+} from "@/lib/extraction/contracts";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { DocumentProcessingError } from "@/lib/extraction/document-processing-error";
 
@@ -451,14 +455,29 @@ export async function reviewDurableField(
     const current = rows[0];
     if (!current) return null;
     if (Number(current.version) !== input.if_match) {
+      const replayField = {
+        version: Number(current.version),
+        review_status: contractReviewStatus(current.review_status),
+        proposed_value: jsonText(current.proposed_value),
+        final_value: jsonText(current.final_value),
+      };
+      if (isReviewFieldReplay(replayField, input)) {
+        return {
+          field_key: fieldKey,
+          version: replayField.version,
+          review_status: replayField.review_status,
+          final_value: replayField.final_value,
+        };
+      }
       throw new DocumentProcessingError(
         "field_version_conflict",
         409,
         "This extracted field changed in another session. Review the latest value before saving.",
       );
     }
-    const nextStatus = input.action === "accept" ? "confirmed" : input.action;
-    const nextValue = input.action === "edit" ? input.value!.trim() : input.action === "accept" ? current.proposed_value : null;
+    const outcome = resolveReviewFieldOutcome(jsonText(current.proposed_value), input);
+    const nextStatus = outcome.review_status === "accepted" ? "confirmed" : outcome.review_status;
+    const nextValue = outcome.final_value;
     const updated = await tx<FieldRow[]>`
       update pipeline.referral_fields
       set final_value = ${tx.json(nextValue as never)}, review_status = ${nextStatus}, reviewer_id = ${actor.id},

@@ -12,6 +12,10 @@ import { getReferral, requireReferralStore } from "@/lib/pipeline/referral-store
 import { canAccessReferral, isAssessorUser, requireReferralAccess } from "@/lib/pipeline/referral-access";
 import { isKeysetCursor } from "@/lib/pipeline/keyset-cursor";
 import {
+  findGovernedIdentityConflict,
+  type GovernedIdentityConflict,
+} from "@/lib/pipeline/master-record-matching";
+import {
   createResidentLink,
   listResidentLinks,
   requireResidentLinkStore,
@@ -101,23 +105,12 @@ export async function POST(request: Request) {
 
     try {
       const clinical = await getClinicalResident(request, validated.value.resident_key);
-      if (clinical.resident.community_id !== validated.value.community_id) {
-        return Response.json(
-          { error: "The selected resident belongs to a different governed community." },
-          { status: 409, headers: privateHeaders() },
-        );
-      }
-      if (
-        validated.value.resident_number &&
-        ![clinical.resident.resident_number, clinical.resident.resident_id]
-          .filter(Boolean)
-          .includes(validated.value.resident_number)
-      ) {
-        return Response.json(
-          { error: "The resident number does not match the governed Alamo resident." },
-          { status: 409, headers: privateHeaders() },
-        );
-      }
+      const conflict = findGovernedIdentityConflict({
+        community_id: validated.value.community_id,
+        resident_number: validated.value.resident_number,
+        date_of_birth: referral.dob,
+      }, clinical.resident);
+      if (conflict) return governedIdentityConflictResponse(conflict);
       const result = await createResidentLink(
         {
           ...validated.value,
@@ -135,6 +128,21 @@ export async function POST(request: Request) {
       if (error instanceof ClinicalDataError) return clinicalDataErrorResponse(error);
       throw error;
     }
+  });
+}
+
+function governedIdentityConflictResponse(conflict: GovernedIdentityConflict) {
+  const messages: Record<GovernedIdentityConflict, string> = {
+    community_conflict: "The selected resident belongs to a different governed community.",
+    resident_number_conflict: "The resident number does not match the governed Alamo resident.",
+    date_of_birth_conflict: "The referral date of birth conflicts with the governed Alamo resident.",
+  };
+  const code = conflict === "date_of_birth_conflict"
+    ? "resident_date_of_birth_conflict"
+    : conflict;
+  return Response.json({ error: messages[conflict], code }, {
+    status: 409,
+    headers: privateHeaders(),
   });
 }
 

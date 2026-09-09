@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "recordType": "agent_prework_not_human_disposition",
+  "sliceId": "referral-canvas-components",
+  "observedCommit": "5e015d2bd979da98c26da7b858600a0bcba7403a",
+  "generatedInventory": "docs/reliability/repository-file-inventory.json",
+  "humanOwner": "Eric",
+  "humanReview": {
+    "status": "awaiting_owner_authorization",
+    "reviewedBy": null,
+    "approvedAt": null
+  },
+  "prerequisiteCorrections": [
+    {
+      "id": "identity-link-server-invariant",
+      "classification": "confirmed_safety_defect",
+      "scopeBoundary": "Separate bounded behavior correction before structural canvas movement; route/store paths are observed dependencies and are not silently added to the refactor slice."
+    },
+    {
+      "id": "extraction-review-projection-recovery",
+      "classification": "confirmed_split_commit_failure_mode",
+      "scopeBoundary": "Separate bounded behavior correction before structural canvas movement; preserve evidence provenance and transaction/retry semantics."
+    },
+    {
+      "id": "identity-review-evidence-and-stale-recovery",
+      "classification": "confirmed_ui_decision_and_recovery_defect",
+      "scopeBoundary": "Behavior correction inside the client profile surface with route-level stale-state evidence."
+    },
+    {
+      "id": "assessment-immediate-unmount-characterization",
+      "classification": "evidence_gap",
+      "scopeBoundary": "Test first; change lifecycle behavior only if the executable scenario demonstrates a gap."
+    }
+  ],
+  "proposedFirstStructuralIteration": {
+    "property": "Reduce render-only surface complexity without moving autosave, polling, conflict, offline-queue, upload, extraction-review, identity-review, or activity ownership and without changing layout, copy, focus, or click paths.",
+    "preconditions": [
+      "The prerequisite behavior corrections are separately authorized and green.",
+      "Immediate-unmount, pending-save, offline-queue, conflict, stale-identity, keyboard-focus, and extraction split-failure tests exist.",
+      "The owner records the exact start commit, approved paths, rollback operator, and bounded proof obligations."
+    ],
+    "files": [
+      "components/pipeline/ReferralPacketCanvas.tsx",
+      "components/pipeline/AssessmentWorkspace.tsx",
+      "components/pipeline/ClientProfileView.tsx"
+    ],
+    "explicitlyExcluded": [
+      "Changing workflow behavior, stage order, database semantics, audit events, authorization, PHI boundaries, extraction provenance, or identity matching policy",
+      "Moving autosave, remote polling, presence leases, conflict resolution, offline queueing, upload/linking, or recovery-draft ownership in the first structural iteration",
+      "Creating parallel activity/history, dialog, form, fetch, or persistence frameworks",
+      "Adding dependencies, migrations, feature flags, compatibility layers, or visual redesign"
+    ]
+  },
+  "files": [
+    {
+      "path": "components/pipeline/ReferralPacketCanvas.tsx",
+      "plannedNew": false,
+      "dependencyDirection": "A browser orchestration surface may depend on stable referral/extraction types, pure mapping and section policy, canonical activity/presentation components, browser recovery helpers, and HTTP command clients. Server-only stores must not become runtime client dependencies.",
+      "observedPurpose": "Owns referral workspace creation/editing, packet/supporting-document selection and linking, extraction review and projection, section autosave, recovery drafts, remote collaboration/presence, conflict resolution, workflow page navigation, requirements, duplicate review, and composition of assessment/activity surfaces.",
+      "observedCallers": [
+        "PipelineShell and referral workspace routes/surfaces"
+      ],
+      "publicExports": [
+        "default ReferralPacketCanvas"
+      ],
+      "sideEffects": [
+        "Referral, packet, extraction-review, upload, member, assessment-summary, presence, and draft HTTP requests",
+        "sessionStorage or server recovery-draft persistence",
+        "Autosave/recovery/poll/presence timers and browser lifecycle listeners",
+        "Object URLs and document upload state"
+      ],
+      "observedFailureBehavior": "Shows bounded load/save/upload/extraction errors, retains dirty values after failed saves, reconciles 409 responses into duplicate review or remote conflict state, keeps pending files locally, and writes a recovery draft. Extraction review currently permits the field decision to commit before the referral projection fails.",
+      "candidateTests": [
+        "Playwright: two-session section edits, presence, and remote conflicts",
+        "Playwright: tab-scoped referral draft recovery then section autosave",
+        "Playwright: extraction review with injected failure after field decision but before referral projection",
+        "Playwright: immediate unmount/remount with dirty fields and pending documents",
+        "Responsive, keyboard, focus, upload retry, duplicate review, and activity tests"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (3744 lines): split by behavior before adding more responsibilities.",
+          "candidateDisposition": "confirmed",
+          "evidence": "The module owns multiple independently testable render, recovery, collaboration, upload, extraction, workflow, and composition responsibilities. Splitting is justified only after their contracts are executable.",
+          "humanOwnerRequired": true
+        },
+        {
+          "prompt": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
+          "candidateDisposition": "deferred",
+          "evidence": "Observed effects clean up timers/listeners and presence on their current paths, but visibility/background and remount characterization is incomplete.",
+          "followUp": "Add background/foreground and remount scenarios before moving poll or presence ownership.",
+          "humanOwnerRequired": true
+        },
+        {
+          "prompt": "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
+          "candidateDisposition": "deferred",
+          "evidence": "Referral recovery is tab-scoped in local mode or server-scoped when configured and contains referral draft values. Exact principal scoping, retention, and cleanup need an explicit owner decision and test before movement.",
+          "followUp": "Record the PHI/retention boundary and execute cross-principal/cross-tab cleanup tests.",
+          "humanOwnerRequired": true
+        },
+        {
+          "prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+          "candidateDisposition": "deferred",
+          "evidence": "Some background summary/current-packet/presence cleanup failures deliberately preserve workspace use, while user-facing mutation failures are surfaced. Review each suppression during a bounded effect extraction rather than changing them wholesale.",
+          "followUp": "Bind every suppressed rejection to an optional effect, a later reconciliation path, or an operator-visible failure signal.",
+          "humanOwnerRequired": true
+        }
+      ],
+      "proposedDecision": "split",
+      "proposedDecisionReason": "After prerequisite behavior hardening, extract pure render sections first while keeping effectful orchestration in one owner. Move effect/state machines only one evidenced contract at a time."
+    },
+    {
+      "path": "components/pipeline/AssessmentWorkspace.tsx",
+      "plannedNew": false,
+      "dependencyDirection": "A browser assessment orchestration surface may depend on stable assessment types/schema, section policy, encrypted offline/recovery helpers, presentation components, and explicit HTTP commands. Persistence adapters and database modules remain server-only.",
+      "observedPurpose": "Owns assessment creation, scheduling, starting, interview editing, section autosave, server/browser recovery, encrypted offline queueing, remote merge/conflicts, evidence decisions, signing/recall, presence, modal overlays, and assessment rendering.",
+      "observedCallers": [
+        "ReferralPacketCanvas"
+      ],
+      "publicExports": [
+        "default AssessmentWorkspace"
+      ],
+      "sideEffects": [
+        "Assessment, evidence, presence, and recovery-draft HTTP requests",
+        "Encrypted IndexedDB working-set and offline-mutation writes",
+        "Autosave/recovery/poll/presence timers and browser online/beforeunload listeners",
+        "Body scroll locking and portal rendering"
+      ],
+      "observedFailureBehavior": "Serializes section saves, retains edits made after a request snapshot, queues offline request bodies without treating them as confirmed, merges latest records, exposes field conflicts, and surfaces command errors. The normal close path remains mounted, but immediate parent unmount before the 250/350 ms persistence timers is not characterized.",
+      "candidateTests": [
+        "Playwright: schedule, begin, complete, sign, and recall assessment",
+        "Playwright: immediate component unmount/remount before server and encrypted working-set timers",
+        "Playwright: navigation with in-flight save and pending offline queue write",
+        "Playwright: background/foreground recovery and newer-remote-version conflict",
+        "Keyboard focus entry, containment, Escape, and invoker-focus restoration for every modal"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (2136 lines): split by behavior before adding more responsibilities.",
+          "candidateDisposition": "confirmed",
+          "evidence": "Scheduling, lifecycle commands, autosave, recovery, offline queueing, collaboration, evidence decisions, modal behavior, and rendering are independently testable responsibilities.",
+          "humanOwnerRequired": true
+        },
+        {
+          "prompt": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
+          "candidateDisposition": "deferred",
+          "evidence": "Current timer effects include cleanup, but no test forces remount during the local persistence windows or proves visibility behavior.",
+          "followUp": "Characterize remount and visibility before any hook extraction.",
+          "humanOwnerRequired": true
+        },
+        {
+          "prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+          "candidateDisposition": "deferred",
+          "evidence": "Encrypted-browser-storage initialization, working-set persistence, cleanup, and poll reconciliation may fall back to server behavior, but their loss/recovery signaling is not uniformly visible.",
+          "followUp": "Classify each suppressed browser-storage or background-reconciliation failure before movement.",
+          "humanOwnerRequired": true
+        }
+      ],
+      "proposedDecision": "split",
+      "proposedDecisionReason": "After remount and focus evidence exists, extract render-only sections/dialogs behind explicit props. Keep save queue, recovery, offline queue, merge, and lifecycle command ownership together until each has isolated behavior tests."
+    },
+    {
+      "path": "components/pipeline/ClientProfileView.tsx",
+      "plannedNew": false,
+      "dependencyDirection": "A browser profile composition surface may depend on unified-profile and resident-link response types, canonical profile/activity/document presentation, and explicit HTTP commands. Identity matching, authorization, evidence revalidation, and durable link state remain server-owned.",
+      "observedPurpose": "Renders unified Pipeline/clinical client context, identity suggestions and candidate review, documents/evidence, timeline and profile sections, while dispatching explicit resident-link mutations.",
+      "observedCallers": [
+        "PipelineShell and client profile route/surfaces"
+      ],
+      "publicExports": [
+        "default ClientProfileView"
+      ],
+      "sideEffects": [
+        "Resident-link create/review HTTP requests",
+        "Profile refresh callback",
+        "Browser confirmation prompt and document links",
+        "Evidence-dialog Escape/outside-click handling"
+      ],
+      "observedFailureBehavior": "Surfaces identity mutation errors and requires a rejection note. Candidate create retries reuse a mutation id. Confirmation/rejection 409 responses remain generic and do not hydrate the latest candidate; the final review surface omits the evidence shown at suggestion time.",
+      "candidateTests": [
+        "Playwright: explicit two-step human identity review",
+        "Route characterization: mismatched DOB and identifier with zero side effects",
+        "Route characterization: stale, rejected, unauthorized, and source-changed candidates",
+        "Playwright: complete evidence shown at confirm/reject and stale-state reconciliation",
+        "Keyboard/focus tests for evidence dialog"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (1416 lines): split by behavior before adding more responsibilities.",
+          "candidateDisposition": "confirmed",
+          "evidence": "Profile composition, document/evidence presentation, identity suggestion, identity review, timeline, and modal behavior are separable after the identity invariant and final-review evidence defects are corrected.",
+          "humanOwnerRequired": true
+        }
+      ],
+      "proposedDecision": "split",
+      "proposedDecisionReason": "Correct the identity decision surface first, then extract cohesive render sections while leaving the server identity policy and revalidation at the route/domain boundary."
+    }
+  ]
+}

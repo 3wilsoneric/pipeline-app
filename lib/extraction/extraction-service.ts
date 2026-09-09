@@ -1,11 +1,17 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import { getExtractionBackendMode } from "@/lib/extraction/backend-config";
 import type {
   CompleteUploadRequest,
   CreateUploadUrlRequest,
   RetryFieldRequest,
   ReviewFieldRequest,
+} from "@/lib/extraction/contracts";
+import {
+  isReviewFieldReplay,
+  resolveReviewFieldOutcome,
 } from "@/lib/extraction/contracts";
 import {
   completeDurableManualUpload,
@@ -34,6 +40,7 @@ import {
   patchReferral,
 } from "@/lib/pipeline/referral-store";
 import type { ExtractedField, PacketFieldsResponse, PacketStatusResponse, ReviewFieldResponse } from "@/lib/extraction/contracts";
+import type { Referral } from "@/lib/pipeline/referral-types";
 
 type Actor = { id: string; name: string; email: string };
 
@@ -133,9 +140,25 @@ export async function readPacketFields(packetId: string) {
 }
 
 export async function reviewPacketField(packetId: string, fieldKey: string, input: ReviewFieldRequest, actor: Actor) {
-  if (getExtractionBackendMode() !== "mock") return reviewDurableField(packetId, fieldKey, input, actor);
-  return reviewField(packetId, fieldKey, { ...input, reviewer_id: actor.id })
-    ?? reviewImportedPacketField(packetId, fieldKey, input, actor);
+  const result = getExtractionBackendMode() !== "mock"
+    ? await reviewDurableField(packetId, fieldKey, input, actor)
+    : reviewField(packetId, fieldKey, { ...input, reviewer_id: actor.id })
+      ?? await reviewImportedPacketField(packetId, fieldKey, input, actor);
+  if (!result) return null;
+
+  try {
+    const packetFields = await readPacketFields(packetId);
+    if (!packetFields) throw new Error("The reviewed packet could not be reloaded for referral synchronization.");
+    const projection = await synchronizeReviewedPacket(packetId, packetFields, actor);
+    return {
+      ...result,
+      packet_fields: packetFields,
+      referral: projection.referral,
+      projection_status: projection.status,
+    };
+  } catch (error) {
+    throw new PacketProjectionPendingError(result, { cause: error });
+  }
 }
 
 export function retryPacketField(
@@ -151,6 +174,21 @@ export function retryPacketField(
 }
 
 export function extractionErrorResponse(error: unknown) {
+  if (error instanceof PacketProjectionPendingError) {
+    return Response.json({
+      error: error.message,
+      code: "packet_projection_pending",
+      review_saved: true,
+      field: {
+        field_key: error.review.field_key,
+        version: error.review.version,
+        review_status: error.review.review_status,
+      },
+    }, {
+      status: 409,
+      headers: { "Cache-Control": "private, no-store, max-age=0", Vary: "Authorization" },
+    });
+  }
   if (error instanceof DocumentProcessingError) {
     return Response.json({ error: error.message, code: error.code }, { status: error.status });
   }
@@ -195,6 +233,14 @@ async function reviewImportedPacketField(
   const currentField = referral.packetFields.find((field) => field.field_key === fieldKey);
   if (!currentField) return null;
   if (currentField.version !== input.if_match) {
+    if (isReviewFieldReplay(currentField, input)) {
+      return {
+        field_key: fieldKey,
+        version: currentField.version,
+        review_status: currentField.review_status,
+        final_value: currentField.final_value ?? null,
+      };
+    }
     throw new DocumentProcessingError(
       "field_version_conflict",
       409,
@@ -202,16 +248,10 @@ async function reviewImportedPacketField(
     );
   }
 
-  const finalValue = input.action === "reject"
-    ? null
-    : input.action === "edit"
-      ? input.value ?? currentField.proposed_value
-      : currentField.proposed_value;
-  const reviewStatus = input.action === "edit"
-    ? "edited"
-    : input.action === "reject"
-      ? "rejected"
-      : "accepted";
+  const { final_value: finalValue, review_status: reviewStatus } = resolveReviewFieldOutcome(
+    currentField.proposed_value,
+    input,
+  );
   const nextField: ExtractedField = {
     ...currentField,
     version: currentField.version + 1,
@@ -245,6 +285,77 @@ async function reviewImportedPacketField(
     review_status: nextField.review_status,
     final_value: finalValue,
   };
+}
+
+class PacketProjectionPendingError extends Error {
+  constructor(
+    readonly review: ReviewFieldResponse,
+    options?: ErrorOptions,
+  ) {
+    super(
+      "The field review was saved, but the referral workspace has not synchronized yet. Retry this review to finish the save.",
+      options,
+    );
+    this.name = "PacketProjectionPendingError";
+  }
+}
+
+async function synchronizeReviewedPacket(
+  packetId: string,
+  packetFields: PacketFieldsResponse,
+  actor: Actor,
+): Promise<{ status: "synchronized" | "not_linked"; referral?: Referral }> {
+  const patch = {
+    packetFields: packetFields.fields,
+    packetCompleteness: packetFields.packet_completeness,
+    packetReadiness: packetFields.ehr_readiness,
+  };
+  const mutationId = packetProjectionMutationId(packetId, packetFields);
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const referral = await getReferralByPacketId(packetId);
+    if (!referral) return { status: "not_linked" };
+    if (packetProjectionMatches(referral, packetFields)) {
+      return { status: "synchronized", referral };
+    }
+    const mutation = await patchReferral(
+      referral.id,
+      patch,
+      referral.version,
+      { id: actor.id, name: actor.name },
+      referral.sectionVersions ? { documents: referral.sectionVersions.documents } : undefined,
+      {
+        auditAction: "packet_extraction_projected",
+        auditReason: "Reviewed packet evidence synchronized.",
+        mutationId,
+        mutationScope: "packet_extraction_projection",
+      },
+    );
+    if (!mutation) return { status: "not_linked" };
+    if (mutation.ok) return { status: "synchronized", referral: mutation.referral };
+  }
+
+  throw new Error("The referral documents section remained busy after three synchronization attempts.");
+}
+
+function packetProjectionMatches(referral: Referral, packetFields: PacketFieldsResponse) {
+  return JSON.stringify(referral.packetFields ?? null) === JSON.stringify(packetFields.fields)
+    && JSON.stringify(referral.packetCompleteness ?? null) === JSON.stringify(packetFields.packet_completeness)
+    && JSON.stringify(referral.packetReadiness ?? null) === JSON.stringify(packetFields.ehr_readiness);
+}
+
+function packetProjectionMutationId(packetId: string, packetFields: PacketFieldsResponse) {
+  return createHash("sha256").update(JSON.stringify([
+    packetId,
+    packetFields.fields.map((field) => [
+      field.field_key,
+      field.version,
+      field.review_status,
+      field.final_value ?? null,
+    ]),
+    packetFields.packet_completeness,
+    packetFields.ehr_readiness,
+  ])).digest("hex");
 }
 
 function completenessFromFields(fields: ExtractedField[]) {

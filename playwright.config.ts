@@ -18,6 +18,7 @@ const crossBrowser = process.env.PIPELINE_CROSS_BROWSER === "true";
 const desktopE2E = process.env.PIPELINE_DESKTOP_E2E === "true";
 const prebuiltE2E = process.env.PIPELINE_E2E_PREBUILT === "true";
 const externalE2E = process.env.PIPELINE_E2E_EXTERNAL_SERVER === "true";
+const clinicalMockPort = process.env.PIPELINE_E2E_CLINICAL_PORT ?? "3299";
 
 process.env.PIPELINE_E2E_REFERRAL_STORE_PATH = referralStorePath;
 process.env.PIPELINE_E2E_ASSESSMENT_STORE_PATH = assessmentStorePath;
@@ -65,6 +66,7 @@ export default defineConfig({
       PIPELINE_ALLOWED_EMAILS: "playwright@pipeline.local",
       PIPELINE_ALLOWED_MUTATION_ORIGINS: `${baseURL},http://localhost:${port}`,
       PIPELINE_ALLOW_LOCAL_REFERRAL_STORE: "true",
+      PIPELINE_ALLOW_LOCAL_RESIDENT_LINK_STORE: "true",
       PIPELINE_REFERRAL_STORE_PATH: referralStorePath,
       PIPELINE_ASSESSMENT_STORE_PATH: assessmentStorePath,
       PIPELINE_RESIDENT_LINK_STORE_PATH: residentLinkStorePath,
@@ -76,6 +78,9 @@ export default defineConfig({
       PIPELINE_ALLOW_LOCAL_NOTE_LAB_STORE: "true",
       PIPELINE_NOTE_LAB_STORE_PATH: noteLabStorePath,
       PIPELINE_WORKER_SHARED_SECRET: "playwright-worker-secret",
+      PIPELINE_CLINICAL_DATA_MODE: "alamo_api",
+      PIPELINE_ALAMO_AUTH_MODE: "delegated",
+      PIPELINE_ALAMO_API_BASE_URL: `http://127.0.0.1:${clinicalMockPort}`,
       NEXT_PUBLIC_PIPELINE_DESKTOP_ENABLED: desktopE2E ? "true" : "false",
       PIPELINE_DESKTOP_STATE_ENABLED: desktopE2E ? "true" : "false",
       PIPELINE_ALLOW_LOCAL_DESKTOP_STATE_STORE: desktopE2E ? "true" : "false",
