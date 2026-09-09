@@ -1,0 +1,380 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "assessment-store-boundaries",
+  "startingCommit": "ba76a0c2871c443eb297fe5bfe0a700eda426aa1",
+  "generatedInventory": "docs/reliability/repository-file-inventory.json",
+  "humanOwner": "Eric",
+  "reviewedAt": "2026-09-09T02:20:44Z",
+  "files": [
+    {
+      "path": "lib/assessment/assessment-store.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Server-only assessment persistence may depend on stable assessment records, pure lifecycle policy, database adapters, referral workflow types, and audit helpers; routes and server services may depend on its public API.",
+      "purpose": "Selects and implements assessment persistence, queries, optimistic mutations, idempotency, provenance, audit, schedule collision handling, reporting, and referral-workflow synchronization.",
+      "callers": [
+        "Assessment, referral-assessment, calendar, reporting, profile, workflow, operations, and reconciliation routes and services"
+      ],
+      "publicExports": [
+        "AssessmentStore",
+        "createAssessment",
+        "patchAssessment",
+        "importAssessmentExtraction",
+        "listAssessments",
+        "getAssessment",
+        "AssessmentMutation",
+        "AssessmentScheduleConflictError"
+      ],
+      "sideEffects": [
+        "Local JSON reads and atomic file replacement through serialized mutation and persistence queues",
+        "PostgreSQL assessment, provenance, addendum, idempotency, audit, revision, and referral-workflow reads and writes",
+        "Aggregate local-load warning"
+      ],
+      "failureBehavior": "Returns typed conflicts and blockers for expected outcomes and throws for validation, capacity, persistence, referral synchronization, and database failures. PostgreSQL coupled effects roll back transactionally; the characterized local cross-store referral synchronization boundary remains explicit.",
+      "tests": [
+        "npm run check:assessment-store-characterization",
+        "npm run check:api",
+        "npm run check:assessor-workflow",
+        "npm run check:assessment-workbook",
+        "npm run database:assurance:integration",
+        "npm run database:concurrency"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (2187 lines): split by behavior before adding more responsibilities.",
+          "disposition": "confirmed",
+          "reason": "The module mixes adapter selection, two persistence adapters, lifecycle policy, query mapping, audit, provenance, idempotency, scheduling, and workflow synchronization. This iteration moves only pure lifecycle decision policy into the existing lifecycle owner.",
+          "owner": "Eric",
+          "followUp": "Move another responsibility only after its callers and both adapters have focused characterization."
+        },
+        {
+          "prompt": "Contains runtime console logging; verify messages cannot include PHI, tokens, query strings, or upstream bodies.",
+          "disposition": "expected",
+          "reason": "The local-load warning uses fixed service and event fields and does not interpolate the exception, assessment data, client identity, tokens, query text, or upstream bodies.",
+          "owner": "Eric",
+          "followUp": "Retain aggregate-only logging in later adapter work."
+        },
+        {
+          "prompt": "Uses SELECT *; verify response growth, schema coupling, and PHI minimization.",
+          "disposition": "deferred",
+          "reason": "The assessment row hydrator currently depends on the complete governed assessment record. This iteration does not change query projection or response content.",
+          "owner": "Eric",
+          "followUp": "Replace star projection only in a separately characterized query-boundary iteration with historical-row compatibility evidence."
+        },
+        {
+          "prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+          "disposition": "deferred",
+          "reason": "The persistence queue recovers a prior rejected state before its next serialized write; the failed command still rejects. This iteration does not touch queue semantics.",
+          "owner": "Eric",
+          "followUp": "Characterize operator-visible local persistence readiness before extracting the queue."
+        }
+      ],
+      "decision": "split",
+      "decisionReason": "Move the pure completion, pending-evidence, and referral-workflow projection decisions to the existing lifecycle module while preserving store call sites and every persistence effect."
+    },
+    {
+      "path": "lib/assessment/assessment-records.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Stable assessment record and mutation shapes may depend on assessment schema types; policy, persistence, routes, and browser modules may depend on these types.",
+      "purpose": "Defines canonical assessment, actor, audit, schedule, signature, addendum, and persistence-facing command shapes.",
+      "callers": [
+        "Assessment store, lifecycle policy, access policy, routes, reporting, workflow, and user-interface modules"
+      ],
+      "publicExports": [
+        "PipelineAssessmentRecord",
+        "AssessmentActor",
+        "AssessmentAuditAction",
+        "AssessmentCreateInput",
+        "AssessmentPatchInput",
+        "AssessmentScheduleUpdate",
+        "AssessmentAddendum"
+      ],
+      "sideEffects": [],
+      "failureBehavior": "Type and pure record helpers have no storage effects; incompatible shapes fail TypeScript or return their documented normalized values.",
+      "tests": [
+        "npm run build",
+        "npm run check:assessment-store-characterization"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "It remains the stable record contract and does not need structural change in this iteration."
+    },
+    {
+      "path": "lib/assessment/assessment-lifecycle-validation.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Pure lifecycle command validation and decision policy may depend on canonical assessment records, assessment field definitions, completion rules, and referral workflow status types; it must not depend on persistence, routes, browser code, or external services.",
+      "purpose": "Validates schedule, start, sign, and addendum commands and becomes the canonical pure owner for completion blockers, pending imported evidence, and assessment-to-referral workflow projection.",
+      "callers": [
+        "Assessment lifecycle routes and assessment store adapters"
+      ],
+      "publicExports": [
+        "validateAssessmentLifecycleCommand",
+        "validateAssessmentScheduleCommand",
+        "validateAssessmentAddendumCommand",
+        "getAssessmentCompletionBlockers",
+        "getPendingAssessmentFields",
+        "getReferralWorkflowStatusAfterAssessment"
+      ],
+      "sideEffects": [],
+      "failureBehavior": "Returns bounded validation failures or deterministic policy results without writing data or logging clinical content.",
+      "tests": [
+        "npm run check:assessment-store-characterization",
+        "npm run check:api",
+        "npm run check:assessor-workflow",
+        "npm run build"
+      ],
+      "staticPrompts": [],
+      "decision": "move",
+      "decisionReason": "Reuse the existing lifecycle boundary for pure rules currently embedded in the effectful store."
+    },
+    {
+      "path": "lib/assessment/assessment-access.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Pure assessment authorization may depend on canonical actor and referral ownership shapes; routes and server services may depend on its decisions.",
+      "purpose": "Defines supervisor capability and assessment resource access from authenticated role, assignment, referral ownership, and collaboration state.",
+      "callers": [
+        "Assessment routes and assessor-session flows"
+      ],
+      "publicExports": [
+        "isAssessmentSupervisor",
+        "canAccessAssessment",
+        "canMutateAssessment"
+      ],
+      "sideEffects": [],
+      "failureBehavior": "Returns false for unsupported roles or missing resource relationships; callers emit the private denial response.",
+      "tests": [
+        "npm run check:assessment-store-characterization",
+        "npm run check:route-policy",
+        "npm run check:assessor-workflow"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The authorization boundary is already cohesive and is held constant by this iteration."
+    },
+    {
+      "path": "docs/refactoring/ASSESSMENT_STORE_ARCHITECTURE_NARRATIVE.md",
+      "plannedNew": true,
+      "dependencyDirection": "Governance documentation may cite approved repository evidence and controls but has no runtime dependents.",
+      "purpose": "Records the owner-authorized architecture understanding, scope, invariants, transaction boundaries, failure behavior, and proof boundary for this slice.",
+      "callers": [
+        "TARS start and completion review"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "An incomplete or stale narrative blocks slice advancement without affecting application behavior.",
+      "tests": [
+        "npm run check:refactor-setup"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The playbook requires a durable exact-start architecture record."
+    },
+    {
+      "path": "package.json",
+      "plannedNew": false,
+      "dependencyDirection": "Repository command metadata may expose existing scripts and focused evidence runners; it must not contain application runtime policy.",
+      "purpose": "Registers the assessment-store characterization runner as an executable repository check.",
+      "callers": [
+        "Developers, TARS, and CI-compatible local assurance commands"
+      ],
+      "publicExports": [],
+      "sideEffects": [
+        "Invokes the explicitly selected characterization script"
+      ],
+      "failureBehavior": "The command returns the runner's nonzero exit status when its disposable database, build, migration, or either adapter scenario fails.",
+      "tests": [
+        "npm run check:assessment-store-characterization"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "One focused script entry reuses the repository's established command surface."
+    },
+    {
+      "path": "scripts/assessment-store-characterization.mjs",
+      "plannedNew": true,
+      "dependencyDirection": "The evidence runner may invoke repository build, migration, and Playwright commands against synthetic local and disposable PostgreSQL stores; application runtime code must never depend on it.",
+      "purpose": "Runs the same six synthetic assessment lifecycle scenarios against local-file and isolated PostgreSQL adapters and emits commit-bound aggregate evidence.",
+      "callers": [
+        "package.json check:assessment-store-characterization"
+      ],
+      "publicExports": [],
+      "sideEffects": [
+        "Builds the application",
+        "Creates and force-drops a uniquely named database on the explicitly configured disposable PostgreSQL server",
+        "Creates and recursively removes a uniquely generated operating-system temporary directory",
+        "Starts bounded Playwright subprocesses and writes ignored aggregate evidence under outputs/refactor-characterization"
+      ],
+      "failureBehavior": "Refuses a missing disposable database URL or dirty working tree, propagates subprocess and assertion failures, and reports cleanup failure if the uniquely named database cannot be dropped.",
+      "tests": [
+        "PIPELINE_TEST_DATABASE_URL=<disposable-postgres-16-url> npm run check:assessment-store-characterization"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
+          "disposition": "confirmed",
+          "reason": "Commands and argument arrays are fixed repository values passed to spawn without a shell; exit, spawn, JSON parse, and exact test-count failures are propagated. CI and the outer command runner provide the execution timeout.",
+          "owner": "Eric",
+          "followUp": "Keep commands array-based and synthetic; add an internal kill timer if this runner becomes a persistent unattended job."
+        },
+        {
+          "prompt": "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence.",
+          "disposition": "expected",
+          "reason": "Destruction is restricted to a process- and UUID-qualified database created by the same run on an explicitly configured disposable server and a mkdtemp-created directory. Cleanup executes in finally and records database-drop failure.",
+          "owner": "Eric",
+          "followUp": "Never point PIPELINE_TEST_DATABASE_URL at production or remove the unique-name and dirty-tree guards."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "The dedicated runner is the smallest repeatable way to prove matched adapter behavior without changing production stores."
+    },
+    {
+      "path": "tests/e2e/operational/assessment-store-characterization.spec.ts",
+      "plannedNew": true,
+      "dependencyDirection": "Synthetic operational tests may exercise public application routes and inspect isolated test stores; application runtime code must never depend on them.",
+      "purpose": "Characterizes replay, concurrency, authorization, provenance, scheduling, signing, addenda, audit cardinality, and referral-workflow synchronization through public surfaces.",
+      "callers": [
+        "scripts/assessment-store-characterization.mjs through the operational Playwright configuration"
+      ],
+      "publicExports": [],
+      "sideEffects": [
+        "Creates synthetic referrals and assessments in an isolated adapter",
+        "Performs authenticated synthetic mutations and readback assertions"
+      ],
+      "failureBehavior": "Any unexpected response, missing side effect, extra material write, authorization leak, or lifecycle mismatch fails the adapter run.",
+      "tests": [
+        "npm run check:assessment-store-characterization"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The public-surface scenarios provide executable behavioral evidence without coupling tests to implementation functions."
+    },
+    {
+      "path": "docs/refactoring/assessment-store-file-audit.json",
+      "plannedNew": true,
+      "dependencyDirection": "Governance data may cite the repository inventory and active slice; only refactor validators consume it.",
+      "purpose": "Records the disposition, side effects, tests, and exact static concerns for every scoped or explicitly allowlisted file.",
+      "callers": [
+        "scripts/code-quality-readiness.mjs"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing files, prompts, metadata, or scope dispositions fail the active-slice quality gate.",
+      "tests": [
+        "npm run check:code-quality",
+        "npm run check:refactor-setup"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Uses SELECT *; verify response growth, schema coupling, and PHI minimization.",
+          "disposition": "false_positive",
+          "reason": "The phrase appears only as the exact static-analysis prompt being dispositioned for assessment-store.ts; this governance JSON performs no query and contains no PHI.",
+          "owner": "Eric",
+          "followUp": "Keep governance prompt text exact so the machine audit remains reviewable."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "The active refactor gate requires one exact file-audit disposition."
+    },
+    {
+      "path": "docs/refactoring/assessment-store-assurance-record.json",
+      "plannedNew": true,
+      "dependencyDirection": "The slice assurance record depends on approved invariants, obligations, and candidate-bound evidence and has no runtime dependents.",
+      "purpose": "Binds obligations, required gates, recovery evidence, and the bounded convergence claim to the exact candidate commit.",
+      "callers": [
+        "scripts/refactor-high-assurance-readiness.mjs"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "An incomplete or inconsistent record blocks soaking and completion without affecting runtime behavior.",
+      "tests": [
+        "npm run check:refactor-assurance"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "This is the machine-readable assurance boundary for the owner-authorized slice."
+    },
+    {
+      "path": "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json",
+      "plannedNew": true,
+      "dependencyDirection": "Committed synthetic machine evidence depends on the exact test digest and starting commit and has no runtime dependents.",
+      "purpose": "Records the matched local-file and PostgreSQL assessment lifecycle characterization at the exact starting commit.",
+      "callers": [
+        "TARS evidence review and slice assurance"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing, failing, or mismatched adapter evidence blocks activation without changing application behavior.",
+      "tests": [
+        "npm run check:assessment-store-characterization"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The exact-start adapter evidence is the behavior-preservation baseline for the iteration."
+    },
+    {
+      "path": "lib/academy/academy-atlas.generated.json",
+      "plannedNew": false,
+      "dependencyDirection": "Generated Academy inventory records repository topology for training and has no runtime dependency on assessment persistence.",
+      "purpose": "Keeps the source-grounded Academy atlas synchronized with the approved assessment boundary and governance records.",
+      "callers": [
+        "scripts/academy-atlas.mjs",
+        "scripts/academy-readiness.mjs"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Stale generated inventory fails Academy freshness checks without affecting runtime behavior.",
+      "tests": [
+        "npm run academy:atlas:check",
+        "npm run academy:check"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (10502 lines): split by behavior before adding more responsibilities.",
+          "disposition": "expected",
+          "reason": "This is a deterministic generated repository atlas, not an authored runtime module; generation remains owned by scripts/academy-atlas.mjs.",
+          "owner": "Eric",
+          "followUp": "Do not hand-edit or split the generated atlas."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "Refresh only the machine-generated topology when approved source or governance files change."
+    },
+    {
+      "path": "docs/academy/academy-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Academy freshness metadata depends on generated source fingerprints and has no runtime dependents.",
+      "purpose": "Records reviewed source and atlas fingerprints used by Academy readiness.",
+      "callers": [
+        "scripts/academy-readiness.mjs"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "A stale fingerprint blocks certification without changing application behavior.",
+      "tests": [
+        "npm run academy:check"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Refresh only the machine-computed fingerprints required after the approved change."
+    },
+    {
+      "path": "docs/training/training-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Operator-training freshness metadata depends on governed product-source fingerprints and has no runtime dependents.",
+      "purpose": "Records source and curriculum fingerprints used by operator-training readiness.",
+      "callers": [
+        "scripts/operator-training-readiness.mjs"
+      ],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "A stale fingerprint blocks certification without changing application behavior.",
+      "tests": [
+        "npm run training:check"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Refresh only the machine-computed fingerprints required after the approved source change."
+    }
+  ],
+  "reviewedBy": "Owner-authorized TARS machine trace",
+  "approvedAt": "2026-09-09T02:20:44Z"
+}

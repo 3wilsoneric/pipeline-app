@@ -20,7 +20,7 @@
         "docs/reliability/dependency-inventory.json",
         "docs/reliability/repository-file-inventory.json"
       ],
-      "note": "The generated every-file, hash-backed repository and locked-dependency inventories were refreshed in the dedicated execution worktree from exact starting commit 1956139851eb83d6d785762461466355af0524e4 immediately before activation."
+      "note": "The generated every-file, hash-backed repository and locked-dependency inventories were refreshed in the dedicated assessment execution worktree immediately before activation of the branch rooted at exact starting commit ba76a0c2871c443eb297fe5bfe0a700eda426aa1."
     },
     {
       "id": "runtime_types_and_worktree_alignment",
@@ -33,7 +33,7 @@
         "docs/refactoring/DEPENDENCY_CEILING_DISPOSITION_PROPOSAL.md",
         "docs/refactoring/WORKTREE_RUNBOOK.md"
       ],
-      "note": "@types/node is aligned with Node 22, the 531-location dependency ceiling remains enforced, and activation is bound to /Users/eric/pipeline-refactor-referral-store-v2 on codex/refactor-referral-store-v2 from exact main commit 1956139851eb83d6d785762461466355af0524e4."
+      "note": "@types/node is aligned with Node 22, the 531-location dependency ceiling remains enforced, and activation is bound to /Users/eric/pipeline-refactor-assessment-store on codex/refactor-assessment-store from exact starting commit ba76a0c2871c443eb297fe5bfe0a700eda426aa1."
     },
     {
       "id": "green_complexity_ratchet",
@@ -68,7 +68,7 @@
         ".github/workflows/refactor-agent.yml",
         "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"
       ],
-      "note": "Pull request 25 bound exact starting commit 1956139851eb83d6d785762461466355af0524e4 to passing verify, browser, operational, PostgreSQL, CodeQL, and dependency-review contexts before the slice was activated."
+      "note": "Pull request 27 bound implementation-free pre-change evidence commit 14ed5cae392037df5f41c7aa2ad7a9ddb0f3be54, on the branch rooted at exact starting commit ba76a0c2871c443eb297fe5bfe0a700eda426aa1, to passing verify, browser, operational, PostgreSQL, CodeQL, and dependency-review contexts before activation (Pipeline CI run 34303336715)."
     },
     {
       "id": "risk_ranked_exact_start_baseline",
@@ -81,7 +81,7 @@
         "docs/refactoring/characterization/refactor-baseline-machine-run-4d50f4ea.json",
         "docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json"
       ],
-      "note": "The exact-start run identifies referral-store.ts as the highest-priority critical control-plane target. Codebase baseline, production build, API and assessor checks, 2,000 workflow-fuzz traces covering 840,009 cases, 27/27 critical-safety tests, and the approved complexity ratchet passed before activation; exact adapter characterization was repeated at 1956139851eb83d6d785762461466355af0524e4."
+      "note": "The pre-change baseline identifies assessment-store.ts as the next approved critical control-plane target: 2,187 lines, complexity 589, fan-in 22, eight dependencies, and branch depth eight. The production build, exact six-scenario local/PostgreSQL characterization, and repository risk baseline passed at implementation-free evidence commit 14ed5cae392037df5f41c7aa2ad7a9ddb0f3be54 on the branch rooted at ba76a0c2871c443eb297fe5bfe0a700eda426aa1."
     },
     {
       "id": "honest_high_assurance_claim_boundary",
@@ -223,16 +223,22 @@
         {
           "id": "behavior_characterization",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:api", "check:assessor-workflow", "check:assessment-workbook"],
-          "note": "Freeze draft, schedule, start, sign, addendum, provenance, audit, and failure behavior, including assessment-owned synchronization back into referral workflow state and its local/PostgreSQL transaction differences. Owner role direction recorded 2026-09-06: one supervisor performs assessments; two assessors generally both own referrals and perform assessments; one assessment-only assessor works assigned assessments and does not ordinarily alter workspace-creation information, except for verified attributable corrections."
+          "files": [
+            "docs/refactoring/ASSESSMENT_STORE_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json",
+            "tests/e2e/operational/assessment-store-characterization.spec.ts",
+            "scripts/assessment-store-characterization.mjs"
+          ],
+          "note": "At implementation-free pre-change evidence commit 14ed5cae392037df5f41c7aa2ad7a9ddb0f3be54, six synthetic scenarios passed against both local-file and PostgreSQL 16 adapters. They freeze create replay and audit cardinality, section merge/conflict behavior, wrong-resource denial, import provenance and review, schedule collision and supervisor override, lifecycle/workflow synchronization, signed immutability, and append-only addenda. The branch is rooted at starting commit ba76a0c2871c443eb297fe5bfe0a700eda426aa1 and the owner role direction remains unchanged."
         },
       {
         "id": "local_postgres_parity",
         "phase": "before_start",
-        "status": "missing",
-        "files": ["docs/refactoring/ADAPTER_PARITY_CONTRACT.md"],
-        "note": "Implement the shared assessment scenario suite before moving adapter boundaries."
+        "status": "satisfied",
+        "files": ["docs/refactoring/ADAPTER_PARITY_CONTRACT.md", "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json"],
+        "note": "The same six lifecycle scenarios pass on both adapters at implementation-free pre-change evidence commit 14ed5cae392037df5f41c7aa2ad7a9ddb0f3be54. PostgreSQL keeps assessment, provenance, audit, idempotency, revision, and referral-workflow effects inside one transaction; the documented local two-store synchronization limitation remains characterized rather than hidden."
         },
         {
           "id": "runtime_authorization",
@@ -267,14 +273,16 @@
         {
           "id": "owner_validated_assurance_model",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": [
             "docs/refactoring/canonical-responsibilities.json",
             "docs/refactoring/architecture-comprehension-probes.json",
-            "docs/refactoring/proof-obligations.json"
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/ASSESSMENT_STORE_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/assessment-store-assurance-record.json"
           ],
-          "note": "The assessment lifecycle, signed immutability, provenance, authorization, and workflow-synchronization obligations are setup candidates. The human owner must validate them and complete the pre-change comprehension review."
+          "note": "Eric authorized the owner-fast-lane slice. The exact-start machine trace maps assessment_lifecycle_persistence, authentication_and_resource_authorization, and transaction_local_audit_and_retry to the assessment sign/addendum and wrong-resource probes, with assessment_signed_immutability and assessment_authorized_atomic_workflow_sync as the approved proof obligations."
         },
         {
           "id": "convergence_and_residual_risk",

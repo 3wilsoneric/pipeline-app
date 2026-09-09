@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "assessment-store-boundaries",
+  "status": "baseline_approved",
+  "startingCommit": "ba76a0c2871c443eb297fe5bfe0a700eda426aa1",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T02:20:44Z"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "assessment_signed_immutability",
+    "assessment_authorized_atomic_workflow_sync"
+  ],
+  "preChangeMachineTrace": [
+    "The exact starting commit passed six assessment lifecycle scenarios against the isolated local-file adapter.",
+    "The exact starting commit passed the same six assessment lifecycle scenarios against a disposable PostgreSQL 16 database.",
+    "The characterization covers replay, conflict, authorization, provenance, scheduling, signing, addenda, audit, and referral workflow synchronization.",
+    "TypeScript and focused ESLint checks passed at pre-change evidence commit 14ed5cae392037df5f41c7aa2ad7a9ddb0f3be54.",
+    "Main commit ba76a0c2871c443eb297fe5bfe0a700eda426aa1 passed the complete CI, security, certification, and guarded production deployment gates before the slice branch was created."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Signed assessments remain immutable except through append-only addenda.",
+      "Field provenance and review state survive every persistence boundary.",
+      "Assessor and supervisor permissions remain distinct and fail closed.",
+      "Local and PostgreSQL adapters preserve intended domain parity."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/assessment-store-boundaries-machine-run-14ed5ca.json records 6/6 local-file and 6/6 PostgreSQL 16 scenarios at the implementation-free pre-change evidence commit."
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": null,
+    "allObligationsVerified": false,
+    "requiredGatesPassed": false,
+    "behaviorPreserved": false,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": false,
+    "noUnresolvedCriticalOrHigh": false,
+    "acceptedBy": null,
+    "acceptedAt": null,
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T02:20:44Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}
