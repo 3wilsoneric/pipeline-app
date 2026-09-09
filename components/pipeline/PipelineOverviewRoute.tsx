@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 
 import ClientProfileDirectory from "@/components/pipeline/ClientProfileDirectory";
-import ClientProfileView from "@/components/pipeline/ClientProfileView";
 import OperationsDashboard from "@/components/pipeline/OperationsDashboard";
 import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
 import ReferralHome from "@/components/pipeline/ReferralHome";
-import ReferralPacketCanvas from "@/components/pipeline/ReferralPacketCanvas";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchCurrentPipelineUser } from "@/lib/auth/authenticated-fetch";
 import {
@@ -33,8 +31,57 @@ import {
   usePipelineLocationSearch,
 } from "@/lib/pipeline/client-navigation";
 
+async function loadDeferredWorkSurfaces() {
+  const [profile, referral] = await Promise.all([
+    import("@/components/pipeline/ClientProfileView"),
+    import("@/components/pipeline/ReferralPacketCanvas"),
+  ]);
+  return {
+    ClientProfileView: profile.default,
+    ReferralPacketCanvas: referral.default,
+  };
+}
+
+type DeferredWorkSurfaces = Awaited<ReturnType<typeof loadDeferredWorkSurfaces>>;
+
 type PipelineScreen = "home" | "referrals" | "packet" | "calendar" | "profiles" | "profile" | "operations" | "trash";
 type ReferralSelection = { id: number; name?: string; gender?: string; community?: Referral["community"] };
+
+function useDeferredWorkSurfaces() {
+  const [surfaces, setSurfaces] = useState<DeferredWorkSurfaces | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    // Keep the first paint lean, then warm the two largest work surfaces so the
+    // first operator navigation can render them synchronously.
+    void loadDeferredWorkSurfaces().then((loaded) => {
+      if (!cancelled) setSurfaces(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return surfaces;
+}
+
+function DeferredScreenLoading() {
+  return (
+    <main className="h-full bg-white px-6 py-5" aria-label="Loading workspace">
+      <div role="status" aria-label="Loading workspace" aria-busy="true" className="flex h-10 w-full max-w-[640px] items-center gap-4 bg-[#f7f9f8] px-3">
+        <div className="h-3 w-24 animate-pulse bg-[#dce4e0]" />
+        <div className="h-3 flex-1 animate-pulse bg-[#e7ece9]" />
+      </div>
+      <div className="mt-6 h-px w-full bg-[#e5e5e5]" />
+    </main>
+  );
+}
+
+function renderDeferredWorkSurface<Props extends object>(
+  Surface: ComponentType<Props> | undefined,
+  props: Props,
+) {
+  if (!Surface) return <DeferredScreenLoading />;
+  return <Surface {...props} />;
+}
 
 export default function PipelineOverviewRoute() {
   const { searchTerm, setSearchTerm, setSearchOpen } = usePipelineShell();
@@ -51,6 +98,7 @@ export default function PipelineOverviewRoute() {
     : undefined;
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
   const [reportAccess, setReportAccess] = useState<boolean | null>(null);
+  const deferredWorkSurfaces = useDeferredWorkSurfaces();
   const selectedReferral = routeReferral && referralDetails?.id === routeReferral.id
     ? referralDetails
     : routeReferral;
@@ -178,40 +226,38 @@ export default function PipelineOverviewRoute() {
 
   let page: ReactNode;
   if (screen === "packet") {
-    page = (
-      <ReferralPacketCanvas
-        referral={selectedReferral}
-        newDraftKey={newReferralDraftKey}
-        initialWorkspaceStage={getInitialWorkspaceStage(activeSearchParams)}
-        trainingAssessmentMode={getTrainingAssessmentMode(activeSearchParams)}
-        trainingAssessmentSection={getTrainingAssessmentSection(activeSearchParams)}
-        onWorkspaceStageChange={(stage) => {
-          const params = new URLSearchParams(window.location.search);
-          if (stage === "intake") params.delete("workspaceStage");
-          else params.set("workspaceStage", stage);
-          replacePipelineHistory(`/?${params.toString()}`);
-        }}
-        onReferralSaved={(savedReferral) => {
-          setReferralDetails(savedReferral);
-          const params = new URLSearchParams(activeSearchParams.toString());
-          params.set("view", "referrals");
-          params.set("screen", "packet");
-          params.set("referralId", String(savedReferral.id));
-          params.delete("draftId");
-          replacePipelineHistory(`/?${params.toString()}`);
-        }}
-        onReferralDeleted={() => navigate("referrals")}
-        onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
-      />
-    );
+    const packetProps: ComponentProps<DeferredWorkSurfaces["ReferralPacketCanvas"]> = {
+      referral: selectedReferral,
+      newDraftKey: newReferralDraftKey,
+      initialWorkspaceStage: getInitialWorkspaceStage(activeSearchParams),
+      trainingAssessmentMode: getTrainingAssessmentMode(activeSearchParams),
+      trainingAssessmentSection: getTrainingAssessmentSection(activeSearchParams),
+      onWorkspaceStageChange: (stage) => {
+        const params = new URLSearchParams(window.location.search);
+        if (stage === "intake") params.delete("workspaceStage");
+        else params.set("workspaceStage", stage);
+        replacePipelineHistory(`/?${params.toString()}`);
+      },
+      onReferralSaved: (savedReferral) => {
+        setReferralDetails(savedReferral);
+        const params = new URLSearchParams(activeSearchParams.toString());
+        params.set("view", "referrals");
+        params.set("screen", "packet");
+        params.set("referralId", String(savedReferral.id));
+        params.delete("draftId");
+        replacePipelineHistory(`/?${params.toString()}`);
+      },
+      onReferralDeleted: () => navigate("referrals"),
+      onOpenProfile: (clientId) => navigate("profile", undefined, clientId),
+    };
+    page = renderDeferredWorkSurface(deferredWorkSurfaces?.ReferralPacketCanvas, packetProps);
   } else if (screen === "profile" && selectedClientId) {
-    page = (
-      <ClientProfileView
-        residentKey={selectedClientId}
-        onBack={() => navigate("profiles")}
-        onOpenWorkspace={(referral) => navigate("packet", referral)}
-      />
-    );
+    const profileProps: ComponentProps<DeferredWorkSurfaces["ClientProfileView"]> = {
+      residentKey: selectedClientId,
+      onBack: () => navigate("profiles"),
+      onOpenWorkspace: (referral) => navigate("packet", referral),
+    };
+    page = renderDeferredWorkSurface(deferredWorkSurfaces?.ClientProfileView, profileProps);
   } else if (screen === "operations") {
     page = reportAccess === true ? (
       <OperationsDashboard
