@@ -267,25 +267,18 @@ export function normalizeWorkItem(item: AdmissionRequirement): AdmissionRequirem
 }
 
 export function validateWorkItem(item: AdmissionRequirement) {
-  if (item.status === "waived" && !item.waiverReason) {
-    return { code: "waiver_reason_required", label: "Record why this requirement is being waived." };
+  const validators = [
+    validateWaiverReason,
+    validateRequestedFrom,
+    validateFollowUp,
+    validateAvailabilityReason,
+    validateNextStep,
+    validateDueDate,
+  ];
+  for (const validate of validators) {
+    const issue = validate(item);
+    if (issue) return issue;
   }
-  if (item.status === "requested" && !item.requestedFrom) {
-    return { code: "requested_from_required", label: "Record who is expected to provide the missing information." };
-  }
-  if (item.status === "requested" && !item.followUpAt) {
-    return { code: "follow_up_required", label: "Set a follow-up date for requested information." };
-  }
-  if (["unavailable", "not_applicable"].includes(item.status) && !item.unavailableReason) {
-    return {
-      code: "availability_reason_required",
-      label: item.status === "unavailable"
-        ? "Record why this information is unavailable."
-        : "Record why this requirement does not apply.",
-    };
-  }
-  if (!item.nextStep) return { code: "next_action_required", label: "Every open requirement needs a next action." };
-  if (!item.dueAt) return { code: "due_date_required", label: "Every open requirement needs a due date." };
   return null;
 }
 
@@ -295,31 +288,9 @@ export function getEhrHandoffBlockers(
   failureReason: string,
 ) {
   const current = snapshot.referral.ehrHandoff;
-  if (action === "mark_failed" && !failureReason.trim()) {
-    return [{ code: "ehr_failure_reason_required", label: "Record why the EHR handoff failed." }];
-  }
-  if ((action === "mark_sent" || action === "mark_failed") && current?.status !== "queued") {
-    return [{ code: "ehr_handoff_not_queued", label: "Queue the EHR handoff before recording its result." }];
-  }
-  if (action === "retry" && current?.status !== "failed") {
-    return [{ code: "ehr_handoff_not_failed", label: "Only a failed EHR handoff can be retried." }];
-  }
-  if (action === "queue" || action === "retry") {
-    if (snapshot.referral.stage !== "Accepted / Admitted" || snapshot.decision?.outcome !== "accepted") {
-      return [{ code: "accepted_referral_required", label: "Accept the referral before queueing the EHR handoff." }];
-    }
-    const incomplete = getBlockingRequirementsForGates(
-      snapshot.work_items,
-      ["admission_decision", "move_in", "ehr_export"],
-    );
-    if (incomplete.length > 0) {
-      return incomplete.map((item) => ({ code: `requirement:${item.type}`, label: `${item.label} is still required for EHR handoff.` }));
-    }
-    if (current?.status === "sent") {
-      return [{ code: "ehr_handoff_already_sent", label: "This EHR handoff has already been recorded as sent." }];
-    }
-  }
-  return [];
+  const transitionBlocker = getEhrTransitionBlocker(current?.status, action, failureReason);
+  if (transitionBlocker) return [transitionBlocker];
+  return isEhrQueueAction(action) ? getEhrQueueReadinessBlockers(snapshot) : [];
 }
 
 export function getAdmissionDecisionBlockers(
@@ -356,22 +327,9 @@ export function workflowStatusAfterWorkItem(
   if (snapshot.recommendation) return "decision_pending";
   if (snapshot.context.assessmentSigned) return "assessment_signed";
   if (snapshot.context.assessmentComplete) return "assessment_ready_to_sign";
-  if (snapshot.context.assessmentExists) {
-    const waiting = requirements.some((requirement) =>
-      requirement.blocker
-        && requirement.status === "requested"
-        && ["profile_completion", "pre_assessment", "admission_decision"].includes(requirement.requiredFor),
-    );
-    if (waiting) return "waiting_for_information";
-    if (!snapshot.context.assessmentStarted) {
-      if (snapshot.context.assessmentScheduleStatus === "scheduled" || snapshot.context.assessmentScheduleStatus === "rescheduled") {
-        return "assessment_scheduled";
-      }
-      return "ready_to_schedule";
-    }
-    return "assessment_in_progress";
-  }
-  return current;
+  return snapshot.context.assessmentExists
+    ? activeAssessmentWorkflowStatus(snapshot.context, requirements)
+    : current;
 }
 
 export function workItemChangedFields(current: AdmissionRequirement, next: AdmissionRequirement) {
@@ -398,15 +356,105 @@ export function getWorkItemAuditAction(
   next: AdmissionRequirement,
   changedFields: Array<keyof AdmissionRequirement>,
 ) {
-  if (next.status === "waived" && current.status !== "waived") return "work_item_waived";
-  if (next.status === "requested" && current.status !== "requested") return "work_item_requested";
-  if (next.status === "unavailable" && current.status !== "unavailable") return "work_item_unavailable";
-  if (next.status === "not_applicable" && current.status !== "not_applicable") return "work_item_not_applicable";
+  const statusAction = workItemStatusAuditActions[next.status];
+  if (statusAction && current.status !== next.status) return statusAction;
   if (changedFields.includes("evidenceDocumentId") || changedFields.includes("evidenceDocumentName")) return "work_item_evidence_recorded";
   if (changedFields.includes("owner")) return "work_item_reassigned";
   if (changedFields.includes("dueAt") || changedFields.includes("nextStep")) return "work_item_circle_back_updated";
   return "work_item_updated";
 }
+
+type WorkItemValidationIssue = { code: string; label: string };
+type WorkItemValidator = (item: AdmissionRequirement) => WorkItemValidationIssue | null;
+
+const validateWaiverReason: WorkItemValidator = (item) => item.status === "waived" && !item.waiverReason
+  ? { code: "waiver_reason_required", label: "Record why this requirement is being waived." }
+  : null;
+
+const validateRequestedFrom: WorkItemValidator = (item) => item.status === "requested" && !item.requestedFrom
+  ? { code: "requested_from_required", label: "Record who is expected to provide the missing information." }
+  : null;
+
+const validateFollowUp: WorkItemValidator = (item) => item.status === "requested" && !item.followUpAt
+  ? { code: "follow_up_required", label: "Set a follow-up date for requested information." }
+  : null;
+
+const validateAvailabilityReason: WorkItemValidator = (item) => {
+  if (!(["unavailable", "not_applicable"] as RequirementStatus[]).includes(item.status) || item.unavailableReason) return null;
+  return {
+    code: "availability_reason_required",
+    label: item.status === "unavailable"
+      ? "Record why this information is unavailable."
+      : "Record why this requirement does not apply.",
+  };
+};
+
+const validateNextStep: WorkItemValidator = (item) => item.nextStep
+  ? null
+  : { code: "next_action_required", label: "Every open requirement needs a next action." };
+
+const validateDueDate: WorkItemValidator = (item) => item.dueAt
+  ? null
+  : { code: "due_date_required", label: "Every open requirement needs a due date." };
+
+function getEhrTransitionBlocker(
+  currentStatus: NonNullable<Referral["ehrHandoff"]>["status"] | undefined,
+  action: "queue" | "mark_sent" | "mark_failed" | "retry",
+  failureReason: string,
+): WorkItemValidationIssue | null {
+  if (action === "mark_failed" && !failureReason.trim()) {
+    return { code: "ehr_failure_reason_required", label: "Record why the EHR handoff failed." };
+  }
+  if (["mark_sent", "mark_failed"].includes(action) && currentStatus !== "queued") {
+    return { code: "ehr_handoff_not_queued", label: "Queue the EHR handoff before recording its result." };
+  }
+  return action === "retry" && currentStatus !== "failed"
+    ? { code: "ehr_handoff_not_failed", label: "Only a failed EHR handoff can be retried." }
+    : null;
+}
+
+function isEhrQueueAction(action: "queue" | "mark_sent" | "mark_failed" | "retry") {
+  return action === "queue" || action === "retry";
+}
+
+function getEhrQueueReadinessBlockers(snapshot: WorkflowRecordSnapshot): WorkItemValidationIssue[] {
+  if (snapshot.referral.stage !== "Accepted / Admitted" || snapshot.decision?.outcome !== "accepted") {
+    return [{ code: "accepted_referral_required", label: "Accept the referral before queueing the EHR handoff." }];
+  }
+  const incomplete = getBlockingRequirementsForGates(
+    snapshot.work_items,
+    ["admission_decision", "move_in", "ehr_export"],
+  );
+  if (incomplete.length > 0) {
+    return incomplete.map((item) => ({ code: `requirement:${item.type}`, label: `${item.label} is still required for EHR handoff.` }));
+  }
+  return snapshot.referral.ehrHandoff?.status === "sent"
+    ? [{ code: "ehr_handoff_already_sent", label: "This EHR handoff has already been recorded as sent." }]
+    : [];
+}
+
+function activeAssessmentWorkflowStatus(
+  context: WorkflowContext,
+  requirements: AdmissionRequirement[],
+): Referral["workflowStatus"] {
+  const waiting = requirements.some((requirement) =>
+    requirement.blocker
+      && requirement.status === "requested"
+      && ["profile_completion", "pre_assessment", "admission_decision"].includes(requirement.requiredFor),
+  );
+  if (waiting) return "waiting_for_information";
+  if (context.assessmentStarted) return "assessment_in_progress";
+  return ["scheduled", "rescheduled"].includes(context.assessmentScheduleStatus ?? "")
+    ? "assessment_scheduled"
+    : "ready_to_schedule";
+}
+
+const workItemStatusAuditActions: Partial<Record<RequirementStatus, string>> = {
+  waived: "work_item_waived",
+  requested: "work_item_requested",
+  unavailable: "work_item_unavailable",
+  not_applicable: "work_item_not_applicable",
+};
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
