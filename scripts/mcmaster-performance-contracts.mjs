@@ -14,6 +14,9 @@ const capacity = readFileSync("scripts/http-capacity-smoke.mjs", "utf8");
 
 assert.match(scorecard, /interaction_count > 0/, "INP must require at least one observed interaction.");
 assert.match(scorecard, /inp_ms !== null/, "Missing INP must fail rather than becoming zero.");
+assert.match(scorecard, /await waitForRequiredPaintMetrics\(page\);/, "Cold paint metrics must settle before they are read.");
+assert.match(scorecard, /first-contentful-paint[\s\S]+> 0[\s\S]+__pipelinePerformance\?\.lcp[\s\S]+> 0/, "FCP and LCP must both be observed before certification continues.");
+assert.match(scorecard, /polling: "raf", timeout: 2_000/, "Paint observation must use a bounded rendering-frame wait.");
 assert.match(scorecard, /await locator\.click\(\)/, "Performance journeys must use trusted browser interactions.");
 assert.match(scorecard, /api_errors: apiSummary\.errors === 0/, "Observed API errors must fail certification.");
 assert.match(scorecard, /heavy_api: apiSummary\.heavy\.requests > 0/, "At least one heavy API must be measured.");
@@ -52,4 +55,4 @@ assert.match(
   "Custom Next dist directories must stage browser assets where the standalone server expects them.",
 );
 
-console.log(JSON.stringify({ ok: true, checks: 35 }, null, 2));
+console.log(JSON.stringify({ ok: true, checks: 38 }, null, 2));

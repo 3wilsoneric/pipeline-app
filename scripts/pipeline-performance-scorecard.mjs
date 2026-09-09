@@ -154,6 +154,7 @@ if (isLocalTarget && process.env.PIPELINE_PERF_SEED !== "false") {
 const usefulContentMs = performance.now() - coldStartedAt;
 await page.waitForLoadState("load");
 await afterNextPaint(page);
+await waitForRequiredPaintMetrics(page);
 
 const cold = await page.evaluate(() => {
   const navigation = performance.getEntriesByType("navigation")[0];
@@ -702,6 +703,13 @@ async function afterNextPaint(page) {
   await page.evaluate(() => new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
   }));
+}
+
+async function waitForRequiredPaintMetrics(page) {
+  await page.waitForFunction(() => (
+    (performance.getEntriesByName("first-contentful-paint")[0]?.startTime ?? 0) > 0
+      && (globalThis.__pipelinePerformance?.lcp ?? 0) > 0
+  ), null, { polling: "raf", timeout: 2_000 });
 }
 
 function timingCertificationLimit(goal) {
