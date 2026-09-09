@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:3f1a9b00b3685381",
-  "fingerprint": "3f1a9b00b368538177020a85b8cb0f350054723e367357e7349e4fc7689e89f7",
+  "generatedAt": "source-fingerprint:b430f1c39a057beb",
+  "fingerprint": "b430f1c39a057beb900da5dfbf0cd546f23af14939d3bd33d1a108be48398cc9",
   "totals": {
-    "files": 878,
-    "lines": 290341,
-    "coveredFiles": 878
+    "files": 879,
+    "lines": 290486,
+    "coveredFiles": 879
   },
   "entries": [
     {
@@ -4073,6 +4073,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/workflow-and-handoff-machine-run-2afc85b.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 42,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json",
       "subsystem": "Documentation",
       "kind": "configuration",
@@ -4234,7 +4246,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 560,
+      "lines": 562,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4462,7 +4474,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 265,
+      "lines": 266,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4597,7 +4609,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 282,
+      "lines": 296,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4693,7 +4705,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1792,
+      "lines": 1795,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4729,7 +4741,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7527,
+      "lines": 7529,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4789,7 +4801,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10697,
+      "lines": 10730,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -7129,7 +7141,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 414,
+      "lines": 462,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"

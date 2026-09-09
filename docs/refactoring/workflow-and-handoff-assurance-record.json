@@ -3,7 +3,7 @@
   "sliceId": "workflow-and-handoff-owner",
   "status": "complete",
   "startingCommit": "b24dacb00621b5a007a360c4f31fec3c9b2f917f",
-  "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57",
+  "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f",
   "humanOwner": "Eric",
   "approvalMode": "owner_fast_lane",
   "ownerAuthorization": {
@@ -33,7 +33,7 @@
     ],
     "evidence": [
       "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json records 6/6 local-file and 6/6 PostgreSQL 16 public-boundary scenarios before runtime change.",
-      "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json records the same 6/6 local-file and 6/6 PostgreSQL 16 scenarios with unchanged test digest 1354c882069e88575bc56eaf8884c103718823c2292401bc7d8eaadb3bf100f7 at exact candidate baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57.",
+      "docs/refactoring/characterization/workflow-and-handoff-machine-run-2afc85b.json records the same 6/6 local-file and 6/6 PostgreSQL 16 scenarios with unchanged test digest 1354c882069e88575bc56eaf8884c103718823c2292401bc7d8eaadb3bf100f7 at exact candidate 2afc85bfb3e9fbf437e5034e6671904c20584e1f.",
       "npm run test:e2e:operational:high passed all 14 applicable multi-user, authorization, duplicate-review, workflow, and capacity scenarios; 22 explicitly gated private or focused characterization scenarios were skipped and the focused workflow scenarios passed separately on both adapters.",
       "PIPELINE_MCM_RUNS=2 npm run certify:mcmaster:performance passed both compiled-application runs, including guide interactions, navigation, Core Web Vitals, transfer, useful-content, and API budgets."
     ]
@@ -47,7 +47,7 @@
         "ehr_handoff_truthful_at_most_once_effect"
       ],
       "baseCommit": "b24dacb00621b5a007a360c4f31fec3c9b2f917f",
-      "headCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57",
+      "headCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f",
       "purpose": "Move pure work-item normalization, validation, blockers, workflow-status derivation, changed-field derivation, and audit-action policy into the existing workflow-record owner, then isolate dependency-free owner-name normalization so the extraction adds no dependency cycle. Preserve every store export, route, adapter, query, transaction, audit effect, schema, and product behavior.",
       "changedFiles": [
         "lib/pipeline/workflow-store.ts",
@@ -66,8 +66,8 @@
       ],
       "baselineDelta": {
         "before": "At the slice start, workflow-store contained 1,322 lines, complexity 337, fan-in 16, and 9 direct dependencies; the repository reported 8 dependency cycles.",
-        "after": "At candidate baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57, workflow-store contains 1,162 lines, complexity 261, fan-in 16, and 8 direct dependencies. The repository baseline is 634 files, 123,444 lines, 8 cycles, 71 duplicate groups, 56 control-plane duplicate groups, 470 dead-export candidates, 14 critical-review files, and 41 high-review files.",
-        "comparison": "The effectful store is 160 lines smaller, complexity fell by 76, one direct dependency was removed, and the repository cycle count did not increase. No route, schema, migration, transaction, authorization, audit, UI, or adapter behavior changed.",
+        "after": "At candidate 2afc85bfb3e9fbf437e5034e6671904c20584e1f, workflow-store contains 1,162 lines, complexity 261, fan-in 16, and 8 direct dependencies. The repository baseline is 634 files, 123,492 lines, 8 cycles, 71 duplicate groups, 56 control-plane duplicate groups, 470 dead-export candidates, 14 critical-review files, and 42 high-review files.",
+        "comparison": "The effectful store is 160 lines smaller, complexity fell by 76, one direct dependency was removed, the repository cycle count did not increase, and every moved or introduced function remains within the approved complexity ratchet. No route, schema, migration, transaction, authorization, audit, UI, or adapter behavior changed.",
         "regressions": []
       },
       "tradeoffs": [
@@ -87,7 +87,7 @@
   "proofResults": [
     {
       "obligationId": "workflow_authorized_finite_state_safety",
-      "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57",
+      "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f",
       "status": "verified",
       "methods": ["model_checked", "exhaustive_finite", "property_based", "mutation"],
       "evidence": [
@@ -108,7 +108,7 @@
     },
     {
       "obligationId": "ehr_handoff_truthful_at_most_once_effect",
-      "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57",
+      "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f",
       "status": "verified",
       "methods": ["exhaustive_finite", "integration", "concurrency", "operational_recovery"],
       "evidence": [
@@ -127,23 +127,23 @@
     }
   ],
   "gateResults": [
-    {"command": "npm run check:workflow-store-characterization", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "Exact candidate evidence records 6/6 local-file and 6/6 PostgreSQL 16 scenarios with the unchanged test digest."},
-    {"command": "npm run check:workflow-fuzz", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "2,000 traces and 840,009 cases passed against the independent oracle and invariants."},
-    {"command": "npm run test:critical-safety", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "All 32 critical safety controls passed."},
-    {"command": "npm run certify:seeded-defects", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "All 27 seeded defects were killed for a 100% reviewed kill rate."},
-    {"command": "npm run database:assurance:integration", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "outputs/database-assurance/integration-2026-09-09T04-15-11-407Z.md records 49/49 controls passed in isolated PostgreSQL 16."},
-    {"command": "npm run database:concurrency", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "The isolated PostgreSQL run passed every 24-actor mutation, idempotency, queue, outbox, lock, deadlock, and rollback check."},
-    {"command": "npm run test:e2e:operational:high", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "All 14 applicable high-assurance operational scenarios passed; focused characterization scenarios passed separately against both adapters."},
-    {"command": "npm run check:performance", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "Two compiled McMaster runs passed every budget; worst case was 57.8ms TTFB, 160ms LCP, 56ms INP, 116.7ms warm navigation, 2ms ordinary API p95, and 2.6ms heavy API p95."},
-    {"command": "npm run check:recovery", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "All backup, manifest, disposable restore, checksum, migration-history, and recovery-owner contracts passed."},
-    {"command": "npm run check:release", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "All 30 append-only migration checksums, sequence, rollback, evidence, and release-order checks passed."},
-    {"command": "npm run check:refactor-assurance", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "The candidate-bound owner-fast-lane obligation, gate, recovery, and convergence record passed the assurance checker."},
-    {"command": "npm run certify:refactor", "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57", "outcome": "passed", "evidence": "Refactor setup, repository audit, guidance, complexity, platform, test-effectiveness, TypeScript, ESLint, production build, and database assurance gates exited 0."}
+    {"command": "npm run check:workflow-store-characterization", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "Exact candidate evidence records 6/6 local-file and 6/6 PostgreSQL 16 scenarios with the unchanged test digest."},
+    {"command": "npm run check:workflow-fuzz", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "2,000 traces and 840,009 cases passed against the independent oracle and invariants."},
+    {"command": "npm run test:critical-safety", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "All 32 critical safety controls passed."},
+    {"command": "npm run certify:seeded-defects", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "All 27 seeded defects were killed for a 100% reviewed kill rate."},
+    {"command": "npm run database:assurance:integration", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "outputs/database-assurance/integration-2026-09-09T04-29-47-837Z.md records 49/49 controls passed in isolated PostgreSQL 16."},
+    {"command": "npm run database:concurrency", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "The isolated PostgreSQL run passed every 24-actor mutation, idempotency, queue, outbox, lock, deadlock, and rollback check."},
+    {"command": "npm run test:e2e:operational:high", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "All 14 applicable high-assurance operational scenarios passed; focused characterization scenarios passed separately against both adapters."},
+    {"command": "npm run check:performance", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "Two compiled McMaster runs passed every budget; worst case was 59.3ms TTFB, 172ms LCP, 56ms INP, 195.9ms useful content, 118.8ms warm navigation, 2ms ordinary API p95, 2.4ms heavy API p95, 0 CLS, and 586710 transferred bytes."},
+    {"command": "npm run check:recovery", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "All backup, manifest, disposable restore, checksum, migration-history, and recovery-owner contracts passed."},
+    {"command": "npm run check:release", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "All 30 append-only migration checksums, sequence, rollback, evidence, and release-order checks passed."},
+    {"command": "npm run check:refactor-assurance", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "The candidate-bound owner-fast-lane obligation, gate, recovery, and convergence record passed the assurance checker."},
+    {"command": "npm run certify:refactor", "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f", "outcome": "passed", "evidence": "Refactor setup, repository audit, guidance, complexity, platform, test-effectiveness, TypeScript, ESLint, production build, and database assurance gates exited 0."}
   ],
   "adversarialPasses": [],
   "rollbackAndRecovery": {
-    "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57",
-    "method": "Revert runtime extraction commits a3e60f521ec0c35e063a8a7b88673bb4249aeb47 and baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57, then refresh generated Academy and training metadata; no migration or stored-data rollback is required.",
+    "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f",
+    "method": "Revert runtime extraction commits a3e60f521ec0c35e063a8a7b88673bb4249aeb47, baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57, and 2afc85bfb3e9fbf437e5034e6671904c20584e1f, then refresh generated Academy and training metadata; no migration or stored-data rollback is required.",
     "exercisedEvidence": [
       "The integration assurance profile passed the complete transactional migration rollback drill and restored the original disposable schema.",
       "The implementation contains no migration, stored-data rewrite, route, authentication, or UI change.",
@@ -154,7 +154,7 @@
   },
   "residualRisks": [],
   "convergence": {
-    "candidateCommit": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57",
+    "candidateCommit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f",
     "allObligationsVerified": true,
     "requiredGatesPassed": true,
     "behaviorPreserved": true,

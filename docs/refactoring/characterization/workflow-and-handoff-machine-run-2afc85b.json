@@ -1,0 +1,41 @@
+{
+  "ok": true,
+  "profile": "workflow_store_characterization",
+  "captured_at": "2026-09-09T04:28:59.631Z",
+  "captured_from_commit": "2afc85bfb3e9fbf437e5034e6671904c20584e1f",
+  "test_path": "tests/e2e/operational/workflow-store-characterization.spec.ts",
+  "test_digest": "1354c882069e88575bc56eaf8884c103718823c2292401bc7d8eaadb3bf100f7",
+  "fixture_classification": "synthetic",
+  "postgres_major": 16,
+  "adapters": [
+    {
+      "adapter": "local_file",
+      "ok": true,
+      "duration_ms": 1155,
+      "tests": { "expected": 6, "unexpected": 0, "flaky": 0, "skipped": 0 },
+      "error": null
+    },
+    {
+      "adapter": "postgres",
+      "ok": true,
+      "duration_ms": 1459,
+      "tests": { "expected": 6, "unexpected": 0, "flaky": 0, "skipped": 0 },
+      "error": null
+    }
+  ],
+  "characterized_boundaries": [
+    "ordered stage transitions and stale-write rejection",
+    "assigned-assessor recommendation authorization and replay",
+    "single-winner supervisor decision collisions",
+    "work-item validation, conflict detection, and audit-neutral replay",
+    "recoverable at-most-once EHR handoff progression",
+    "role and resource denial without side effects"
+  ],
+  "normalized_nondeterminism": [
+    "Store-generated referral, assessment, recommendation, decision, work-item, and audit identifiers are asserted within an adapter, not compared across adapters.",
+    "The winning request in a deliberately concurrent admission-decision pair is nondeterministic; exactly one success and one stale conflict are required.",
+    "Storage timestamps are checked through resulting state and audit cardinality, not equality across adapters."
+  ],
+  "failure": null,
+  "duration_ms": 11402
+}

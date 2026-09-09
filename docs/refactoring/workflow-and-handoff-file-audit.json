@@ -223,7 +223,21 @@
       "tests": ["npm run check:workflow-store-characterization"],
       "staticPrompts": [],
       "decision": "keep",
-      "decisionReason": "The exact-candidate matched-adapter result proves behavior parity for the approved boundaries."
+      "decisionReason": "The intermediate matched-adapter result proves behavior parity before the complexity-ratchet refinement."
+    },
+    {
+      "path": "docs/refactoring/characterization/workflow-and-handoff-machine-run-2afc85b.json",
+      "plannedNew": true,
+      "dependencyDirection": "Committed synthetic evidence depends on the unchanged test digest and final runtime candidate commit and has no runtime dependents.",
+      "purpose": "Records the matched local-file and PostgreSQL workflow characterization after the complexity-ratchet refinement.",
+      "callers": ["TARS evidence review and slice assurance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing, failing, dirty-tree, or digest-mismatched evidence blocks completion without changing application behavior.",
+      "tests": ["npm run check:workflow-store-characterization"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The final exact-candidate matched-adapter result proves behavior parity for the approved boundaries."
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
@@ -237,7 +251,7 @@
       "tests": ["npm run academy:atlas:check", "npm run academy:check"],
       "staticPrompts": [
         {
-          "prompt": "Large module (10622 lines): split by behavior before adding more responsibilities.",
+          "prompt": "Large module (10633 lines): split by behavior before adding more responsibilities.",
           "disposition": "expected",
           "reason": "This is a deterministic generated repository atlas, not an authored runtime module.",
           "owner": "Eric",

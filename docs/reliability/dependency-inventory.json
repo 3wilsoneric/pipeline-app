@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T04:25:11.318Z",
+  "generated_at": "2026-09-09T04:38:44.998Z",
   "audit_date": "2026-09-09",
-  "git_head": "baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57",
+  "git_head": "2afc85bfb3e9fbf437e5034e6671904c20584e1f",
   "direct": [
     {
       "name": "@azure/identity",
@@ -741,6 +741,7 @@
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
         "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
+        "docs/refactoring/characterization/workflow-and-handoff-machine-run-2afc85b.json",
         "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json",
         "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json",
         "docs/refactoring/evidence-matrix.json",

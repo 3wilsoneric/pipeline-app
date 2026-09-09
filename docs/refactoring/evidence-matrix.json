@@ -367,8 +367,8 @@
           "phase": "before_complete",
           "status": "satisfied",
           "gates": ["check:refactor-assurance"],
-          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/workflow-and-handoff-assurance-record.json", "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json"],
-          "note": "The completed owner-fast-lane assurance record binds both verified obligations, every required gate, exact pre/post matched characterization, no dependency-cycle regression, zero unresolved critical/high findings, and rollback evidence to candidate baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57. Standard-lane independent adversarial and fresh-context comprehension passes remain advisory under the recorded owner-fast-lane authorization."
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/workflow-and-handoff-assurance-record.json", "docs/refactoring/characterization/workflow-and-handoff-machine-run-2afc85b.json"],
+          "note": "The completed owner-fast-lane assurance record binds both verified obligations, every required gate, exact pre/post matched characterization, a green complexity ratchet, no dependency-cycle regression, zero unresolved critical/high findings, and rollback evidence to candidate 2afc85bfb3e9fbf437e5034e6671904c20584e1f. Standard-lane independent adversarial and fresh-context comprehension passes remain advisory under the recorded owner-fast-lane authorization."
         }
       ]
     },

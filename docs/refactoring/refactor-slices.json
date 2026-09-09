@@ -152,7 +152,8 @@
         "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/workflow-and-handoff-file-audit.json",
         "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json",
-        "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json"
+        "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json",
+        "docs/refactoring/characterization/workflow-and-handoff-machine-run-2afc85b.json"
       ],
       "architectureNarrative": "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
       "fileAuditDisposition": "docs/refactoring/workflow-and-handoff-file-audit.json",
