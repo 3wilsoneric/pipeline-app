@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T03:23:48.253Z",
+  "generated_at": "2026-09-09T04:03:45.511Z",
   "audit_date": "2026-09-09",
-  "git_head": "1f2f4ee5183be0cac93dffe4d947d70316dfb466",
+  "git_head": "88149a3f77333c9f16073e12ec1e09b18e2dea97",
   "direct": [
     {
       "name": "@azure/identity",
@@ -147,6 +147,7 @@
         "tests/e2e/operational/referral-lifecycle.scaffold.spec.ts",
         "tests/e2e/operational/referral-store-characterization.spec.ts",
         "tests/e2e/operational/role-access.spec.ts",
+        "tests/e2e/operational/workflow-store-characterization.spec.ts",
         "tests/e2e/operator-packet-smoke.spec.ts",
         "tests/e2e/operator-training.spec.ts",
         "tests/e2e/performance-navigation.spec.ts",
@@ -521,6 +522,7 @@
         "docs/refactoring/COMPATIBILITY_MATRIX.md",
         "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
         "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
+        "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/assessment-store-file-audit.json",
         "docs/refactoring/characterization/refactor-start-batch-machine-run-92fa991.json",
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
@@ -529,6 +531,7 @@
         "docs/refactoring/refactor-eval-scenarios.json",
         "docs/refactoring/referral-store-file-audit-agent-prework.json",
         "docs/refactoring/referral-store-file-audit.json",
+        "docs/refactoring/workflow-and-handoff-file-audit.json",
         "eslint.config.mjs",
         "lib/academy/academy-atlas.generated.json",
         "lib/academy/academy-curriculum.ts",
@@ -738,8 +741,10 @@
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/characterization/referral-store-boundaries-machine-run-ea076521.json",
         "docs/refactoring/characterization/referral-store-harness-run-4d50f4ea.json",
+        "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json",
         "docs/refactoring/evidence-matrix.json",
         "docs/refactoring/refactor-eval-scenarios.json",
+        "docs/refactoring/workflow-and-handoff-file-audit.json",
         "infra/azure/foundation-state.bicep",
         "infra/azure/main.bicep",
         "infra/azure/main.parameters.example.json",
@@ -831,6 +836,7 @@
         "scripts/stage-client-file-import.mjs",
         "scripts/storage-consistency-replay.mjs",
         "scripts/verify-database-migration-0007.mjs",
+        "scripts/workflow-store-characterization.mjs",
         "tests/e2e/pipeline-smoke.spec.ts"
       ]
     },
@@ -7513,8 +7519,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-assessment-store/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-assessment-store/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-workflow-handoff/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-workflow-handoff/node_modules/@img/sharp-wasm32"
     ]
   }
 }

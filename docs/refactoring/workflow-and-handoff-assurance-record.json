@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "workflow-and-handoff-owner",
+  "status": "in_progress",
+  "startingCommit": "b24dacb00621b5a007a360c4f31fec3c9b2f917f",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T03:54:57Z"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "workflow_authorized_finite_state_safety",
+    "ehr_handoff_truthful_at_most_once_effect"
+  ],
+  "preChangeMachineTrace": [
+    "Evidence commit 88149a3f77333c9f16073e12ec1e09b18e2dea97 passed six workflow scenarios against the isolated local-file adapter and the same six against disposable PostgreSQL 16.",
+    "The matched characterization covers finite stage order, stale conflicts, replay, role/resource denial, signed assigned-assessor recommendation, supervisor decision collision, work-item validation, audit neutrality, and EHR failure recovery.",
+    "Exact-start npm run check:workflow-fuzz passed 2,000 traces and 840,009 cases.",
+    "Exact-start npm run test:critical-safety passed 32/32 controls, npm run certify:seeded-defects killed 27/27 mutants, and npm run check:route-policy passed every route policy.",
+    "Starting commit b24dacb00621b5a007a360c4f31fec3c9b2f917f is the fully green merged assessment-slice result and exact branch point."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Workflow stages cannot be skipped and terminal decisions cannot be reopened silently.",
+      "Only authorized roles record recommendations, decisions, and EHR handoff outcomes.",
+      "Decision and handoff writes remain optimistic and audited, and preserve the owner-approved replay or conflict contract.",
+      "Workflow projections never become a second source of canonical state."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json records 6/6 local-file and 6/6 PostgreSQL 16 public-boundary scenarios before runtime change.",
+      "The unchanged test digest must pass again at the exact candidate commit before completion.",
+      "The required workflow fuzz, critical safety, seeded defect, database concurrency, operational browser, performance, and assurance gates remain mandatory."
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": {
+    "candidateCommit": null,
+    "method": "Revert only the commits created on codex/refactor-workflow-handoff to exact starting commit b24dacb00621b5a007a360c4f31fec3c9b2f917f; no schema or stored-data rollback is planned.",
+    "exercisedEvidence": [],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-09T03:54:57Z"
+  },
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": null,
+    "allObligationsVerified": false,
+    "requiredGatesPassed": false,
+    "behaviorPreserved": false,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": false,
+    "noUnresolvedCriticalOrHigh": false,
+    "acceptedBy": null,
+    "acceptedAt": null,
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T03:54:57Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}
