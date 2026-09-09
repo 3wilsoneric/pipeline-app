@@ -269,7 +269,7 @@
     {
       "id": "test-suite-structure",
       "priority": 5,
-      "status": "in_progress",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "tests/e2e/pipeline-smoke.spec.ts",

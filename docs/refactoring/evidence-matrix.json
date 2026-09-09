@@ -545,8 +545,10 @@
         {
           "id": "source_string_reduction",
           "phase": "before_complete",
-          "status": "missing",
-          "note": "Replace operational source-string checks with executable behavior while retaining true architecture fitness checks."
+          "status": "satisfied",
+          "gates": ["check:platform:fast"],
+          "files": ["scripts/referral-intake-recovery-contracts.mjs", "components/pipeline/referral-canvas-save-state.ts"],
+          "note": "The referral save/reconcile contract now loads and executes the canonical save-state module, proving that edits made during an in-flight save remain dirty while unchanged saved values clear. Architecture-only source checks remain scoped to boundary ownership."
         },
         {
           "id": "owner_validated_assurance_model",
@@ -567,10 +569,10 @@
         {
           "id": "convergence_and_residual_risk",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
-          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind the assertion inventory, mutant kill evidence, required gates, rollback evidence, and any accepted medium/low test-infrastructure uncertainty to one candidate commit. Standard-lane fresh-context comprehension and adversarial review are advisory in owner_fast_lane."
+          "files": ["docs/refactoring/test-suite-structure-assurance-record.json", "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json"],
+          "note": "Candidate 9191f26c7d6d34795fff9c4be3e3ed71d5b23750 binds exact assertion manifests, 27/27 seeded-defect kills, complete browser and high-assurance operational runs, platform checks, rollback evidence, and no unresolved critical or high residual risk."
         }
       ]
     }
