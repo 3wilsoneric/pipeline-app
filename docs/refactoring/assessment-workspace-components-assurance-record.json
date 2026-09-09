@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "sliceId": "assessment-workspace-components",
-  "status": "approved",
+  "status": "complete",
   "startingCommit": "927b953b23557b14b8ca74c11a241a41bbe9a473",
-  "candidateCommit": null,
+  "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc",
   "humanOwner": "Eric",
   "approvalMode": "owner_fast_lane",
   "ownerAuthorization": {
@@ -34,11 +34,119 @@
       "docs/refactoring/characterization/assessment-workspace-components-machine-run-927b953.json records the exact-start lifecycle, offline recovery, and structural baseline."
     ]
   },
-  "iterations": [],
-  "proofResults": [],
-  "gateResults": [],
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "referral_canvas_draft_and_conflict_state",
+      "obligationIds": ["assessment_workspace_presentation_preserves_draft_safety"],
+      "baseCommit": "927b953b23557b14b8ca74c11a241a41bbe9a473",
+      "headCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc",
+      "purpose": "Move callback-driven interview fields and schedule/begin dialogs out of the effectful assessment coordinator while retaining every network call, timer, recovery store, conflict decision, validation rule, and lifecycle command in AssessmentWorkspace.",
+      "changedFiles": [
+        "components/pipeline/AssessmentWorkspace.tsx",
+        "components/pipeline/AssessmentInterviewFields.tsx",
+        "components/pipeline/AssessmentSchedulingDialogs.tsx",
+        "scripts/assessor-workflow-contracts.mjs",
+        "lib/training/operator-guided-tutorials.ts"
+      ],
+      "preChangeCharacterization": [
+        "The exact-start schedule-to-sign-and-recall Chromium journey passed with the complete assessment workflow inside the 1,951-line coordinator.",
+        "The exact-start desktop journey passed encrypted offline assessment editing and synchronization after reconnect.",
+        "The exact-start baseline recorded complexity 607, 15 direct dependencies, branch depth eight, eight cycles, 71 duplicate groups, and 56 control-plane duplicate groups."
+      ],
+      "focusedEvidence": [
+        "The candidate schedule-to-sign-and-recall journey passed after extraction in 6.8 seconds and the encrypted offline edit/reconnect journey passed in 7.4 seconds.",
+        "The complete browser suite passed 118 applicable journeys, including concurrent section editing, stale-write rejection, remount recovery, the complete assessment lifecycle, and signed-write rejection.",
+        "Source contracts, operator-training source ownership, TypeScript, zero-warning focused ESLint, and the complexity ratchet passed.",
+        "The high-assurance operational suite passed all 14 applicable multi-user, collision, role, capacity, and golden-thread scenarios."
+      ],
+      "baselineDelta": {
+        "before": "AssessmentWorkspace.tsx was 1,951 lines with module complexity 607, 15 direct dependencies, and maximum branch depth eight.",
+        "after": "AssessmentWorkspace.tsx is 1,632 lines with module complexity 486, 16 direct dependencies, and maximum branch depth five; its two new presentation owners are each below the new-function complexity ceiling.",
+        "comparison": "The coordinator lost 319 lines, 121 complexity points, and three levels of maximum branch depth. Repository cycles stayed at eight, duplicate groups at 71, and control-plane duplicate groups at 56.",
+        "regressions": []
+      },
+      "tradeoffs": [
+        {
+          "dimension": "dependency direction",
+          "change": "The coordinator has one net additional direct module dependency after importing two presentation owners and shedding previous direct presentation-helper ownership.",
+          "reason": "The explicit one-way component seams remove 319 coordinator lines without introducing a second persistence owner, cycle, duplicate group, dependency, route, or runtime package.",
+          "approvedBy": "Eric"
+        },
+        {
+          "dimension": "remaining structure",
+          "change": "AssessmentWorkspace remains a 1,632-line critical-review hotspot because it still owns the intentionally retained effectful workflow.",
+          "reason": "Moving persistence, timers, conflict recovery, or lifecycle orchestration in this presentation-only slice would broaden the proof boundary and risk workflow behavior; any later split requires its own characterization.",
+          "approvedBy": "Eric"
+        }
+      ],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-09T18:18:34Z"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "assessment_workspace_presentation_preserves_draft_safety",
+      "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc",
+      "status": "verified",
+      "methods": ["mechanical", "integration", "operational_recovery"],
+      "evidence": [
+        "The extracted modules contain render controls and callbacks but no fetch, timer, browser recovery storage, offline queue, presence lease, or durable mutation implementation.",
+        "The exact focused lifecycle and encrypted offline recovery journeys passed before and after the move.",
+        "The full browser, desktop, cross-browser, visual, and high-assurance operational suites passed every applicable scenario without a snapshot update or retry-based acceptance.",
+        "The assessment workflow source contract was preserved by composing the approved coordinator and presentation sources rather than deleting or weakening assertions."
+      ],
+      "implementationTrace": [
+        "components/pipeline/AssessmentWorkspace.tsx",
+        "components/pipeline/AssessmentInterviewFields.tsx",
+        "components/pipeline/AssessmentSchedulingDialogs.tsx",
+        "scripts/assessor-workflow-contracts.mjs",
+        "lib/training/operator-guided-tutorials.ts"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-09T18:18:34Z"
+    }
+  ],
+  "gateResults": [
+    {"command": "npm run check:assessor-workflow", "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc", "outcome": "passed", "evidence": "Every assessment and referral workflow source contract passed against the composed coordinator/presentation surface."},
+    {"command": "npm run test:e2e", "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc", "outcome": "passed", "evidence": "The complete browser run passed 118 applicable journeys; 15 environment or feature-mode scenarios remained explicitly gated."},
+    {"command": "npm run test:e2e:desktop", "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc", "outcome": "passed", "evidence": "Seven desktop journeys passed, including encrypted assessment drafts and reconnect synchronization; one disabled-feature scenario was explicitly gated."},
+    {"command": "npm run test:e2e:cross-browser", "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc", "outcome": "passed", "evidence": "The core application rendered and navigated in Chromium, Firefox, and WebKit."},
+    {"command": "npm run test:e2e:visual", "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc", "outcome": "passed", "evidence": "All six desktop and mobile snapshots matched without updating baselines."},
+    {"command": "npm run test:e2e:operational:high", "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc", "outcome": "passed", "evidence": "All 14 applicable high-assurance multi-user, collision, role, capacity, and golden-thread scenarios passed; 22 separately gated database-characterization scenarios were skipped."},
+    {"command": "npm run certify:mcmaster:performance", "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc", "outcome": "passed", "evidence": "Three compiled runs passed every rendering, interaction, transfer, API, and navigation budget with zero observed API errors."},
+    {"command": "npm run check:artifacts", "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc", "outcome": "passed", "evidence": "The production artifact stayed within all aggregate, JavaScript, stylesheet, compressed-code, source-map, and credential-marker budgets."},
+    {"command": "npm run check:refactor-assurance", "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc", "outcome": "passed", "evidence": "The exact-candidate owner-fast-lane responsibility, obligation, rollback, scope, and convergence record passed the assurance checker."},
+    {"command": "npm run certify:refactor", "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc", "outcome": "passed", "evidence": "Refactor setup, repository quality, complexity, platform, type, lint, production build, and bounded assurance checks passed for the candidate."}
+  ],
   "adversarialPasses": [],
-  "rollbackAndRecovery": null,
+  "rollbackAndRecovery": {
+    "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc",
+    "method": "Revert the bounded assessment-workspace commits after exact start 927b953b23557b14b8ca74c11a241a41bbe9a473. No schema, migration, stored-data, route, request-shape, provider, permission, or environment rollback is required.",
+    "exercisedEvidence": [
+      "The candidate changed only assessment presentation ownership, source-level contract composition, training target ownership, and generated governance inventories.",
+      "The exact starting commit remains available as 927b953b23557b14b8ca74c11a241a41bbe9a473.",
+      "The same focused lifecycle and offline-recovery journeys passed at the exact start and candidate, providing a direct recovery comparison."
+    ],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-09T18:18:34Z"
+  },
   "residualRisks": [],
-  "convergence": null
+  "convergence": {
+    "candidateCommit": "ba92d371ef2bb92435d1a6803b62c499a70414fc",
+    "allObligationsVerified": true,
+    "requiredGatesPassed": true,
+    "behaviorPreserved": true,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": true,
+    "rollbackOrRecoveryProven": true,
+    "noUnresolvedCriticalOrHigh": true,
+    "acceptedBy": "Eric",
+    "acceptedAt": "2026-09-09T18:18:34Z",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T17:40:20Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
 }

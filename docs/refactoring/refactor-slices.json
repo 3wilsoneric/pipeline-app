@@ -324,7 +324,7 @@
     {
       "id": "assessment-workspace-components",
       "priority": 6,
-      "status": "in_progress",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "components/pipeline/AssessmentWorkspace.tsx"

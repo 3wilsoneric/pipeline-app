@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T18:11:42.459Z",
+  "generated_at": "2026-09-09T18:21:26.757Z",
   "audit_date": "2026-09-09",
-  "git_head": "7d84294d66e9ff9a6ab2624b555e3f88effc5f32",
+  "git_head": "ba92d371ef2bb92435d1a6803b62c499a70414fc",
   "files": [
     {
       "path": ".dockerignore",
@@ -4249,11 +4249,11 @@
     },
     {
       "path": "docs/refactoring/assessment-workspace-components-assurance-record.json",
-      "content_sha256": "3f64ed176ffc03c6c59fa0e96b72f631bb0f2ad12f5198d54bbf7d7fd1753f33",
+      "content_sha256": "f6c04df581196c65c2733793b28cdff10e279139c6de5e2436e55b3489c55b7b",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 2288,
-      "lines": 45,
+      "bytes": 11794,
+      "lines": 153,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4480,10 +4480,10 @@
     },
     {
       "path": "docs/refactoring/evidence-matrix.json",
-      "content_sha256": "71301427aa781df2f59f2f2dc4e15161f078f93f37a2ef064ec8c81ef4ba935a",
+      "content_sha256": "29f9ea91fdbaf64b156bbb1c50e75441323169525c1df916beb318f20c863e25",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 42090,
+      "bytes": 42543,
       "lines": 644,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -4634,10 +4634,10 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "ba6bbf3ccc29dd1e4a9de78261e782919347bf0f4d7decac560cb926dfc85f10",
+      "content_sha256": "ffbbf499ea9ab7a94f016ccf6f4da8862a85729bee04aa9ad2856a987ba1b763",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 18113,
+      "bytes": 18110,
       "lines": 385,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -4779,10 +4779,10 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "ceb10356b832b8466872757abd25cdd196a6f7324fd9cee65bfa4c2d5363415e",
+      "content_sha256": "45e44b323342604880e9516976d0b217b0ec6935ac4994aa920bdb95bfef9636",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 388310,
+      "bytes": 388312,
       "lines": 1821,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -4807,7 +4807,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "523b133ae38089530559da4853e5ae78bc548d91d57e6b7f45866fbbc677d8ff",
+      "content_sha256": "57961df2dad8950a979884b0c284523123a699be0fc40c72fd3d7bd81afeb305",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 218737,
@@ -4866,10 +4866,10 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "0795574615815abdab0092ffe4dc647b91023a21f3e97e05e552410e838c62ce",
+      "content_sha256": "ac0b328f216ce85766383aeb8ae8f1c66511e2445c427c0036020b7a38e6ab75",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 544885,
+      "bytes": 544887,
       "lines": 10989,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
