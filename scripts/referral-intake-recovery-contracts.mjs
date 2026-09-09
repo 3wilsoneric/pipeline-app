@@ -9,6 +9,7 @@ const checks = [];
 const check = (name, condition) => checks.push({ name, ok: Boolean(condition) });
 
 const draftTypes = loadTypeScriptModule(process.cwd(), "lib/pipeline/user-workspace-state-types.ts");
+const canvasSaveState = loadTypeScriptModule(process.cwd(), "components/pipeline/referral-canvas-save-state.ts");
 const validSummary = {
   draft_key: "new-133c3e28-2731-4d4f-9c32-175a8ac96fcb",
   version: 2,
@@ -27,7 +28,6 @@ check("impossible field counts are rejected", draftTypes.parsePipelineReferralDr
 
 const listRoute = read("app/api/me/referral-drafts/route.ts");
 const canvas = read("components/pipeline/ReferralPacketCanvas.tsx");
-const canvasSaveState = read("components/pipeline/referral-canvas-save-state.ts");
 const recoveryList = read("components/pipeline/ReferralDraftResumeList.tsx");
 const overview = read("components/pipeline/PipelineOverviewRoute.tsx");
 const upload = read("lib/pipeline/referral-packet-upload.ts");
@@ -54,13 +54,43 @@ check("idempotent create replays merge unsaved tab edits through section-version
     && referralRoute.includes("idempotent_replay: result.idempotentReplay")
     && canvas.includes("mergeIdempotentCreateReplay(payload.referral, payload.idempotent_replay")
     && canvas.includes("return persistExistingChanges("));
+const savedDraftValues = {
+  fields: { name: { value: "Saved Name", sourceFile: "packet-a.pdf" } },
+  conserved: "",
+  tagsInput: "",
+  documents: {},
+  initialPacket: null,
+};
+const saveSnapshot = canvasSaveState.captureReferralSaveSnapshot(
+  new Set(["name"]),
+  savedDraftValues,
+  "referral_packet",
+  {},
+);
+const editedDuringSave = {
+  ...savedDraftValues,
+  fields: { name: { value: "Newer Name", sourceFile: "packet-a.pdf" } },
+};
+const remainingAfterConcurrentEdit = canvasSaveState.reconcileSavedDirtyKeys(
+  new Set(["name"]),
+  saveSnapshot,
+  editedDuringSave,
+  true,
+);
+const remainingAfterUnchangedSave = canvasSaveState.reconcileSavedDirtyKeys(
+  new Set(["name"]),
+  saveSnapshot,
+  savedDraftValues,
+  true,
+);
 check("successful saves preserve edits and replacement files made in flight",
   canvas.includes("captureReferralSaveSnapshot(")
     && canvas.includes("snapshot.pendingDocuments")
     && canvas.includes("pendingDocumentsRef.current[requirementId] !== uploadedFile")
     && canvas.includes("reconcileSavedDirtyKeys(")
-    && canvasSaveState.includes("draftKeySignature(key, current) === saved.signatures.get(key)")
-    && canvasSaveState.includes("Saved; newer changes remain"));
+    && remainingAfterConcurrentEdit.has("name")
+    && remainingAfterUnchangedSave.size === 0
+    && canvasSaveState.referralSaveStatus(1, false) === "Saved; newer changes remain");
 check("extraction cannot replace locally dirty fields",
   canvas.includes("!dirtyKeys.has(key)")
     && canvas.includes("mergeExtractedFields(")

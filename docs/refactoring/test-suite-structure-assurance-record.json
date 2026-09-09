@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "test-suite-structure",
+  "status": "complete",
+  "startingCommit": "e5d058454ed4bf226ceee91fa0c494be1b2ff8b7",
+  "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428",
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T15:52:00Z",
+    "directive": "okay go, with both referral canvas and test suite, fast lane"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "test_restructure_preserves_behavior_detection",
+    "test_helpers_do_not_hide_failure"
+  ],
+  "preChangeMachineTrace": [
+    "At exact starting commit e5d058454ed4bf226ceee91fa0c494be1b2ff8b7 the Playwright owner contains 46 named journeys, 743 direct expect calls, and explicit beforeAll/afterAll/beforeEach ownership.",
+    "The API behavior owner contains 108 named executable cases and 353 direct assertion calls.",
+    "The critical concurrent-edit journey has 18 direct expectations with digest e9cfd01d102f67b4205bef8d7b2767ff7ac24de24245f82ea4022ed3323f8a16.",
+    "The exact starting commit is the merged, independently green referral-canvas release candidate."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "User-visible assertions remain in journey tests rather than disappearing into helpers.",
+      "Synthetic test isolation and deterministic cleanup remain explicit.",
+      "Source-string checks do not replace executable behavior checks.",
+      "The seeded-defect kill rate remains 100 percent for the certified critical set."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json binds case identity, per-case assertion structure, hook ownership, and the critical journey trace to the exact start.",
+      "The required platform, mutation-effectiveness, browser, operational, and assurance gates remain mandatory before completion."
+    ]
+  },
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "behavior_assertion_ownership",
+      "obligationIds": [
+        "test_restructure_preserves_behavior_detection",
+        "test_helpers_do_not_hide_failure"
+      ],
+      "baseCommit": "e5d058454ed4bf226ceee91fa0c494be1b2ff8b7",
+      "headCommit": "3f284a3688983209dd081170a987bb539e7d1428",
+      "purpose": "Separate the independent Pipeline home journeys from the referral workflow owner, share immutable sanitized fixture data only, make assertion preservation a CI gate, and replace the save-reconciliation source proxy with executable behavior.",
+      "changedFiles": [
+        "tests/e2e/pipeline-smoke.spec.ts",
+        "tests/e2e/pipeline-home.spec.ts",
+        "tests/e2e/support/pipeline-clinical-fixtures.ts",
+        "scripts/test-assertion-inventory.mjs",
+        "scripts/mcmaster-certification-matrix.mjs",
+        "scripts/referral-intake-recovery-contracts.mjs",
+        "package.json"
+      ],
+      "preChangeCharacterization": [
+        "The exact-start manifest recorded 46 Playwright journeys with 743 direct expectations and 108 API behavior cases with 353 direct assertions.",
+        "The critical concurrent-edit journey carried 18 direct expectations and explicit referral-suite setup and cleanup ownership."
+      ],
+      "focusedEvidence": [
+        "The candidate assertion gate reproduced both ordered case manifests and the critical-journey digest exactly after the file split.",
+        "The McMaster evidence matrix resolved all 44 certified requirements after the five moved home/profile journeys were redirected to their canonical test owner, and the three-run compiled performance certification passed every budget.",
+        "The complete browser suite passed 118 applicable journeys with 15 explicit feature or environment skips.",
+        "The high-assurance operational suite passed all 14 applicable multi-user, collision, role, and golden-thread scenarios with 22 separately gated database-characterization skips.",
+        "The test-effectiveness suite killed all 27 certified seeded defects and the full platform-fast gate passed TypeScript, ESLint, behavioral, security, recovery, chaos, and infrastructure checks."
+      ],
+      "baselineDelta": {
+        "before": "One 3,556-line pipeline-smoke owner contained both the referral workflow and 14 independent Pipeline home, search, directory, profile, identity-review, and report journeys; assertion preservation depended on review.",
+        "after": "The referral owner is 2,656 lines, the independent Pipeline home owner is 844 lines, immutable sanitized fixtures live in a 72-line data-only module, and CI verifies exact ordered per-case assertion digests.",
+        "comparison": "All 46 journey identities, 743 direct Playwright expectations, 108 API behavior identities, 353 direct API assertions, three lifecycle hooks, and the 18-expect concurrent-edit journey are unchanged at the normalized assertion-manifest level.",
+        "regressions": []
+      },
+      "tradeoffs": [
+        {
+          "dimension": "scope",
+          "change": "The 2,067-line API behavior owner remains intact while its exact assertion manifest is now protected.",
+          "reason": "Splitting a second behavior owner in the same iteration would enlarge the review surface after the requested browser-suite boundary was already achieved; the durable gate makes a later domain split independently safe.",
+          "approvedBy": "Eric"
+        }
+      ],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-09T16:22:46Z"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "test_restructure_preserves_behavior_detection",
+      "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428",
+      "status": "verified",
+      "methods": ["mechanical", "mutation", "integration"],
+      "evidence": [
+        "scripts/test-assertion-inventory.mjs reproduced the exact-start ordered case, count, assertion-count, and normalized assertion digests for both protected owners.",
+        "The full Playwright suite passed 118 applicable journeys and the high-assurance operational suite passed all 14 applicable scenarios.",
+        "The certified mutation suite killed 27 of 27 seeded critical defects for a 100 percent kill rate."
+      ],
+      "implementationTrace": [
+        "scripts/test-assertion-inventory.mjs",
+        "tests/e2e/pipeline-smoke.spec.ts",
+        "tests/e2e/pipeline-home.spec.ts",
+        "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-09T16:22:46Z"
+    },
+    {
+      "obligationId": "test_helpers_do_not_hide_failure",
+      "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428",
+      "status": "verified",
+      "methods": ["mechanical", "mutation", "integration"],
+      "evidence": [
+        "Every protected expect call remains directly inside its named Playwright journey and every protected API assertion remains directly inside its named run case.",
+        "The only shared browser helper introduced is immutable sanitized fixture data; it contains no Playwright assertions, routes, catches, or cleanup behavior.",
+        "Save reconciliation is now executed through the canonical referral-canvas-save-state module instead of inferred from source strings."
+      ],
+      "implementationTrace": [
+        "tests/e2e/support/pipeline-clinical-fixtures.ts",
+        "scripts/referral-intake-recovery-contracts.mjs",
+        "components/pipeline/referral-canvas-save-state.ts"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-09T16:22:46Z"
+    }
+  ],
+  "gateResults": [
+    {"command": "npm run check:platform:fast", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "All 43 platform-fast stages passed, including TypeScript, zero-warning ESLint, behavior, security, recovery, chaos, query, infrastructure, and synthetic-scale checks."},
+    {"command": "npm run certify:test-effectiveness", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "Exact assertion inventories matched, critical safety passed, 27/27 seeded mutants were killed, and identity, storage, ALLO-content, and extraction-quality certification passed."},
+    {"command": "npm run test:e2e", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "The complete browser run passed 118 applicable journeys; 15 feature-flag or environment-specific scenarios remained explicitly gated."},
+    {"command": "npm run test:e2e:operational:high", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "All 14 applicable high-assurance multi-user, collision, role, golden-thread, and capacity scenarios passed; 22 database-specific characterization scenarios remained explicitly gated."},
+    {"command": "npm run check:mcmaster", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "All 44 McMaster certification requirements resolved to their canonical evidence owners and all 35 performance contracts passed."},
+    {"command": "npm run certify:mcmaster:performance", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "Three compiled production-artifact runs passed every interaction, rendering, transfer, API, and navigation budget with zero observed API errors."},
+    {"command": "npm run check:refactor-assurance", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "The candidate-bound owner-fast-lane obligation, assertion, rollback, and convergence record passed the assurance checker."},
+    {"command": "npm run certify:refactor", "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428", "outcome": "passed", "evidence": "Refactor setup, repository quality, complexity, platform, test-effectiveness, TypeScript, ESLint, and the Next.js production build passed for the bounded test-only candidate."}
+  ],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": {
+    "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428",
+    "method": "Revert the bounded test-suite commits after exact start e5d058454ed4bf226ceee91fa0c494be1b2ff8b7. No runtime route, schema, migration, stored data, or production configuration rollback is required.",
+    "exercisedEvidence": [
+      "The candidate changes only test ownership, sanitized fixtures, verification commands, and governance inventories.",
+      "The exact starting commit remains available as e5d058454ed4bf226ceee91fa0c494be1b2ff8b7.",
+      "The exact assertion manifest and unchanged complete browser results provide a direct before/after recovery comparison."
+    ],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-09T16:22:46Z"
+  },
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": "3f284a3688983209dd081170a987bb539e7d1428",
+    "allObligationsVerified": true,
+    "requiredGatesPassed": true,
+    "behaviorPreserved": true,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": true,
+    "noUnresolvedCriticalOrHigh": true,
+    "acceptedBy": "Eric",
+    "acceptedAt": "2026-09-09T16:22:46Z",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T15:52:00Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}

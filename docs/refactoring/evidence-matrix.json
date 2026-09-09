@@ -537,35 +537,42 @@
         {
           "id": "behavior_assertion_preservation",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["test:e2e", "test:e2e:operational:high"],
-          "note": "Record assertion identities, control ownership, helper boundaries, and journey-level expectations before splitting the large files; raw assertion counts alone are not sufficient."
+          "files": ["docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json", "docs/refactoring/TEST_SUITE_STRUCTURE_ARCHITECTURE_NARRATIVE.md"],
+          "note": "Exact-start inventory binds all 46 Playwright case identities and 743 direct expectations plus all 108 API behavior identities and 353 direct assertions through ordered per-case digests. It separately records hook ownership and the 18-expect concurrent-edit critical journey."
         },
         {
           "id": "source_string_reduction",
           "phase": "before_complete",
-          "status": "missing",
-          "note": "Replace operational source-string checks with executable behavior while retaining true architecture fitness checks."
+          "status": "satisfied",
+          "gates": ["check:platform:fast"],
+          "files": ["scripts/referral-intake-recovery-contracts.mjs", "components/pipeline/referral-canvas-save-state.ts"],
+          "note": "The referral save/reconcile contract now loads and executes the canonical save-state module, proving that edits made during an in-flight save remain dirty while unchanged saved values clear. Architecture-only source checks remain scoped to boundary ownership."
         },
         {
           "id": "owner_validated_assurance_model",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": [
             "docs/refactoring/canonical-responsibilities.json",
             "docs/refactoring/architecture-comprehension-probes.json",
-            "docs/refactoring/proof-obligations.json"
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/TEST_SUITE_STRUCTURE_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/test-suite-structure-file-audit.json",
+            "docs/refactoring/test-suite-structure-assurance-record.json",
+            "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json"
           ],
-          "note": "The assertion-ownership, helper-failure, isolation, behavior-preservation, and mutation-effectiveness obligations are setup candidates. The standard lane requires independent validation; owner_fast_lane permits owner authorization of a machine-backed inventory before tests move."
+          "note": "Eric authorized the bounded owner_fast_lane slice at exact start e5d058454ed4bf226ceee91fa0c494be1b2ff8b7. The assurance model fixes assertion identities, helper boundaries, explicit setup/cleanup, failure propagation, source-check limits, and the required mutation/browser/platform gates before any test code moves."
         },
         {
           "id": "convergence_and_residual_risk",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
-          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind the assertion inventory, mutant kill evidence, required gates, rollback evidence, and any accepted medium/low test-infrastructure uncertainty to one candidate commit. Standard-lane fresh-context comprehension and adversarial review are advisory in owner_fast_lane."
+          "files": ["docs/refactoring/test-suite-structure-assurance-record.json", "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json"],
+          "note": "Candidate 3f284a3688983209dd081170a987bb539e7d1428 binds exact assertion manifests, 27/27 seeded-defect kills, complete browser and high-assurance operational runs, a 44/44 McMaster evidence matrix, three compiled performance runs, platform checks, rollback evidence, and no unresolved critical or high residual risk."
         }
       ]
     }

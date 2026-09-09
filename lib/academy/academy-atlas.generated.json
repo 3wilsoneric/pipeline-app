@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8a4e0030150522aa",
-  "fingerprint": "8a4e0030150522aa6d98e8dfcbacd3dc4072e28a5600768683101f6e4c05fb8a",
+  "generatedAt": "source-fingerprint:e45402315570c4a5",
+  "fingerprint": "e45402315570c4a524e681a518827f0b4c8b1f9f8cdfd7e423b97eb88499bf0b",
   "totals": {
-    "files": 889,
-    "lines": 292564,
-    "coveredFiles": 889
+    "files": 896,
+    "lines": 293451,
+    "coveredFiles": 896
   },
   "entries": [
     {
@@ -4133,6 +4133,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 32,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/characterization/workflow-and-handoff-machine-run-2afc85b.json",
       "subsystem": "Documentation",
       "kind": "configuration",
@@ -4306,7 +4318,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 574,
+      "lines": 581,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4534,7 +4546,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 296,
+      "lines": 326,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4700,6 +4712,42 @@
       ]
     },
     {
+      "path": "docs/refactoring/TEST_SUITE_STRUCTURE_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 32,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/test-suite-structure-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 168,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/test-suite-structure-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 318,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -4825,7 +4873,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1807,
+      "lines": 1815,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4861,7 +4909,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7535,
+      "lines": 7539,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4921,7 +4969,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10844,
+      "lines": 10923,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -7597,7 +7645,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 234,
+      "lines": 235,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -9793,7 +9841,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 95,
+      "lines": 125,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -10026,6 +10074,18 @@
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/test-assertion-inventory.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 162,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
       ]
     },
     {
@@ -10486,12 +10546,24 @@
       ]
     },
     {
+      "path": "tests/e2e/pipeline-home.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 844,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/pipeline-smoke.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 3556,
+      "lines": 2656,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10564,6 +10636,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 226,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/support/pipeline-clinical-fixtures.ts",
+      "subsystem": "Browser tests",
+      "kind": "typescript-module",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 72,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
