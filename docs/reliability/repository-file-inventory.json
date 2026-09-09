@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T03:10:57.020Z",
+  "generated_at": "2026-09-09T03:11:31.200Z",
   "audit_date": "2026-09-09",
-  "git_head": "ddae87966532b4c92eacc9cab59734d2ed6351b2",
+  "git_head": "6024abc1e8e7e35cc83aa9394a84762909b7eedd",
   "files": [
     {
       "path": ".dockerignore",
@@ -3825,7 +3825,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "8380deeb4c20ab2180e24957707ee06335fcd86d006fda053416ba2f80135d95",
+      "content_sha256": "baa0e3f88a99d629ca33fbbeffac8e9244a89264f79f61a3c8425a09611bb4ed",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4124,7 +4124,7 @@
     },
     {
       "path": "docs/refactoring/assessment-store-file-audit.json",
-      "content_sha256": "f3d739cea192a59a434dd918a72591f255bd89e91428a88acf9e48ba860d47f2",
+      "content_sha256": "6728c6162afd95508c9e2b0e714ba48f55815d956d04908af891567350c9d53c",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 25800,
@@ -4478,7 +4478,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "8f4e781d3cca964a50d725b4227698821c508a161844bef21f7754ac47756f09",
+      "content_sha256": "5d75339cb2ed51cbacae936b79a625af90ffa81330f7fe697ef113954f7537bf",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 377074,
@@ -4506,7 +4506,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "d4c2262bb98a17865a8539bff928482be5f01498209a08e4c46b40ea75d921b3",
+      "content_sha256": "b78280aa28899fa6f84c1654e5a04f8969e91dd5bab63eefc10fc4d2fc430f48",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 216990,
@@ -4565,7 +4565,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "b8a83077830a66cf21142999f9dedc1477f9b2e8537e3011f46337902ef66f59",
+      "content_sha256": "b9e6f041ad3213950fe88fa6a52d82becd57814ceaaedb08a6a68ad4e823744d",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 525839,
@@ -4631,7 +4631,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "6232d23e45b21301d1ee166c7711f91c2dc926801058d745c1865a9fffa0b157",
+      "content_sha256": "39a6cf97dd5eb06b269894f2446d7aff576001d3ef809c7abdac0c9bb7208f2e",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,

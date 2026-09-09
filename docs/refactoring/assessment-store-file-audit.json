@@ -410,7 +410,7 @@
       ],
       "staticPrompts": [
         {
-          "prompt": "Large module (10502 lines): split by behavior before adding more responsibilities.",
+          "prompt": "Large module (10514 lines): split by behavior before adding more responsibilities.",
           "disposition": "expected",
           "reason": "This is a deterministic generated repository atlas, not an authored runtime module; generation remains owned by scripts/academy-atlas.mjs.",
           "owner": "Eric",
