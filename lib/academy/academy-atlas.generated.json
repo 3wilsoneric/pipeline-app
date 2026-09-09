@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ab490a0aa2190195",
-  "fingerprint": "ab490a0aa2190195915770bfa4213bec8230f6fade0cc2beca3f4147940ada1c",
+  "generatedAt": "source-fingerprint:8e813980c488121a",
+  "fingerprint": "8e813980c488121a0e51a58d3dbb27d2709ec82e48af82b717fec4b98cd7cc1e",
   "totals": {
-    "files": 902,
-    "lines": 294116,
-    "coveredFiles": 902
+    "files": 908,
+    "lines": 294931,
+    "coveredFiles": 908
   },
   "entries": [
     {
@@ -2102,6 +2102,18 @@
       ]
     },
     {
+      "path": "components/pipeline/referral-home-directory-model.ts",
+      "subsystem": "Pipeline UI",
+      "kind": "typescript-module",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 168,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/ReferralActivityPanel.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2155,7 +2167,19 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1308,
+      "lines": 497,
+      "moduleIds": [
+        "create-referral",
+        "referral-workspace-ui"
+      ]
+    },
+    {
+      "path": "components/pipeline/ReferralHomeDirectory.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 498,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -3956,7 +3980,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 167,
+      "lines": 180,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4016,7 +4040,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 45,
+      "lines": 153,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -4028,7 +4052,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 230,
+      "lines": 232,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -4052,7 +4076,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 286,
+      "lines": 315,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4161,6 +4185,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 28,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-home-directory-components-machine-run-07fac35.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 35,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4390,7 +4426,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 644,
+      "lines": 707,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4474,7 +4510,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 210,
+      "lines": 232,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4618,7 +4654,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 385,
+      "lines": 447,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4643,6 +4679,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 189,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_HOME_DIRECTORY_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 53,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4715,6 +4763,30 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 266,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/referral-home-directory-components-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 216,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/referral-home-directory-components-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 248,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4945,7 +5017,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1819,
+      "lines": 1827,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4981,7 +5053,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7541,
+      "lines": 7551,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5041,7 +5113,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10967,
+      "lines": 11054,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -10262,7 +10334,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 113,
+      "lines": 117,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

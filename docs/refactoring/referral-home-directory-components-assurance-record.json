@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-home-directory-components",
+  "status": "complete",
+  "startingCommit": "07fac35ffa0390734304d246d6b95b8dc225aa31",
+  "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T19:31:32Z",
+    "directive": "oaky go, fast lane"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "referral_home_directory_presentation_preserves_navigation_and_recovery"
+  ],
+  "preChangeMachineTrace": [
+    "At exact starting commit 07fac35ffa0390734304d246d6b95b8dc225aa31, 15 focused Home-directory Chromium journeys passed across nine viewport widths.",
+    "The exact-start complexity ratchet passed.",
+    "The exact-start baseline records ReferralHome.tsx at 1,308 lines, complexity 356, 15 dependencies, and maximum branch depth six."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Search, filter, list, gallery, activity, file browsing, identity review, paging, and recovery keep their current click paths and behavior.",
+      "ReferralHome remains the sole owner of requests, revision polling, cursors, loading and error state, preview and review state, and the persisted layout preference.",
+      "Extracted presentation and pure-model modules do not become parallel network, persistence, authorization, or canonical-state owners.",
+      "Labels, roles, guide targets, DOM order, responsive layouts, and visual styling remain unchanged.",
+      "No route, request shape, role policy, workflow, schema, migration, stored data, audit, or extraction behavior changes."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/referral-home-directory-components-machine-run-07fac35.json records the exact-start focused journeys and structural baseline."
+    ]
+  },
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "referral_home_directory_coordination",
+      "obligationIds": [
+        "referral_home_directory_presentation_preserves_navigation_and_recovery"
+      ],
+      "baseCommit": "07fac35ffa0390734304d246d6b95b8dc225aa31",
+      "headCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "purpose": "Move callback-driven workspace, file, activity, paging, and responsive-directory rendering plus pure directory derivation out of the effectful Referral Home coordinator while retaining every request, cursor, polling loop, recovery decision, persisted preference, preview state, and identity-review mutation in ReferralHome.",
+      "changedFiles": [
+        "components/pipeline/ReferralHome.tsx",
+        "components/pipeline/ReferralHomeDirectory.tsx",
+        "components/pipeline/referral-home-directory-model.ts",
+        "scripts/workspace-month-contracts.mjs",
+        "scripts/client-profile-quality-audit.mjs",
+        "lib/training/operator-guided-tutorials.ts"
+      ],
+      "preChangeCharacterization": [
+        "The exact-start focused Home-directory run passed search, filters, layouts, activity, file browsing, empty and failure recovery, last-good-snapshot recovery, and navigation at 320 through 1440 pixel viewports.",
+        "The exact-start baseline recorded ReferralHome.tsx at 1,308 lines, complexity 356, 15 direct dependencies, branch depth six, eight cycles, 71 duplicate groups, and 56 control-plane duplicate groups."
+      ],
+      "focusedEvidence": [
+        "The same 15 focused Chromium journeys passed after extraction in 40.9 seconds.",
+        "The complete browser suite passed 118 applicable journeys; desktop, Chromium/Firefox/WebKit, and six unchanged visual snapshots also passed.",
+        "Workspace-month, client-workspace, client-profile-quality, assessor-workflow, TypeScript, zero-warning focused ESLint, training, Academy, artifact, and complexity checks passed.",
+        "The high-assurance operational suite passed all 14 applicable multi-user, collision, role, capacity, and golden-thread scenarios."
+      ],
+      "baselineDelta": {
+        "before": "ReferralHome.tsx was 1,308 lines with module complexity 356, 15 direct dependencies, and maximum branch depth six.",
+        "after": "ReferralHome.tsx is 497 lines with module complexity 175, 12 direct dependencies, and maximum branch depth four; the presentation module is 498 lines and the pure model is 168 lines, with every new function below the new-function complexity ceiling.",
+        "comparison": "The coordinator lost 811 lines, 181 complexity points, three direct dependencies, and two levels of maximum branch depth. The repository lost 141 lines overall; cycles stayed at eight, duplicate groups at 71, and control-plane duplicate groups at 56.",
+        "regressions": []
+      },
+      "tradeoffs": [
+        {
+          "dimension": "remaining structure",
+          "change": "ReferralHome remains a 497-line critical-review coordinator and ReferralHomeDirectory is a 498-line medium-review presentation module.",
+          "reason": "Keeping request, cursor, recovery, persistence, preview, and identity-review effects together preserves one effectful owner; further separation would broaden this slice's proof boundary.",
+          "approvedBy": "Eric"
+        }
+      ],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-09T20:37:54Z"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "referral_home_directory_presentation_preserves_navigation_and_recovery",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "status": "verified",
+      "methods": [
+        "mechanical",
+        "integration",
+        "operational_recovery"
+      ],
+      "evidence": [
+        "The extracted directory and model contain no fetch, revision polling, durable mutation, cursor advancement, localStorage write, or authorization implementation.",
+        "The exact focused Home-directory journeys passed before and after the move across nine viewport widths.",
+        "The full browser, desktop, cross-browser, visual, and high-assurance operational suites passed every applicable scenario without changing a snapshot baseline.",
+        "Workspace-month and client-profile source contracts were preserved by composing the approved coordinator, presentation, and pure-model sources rather than deleting or weakening assertions."
+      ],
+      "implementationTrace": [
+        "components/pipeline/ReferralHome.tsx",
+        "components/pipeline/ReferralHomeDirectory.tsx",
+        "components/pipeline/referral-home-directory-model.ts",
+        "scripts/workspace-month-contracts.mjs",
+        "scripts/client-profile-quality-audit.mjs",
+        "lib/training/operator-guided-tutorials.ts"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-09T20:37:54Z"
+    }
+  ],
+  "gateResults": [
+    {
+      "command": "npm run check:assessor-workflow",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "Every assessment and referral workflow source contract passed."
+    },
+    {
+      "command": "npm run check:workspace-month",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "All 11 workspace-month contracts passed against the composed coordinator, presentation, and model source."
+    },
+    {
+      "command": "npm run check:client-workspaces",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "Client-workspace contracts, dry-run name normalization, and the profile/data quality audit passed against read-only current data paths."
+    },
+    {
+      "command": "npm run test:e2e",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "The complete browser run passed 118 applicable journeys; 15 environment or feature-mode scenarios remained explicitly gated."
+    },
+    {
+      "command": "npm run test:e2e:desktop",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "Seven desktop journeys passed; one disabled-feature scenario was explicitly gated."
+    },
+    {
+      "command": "npm run test:e2e:cross-browser",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "The core application rendered and navigated in Chromium, Firefox, and WebKit."
+    },
+    {
+      "command": "npm run test:e2e:visual",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "All six desktop and mobile snapshots matched without updating baselines."
+    },
+    {
+      "command": "npm run test:e2e:operational:high",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "All 14 applicable high-assurance multi-user, collision, role, capacity, and golden-thread scenarios passed; 22 separately gated database-characterization scenarios were skipped."
+    },
+    {
+      "command": "npm run certify:mcmaster:performance",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "Three compiled runs passed every rendering, interaction, transfer, API, and navigation budget with zero observed API errors."
+    },
+    {
+      "command": "npm run check:artifacts",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "The production artifact stayed within all aggregate, JavaScript, stylesheet, compressed-code, source-map, and credential-marker budgets."
+    },
+    {
+      "command": "npm run check:refactor-assurance",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "The exact-candidate owner-fast-lane responsibility, obligation, rollback, scope, and convergence record passed the assurance checker."
+    },
+    {
+      "command": "npm run certify:refactor",
+      "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+      "outcome": "passed",
+      "evidence": "Refactor setup, repository quality, complexity, platform, type, lint, production build, and bounded assurance checks passed for the candidate."
+    }
+  ],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": {
+    "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+    "method": "Revert the bounded Referral Home directory commits after exact start 07fac35ffa0390734304d246d6b95b8dc225aa31. No schema, migration, stored-data, route, request-shape, provider, permission, or environment rollback is required.",
+    "exercisedEvidence": [
+      "The candidate changed only Referral Home presentation ownership, pure derivation ownership, source-level contract composition, training target ownership, and generated governance inventories.",
+      "The exact starting commit remains available as 07fac35ffa0390734304d246d6b95b8dc225aa31.",
+      "The same focused Home-directory journeys passed at the exact start and candidate across nine viewport widths, providing a direct recovery comparison."
+    ],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-09T20:37:54Z"
+  },
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+    "allObligationsVerified": true,
+    "requiredGatesPassed": true,
+    "behaviorPreserved": true,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": true,
+    "rollbackOrRecoveryProven": true,
+    "noUnresolvedCriticalOrHigh": true,
+    "acceptedBy": "Eric",
+    "acceptedAt": "2026-09-09T20:37:54Z",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T19:31:32Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}

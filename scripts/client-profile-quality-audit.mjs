@@ -78,7 +78,7 @@ const surfaceContracts = [
   ["components/pipeline/PipelineWelcome.tsx", "clientDisplayName"],
   ["components/pipeline/PipelineCalendar.tsx", "calendarClientName"],
   ["components/pipeline/OperationsDashboard.tsx", "reportClientName"],
-  ["components/pipeline/ReferralHome.tsx", "fileClientName"],
+  ["components/pipeline/referral-home-directory-model.ts", "fileClientName"],
   ["components/pipeline/AssessmentWorkspace.tsx", "formatClientIdentityTitle"],
   ["components/pipeline/PipelineTrash.tsx", "formatClientIdentityTitle"],
   ["components/pipeline/HistoricalReferralProfile.tsx", "formatClientIdentityTitle"],

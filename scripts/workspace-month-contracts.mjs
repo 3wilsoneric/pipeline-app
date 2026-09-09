@@ -73,7 +73,11 @@ const migration = readFileSync("database/migrations/0024_workspace_month_provena
 const rollback = readFileSync("database/rollbacks/0024_workspace_month_provenance.sql", "utf8");
 const store = readFileSync("lib/pipeline/referral-store.ts", "utf8");
 const importer = readFileSync("scripts/import-allo-material-workspaces.mjs", "utf8");
-const workspacePage = readFileSync("components/pipeline/ReferralHome.tsx", "utf8");
+const workspacePage = [
+  "components/pipeline/ReferralHome.tsx",
+  "components/pipeline/ReferralHomeDirectory.tsx",
+  "components/pipeline/referral-home-directory-model.ts",
+].map((file) => readFileSync(file, "utf8")).join("\n");
 
 check(
   "migration records month provenance and separates it from received date",

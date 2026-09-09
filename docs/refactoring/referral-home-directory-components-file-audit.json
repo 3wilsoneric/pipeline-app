@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-home-directory-components",
+  "startingCommit": "07fac35ffa0390734304d246d6b95b8dc225aa31",
+  "generatedInventory": "docs/reliability/repository-file-inventory.json",
+  "humanOwner": "Eric",
+  "reviewedAt": "2026-09-09T19:31:32Z",
+  "reviewedBy": "Owner-authorized TARS machine trace",
+  "approvedBy": "Eric",
+  "approvedAt": "2026-09-09T19:31:32Z",
+  "files": [
+    {
+      "path": "components/pipeline/ReferralHome.tsx",
+      "plannedNew": false,
+      "dependencyDirection": "The application shell imports this client coordinator; it may import the directory presentation and pure model, which may not import it.",
+      "purpose": "Owns directory and file requests, polling, cursors, recovery, identity-review mutation, modal state, and persisted layout preference.",
+      "callers": ["components/pipeline/PipelineWorkspace.tsx"],
+      "publicExports": ["default ReferralHome"],
+      "sideEffects": ["authenticated API requests", "revision timer", "focus listener", "browser layout storage", "identity-review mutation"],
+      "failureBehavior": "Aborts superseded loads, preserves the last successful snapshot on refresh failure, surfaces initial-load errors, and keeps identity-review failures visible.",
+      "tests": ["npm run check:assessor-workflow", "npm run test:e2e", "npm run test:e2e:operational:high"],
+      "staticPrompts": [
+        {"prompt": "Large module (1308 lines): split by behavior before adding more responsibilities.", "disposition": "confirmed", "reason": "This approved slice moves render-only directory responsibilities while retaining one effectful coordinator.", "owner": "Eric"},
+        {"prompt": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.", "disposition": "confirmed", "reason": "The existing debounce and revision pollers remain in the coordinator with unchanged cleanup and focused browser recovery evidence.", "owner": "Eric"},
+        {"prompt": "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.", "disposition": "expected", "reason": "The existing storage value is only the non-sensitive list/gallery preference and remains unchanged.", "owner": "Eric"}
+      ],
+      "decision": "split",
+      "decisionReason": "Extract presentation and pure derivation without moving requests, mutations, or recovery ownership."
+    },
+    {
+      "path": "components/pipeline/ReferralHomeDirectory.tsx",
+      "plannedNew": true,
+      "dependencyDirection": "Imported by ReferralHome and depends only on client-safe types, presentation components, pure helpers, and callbacks.",
+      "purpose": "Renders the existing search, filters, tabs, navigation, result panes, paging, and mobile browse dialog.",
+      "callers": ["components/pipeline/ReferralHome.tsx"],
+      "publicExports": ["ReferralHomeDirectory"],
+      "sideEffects": ["mobile dialog focus and Escape-key listener"],
+      "failureBehavior": "Delegates retries and actions to the coordinator and does not catch or suppress request failures.",
+      "tests": ["npm run test:e2e", "npm run test:e2e:cross-browser", "npm run test:e2e:visual"],
+      "staticPrompts": [],
+      "decision": "move",
+      "decisionReason": "The directory markup is one callback-driven presentation responsibility."
+    },
+    {
+      "path": "components/pipeline/referral-home-directory-model.ts",
+      "plannedNew": true,
+      "dependencyDirection": "Imported by the coordinator and presentation; imports only client-safe domain and presentation helpers.",
+      "purpose": "Owns deterministic filter, query, month, count, pagination, empty-state, and file-label derivation.",
+      "callers": ["components/pipeline/ReferralHome.tsx", "components/pipeline/ReferralHomeDirectory.tsx"],
+      "publicExports": ["ReferralFilter", "WorkspaceLayout", "WorkspaceSection", "directory helper functions"],
+      "sideEffects": [],
+      "failureBehavior": "Returns bounded fallbacks for invalid dates and unrecorded communities and never catches runtime effects.",
+      "tests": ["npm run check:workspace-month", "npm run check:client-workspaces", "npm run test:e2e"],
+      "staticPrompts": [],
+      "decision": "move",
+      "decisionReason": "Pure derivation is reusable by both approved client modules without a second state owner."
+    },
+    {
+      "path": "scripts/workspace-month-contracts.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "The contract reads the composed coordinator and presentation surface; runtime code does not import it.",
+      "purpose": "Keeps existing workspace-month copy and accessibility assertions attached to moved markup.",
+      "callers": ["npm run check:workspace-month"],
+      "publicExports": [],
+      "sideEffects": ["reads repository source files", "writes test output"],
+      "failureBehavior": "Exits non-zero when a workspace-month contract is absent.",
+      "tests": ["npm run check:workspace-month"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Compose approved source owners rather than weaken the contract."
+    },
+    {
+      "path": "scripts/client-profile-quality-audit.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "The audit reads the pure model marker; runtime code does not import it.",
+      "purpose": "Tracks the canonical client-name formatter at its moved file-label owner.",
+      "callers": ["npm run check:client-workspaces"],
+      "publicExports": [],
+      "sideEffects": ["reads sanitized stores and repository source", "writes audit output"],
+      "failureBehavior": "Exits non-zero for missing data or presentation contracts.",
+      "tests": ["npm run check:client-workspaces"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Repoint the unchanged marker to its canonical pure-model owner."
+    },
+    {
+      "path": "lib/training/operator-guided-tutorials.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Training readiness reads target ownership; runtime directory code does not import the map.",
+      "purpose": "Rebinds the unchanged workspace-search guide target to its new renderer.",
+      "callers": ["scripts/operator-training-readiness.mjs", "components/pipeline/OperatorGuide.tsx"],
+      "publicExports": ["operatorGuideTargetSources"],
+      "sideEffects": [],
+      "failureBehavior": "A missing or stale target mapping fails training readiness.",
+      "tests": ["npm run training:check", "npm run test:e2e"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Preserve the exact target while updating its canonical source."
+    },
+    {
+      "path": "docs/refactoring/canonical-responsibilities.json",
+      "plannedNew": false,
+      "dependencyDirection": "Read by assurance tooling only.",
+      "purpose": "Registers the coordinator, presentation, and pure-model ownership boundary.",
+      "callers": ["scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Invalid ownership fails assurance.",
+      "tests": ["npm run check:refactor-assurance"], "staticPrompts": [], "decision": "keep", "decisionReason": "Required canonical ownership record."
+    },
+    {
+      "path": "docs/refactoring/architecture-comprehension-probes.json",
+      "plannedNew": false,
+      "dependencyDirection": "Read by assurance tooling only.",
+      "purpose": "Records the search-to-request-to-recovery architecture trace.",
+      "callers": ["scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Invalid trace fails assurance.",
+      "tests": ["npm run check:refactor-assurance"], "staticPrompts": [], "decision": "keep", "decisionReason": "Required comprehension record."
+    },
+    {
+      "path": "docs/refactoring/proof-obligations.json",
+      "plannedNew": false,
+      "dependencyDirection": "Read by assurance tooling only.",
+      "purpose": "Defines the candidate-bound navigation and recovery property.",
+      "callers": ["scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Missing evidence fails assurance.",
+      "tests": ["npm run check:refactor-assurance"], "staticPrompts": [], "decision": "keep", "decisionReason": "Required bounded property."
+    },
+    {
+      "path": "docs/refactoring/refactor-eval-scenarios.json",
+      "plannedNew": false,
+      "dependencyDirection": "Read by guidance evaluation only.",
+      "purpose": "Adds the slice to the existing general-cleanup no-start scenario.",
+      "callers": ["scripts/refactor-guidance-eval.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Missing coverage fails guidance evaluation.",
+      "tests": ["npm run check:refactor-guidance"], "staticPrompts": [], "decision": "keep", "decisionReason": "Extend existing fixed guidance coverage."
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_HOME_DIRECTORY_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+      "plannedNew": true,
+      "dependencyDirection": "Consumed by TARS and readiness review only.",
+      "purpose": "Records scope, seam, evidence, invariants, and rollback.",
+      "callers": ["TARS readiness review"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Missing narrative blocks activation.",
+      "tests": ["npm run check:refactor-setup"], "staticPrompts": [], "decision": "keep", "decisionReason": "Required architecture trace."
+    },
+    {
+      "path": "docs/refactoring/referral-home-directory-components-file-audit.json",
+      "plannedNew": true,
+      "dependencyDirection": "Consumed by repository readiness only.",
+      "purpose": "Records every allowed file, concern, test, and disposition.",
+      "callers": ["scripts/code-quality-readiness.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Missing scope fails setup.",
+      "tests": ["npm run check:refactor-setup"], "staticPrompts": [], "decision": "keep", "decisionReason": "Required exact file boundary."
+    },
+    {
+      "path": "docs/refactoring/referral-home-directory-components-assurance-record.json",
+      "plannedNew": true,
+      "dependencyDirection": "Consumed by exact-candidate assurance only.",
+      "purpose": "Binds authorization, evidence, proof, gates, recovery, and convergence.",
+      "callers": ["scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Incomplete evidence blocks completion.",
+      "tests": ["npm run check:refactor-assurance"], "staticPrompts": [], "decision": "keep", "decisionReason": "Required candidate evidence record."
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-home-directory-components-machine-run-07fac35.json",
+      "plannedNew": true,
+      "dependencyDirection": "Referenced by the assurance record only.",
+      "purpose": "Records immutable exact-start browser and structural evidence.",
+      "callers": ["TARS assurance review"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Missing exact-start evidence blocks activation.",
+      "tests": ["npm run test:e2e", "npm run codebase:baseline"], "staticPrompts": [], "decision": "keep", "decisionReason": "Required behavior comparison point."
+    },
+    {
+      "path": "docs/refactoring/refactor-slices.json",
+      "plannedNew": false,
+      "dependencyDirection": "Consumed by all refactor control-plane checks.",
+      "purpose": "Registers exact scope, worktree, start, approval, invariants, and gates.",
+      "callers": ["scripts/refactor-readiness.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Invalid slice state blocks implementation.",
+      "tests": ["npm run check:refactor-setup"], "staticPrompts": [], "decision": "keep", "decisionReason": "Required active-slice registry."
+    },
+    {
+      "path": "docs/refactoring/evidence-matrix.json",
+      "plannedNew": false,
+      "dependencyDirection": "Consumed by refactor setup and assurance checks.",
+      "purpose": "Records exact-start and candidate evidence phases.",
+      "callers": ["scripts/refactor-readiness.mjs", "scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Missing phase evidence blocks progress.",
+      "tests": ["npm run check:refactor-setup", "npm run check:refactor-assurance"], "staticPrompts": [], "decision": "keep", "decisionReason": "Required evidence ledger."
+    },
+    {
+      "path": "lib/academy/academy-atlas.generated.json",
+      "plannedNew": false,
+      "dependencyDirection": "Generated topology observes repository sources.",
+      "purpose": "Keeps Academy topology current after the component split.",
+      "callers": ["scripts/academy-atlas.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Stale topology blocks Academy certification.",
+      "tests": ["npm run academy:check"],
+      "staticPrompts": [{"prompt": "Large module (10982 lines): split by behavior before adding more responsibilities.", "disposition": "expected", "reason": "This is a deterministic generated repository atlas, not an authored runtime module.", "owner": "Eric"}],
+      "decision": "keep", "decisionReason": "Refresh generated inventory only."
+    },
+    {
+      "path": "docs/academy/academy-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Academy readiness consumes generated fingerprints.",
+      "purpose": "Records current Academy fingerprints.",
+      "callers": ["scripts/academy-readiness.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Stale fingerprints block certification.",
+      "tests": ["npm run academy:check"], "staticPrompts": [], "decision": "keep", "decisionReason": "Refresh generated metadata only."
+    },
+    {
+      "path": "docs/training/training-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Training readiness consumes governed source fingerprints.",
+      "purpose": "Keeps operator-training source fingerprints current.",
+      "callers": ["scripts/operator-training-readiness.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Stale fingerprints block certification.",
+      "tests": ["npm run training:check"], "staticPrompts": [], "decision": "keep", "decisionReason": "Refresh generated metadata only."
+    },
+    {
+      "path": "docs/reliability/complete-repository-audit-latest.md",
+      "plannedNew": false,
+      "dependencyDirection": "Generated audit observes repository files.",
+      "purpose": "Refreshes current concerns and inventory summary.",
+      "callers": ["scripts/complete-repository-audit.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Stale audit blocks repository readiness.",
+      "tests": ["npm run audit:repository"], "staticPrompts": [], "decision": "keep", "decisionReason": "Refresh generated audit only."
+    },
+    {
+      "path": "docs/reliability/dependency-inventory.json",
+      "plannedNew": false,
+      "dependencyDirection": "Generated inventory observes locked dependencies and import topology.",
+      "purpose": "Refreshes the dependency inventory.",
+      "callers": ["scripts/complete-repository-audit.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Stale inventory blocks readiness.",
+      "tests": ["npm run audit:repository"], "staticPrompts": [], "decision": "keep", "decisionReason": "Refresh generated inventory only."
+    },
+    {
+      "path": "docs/reliability/repository-file-inventory.json",
+      "plannedNew": false,
+      "dependencyDirection": "Generated inventory observes every repository file.",
+      "purpose": "Refreshes the exact file and hash inventory.",
+      "callers": ["scripts/complete-repository-audit.mjs"],
+      "publicExports": [], "sideEffects": [], "failureBehavior": "Stale inventory blocks readiness.",
+      "tests": ["npm run audit:repository"], "staticPrompts": [], "decision": "keep", "decisionReason": "Refresh generated inventory only."
+    }
+  ]
+}

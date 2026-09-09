@@ -311,7 +311,7 @@ export const operatorGuideTargetSources: Readonly<Record<string, string>> = {
   "primary-new-referral": "components/pipeline/PipelineActionNav.tsx",
   "primary-reports": "components/pipeline/PipelineActionNav.tsx",
   "my-queue": "components/pipeline/PipelineWelcome.tsx",
-  "workspace-search": "components/pipeline/ReferralHome.tsx",
+  "workspace-search": "components/pipeline/ReferralHomeDirectory.tsx",
   "workspace-results": "components/pipeline/ReferralWorklist.tsx",
   "calendar-view": "components/pipeline/PipelineCalendar.tsx",
   "calendar-filters": "components/pipeline/PipelineCalendar.tsx",

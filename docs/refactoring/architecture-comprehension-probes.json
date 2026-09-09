@@ -161,6 +161,19 @@
       ],
       "verificationGates": ["certify:test-effectiveness", "test:e2e:operational:high"],
       "humanValidated": false
+    },
+    {
+      "id": "referral_home_refresh_navigation_recovery",
+      "sliceIds": ["referral-home-directory-components"],
+      "responsibilityId": "referral_home_directory_coordination",
+      "question": "Trace search or filter input through request construction, cursor reset, revision polling, last-good-snapshot recovery, and callback-driven rendering. Identify browser-preference ownership and prove presentation cannot issue or suppress a request.",
+      "codePaths": [
+        "components/pipeline/ReferralHome.tsx",
+        "components/pipeline/ReferralHomeDirectory.tsx",
+        "components/pipeline/referral-home-directory-model.ts"
+      ],
+      "verificationGates": ["check:workspace-month", "test:e2e", "test:e2e:cross-browser", "test:e2e:visual"],
+      "humanValidated": false
     }
   ]
 }

@@ -280,6 +280,35 @@
       ],
       "verificationGates": ["check:platform:fast", "certify:test-effectiveness", "test:e2e:operational:high"],
       "humanValidated": false
+    },
+    {
+      "id": "referral_home_directory_coordination",
+      "title": "Referral Home directory requests, navigation state, and presentation",
+      "sliceIds": ["referral-home-directory-components"],
+      "ownershipKind": "ui_shell_boundary",
+      "canonicalOwnerPaths": [
+        "components/pipeline/ReferralHome.tsx",
+        "components/pipeline/ReferralHomeDirectory.tsx",
+        "components/pipeline/referral-home-directory-model.ts"
+      ],
+      "allowedRepresentations": [
+        "server-confirmed referral and file directory snapshots",
+        "filter and pagination state",
+        "persisted layout preference",
+        "callback-driven directory presentation",
+        "pure query and display derivation"
+      ],
+      "invariants": [
+        "ReferralHome remains the only request, polling, cursor, error-recovery, and browser-preference owner.",
+        "Presentation modules cannot fetch, persist, authorize, or create canonical state.",
+        "Directory navigation, accessibility, responsive behavior, and last-good-snapshot recovery remain stable."
+      ],
+      "forbiddenParallelOwners": [
+        "Presentation components issuing directory or identity-review requests",
+        "Multiple unsynchronized owners of filters, cursors, or layout persistence"
+      ],
+      "verificationGates": ["test:e2e", "test:e2e:cross-browser", "test:e2e:visual", "test:e2e:operational:high"],
+      "humanValidated": false
     }
   ]
 }

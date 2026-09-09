@@ -184,7 +184,7 @@
     },
     {
       "id": "extraction-capstone",
-      "priority": 7,
+      "priority": 8,
       "status": "not_started",
       "owner": "unassigned",
       "paths": [
@@ -370,6 +370,68 @@
       ],
       "requiredGates": [
         "check:assessor-workflow",
+        "test:e2e",
+        "test:e2e:desktop",
+        "test:e2e:cross-browser",
+        "test:e2e:visual",
+        "test:e2e:operational:high",
+        "certify:mcmaster:performance",
+        "check:artifacts",
+        "check:refactor-assurance"
+      ]
+    },
+    {
+      "id": "referral-home-directory-components",
+      "priority": 7,
+      "status": "complete",
+      "owner": "Eric",
+      "paths": [
+        "components/pipeline/ReferralHome.tsx"
+      ],
+      "allowedChangePaths": [
+        "components/pipeline/ReferralHome.tsx",
+        "components/pipeline/ReferralHomeDirectory.tsx",
+        "components/pipeline/referral-home-directory-model.ts",
+        "scripts/workspace-month-contracts.mjs",
+        "scripts/client-profile-quality-audit.mjs",
+        "lib/training/operator-guided-tutorials.ts",
+        "lib/academy/academy-atlas.generated.json",
+        "docs/academy/academy-registry.json",
+        "docs/training/training-registry.json",
+        "docs/refactoring/refactor-slices.json",
+        "docs/refactoring/evidence-matrix.json",
+        "docs/refactoring/canonical-responsibilities.json",
+        "docs/refactoring/architecture-comprehension-probes.json",
+        "docs/refactoring/proof-obligations.json",
+        "docs/refactoring/refactor-eval-scenarios.json",
+        "docs/refactoring/REFERRAL_HOME_DIRECTORY_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+        "docs/refactoring/referral-home-directory-components-file-audit.json",
+        "docs/refactoring/referral-home-directory-components-assurance-record.json",
+        "docs/refactoring/characterization/referral-home-directory-components-machine-run-07fac35.json",
+        "docs/reliability/complete-repository-audit-latest.md",
+        "docs/reliability/dependency-inventory.json",
+        "docs/reliability/repository-file-inventory.json"
+      ],
+      "architectureNarrative": "docs/refactoring/REFERRAL_HOME_DIRECTORY_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+      "fileAuditDisposition": "docs/refactoring/referral-home-directory-components-file-audit.json",
+      "assuranceRecord": "docs/refactoring/referral-home-directory-components-assurance-record.json",
+      "approvedBy": "Eric",
+      "approvedAt": "2026-09-09T19:31:32Z",
+      "worktreePath": "/Users/eric/pipeline-refactor-referral-home-directory-components",
+      "branch": "codex/refactor-referral-home-directory-components",
+      "startingCommit": "07fac35ffa0390734304d246d6b95b8dc225aa31",
+      "rollbackOperator": "Eric",
+      "invariants": [
+        "Search, filter, list, gallery, activity, file browsing, identity review, paging, and recovery keep their current click paths and behavior.",
+        "ReferralHome remains the sole owner of requests, revision polling, cursors, loading and error state, preview and review state, and the persisted layout preference.",
+        "Extracted presentation and pure-model modules do not become parallel network, persistence, authorization, or canonical-state owners.",
+        "Labels, roles, guide targets, DOM order, responsive layouts, and visual styling remain unchanged.",
+        "No route, request shape, role policy, workflow, schema, migration, stored data, audit, or extraction behavior changes."
+      ],
+      "requiredGates": [
+        "check:assessor-workflow",
+        "check:workspace-month",
+        "check:client-workspaces",
         "test:e2e",
         "test:e2e:desktop",
         "test:e2e:cross-browser",

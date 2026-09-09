@@ -2,63 +2,36 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Image from "next/image";
-import {
-  ArrowRight,
-  CalendarDays,
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  Files,
-  FolderOpen,
-  Check,
-  Eye,
-  LayoutGrid,
-  Link2,
-  List,
-  RefreshCw,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Check, Search, X } from "lucide-react";
 
-import { pipelineCommunities } from "@/lib/pipeline/community-config";
-import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
-import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
-import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
+import { ReferralHomeDirectory } from "@/components/pipeline/ReferralHomeDirectory";
+import FilePreviewDialog from "@/components/pipeline/ReferralFilePreviewDialog";
+import {
+  buildReferralParams,
+  calendarMonthBounds,
+  directoryLoadingLabel,
+  formatDirectoryCount,
+  recentMonthKeys,
+  referralFilterMonth,
+} from "@/components/pipeline/referral-home-directory-model";
+import type { ReferralFilter, WorkspaceLayout, WorkspaceSection } from "@/components/pipeline/referral-home-directory-model";
+import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
-import type { ReferralFacets } from "@/lib/pipeline/referral-store";
-import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
 import {
   formatClientIdentityDetail,
   formatClientIdentityTitle,
   resolveClientCommunity,
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
-import FilePreviewDialog from "@/components/pipeline/ReferralFilePreviewDialog";
-import ReferralWorklist from "@/components/pipeline/ReferralWorklist";
-import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
-import ReferralWorkspaceGallery from "@/components/pipeline/ReferralWorkspaceGallery";
-import WorkspaceActivityFeed from "@/components/pipeline/WorkspaceActivityFeed";
-import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
+import type { ClientWorkspaceDirectoryItem } from "@/lib/pipeline/client-workspace-contracts";
+import { pipelineCommunities } from "@/lib/pipeline/community-config";
+import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
+import type { ReferralFacets } from "@/lib/pipeline/referral-store";
+import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
+import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
 
-type WorkspaceSection = "workspaces" | "activity";
-type WorkspaceLayout = "list" | "gallery";
 const workspaceLayoutStorageKey = "pipeline:workspace-layout";
-const workspacePageSize = 50;
 const workspaceSearchSettleMs = 180;
-
-type ReferralFilter =
-  | { kind: "all" }
-  | { kind: "files" }
-  | { kind: "community"; value: string }
-  | { kind: "monthCommunity"; month: string; community: string }
-  | { kind: "county"; value: string }
-  | { kind: "month"; value: string }
-  | { kind: "owner"; value: string }
-  | { kind: "priority"; value: Referral["priority"] };
 
 const emptyFacets: ReferralFacets = {
   communities: [],
@@ -69,22 +42,6 @@ const emptyFacets: ReferralFacets = {
   tags: [],
   months: [],
 };
-
-const fileCategories: ReferralFile["category"][] = [
-  "Referral packet",
-  "Face sheet",
-  "Assessment",
-  "Medication list",
-  "TB test",
-  "Admission agreement",
-  "Conservatorship",
-  "LIC 602",
-  "LIC 601/603",
-  "Provider form",
-  "Payer verification",
-  "Responsible party",
-  "Other",
-];
 
 export default function ReferralHome({
   searchTerm,
@@ -200,9 +157,7 @@ export default function ReferralHome({
       }
       setLoadError(error instanceof Error ? error.message : "Referral workspaces could not be loaded.");
     } finally {
-      if (!signal?.aborted && !silent) {
-        setIsLoading(false);
-      }
+      if (!signal?.aborted && !silent) setIsLoading(false);
     }
   }, [filter, referralCursors, referralPage, requestSearchTerm]);
 
@@ -216,16 +171,12 @@ export default function ReferralHome({
     if (filter.kind === "files") return;
     let cancelled = false;
     let checking = false;
-
     const checkForChanges = async () => {
       const after = referralRevision.current;
       if (cancelled || checking || after === null) return;
       checking = true;
       try {
-        const payload = await fetchPipelineJson<{ changed: boolean; sequence: number }>(
-          `/api/referrals/changes?after=${after}`,
-          { cache: "no-store" },
-        );
+        const payload = await fetchPipelineJson<{ changed: boolean; sequence: number }>(`/api/referrals/changes?after=${after}`, { cache: "no-store" });
         if (cancelled) return;
         referralRevision.current = payload.sequence;
         if (payload.changed) {
@@ -238,7 +189,6 @@ export default function ReferralHome({
         checking = false;
       }
     };
-
     const refreshOnFocus = () => void checkForChanges();
     const interval = window.setInterval(checkForChanges, 10_000);
     window.addEventListener("focus", refreshOnFocus);
@@ -256,13 +206,8 @@ export default function ReferralHome({
 
   useEffect(() => {
     if (filter.kind !== "files" || reviewIdentity) return;
-
     let cancelled = false;
-    const params = new URLSearchParams({
-      limit: "100",
-      q: requestSearchTerm,
-      identity_status: "linked",
-    });
+    const params = new URLSearchParams({ limit: "100", q: requestSearchTerm, identity_status: "linked" });
     if (fileCursors[filePage]) params.set("cursor", fileCursors[filePage]);
     if (fileCategory) params.set("category", fileCategory);
     if (fileCommunity) params.set("community", fileCommunity);
@@ -273,9 +218,8 @@ export default function ReferralHome({
       params.set("uploaded_before", bounds.to);
     }
     if (fileSource) params.set("source_system", fileSource);
-
     fetchPipelineJson<{ files?: ReferralFile[]; total?: number; next_cursor?: string }>(`/api/files?${params.toString()}`, { cache: "no-store" })
-      .then((payload: { files?: ReferralFile[]; total?: number; next_cursor?: string } | null) => {
+      .then((payload) => {
         if (!cancelled) {
           setFiles(Array.isArray(payload?.files) ? payload.files : []);
           setFileTotal(typeof payload?.total === "number" ? payload.total : 0);
@@ -288,11 +232,8 @@ export default function ReferralHome({
           setFileTotal(0);
           setFileNextCursor(undefined);
         }
-      })
-
-    return () => {
-      cancelled = true;
-    };
+      });
+    return () => { cancelled = true; };
   }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, fileSource, filter.kind, requestSearchTerm, reviewIdentity]);
 
   useEffect(() => {
@@ -323,17 +264,10 @@ export default function ReferralHome({
 
   const monthOptions = useMemo(() => facets.months.map((entry) => entry.value), [facets.months]);
   const ownerOptions = useMemo(() => facets.owners.map((entry) => entry.value), [facets.owners]);
-  const recordedCommunityFacets = useMemo(
-    () => facets.communities.filter((entry) => isRecordedWorkspaceCommunity(entry.value)),
-    [facets.communities],
-  );
-  const fileOwnerOptions = useMemo(
-    () => [...new Set([...ownerOptions, ...(files ?? []).map((file) => file.owner ?? "Unassigned")])].filter(Boolean).sort((left, right) => left.localeCompare(right)),
-    [files, ownerOptions],
-  );
+  const recordedCommunityFacets = useMemo(() => facets.communities.filter((entry) => isRecordedWorkspaceCommunity(entry.value)), [facets.communities]);
+  const fileOwnerOptions = useMemo(() => [...new Set([...ownerOptions, ...(files ?? []).map((file) => file.owner ?? "Unassigned")])].filter(Boolean).sort((left, right) => left.localeCompare(right)), [files, ownerOptions]);
   const fileMonthOptions = useMemo(() => recentMonthKeys(48), []);
   const activeMonth = referralFilterMonth(filter);
-  const activeCommunity = referralFilterCommunity(filter);
 
   useEffect(() => {
     if (activeMonth) {
@@ -342,473 +276,113 @@ export default function ReferralHome({
     }
     setExpandedMonth((current) => monthOptions.includes(current) ? current : monthOptions[0] ?? "");
   }, [activeMonth, monthOptions]);
-  const allPacketTotal = useMemo(
-    () => facets.months.reduce((total, entry) => total + entry.count, 0),
-    [facets.months],
-  );
+
+  const allPacketTotal = useMemo(() => facets.months.reduce((total, entry) => total + entry.count, 0), [facets.months]);
   const isFileLoading = filter.kind === "files" && files === null;
   const visibleFiles = files ?? [];
   const visibleImportItems = importItems ?? [];
   const isImportLoading = filter.kind === "files" && reviewIdentity && importItems === null;
-  const isSearchSettling = requestSearchTerm !== searchTerm;
-  const workspaceLoading = isLoading || isSearchSettling;
-  const loadingLabel = directoryLoadingLabel(filter);
-
+  const workspaceLoading = isLoading || requestSearchTerm !== searchTerm;
   const visibleReferrals = filter.kind === "files" ? [] : referrals;
-  const emptyReferralState = getEmptyReferralState(filter, searchTerm);
   const resultCountLabel = filter.kind === "files"
     ? reviewIdentity
       ? isImportLoading ? "Loading..." : `${formatDirectoryCount(importTotal)} need${importTotal === 1 ? "s" : ""} identity review`
-      : isFileLoading
-      ? "Loading..."
-      : `${formatDirectoryCount(fileTotal)} file${fileTotal === 1 ? "" : "s"}`
-    : workspaceLoading
-      ? "Loading..."
-      : `${formatDirectoryCount(referralTotal)} referral${referralTotal === 1 ? "" : "s"}`;
+      : isFileLoading ? "Loading..." : `${formatDirectoryCount(fileTotal)} file${fileTotal === 1 ? "" : "s"}`
+    : workspaceLoading ? "Loading..." : `${formatDirectoryCount(referralTotal)} referral${referralTotal === 1 ? "" : "s"}`;
   const sidebarCommunities = pipelineCommunities
     .filter((community) => isRecordedWorkspaceCommunity(community))
-    .map((community) => ({
-      name: community,
-      count: facets.communities.find((entry) => entry.value === community)?.count ?? 0,
-    }));
-  const workspaceSearch = (
-    <div data-guide-target="workspace-search" className="flex h-11 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73] xl:h-10">
-      <Search size={16} className="shrink-0 text-[#0f8b73]" />
-      <label htmlFor="workspace-directory-search" className="sr-only">{filter.kind === "files" ? "Search all uploaded files" : "Search all workspaces"}</label>
-      <input
-        id="workspace-directory-search"
-        type="search"
-        aria-label={filter.kind === "files" ? "Search all uploaded files" : "Search all workspaces"}
-        value={searchTerm}
-        onChange={(event) => onSearchTermChange(event.target.value)}
-        placeholder={filter.kind === "files" ? "Search files by name, client, community, owner, or type" : "Search all workspaces by client, community, county, owner, or source"}
-        className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111111] outline-none placeholder:text-[#8a8a8a]"
-      />
-      {searchTerm ? (
-        <button
-          type="button"
-          aria-label="Clear workspace search"
-          onClick={() => onSearchTermChange("")}
-          className="flex h-8 w-8 shrink-0 items-center justify-center text-[#737373] hover:text-[#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
-        >
-          <X size={15} />
-        </button>
-      ) : null}
-      <span className="hidden shrink-0 text-[9px] font-bold text-[#737373] md:inline">
-        {resultCountLabel === "Loading..." ? (
-          <PipelineArcadeLoader label={loadingLabel} compact decorative={visibleReferrals.length === 0} />
-        ) : resultCountLabel}
-      </span>
-    </div>
-  );
+    .map((community) => ({ name: community, count: facets.communities.find((entry) => entry.value === community)?.count ?? 0 }));
 
-  const renderReferralFilterControls = () => (
-    <>
-      <select
-        aria-label="Filter workspaces by community"
-        value={activeCommunity}
-        onChange={(event) => setFilter(referralFilterWithCommunity(filter, event.target.value))}
-        className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]"
-      >
-        <option value="">All communities</option>
-        {recordedCommunityFacets.map((community) => <option key={community.value} value={community.value}>{presentCommunity(community.value)}</option>)}
-      </select>
-      <select
-        aria-label="Filter workspaces by county"
-        value={filter.kind === "county" ? filter.value : ""}
-        onChange={(event) => setFilter(event.target.value ? { kind: "county", value: event.target.value } : { kind: "all" })}
-        className="h-10 min-w-0 border border-[#9fcfc2] bg-[#f7fbf9] px-2 text-[12px] font-black text-[#0c705f] outline-none focus:border-[#0f8b73]"
-      >
-        <option value="">All counties</option>
-        {facets.counties.map((county) => <option key={county.value} value={county.value}>{county.value} ({formatDirectoryCount(county.count)})</option>)}
-      </select>
-      <select
-        aria-label="Filter by owner"
-        value={filter.kind === "owner" ? filter.value : ""}
-        onChange={(event) => setFilter(event.target.value ? { kind: "owner", value: event.target.value } : { kind: "all" })}
-        className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]"
-      >
-        <option value="">All owners</option>
-        {ownerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
-      </select>
-      <select
-        aria-label="Filter by priority"
-        value={filter.kind === "priority" ? filter.value : ""}
-        onChange={(event) => setFilter(event.target.value ? { kind: "priority", value: event.target.value as Referral["priority"] } : { kind: "all" })}
-        className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]"
-      >
-        <option value="">All priorities</option>
-        <option value="urgent">Urgent</option>
-        <option value="high">High</option>
-        <option value="standard">Standard</option>
-      </select>
-    </>
-  );
-  const activeFilterCount = referralFilterCount(filter);
-  const filterToolbar = (
-    <div>
-      <button
-        type="button"
-        aria-expanded={filtersOpen}
-        aria-controls="referral-filter-controls"
-        onClick={() => setFiltersOpen((open) => !open)}
-        className="flex h-11 w-full items-center gap-2 px-2 text-left text-[12px] font-black text-[#303638] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:hidden"
-      >
-        <SlidersHorizontal size={15} className="text-[#0c705f]" aria-hidden="true" />
-        <span className="flex-1">Filters</span>
-        {activeFilterCount > 0 ? <span className="flex h-5 min-w-5 items-center justify-center bg-[#0f8b73] px-1 text-[9px] text-white">{activeFilterCount}</span> : null}
-        <ChevronDown size={15} className={`text-[#737373] transition-transform ${filtersOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-      </button>
-      {filtersOpen ? (
-        <div id="referral-filter-controls" className="grid grid-cols-1 gap-2 px-2 pb-3 sm:hidden">
-          {renderReferralFilterControls()}
-        </div>
-      ) : null}
-      <div className="hidden gap-2 px-2 py-2 sm:grid sm:grid-cols-2 lg:grid-cols-4">
-        {renderReferralFilterControls()}
-      </div>
-    </div>
-  );
-
-  const fileFilterToolbar = (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-2 py-2.5">
-      <span className="mr-1 shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-[#0c705f]">Files</span>
-      <button
-        type="button"
-        onClick={() => setReviewIdentity(false)}
-        className={`h-9 shrink-0 border px-3 text-[11px] font-black ${!reviewIdentity ? "border-[#0f8b73] bg-[#effaf5] text-[#0c705f]" : "border-[#d9d9d9] text-[#595959]"}`}
-      >
-        Linked files
-      </button>
-      <button
-        type="button"
-        onClick={() => setReviewIdentity(true)}
-        className={`h-9 shrink-0 border px-3 text-[11px] font-black ${reviewIdentity ? "border-[#b07b21] bg-[#fffaf0] text-[#8a5a10]" : "border-[#d9d9d9] text-[#595959]"}`}
-      >
-        Needs identity
-      </button>
-      {!reviewIdentity ? (
-        <>
-          <select aria-label="Filter files by category" value={fileCategory} onChange={(event) => setFileCategory(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
-            <option value="">All categories</option>
-            {fileCategories.map((category) => <option key={category} value={category}>{category}</option>)}
-          </select>
-          <select aria-label="Filter files by community" value={fileCommunity} onChange={(event) => setFileCommunity(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
-            <option value="">All communities</option>
-            {pipelineCommunities.map((community) => <option key={community} value={community}>{community}</option>)}
-          </select>
-          <select aria-label="Filter files by owner" value={fileOwner} onChange={(event) => setFileOwner(event.target.value)} className="h-9 max-w-[160px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
-            <option value="">All owners</option>
-            {fileOwnerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
-          </select>
-          <select aria-label="Filter files by upload month" value={fileMonth} onChange={(event) => setFileMonth(event.target.value)} className="h-9 max-w-[170px] shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
-            <option value="">All months</option>
-            {fileMonthOptions.map((month) => <option key={month} value={month}>{formatMonthKey(month)}</option>)}
-          </select>
-          <select aria-label="Filter files by source" value={fileSource} onChange={(event) => setFileSource(event.target.value)} className="h-9 shrink-0 border border-[#d9d9d9] bg-white px-2 text-[11px] font-black outline-none focus:border-[#0f8b73]">
-            <option value="">All sources</option>
-            <option value="pipeline">Pipeline</option>
-            <option value="allo">Allo import</option>
-            <option value="alamo_platform">Alamo Platform</option>
-            <option value="import">Other import</option>
-          </select>
-          {fileCategory || fileCommunity || fileOwner || fileMonth || fileSource ? (
-            <button type="button" onClick={() => { setFileCategory(""); setFileCommunity(""); setFileOwner(""); setFileMonth(""); setFileSource(""); }} className="h-9 shrink-0 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#737373] hover:text-[#a63d2f]">Clear</button>
-          ) : null}
-        </>
-      ) : null}
-    </div>
-  );
+  const selectFilter = (nextFilter: ReferralFilter) => {
+    if (nextFilter.kind === "files" && filter.kind !== "files") {
+      setFilePage(0);
+      setFiles(null);
+      setReviewIdentity(false);
+    }
+    setFilter(nextFilter);
+  };
 
   return (
-    <main data-guide-target="workspace-directory" aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
-      <div className="w-full px-4 pb-8 pt-0 sm:px-5 md:px-6 lg:px-8 xl:px-10">
-        <h1 className="sr-only">Referral workspaces</h1>
-        <ReferralDraftResumeList onResume={onResumeDraft} className="mb-3 mt-3" />
-        <div className="mb-3 flex min-h-12 flex-wrap items-end justify-between gap-3 border-b border-[#cfd7d3]">
-          <div role="tablist" aria-label="Workspace directory sections" className="flex self-stretch">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={workspaceSection === "workspaces"}
-              onClick={() => setWorkspaceSection("workspaces")}
-              className={`border-b-[3px] px-3 text-[11px] font-black uppercase tracking-[0.08em] ${workspaceSection === "workspaces" ? "border-[#0f8b73] text-[#0c705f]" : "border-transparent text-[#68716c] hover:text-[#202723]"}`}
-            >
-              Workspaces <span className="ml-1 text-[9px] tabular-nums text-[#68716c]">{formatDirectoryCount(allPacketTotal)}</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={workspaceSection === "activity"}
-              onClick={() => setWorkspaceSection("activity")}
-              className={`border-b-[3px] px-3 text-[11px] font-black uppercase tracking-[0.08em] ${workspaceSection === "activity" ? "border-[#0f8b73] text-[#0c705f]" : "border-transparent text-[#68716c] hover:text-[#202723]"}`}
-            >
-              Activity
-            </button>
-          </div>
-          {workspaceSection === "workspaces" ? (
-            <div
-              role="group"
-              aria-label="Workspace layout"
-              aria-hidden={filter.kind === "files"}
-              className={`mb-2 flex border border-[#cfd7d3] bg-white p-0.5 ${filter.kind === "files" ? "invisible" : ""}`}
-            >
-              <button type="button" disabled={filter.kind === "files"} aria-label="Show workspaces as a list" aria-pressed={workspaceLayout === "list"} onClick={() => selectWorkspaceLayout("list")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${workspaceLayout === "list" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><List size={13} />List</button>
-              <button type="button" disabled={filter.kind === "files"} aria-label="Show workspaces as a gallery" aria-pressed={workspaceLayout === "gallery"} onClick={() => selectWorkspaceLayout("gallery")} className={`flex h-8 items-center gap-1.5 px-2.5 text-[9px] font-black uppercase tracking-[0.06em] ${workspaceLayout === "gallery" ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}><LayoutGrid size={13} />Gallery</button>
-            </div>
-          ) : null}
-        </div>
-        {workspaceSection === "activity" ? (
-          <WorkspaceActivityFeed canViewTeam={canViewTeam} onOpenPacket={onOpenPacket} />
-        ) : (
-        <>
-        <div className="min-w-0">
-          {workspaceSearch}
-          <div className="min-h-14 sm:min-h-[104px] lg:min-h-14">
-            {filter.kind === "files"
-              ? fileFilterToolbar
-              : filterToolbar}
-          </div>
-          {loadError && filter.kind !== "files" ? (
-            <div className="mb-3 flex items-center justify-between gap-3 border-l-2 border-[#a63d2f] bg-[#fff7f5] px-4 py-3 text-[12px] font-semibold text-[#59332d]" role="alert">
-              <span>{loadError}</span>
-              <button type="button" onClick={() => void loadReferrals()} className="flex h-8 items-center gap-2 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-[#a63d2f]">
-                <RefreshCw size={13} /> Retry
-              </button>
-            </div>
-          ) : null}
-        </div>
-        <div data-testid="workspace-content-grid" className="grid gap-3 xl:grid-cols-[220px_minmax(0,1fr)] xl:gap-5">
-          <aside aria-label="Workspace navigation" className="min-w-0 bg-white pt-0 xl:sticky xl:top-0 xl:self-start">
-            <nav
-              aria-label="Workspace views"
-              className="grid grid-cols-2 gap-2 pb-2 xl:block xl:space-y-1 xl:pb-0"
-            >
-              <WorkspaceNavItem
-                icon={FolderOpen}
-                label="All workspaces"
-                compactLabel="All"
-                count={allPacketTotal}
-                active={filter.kind === "all" || ["community", "monthCommunity", "county", "month", "owner", "priority"].includes(filter.kind)}
-                onClick={() => setFilter({ kind: "all" })}
-              />
-              <WorkspaceNavItem
-                icon={Files}
-                label="All files"
-                compactLabel="Files"
-                count={allFileTotal}
-                active={filter.kind === "files"}
-                onClick={() => {
-                  setFilePage(0);
-                  setFiles(null);
-                  setReviewIdentity(false);
-                  setFilter({ kind: "files" });
-                }}
-              />
-            </nav>
-            <button
-              type="button"
-              aria-label="Browse workspaces by month and community"
-              onClick={() => setBrowseOpen(true)}
-              className="mt-1 flex h-11 w-full items-center gap-3 border border-[#d9dfdc] bg-[#f8faf9] px-3 text-left text-[#303638] outline-none hover:border-[#9fcfc2] hover:bg-[#f2f8f6] focus-visible:ring-2 focus-visible:ring-[#0f8b73] xl:hidden"
-            >
-              <CalendarDays size={16} className="shrink-0 text-[#0c705f]" aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate text-[12px] font-black">{referralScopeLabel(filter)}</span>
-              <ChevronRight size={15} className="shrink-0 text-[#737373]" aria-hidden="true" />
-            </button>
-
-            <div className="mt-5 hidden xl:block">
-              <WorkspaceArchiveNavigation
-                months={facets.months}
-                communities={sidebarCommunities}
-                filter={filter}
-                expandedMonth={expandedMonth}
-                onExpandedMonthChange={setExpandedMonth}
-                onFilterChange={setFilter}
-              />
-            </div>
-          </aside>
-
-          <section className="min-w-0 bg-white">
-            {filter.kind === "files" ? (
-              reviewIdentity ? (
-                visibleImportItems.length > 0 ? (
-                  <div className="divide-y divide-[#d9d9d9]">
-                    {visibleImportItems.map((item) => (
-                      <div key={item.import_item_id} className="flex items-center gap-4 px-5 py-4 hover:bg-[#fffaf0]">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#e2ca9f] bg-[#fffaf0] text-[#8a5a10]"><Link2 size={16} /></span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-black text-[#111111]">{item.source_file_name}</span>
-                          <span className="mt-1 block truncate text-[11px] text-[#737373]">{formatClientIdentityTitle({ name: item.source_client_name, community: item.source_community })}{item.source_community ? ` · ${item.source_community}` : ""} · {item.source_system}</span>
-                        </span>
-                        <button type="button" onClick={() => setReviewItem(item)} className="h-9 border border-[#b07b21] px-3 text-[10px] font-black text-[#8a5a10] hover:bg-white">Review identity</button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="px-5 py-16 text-center">
-                    <div className="text-[15px] font-black text-[#111111]">{isImportLoading ? "Loading identity review" : "No files need identity review"}</div>
-                    {!isImportLoading ? <p className="mx-auto mt-2 max-w-[440px] text-[12px] leading-5 text-[#737373]">Staged imports appear here until a person confirms the correct client workspace.</p> : null}
-                  </div>
-                )
-              ) : visibleFiles.length > 0 ? (
-                <>
-                  <div className="divide-y divide-[#d9d9d9]">
-                    {visibleFiles.map((file) => (
-                      <div key={file.id} className="flex w-full items-center gap-2 px-5 py-1 hover:bg-[#f7faf9]">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!file.id.startsWith("referral-")) setPreviewFile(file);
-                            else openFileWorkspace(file, onOpenProfile, onOpenPacket);
-                          }}
-                          className="flex min-w-0 flex-1 items-center gap-4 py-3 text-left"
-                        >
-                        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden border border-[#b8dacf] bg-[#effaf5] text-[#0c705f]">
-                          <FileText size={16} />
-                          {file.thumbnailUrl ? (
-                            <Image
-                              src={file.thumbnailUrl}
-                              alt=""
-                              width={36}
-                              height={36}
-                              unoptimized
-                              className="absolute inset-0 h-full w-full object-cover"
-                              onError={(event) => event.currentTarget.classList.add("hidden")}
-                            />
-                          ) : null}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-black text-[#111111]">{file.name}</span>
-                          <span className="mt-1 block truncate text-[11px] font-normal text-[#737373]">
-                            {fileMetadata(file)}
-                          </span>
-                        </span>
-                        <span className="hidden text-[11px] font-black text-[#737373] sm:block">{file.category}</span>
-                          {file.id.startsWith("referral-") ? (
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-[#d9d9d9] text-[#111111]">
-                              <ArrowRight size={15} />
-                            </span>
-                          ) : <Eye size={16} className="shrink-0 text-[#0f8b73]" />}
-                        </button>
-                        {!file.id.startsWith("referral-") ? (
-                          <button
-                            type="button"
-                            onClick={() => openFileWorkspace(file, onOpenProfile, onOpenPacket)}
-                            aria-label={`Open ${fileClientName(file)} workspace`}
-                            title="Open client workspace"
-                            className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d9d9d9] text-[#111111] hover:border-[#0f8b73] hover:text-[#0f8b73]"
-                          >
-                            <ArrowRight size={16} />
-                          </button>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                  {fileTotal > 100 ? (
-                    <div className="flex items-center justify-between border-t border-[#d9d9d9] px-5 py-3">
-                      <button
-                        type="button"
-                        disabled={filePage === 0}
-                        onClick={() => {
-                          setFiles(null);
-                          setFilePage((page) => Math.max(0, page - 1));
-                        }}
-                        className="h-8 px-2 text-[11px] font-black text-[#0f8b73] disabled:text-[#b3b3b3]"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-[11px] font-normal text-[#737373]">Page {filePage + 1}</span>
-                      <button
-                        type="button"
-                        disabled={!fileNextCursor}
-                        onClick={() => {
-                          setFiles(null);
-                          if (!fileNextCursor) return;
-                          setFileCursors((values) => [...values.slice(0, filePage + 1), fileNextCursor]);
-                          setFilePage((page) => page + 1);
-                        }}
-                        className="h-8 px-2 text-[11px] font-black text-[#0f8b73] disabled:text-[#b3b3b3]"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                  <div className="px-5 py-16 text-center">
-                  <div className="text-[15px] font-black text-[#111111]">
-                    {isFileLoading
-                      ? "Loading files"
-                      : searchTerm.trim()
-                        ? "No files match this search"
-                        : "No uploaded files yet"}
-                  </div>
-                </div>
-              )
-            ) : visibleReferrals.length > 0 ? (
-              <>
-                {workspaceLayout === "gallery" ? (
-                  <ReferralWorkspaceGallery referrals={visibleReferrals} onOpenPacket={onOpenPacket} progressByReferral={progressByReferral} />
-                ) : (
-                  <ReferralWorklist referrals={visibleReferrals} onOpenPacket={onOpenPacket} progressByReferral={progressByReferral} />
-                )}
-                {hasReferralPagination(referralPage, referralNextCursor) ? (
-                  <div className="flex items-center justify-between border-t border-[#d9d9d9] px-5 py-3">
-                    <button
-                      type="button"
-                      disabled={referralPage === 0 || isLoading}
-                      onClick={() => setReferralPage((page) => Math.max(0, page - 1))}
-                      className="h-8 px-2 text-[11px] font-black text-[#0f8b73] disabled:text-[#b3b3b3]"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-[11px] text-[#737373]">Page {referralPage + 1}</span>
-                    <button
-                      type="button"
-                      disabled={!referralNextCursor || isLoading}
-                      onClick={() => {
-                        if (!referralNextCursor) return;
-                        setReferralCursors((values) => [...values.slice(0, referralPage + 1), referralNextCursor]);
-                        setReferralPage((page) => page + 1);
-                      }}
-                      className="h-8 px-2 text-[11px] font-black text-[#0f8b73] disabled:text-[#b3b3b3]"
-                    >
-                      Next
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div className="px-5 py-16 text-center">
-                <div className="text-[15px] font-black text-[#111111]">
-                  {workspaceLoading ? (
-                    <PipelineArcadeLoader label="Loading workspaces" />
-                  ) : emptyReferralState.title}
-                </div>
-                {!workspaceLoading ? (
-                  <p className="mx-auto mt-2 max-w-[420px] text-[12px] leading-5 text-[#737373]">
-                    {emptyReferralState.detail}
-                  </p>
-                ) : null}
-                {!workspaceLoading && filter.kind !== "all" ? (
-                  <button
-                    type="button"
-                    onClick={() => setFilter({ kind: "all" })}
-                    className="mt-4 h-9 border border-[#0f8b73] px-3 text-[11px] font-black text-[#0f8b73] hover:bg-[#effaf5]"
-                  >
-                    Show all workspaces
-                  </button>
-                ) : null}
-              </div>
-            )}
-          </section>
-        </div>
-        </>
-        )}
-      </div>
-      {previewFile ? <FilePreviewDialog key={previewFile.id} file={previewFile} onClose={() => setPreviewFile(null)} /> : null}
-      {reviewItem ? (
+    <ReferralHomeDirectory
+      searchTerm={searchTerm}
+      onSearchTermChange={onSearchTermChange}
+      onOpenPacket={onOpenPacket}
+      onOpenProfile={onOpenProfile}
+      onResumeDraft={onResumeDraft}
+      canViewTeam={canViewTeam}
+      workspaceSection={workspaceSection}
+      onWorkspaceSectionChange={setWorkspaceSection}
+      workspaceLayout={workspaceLayout}
+      onWorkspaceLayoutChange={selectWorkspaceLayout}
+      filter={filter}
+      onFilterChange={selectFilter}
+      onShowFiles={() => {
+        setFilePage(0);
+        setFiles(null);
+        setReviewIdentity(false);
+        setFilter({ kind: "files" });
+      }}
+      facets={facets}
+      recordedCommunityFacets={recordedCommunityFacets}
+      ownerOptions={ownerOptions}
+      fileOwnerOptions={fileOwnerOptions}
+      fileMonthOptions={fileMonthOptions}
+      allPacketTotal={allPacketTotal}
+      allFileTotal={allFileTotal}
+      reviewIdentity={reviewIdentity}
+      onReviewIdentityChange={setReviewIdentity}
+      fileCategory={fileCategory}
+      onFileCategoryChange={setFileCategory}
+      fileCommunity={fileCommunity}
+      onFileCommunityChange={setFileCommunity}
+      fileOwner={fileOwner}
+      onFileOwnerChange={setFileOwner}
+      fileMonth={fileMonth}
+      onFileMonthChange={setFileMonth}
+      fileSource={fileSource}
+      onFileSourceChange={setFileSource}
+      onClearFileFilters={() => { setFileCategory(""); setFileCommunity(""); setFileOwner(""); setFileMonth(""); setFileSource(""); }}
+      visibleReferrals={visibleReferrals}
+      progressByReferral={progressByReferral}
+      visibleFiles={visibleFiles}
+      visibleImportItems={visibleImportItems}
+      isImportLoading={isImportLoading}
+      isFileLoading={isFileLoading}
+      workspaceLoading={workspaceLoading}
+      resultCountLabel={resultCountLabel}
+      loadingLabel={directoryLoadingLabel(filter)}
+      loadError={loadError}
+      onRetry={() => void loadReferrals()}
+      referralPage={referralPage}
+      referralNextCursor={referralNextCursor}
+      isLoading={isLoading}
+      onReferralPrevious={() => setReferralPage((page) => Math.max(0, page - 1))}
+      onReferralNext={() => {
+        if (!referralNextCursor) return;
+        setReferralCursors((values) => [...values.slice(0, referralPage + 1), referralNextCursor]);
+        setReferralPage((page) => page + 1);
+      }}
+      fileTotal={fileTotal}
+      filePage={filePage}
+      fileNextCursor={fileNextCursor}
+      onFilePrevious={() => { setFiles(null); setFilePage((page) => Math.max(0, page - 1)); }}
+      onFileNext={() => {
+        setFiles(null);
+        if (!fileNextCursor) return;
+        setFileCursors((values) => [...values.slice(0, filePage + 1), fileNextCursor]);
+        setFilePage((page) => page + 1);
+      }}
+      browseOpen={browseOpen}
+      onBrowseOpenChange={setBrowseOpen}
+      filtersOpen={filtersOpen}
+      onFiltersOpenChange={setFiltersOpen}
+      expandedMonth={expandedMonth}
+      onExpandedMonthChange={setExpandedMonth}
+      sidebarCommunities={sidebarCommunities}
+      onReviewItem={setReviewItem}
+      onPreviewFile={setPreviewFile}
+      previewDialog={previewFile ? <FilePreviewDialog key={previewFile.id} file={previewFile} onClose={() => setPreviewFile(null)} /> : null}
+      reviewDialog={reviewItem ? (
         <ImportIdentityReviewDialog
           key={reviewItem.import_item_id}
           item={reviewItem}
@@ -820,208 +394,11 @@ export default function ReferralHome({
           }}
         />
       ) : null}
-      {browseOpen ? (
-        <WorkspaceBrowseDialog
-          months={facets.months}
-          communities={sidebarCommunities}
-          filter={filter}
-          expandedMonth={expandedMonth}
-          onExpandedMonthChange={setExpandedMonth}
-          onClose={() => setBrowseOpen(false)}
-          onFilterChange={(nextFilter, dismiss) => {
-            setFilter(nextFilter);
-            if (dismiss) setBrowseOpen(false);
-          }}
-        />
-      ) : null}
-    </main>
+    />
   );
 }
 
-function WorkspaceArchiveNavigation({
-  months,
-  communities,
-  filter,
-  expandedMonth,
-  onExpandedMonthChange,
-  onFilterChange,
-}: {
-  months: ReferralFacets["months"];
-  communities: Array<{ name: string; count: number }>;
-  filter: ReferralFilter;
-  expandedMonth: string;
-  onExpandedMonthChange: (month: string) => void;
-  onFilterChange: (filter: ReferralFilter, dismiss?: boolean) => void;
-}) {
-  const selectedMonth = referralFilterMonth(filter);
-  const selectedCommunity = referralFilterCommunity(filter);
-
-  return (
-    <nav aria-label="Browse workspaces by date and community">
-      <div>
-        {months.length === 0 ? (
-          <div className="px-3 py-4 text-[11px] leading-5 text-[#737373]">Dated workspaces will appear here.</div>
-        ) : months.map((month) => {
-          const expanded = expandedMonth === month.value;
-          const monthSelected = selectedMonth === month.value;
-          return (
-            <div key={month.value} className="mb-1">
-              <button
-                type="button"
-                aria-expanded={expanded}
-                onClick={() => {
-                  onExpandedMonthChange(expanded ? "" : month.value);
-                  onFilterChange({ kind: "month", value: month.value });
-                }}
-                className={`flex h-10 w-full items-center gap-2 border px-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${
-                  monthSelected
-                    ? "border-[#9fcfc2] bg-[#effaf5] text-[#0c705f]"
-                    : "border-transparent text-[#444a47] hover:border-[#e0e5e2] hover:bg-[#f8faf9]"
-                }`}
-              >
-                {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
-                <span className="min-w-0 flex-1 truncate text-[11px] font-black">{formatMonthKey(month.value)}</span>
-                <span className="shrink-0 text-[9px] font-black tabular-nums text-[#595959]">{formatDirectoryCount(month.count)}</span>
-              </button>
-              {expanded ? (
-                <div className="ml-4 border-l border-[#dce3e0] pl-2 pt-1">
-                  <button
-                    type="button"
-                    aria-current={monthSelected && !selectedCommunity ? "page" : undefined}
-                    onClick={() => onFilterChange({ kind: "month", value: month.value }, true)}
-                    className={`flex min-h-9 w-full items-center px-2 text-left text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${
-                      monthSelected && !selectedCommunity ? "bg-[#effaf5] text-[#0c705f]" : "text-[#646b67] hover:bg-[#f8faf9] hover:text-[#202320]"
-                    }`}
-                  >
-                    All communities
-                  </button>
-                  {communities.map(({ name }) => {
-                    const active = monthSelected && selectedCommunity === name;
-                    return (
-                      <button
-                        key={`${month.value}-${name}`}
-                        type="button"
-                        aria-current={active ? "page" : undefined}
-                        onClick={() => onFilterChange({ kind: "monthCommunity", month: month.value, community: name }, true)}
-                        className={`flex min-h-9 w-full items-center px-2 text-left text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${
-                          active ? "bg-[#effaf5] text-[#0c705f]" : "text-[#646b67] hover:bg-[#f8faf9] hover:text-[#202320]"
-                        }`}
-                      >
-                        <span className="truncate">{presentCommunity(name)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
-
-function WorkspaceBrowseDialog({
-  months,
-  communities,
-  filter,
-  expandedMonth,
-  onExpandedMonthChange,
-  onFilterChange,
-  onClose,
-}: {
-  months: ReferralFacets["months"];
-  communities: Array<{ name: string; count: number }>;
-  filter: ReferralFilter;
-  expandedMonth: string;
-  onExpandedMonthChange: (month: string) => void;
-  onFilterChange: (filter: ReferralFilter, dismiss?: boolean) => void;
-  onClose: () => void;
-}) {
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    closeButtonRef.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100] flex justify-end bg-black/30"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <section role="dialog" aria-modal="true" aria-label="Browse workspaces" className="flex h-[100dvh] w-full max-w-[390px] flex-col border-l border-[#cbd5d1] bg-white shadow-[-16px_0_40px_rgba(20,35,30,0.16)]">
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-[#d9dfdc] px-5">
-          <div>
-            <h2 className="text-[16px] font-black text-[#202320]">Browse workspaces</h2>
-            <div className="mt-0.5 text-[10px] text-[#737373]">Choose a month, then a community.</div>
-          </div>
-          <button ref={closeButtonRef} type="button" aria-label="Close referral browser" onClick={onClose} className="flex h-10 w-10 items-center justify-center border border-[#d9dfdc] text-[#595959] hover:border-[#0f8b73] hover:text-[#0f8b73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]">
-            <X size={17} aria-hidden="true" />
-          </button>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <WorkspaceArchiveNavigation
-            months={months}
-            communities={communities}
-            filter={filter}
-            expandedMonth={expandedMonth}
-            onExpandedMonthChange={onExpandedMonthChange}
-            onFilterChange={onFilterChange}
-          />
-        </div>
-      </section>
-    </div>,
-    document.body,
-  );
-}
-
-function WorkspaceNavItem({
-  icon: Icon,
-  label,
-  compactLabel,
-  count,
-  active,
-  onClick,
-}: {
-  icon: LucideIcon;
-  label: string;
-  compactLabel?: string;
-  count?: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-current={active ? "page" : undefined}
-      onClick={onClick}
-      className={`flex h-11 min-w-0 items-center gap-2 border px-3 text-left text-[12px] font-black tracking-[0.01em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] max-[479px]:gap-1.5 max-[479px]:px-2 max-[479px]:text-[11px] xl:h-9 xl:w-full ${
-        active
-          ? "border-[#9fcfc2] bg-[#effaf5] text-[#0c705f]"
-          : "border-transparent text-[#595959] hover:border-[#e2e2e2] hover:bg-[#fafafa] hover:text-[#111111]"
-      }`}
-    >
-      <Icon size={16} className="shrink-0 max-[479px]:hidden" />
-      <span className="truncate sm:hidden">{compactLabel ?? label}</span>
-      <span className="hidden truncate sm:inline">{label}</span>
-      {typeof count === "number" ? <span className="ml-auto hidden shrink-0 text-[9px] font-black tabular-nums xl:inline">{formatDirectoryCount(count)}</span> : null}
-    </button>
-  );
-}
-
-function ImportIdentityReviewDialog({
-  item,
-  onClose,
-  onSaved,
-}: {
+function ImportIdentityReviewDialog({ item, onClose, onSaved }: {
   item: ClientFileImportReviewItem;
   onClose: () => void;
   onSaved: () => void;
@@ -1116,192 +493,4 @@ function ImportIdentityReviewDialog({
     </div>,
     document.body,
   );
-}
-
-
-function getMonthKey(value: string) {
-  const date = new Date(value.includes("T") ? value : `${value}T12:00:00`);
-  if (Number.isNaN(date.getTime())) return "unknown";
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-const directoryCountFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-
-function formatDirectoryCount(value: number) {
-  return directoryCountFormatter.format(value);
-}
-
-function presentCommunity(value?: string | null) {
-  return isRecordedWorkspaceCommunity(value) ? value!.trim() : "";
-}
-
-function fileMetadata(file: ReferralFile) {
-  return [
-    fileClientName(file),
-    presentCommunity(file.community),
-    file.owner || "Unassigned",
-    formatMonthKey(getMonthKey(file.uploadedAt)),
-  ].filter(Boolean).join(" · ");
-}
-
-function openFileWorkspace(
-  file: ReferralFile,
-  onOpenProfile: (canonicalClientId: string) => void,
-  onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void,
-) {
-  if (file.canonicalClientId) {
-    onOpenProfile(file.canonicalClientId);
-  } else if (file.referralId && file.community) {
-    onOpenPacket({ id: file.referralId, name: fileClientName(file), community: file.community });
-  } else if (file.clientId) {
-    onOpenProfile(`pipeline:${file.clientId}`);
-  }
-}
-
-function fileClientName(file: Pick<ReferralFile, "referralName" | "community">) {
-  return formatClientIdentityTitle({ name: file.referralName, community: file.community });
-}
-
-function referralFilterMonth(filter: ReferralFilter) {
-  if (filter.kind === "month") return filter.value;
-  if (filter.kind === "monthCommunity") return filter.month;
-  return "";
-}
-
-function referralFilterCommunity(filter: ReferralFilter) {
-  if (filter.kind === "community") return filter.value;
-  if (filter.kind === "monthCommunity") return filter.community;
-  return "";
-}
-
-function referralFilterWithCommunity(filter: ReferralFilter, community: string): ReferralFilter {
-  const month = referralFilterMonth(filter);
-  if (!community) return month ? { kind: "month", value: month } : { kind: "all" };
-  return month ? { kind: "monthCommunity", month, community } : { kind: "community", value: community };
-}
-
-function referralScopeLabel(filter: ReferralFilter) {
-  if (filter.kind === "monthCommunity") {
-    return `${formatMonthKey(filter.month)} · ${presentCommunity(filter.community)}`;
-  }
-  if (filter.kind === "month") return formatMonthKey(filter.value);
-  if (filter.kind === "community") return `All months · ${presentCommunity(filter.value)}`;
-  return "Browse by month and community";
-}
-
-function referralFilterCount(filter: ReferralFilter) {
-  return filter.kind === "monthCommunity"
-    ? 2
-    : ["all", "files"].includes(filter.kind) ? 0 : 1;
-}
-
-function getEmptyReferralState(filter: ReferralFilter, searchTerm: string) {
-  if (searchTerm.trim()) {
-    return {
-      title: "No workspaces match this search",
-      detail: "Try a different client, community, owner, or file name.",
-    };
-  }
-
-  if (filter.kind === "monthCommunity") {
-    return {
-      title: `No workspaces for ${presentCommunity(filter.community)} in ${formatMonthKey(filter.month)}`,
-      detail: "Choose another community, month, or show all workspaces.",
-    };
-  }
-  if (filter.kind === "community") {
-    return {
-      title: `No workspaces for ${presentCommunity(filter.value)}`,
-      detail: "Choose another community or show all workspaces.",
-    };
-  }
-  if (filter.kind === "county") {
-    return {
-      title: `No workspaces from ${filter.value}`,
-      detail: "Choose another county or show all workspaces.",
-    };
-  }
-  if (filter.kind === "month") {
-    return {
-      title: `No workspaces from ${formatMonthKey(filter.value)}`,
-      detail: "Choose another month or show all workspaces.",
-    };
-  }
-  if (filter.kind === "owner") {
-    return {
-      title: `No workspaces assigned to ${filter.value}`,
-      detail: "Choose another owner or show all workspaces.",
-    };
-  }
-  if (filter.kind === "priority") {
-    return {
-      title: `No ${filter.value} priority workspaces`,
-      detail: "Choose another priority or show all workspaces.",
-    };
-  }
-  return {
-    title: "No workspaces yet",
-    detail: "Create a referral workspace from an initial face sheet or referral packet to get started.",
-  };
-}
-
-function formatMonthKey(month: string) {
-  if (month === "unknown") return "Unknown date";
-  const [year, monthNumber] = month.split("-").map(Number);
-  return new Date(year, monthNumber - 1, 1).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function recentMonthKeys(count: number) {
-  const start = new Date();
-  start.setUTCDate(1);
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date(start);
-    date.setUTCMonth(date.getUTCMonth() - index);
-    return date.toISOString().slice(0, 7);
-  });
-}
-
-function calendarMonthBounds(month: string) {
-  const first = new Date(`${month}-01T00:00:00.000Z`);
-  const last = new Date(first);
-  last.setUTCMonth(last.getUTCMonth() + 1);
-  last.setUTCDate(0);
-  return { from: `${month}-01`, to: last.toISOString().slice(0, 10) };
-}
-
-function buildReferralParams(
-  filter: ReferralFilter,
-  searchTerm: string,
-  cursor?: string,
-) {
-  const params = new URLSearchParams({ limit: String(workspacePageSize), sort: "updated_desc" });
-  const query = searchTerm.trim();
-  if (query) {
-    params.set("q", query);
-    params.set("workspace", "all");
-  }
-  if (cursor) params.set("cursor", cursor);
-
-  if (filter.kind === "community") params.set("community", filter.value);
-  if (filter.kind === "monthCommunity") {
-    params.set("month", filter.month);
-    params.set("community", filter.community);
-  }
-  if (filter.kind === "county") params.set("county", filter.value);
-  if (filter.kind === "month") params.set("month", filter.value);
-  if (filter.kind === "owner") params.set("owner", filter.value);
-  if (filter.kind === "priority") params.set("priority", filter.value);
-  if (filter.kind !== "files") params.set("workspace", "all");
-  return params;
-}
-
-function directoryLoadingLabel(filter: ReferralFilter) {
-  return filter.kind === "files" ? "Loading files" : "Loading workspaces";
-}
-
-function hasReferralPagination(page: number, nextCursor?: string) {
-  return page > 0 || Boolean(nextCursor);
 }
