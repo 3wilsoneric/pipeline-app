@@ -13,7 +13,6 @@ import {
   Play,
   Plus,
   RefreshCw,
-  Sparkles,
   X,
 } from "lucide-react";
 
@@ -28,14 +27,11 @@ import type {
   AssessmentListResponse,
   PipelineAssessmentRecord,
 } from "@/lib/assessment/assessment-records";
-import { getAssessmentFieldWritingSpec } from "@/lib/assessment/assessment-field-writing-spec";
 import {
   assessmentToolFieldDefinitions,
   createEmptyAssessmentToolData,
   pickAssessmentToolData,
-  type AssessmentFieldProvenance,
   type AssessmentToolData,
-  type AssessmentToolFieldDefinition,
   type AssessmentToolFieldKey,
   type AssessmentToolSection,
 } from "@/lib/assessment/assessment-tool-schema";
@@ -91,7 +87,6 @@ import {
   canSuperviseAssessment,
   dirtyAssessmentSections,
   editableSectionData,
-  extractionOwnedFields,
   getPendingFields,
   hasAssessmentScheduleInput,
   hasSectionConflict,
@@ -104,6 +99,11 @@ import {
   type AssessmentFieldConflict,
   type AssessmentRemoteChange,
 } from "@/components/pipeline/assessment-workspace-state";
+import {
+  AssessmentField,
+  PracticeAssessmentReview,
+} from "@/components/pipeline/AssessmentInterviewFields";
+import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
 
 type AssessmentWorkspaceProps = {
   referralId?: number;
@@ -1385,307 +1385,28 @@ export default function AssessmentWorkspace({
         </aside>
       </div>
 
-      {showScheduleDialog ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 p-0 sm:p-5">
-          <section role="dialog" aria-modal="true" aria-label="Schedule assessment" className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-[0_24px_80px_rgba(17,17,17,0.24)] sm:h-auto sm:max-w-[640px]">
-            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d9dfdb] px-5 py-4 sm:px-7 sm:py-5">
-              <div>
-                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Assigned to {selected.assessor || "Unassigned"}</div>
-                <h3 className="mt-1 text-[22px] font-black">{selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"}</h3>
-                <p className="mt-1 max-w-[520px] text-[11px] leading-5 text-[#737373]">Set the interview time once. It will appear on the assigned assessor calendar and remain attached to this referral.</p>
-              </div>
-              <button type="button" onClick={() => { setShowScheduleDialog(false); setIsFocused(false); }} aria-label="Close schedule" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
-            </header>
-
-            <div data-guide-target="assessment-schedule-open" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
-              {selected.scheduled_start_at ? <div className="mb-5 border-l-2 border-[#0f8b73] bg-[#f4f8f6] px-4 py-3 text-[11px] text-[#315e50]">Currently scheduled for <strong>{new Date(selected.scheduled_start_at).toLocaleString()}</strong>.</div> : null}
-              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px]">
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Date and time</span><input data-guide-target="assessment-schedule-fields" aria-label="Assessment date and time" type="datetime-local" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Duration</span><span className="relative mt-1 block"><select aria-label="Assessment duration" value={scheduleDuration} onChange={(event) => setScheduleDuration(event.target.value)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120">2 hours</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
-              </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Method</span><span className="relative mt-1 block"><select data-guide-target="assessment-schedule-method" aria-label="Assessment method" value={scheduleMethod} onChange={(event) => setScheduleMethod(event.target.value as typeof scheduleMethod)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="in_person">In person</option><option value="zoom">Zoom</option><option value="phone">Phone</option><option value="record_review">Record review</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Location or link</span><input aria-label="Assessment location or link" value={scheduleLocation} maxLength={500} onChange={(event) => setScheduleLocation(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
-              </div>
-              {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
-            </div>
-
-            <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-[#d9dfdb] bg-[#f8faf9] px-5 py-4 sm:px-7">
-              <button type="button" onClick={() => { setShowScheduleDialog(false); setIsFocused(false); }} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]">Back to workspace</button>
-              <button type="button" data-guide-target="assessment-schedule-save" onClick={() => void saveSchedule()} disabled={isBusy || !scheduleStart || Number(scheduleDuration) < 15} className="h-10 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:bg-[#c9ceca]">{isBusy ? "Saving..." : selected.scheduled_start_at ? "Save new time" : "Schedule assessment"}</button>
-            </footer>
-          </section>
-        </div>
-      ) : null}
-
-      {showBeginDialog ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 p-4">
-          <section role="dialog" aria-modal="true" aria-label="Begin assessment" className="w-full max-w-[500px] bg-white shadow-[0_24px_80px_rgba(17,17,17,0.24)]">
-            <header className="border-b border-[#d9dfdb] px-6 py-5">
-              <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">{selected.assessor || "Assigned assessor"}</div>
-              <h3 className="mt-1 text-[23px] font-black">Begin assessment</h3>
-              <p className="mt-2 text-[11px] leading-5 text-[#737373]">Starting records the interview start time and unlocks the questionnaire. Every answer saves back to this assessment as you work.</p>
-            </header>
-            <div className="px-6 py-5">
-              <dl className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
-                <BeginAssessmentDetail label="Scheduled" value={selected.scheduled_start_at ? new Date(selected.scheduled_start_at).toLocaleString() : "Not scheduled"} />
-                <BeginAssessmentDetail label="Method" value={formatScheduleMethod(selected.scheduled_method)} />
-                {selected.scheduled_location ? <BeginAssessmentDetail label="Location" value={selected.scheduled_location} /> : null}
-              </dl>
-              {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
-            </div>
-            <footer className="flex items-center justify-end gap-2 border-t border-[#d9dfdb] bg-[#f8faf9] px-6 py-4">
-              <button type="button" onClick={() => { setShowBeginDialog(false); setIsFocused(false); }} className="h-10 border border-[#c9ceca] bg-white px-4 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]">Back to workspace</button>
-              <button type="button" data-guide-target="assessment-begin-confirm" onClick={() => void beginAssessment()} disabled={isBusy || !canEditClinical} className="flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:opacity-45"><Play size={13} fill="currentColor" /> {isBusy ? "Starting..." : "Begin assessment"}</button>
-            </footer>
-          </section>
-        </div>
-      ) : null}
+      <AssessmentSchedulingDialogs
+        assessment={selected}
+        showScheduleDialog={showScheduleDialog}
+        showBeginDialog={showBeginDialog}
+        isBusy={isBusy}
+        error={error}
+        canEditClinical={canEditClinical}
+        scheduleStart={scheduleStart}
+        scheduleDuration={scheduleDuration}
+        scheduleMethod={scheduleMethod}
+        scheduleLocation={scheduleLocation}
+        onScheduleStartChange={setScheduleStart}
+        onScheduleDurationChange={setScheduleDuration}
+        onScheduleMethodChange={setScheduleMethod}
+        onScheduleLocationChange={setScheduleLocation}
+        onCloseSchedule={() => { setShowScheduleDialog(false); setIsFocused(false); }}
+        onSaveSchedule={() => void saveSchedule()}
+        onCloseBegin={() => { setShowBeginDialog(false); setIsFocused(false); }}
+        onBeginAssessment={() => void beginAssessment()}
+      />
     </section>,
     document.body,
-  );
-}
-
-function AssessmentField({
-  definition,
-  question,
-  value,
-  unableReason,
-  required,
-  pending,
-  pendingProvenance,
-  disabled,
-  reviewDisabled,
-  onChange,
-  onReview,
-  onUnableReasonChange,
-}: {
-  definition: AssessmentToolFieldDefinition;
-  question: AssessmentInterviewQuestion;
-  value: AssessmentToolData[AssessmentToolFieldKey];
-  unableReason: string;
-  required: boolean;
-  pending: boolean;
-  pendingProvenance?: AssessmentFieldProvenance;
-  disabled: boolean;
-  reviewDisabled: boolean;
-  onChange: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
-  onReview: (action: "accept" | "reject") => void;
-  onUnableReasonChange: (reason: string) => void;
-}) {
-  const id = `assessment-${definition.key}`;
-  const readOnly = disabled || extractionOwnedFields.has(definition.key);
-  const stringValue = Array.isArray(value) ? value.join("\n") : value === null ? "" : String(value);
-  const options = question.options ?? [];
-  const selectedValues = Array.isArray(value) ? value : [];
-  const extraOptions = selectedValues
-    .filter((selected) => !options.some((option) => option.value === selected))
-    .map((selected) => ({ value: selected, label: selected }));
-  const selectHasCurrentValue = typeof value === "string" && value.length > 0 && !options.some((option) => option.value === value);
-
-  return (
-    <div className={question.span === "full" ? "md:col-span-2" : ""}>
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-[11px] font-black text-[#444444]">{definition.label}{required ? " *" : ""}</label>
-        {pending ? <span className="bg-[#fff3dc] px-2 py-0.5 text-[9px] font-black uppercase text-[#9a6115]">Review</span> : hasValue(value) ? <Check size={12} className="text-[#0f8b73]" /> : required ? <span className="text-[9px] font-semibold uppercase text-[#9a6115]">Required</span> : <span className="text-[9px] font-semibold uppercase text-[#999999]">Optional</span>}
-      </div>
-      {pending && pendingProvenance ? (
-        <div className="mb-2 border-l-2 border-[#c9892a] bg-[#fffaf0] px-3 py-2">
-          <div className="text-[10px] leading-4 text-[#70480d]">
-            Suggested from <strong>{assessmentEvidenceSource(pendingProvenance)}</strong>
-            {assessmentEvidenceLocation(pendingProvenance)}
-            {Number.isFinite(pendingProvenance.confidence) ? ` · ${Math.round(pendingProvenance.confidence * 100)}% confidence` : ""}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" disabled={reviewDisabled} onClick={() => onReview("accept")} className="h-8 bg-[#0f8b73] px-3 text-[10px] font-black text-white hover:bg-[#0b6d5b] disabled:opacity-50">Use</button>
-            <button type="button" disabled={reviewDisabled} onClick={() => onReview("reject")} className="h-8 border border-[#c9a978] bg-white px-3 text-[10px] font-black text-[#70480d] hover:border-[#9a6115] disabled:opacity-50">Reject</button>
-            {!disabled ? <span className="self-center text-[9px] text-[#8a6c43]">Or correct the answer below.</span> : null}
-          </div>
-        </div>
-      ) : null}
-      {question.control === "yes_no" ? (
-        <>
-          <div id={id} className="grid min-h-10 grid-cols-[0.7fr_0.7fr_1.35fr]" role="group" aria-label={definition.label}>
-            {(question.options ?? []).map((option) => {
-              const active = value === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  disabled={readOnly}
-                  aria-pressed={active}
-                  onClick={() => {
-                    if (option.value !== "unable_to_assess" && value === "unable_to_assess") onUnableReasonChange("");
-                    onChange(option.value);
-                  }}
-                  className={`border border-r-0 px-2 py-2 text-[10px] font-black leading-4 transition-colors last:border-r ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-[#c9ceca] bg-white text-[#737373] hover:bg-[#f4f7f5]"} disabled:cursor-not-allowed disabled:opacity-60`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-          {value === "unable_to_assess" ? (
-            <div className="mt-2 border-l-2 border-[#c9892a] bg-[#fffaf0] px-3 py-2.5">
-              <label htmlFor={`${id}-unable-reason`} className="text-[10px] font-black text-[#70480d]">Why could this not be assessed? *</label>
-              <textarea
-                id={`${id}-unable-reason`}
-                value={unableReason}
-                readOnly={readOnly}
-                required
-                rows={3}
-                maxLength={2000}
-                onChange={(event) => onUnableReasonChange(event.target.value)}
-                placeholder="Record the missing source, unavailable client response, or other reason."
-                className="mt-1.5 w-full resize-y border border-[#d7bd8e] bg-white px-3 py-2 text-[11px] leading-5 outline-none placeholder:text-[#a58b65] focus:border-[#9a6115] read-only:bg-[#f5f1e9]"
-              />
-              {!unableReason.trim() ? <p className="mt-1 text-[9px] font-semibold text-[#9a6115]">An explanation is required before this assessment can be signed.</p> : null}
-            </div>
-          ) : null}
-        </>
-      ) : question.control === "rating" ? (
-        <div id={id} className="grid h-10 grid-cols-5" role="group" aria-label={`${definition.label}, 1 through 5`}>
-          {[1, 2, 3, 4, 5].map((rating) => {
-            const active = value === rating;
-            return <button key={rating} type="button" disabled={readOnly} aria-pressed={active} onClick={() => onChange(rating)} className={`border border-r-0 text-[11px] font-black last:border-r ${active ? "border-[#0f8b73] bg-[#e7f3ee] text-[#0f6f5d]" : "border-[#c9ceca] bg-white text-[#737373] hover:bg-[#f4f7f5]"} disabled:cursor-not-allowed disabled:opacity-60`}>{rating}</button>;
-          })}
-        </div>
-      ) : question.control === "select" ? (
-        <div className="relative">
-          <select id={id} value={stringValue} disabled={readOnly} onChange={(event) => onChange(event.target.value || null)} className="h-10 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none transition-colors hover:border-[#8ca59c] focus:border-[#0f8b73] disabled:bg-[#f4f6f5] disabled:text-[#737373]">
-            <option value="">Select...</option>
-            {selectHasCurrentValue ? <option value={stringValue}>{stringValue}</option> : null}
-            {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-          <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" />
-        </div>
-      ) : question.control === "multi_select" ? (
-        <div id={id} className="grid gap-px border border-[#c9ceca] bg-[#d9dfdb] sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label={definition.label}>
-          {[...options, ...extraOptions].map((option) => {
-            const active = selectedValues.includes(option.value);
-            return (
-              <label key={option.value} className={`flex min-h-10 items-center gap-2 bg-white px-3 text-[11px] font-semibold ${readOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-[#f4f7f5]"}`}>
-                <input type="checkbox" checked={active} disabled={readOnly} onChange={() => onChange(active ? selectedValues.filter((item) => item !== option.value) : [...selectedValues, option.value])} className="h-4 w-4 accent-[#0f8b73]" />
-                <span>{option.label}</span>
-              </label>
-            );
-          })}
-        </div>
-      ) : question.control === "textarea" ? (
-        <>
-          <textarea
-            data-guide-target="assessment-answer"
-            id={id}
-            value={stringValue}
-            readOnly={readOnly}
-            rows={definition.value_type === "string_list" ? 3 : 4}
-            onChange={(event) => onChange(definition.value_type === "string_list" ? listFromLines(event.target.value) : event.target.value || null)}
-            placeholder={question.placeholder ?? (definition.value_type === "string_list" ? "One item per line" : "Enter assessment detail")}
-            className="w-full resize-y border border-[#c9ceca] bg-white px-3 py-2 text-[12px] leading-5 outline-none placeholder:text-[#a3a3a3] focus:border-[#0f8b73] read-only:bg-[#f4f6f5]"
-          />
-          <AssessmentFieldWritingGuidePanel field={definition.key} />
-        </>
-      ) : (
-        <input
-          id={id}
-          type={question.control === "date" ? "date" : question.control === "number" ? "number" : "text"}
-          min={question.min ?? (definition.value_type === "integer" || definition.value_type === "confidence" ? 0 : undefined)}
-          max={question.max ?? (definition.value_type === "confidence" ? 1 : undefined)}
-          step={definition.value_type === "confidence" ? 0.01 : definition.value_type === "integer" ? 1 : undefined}
-          value={stringValue}
-          readOnly={readOnly}
-          placeholder={question.placeholder}
-          onChange={(event) => onChange(
-            definition.value_type === "integer" || definition.value_type === "confidence"
-              ? event.target.value === "" ? null : Number(event.target.value)
-              : event.target.value || null,
-          )}
-          className="h-10 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none placeholder:text-[#a3a3a3] focus:border-[#0f8b73] read-only:bg-[#f4f6f5]"
-        />
-      )}
-      {question.help ? <p className="mt-1.5 text-[10px] leading-4 text-[#737373]">{question.help}</p> : null}
-    </div>
-  );
-}
-
-function PracticeAssessmentReview({ review }: { review: ReturnType<typeof getAssessmentPracticeReview> }) {
-  const sections = [
-    { label: "Required answers missing", items: review.missingRequired },
-    { label: "Follow-ups still open", items: review.openConditionalDetails },
-    { label: "Conflicting information", items: review.conflicts },
-    { label: "Awaiting confirmation", items: review.awaitingConfirmation },
-  ];
-
-  return (
-    <section aria-label="Practice assessment review" className="mb-7 border-y border-[#cfd8d4] py-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Final check</div>
-          <h4 className="mt-1 text-[17px] font-black">Review what still needs attention</h4>
-        </div>
-        <div className="text-[10px] font-bold text-[#52605a]">{review.sectionsReady.length} of {assessmentInterviewSections.length} sections ready</div>
-      </div>
-      <div className="mt-4 grid gap-x-7 gap-y-5 md:grid-cols-2">
-        {sections.map((section) => (
-          <div key={section.label}>
-            <div className="flex items-center justify-between gap-3 border-b border-[#e0e5e2] pb-2">
-              <h5 className="text-[10px] font-black uppercase text-[#505a55]">{section.label}</h5>
-              <span className="text-[10px] font-black tabular-nums text-[#0f7c68]">{section.items.length}</span>
-            </div>
-            {section.items.length > 0 ? (
-              <ul className="mt-2 space-y-2 text-[11px] leading-5 text-[#59645f]">
-                {section.items.slice(0, 5).map((item) => <li key={item}>{item}</li>)}
-              </ul>
-            ) : <p className="mt-2 text-[11px] font-semibold text-[#0f6f5d]">Clear</p>}
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 border-t border-[#e0e5e2] pt-4">
-        <div className="text-[10px] font-black uppercase text-[#505a55]">Sections ready</div>
-        <p className="mt-2 text-[11px] leading-5 text-[#59645f]">{review.sectionsReady.join(" · ") || "None yet"}</p>
-      </div>
-    </section>
-  );
-}
-
-function AssessmentFieldWritingGuidePanel({ field }: { field: AssessmentToolFieldKey }) {
-  const specification = getAssessmentFieldWritingSpec(field);
-  if (!specification) return null;
-
-  return (
-    <details className="mt-2 border border-[#d9dfdb] bg-[#f8faf9]">
-      <summary data-guide-target="assessment-answer-help" className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 marker:hidden">
-        <span className="flex items-center gap-2 text-[10px] font-black text-[#315e50]"><Sparkles size={12} /> Answer format</span>
-        <span className="text-[9px] font-semibold text-[#7b837e]">{specification.formatLabel} · {specification.lengthGuidance}</span>
-      </summary>
-      <div className="border-t border-[#d9dfdb] px-3 py-3">
-        <AssessmentFieldWritingGuide specification={specification} />
-      </div>
-    </details>
-  );
-}
-
-function AssessmentFieldWritingGuide({ specification }: { specification: NonNullable<ReturnType<typeof getAssessmentFieldWritingSpec>> }) {
-  return (
-    <>
-      <div className="border-l-2 border-[#0f8b73] bg-white px-3 py-2.5">
-        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#315e50]">Use this order</div>
-        <p className="mt-1.5 text-[10px] font-semibold leading-4 text-[#3f4a45]">{specification.formatTemplate}</p>
-      </div>
-      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(260px,1.1fr)]">
-        <div>
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Include</div>
-          <ul className="mt-2 grid gap-1.5 text-[10px] leading-4 text-[#595959] sm:grid-cols-2 lg:grid-cols-1">
-            {specification.requiredElements.map((item) => <li key={item} className="flex items-start gap-2"><Check size={11} className="mt-0.5 shrink-0 text-[#0f8b73]" />{item}</li>)}
-          </ul>
-        </div>
-        <div className="border-l border-[#d9dfdb] pl-3">
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Example format</div>
-          <p className="mt-2 text-[10px] leading-4 text-[#4f5652]">{specification.strongExample}</p>
-        </div>
-      </div>
-      <p className="mt-3 border-l-2 border-[#d2a759] bg-[#fffaf0] px-2 py-1.5 text-[9px] leading-4 text-[#70480d]">{specification.guardrail}</p>
-    </>
   );
 }
 
@@ -1807,23 +1528,6 @@ function AssessmentReadinessAction({
   return <button type="button" onClick={() => onOpenTarget(nextTarget)} className="flex h-9 min-w-0 shrink-0 items-center justify-center gap-2 border border-[#a9bdb5] bg-white px-4 text-[10px] font-black text-[#174f43] hover:border-[#0f8b73]">Next required: <span className="max-w-[240px] truncate">{nextTarget.label}</span><ChevronRight size={13} /></button>;
 }
 
-function BeginAssessmentDetail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-3">
-      <dt className="text-[10px] font-black uppercase tracking-[0.08em] text-[#737373]">{label}</dt>
-      <dd className="max-w-[68%] text-right text-[11px] font-semibold text-[#303638]">{value}</dd>
-    </div>
-  );
-}
-
-function formatScheduleMethod(method: PipelineAssessmentRecord["scheduled_method"]) {
-  if (!method) return "Not recorded";
-  if (method === "in_person") return "In person";
-  if (method === "zoom") return "Zoom";
-  if (method === "record_review") return "Record review";
-  return method[0].toUpperCase() + method.slice(1);
-}
-
 function normalizeScheduleMethod(method: PipelineAssessmentRecord["scheduled_method"] | "video") {
   if (method === "video" || method === "zoom") return "zoom";
   if (method === "phone" || method === "record_review" || method === "in_person") return method;
@@ -1875,18 +1579,6 @@ function displayAssessmentValue(value: AssessmentToolData[AssessmentToolFieldKey
   return text.length > 180 ? `${text.slice(0, 177)}...` : text;
 }
 
-function assessmentEvidenceLocation(provenance: AssessmentFieldProvenance) {
-  if (provenance.evidence_url?.startsWith("workbook://")) return "";
-  return provenance.source_page_no ? `, page ${provenance.source_page_no}` : "";
-}
-
-function assessmentEvidenceSource(provenance: AssessmentFieldProvenance) {
-  if (provenance.evidence_url?.startsWith("workbook://") || /\.(xlsx?|csv|tsv)$/i.test(provenance.source_file ?? "")) {
-    return "existing assessment data";
-  }
-  return provenance.source_file || "the uploaded packet";
-}
-
 function setAssessmentValue(
   data: AssessmentToolData,
   key: AssessmentToolFieldKey,
@@ -1906,17 +1598,6 @@ function groupAssessmentQuestions(questions: readonly AssessmentInterviewQuestio
     else current.questions.push(question);
   }
   return groups;
-}
-
-function listFromLines(value: string) {
-  return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
-}
-
-function hasValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "string") return value.trim().length > 0;
-  if (value && typeof value === "object") return Object.keys(value).length > 0;
-  return value !== null;
 }
 
 let mutationSequence = 0;

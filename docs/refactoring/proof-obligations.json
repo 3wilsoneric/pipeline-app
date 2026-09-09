@@ -163,7 +163,9 @@
       "property": "Separating assessment presentation controls from the effectful coordinator preserves scheduling, start, field editing, extraction review, autosave, offline recovery, conflict resolution, signing, addenda, and workflow-continuation behavior without creating a second network or persistence owner.",
       "assuranceMethods": ["mechanical", "integration", "operational_recovery"],
       "tracePaths": [
-        "components/pipeline/AssessmentWorkspace.tsx"
+        "components/pipeline/AssessmentWorkspace.tsx",
+        "components/pipeline/AssessmentInterviewFields.tsx",
+        "components/pipeline/AssessmentSchedulingDialogs.tsx"
       ],
       "verificationGates": [
         "check:assessor-workflow",

@@ -333,6 +333,8 @@
         "components/pipeline/AssessmentWorkspace.tsx",
         "components/pipeline/AssessmentInterviewFields.tsx",
         "components/pipeline/AssessmentSchedulingDialogs.tsx",
+        "scripts/assessor-workflow-contracts.mjs",
+        "lib/training/operator-guided-tutorials.ts",
         "lib/academy/academy-atlas.generated.json",
         "docs/academy/academy-registry.json",
         "docs/training/training-registry.json",

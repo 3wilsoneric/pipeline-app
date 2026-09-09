@@ -405,7 +405,11 @@ const referralRoute = read("app/api/referrals/[referralId]/route.ts");
 const manualIntakeRoute = read("app/api/referrals/[referralId]/manual-intake/route.ts");
 const workflowStore = read("lib/pipeline/workflow-store.ts");
 const workItemRoute = read("app/api/referrals/[referralId]/work-items/[workItemId]/route.ts");
-const assessmentWorkspace = read("components/pipeline/AssessmentWorkspace.tsx");
+const assessmentWorkspace = [
+  read("components/pipeline/AssessmentWorkspace.tsx"),
+  read("components/pipeline/AssessmentInterviewFields.tsx"),
+  read("components/pipeline/AssessmentSchedulingDialogs.tsx"),
+].join("\n");
 const assessmentInterviewSchema = read("lib/assessment/assessment-interview-schema.ts");
 const assessmentSeedSource = read("lib/assessment/assessment-seed.ts");
 const referralCanvasPersistence = read("lib/pipeline/referral-canvas-persistence.ts");

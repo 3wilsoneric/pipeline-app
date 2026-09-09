@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T17:47:39.514Z",
+  "generated_at": "2026-09-09T18:11:42.459Z",
   "audit_date": "2026-09-09",
-  "git_head": "927b953b23557b14b8ca74c11a241a41bbe9a473",
+  "git_head": "7d84294d66e9ff9a6ab2624b555e3f88effc5f32",
   "direct": [
     {
       "name": "@azure/identity",
@@ -362,6 +362,8 @@
         "app/(pipeline)/error.tsx",
         "components/pipeline/ActionDetailDialog.tsx",
         "components/pipeline/AssessmentChartWorkspace.tsx",
+        "components/pipeline/AssessmentInterviewFields.tsx",
+        "components/pipeline/AssessmentSchedulingDialogs.tsx",
         "components/pipeline/AssessmentWorkspace.tsx",
         "components/pipeline/AssessorSessionControl.tsx",
         "components/pipeline/ClientAssessmentSummary.tsx",
@@ -865,6 +867,8 @@
         "components/desktop/DesktopRuntime.tsx",
         "components/pipeline/ActionDetailDialog.tsx",
         "components/pipeline/AssessmentChartWorkspace.tsx",
+        "components/pipeline/AssessmentInterviewFields.tsx",
+        "components/pipeline/AssessmentSchedulingDialogs.tsx",
         "components/pipeline/AssessmentWorkspace.tsx",
         "components/pipeline/AssessorSessionControl.tsx",
         "components/pipeline/ClientAssessmentSummary.tsx",

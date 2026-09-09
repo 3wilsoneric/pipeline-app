@@ -229,7 +229,9 @@
       "ownershipKind": "ui_shell_boundary",
       "canonicalOwnerPaths": [
         "components/pipeline/ReferralPacketCanvas.tsx",
-        "components/pipeline/AssessmentWorkspace.tsx"
+        "components/pipeline/AssessmentWorkspace.tsx",
+        "components/pipeline/AssessmentInterviewFields.tsx",
+        "components/pipeline/AssessmentSchedulingDialogs.tsx"
       ],
       "allowedRepresentations": [
         "server-confirmed version",

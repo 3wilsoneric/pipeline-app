@@ -20,7 +20,7 @@
       "failureBehavior": "Surfaces bounded errors, preserves local dirty state, queues eligible offline saves, exposes stale conflicts, retries polling, and cleans timers/listeners/presence on unmount.",
       "tests": ["npm run check:assessor-workflow", "npm run test:e2e", "npm run test:e2e:desktop", "npm run test:e2e:operational:high"],
       "staticPrompts": [
-        {"prompt": "Large module (1951 lines): split by behavior before adding more responsibilities.", "disposition": "confirmed", "reason": "The approved slice removes field and scheduling presentation responsibilities while retaining one effectful coordinator.", "owner": "Eric"},
+        {"prompt": "Large module (1632 lines): split by behavior before adding more responsibilities.", "disposition": "confirmed", "reason": "The approved slice removed field and scheduling presentation responsibilities while retaining one effectful coordinator; later slices must remain behavior-bounded.", "owner": "Eric"},
         {"prompt": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.", "disposition": "confirmed", "reason": "Timers stay in the coordinator with their existing cleanup; lifecycle, desktop, and full browser gates exercise remount, offline, and active-edit behavior.", "owner": "Eric"},
         {"prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.", "disposition": "confirmed", "reason": "Only advisory cleanup and recovery persistence failures remain suppressed; canonical saves and lifecycle commands continue to surface errors and retain recoverable local state.", "owner": "Eric"}
       ],
@@ -54,6 +54,36 @@
       "staticPrompts": [],
       "decision": "move",
       "decisionReason": "Scheduling and beginning form one bounded modal workflow whose mutations remain in the coordinator."
+    },
+    {
+      "path": "scripts/assessor-workflow-contracts.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "The contract checker reads the assessment coordinator and its approved presentation modules as one browser workflow surface; runtime code does not import the checker.",
+      "purpose": "Keeps existing source-level workflow contracts attached to their behavior after markup moves across the approved component boundary.",
+      "callers": ["npm run check:assessor-workflow"],
+      "publicExports": [],
+      "sideEffects": ["reads repository source files", "writes contract results to standard output"],
+      "failureBehavior": "Returns a non-zero exit when any assessment workflow contract is absent from the composed surface.",
+      "tests": ["npm run check:assessor-workflow"],
+      "staticPrompts": [
+        {"prompt": "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.", "disposition": "expected", "reason": "The URL is existing sanitized fixture data used to validate schedule and delivery behavior; this slice only composes source inputs for the unchanged assertions.", "owner": "Eric"}
+      ],
+      "decision": "keep",
+      "decisionReason": "Compose the already-approved modules for the same assertions instead of weakening, duplicating, or deleting the contracts."
+    },
+    {
+      "path": "lib/training/operator-guided-tutorials.ts",
+      "plannedNew": false,
+      "dependencyDirection": "The operator guide maps authored target identifiers to their canonical rendered source; assessment runtime components do not import the map.",
+      "purpose": "Rebinds five unchanged assessment guide targets to the presentation modules that now render them.",
+      "callers": ["scripts/operator-training-readiness.mjs", "components/pipeline/OperatorGuide.tsx"],
+      "publicExports": ["operatorGuideTargetSources"],
+      "sideEffects": [],
+      "failureBehavior": "A missing or stale source mapping fails training readiness and prevents current-training certification.",
+      "tests": ["npm run training:check", "npm run test:e2e"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Preserve exact guide behavior by pointing existing target IDs at their new canonical render owners."
     },
     {
       "path": "docs/refactoring/canonical-responsibilities.json",
@@ -164,7 +194,7 @@
       "failureBehavior": "Stale topology blocks Academy certification.",
       "tests": ["npm run academy:check"],
       "staticPrompts": [
-        {"prompt": "Large module (10838 lines): split by behavior before adding more responsibilities.", "disposition": "expected", "reason": "This is a deterministic generated repository atlas, not an authored runtime module.", "owner": "Eric"}
+        {"prompt": "Large module (10910 lines): split by behavior before adding more responsibilities.", "disposition": "expected", "reason": "This is a deterministic generated repository atlas, not an authored runtime module.", "owner": "Eric"}
       ],
       "decision": "keep",
       "decisionReason": "Refresh generated inventory only."

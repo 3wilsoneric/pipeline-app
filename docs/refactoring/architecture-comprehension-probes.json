@@ -142,7 +142,9 @@
       "question": "Trace a local edit through save queuing, navigation or remount, server conflict, recovery draft, and explicit resolution. Identify cleanup for timers, focus, and presence and prove accepted work is not silently discarded.",
       "codePaths": [
         "components/pipeline/ReferralPacketCanvas.tsx",
-        "components/pipeline/AssessmentWorkspace.tsx"
+        "components/pipeline/AssessmentWorkspace.tsx",
+        "components/pipeline/AssessmentInterviewFields.tsx",
+        "components/pipeline/AssessmentSchedulingDialogs.tsx"
       ],
       "verificationGates": ["test:e2e", "test:e2e:cross-browser", "test:e2e:visual"],
       "humanValidated": false
