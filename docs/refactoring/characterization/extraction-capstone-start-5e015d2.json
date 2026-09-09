@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "extraction-capstone",
+  "startingCommit": "5e015d2bd979da98c26da7b858600a0bcba7403a",
+  "capturedAt": "2026-09-09T04:58:05Z",
+  "syntheticOnly": true,
+  "results": [
+    {
+      "command": "npm run check:extraction",
+      "status": "passed",
+      "summary": "22/22 deterministic state, lease, retry, stale-callback, duplicate, Blob-path, and active-job controls passed."
+    },
+    {
+      "command": "npm run check:extraction-worker",
+      "status": "passed",
+      "summary": "8/8 executable Python worker tests and 18/18 worker/deployment contract checks passed."
+    },
+    {
+      "command": "npm run check:sample-packet",
+      "status": "blocked_input",
+      "summary": "PIPELINE_SAMPLE_PACKET_PATH is not configured; the harness made no sample-packet claim."
+    },
+    {
+      "command": "npm run check:storage-consistency",
+      "status": "passed",
+      "summary": "13/13 durable upload failure and recovery scenarios passed."
+    },
+    {
+      "command": "npm run check:backlog-rehearsal",
+      "status": "passed",
+      "summary": "20 synthetic packets and 12,000 pages completed with 20 bounded retries, zero dead letters, zero duplicate claims, and resume verified."
+    },
+    {
+      "command": "npm run check:extraction-quality",
+      "status": "passed_harness_only",
+      "summary": "One synthetic schema-v2 fixture and eight fields passed; exact-match 95% lower bound was 0.6756 and is not production-accuracy evidence."
+    },
+    {
+      "command": "npm run check:extraction-corpus",
+      "status": "blocked_human_labeling",
+      "summary": "No governed schema-v2 corpus is configured; 25 deep and 175 total packets are required, including handwriting, low-quality, and mixed-layout strata."
+    }
+  ],
+  "baseline": {
+    "files": 634,
+    "lines": 123504,
+    "cycles": 8,
+    "duplicateGroups": 71,
+    "controlPlaneDuplicateGroups": 56,
+    "deadExportCandidates": 470,
+    "criticalReviewFiles": 14,
+    "highReviewFiles": 42,
+    "riskModules": [
+      { "path": "lib/extraction/processing-worker.ts", "lines": 591, "complexity": 133, "dependencies": 7 },
+      { "path": "lib/extraction/document-processing.ts", "lines": 646, "complexity": 144, "dependencies": 5 },
+      { "path": "databricks/pipeline_extraction_worker.py", "lines": 782, "complexity": 131, "dependencies": 0 }
+    ]
+  },
+  "claimBoundary": "This artifact records exact-start synthetic mechanics and explicit missing inputs. It does not establish production extraction accuracy or authorize runtime refactoring."
+}

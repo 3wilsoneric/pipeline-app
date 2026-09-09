@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "extraction-capstone",
+  "status": "draft",
+  "startingCommit": "5e015d2bd979da98c26da7b858600a0bcba7403a",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T04:58:05Z"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "extraction_immutable_source_and_provenance",
+    "extraction_worker_lease_and_write_boundary"
+  ],
+  "preChangeMachineTrace": [
+    "Exact-start npm run check:extraction passed 22/22 deterministic worker-state and stale-callback controls.",
+    "Exact-start npm run check:extraction-worker passed eight executable Python tests and 18 worker/deployment contracts.",
+    "Exact-start storage consistency passed 13/13 scenarios and the 12,000-page synthetic backlog rehearsal completed without duplicate claims.",
+    "Exact-start sample-packet and corpus gates refused to certify because no sample PDF or governed labeled corpus was configured; runtime implementation remains stopped."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Original packet bytes remain immutable and digest verified.",
+      "Extracted values retain source document, page, bounding box, confidence, and review history.",
+      "Leases, retries, dead letters, and callbacks remain bounded and idempotent.",
+      "Workers cannot write canonical referral or assessment state directly."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/extraction-capstone-start-5e015d2.json",
+      "A governed schema-v2 packet corpus and sample-packet golden are required before this draft can support active implementation."
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": null,
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": null,
+    "allObligationsVerified": false,
+    "requiredGatesPassed": false,
+    "behaviorPreserved": false,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": false,
+    "noUnresolvedCriticalOrHigh": false,
+    "acceptedBy": null,
+    "acceptedAt": null,
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T04:58:05Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}

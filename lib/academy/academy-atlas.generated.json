@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:7a7c4a8d04bcdfcf",
-  "fingerprint": "7a7c4a8d04bcdfcfd23f6560f10bbcafc0a46f6db7b313ba5cc772da646db70c",
+  "generatedAt": "source-fingerprint:994ba1b3d0fc781d",
+  "fingerprint": "994ba1b3d0fc781dc293a66171ac8cac41e52c923cff29bf9c94452f0a21485f",
   "totals": {
-    "files": 879,
-    "lines": 290513,
-    "coveredFiles": 879
+    "files": 883,
+    "lines": 291205,
+    "coveredFiles": 883
   },
   "entries": [
     {
@@ -3999,6 +3999,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/extraction-capstone-start-5e015d2.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 61,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/characterization/refactor-baseline-machine-run-4d50f4ea.json",
       "subsystem": "Documentation",
       "kind": "configuration",
@@ -4253,6 +4265,42 @@
       ]
     },
     {
+      "path": "docs/refactoring/EXTRACTION_CAPSTONE_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 123,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/extraction-capstone-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 60,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/extraction-capstone-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 353,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/file-audit-disposition.example.json",
       "subsystem": "Documentation",
       "kind": "configuration",
@@ -4474,7 +4522,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 267,
+      "lines": 313,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4705,7 +4753,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1795,
+      "lines": 1799,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4741,7 +4789,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7529,
+      "lines": 7530,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4801,7 +4849,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10730,
+      "lines": 10774,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
