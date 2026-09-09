@@ -8,7 +8,7 @@
     {
       "id": "referral-store-boundaries",
       "priority": 1,
-      "status": "soaking",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "lib/pipeline/referral-store.ts",

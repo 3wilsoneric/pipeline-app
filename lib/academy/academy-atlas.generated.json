@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:8e9d8cfe3aca06ec",
-  "fingerprint": "8e9d8cfe3aca06ecba37e523d8a908059968dbf7f58f6949b1a0e0199dfe3152",
+  "generatedAt": "source-fingerprint:d60251422a3ab237",
+  "fingerprint": "d60251422a3ab237879dba3d1a07acb22492dfef70d24ae0e930653d51eddb7a",
   "totals": {
     "files": 863,
-    "lines": 287031,
+    "lines": 287042,
     "coveredFiles": 863
   },
   "entries": [
@@ -4426,7 +4426,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "critical",
-      "lines": 174,
+      "lines": 185,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",

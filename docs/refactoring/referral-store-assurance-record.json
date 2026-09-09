@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sliceId": "referral-store-boundaries",
-  "status": "candidate_verified",
+  "status": "complete",
   "startingCommit": "1956139851eb83d6d785762461466355af0524e4",
   "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
   "humanOwner": "Eric",
@@ -154,6 +154,17 @@
     "approvedBy": "Eric",
     "approvedAt": "2026-09-09T00:05:00.000Z"
   },
+  "productionRelease": {
+    "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
+    "deployedCommit": "535cbb99b47716faba3ee6898d31a6ce2eccfbb6",
+    "deployedAt": "2026-09-09T00:38:55.000Z",
+    "workflowRun": "https://github.com/3wilsoneric/pipeline-app/actions/runs/34295383314",
+    "evidence": [
+      "The exact deployed commit passed the complete main-branch CI matrix, including verify, browser, desktop, cross-browser, visual, PostgreSQL, operational, CodeQL, and dependency-review checks.",
+      "The production workflow built and pushed the immutable commit-tagged image, preserved custom domains, previewed infrastructure, deployed the runtime, verified a pre-migration backup, ran checksum-guarded migrations, and passed deployed liveness and readiness checks.",
+      "Independent post-deployment probes returned HTTP 200 from the primary readiness endpoint and both primary and www liveness endpoints; readiness reported PostgreSQL referral, assessment, resident-link, and desktop workspace stores ready, Entra JWT ready, and the Alamo clinical adapter connected."
+    ]
+  },
   "residualRisks": [],
   "convergence": {
     "candidateCommit": "5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad",
@@ -164,8 +175,8 @@
     "postComprehensionNoWorse": false,
     "rollbackOrRecoveryProven": true,
     "noUnresolvedCriticalOrHigh": true,
-    "acceptedBy": null,
-    "acceptedAt": null,
+    "acceptedBy": "Eric",
+    "acceptedAt": "2026-09-09T00:45:16.000Z",
     "authorizedBy": "Eric",
     "authorizedAt": "2026-09-09T00:05:00.000Z",
     "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
