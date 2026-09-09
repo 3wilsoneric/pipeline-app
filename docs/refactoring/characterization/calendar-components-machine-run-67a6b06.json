@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "calendar-components",
+  "startingCommit": "67a6b067bc9d3000131a391d6920b03ee765ca0c",
+  "executedAt": "2026-09-09T21:48:57Z",
+  "environment": "isolated local Next.js production build with Playwright Chromium and Node 22.22.0",
+  "commands": [
+    "npm run codebase:baseline",
+    "npx playwright test tests/e2e/pipeline-smoke.spec.ts --project=chromium --grep keeps assignment history out of the calendar",
+    "npx playwright test tests/e2e/pipeline-calendar.spec.ts --project=chromium --grep preserves views"
+  ],
+  "outcome": "passed_with_approved_defect_finding",
+  "tests": {
+    "passed": 2,
+    "failed": 0,
+    "approvedDefectFindings": [
+      "An overridable conflict after creating an assessment caused the Schedule anyway retry to create another assessment before resubmitting the schedule."
+    ]
+  },
+  "properties": [
+    "assignment-only events remain absent from Calendar",
+    "team and assessor week views, month, agenda, filters, overlap display, and queue entry remain operable",
+    "request-keyed last-good data remains visible after a failed refresh",
+    "range navigation, queue and drawer dismissal, Escape, and body-scroll restoration remain operable",
+    "the 430 pixel viewport has no horizontal document overflow"
+  ],
+  "baseline": {
+    "files": 644,
+    "lines": 124481,
+    "cycles": 8,
+    "duplicateGroups": 71,
+    "controlPlaneDuplicateGroups": 56,
+    "calendar": {
+      "path": "components/pipeline/PipelineCalendar.tsx",
+      "lines": 964,
+      "complexity": 442,
+      "dependencies": 6,
+      "maxBranchDepth": 4
+    }
+  },
+  "containsPhi": false
+}

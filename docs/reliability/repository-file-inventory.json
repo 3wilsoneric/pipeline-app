@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T20:44:12.107Z",
+  "generated_at": "2026-09-09T23:03:05.463Z",
   "audit_date": "2026-09-09",
-  "git_head": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+  "git_head": "47e31850e62fb44447792f0fd7d89bb83938a567",
   "files": [
     {
       "path": ".dockerignore",
@@ -1862,16 +1862,28 @@
     },
     {
       "path": "components/pipeline/PipelineCalendar.tsx",
-      "content_sha256": "5e58627ab8cc8b53d784d78b1b5c1100e7e5c850d7b7904fe4a5d828b09139eb",
+      "content_sha256": "262150a7a100798f3e89e02c12639820dcff5303f96d7b4abe5ba86dcb2f5261",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 71201,
-      "lines": 964,
+      "bytes": 18378,
+      "lines": 416,
       "detected_concerns": [
-        "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
-        "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
+        "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers."
       ],
       "review_focus": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
+      "verification": "typecheck + lint + build + responsive/accessibility E2E"
+    },
+    {
+      "path": "components/pipeline/PipelineCalendarPresentation.tsx",
+      "content_sha256": "ba5971db6d41408c0e111704c6b430720d971cc417b700f5fdb30fc311e08650",
+      "role": "Pipeline user interface",
+      "risk": "medium",
+      "bytes": 38789,
+      "lines": 382,
+      "detected_concerns": [
+        "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
+      ],
+      "review_focus": "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -2261,6 +2273,17 @@
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup."
       ],
       "review_focus": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
+      "verification": "typecheck + lint + build + responsive/accessibility E2E"
+    },
+    {
+      "path": "components/pipeline/pipeline-calendar-model.ts",
+      "content_sha256": "980814307c219b9ea1b64259d1e29eb99a3ba5b4993afb554620b9a5e2d03ce0",
+      "role": "Pipeline user interface",
+      "risk": "medium",
+      "bytes": 15878,
+      "lines": 381,
+      "detected_concerns": [],
+      "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -3901,7 +3924,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "ec8ab668d9266072559ce4738a4da9979023877a6e781865c2553133bc338a8f",
+      "content_sha256": "0969c503553e31fa4bedea74f014a22f254c8c0122b0cf84321b61699642e4ef",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -3972,6 +3995,17 @@
       "risk": "low",
       "bytes": 1997,
       "lines": 45,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/CALENDAR_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+      "content_sha256": "ce33ae460b5b27d0daaf5cd6e936937d8dbba846ed01802be1a9a784cd416791",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 5252,
+      "lines": 58,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4246,11 +4280,11 @@
     },
     {
       "path": "docs/refactoring/architecture-comprehension-probes.json",
-      "content_sha256": "ac1b06208d58ad956b30316652ac69989199c933c4acad67ed6bf64c871d9f4d",
+      "content_sha256": "91e02b46deaa29dd9a9c17973630ac42de97dcefb99790e2c172a824bfb9ca71",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 9217,
-      "lines": 180,
+      "bytes": 10029,
+      "lines": 194,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4302,12 +4336,34 @@
       "verification": "link/config drift review against executable source"
     },
     {
-      "path": "docs/refactoring/canonical-responsibilities.json",
-      "content_sha256": "efd46268e7a3c74ed31478b20c6ba17aff69024255e7dc9c79e9a240bb0e8be6",
+      "path": "docs/refactoring/calendar-components-assurance-record.json",
+      "content_sha256": "0136c2324b18667e5f2747cb114bea3bad2f2c0774fba71f2aae8d19ad429345",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 13130,
-      "lines": 315,
+      "bytes": 13055,
+      "lines": 225,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/calendar-components-file-audit.json",
+      "content_sha256": "f45cad01355f2454e4a9e94209b70ac46a39c6d25836c910902cc813c01f462c",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 12875,
+      "lines": 228,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/canonical-responsibilities.json",
+      "content_sha256": "8c67ad7f054ac616363403f909fba13d4d7cba8e0a4eb9a8a8b5d45b2153f972",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 14746,
+      "lines": 346,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4352,6 +4408,17 @@
       "risk": "low",
       "bytes": 1676,
       "lines": 37,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/refactoring/characterization/calendar-components-machine-run-67a6b06.json",
+      "content_sha256": "e930a78a21fe1ba7b16dccfe4d4d65d32a12cd602c53f09a5fecf073956d7417",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 1636,
+      "lines": 43,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4523,11 +4590,11 @@
     },
     {
       "path": "docs/refactoring/evidence-matrix.json",
-      "content_sha256": "c87f9880ac01f4fb1eedba2e167bacf95e00873d42f7906399eeeb2fbe413871",
+      "content_sha256": "e4260b6dad22d29c0ca9a146dec9a274688bc5e617cff5dd5ac631c14002d05b",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 46487,
-      "lines": 707,
+      "bytes": 50444,
+      "lines": 770,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4578,11 +4645,11 @@
     },
     {
       "path": "docs/refactoring/proof-obligations.json",
-      "content_sha256": "c96b44719b0150beb88cdb5bd39c6d9063431f630d2b4902daf5ccf2c0fd31c4",
+      "content_sha256": "c98e822ae52969a50cabf4f0aaca1313ccdd26b29d6993be2b6d81190a1b17d8",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 13485,
-      "lines": 232,
+      "bytes": 14716,
+      "lines": 254,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4622,10 +4689,10 @@
     },
     {
       "path": "docs/refactoring/refactor-eval-scenarios.json",
-      "content_sha256": "133ed11835a18d2b11606259a04cedd06eebce58a210c4bfb09037751a575194",
+      "content_sha256": "49a46c009b5259e25545aca74875d485802e7a313c4e857aba8b949dc04cea77",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 21197,
+      "bytes": 21220,
       "lines": 367,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -4677,11 +4744,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "74b39b329b4c081625e9e4a073097753cc7437266e7324971d9d4cf7ada1497f",
+      "content_sha256": "9e93d5cc8a47e4dbf45445bdc560d5cf2edf7693ac29d019a0708e9e60fccb5b",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 21463,
-      "lines": 447,
+      "bytes": 24562,
+      "lines": 506,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4846,11 +4913,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "3bb8df8cc2f5769273473b0bd1a0ab9bac958da8cea7a7ab587d2c5d479204fc",
+      "content_sha256": "5c5e7cfe03d1cb8338d755b53ffb4265fddc44b90731ba3fd55884f648f186bd",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 390205,
-      "lines": 1827,
+      "bytes": 392653,
+      "lines": 1837,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4874,11 +4941,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "5a5af5d4fbddcce6d8f2d20212c7137e2fc57b5f4ad68dee365ea9d3c7ca8865",
+      "content_sha256": "4223033ee2891af03c2ef71168a8a5341a58099e0411dbf13f09d4a1fa3cd204",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 219140,
-      "lines": 7551,
+      "bytes": 219350,
+      "lines": 7555,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4933,11 +5000,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "b49c47458699d4500499ad887cb4df5308247314d94d356191c8b5fb4e136940",
+      "content_sha256": "f9cbad671b720cfdf49762c8fa9913b1c69c27a2a21fde121ad0dac1da1f4b2a",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 548215,
-      "lines": 11054,
+      "bytes": 552249,
+      "lines": 11136,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4999,7 +5066,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "0c22900f5f73876b1dd40479bacea43c3ba4c4eb81e1ffe47dbdb5f7f4b540b6",
+      "content_sha256": "a904d7c528f7faaadf9a0e94f7da4d05ee7e0eba9349f2a669d55f9b8c68eb13",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -5128,15 +5195,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "7f15f2a7c7c5f807318d3bc518ac80eb105dd8f9bebe10d978bc03c8b3f39fc4",
+      "content_sha256": "c95b85a81ef00aa4e82eb8fd79737d7c5032f7fd56b0afaa22d32a4fcc825877",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 281431,
-      "lines": 10982,
+      "bytes": 283694,
+      "lines": 11066,
       "detected_concerns": [
-        "Large module (10982 lines): split by behavior before adding more responsibilities."
+        "Large module (11066 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (10982 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (11066 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -7272,10 +7339,10 @@
     },
     {
       "path": "lib/training/operator-guided-tutorials.ts",
-      "content_sha256": "7df133794daea9aefe3076e48f0de9edae38c4aa30fdfad4cffb22309b57d5ef",
+      "content_sha256": "daa4a279de88641d378ea36d6cb690e7760488e3b68a056d9413f643227318c6",
       "role": "Shared server/domain library",
       "risk": "low",
-      "bytes": 44681,
+      "bytes": 44705,
       "lines": 373,
       "detected_concerns": [],
       "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
@@ -10580,6 +10647,19 @@
       "lines": 90,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
+      "verification": "run owning Playwright project and review skips/snapshots"
+    },
+    {
+      "path": "tests/e2e/pipeline-calendar.spec.ts",
+      "content_sha256": "ece77d8b263c0861623a8440460fa03ab4b244d18509da0e67bf9722769f87a2",
+      "role": "Browser journey test or snapshot",
+      "risk": "low",
+      "bytes": 15483,
+      "lines": 338,
+      "detected_concerns": [
+        "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
+      ],
+      "review_focus": "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.",
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {

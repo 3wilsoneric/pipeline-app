@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T20:44:12.107Z",
+  "generated_at": "2026-09-09T23:03:05.463Z",
   "audit_date": "2026-09-09",
-  "git_head": "08438c0d38f61f1da753a0c909faaf41a0a2b660",
+  "git_head": "47e31850e62fb44447792f0fd7d89bb83938a567",
   "direct": [
     {
       "name": "@azure/identity",
@@ -152,6 +152,7 @@
         "tests/e2e/operator-packet-smoke.spec.ts",
         "tests/e2e/operator-training.spec.ts",
         "tests/e2e/performance-navigation.spec.ts",
+        "tests/e2e/pipeline-calendar.spec.ts",
         "tests/e2e/pipeline-home.spec.ts",
         "tests/e2e/pipeline-smoke.spec.ts",
         "tests/e2e/production-readiness.spec.ts",
@@ -375,7 +376,7 @@
         "components/pipeline/OperationsDashboard.tsx",
         "components/pipeline/PacketExtractionReview.tsx",
         "components/pipeline/PipelineActionNav.tsx",
-        "components/pipeline/PipelineCalendar.tsx",
+        "components/pipeline/PipelineCalendarPresentation.tsx",
         "components/pipeline/PipelineDeveloperAcademy.tsx",
         "components/pipeline/PipelineHeader.tsx",
         "components/pipeline/PipelineOperatorAcademy.tsx",
@@ -487,6 +488,7 @@
         "components/pipeline/academy/AcademyRepositoryAtlas.tsx",
         "components/pipeline/assessment-workspace-state.ts",
         "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
+        "components/pipeline/pipeline-calendar-model.ts",
         "components/pipeline/referral-home-directory-model.ts",
         "components/pipeline/training/DemoEnvironmentBanner.tsx",
         "components/pipeline/training/FullWorkflowWalkthroughPreview.tsx",
@@ -669,6 +671,7 @@
         "tests/e2e/note-lab-practice.spec.ts",
         "tests/e2e/operational/referral-store-characterization.spec.ts",
         "tests/e2e/operator-training.spec.ts",
+        "tests/e2e/pipeline-calendar.spec.ts",
         "tests/e2e/pipeline-home.spec.ts",
         "tests/e2e/pipeline-smoke.spec.ts",
         "tests/e2e/responsive-accessibility.spec.ts",
@@ -889,6 +892,7 @@
         "components/pipeline/PipelineActionNav.tsx",
         "components/pipeline/PipelineAppShell.tsx",
         "components/pipeline/PipelineCalendar.tsx",
+        "components/pipeline/PipelineCalendarPresentation.tsx",
         "components/pipeline/PipelineDeveloperAcademy.tsx",
         "components/pipeline/PipelineHeader.tsx",
         "components/pipeline/PipelineOperatorAcademy.tsx",
@@ -965,7 +969,7 @@
         "components/pipeline/CurrentWorkOverlay.tsx",
         "components/pipeline/DeleteWorkspaceDialog.tsx",
         "components/pipeline/DuplicateReferralReviewDialog.tsx",
-        "components/pipeline/PipelineCalendar.tsx",
+        "components/pipeline/PipelineCalendarPresentation.tsx",
         "components/pipeline/ReferralFilePreviewDialog.tsx",
         "components/pipeline/ReferralHome.tsx",
         "components/pipeline/ReferralHomeDirectory.tsx",
@@ -7543,8 +7547,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-home-directory-components/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-home-directory-components/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-calendar-components/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-calendar-components/node_modules/@img/sharp-wasm32"
     ]
   }
 }

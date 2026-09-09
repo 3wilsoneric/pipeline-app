@@ -226,6 +226,28 @@
       "claimBoundary": "The characterized Referral Home directory states, supported browsers, responsive viewports, and synthetic workflows at the approved exact start and candidate commits.",
       "status": "planned",
       "humanValidated": false
+    },
+    {
+      "id": "calendar_presentation_preserves_schedule_and_conflict_safety",
+      "sliceId": "calendar-components",
+      "criticality": "critical",
+      "property": "Separating Calendar presentation and pure derivation from its effectful coordinator preserves all characterized views, filters, queue paging, scheduling, conflict override, appointment-status, responsive, and recovery behavior while every scheduling attempt resolves or creates at most one assessment.",
+      "assuranceMethods": ["mechanical", "integration", "operational_recovery"],
+    "tracePaths": [
+      "components/pipeline/PipelineCalendar.tsx",
+      "components/pipeline/PipelineCalendarPresentation.tsx",
+      "components/pipeline/pipeline-calendar-model.ts",
+      "tests/e2e/pipeline-calendar.spec.ts"
+    ],
+      "verificationGates": [
+        "check:assessor-workflow",
+        "test:e2e",
+        "test:e2e:desktop",
+        "test:e2e:operational:high"
+      ],
+      "claimBoundary": "The characterized Calendar states, Pacific-time conversions, supported browsers, responsive viewports, and synthetic workflow fixtures at the approved exact start and candidate commits.",
+      "status": "planned",
+      "humanValidated": false
     }
   ]
 }
