@@ -282,6 +282,7 @@
         "tests/e2e/support/pipeline-clinical-fixtures.ts",
         "scripts/api-behavior-fixtures.mjs",
         "scripts/test-assertion-inventory.mjs",
+        "scripts/mcmaster-certification-matrix.mjs",
         "scripts/referral-intake-recovery-contracts.mjs",
         "package.json",
         "lib/academy/academy-atlas.generated.json",

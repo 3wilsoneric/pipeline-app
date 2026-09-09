@@ -88,6 +88,20 @@
       "decisionReason": "A durable machine comparison is stronger than relying on raw counts or visual diff review."
     },
     {
+      "path": "scripts/mcmaster-certification-matrix.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "The McMaster browser gate reads test evidence locations; application runtime code never imports it.",
+      "purpose": "Maps certified usability and performance requirements to their canonical executable evidence owners.",
+      "callers": ["npm run check:mcmaster", "Pipeline CI browser job"],
+      "publicExports": [],
+      "sideEffects": ["reads tracked evidence files", "exits nonzero when a required evidence marker is absent"],
+      "failureBehavior": "A stale or missing evidence location blocks the browser certification job.",
+      "tests": ["npm run check:mcmaster"],
+      "staticPrompts": [],
+      "decision": "move",
+      "decisionReason": "Point only the five moved home/profile requirements at their new canonical journey owner."
+    },
+    {
       "path": "scripts/referral-intake-recovery-contracts.mjs",
       "plannedNew": false,
       "dependencyDirection": "The platform-fast gate invokes this executable contract; it loads canonical state helpers while product code never imports the test script.",
