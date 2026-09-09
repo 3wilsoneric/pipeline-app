@@ -113,6 +113,20 @@
       "decisionReason": "One focused command reuses the established package-script surface."
     },
     {
+      "path": "scripts/assessor-workflow-contracts.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "Deterministic platform contracts may execute pure workflow-record policy; application runtime code must never depend on this script.",
+      "purpose": "Asserts requested-information validation against the canonical workflow-record owner after the approved extraction.",
+      "callers": ["npm run check:assessor-workflow", "npm run check:platform:fast"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Returns a nonzero exit status when the canonical validator no longer requires both the information source and follow-up date.",
+      "tests": ["npm run check:assessor-workflow", "npm run certify:refactor"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Replace a file-location string assertion with an executable behavior assertion against the canonical pure validator."
+    },
+    {
       "path": "scripts/workflow-store-characterization.mjs",
       "plannedNew": true,
       "dependencyDirection": "The evidence runner may invoke build, migration, and Playwright commands against synthetic isolated stores; application runtime code must never depend on it.",

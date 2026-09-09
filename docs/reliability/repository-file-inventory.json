@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T04:38:44.998Z",
+  "generated_at": "2026-09-09T04:41:30.141Z",
   "audit_date": "2026-09-09",
-  "git_head": "2afc85bfb3e9fbf437e5034e6671904c20584e1f",
+  "git_head": "79ac12b0c6ee270585a5dbfdb623baf1c8f34668",
   "files": [
     {
       "path": ".dockerignore",
@@ -3825,7 +3825,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "f5cfb887b07225ed65c8017ab84dee055f65df593381c792263d7faeeef04ef9",
+      "content_sha256": "ab00df97051cf708de4b6984907897ef3d845c97f46bbd621584254a27337943",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4467,11 +4467,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "4fb723252f8712cec5370489f31e0c8b1d1c757822c29d4508a01fd7900c6a94",
+      "content_sha256": "99062c65c3c99fefc3e2c3ef72b499e6f81fa572981fc1cbbbbd62fb4ccddbc5",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 11469,
-      "lines": 266,
+      "bytes": 11520,
+      "lines": 267,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4533,11 +4533,11 @@
     },
     {
       "path": "docs/refactoring/workflow-and-handoff-file-audit.json",
-      "content_sha256": "a1d952aa7c75e977b385f7e4254227c94fad34c55993ad04a5806ee679358213",
+      "content_sha256": "e755bc3120b97d82cfac422e580dafbe2ba6745c67faf453cdd24908696b1e4c",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 21065,
-      "lines": 296,
+      "bytes": 22030,
+      "lines": 310,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4555,7 +4555,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "92f1166489f7d19fcf6b87adc50188cdd63402e55d7d4622ae5627525d29d53e",
+      "content_sha256": "ed6f98d3ae90a40dbca9893869145c2bed2c6a892f21258a23455910a3114a79",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 380606,
@@ -4583,7 +4583,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "e1b4282e58c59ee4ed35b88d58e0993a13f97cffa0bb0f9247a6cd9856c53f90",
+      "content_sha256": "07ff2cdab5fac787d435ddb34df987a47bcc049dbe17445b74c3f509891e7f62",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 217694,
@@ -4642,7 +4642,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "4d9d23042aa8eb23fd83fa248ec7dfb1593c6a4e752cec2078f30ac2c2f59168",
+      "content_sha256": "ece71fa4889a817efb719056c40cdbe7c46755b037ba3e5b36ff22b06f228dfb",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 531770,
@@ -4708,7 +4708,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "cef05585ec81076402148d2419e9bd73591403c9869d9a937d383321296aab88",
+      "content_sha256": "601b81c0b4215d394efe32e2bbf0ba1c363af8bb6ae2bff5528fd56c006e24b7",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -4837,7 +4837,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "02d2d9bcffe813e521662cef7e42b3353b5ef1b2b342f3cc6dc411d4a11740ac",
+      "content_sha256": "610ac7e27436422bbcf28b21a22bf21cf1e6869553bac185a0b55f5cf476334f",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 271934,
@@ -8036,11 +8036,11 @@
     },
     {
       "path": "scripts/assessor-workflow-contracts.mjs",
-      "content_sha256": "cc5dae241e46bfc2e58db76605c84cc8b979201448546e5367bcdbc43294e9f8",
+      "content_sha256": "e1a5710c1f682ed89b6d3b28d07d0b056a90b62fcbc83d296774f8d0357bb8ab",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 37585,
-      "lines": 532,
+      "bytes": 38012,
+      "lines": 544,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],

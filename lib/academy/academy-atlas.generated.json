@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:b430f1c39a057beb",
-  "fingerprint": "b430f1c39a057beb900da5dfbf0cd546f23af14939d3bd33d1a108be48398cc9",
+  "generatedAt": "source-fingerprint:7a7c4a8d04bcdfcf",
+  "fingerprint": "7a7c4a8d04bcdfcfd23f6560f10bbcafc0a46f6db7b313ba5cc772da646db70c",
   "totals": {
     "files": 879,
-    "lines": 290486,
+    "lines": 290513,
     "coveredFiles": 879
   },
   "entries": [
@@ -4474,7 +4474,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 266,
+      "lines": 267,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4609,7 +4609,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 296,
+      "lines": 310,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -8137,7 +8137,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 532,
+      "lines": 544,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

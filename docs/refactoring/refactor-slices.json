@@ -139,6 +139,7 @@
         "lib/pipeline/referral-ownership.ts",
         "lib/pipeline/referral-owner-identity.ts",
         "package.json",
+        "scripts/assessor-workflow-contracts.mjs",
         "scripts/workflow-store-characterization.mjs",
         "scripts/critical-safety-contracts.mjs",
         "scripts/seeded-defect-certification.mjs",
