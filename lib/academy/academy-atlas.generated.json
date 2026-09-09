@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:d60251422a3ab237",
-  "fingerprint": "d60251422a3ab237879dba3d1a07acb22492dfef70d24ae0e930653d51eddb7a",
+  "generatedAt": "source-fingerprint:3dc1f2dcb6729060",
+  "fingerprint": "3dc1f2dcb6729060d4fed83adc9d497e1e397abce42c82760b13e5a742bbeb02",
   "totals": {
-    "files": 863,
-    "lines": 287042,
-    "coveredFiles": 863
+    "files": 868,
+    "lines": 287947,
+    "coveredFiles": 868
   },
   "entries": [
     {
@@ -3903,6 +3903,30 @@
       ]
     },
     {
+      "path": "docs/refactoring/ASSESSMENT_STORE_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 103,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/assessment-store-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "critical",
+      "lines": 59,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -3936,6 +3960,18 @@
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/assessment-store-boundaries-machine-run-76d5e25.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "critical",
+      "lines": 43,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
       ]
     },
     {
@@ -7333,7 +7369,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 232,
+      "lines": 233,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -7958,6 +7994,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 114,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "scripts/assessment-store-characterization.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "critical",
+      "lines": 244,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -10038,6 +10086,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/operational/assessment-store-characterization.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "critical",
+      "lines": 455,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
       ]
     },
     {
