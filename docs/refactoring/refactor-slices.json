@@ -445,7 +445,7 @@
     {
       "id": "calendar-components",
       "priority": 8,
-      "status": "in_progress",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "components/pipeline/PipelineCalendar.tsx"
