@@ -18,7 +18,7 @@
       "tests": ["npm run check:workflow-store-characterization", "npm run check:workflow-fuzz", "npm run test:critical-safety", "npm run database:concurrency", "npm run test:e2e:operational:high"],
       "staticPrompts": [
         {
-          "prompt": "Large module (1322 lines): split by behavior before adding more responsibilities.",
+          "prompt": "Large module (1162 lines): split by behavior before adding more responsibilities.",
           "disposition": "confirmed",
           "reason": "The module combines context reads, local and PostgreSQL persistence, pure blockers/normalization, mapping, audit, and idempotency. This iteration moves only cohesive pure workflow-record policy to the existing workflow-record owner.",
           "owner": "Eric",
@@ -55,6 +55,34 @@
       "staticPrompts": [],
       "decision": "move",
       "decisionReason": "Become the existing canonical owner for pure workflow-record validation and derived next-state policy currently embedded in the store."
+    },
+    {
+      "path": "lib/pipeline/referral-ownership.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Referral ownership policy may depend on canonical referral-owner types and the dependency-free owner-identity normalizer; authorization and stores may depend on it, but workflow-record policy must not depend on ownership aggregation.",
+      "purpose": "Owns assignment aliases, referral ownership responsibilities, reassignment, and normalized owner collections while preserving the existing public identity-normalization exports.",
+      "callers": ["Referral access, stores, workspace activity, calendar, operations, and assessment access"],
+      "publicExports": ["isUnassignedOwner", "normalizeOwnerName", "normalizedOwnerAliases", "isAssignedToUser", "isReferralOwner", "createReferralOwners", "reassignReferralOwners", "normalizeReferralOwners"],
+      "sideEffects": [],
+      "failureBehavior": "Returns deterministic ownership values and rejects incomplete assigned identities without persistence or route effects.",
+      "tests": ["npm run check:workflow-store-characterization", "npm run check:workflow-fuzz", "npm run test:critical-safety"],
+      "staticPrompts": [],
+      "decision": "move",
+      "decisionReason": "Retain all public ownership behavior while delegating only dependency-free owner-name normalization to the shared leaf module."
+    },
+    {
+      "path": "lib/pipeline/referral-owner-identity.ts",
+      "plannedNew": true,
+      "dependencyDirection": "This dependency-free value normalizer may be used by workflow records and ownership policy; it must not depend on referral types, workflow policy, stores, routes, or adapters.",
+      "purpose": "Canonically normalizes owner display values and recognizes unassigned sentinels without creating a workflow-to-ownership dependency cycle.",
+      "callers": ["lib/pipeline/referral-ownership.ts", "lib/pipeline/workflow-records.ts"],
+      "publicExports": ["isUnassignedOwner", "normalizeOwnerName"],
+      "sideEffects": [],
+      "failureBehavior": "Unknown, empty, and non-string inputs normalize deterministically to the existing Unassigned sentinel.",
+      "tests": ["npm run check:workflow-store-characterization", "npm run check:workflow-fuzz", "npx tsc --noEmit"],
+      "staticPrompts": [],
+      "decision": "split",
+      "decisionReason": "A ten-line dependency-free leaf preserves the canonical normalizer while preventing the pure workflow-record extraction from increasing repository cycles."
     },
     {
       "path": "lib/pipeline/workflow-status.ts",
@@ -184,6 +212,20 @@
       "decisionReason": "The exact-start adapter evidence is the behavior-preservation baseline."
     },
     {
+      "path": "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json",
+      "plannedNew": true,
+      "dependencyDirection": "Committed synthetic evidence depends on the unchanged test digest and exact candidate commit and has no runtime dependents.",
+      "purpose": "Records the matched local-file and PostgreSQL workflow characterization after the runtime extraction.",
+      "callers": ["TARS evidence review and slice assurance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing, failing, dirty-tree, or digest-mismatched evidence blocks completion without changing application behavior.",
+      "tests": ["npm run check:workflow-store-characterization"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The exact-candidate matched-adapter result proves behavior parity for the approved boundaries."
+    },
+    {
       "path": "lib/academy/academy-atlas.generated.json",
       "plannedNew": false,
       "dependencyDirection": "Generated Academy topology records repository sources for training and has no runtime dependency on workflow persistence.",
@@ -195,7 +237,7 @@
       "tests": ["npm run academy:atlas:check", "npm run academy:check"],
       "staticPrompts": [
         {
-          "prompt": "Large module (10598 lines): split by behavior before adding more responsibilities.",
+          "prompt": "Large module (10622 lines): split by behavior before adding more responsibilities.",
           "disposition": "expected",
           "reason": "This is a deterministic generated repository atlas, not an authored runtime module.",
           "owner": "Eric",

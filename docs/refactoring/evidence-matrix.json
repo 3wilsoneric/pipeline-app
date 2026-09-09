@@ -334,17 +334,19 @@
         {
           "id": "shadow_projection_diff",
           "phase": "before_cutover",
-          "status": "conditional",
+          "status": "not_applicable",
           "files": ["docs/refactoring/SHADOW_COMPARISON_CONTRACT.md"],
-          "note": "Required if a replacement implementation or projection path is introduced."
+          "note": "No replacement implementation, projection path, adapter, route, schema, or cutover was introduced. The existing workflow store remains the sole effectful owner, so shadow comparison is not applicable to this structural extraction.",
+          "approvedBy": "Eric",
+          "approvedAt": "2026-09-09T04:16:58Z"
         },
         {
           "id": "migration_compatibility",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:release", "database:rollback:drill"],
-        "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md"],
-        "note": "Run the previous/current artifact and schema combinations in a disposable environment before completion."
+          "files": ["docs/refactoring/COMPATIBILITY_MATRIX.md", "docs/refactoring/workflow-and-handoff-assurance-record.json"],
+          "note": "The candidate introduced no schema, migration, stored-data, or adapter change. The 30-migration append-only release check passed, and the disposable PostgreSQL 16 integration profile exercised the complete transactional rollback drill and restored the original schema."
         },
         {
           "id": "owner_validated_assurance_model",
@@ -363,10 +365,10 @@
         {
           "id": "convergence_and_residual_risk",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
-          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind model/conformance evidence, required gates, comprehension, two clean adversarial passes, rollback, and residual risks to one workflow candidate commit."
+          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/workflow-and-handoff-assurance-record.json", "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json"],
+          "note": "The completed owner-fast-lane assurance record binds both verified obligations, every required gate, exact pre/post matched characterization, no dependency-cycle regression, zero unresolved critical/high findings, and rollback evidence to candidate baa7ca97a54b7ae9b0c81c55d05b4a57e323dc57. Standard-lane independent adversarial and fresh-context comprehension passes remain advisory under the recorded owner-fast-lane authorization."
         }
       ]
     },

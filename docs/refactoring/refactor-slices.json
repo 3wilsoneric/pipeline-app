@@ -121,19 +121,23 @@
     {
       "id": "workflow-and-handoff-owner",
       "priority": 3,
-      "status": "in_progress",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "lib/pipeline/workflow-store.ts",
         "lib/pipeline/referral-workflow.ts",
         "lib/pipeline/workflow-records.ts",
-        "lib/pipeline/workflow-status.ts"
+        "lib/pipeline/workflow-status.ts",
+        "lib/pipeline/referral-ownership.ts",
+        "lib/pipeline/referral-owner-identity.ts"
       ],
       "allowedChangePaths": [
         "lib/pipeline/workflow-store.ts",
         "lib/pipeline/referral-workflow.ts",
         "lib/pipeline/workflow-records.ts",
         "lib/pipeline/workflow-status.ts",
+        "lib/pipeline/referral-ownership.ts",
+        "lib/pipeline/referral-owner-identity.ts",
         "package.json",
         "scripts/workflow-store-characterization.mjs",
         "scripts/critical-safety-contracts.mjs",
@@ -147,7 +151,8 @@
         "docs/refactoring/workflow-and-handoff-assurance-record.json",
         "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/workflow-and-handoff-file-audit.json",
-        "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json"
+        "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json",
+        "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json"
       ],
       "architectureNarrative": "docs/refactoring/WORKFLOW_AND_HANDOFF_ARCHITECTURE_NARRATIVE.md",
       "fileAuditDisposition": "docs/refactoring/workflow-and-handoff-file-audit.json",

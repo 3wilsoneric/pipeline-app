@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:0416221f5ce5b2bd",
-  "fingerprint": "0416221f5ce5b2bd7a9f01ecf772892fe0739affeb5a27c6f6390ee5ff13365f",
+  "generatedAt": "source-fingerprint:3f1a9b00b3685381",
+  "fingerprint": "3f1a9b00b368538177020a85b8cb0f350054723e367357e7349e4fc7689e89f7",
   "totals": {
-    "files": 876,
-    "lines": 290135,
-    "coveredFiles": 876
+    "files": 878,
+    "lines": 290341,
+    "coveredFiles": 878
   },
   "entries": [
     {
@@ -4085,6 +4085,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 42,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -4450,7 +4462,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 260,
+      "lines": 265,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4573,7 +4585,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 68,
+      "lines": 172,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4585,7 +4597,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 240,
+      "lines": 282,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -6784,12 +6796,24 @@
       ]
     },
     {
+      "path": "lib/pipeline/referral-owner-identity.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 10,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/referral-ownership.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 134,
+      "lines": 127,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7105,7 +7129,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 244,
+      "lines": 414,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -7129,7 +7153,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 1322,
+      "lines": 1162,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
