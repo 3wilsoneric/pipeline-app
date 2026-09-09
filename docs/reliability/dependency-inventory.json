@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T05:41:34.558Z",
+  "generated_at": "2026-09-09T15:21:00.307Z",
   "audit_date": "2026-09-09",
-  "git_head": "5e015d2bd979da98c26da7b858600a0bcba7403a",
+  "git_head": "eafa505265a02f6def87c7ea8dd036284ceafecd",
   "direct": [
     {
       "name": "@azure/identity",
@@ -479,6 +479,7 @@
         "components/pipeline/TeamPresenceList.tsx",
         "components/pipeline/WorkspaceActivityFeed.tsx",
         "components/pipeline/academy/AcademyRepositoryAtlas.tsx",
+        "components/pipeline/assessment-workspace-state.ts",
         "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
         "components/pipeline/training/DemoEnvironmentBanner.tsx",
         "components/pipeline/training/FullWorkflowWalkthroughPreview.tsx",
@@ -862,6 +863,7 @@
         "components/pipeline/AssessmentWorkspace.tsx",
         "components/pipeline/AssessorSessionControl.tsx",
         "components/pipeline/ClientAssessmentSummary.tsx",
+        "components/pipeline/ClientIdentityReview.tsx",
         "components/pipeline/ClientProfileDirectory.tsx",
         "components/pipeline/ClientProfileView.tsx",
         "components/pipeline/CurrentWorkOverlay.tsx",
@@ -992,10 +994,12 @@
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/WORKFLOW_BUILD_QUEUE.md",
         "docs/academy/ARCHITECTURE_GUIDE.md",
+        "docs/refactoring/REFERRAL_CANVAS_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
         "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
         "docs/refactoring/refactor-slices.json",
+        "docs/refactoring/referral-canvas-assurance-record.json",
         "docs/refactoring/referral-canvas-file-audit-agent-prework.json",
         "lib/academy/academy-access.ts",
         "lib/academy/academy-curriculum.ts",
@@ -7523,8 +7527,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-canvas/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-canvas/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-canvas-components/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-canvas-components/node_modules/@img/sharp-wasm32"
     ]
   }
 }

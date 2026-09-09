@@ -97,6 +97,17 @@ import {
   referralCanvasValue,
   type PersistedCanvasFieldKey,
 } from "@/lib/pipeline/referral-canvas-persistence";
+import {
+  canvasDraftStorageKey,
+  captureReferralSaveSnapshot,
+  currentDraftValues,
+  draftKeySignature,
+  mergePendingDocumentNames,
+  normalizeTags,
+  reconcileSavedDirtyKeys,
+  referralSaveStatus,
+  type ReferralSaveSnapshot,
+} from "@/components/pipeline/referral-canvas-save-state";
 
 const ReferralWorkflowPanel = dynamic(
   () => import("@/components/pipeline/ReferralWorkflowPanel"),
@@ -144,22 +155,6 @@ type ReferralPacketCanvasProps = {
 type DirtyDraftKey = ReferralCanvasDirtyKey;
 
 type CanvasSessionDraft = PipelineReferralDraft;
-
-type DraftValueSnapshot = {
-  fields: Record<FieldKey, PacketField>;
-  conserved: "yes" | "no" | "";
-  tagsInput: string;
-  documents: Record<string, string>;
-  initialPacket: File | null;
-};
-
-type ReferralSaveSnapshot = {
-  dirtyKeys: Set<DirtyDraftKey>;
-  signatures: Map<DirtyDraftKey, string>;
-  initialPacket: File | null;
-  initialPacketCategory: InitialDocumentCategory;
-  pendingDocuments: Record<string, File>;
-};
 
 type InitialPacketSelectionResult =
   | { accepted: false; error?: string }
@@ -3272,32 +3267,6 @@ function prepareReviewedExtraction(input: {
   return { mappedFieldKeys, mappedFields, referralPatch, currentReferral: input.currentReferral };
 }
 
-function currentDraftValues(
-  fields: Record<FieldKey, PacketField>,
-  conserved: "yes" | "no" | "",
-  tagsInput: string,
-  documents: Record<string, string>,
-  initialPacket: File | null,
-): DraftValueSnapshot {
-  return { fields, conserved, tagsInput, documents, initialPacket };
-}
-
-function captureReferralSaveSnapshot(
-  dirtyKeys: ReadonlySet<DirtyDraftKey>,
-  values: DraftValueSnapshot,
-  initialPacketCategory: InitialDocumentCategory,
-  pendingDocuments: Record<string, File>,
-): ReferralSaveSnapshot {
-  const capturedDirtyKeys = new Set(dirtyKeys);
-  return {
-    dirtyKeys: capturedDirtyKeys,
-    signatures: new Map([...capturedDirtyKeys].map((key) => [key, draftKeySignature(key, values)])),
-    initialPacket: values.initialPacket,
-    initialPacketCategory,
-    pendingDocuments: { ...pendingDocuments },
-  };
-}
-
 function resolveDraftCommunity(value: string, fallback: string | undefined): PipelineCommunity {
   const selected = value.trim() as PipelineCommunity;
   if (pipelineCommunities.includes(selected)) return selected;
@@ -3373,62 +3342,6 @@ function packetUploadStatusMessage(mock: boolean, pageCount: number) {
   if (!mock) return "Packet uploaded and extraction started.";
   const pageLabel = pageCount === 1 ? "page" : "pages";
   return `Development local extraction completed. ${pageCount} source ${pageLabel} preserved; confirm the stripped values below.`;
-}
-
-function reconcileSavedDirtyKeys(
-  activeDirtyKeys: ReadonlySet<DirtyDraftKey>,
-  saved: ReferralSaveSnapshot,
-  current: DraftValueSnapshot,
-  allSupportingDocumentsUploaded: boolean,
-) {
-  const remaining = new Set(activeDirtyKeys);
-  for (const key of saved.dirtyKeys) {
-    if (key === "initialPacket") {
-      if (saved.initialPacket && current.initialPacket === null) remaining.delete(key);
-      continue;
-    }
-    if (key === "documents") {
-      if (allSupportingDocumentsUploaded) remaining.delete(key);
-      continue;
-    }
-    if (draftKeySignature(key, current) === saved.signatures.get(key)) remaining.delete(key);
-  }
-  return remaining;
-}
-
-function referralSaveStatus(remainingChanges: number, uploadedInitialPacket: boolean) {
-  if (remainingChanges > 0) return "Saved; newer changes remain";
-  if (uploadedInitialPacket) return "Packet uploaded and ready for review";
-  return `Saved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
-}
-
-function draftKeySignature(
-  key: DirtyDraftKey,
-  input: {
-    fields: Record<FieldKey, PacketField>;
-    conserved: "yes" | "no" | "";
-    tagsInput: string;
-    documents: Record<string, string>;
-    initialPacket: File | null;
-  },
-) {
-  if (isPersistedFieldKey(key)) return JSON.stringify([input.fields[key].value, input.fields[key].sourceFile ?? ""]);
-  if (key === "conserved") return input.conserved;
-  if (key === "tags") return normalizeTags(input.tagsInput).join("\n");
-  if (key === "documents") return JSON.stringify(Object.entries(input.documents).sort(([left], [right]) => left.localeCompare(right)));
-  return input.initialPacket
-    ? JSON.stringify([input.initialPacket.name, input.initialPacket.size, input.initialPacket.lastModified])
-    : "";
-}
-
-function mergePendingDocumentNames(
-  savedDocuments: Record<string, string>,
-  pending: Record<string, File>,
-) {
-  return Object.fromEntries([
-    ...Object.entries(savedDocuments),
-    ...Object.entries(pending).map(([requirementId, file]) => [requirementId, file.name]),
-  ]);
 }
 
 function referralBaseDraftValue(referral: Referral | null, key: DirtyDraftKey) {
@@ -3549,10 +3462,6 @@ function dirtyKeyLabel(key: DirtyDraftKey) {
 
 function conservedLabel(value: Referral["conserved"]) {
   return value === "yes" ? "Yes" : value === "no" ? "No" : "Not entered";
-}
-
-function canvasDraftStorageKey(draftReference?: ReferralRecoveryDraftKey) {
-  return `pipeline-referral-draft:${draftReference ?? "new"}`;
 }
 
 function newReferralCreationMutationId(draftReference?: `new-${string}`) {
@@ -3712,17 +3621,6 @@ function dedupePresence(items: ReferralPresenceView[]) {
 
 function workspaceTagsInput(tags: string[] | undefined) {
   return (tags ?? []).filter((tag) => !isInternalWorkspaceTag(tag)).join(", ");
-}
-
-function normalizeTags(value: string) {
-  return Array.from(
-    new Set(
-      value
-        .split(",")
-        .map((tag) => tag.trim().toLowerCase().replace(/\s+/g, "-"))
-        .filter(Boolean),
-    ),
-  ).slice(0, 12);
 }
 
 function validateInitialPacketSelection(file: File | undefined): InitialPacketSelectionResult {

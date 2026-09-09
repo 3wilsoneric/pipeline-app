@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-canvas-components",
+  "startingCommit": "eafa505265a02f6def87c7ea8dd036284ceafecd",
+  "executedAt": "2026-09-09T15:04:01Z",
+  "environment": "isolated local Next.js production build with Playwright Chromium",
+  "command": "npx playwright test tests/e2e/pipeline-smoke.spec.ts --project=chromium --grep coordinates section edits|recovers a tab-scoped draft|blocks conflicting governed identity evidence|requires explicit human review",
+  "outcome": "passed",
+  "tests": {
+    "passed": 4,
+    "failed": 0,
+    "names": [
+      "coordinates section edits, presence leases, and remote conflicts across two sessions",
+      "recovers a tab-scoped draft after refresh and then section-autosaves it",
+      "blocks conflicting governed identity evidence without creating or confirming a link",
+      "requires explicit human review before joining a referral to an admitted resident"
+    ]
+  },
+  "properties": [
+    "disjoint section writes remain accepted while a competing same-section writer receives an explicit conflict",
+    "presence leases are observable and explicitly released",
+    "a tab-scoped recovery draft survives refresh and the resumed field autosaves",
+    "conflicting date-of-birth evidence blocks candidate creation and confirmation without a durable link",
+    "a suggested resident match remains unlinked until an authorized explicit confirmation"
+  ],
+  "containsPhi": false
+}

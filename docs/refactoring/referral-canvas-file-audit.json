@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-canvas-components",
+  "startingCommit": "eafa505265a02f6def87c7ea8dd036284ceafecd",
+  "humanOwner": "Eric",
+  "reviewedAt": "2026-09-09T15:04:01Z",
+  "reviewedBy": "Owner-authorized TARS machine trace",
+  "approvedAt": "2026-09-09T15:04:01Z",
+  "files": [
+    {
+      "path": "components/pipeline/ReferralPacketCanvas.tsx",
+      "plannedNew": false,
+      "dependencyDirection": "The route-level workspace imports the canvas; extracted presentation and state helpers remain below this orchestration owner.",
+      "purpose": "Owns referral-canvas orchestration, server synchronization, uploads, recovery, presence, and workflow composition.",
+      "callers": ["components/pipeline/PipelineOverviewRoute.tsx"],
+      "publicExports": ["default ReferralPacketCanvas"],
+      "sideEffects": ["authenticated API reads and writes", "packet uploads", "draft recovery", "presence leases", "navigation callbacks"],
+      "failureBehavior": "Shows explicit load, save, upload, duplicate, remote-change, and recovery errors while preserving pending local work.",
+      "tests": ["npm run test:e2e", "npm run test:e2e:desktop", "npm run test:e2e:cross-browser", "npm run test:e2e:visual"],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (3712 lines): split by behavior before adding more responsibilities.",
+          "disposition": "confirmed",
+          "reason": "This approved slice extracts the save-state boundary while leaving effectful orchestration in place.",
+          "owner": "Eric"
+        },
+        {
+          "prompt": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
+          "disposition": "confirmed",
+          "reason": "Existing autosave and presence timers remain in the orchestration component and are covered by focused and full browser gates.",
+          "owner": "Eric"
+        },
+        {
+          "prompt": "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
+          "disposition": "confirmed",
+          "reason": "The existing draft recovery contract remains unchanged and is characterized before and after the split.",
+          "owner": "Eric"
+        },
+        {
+          "prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+          "disposition": "confirmed",
+          "reason": "Only best-effort draft and presence cleanup suppresses rejection; canonical server state and visible mutation failures remain unaffected.",
+          "owner": "Eric"
+        }
+      ],
+      "decision": "split",
+      "decisionReason": "Keep orchestration here and move only pure save-state decisions into one narrow client-safe helper owner."
+    },
+    {
+      "path": "components/pipeline/AssessmentWorkspace.tsx",
+      "plannedNew": false,
+      "dependencyDirection": "ReferralPacketCanvas composes this workspace; pure draft, conflict, and capability decisions move into a client-safe state helper.",
+      "purpose": "Owns assessment UI orchestration, lifecycle commands, offline synchronization, and field presentation.",
+      "callers": ["components/pipeline/ReferralPacketCanvas.tsx"],
+      "publicExports": ["default AssessmentWorkspace"],
+      "sideEffects": ["authenticated assessment API commands", "offline draft writes", "timers", "presence and recovery cleanup"],
+      "failureBehavior": "Retains dirty state, conflict details, offline queues, and visible errors when commands fail.",
+      "tests": ["npm run test:e2e", "npm run test:e2e:desktop", "npm run test:e2e:cross-browser"],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (1951 lines): split by behavior before adding more responsibilities.",
+          "disposition": "confirmed",
+          "reason": "This approved slice extracts pure draft, conflict, and capability decisions without moving effectful lifecycle orchestration.",
+          "owner": "Eric"
+        },
+        {
+          "prompt": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
+          "disposition": "confirmed",
+          "reason": "Existing autosave and offline synchronization timers remain in the workspace and retain their cleanup paths and browser evidence.",
+          "owner": "Eric"
+        },
+        {
+          "prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+          "disposition": "confirmed",
+          "reason": "Best-effort recovery work remains separate from durable assessment mutation failures, which stay visible.",
+          "owner": "Eric"
+        }
+      ],
+      "decision": "split",
+      "decisionReason": "Separate pure assessment state decisions from the effectful workspace without changing their calls or results."
+    },
+    {
+      "path": "components/pipeline/ClientProfileView.tsx",
+      "plannedNew": false,
+      "dependencyDirection": "The profile remains the page-level composition owner and delegates only the resident-link review interaction to a child component.",
+      "purpose": "Loads and presents the governed client profile, history, documents, clinical facts, and Pipeline connection state.",
+      "callers": ["components/pipeline/PipelineOverviewRoute.tsx"],
+      "publicExports": ["default ClientProfileView"],
+      "sideEffects": ["private profile reads", "recent-destination recording"],
+      "failureBehavior": "Shows retryable profile, history, document, and fact-evidence failures without changing governed data.",
+      "tests": ["npm run test:e2e", "npm run test:e2e:visual"],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (1268 lines): split by behavior before adding more responsibilities.",
+          "disposition": "confirmed",
+          "reason": "This approved slice moves the cohesive resident-link review interaction into a dedicated component.",
+          "owner": "Eric"
+        }
+      ],
+      "decision": "split",
+      "decisionReason": "Move the cohesive identity-review interaction out of the broad profile presentation owner."
+    },
+    {
+      "path": "components/pipeline/ClientIdentityReview.tsx",
+      "plannedNew": true,
+      "dependencyDirection": "This client component depends on authenticated browser fetch helpers and shared contracts; ClientProfileView composes it, and it imports no profile shell or server store.",
+      "purpose": "Owns explicit candidate creation, evidence comparison, optimistic confirmation or rejection, and stale-review refresh behavior.",
+      "callers": ["components/pipeline/ClientProfileView.tsx"],
+      "publicExports": ["IdentityReviewControls", "IdentitySuggestionControls"],
+      "sideEffects": ["resident-link candidate POST", "resident-link review PATCH", "referral evidence GET", "owner callback after durable change"],
+      "failureBehavior": "Keeps review errors visible, requires a rejection reason, disables unsafe confirmation, and reloads after stale conflicts.",
+      "tests": ["npm run test:e2e", "npm run test:e2e:operational:high"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "This is one cohesive UI boundary for explicit governed identity review."
+    },
+    {
+      "path": "components/pipeline/assessment-workspace-state.ts",
+      "plannedNew": true,
+      "dependencyDirection": "AssessmentWorkspace imports pure draft/conflict/capability decisions; the helper depends only on client-safe types and pure schema metadata.",
+      "purpose": "Owns assessment draft comparison, section projection, conflict parsing, and UI capability derivation.",
+      "callers": ["components/pipeline/AssessmentWorkspace.tsx"],
+      "publicExports": ["assessment draft, conflict, and capability helpers"],
+      "sideEffects": [],
+      "failureBehavior": "Returns conservative false/null results for missing actors, assessments, conflicts, or schedule inputs.",
+      "tests": ["npm run test:e2e", "npm run test:e2e:operational:high", "npm run check:assessor-workflow"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "One pure owner makes state transitions reviewable without hiding persistence or UI effects."
+    },
+    {
+      "path": "components/pipeline/referral-canvas-save-state.ts",
+      "plannedNew": true,
+      "dependencyDirection": "ReferralPacketCanvas imports pure save-snapshot reconciliation helpers; the module depends only on client-safe canvas types and persistence key predicates.",
+      "purpose": "Owns save snapshot capture, dirty-key signatures, post-save reconciliation, tag normalization, and draft storage key construction.",
+      "callers": ["components/pipeline/ReferralPacketCanvas.tsx"],
+      "publicExports": ["referral save snapshot types and pure reconciliation helpers"],
+      "sideEffects": [],
+      "failureBehavior": "Conservatively leaves a key dirty whenever a captured value cannot be proven unchanged after a save.",
+      "tests": ["npm run test:e2e", "npm run test:e2e:desktop", "npm run test:e2e:cross-browser"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "One pure save-state owner directly exposes the no-silent-work-loss rule."
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_CANVAS_ARCHITECTURE_NARRATIVE.md",
+      "plannedNew": true,
+      "dependencyDirection": "Governance documentation depends on the approved code boundary and is not imported by runtime code.",
+      "purpose": "Records the owner-approved state model, side effects, invariants, failure paths, and assurance boundary.",
+      "callers": ["TARS readiness review"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing or inconsistent narrative evidence blocks slice readiness.",
+      "tests": ["npm run check:refactor-setup"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The active slice requires an approved architecture narrative."
+    },
+    {
+      "path": "docs/refactoring/referral-canvas-file-audit.json",
+      "plannedNew": true,
+      "dependencyDirection": "The refactor validator consumes this governance record; runtime code has no dependency on it.",
+      "purpose": "Records scope, dependency direction, side effects, tests, static concerns, and disposition for every scoped file.",
+      "callers": ["scripts/code-quality-readiness.mjs"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing scope or concern dispositions fail the active-slice quality gate.",
+      "tests": ["npm run check:code-quality", "npm run check:refactor-setup"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The machine gate requires an exact file-audit disposition."
+    },
+    {
+      "path": "docs/refactoring/referral-canvas-assurance-record.json",
+      "plannedNew": true,
+      "dependencyDirection": "The assurance validator consumes this candidate-bound record; runtime code has no dependency on it.",
+      "purpose": "Binds owner authorization, obligations, machine gates, behavior preservation, and recovery to exact commits.",
+      "callers": ["scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Incomplete start or candidate evidence blocks the slice from advancing.",
+      "tests": ["npm run check:refactor-assurance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "This is the machine-readable assurance boundary for the owner fast lane."
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-canvas-machine-run-eafa505.json",
+      "plannedNew": true,
+      "dependencyDirection": "The evidence record depends on the exact starting commit and existing journey tests; runtime code has no dependency on it.",
+      "purpose": "Records the focused pre-change browser characterization for save, recovery, conflict, presence, and identity review.",
+      "callers": ["TARS evidence review", "docs/refactoring/referral-canvas-assurance-record.json"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing or failing exact-start evidence blocks activation.",
+      "tests": ["npm run test:e2e"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The exact-start machine trace is the behavior-preservation baseline."
+    }
+  ]
+}

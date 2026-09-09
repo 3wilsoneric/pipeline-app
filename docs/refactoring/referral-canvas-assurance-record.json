@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-canvas-components",
+  "status": "baseline_approved",
+  "startingCommit": "eafa505265a02f6def87c7ea8dd036284ceafecd",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T15:04:01Z",
+    "directive": "okay go, with both referral canvas and test suite, fast lane"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "canvas_no_silent_accepted_work_loss",
+    "identity_link_requires_explicit_safe_review"
+  ],
+  "preChangeMachineTrace": [
+    "At exact starting commit eafa505265a02f6def87c7ea8dd036284ceafecd, four focused Chromium journeys passed in 50.2 seconds.",
+    "The journeys exercise concurrent section writes and presence, refresh recovery and autosave, identity evidence conflicts with no side effect, and explicit human review before joining records.",
+    "The starting commit passed the complete pull-request CI and guarded production deployment before this isolated branch was created."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "No visual redesign, click-path change, or workflow reordering occurs in a structural split.",
+      "Keyboard, focus, autosave, conflict, upload, and review behavior remain unchanged.",
+      "Resident-link candidate selection and review remain explicit, optimistic, audited, and free of automatic name-based joins.",
+      "Responsive layouts remain usable at certified desktop and mobile sizes.",
+      "No server-only adapter crosses into a client bundle."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/referral-canvas-machine-run-eafa505.json records the exact-start focused browser baseline.",
+      "The existing full E2E, desktop, cross-browser, visual, operational, artifact, and compiled performance gates remain mandatory before completion."
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": null,
+  "residualRisks": [],
+  "convergence": null
+}

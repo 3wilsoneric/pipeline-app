@@ -184,7 +184,7 @@
     },
     {
       "id": "extraction-capstone",
-      "priority": 4,
+      "priority": 6,
       "status": "not_started",
       "owner": "unassigned",
       "paths": [
@@ -211,15 +211,40 @@
     },
     {
       "id": "referral-canvas-components",
-      "priority": 5,
-      "status": "not_started",
-      "owner": "unassigned",
+      "priority": 4,
+      "status": "in_progress",
+      "owner": "Eric",
       "paths": [
         "components/pipeline/ReferralPacketCanvas.tsx",
         "components/pipeline/AssessmentWorkspace.tsx",
         "components/pipeline/ClientProfileView.tsx"
       ],
-      "allowedChangePaths": [],
+      "allowedChangePaths": [
+        "components/pipeline/ReferralPacketCanvas.tsx",
+        "components/pipeline/AssessmentWorkspace.tsx",
+        "components/pipeline/ClientProfileView.tsx",
+        "components/pipeline/ClientIdentityReview.tsx",
+        "components/pipeline/assessment-workspace-state.ts",
+        "components/pipeline/referral-canvas-save-state.ts",
+        "docs/refactoring/refactor-slices.json",
+        "docs/refactoring/evidence-matrix.json",
+        "docs/refactoring/REFERRAL_CANVAS_ARCHITECTURE_NARRATIVE.md",
+        "docs/refactoring/referral-canvas-file-audit.json",
+        "docs/refactoring/referral-canvas-assurance-record.json",
+        "docs/refactoring/characterization/referral-canvas-machine-run-eafa505.json",
+        "docs/reliability/complete-repository-audit-latest.md",
+        "docs/reliability/dependency-inventory.json",
+        "docs/reliability/repository-file-inventory.json"
+      ],
+      "architectureNarrative": "docs/refactoring/REFERRAL_CANVAS_ARCHITECTURE_NARRATIVE.md",
+      "fileAuditDisposition": "docs/refactoring/referral-canvas-file-audit.json",
+      "assuranceRecord": "docs/refactoring/referral-canvas-assurance-record.json",
+      "approvedBy": "Eric",
+      "approvedAt": "2026-09-09T15:04:01Z",
+      "worktreePath": "/Users/eric/pipeline-refactor-referral-canvas-components",
+      "branch": "codex/refactor-referral-canvas-components",
+      "startingCommit": "eafa505265a02f6def87c7ea8dd036284ceafecd",
+      "rollbackOperator": "Eric",
       "invariants": [
         "No visual redesign, click-path change, or workflow reordering occurs in a structural split.",
         "Keyboard, focus, autosave, conflict, upload, and review behavior remain unchanged.",
@@ -239,7 +264,7 @@
     },
     {
       "id": "test-suite-structure",
-      "priority": 6,
+      "priority": 5,
       "status": "not_started",
       "owner": "unassigned",
       "paths": [
