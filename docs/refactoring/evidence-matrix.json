@@ -468,37 +468,49 @@
         {
           "id": "autosave_conflict_recovery",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["test:e2e:operational:high"],
-          "note": "Add focused characterization around component remount, pending save queues, recovery drafts, presence/focus cleanup, and extraction-review state before splitting shells. The existing ReferralActivityPanel and referral activity endpoint already provide one canonical activity path. Owner direction recorded 2026-09-06: an obvious changelog module must appear when a workspace opens and make attributed material changes visible. Treat the presentation adjustment as a separately reviewed product behavior change before the structural UI slice, then preserve it through refactoring."
+          "files": [
+            "docs/refactoring/REFERRAL_CANVAS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/characterization/referral-canvas-machine-run-eafa505.json"
+          ],
+          "note": "At exact starting commit eafa505265a02f6def87c7ea8dd036284ceafecd, focused browser characterization passed two-session disjoint and same-section writes, explicit remote conflicts, presence lease cleanup, refresh/remount recovery, and resumed autosave. Existing desktop and operational coverage retains authenticated draft versions, stale conflicts, focus refresh, and server-side no-loss behavior."
         },
         {
           "id": "identity_link_and_evidence_characterization",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["test:e2e", "test:e2e:operational:high"],
-          "files": ["docs/refactoring/CONTROL_PLANE_MAP.md"],
-          "note": "The current browser suite covers explicit human review before a resident link is confirmed. Add focused remount, keyboard/focus, stale-version, rejection-reason, and no-side-effect denial evidence before moving ClientProfileView identity-link controls or evidence dialogs."
+          "files": [
+            "docs/refactoring/CONTROL_PLANE_MAP.md",
+            "docs/refactoring/REFERRAL_CANVAS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/characterization/referral-canvas-machine-run-eafa505.json"
+          ],
+          "note": "At exact starting commit eafa505265a02f6def87c7ea8dd036284ceafecd, focused browser journeys proved conflicting governed DOB evidence blocks candidate creation and confirmation with no durable link, and a suggested match remains unlinked until explicit authorized review. Existing controls require rejection text and optimistic versions and refresh stale review state."
         },
         {
           "id": "owner_validated_assurance_model",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": [
             "docs/refactoring/canonical-responsibilities.json",
             "docs/refactoring/architecture-comprehension-probes.json",
-            "docs/refactoring/proof-obligations.json"
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/REFERRAL_CANVAS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/referral-canvas-file-audit.json",
+            "docs/refactoring/referral-canvas-assurance-record.json",
+            "docs/refactoring/characterization/referral-canvas-machine-run-eafa505.json"
           ],
-          "note": "The UI draft/conflict, explicit identity review, authorization, and extraction-provenance obligations are setup candidates. Human owners must validate the browser state model and pre-change comprehension evidence."
+          "note": "Eric authorized this exact referral-canvas slice through owner_fast_lane on 2026-09-09. The assurance record binds all five invariants, both critical obligations, the approved architecture narrative, exact file audit, and focused exact-start browser trace. Independent review remains advisory; every machine, behavior-preservation, rollback, visual, cross-browser, and performance gate remains mandatory."
         },
         {
           "id": "convergence_and_residual_risk",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
-          "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind supported-browser behavior, performance, visual/accessibility evidence, comprehension, adversarial review, recovery, and accepted platform uncertainty to one UI candidate commit."
+          "files": ["docs/refactoring/referral-canvas-assurance-record.json", "docs/refactoring/characterization/referral-canvas-machine-run-eafa505.json"],
+          "note": "Candidate d666af6d4714756b02e082a991af0bb561e9afde binds preserved focused journeys, full/desktop/cross-browser/visual/operational browser evidence, compiled performance, artifact limits, both critical obligations, and commit-revert recovery with no unresolved critical or high residual risk."
         }
       ]
     },

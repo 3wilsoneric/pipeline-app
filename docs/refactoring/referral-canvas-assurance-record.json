@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-canvas-components",
+  "status": "complete",
+  "startingCommit": "eafa505265a02f6def87c7ea8dd036284ceafecd",
+  "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde",
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T15:04:01Z",
+    "directive": "okay go, with both referral canvas and test suite, fast lane"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "canvas_no_silent_accepted_work_loss",
+    "identity_link_requires_explicit_safe_review"
+  ],
+  "preChangeMachineTrace": [
+    "At exact starting commit eafa505265a02f6def87c7ea8dd036284ceafecd, four focused Chromium journeys passed in 50.2 seconds.",
+    "The journeys exercise concurrent section writes and presence, refresh recovery and autosave, identity evidence conflicts with no side effect, and explicit human review before joining records.",
+    "The starting commit passed the complete pull-request CI and guarded production deployment before this isolated branch was created."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "No visual redesign, click-path change, or workflow reordering occurs in a structural split.",
+      "Keyboard, focus, autosave, conflict, upload, and review behavior remain unchanged.",
+      "Resident-link candidate selection and review remain explicit, optimistic, audited, and free of automatic name-based joins.",
+      "Responsive layouts remain usable at certified desktop and mobile sizes.",
+      "No server-only adapter crosses into a client bundle."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/referral-canvas-machine-run-eafa505.json records the exact-start focused browser baseline.",
+      "At candidate d666af6d4714756b02e082a991af0bb561e9afde the same four focused Chromium journeys passed in 24.6 seconds.",
+      "The full browser run passed 118 tests with 15 environment-gated skips; the dedicated desktop run passed 7 with 1 inverse-mode skip; Chromium, Firefox, and WebKit smoke passed 3/3; and visual regression passed 6/6 unchanged baselines.",
+      "The high-assurance operational run passed all 14 applicable scenarios, and the three-run compiled McMaster certification passed every performance budget with no API errors."
+    ]
+  },
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "referral_canvas_component_boundaries",
+      "obligationIds": [
+        "canvas_no_silent_accepted_work_loss",
+        "identity_link_requires_explicit_safe_review"
+      ],
+      "baseCommit": "eafa505265a02f6def87c7ea8dd036284ceafecd",
+      "headCommit": "d666af6d4714756b02e082a991af0bb561e9afde",
+      "purpose": "Extract save reconciliation, assessment workspace state decisions, and explicit resident-link review into focused client-safe owners while preserving the existing route, DOM, copy, timing, API, persistence, audit, and recovery behavior.",
+      "changedFiles": [
+        "components/pipeline/ReferralPacketCanvas.tsx",
+        "components/pipeline/AssessmentWorkspace.tsx",
+        "components/pipeline/ClientProfileView.tsx",
+        "components/pipeline/ClientIdentityReview.tsx",
+        "components/pipeline/assessment-workspace-state.ts",
+        "components/pipeline/referral-canvas-save-state.ts",
+        "scripts/referral-intake-recovery-contracts.mjs"
+      ],
+      "preChangeCharacterization": [
+        "Four exact-start Chromium journeys passed and recorded concurrent edits, recovery/autosave, conflicting governed identity evidence, and explicit identity review."
+      ],
+      "focusedEvidence": [
+        "The same four focused Chromium journeys passed after the split in 24.6 seconds.",
+        "Full, desktop, cross-browser, visual, and high-assurance operational browser suites passed their applicable scenarios.",
+        "Three compiled McMaster runs passed every responsiveness, navigation, interaction, artifact, and API latency budget.",
+        "The architecture-aware recovery contract verifies both the canvas call site and the extracted save-state owner."
+      ],
+      "baselineDelta": {
+        "before": "ReferralPacketCanvas contained 3,814 lines at complexity 962; AssessmentWorkspace contained 2,136 lines at complexity 681; ClientProfileView contained 1,542 lines at complexity 310 and 15 dependencies.",
+        "after": "ReferralPacketCanvas contains 3,712 lines at complexity 934; AssessmentWorkspace contains 1,951 lines at complexity 607; ClientProfileView contains 1,268 lines at complexity 248 and 13 dependencies. Three focused client-safe owners now contain the extracted responsibilities.",
+        "comparison": "The three orchestration components lost 740 lines, every measured component complexity decreased, ClientProfileView lost two dependencies, repository dependency cycles did not increase, and no route, DOM, workflow, persistence, schema, migration, or audit behavior changed.",
+        "regressions": []
+      },
+      "tradeoffs": [
+        {
+          "dimension": "scope",
+          "change": "Only cohesive pure state and bounded presentation responsibilities moved; effectful API orchestration remains in the existing components.",
+          "reason": "This is the largest safe structural boundary directly supported by the preserved browser and recovery evidence without introducing a new state framework or changing behavior.",
+          "approvedBy": "Eric"
+        }
+      ],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-09T15:35:59Z"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "canvas_no_silent_accepted_work_loss",
+      "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde",
+      "status": "verified",
+      "methods": ["integration", "operational_recovery"],
+      "evidence": [
+        "Focused candidate journeys passed concurrent disjoint edits, same-section conflict presentation, presence cleanup, refresh recovery, and resumed autosave.",
+        "The desktop run passed encrypted offline assessment edits and post-reconnect sync, versioned referral-draft recovery, disjoint-tab merge, and exact intake resumption.",
+        "The full browser suite and high-assurance operational suite passed every applicable save, conflict, recovery, navigation, and multi-user scenario.",
+        "The recovery contract follows the extracted save responsibility and confirms that only values matching the dispatched snapshot are cleared from dirty state."
+      ],
+      "implementationTrace": [
+        "components/pipeline/ReferralPacketCanvas.tsx:finishReferralSave",
+        "components/pipeline/referral-canvas-save-state.ts:captureReferralSaveSnapshot",
+        "components/pipeline/referral-canvas-save-state.ts:reconcileSavedDirtyKeys",
+        "components/pipeline/assessment-workspace-state.ts:assessmentRecoveryDecision"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-09T15:35:59Z"
+    },
+    {
+      "obligationId": "identity_link_requires_explicit_safe_review",
+      "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde",
+      "status": "verified",
+      "methods": ["exhaustive_finite", "integration"],
+      "evidence": [
+        "Focused candidate journeys proved conflicting governed DOB evidence blocks both candidate creation and confirmation without a durable link.",
+        "The explicit-review journey proved a suggested candidate remains unlinked until an authorized confirmation action.",
+        "The full browser suite passed the governed client-profile review path and the platform safety suite passed the matching, authorization, stale-version, and no-side-effect controls.",
+        "The extraction moved the existing API calls, rejection reason, stale-refresh handling, and evidence presentation together without changing their behavior."
+      ],
+      "implementationTrace": [
+        "components/pipeline/ClientIdentityReview.tsx:IdentityReviewControls",
+        "components/pipeline/ClientIdentityReview.tsx:IdentitySuggestionControls",
+        "components/pipeline/ClientProfileView.tsx",
+        "lib/pipeline/resident-link-store.ts"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-09T15:35:59Z"
+    }
+  ],
+  "gateResults": [
+    {"command": "npm run test:e2e", "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde", "outcome": "passed", "evidence": "The complete browser run passed 118 applicable tests; 15 feature-flag or environment-specific cases were exercised by their dedicated runs or remained explicitly gated."},
+    {"command": "npm run test:e2e:desktop", "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde", "outcome": "passed", "evidence": "All 7 desktop-mode recovery, offline, encrypted-draft, cache, and installability scenarios passed; the inverse disabled-mode case was explicitly skipped."},
+    {"command": "npm run test:e2e:cross-browser", "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde", "outcome": "passed", "evidence": "Core surfaces rendered and navigated successfully on Chromium, Firefox, and WebKit."},
+    {"command": "npm run test:e2e:visual", "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde", "outcome": "passed", "evidence": "All 6 desktop and mobile visual baselines matched without updates."},
+    {"command": "npm run test:e2e:operational:high", "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde", "outcome": "passed", "evidence": "All 14 applicable high-assurance role, collision, multi-user, golden-thread, and capacity scenarios passed; 22 separately gated characterization scenarios remained explicit."},
+    {"command": "npm run certify:mcmaster:performance", "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde", "outcome": "passed", "evidence": "Three compiled runs passed every budget; worst case was 108.6ms TTFB, 244ms FCP, 276ms LCP, 40ms INP, 117.5ms warm navigation, 3ms ordinary API p95, 3.9ms heavy API p95, zero CLS, and zero API errors."},
+    {"command": "npm run check:artifacts", "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde", "outcome": "passed", "evidence": "Production artifacts stayed inside every byte budget with no source maps or server credential markers."},
+    {"command": "npm run check:refactor-assurance", "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde", "outcome": "passed", "evidence": "The candidate-bound owner-fast-lane obligation, gate, recovery, and convergence record passed the assurance checker."},
+    {"command": "npm run certify:refactor", "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde", "outcome": "passed", "evidence": "Refactor setup, repository quality, complexity, platform, test-effectiveness, TypeScript, ESLint, and Next.js production build all passed."}
+  ],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": {
+    "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde",
+    "method": "Revert the bounded runtime extraction commit 587f4122cb2cfd8e1a335b565c36e5bd202de306 and its follow-up contract commit d666af6d4714756b02e082a991af0bb561e9afde, then refresh generated Academy, training, and repository inventories; no migration or stored-data rollback is required.",
+    "exercisedEvidence": [
+      "The implementation contains no migration, schema, stored-data rewrite, route, request-shape, or deployment-configuration change.",
+      "The exact starting commit remains available as eafa505265a02f6def87c7ea8dd036284ceafecd.",
+      "The unchanged visual baselines and complete browser/build results establish a direct safe comparison point for a commit revert."
+    ],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-09T15:35:59Z"
+  },
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": "d666af6d4714756b02e082a991af0bb561e9afde",
+    "allObligationsVerified": true,
+    "requiredGatesPassed": true,
+    "behaviorPreserved": true,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": true,
+    "noUnresolvedCriticalOrHigh": true,
+    "acceptedBy": "Eric",
+    "acceptedAt": "2026-09-09T15:35:59Z",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T15:04:01Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}
