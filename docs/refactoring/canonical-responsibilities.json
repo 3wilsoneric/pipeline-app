@@ -225,11 +225,13 @@
     {
       "id": "referral_canvas_draft_and_conflict_state",
       "title": "Referral and assessment UI draft, autosave, remount, and conflict state",
-      "sliceIds": ["referral-canvas-components"],
+      "sliceIds": ["referral-canvas-components", "assessment-workspace-components"],
       "ownershipKind": "ui_shell_boundary",
       "canonicalOwnerPaths": [
         "components/pipeline/ReferralPacketCanvas.tsx",
-        "components/pipeline/AssessmentWorkspace.tsx"
+        "components/pipeline/AssessmentWorkspace.tsx",
+        "components/pipeline/AssessmentInterviewFields.tsx",
+        "components/pipeline/AssessmentSchedulingDialogs.tsx"
       ],
       "allowedRepresentations": [
         "server-confirmed version",

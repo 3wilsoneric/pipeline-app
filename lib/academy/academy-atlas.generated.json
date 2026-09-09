@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:e45402315570c4a5",
-  "fingerprint": "e45402315570c4a524e681a518827f0b4c8b1f9f8cdfd7e423b97eb88499bf0b",
+  "generatedAt": "source-fingerprint:ab490a0aa2190195",
+  "fingerprint": "ab490a0aa2190195915770bfa4213bec8230f6fade0cc2beca3f4147940ada1c",
   "totals": {
-    "files": 896,
-    "lines": 293451,
-    "coveredFiles": 896
+    "files": 902,
+    "lines": 294116,
+    "coveredFiles": 902
   },
   "entries": [
     {
@@ -1730,12 +1730,36 @@
       ]
     },
     {
+      "path": "components/pipeline/AssessmentInterviewFields.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 254,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/AssessmentSchedulingDialogs.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 152,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/AssessmentWorkspace.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1951,
+      "lines": 1632,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -3932,7 +3956,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 165,
+      "lines": 167,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3945,6 +3969,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 103,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/ASSESSMENT_WORKSPACE_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 54,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -3975,6 +4011,30 @@
       ]
     },
     {
+      "path": "docs/refactoring/assessment-workspace-components-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 45,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "docs/refactoring/assessment-workspace-components-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 230,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
       "path": "docs/refactoring/AUTHORIZATION_CHARACTERIZATION_PLAN.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -3992,7 +4052,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 284,
+      "lines": 286,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4029,6 +4089,18 @@
       "runtime": "documentation",
       "risk": "critical",
       "lines": 43,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/assessment-workspace-components-machine-run-927b953.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 37,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -4318,7 +4390,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 581,
+      "lines": 644,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4402,7 +4474,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 189,
+      "lines": 210,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4546,7 +4618,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 326,
+      "lines": 385,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4873,7 +4945,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1815,
+      "lines": 1819,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4909,7 +4981,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7539,
+      "lines": 7541,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -4969,7 +5041,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 10923,
+      "lines": 10967,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8305,7 +8377,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 544,
+      "lines": 548,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9373,7 +9445,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 56,
+      "lines": 59,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9505,7 +9577,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 741,
+      "lines": 749,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

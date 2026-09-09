@@ -184,7 +184,7 @@
     },
     {
       "id": "extraction-capstone",
-      "priority": 6,
+      "priority": 7,
       "status": "not_started",
       "owner": "unassigned",
       "paths": [
@@ -318,6 +318,65 @@
         "certify:test-effectiveness",
         "test:e2e",
         "test:e2e:operational:high",
+        "check:refactor-assurance"
+      ]
+    },
+    {
+      "id": "assessment-workspace-components",
+      "priority": 6,
+      "status": "complete",
+      "owner": "Eric",
+      "paths": [
+        "components/pipeline/AssessmentWorkspace.tsx"
+      ],
+      "allowedChangePaths": [
+        "components/pipeline/AssessmentWorkspace.tsx",
+        "components/pipeline/AssessmentInterviewFields.tsx",
+        "components/pipeline/AssessmentSchedulingDialogs.tsx",
+        "scripts/assessor-workflow-contracts.mjs",
+        "lib/training/operator-guided-tutorials.ts",
+        "lib/academy/academy-atlas.generated.json",
+        "docs/academy/academy-registry.json",
+        "docs/training/training-registry.json",
+        "docs/refactoring/refactor-slices.json",
+        "docs/refactoring/evidence-matrix.json",
+        "docs/refactoring/canonical-responsibilities.json",
+        "docs/refactoring/architecture-comprehension-probes.json",
+        "docs/refactoring/proof-obligations.json",
+        "docs/refactoring/refactor-eval-scenarios.json",
+        "docs/refactoring/ASSESSMENT_WORKSPACE_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+        "docs/refactoring/assessment-workspace-components-file-audit.json",
+        "docs/refactoring/assessment-workspace-components-assurance-record.json",
+        "docs/refactoring/characterization/assessment-workspace-components-machine-run-927b953.json",
+        "docs/reliability/complete-repository-audit-latest.md",
+        "docs/reliability/dependency-inventory.json",
+        "docs/reliability/repository-file-inventory.json"
+      ],
+      "architectureNarrative": "docs/refactoring/ASSESSMENT_WORKSPACE_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+      "fileAuditDisposition": "docs/refactoring/assessment-workspace-components-file-audit.json",
+      "assuranceRecord": "docs/refactoring/assessment-workspace-components-assurance-record.json",
+      "approvedBy": "Eric",
+      "approvedAt": "2026-09-09T17:40:20Z",
+      "worktreePath": "/Users/eric/pipeline-refactor-assessment-workspace-components",
+      "branch": "codex/refactor-assessment-workspace-components",
+      "startingCommit": "927b953b23557b14b8ca74c11a241a41bbe9a473",
+      "rollbackOperator": "Eric",
+      "invariants": [
+        "Assessment scheduling, starting, editing, autosave, offline recovery, conflict resolution, signing, addenda, and workflow continuation keep their current click paths and behavior.",
+        "The AssessmentWorkspace coordinator remains the sole client owner of network calls, durable mutation orchestration, timers, presence leases, and recovery state.",
+        "Extracted presentation components receive values and callbacks only and never become parallel persistence or authorization owners.",
+        "Field labels, accessibility roles, guide targets, responsive layouts, and visual styling remain unchanged.",
+        "No route, request shape, role policy, schema, migration, stored data, or audit behavior changes."
+      ],
+      "requiredGates": [
+        "check:assessor-workflow",
+        "test:e2e",
+        "test:e2e:desktop",
+        "test:e2e:cross-browser",
+        "test:e2e:visual",
+        "test:e2e:operational:high",
+        "certify:mcmaster:performance",
+        "check:artifacts",
         "check:refactor-assurance"
       ]
     }

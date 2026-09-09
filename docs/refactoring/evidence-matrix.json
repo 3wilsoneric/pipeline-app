@@ -575,6 +575,69 @@
           "note": "Candidate 3f284a3688983209dd081170a987bb539e7d1428 binds exact assertion manifests, 27/27 seeded-defect kills, complete browser and high-assurance operational runs, a 44/44 McMaster evidence matrix, three compiled performance runs, platform checks, rollback evidence, and no unresolved critical or high residual risk."
         }
       ]
+    },
+    {
+      "id": "assessment-workspace-components",
+      "budgetProfile": "interactive_ui",
+      "items": [
+        {
+          "id": "assessment_interaction_characterization",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["test:e2e", "test:e2e:desktop"],
+          "files": [
+            "docs/refactoring/ASSESSMENT_WORKSPACE_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/characterization/assessment-workspace-components-machine-run-927b953.json"
+          ],
+          "note": "At exact starting commit 927b953b23557b14b8ca74c11a241a41bbe9a473, the focused assessment lifecycle journey passed scheduling, starting, answer guidance, autosave, close/resume, completion, signing, workflow continuation, durable recall, and signed-write rejection. The desktop journey separately passed encrypted offline assessment edits and post-reconnect synchronization."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/ASSESSMENT_WORKSPACE_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/assessment-workspace-components-file-audit.json",
+            "docs/refactoring/assessment-workspace-components-assurance-record.json"
+          ],
+          "note": "Eric authorized the bounded assessment workspace presentation split through owner_fast_lane on 2026-09-09. The assurance model keeps AssessmentWorkspace as the sole effectful coordinator and permits only callback-driven field and scheduling presentation owners."
+        },
+        {
+      "id": "accessibility_visual_and_cross_browser",
+      "phase": "before_complete",
+      "status": "satisfied",
+          "gates": ["test:e2e:desktop", "test:e2e:cross-browser", "test:e2e:visual"],
+      "note": "Candidate ba92d371ef2bb92435d1a6803b62c499a70414fc passed seven applicable desktop recovery journeys with one expected feature-mode skip, all three Chromium/Firefox/WebKit smoke journeys, and all six unchanged visual snapshots."
+        },
+        {
+      "id": "interaction_performance_and_artifacts",
+      "phase": "before_complete",
+      "status": "satisfied",
+          "gates": ["certify:mcmaster:performance", "check:artifacts"],
+      "note": "Candidate ba92d371ef2bb92435d1a6803b62c499a70414fc passed three compiled McMaster runs and every artifact budget. Worst observed useful content was 283.4 ms, warm navigation 132.8 ms, localized interaction 96.7 ms, ordinary API p95 3 ms, and heavy API p95 2.2 ms."
+        },
+        {
+      "id": "convergence_and_recovery",
+      "phase": "before_complete",
+      "status": "satisfied",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/assessment-workspace-components-assurance-record.json"],
+      "note": "Candidate ba92d371ef2bb92435d1a6803b62c499a70414fc binds the required contract, full browser, desktop recovery, cross-browser, visual, operational, performance, artifact, structural, and assurance evidence. Reverting the bounded candidate restores the exact-start implementation without a schema, data, route, or configuration rollback."
+        },
+        {
+          "id": "migration_and_cutover",
+          "phase": "before_cutover",
+          "status": "not_applicable",
+          "approvedBy": "Eric",
+          "approvedAt": "2026-09-09T17:40:20Z",
+          "files": ["docs/refactoring/ASSESSMENT_WORKSPACE_COMPONENTS_ARCHITECTURE_NARRATIVE.md"],
+          "note": "The slice changes only client-side module ownership and introduces no schema, migration, stored-data, route, request-shape, provider, or cutover change."
+        }
+      ]
     }
   ]
 }

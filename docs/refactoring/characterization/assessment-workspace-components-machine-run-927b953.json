@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "assessment-workspace-components",
+  "startingCommit": "927b953b23557b14b8ca74c11a241a41bbe9a473",
+  "executedAt": "2026-09-09T17:40:20Z",
+  "environment": "isolated local Next.js production builds with Playwright Chromium and desktop mode",
+  "commands": [
+    "npx playwright test tests/e2e/pipeline-smoke.spec.ts --project=chromium --grep schedules, completes, signs, and recalls an assessment",
+    "PIPELINE_NEXT_DIST_DIR=.next-desktop-e2e PIPELINE_DESKTOP_E2E=true PORT=3189 npx playwright test tests/e2e/desktop-readiness.spec.ts --project=chromium --grep encrypts offline assessment edits and syncs them after reconnecting",
+    "npm run codebase:baseline"
+  ],
+  "outcome": "passed",
+  "tests": {
+    "passed": 2,
+    "failed": 0,
+    "names": [
+      "schedules, completes, signs, and recalls an assessment",
+      "encrypts offline assessment edits and syncs them after reconnecting"
+    ]
+  },
+  "properties": [
+    "schedule and start dialogs retain their accessible names, validation, actions, and close paths",
+    "question navigation, answer guidance, extraction review, and per-section autosave remain operable",
+    "closing and resuming preserves the active assessment and required-field guidance",
+    "completion, signing, workflow continuation, durable recall, and signed-write rejection remain enforced",
+    "offline assessment edits remain encrypted per actor and synchronize after reconnect without silent loss"
+  ],
+  "baseline": {
+    "path": "components/pipeline/AssessmentWorkspace.tsx",
+    "lines": 1951,
+    "complexity": 607,
+    "dependencies": 15,
+    "maxBranchDepth": 8
+  },
+  "containsPhi": false
+}
