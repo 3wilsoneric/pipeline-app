@@ -188,6 +188,18 @@
     ],
       "verificationGates": ["check:assessor-workflow", "test:e2e", "test:e2e:operational:high"],
       "humanValidated": false
+    },
+    {
+      "id": "referral_workflow_decision_handoff_and_conflict_recovery",
+      "sliceIds": ["referral-workflow-panel-components"],
+      "responsibilityId": "referral_workflow_panel_coordination",
+      "question": "Trace a signed assessment through recommendation, requirement gating, accepted supervisor decision, admission, EHR failure, retry, sent confirmation, and client activation. Identify optimistic versions and mutation replay, prove a 409 preserves dirty drafts while reloading server truth, and prove presentation cannot issue or reinterpret a command.",
+      "codePaths": [
+        "components/pipeline/ReferralWorkflowPanel.tsx",
+        "tests/e2e/pipeline-smoke.spec.ts"
+      ],
+      "verificationGates": ["check:assessor-workflow", "check:workflow-fuzz", "test:e2e", "test:e2e:operational:high"],
+      "humanValidated": false
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T23:03:05.463Z",
+  "generated_at": "2026-09-09T23:45:52.359Z",
   "audit_date": "2026-09-09",
-  "git_head": "47e31850e62fb44447792f0fd7d89bb83938a567",
+  "git_head": "01dd0fe8f781dd65d8128bb96afe379fa8608fcf",
   "direct": [
     {
       "name": "@azure/identity",
@@ -7547,8 +7547,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-calendar-components/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-calendar-components/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-workflow-panel/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-workflow-panel/node_modules/@img/sharp-wasm32"
     ]
   }
 }

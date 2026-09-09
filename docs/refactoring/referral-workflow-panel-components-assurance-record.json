@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-workflow-panel-components",
+  "status": "approved",
+  "startingCommit": "01dd0fe8f781dd65d8128bb96afe379fa8608fcf",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T23:36:19Z",
+    "directive": "okay go"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "referral_workflow_panel_preserves_decision_and_handoff_safety"
+  ],
+  "preChangeMachineTrace": [
+    "At exact starting commit 01dd0fe8f781dd65d8128bb96afe379fa8608fcf, the existing Chromium recommendation, decision, admission, EHR failure, retry, sent, and client-activation journey passed.",
+    "The exact-start repository baseline records ReferralWorkflowPanel.tsx at 837 lines, complexity 263, eight dependencies, and branch depth four.",
+    "The source trace identifies ReferralWorkflowPanel as the only client owner of workflow requests, stable mutation identifiers, dirty drafts, confirmations, conflicts, and command feedback."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Recommendation, requirement, supervisor-decision, admission, EHR-handoff, and client-activation workflows keep their current click paths and presentation.",
+      "ReferralWorkflowPanel remains the sole owner of requests, mutation identifiers, optimistic versions, confirmations, dirty-draft preservation, conflict reconciliation, and feedback state.",
+      "Existing workflow stores and routes remain the sole owners of policy, authorization, persistence, audit, replay, and transition semantics.",
+      "Extracted presentation and pure-model modules do not become parallel network, persistence, authorization, timer, confirmation, or canonical-state owners.",
+      "No route, request shape, role policy, schema, migration, stored data, audit, extraction, or identity-link behavior changes."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/referral-workflow-panel-components-machine-run-01dd0fe.json records the exact-start browser and structural evidence."
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": null,
+  "residualRisks": [],
+  "convergence": null
+}

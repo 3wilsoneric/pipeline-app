@@ -248,6 +248,27 @@
       "claimBoundary": "The characterized Calendar states, Pacific-time conversions, supported browsers, responsive viewports, and synthetic workflow fixtures at the approved exact start and candidate commits.",
       "status": "planned",
       "humanValidated": false
+    },
+    {
+      "id": "referral_workflow_panel_preserves_decision_and_handoff_safety",
+      "sliceId": "referral-workflow-panel-components",
+      "criticality": "critical",
+      "property": "Separating admission-workflow presentation and pure derivation from its effectful coordinator preserves recommendation, requirement gating, supervisor decision, admission, EHR failure/retry/sent, client activation, optimistic conflict recovery, and stable mutation replay without creating a second workflow policy or command owner.",
+      "assuranceMethods": ["mechanical", "integration", "operational_recovery"],
+      "tracePaths": [
+        "components/pipeline/ReferralWorkflowPanel.tsx",
+        "tests/e2e/pipeline-smoke.spec.ts"
+      ],
+      "verificationGates": [
+        "check:assessor-workflow",
+        "check:workflow-fuzz",
+        "test:e2e",
+        "test:e2e:desktop",
+        "test:e2e:operational:high"
+      ],
+      "claimBoundary": "The characterized admission-workflow UI states, existing route/store semantics, supported browsers, responsive viewports, and synthetic workflow journey at the approved exact start and candidate commits.",
+      "status": "planned",
+      "humanValidated": false
     }
   ]
 }

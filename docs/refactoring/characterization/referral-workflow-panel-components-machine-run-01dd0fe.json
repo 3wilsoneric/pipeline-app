@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-workflow-panel-components",
+  "startingCommit": "01dd0fe8f781dd65d8128bb96afe379fa8608fcf",
+  "executedAt": "2026-09-09T23:36:19Z",
+  "environment": "isolated local Next.js production build with Playwright Chromium and Node 22.22.0",
+  "commands": [
+    "npm run codebase:baseline",
+    "npx playwright test tests/e2e/pipeline-smoke.spec.ts --project=chromium --grep versions the EHR handoff"
+  ],
+  "outcome": "passed",
+  "tests": {
+    "passed": 1,
+    "failed": 0
+  },
+  "properties": [
+    "signed assessment can produce a clinical recommendation",
+    "acceptance remains blocked until decision requirements resolve",
+    "accepted supervisor decision advances into post-assessment work",
+    "move-in completion permits the admitted transition",
+    "EHR handoff can be queued, explicitly failed with a recorded reason, retried, and marked sent",
+    "client activation appears after admission while identity linking remains separately governed"
+  ],
+  "baseline": {
+    "files": 647,
+    "lines": 125034,
+    "cycles": 8,
+    "duplicateGroups": 71,
+    "controlPlaneDuplicateGroups": 56,
+    "referralWorkflowPanel": {
+      "path": "components/pipeline/ReferralWorkflowPanel.tsx",
+      "lines": 837,
+      "complexity": 263,
+      "dependencies": 8,
+      "maxBranchDepth": 4,
+      "churnCommits90d": 5
+    }
+  },
+  "containsPhi": false
+}
