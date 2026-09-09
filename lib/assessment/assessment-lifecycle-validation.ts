@@ -1,4 +1,15 @@
-import type { AssessmentScheduleUpdate } from "./assessment-records";
+import type { ReferralWorkflowStatus } from "@/lib/pipeline/referral-types";
+
+import { getAssessmentCompletionSummary } from "./assessment-completion";
+import type {
+  AssessmentAuditAction,
+  AssessmentScheduleUpdate,
+  PipelineAssessmentRecord,
+} from "./assessment-records";
+import {
+  assessmentToolFieldDefinitions,
+  type AssessmentToolFieldKey,
+} from "./assessment-tool-schema";
 
 type Failure = { ok: false; message: string; status?: number };
 type Success<T> = { ok: true; value: T };
@@ -21,6 +32,69 @@ export type AssessmentAddendumCommand = AssessmentLifecycleCommand & {
 
 const scheduleStatuses = ["unscheduled", "scheduled", "rescheduled", "cancelled", "no_show"] as const;
 const scheduleMethods = ["in_person", "phone", "zoom", "record_review"] as const;
+
+export type AssessmentCompletionBlocker = {
+  code: string;
+  label: string;
+  fields?: AssessmentToolFieldKey[];
+};
+
+export function getPendingAssessmentFields(
+  provenance: PipelineAssessmentRecord["field_provenance"],
+) {
+  return assessmentToolFieldDefinitions
+    .filter((definition) => provenance[definition.key]?.at(-1)?.review_status === "pending")
+    .map((definition) => definition.key);
+}
+
+export function getAssessmentCompletionBlockers(
+  assessment: PipelineAssessmentRecord,
+): AssessmentCompletionBlocker[] {
+  const blockers: AssessmentCompletionBlocker[] = [];
+  if (!assessment.assessor_id || !assessment.assessor?.trim()) {
+    blockers.push({
+      code: "assessment_assessor_required",
+      label: "Assign an active staff member before completing this assessment.",
+      fields: ["assessor"],
+    });
+  }
+  const completeness = getAssessmentCompletionSummary(assessment);
+  if (completeness.missing.length > 0) {
+    blockers.push({
+      code: "assessment_data_incomplete",
+      label: "Complete the required identity and core clinical assessment sections before finishing.",
+      fields: [...new Set(completeness.missing.flatMap((rule) => rule.fields))],
+    });
+  }
+  const pending = getPendingAssessmentFields(assessment.field_provenance);
+  if (pending.length > 0) {
+    blockers.push({
+      code: "assessment_extraction_unreviewed",
+      label: "Confirm or correct the imported assessment values before finishing.",
+      fields: pending,
+    });
+  }
+  return blockers;
+}
+
+export function getReferralWorkflowStatusAfterAssessment(
+  assessment: PipelineAssessmentRecord,
+  action: AssessmentAuditAction,
+): ReferralWorkflowStatus {
+  if (assessment.signed_at) return "assessment_signed";
+  if (action === "assessment_cancelled" || action === "assessment_no_show") return "ready_to_schedule";
+  // Completed legacy records predate explicit start/sign events. Keep their
+  // clinical content ready for review without inventing either timestamp.
+  if (assessment.status === "complete") return "assessment_ready_to_sign";
+  if (!assessment.started_at) {
+    if (assessment.schedule_status === "scheduled" || assessment.schedule_status === "rescheduled") {
+      return "assessment_scheduled";
+    }
+    return "ready_to_schedule";
+  }
+  if (getAssessmentCompletionBlockers(assessment).length === 0) return "assessment_ready_to_sign";
+  return "assessment_in_progress";
+}
 
 export function validateAssessmentLifecycleCommand(value: unknown): Result<AssessmentLifecycleCommand> {
   if (!isRecord(value)) return failure("The request body must be an object.");
