@@ -40,7 +40,7 @@
       ],
       "staticPrompts": [
         {
-          "prompt": "Large module (2187 lines): split by behavior before adding more responsibilities.",
+          "prompt": "Large module (2136 lines): split by behavior before adding more responsibilities.",
           "disposition": "confirmed",
           "reason": "The module mixes adapter selection, two persistence adapters, lifecycle policy, query mapping, audit, provenance, idempotency, scheduling, and workflow synchronization. This iteration moves only pure lifecycle decision policy into the existing lifecycle owner.",
           "owner": "Eric",
@@ -247,6 +247,66 @@
       ],
       "decision": "keep",
       "decisionReason": "The dedicated runner is the smallest repeatable way to prove matched adapter behavior without changing production stores."
+    },
+    {
+      "path": "scripts/critical-safety-contracts.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "Executable safety contracts may import pure domain owners through the repository TypeScript loader; application runtime code must never depend on this script.",
+      "purpose": "Adds direct behavior assertions for signed assessment workflow projection, legacy completion compatibility, cancellation recovery, and pending extraction provenance.",
+      "callers": [
+        "scripts/seeded-defect-certification.mjs",
+        "package.json test:critical-safety"
+      ],
+      "publicExports": [],
+      "sideEffects": [
+        "Loads repository modules and emits aggregate pass/fail JSON"
+      ],
+      "failureBehavior": "Any failed invariant returns a nonzero exit status without mutating repository or application state.",
+      "tests": [
+        "npm run test:critical-safety",
+        "npm run certify:seeded-defects"
+      ],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The existing critical safety harness is the canonical detector used by the mutation runner, so four assessment assertions belong here rather than in a parallel test framework."
+    },
+    {
+      "path": "scripts/seeded-defect-certification.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "The isolated mutation runner may copy repository test inputs into a uniquely generated temporary directory and invoke the critical safety harness; application runtime code must never depend on it.",
+      "purpose": "Extends the reviewed mutant catalog with four assessment lifecycle defects corresponding to the policy moved by this slice.",
+      "callers": [
+        "package.json certify:seeded-defects",
+        "TARS candidate certification"
+      ],
+      "publicExports": [],
+      "sideEffects": [
+        "Creates and recursively removes one mkdtemp-qualified mutation sandbox",
+        "Writes only inside that isolated sandbox",
+        "Emits aggregate mutation results"
+      ],
+      "failureBehavior": "Invalid replacements, detector crashes, surviving mutants, or a kill rate below the configured threshold fail the command; the finally block removes the uniquely created sandbox.",
+      "tests": [
+        "npm run certify:seeded-defects"
+      ],
+      "staticPrompts": [
+        {
+          "prompt": "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
+          "disposition": "expected",
+          "reason": "The command and argument array are fixed repository values passed to spawnSync without a shell; execution has a 60-second timeout and every nonzero, unparsable, or failed result is propagated into certification.",
+          "owner": "Eric",
+          "followUp": "Keep subprocess invocation array-based, time-bounded, and fail-closed."
+        },
+        {
+          "prompt": "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence.",
+          "disposition": "expected",
+          "reason": "Recursive removal is restricted to the exact directory returned by mkdtemp for this run and always executes in finally; the working tree is never a deletion target.",
+          "owner": "Eric",
+          "followUp": "Keep the mkdtemp ownership boundary and never accept a caller-supplied deletion path."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "Assessment mutants belong in the established isolated certification command so the retained 100 percent kill-rate gate covers the newly moved lifecycle policy."
     },
     {
       "path": "tests/e2e/operational/assessment-store-characterization.spec.ts",

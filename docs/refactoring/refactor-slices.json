@@ -76,6 +76,8 @@
         "lib/assessment/assessment-access.ts",
         "package.json",
         "scripts/assessment-store-characterization.mjs",
+        "scripts/critical-safety-contracts.mjs",
+        "scripts/seeded-defect-certification.mjs",
         "tests/e2e/operational/assessment-store-characterization.spec.ts",
         "public/templates/pipeline-assessment-workbook.xlsx",
         "lib/academy/academy-atlas.generated.json",
