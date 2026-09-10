@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T05:16:29.120Z",
+  "generated_at": "2026-09-10T05:25:31.286Z",
   "audit_date": "2026-09-10",
-  "git_head": "f64d1c59974b15148f050d816268cca9b4f733ee",
+  "git_head": "5086b9d2d9a49109ebffe3a47f35d738e81c32ad",
   "direct": [
     {
       "name": "@azure/identity",
@@ -763,6 +763,7 @@
         "docs/refactoring/evidence-matrix.json",
         "docs/refactoring/refactor-eval-scenarios.json",
         "docs/refactoring/refactor-slices.json",
+        "docs/refactoring/supervisor-review-revision-assurance-record.json",
         "docs/refactoring/supervisor-review-revision-file-audit.json",
         "docs/refactoring/workflow-and-handoff-file-audit.json",
         "infra/azure/foundation-state.bicep",

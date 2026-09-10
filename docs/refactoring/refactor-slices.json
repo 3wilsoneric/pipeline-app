@@ -562,7 +562,7 @@
     {
       "id": "supervisor-review-revision",
       "priority": 10,
-      "status": "in_progress",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "lib/pipeline/workflow-store.ts",

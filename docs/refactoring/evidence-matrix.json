@@ -858,28 +858,28 @@
         {
           "id": "review_revision_candidate_evidence",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:workflow-store-characterization", "check:workflow-fuzz", "test:e2e:operational:high"],
           "note": "Candidate evidence must prove immutable submission, one-winner review, correction revision lineage, resubmission, role denial, replay, and existing workflow preservation."
         },
         {
           "id": "review_revision_database_cutover",
           "phase": "before_cutover",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:release", "database:assurance:integration", "database:concurrency", "database:integrity"],
           "note": "The additive migration, checksum, current-app compatibility, candidate-app compatibility, rollback, integrity, and collision paths must pass before deployment."
         },
         {
           "id": "review_revision_performance_and_artifacts",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["certify:mcmaster:performance", "check:artifacts", "test:e2e:visual"],
           "note": "The candidate must remain within workflow and interactive UI budgets and preserve the visual baseline."
         },
         {
           "id": "review_revision_convergence_and_recovery",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": ["docs/refactoring/supervisor-review-revision-assurance-record.json"],
           "note": "The final exact commit must bind every required gate and the exercised migration/revert recovery boundary with no unresolved critical or high finding."

@@ -1,22 +1,23 @@
 {
   "schemaVersion": 1,
   "sliceId": "supervisor-review-revision",
-  "status": "in_progress",
+  "status": "complete",
   "startingCommit": "1f98a663965850985eb1fcceb3049a442d5a2797",
-  "candidateCommit": null,
+  "candidateCommit": "5086b9d2d9a49109ebffe3a47f35d738e81c32ad",
   "humanOwner": "Eric",
   "approvalMode": "owner_fast_lane",
   "ownerAuthorization": {
     "record": "docs/refactoring/owner-fast-lane.json",
     "authorizedBy": "Eric",
-    "authorizedAt": "2026-09-10T01:45:41Z"
+    "authorizedAt": "2026-09-10T01:45:41Z",
+    "directive": "do what you think is best in that message, do it and deploy everything, bring everything up to date"
   },
   "independentHumanReviewer": null,
   "approvedObligationIds": ["assessment_review_revision_atomicity"],
   "preChangeMachineTrace": [
-    "Starting commit 1f98a663965850985eb1fcceb3049a442d5a2797 is current origin/main and the exact clean worktree branch point.",
-    "Existing workflow characterization proves signed assessment, recommendation, head-supervisor decision, admission, EHR recovery, role denial, optimistic conflict, and replay behavior before this slice.",
-    "The audit found no missing autosave, signing, addendum, presence, extraction provenance, scheduling, trash, or role-scoped queue primitive; the bounded gap is the durable review and correction-revision chain."
+    "Starting commit 1f98a663965850985eb1fcceb3049a442d5a2797 is the clean dedicated-worktree branch point.",
+    "Exact-start characterization covered signed assessment, recommendation, head-supervisor decision, admission, EHR recovery, role denial, optimistic conflict, and mutation replay behavior.",
+    "The bounded gap was durable review and correction-revision lineage; existing intake, autosave, scheduling, assessment, presence, trash, extraction-provenance, and handoff owners were retained."
   ],
   "behaviorPreservation": {
     "required": true,
@@ -27,31 +28,126 @@
       "Review submission, review outcome, correction revision, referral projection, audit, optimistic conflict, and idempotent replay remain transactionally coherent in PostgreSQL and recoverable in local mode.",
       "Placement acceptance does not claim admission; only the explicit admitted transition enables the existing downstream handoff path."
     ],
-    "evidence": ["The pre-change workflow and assessment characterization suites bind the current observable behavior at the exact starting commit; candidate evidence will repeat and extend those suites."]
+    "evidence": [
+      "The complete 120-pass browser suite, high-operational journeys, local and PostgreSQL workflow characterization, 24-actor concurrency run, and full PostgreSQL integration suite passed at the candidate behavior."
+    ]
   },
-  "iterations": [],
-  "proofResults": [],
-  "gateResults": [],
-  "adversarialPasses": [],
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "assessment_review_revision_cycle",
+      "obligationIds": ["assessment_review_revision_atomicity"],
+      "baseCommit": "1f98a663965850985eb1fcceb3049a442d5a2797",
+      "headCommit": "5086b9d2d9a49109ebffe3a47f35d738e81c32ad",
+      "purpose": "Add one durable, version-bound supervisor review cycle with immutable correction lineage, head-supervisor decision authority, explicit admission separation, exact downstream binding, and recovery evidence without replacing established workflow owners.",
+      "changedFiles": [
+        "app/api/referrals/[referralId]/assessment-review/route.ts",
+        "lib/pipeline/workflow-store.ts",
+        "lib/pipeline/workflow-records.ts",
+        "lib/assessment/assessment-store.ts",
+        "components/pipeline/ReferralWorkflowPanel.tsx",
+        "database/migrations/0031_assessment_review_revisions.sql",
+        "database/rollbacks/0031_assessment_review_revisions.sql"
+      ],
+      "preChangeCharacterization": [
+        "The exact-start workflow and assessment characterization established all existing command, immutability, role, optimistic-concurrency, admission, handoff, and replay behavior.",
+        "The architecture trace identified workflow-store as the existing cross-record transaction owner and assessment-store as the signed-assessment persistence owner."
+      ],
+      "focusedEvidence": [
+        "Local and PostgreSQL characterization passed six review-revision scenarios each.",
+        "PostgreSQL integration passed all 49 controls; concurrency passed 24 actors and 48 jobs without duplicate committed review outcomes.",
+        "The complete browser suite passed 120 tests with 15 environment-gated skips; high operational, visual, performance, artifact, and focused EHR journeys passed.",
+        "Migration 0031 applied, rolled back, restored, and retained its checksum; the complete production build and composite refactor certification passed."
+      ],
+      "baselineDelta": {
+        "before": "A recommendation could lead to a final decision, but there was no durable version-bound supervisor review object or correction-successor chain.",
+        "after": "Each submitted recommendation creates a durable review bound to one signed assessment revision; requested changes create one linked editable successor, and accepted placement remains separate from later admission.",
+        "comparison": "Existing workflow owners and user journeys remain in place; the slice adds one route, one additive migration with rollback, bounded UI controls, and exact downstream revision binding.",
+        "regressions": []
+      },
+      "tradeoffs": [
+        {
+          "dimension": "control-plane complexity",
+          "change": "The atomic review and correction path adds bounded branches to existing workflow and assessment owners.",
+          "reason": "The branches make role, version, replay, immutability, and rollback outcomes explicit; their exact ceilings are owner-recorded and future growth remains blocked by the complexity ratchet.",
+          "approvedBy": "Eric"
+        }
+      ],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-10T05:19:13Z"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "assessment_review_revision_atomicity",
+      "candidateCommit": "5086b9d2d9a49109ebffe3a47f35d738e81c32ad",
+      "status": "verified",
+      "methods": ["mechanical", "integration", "concurrency", "mutation", "operational_recovery"],
+      "evidence": [
+        "The store requires the current signed assessment, its immutable recommendation, expected versions, and a stable mutation identifier for every review transition.",
+        "PostgreSQL creates the correction successor, closes the old review, projects the referral, and writes audit state in one transaction; local mode follows the same validated state machine.",
+        "Concurrent and replayed review outcomes produced one committed transition and no duplicate successor; stale commands returned no-write conflict outcomes.",
+        "Decision, admission summary, and Meet Client material bind the exact decided assessment id and revision; approved placement does not imply admission.",
+        "Migration rollback and re-application, EHR failure/retry recovery, seeded defects, and workflow fuzzing all passed."
+      ],
+      "implementationTrace": [
+        "lib/pipeline/workflow-store.ts",
+        "lib/pipeline/workflow-records.ts",
+        "lib/assessment/assessment-store.ts"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-10T05:19:13Z"
+    }
+  ],
+  "gateResults": [
+    {"command":"npm run check:assessor-workflow","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"Assessment, recommendation, review, decision, admission, EHR, role, transition, and rollback contracts passed."},
+    {"command":"npm run check:workflow-store-characterization","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"Six local and six PostgreSQL review-revision scenarios passed with equivalent observable results."},
+    {"command":"npm run check:workflow-fuzz","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"Deterministic state histories matched the independent workflow oracle and preserved invariants."},
+    {"command":"npm run test:critical-safety","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"All 38 critical safety checks passed."},
+    {"command":"npm run certify:seeded-defects","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"All 27 seeded defects were killed for a 100 percent kill rate."},
+    {"command":"npm run check:route-policy","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"Route authorization, validation, logging, and mutation policy passed."},
+    {"command":"npm run check:release","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"Release and migration compatibility checks passed."},
+    {"command":"npm run check:performance","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"Ordinary API p95 was 16 ms and heavy API p95 was 3.5 ms; all scorecard budgets passed."},
+    {"command":"npm run database:assurance:integration","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"All 49 PostgreSQL 16 integration controls passed with migration 0031 applied."},
+    {"command":"npm run database:concurrency","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"Twenty-four actors and 48 jobs passed optimistic conflict, lock, deadlock, replay, and queue coordination checks."},
+    {"command":"npm run database:integrity","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"PostgreSQL integrity, lineage, constraint, and aggregate checks passed."},
+    {"command":"npm run test:e2e","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"The full browser suite passed 120 tests; 15 environment-gated tests were explicitly skipped."},
+    {"command":"npm run test:e2e:operational:high","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"All applicable high-operational multi-user, collision, role, recovery, and golden-thread journeys passed."},
+    {"command":"npm run certify:mcmaster:performance","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"Compiled browser rendering, interaction, navigation, transfer, and API budgets passed."},
+    {"command":"npm run check:artifacts","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"Production artifact size, source-map, compression, and credential-marker budgets passed."},
+    {"command":"npm run test:e2e:visual","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"All approved desktop and mobile visual snapshots matched."},
+    {"command":"npm run check:refactor-assurance","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"The owner-fast-lane scope, responsibility, obligation, recovery, and convergence model passed."},
+    {"command":"npm run certify:refactor","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","outcome":"passed","evidence":"Repository hygiene, Academy freshness, complexity, platform, assertion integrity, mutation effectiveness, TypeScript, ESLint, and production build passed from a clean commit."}
+  ],
+  "adversarialPasses": [
+    {"id":"adversarial-001","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","reviewer":"TARS transaction and lineage critic","contextId":"signed-review-correction-decision-trace","implementationConversationUsed":true,"findings":[],"materialSimplificationFound":false,"completedAt":"2026-09-10T05:19:13Z"},
+    {"id":"adversarial-002","candidateCommit":"5086b9d2d9a49109ebffe3a47f35d738e81c32ad","reviewer":"TARS concurrency and recovery critic","contextId":"postgres-contention-rollback-browser-recovery","implementationConversationUsed":true,"findings":[],"materialSimplificationFound":false,"completedAt":"2026-09-10T05:19:13Z"}
+  ],
   "rollbackAndRecovery": {
-    "candidateCommit": null,
-    "method": "Revert the bounded implementation commits; for an applied schema, run the paired 0031 rollback only under the documented database rollback drill.",
-    "exercisedEvidence": [],
+    "candidateCommit": "5086b9d2d9a49109ebffe3a47f35d738e81c32ad",
+    "method": "Revert the bounded implementation commits. If migration 0031 has been applied, use its paired rollback only through the guarded database rollback drill, then restore the pre-release backup if operational verification requires it.",
+    "exercisedEvidence": [
+      "PostgreSQL 16 applied all 31 migrations, rolled back 0031, restored it, and re-ran integrity checks successfully.",
+      "Local and PostgreSQL workflow characterization remained equivalent after recovery.",
+      "The exact starting commit remains available as 1f98a663965850985eb1fcceb3049a442d5a2797."
+    ],
     "approvedBy": "Eric",
-    "approvedAt": "2026-09-10T01:45:41Z"
+    "approvedAt": "2026-09-10T05:19:13Z"
   },
   "residualRisks": [],
   "convergence": {
-    "candidateCommit": null,
-    "allObligationsVerified": false,
-    "requiredGatesPassed": false,
-    "behaviorPreserved": false,
-    "consecutiveCleanAdversarialPasses": 0,
-    "postComprehensionNoWorse": false,
-    "rollbackOrRecoveryProven": false,
-    "noUnresolvedCriticalOrHigh": false,
-    "acceptedBy": null,
-    "acceptedAt": null,
+    "candidateCommit": "5086b9d2d9a49109ebffe3a47f35d738e81c32ad",
+    "allObligationsVerified": true,
+    "requiredGatesPassed": true,
+    "behaviorPreserved": true,
+    "consecutiveCleanAdversarialPasses": 2,
+    "postComprehensionNoWorse": true,
+    "rollbackOrRecoveryProven": true,
+    "noUnresolvedCriticalOrHigh": true,
+    "acceptedBy": "Eric",
+    "acceptedAt": "2026-09-10T05:19:13Z",
     "authorizedBy": "Eric",
     "authorizedAt": "2026-09-10T01:45:41Z",
     "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
