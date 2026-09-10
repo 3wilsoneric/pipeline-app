@@ -28,6 +28,7 @@ export type AssessmentAuditAction =
   | "assessment_no_show"
   | "assessment_started"
   | "assessment_signed"
+  | "assessment_revision_created"
   | "assessment_addendum_added";
 
 export type AssessmentScheduleStatus =
@@ -89,6 +90,9 @@ export type PipelineAssessmentRecord = AssessmentToolRecord & {
   signed_by?: AssessmentActor | null;
   signature_version?: number;
   addenda?: AssessmentAddendum[];
+  revision_root_id?: string;
+  revision_number?: number;
+  supersedes_assessment_id?: string | null;
 };
 
 export type AssessmentListResponse = {

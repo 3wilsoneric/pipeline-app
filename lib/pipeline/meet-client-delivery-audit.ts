@@ -10,7 +10,10 @@ type DeliveryAudit = {
   deliveryId: string;
   referralId: number;
   assessmentId: string;
+  assessmentVersion: number;
   decisionId: string;
+  reviewId?: string;
+  reviewVersion?: number;
   status: "reserved" | "sent" | "failed";
   actorId: string;
   actorName: string;
@@ -65,7 +68,10 @@ export async function completeMeetClientDelivery(
           mutation_id: input.mutationId,
           delivery_id: input.deliveryId,
           assessment_id: input.assessmentId,
+          assessment_version: input.assessmentVersion,
           decision_id: input.decisionId,
+          review_id: input.reviewId,
+          review_version: input.reviewVersion,
           recipient_count: input.recipientCount,
           recipient_domains: input.recipientDomains,
           attachment_count: input.attachmentCount,

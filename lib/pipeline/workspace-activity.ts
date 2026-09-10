@@ -59,6 +59,7 @@ const attentionWorkflowStatuses = new Set<ReferralWorkflowStatus>([
   "assessment_signed",
   "recommendation_submitted",
   "decision_pending",
+  "changes_requested",
 ]);
 
 export async function listWorkspaceActivity(
@@ -331,6 +332,7 @@ export function activityAttention(
   if (["assessment_signed", "recommendation_submitted", "decision_pending"].includes(workspace.workflow_status)) {
     return { level: "attention", label: "Supervisor decision needed" };
   }
+  if (workspace.workflow_status === "changes_requested") return { level: "attention", label: "Assessment changes requested" };
   if (workspace.workflow_status === "assessment_ready_to_sign") return { level: "attention", label: "Assessment ready to sign" };
   if (workspace.workflow_status === "waiting_for_information") return { level: "attention", label: "Waiting for information" };
   if (workspace.workflow_status === "intake_documents_needed") return { level: "review", label: "Needs initial documents" };

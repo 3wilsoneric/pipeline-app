@@ -36,6 +36,7 @@ const importedWorkspaceLifecycleRollback = await readFile("database/rollbacks/00
 const staffProfilesRollback = await readFile("database/rollbacks/0027_staff_profiles.sql", "utf8");
 const workspaceRosterRollback = await readFile("database/rollbacks/0028_workspace_roster.sql", "utf8");
 const historicalWorkspaceArchiveRollback = await readFile("database/rollbacks/0029_historical_workspace_archive.sql", "utf8");
+const assessmentReviewRevisionRollback = await readFile("database/rollbacks/0031_assessment_review_revisions.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -117,6 +118,9 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0027_staff_profiles') as staff_profile_history,
       exists(select 1 from pipeline.schema_migrations where migration_id='0028_workspace_roster') as workspace_roster_history,
       exists(select 1 from pipeline.schema_migrations where migration_id='0029_historical_workspace_archive') as historical_workspace_archive_history,
+      to_regclass('pipeline.assessment_reviews') is not null as assessment_reviews,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='revision_root_id') as assessment_revision_lineage,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0031_assessment_review_revisions') as assessment_review_revision_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -179,6 +183,9 @@ try {
       && before[0].staff_profile_history
       && before[0].workspace_roster_history
       && before[0].historical_workspace_archive_history
+      && before[0].assessment_reviews
+      && before[0].assessment_revision_lineage
+      && before[0].assessment_review_revision_history
       && before[0].canvas_content_snapshots
       && before[0].canvas_content_candidates
       && before[0].allo_canvas_content_history
@@ -192,6 +199,17 @@ try {
       && before[0].workspace_month_index
       && before[0].workspace_month_history
     ),
+  });
+  await connection.unsafe(assessmentReviewRevisionRollback);
+  const reviewRevisionDuring = await connection`
+    select to_regclass('pipeline.assessment_reviews') is null as reviews_removed,
+      not exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='revision_root_id') as lineage_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0031_assessment_review_revisions') as history_removed,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0030_annette_everhart_display_name') as prior_history_preserved
+  `;
+  checks.push({
+    name: "assessment review revision rollback is scoped and preserves prior migration history",
+    ok: Object.values(reviewRevisionDuring[0]).every(Boolean),
   });
   const historicalRollbackPerson = await connection`
     insert into pipeline.people (external_client_id, display_name)
@@ -731,6 +749,9 @@ try {
       exists(select 1 from pipeline.schema_migrations where migration_id='0027_staff_profiles') as staff_profile_history,
       exists(select 1 from pipeline.schema_migrations where migration_id='0028_workspace_roster') as workspace_roster_history,
       exists(select 1 from pipeline.schema_migrations where migration_id='0029_historical_workspace_archive') as historical_workspace_archive_history,
+      to_regclass('pipeline.assessment_reviews') is not null as assessment_reviews,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='revision_root_id') as assessment_revision_lineage,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0031_assessment_review_revisions') as assessment_review_revision_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -795,6 +816,9 @@ try {
       && after[0].staff_profile_history
       && after[0].workspace_roster_history
       && after[0].historical_workspace_archive_history
+      && after[0].assessment_reviews
+      && after[0].assessment_revision_lineage
+      && after[0].assessment_review_revision_history
       && after[0].canvas_content_snapshots
       && after[0].canvas_content_candidates
       && after[0].allo_canvas_content_history

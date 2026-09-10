@@ -37,9 +37,9 @@ try {
   const migrations = await sql`
     select migration_id
     from pipeline.schema_migrations
-    where migration_id in ('0001_pipeline_core', '0002_workflow_engine', '0003_operational_hardening', '0004_document_processing', '0005_collaboration', '0006_user_workspace_state', '0007_canonical_client_assessments', '0008_client_workspaces', '0009_assessment_collaboration', '0010_provisional_workspace_members', '0011_historical_material_workspaces', '0012_referral_trash', '0013_search_performance', '0014_workspace_county', '0015_assessor_workflow', '0016_zoom_assessment_method', '0017_referral_received_month', '0018_academy_progress', '0019_operator_training_progress', '0020_allo_canvas_content', '0021_note_practice_lab', '0022_note_lab_pattern_selections', '0023_note_lab_field_reviews', '0024_workspace_month_provenance', '0025_home_dashboard_layout', '0026_imported_workspace_lifecycle', '0027_staff_profiles', '0028_workspace_roster', '0029_historical_workspace_archive')
+    where migration_id in ('0001_pipeline_core', '0002_workflow_engine', '0003_operational_hardening', '0004_document_processing', '0005_collaboration', '0006_user_workspace_state', '0007_canonical_client_assessments', '0008_client_workspaces', '0009_assessment_collaboration', '0010_provisional_workspace_members', '0011_historical_material_workspaces', '0012_referral_trash', '0013_search_performance', '0014_workspace_county', '0015_assessor_workflow', '0016_zoom_assessment_method', '0017_referral_received_month', '0018_academy_progress', '0019_operator_training_progress', '0020_allo_canvas_content', '0021_note_practice_lab', '0022_note_lab_pattern_selections', '0023_note_lab_field_reviews', '0024_workspace_month_provenance', '0025_home_dashboard_layout', '0026_imported_workspace_lifecycle', '0027_staff_profiles', '0028_workspace_roster', '0029_historical_workspace_archive', '0030_annette_everhart_display_name', '0031_assessment_review_revisions')
   `;
-  checks.push({ name: "required migrations are applied", ok: migrations.length === 29 });
+  checks.push({ name: "required migrations are applied", ok: migrations.length === 31 });
 
   try {
     await sql.begin(async (tx) => {
@@ -73,11 +73,11 @@ try {
       `;
       await tx`
         insert into pipeline.assessments (
-          assessment_id, referral_id, canonical_client_id, status, data,
+          assessment_id, referral_id, canonical_client_id, status, data, revision_root_id,
           created_by, created_by_name, updated_by, updated_by_name
         ) values (
           ${assessmentId}, ${referrals[0].referral_id}, ${`smoke-client-${suffix}`}, 'needs_review',
-          ${tx.json({ resident_number: `SMOKE-${suffix}` })},
+          ${tx.json({ resident_number: `SMOKE-${suffix}` })}, ${assessmentId},
           'smoke', 'Pipeline smoke', 'smoke', 'Pipeline smoke'
         )
       `;
@@ -192,11 +192,13 @@ try {
     note: "The smoke check uses synthetic values, rolls back, and never prints connection or row data.",
   }, null, 2));
   if (failed.length > 0) process.exitCode = 1;
-} catch {
+} catch (error) {
   console.error(JSON.stringify({
     ok: false,
     checks,
     configuration_present: { PIPELINE_DATABASE_URL: true },
+    error_code: error && typeof error === "object" && "code" in error ? String(error.code) : "unexpected",
+    error_field: error && typeof error === "object" && "column_name" in error ? String(error.column_name) : null,
     error: "The live PostgreSQL smoke check failed. Review database connectivity, migration state, and runtime grants.",
   }, null, 2));
   process.exitCode = 1;

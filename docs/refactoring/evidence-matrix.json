@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-08",
+  "updatedAt": "2026-09-10",
   "statusDefinitions": {
     "satisfied": "Existing evidence is executable or reviewable and may be cited now.",
     "partial": "Useful evidence exists, but the slice-specific contract is incomplete.",
@@ -825,6 +825,64 @@
           "approvedAt": "2026-09-09T23:36:19Z",
           "files": ["docs/refactoring/REFERRAL_WORKFLOW_PANEL_COMPONENTS_ARCHITECTURE_NARRATIVE.md"],
           "note": "The slice changes client-side module ownership only; it introduces no schema, migration, stored-data transformation, route, provider, or environment cutover."
+        }
+      ]
+    },
+    {
+      "id": "supervisor-review-revision",
+      "budgetProfile": "workflow_control_plane",
+      "items": [
+        {
+          "id": "review_revision_exact_start_characterization",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["check:workflow-store-characterization", "check:assessor-workflow", "test:critical-safety"],
+          "files": ["docs/refactoring/SUPERVISOR_REVIEW_REVISION_ARCHITECTURE_NARRATIVE.md"],
+          "note": "The exact-start application already characterizes signed assessment immutability, assigned-assessor recommendation, head-supervisor decision, stage gating, conflicts, replay, audit, and both storage adapters. The bounded new scenarios extend that fixed baseline with durable review and correction lineage."
+        },
+        {
+          "id": "owner_validated_review_revision_model",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/SUPERVISOR_REVIEW_REVISION_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/supervisor-review-revision-file-audit.json",
+            "docs/refactoring/supervisor-review-revision-assurance-record.json"
+          ],
+          "note": "Eric authorized the bounded review/revision slice through owner_fast_lane. The model preserves role and ownership policy, adds one durable submission ledger, and keeps assessment and workflow canonical owners explicit."
+        },
+        {
+          "id": "review_revision_candidate_evidence",
+          "phase": "before_complete",
+          "status": "satisfied",
+          "gates": ["check:workflow-store-characterization", "check:workflow-fuzz", "test:e2e:operational:high"],
+          "note": "Candidate evidence must prove immutable submission, one-winner review, correction revision lineage, resubmission, role denial, replay, and existing workflow preservation."
+        },
+        {
+          "id": "review_revision_database_cutover",
+          "phase": "before_cutover",
+          "status": "satisfied",
+          "gates": ["check:release", "database:assurance:integration", "database:concurrency", "database:integrity"],
+          "note": "The additive migration, checksum, current-app compatibility, candidate-app compatibility, rollback, integrity, and collision paths must pass before deployment."
+        },
+        {
+          "id": "review_revision_performance_and_artifacts",
+          "phase": "before_complete",
+          "status": "satisfied",
+          "gates": ["certify:mcmaster:performance", "check:artifacts", "test:e2e:visual"],
+          "note": "The candidate must remain within workflow and interactive UI budgets and preserve the visual baseline."
+        },
+        {
+          "id": "review_revision_convergence_and_recovery",
+          "phase": "before_complete",
+          "status": "satisfied",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/supervisor-review-revision-assurance-record.json"],
+          "note": "The final exact commit must bind every required gate and the exercised migration/revert recovery boundary with no unresolved critical or high finding."
         }
       ]
     }

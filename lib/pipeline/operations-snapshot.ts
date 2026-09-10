@@ -615,7 +615,7 @@ function toWorkItem(
   );
   const normalizedOwner = normalizeOwnerName(referral.owner);
   const storedWorkflowStatus = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
-  const workflowStatus = !["accepted", "declined", "closed"].includes(storedWorkflowStatus)
+  const workflowStatus = !["approved_for_placement", "accepted", "admitted", "declined", "closed"].includes(storedWorkflowStatus)
     && (normalizedOwner === "Unassigned" || !referral.ownerId?.trim())
       ? "intake_unassigned"
       : storedWorkflowStatus;

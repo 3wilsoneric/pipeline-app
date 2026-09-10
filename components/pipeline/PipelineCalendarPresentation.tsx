@@ -69,7 +69,10 @@ const workflowLabels: Record<PipelineUnscheduledAssessment["workflowStatus"], st
   assessment_signed: "Assessment signed",
   recommendation_submitted: "Recommendation submitted",
   decision_pending: "Decision pending",
+  changes_requested: "Changes requested",
+  approved_for_placement: "Approved for placement",
   accepted: "Accepted",
+  admitted: "Admitted",
   declined: "Declined",
   closed: "Closed",
 };

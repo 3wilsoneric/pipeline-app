@@ -63,6 +63,8 @@ export async function POST(
       referralId,
       assessment,
       decisionId: contextResult.decisionId,
+      reviewId: contextResult.reviewId,
+      reviewVersion: contextResult.reviewVersion,
       actor: accountableActor,
       recipients: prepared.recipients,
       attachmentCount: attachmentContext.attachments.length,
@@ -151,19 +153,36 @@ async function loadMeetClientContext(referralId: number) {
   if (snapshot.decision?.outcome !== "accepted") {
     return { ok: false as const, response: jsonError("Record an accepted admission decision before emailing Meet the Client.", 422) };
   }
-  const assessment = selectSignedAssessment(assessmentList.assessments, snapshot.recommendation?.assessmentId);
+  const assessment = selectSignedAssessment(
+    assessmentList.assessments,
+    snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId,
+    snapshot.decision?.assessmentVersion,
+  );
   if (!assessment) {
-    return { ok: false as const, response: jsonError("A signed assessment is required before emailing Meet the Client.", 422) };
+    return { ok: false as const, response: jsonError("The exact signed assessment approved by the supervisor is required before emailing Meet the Client.", 422) };
   }
-  return { ok: true as const, assessment, snapshot, decisionId: snapshot.decision.decisionId };
+  return {
+    ok: true as const,
+    assessment,
+    snapshot,
+    decisionId: snapshot.decision.decisionId,
+    reviewId: snapshot.decision.reviewId,
+    reviewVersion: snapshot.decision.reviewVersion,
+  };
 }
 
 function selectSignedAssessment(
   assessments: Awaited<ReturnType<typeof listAssessments>>["assessments"],
   recommendedAssessmentId?: string,
+  expectedVersion?: number,
 ) {
   const recommended = assessments.find((item) => item.assessment_id === recommendedAssessmentId);
-  return recommended?.signed_at ? recommended : assessments.find((item) => item.signed_at);
+  if (recommendedAssessmentId) {
+    return recommended?.signed_at && (expectedVersion === undefined || recommended.version === expectedVersion)
+      ? recommended
+      : undefined;
+  }
+  return assessments.find((item) => item.signed_at);
 }
 
 async function loadAdmissionPacket(referral: Referral) {
@@ -188,6 +207,8 @@ function buildDeliveryAudit({
   referralId,
   assessment,
   decisionId,
+  reviewId,
+  reviewVersion,
   actor,
   recipients,
   attachmentCount,
@@ -197,6 +218,8 @@ function buildDeliveryAudit({
   referralId: number;
   assessment: PipelineAssessmentRecord;
   decisionId: string;
+  reviewId?: string;
+  reviewVersion?: number;
   actor: { id: string; name: string };
   attachmentCount: number;
   attachmentBytes: number;
@@ -207,7 +230,10 @@ function buildDeliveryAudit({
     deliveryId,
     referralId,
     assessmentId: assessment.assessment_id,
+    assessmentVersion: assessment.version,
     decisionId,
+    reviewId,
+    reviewVersion,
     status: "reserved" as const,
     actorId: actor.id,
     actorName: actor.name,

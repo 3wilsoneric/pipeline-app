@@ -3,6 +3,7 @@ import type {
   AdmissionDecision,
   AdmissionRequirement,
   AssessmentRecommendation,
+  AssessmentReview,
   EhrHandoffStatus,
   Referral,
   RequirementGate,
@@ -19,6 +20,8 @@ export type WorkflowResponse = {
   work_items: AdmissionRequirement[];
   decision: AdmissionDecision | null;
   recommendation: AssessmentRecommendation | null;
+  review: AssessmentReview | null;
+  reviews: AssessmentReview[];
   transitions: Array<{
     target: ReferralStage;
     blockers: Array<{ code: string; label: string }>;
@@ -27,6 +30,7 @@ export type WorkflowResponse = {
     can_update: boolean;
     can_recommend: boolean;
     can_decide: boolean;
+    can_request_changes: boolean;
     can_authorize_manual_intake: boolean;
     can_reconcile_identity: boolean;
     can_review_identity: boolean;
@@ -35,7 +39,8 @@ export type WorkflowResponse = {
 
 export type PendingWorkflowDetail =
   | { kind: "requirement"; item: AdmissionRequirement; status: RequirementStatus }
-  | { kind: "ehr_failure" };
+  | { kind: "ehr_failure" }
+  | { kind: "review_changes"; review: AssessmentReview };
 
 export type DecisionOutcomeDraft = AdmissionDecision["outcome"] | "";
 
@@ -188,7 +193,7 @@ export function terminalStageMessage(referral: Referral) {
 }
 
 function shouldOpenDecisionDisclosure(workflow: WorkflowResponse) {
-  return Boolean(workflow.recommendation || workflow.decision || (workflow.capabilities.can_decide && workflow.context.assessmentSigned));
+  return Boolean(workflow.review || workflow.recommendation || workflow.decision || (workflow.capabilities.can_decide && workflow.context.assessmentSigned));
 }
 
 function disclosureState(open: boolean) {
@@ -203,8 +208,12 @@ export function decisionHandoffNextAction(
   handoffStatus: EhrHandoffStatus,
 ) {
   if (!workflow.context.assessmentSigned) return "Complete and sign the assessment before the decision can be recorded.";
-  if (!workflow.recommendation && !workflow.decision) return "Record the clinical recommendation, or document a supervisor override with the decision.";
+  if (workflow.review?.status === "changes_requested") {
+    return `Review ${workflow.review.submissionNumber} was returned for corrections. Update and sign the new assessment revision, then resubmit it.`;
+  }
+  if (!workflow.recommendation && !workflow.decision) return "Submit the signed assessment and clinical recommendation for supervisor review.";
   if (!workflow.decision && incompleteDecision.length > 0) return requirementNextAction(incompleteDecision, "before the supervisor can accept the referral");
+  if (!workflow.decision && workflow.review?.status === "submitted") return "The signed assessment revision is frozen and awaiting the head supervisor's review.";
   if (!workflow.decision) return "The signed assessment and clinical recommendation are ready for supervisor review.";
   if (workflow.decision.outcome === "declined") return "The referral is closed by the supervisor's decline decision; no EHR handoff is required.";
   return acceptedHandoffNextAction(workflow, incompleteDecision, incompleteMoveIn, incompleteEhr, handoffStatus);
@@ -228,7 +237,7 @@ function acceptedHandoffNextAction(
 }
 
 export function decisionConfirmationMessage(outcome: AdmissionDecision["outcome"], updating: boolean) {
-  const action = updating ? "Update" : "Record";
+  const action = updating ? "Replace" : "Record";
   const effect = outcome === "declined"
     ? "This closes the referral and writes the decision to its activity history."
     : "This advances the referral into post-assessment admission work and writes the decision to its activity history.";
@@ -239,14 +248,25 @@ export function decisionSubmissionIsBlocked(
   workflow: WorkflowResponse,
   outcome: DecisionOutcomeDraft,
   note: string,
-  overrideReason: string,
   incompleteDecision: AdmissionRequirement[],
 ) {
   return !outcome
     || !workflow.context.assessmentSigned
+    || Boolean(workflow.decision)
+    || workflow.review?.status !== "submitted"
     || (outcome === "accepted" && incompleteDecision.length > 0)
     || (outcome === "declined" && !note.trim())
-    || (!workflow.recommendation && !overrideReason.trim());
+    || !workflow.recommendation;
+}
+
+export function reviewStatusLabel(review: AssessmentReview | null) {
+  if (!review) return "Not submitted";
+  return {
+    submitted: "Awaiting supervisor review",
+    changes_requested: "Changes requested",
+    approved_for_placement: "Approved for placement",
+    not_accepted: "Not accepted",
+  }[review.status];
 }
 
 export function formatOutcome(value: string) {

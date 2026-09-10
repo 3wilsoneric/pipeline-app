@@ -2296,7 +2296,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(workflowPanel.getByRole("heading", { name: "From referral to handoff" })).toBeVisible();
     await workflowPanel.getByLabel("Reason code (optional)").first().fill("clinical_fit");
     await workflowPanel.getByLabel("Clinical rationale").fill("Synthetic acceptance recommendation for the EHR handoff journey.");
-    await workflowPanel.getByRole("button", { name: "Submit recommendation" }).click();
+    await workflowPanel.getByRole("button", { name: "Submit for supervisor review", exact: true }).click();
     await expect(workflowPanel.getByText("Recommendation submitted", { exact: true })).toBeVisible();
     const handoffReadiness = workflowPanel.getByRole("region", { name: "Decision and handoff readiness" });
     await expect(handoffReadiness.getByText("Signed", { exact: true })).toBeVisible();
@@ -2306,9 +2306,9 @@ test.describe("Referral home and packet canvas", () => {
     await expect(decisionReadiness.getByText("1 decision requirement remaining", { exact: true })).toBeVisible();
     const decisionSelect = workflowPanel.getByRole("combobox", { name: "Decision", exact: true });
     await expect(decisionSelect).toHaveValue("");
-    await expect(workflowPanel.getByRole("button", { name: "Record decision" })).toBeDisabled();
+    await expect(workflowPanel.getByRole("button", { name: "Record final decision", exact: true })).toBeDisabled();
     await decisionSelect.selectOption("accepted");
-    await expect(workflowPanel.getByRole("button", { name: "Record decision" })).toBeDisabled();
+    await expect(workflowPanel.getByRole("button", { name: "Record final decision", exact: true })).toBeDisabled();
     await workflowPanel.getByLabel("Signed medication list status").selectOption("received");
     await expect(workflowPanel.getByText("Signed medication list updated", { exact: true })).toBeVisible();
     await expect(decisionReadiness.getByText("Decision requirements resolved", { exact: true })).toBeVisible();
@@ -2316,7 +2316,7 @@ test.describe("Referral home and packet canvas", () => {
       expect(dialog.message()).toContain("Record the accepted admission decision?");
       await dialog.accept();
     });
-    await workflowPanel.getByRole("button", { name: "Record decision" }).click();
+    await workflowPanel.getByRole("button", { name: "Record final decision", exact: true }).click();
     await expect(workflowPanel.getByText("Supervisor decision recorded", { exact: true })).toBeVisible();
 
     for (const label of [

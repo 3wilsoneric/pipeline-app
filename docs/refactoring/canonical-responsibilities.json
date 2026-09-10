@@ -371,6 +371,39 @@
       ],
       "verificationGates": ["check:assessor-workflow", "check:workflow-fuzz", "test:e2e", "test:e2e:operational:high"],
       "humanValidated": false
+    },
+    {
+      "id": "assessment_review_revision_cycle",
+      "title": "Signed assessment submission, supervisor review, correction lineage, and placement decision",
+      "sliceIds": ["supervisor-review-revision"],
+      "ownershipKind": "cross_aggregate_transaction_boundary",
+      "canonicalOwnerPaths": [
+        "lib/pipeline/workflow-store.ts",
+        "lib/pipeline/workflow-records.ts",
+        "lib/assessment/assessment-store.ts"
+      ],
+      "allowedRepresentations": [
+        "signed assessment revision",
+        "immutable recommendation",
+        "durable assessment review",
+        "correction successor",
+        "placement decision binding",
+        "legacy stage projection"
+      ],
+      "invariants": [
+        "A submitted review pins one signed assessment revision and one immutable recommendation.",
+        "Changes requested preserves the signed source and creates exactly one linked editable successor.",
+        "Only the head supervisor/admin records a terminal placement decision.",
+        "Placement acceptance and confirmed admission remain distinct facts."
+      ],
+      "forbiddenParallelOwners": [
+        "UI-created review state",
+        "Routes directly writing review, assessment, or decision rows",
+        "A correction overwriting signed content",
+        "A stage projection claiming admission at placement approval"
+      ],
+      "verificationGates": ["check:workflow-store-characterization", "database:concurrency", "test:e2e:operational:high"],
+      "humanValidated": false
     }
   ]
 }

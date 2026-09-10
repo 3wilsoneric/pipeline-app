@@ -4,6 +4,7 @@ import { isUnassignedOwner } from "@/lib/pipeline/referral-ownership";
 import type {
   AdmissionDecision,
   AssessmentRecommendation,
+  AssessmentReview,
   Referral,
   ReferralWorkflowStatus,
 } from "@/lib/pipeline/referral-types";
@@ -17,6 +18,7 @@ const referralManagedWorkflowStatuses = new Set<ReferralWorkflowStatus>([
 
 const terminalWorkflowStatuses = new Set<ReferralWorkflowStatus>([
   "accepted",
+  "admitted",
   "declined",
   "closed",
 ]);
@@ -24,6 +26,7 @@ const terminalWorkflowStatuses = new Set<ReferralWorkflowStatus>([
 export type WorkflowEvidence = {
   assessment?: PipelineAssessmentRecord | null;
   recommendation?: AssessmentRecommendation | null;
+  review?: AssessmentReview | null;
   decision?: AdmissionDecision | null;
 };
 
@@ -38,8 +41,11 @@ export const workflowStatusLabels: Record<ReferralWorkflowStatus, string> = {
   assessment_ready_to_sign: "Ready to sign",
   assessment_signed: "Assessment signed",
   recommendation_submitted: "Recommendation submitted",
+  changes_requested: "Changes requested",
   decision_pending: "Supervisor decision needed",
+  approved_for_placement: "Approved for placement",
   accepted: "Accepted",
+  admitted: "Admitted",
   declined: "Declined",
   closed: "Closed",
 };
@@ -49,8 +55,12 @@ export function resolveReferralWorkflowStatus(
   evidence: WorkflowEvidence = {},
 ): ReferralWorkflowStatus {
   const decision = evidence.decision ?? referral.admissionDecision;
-  if (decision?.outcome === "accepted" || referral.stage === "Accepted / Admitted") return "accepted";
+  if (referral.stage === "Accepted / Admitted") return "admitted";
+  if (decision?.outcome === "accepted") return "approved_for_placement";
   if (decision?.outcome === "declined" || referral.stage === "Declined") return "declined";
+  const review = evidence.review ?? referral.assessmentReview;
+  if (review?.status === "changes_requested") return "changes_requested";
+  if (review?.status === "submitted") return "recommendation_submitted";
   if (isUnassignedOwner(referral.owner) || !referral.ownerId?.trim()) return "intake_unassigned";
 
   const assessment = evidence.assessment;

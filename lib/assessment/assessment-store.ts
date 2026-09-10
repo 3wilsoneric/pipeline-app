@@ -275,6 +275,16 @@ export async function createAssessment(input: AssessmentCreateInput, actor: Asse
   return getAssessmentStore().create(input, actor, mutationId);
 }
 
+export async function createAssessmentRevision(
+  assessmentId: string,
+  actor: AssessmentActor,
+  mutationId?: string,
+): Promise<AssessmentMutation | null> {
+  return getAssessmentStoreReadiness().mode === "postgres"
+    ? createPostgresAssessmentRevision(assessmentId, actor, mutationId)
+    : createLocalAssessmentRevision(assessmentId, actor, mutationId);
+}
+
 export async function patchAssessment(
   assessmentId: string,
   patch: AssessmentPatchInput,
@@ -421,7 +431,16 @@ async function getLocalAssessmentCompletionReport(
     duration_total: number;
     duration_count: number;
   }>();
+  const latestSignedByRevision = new Map<string, PipelineAssessmentRecord>();
   for (const assessment of state.assessments) {
+    if (!assessment.signed_at) continue;
+    const root = assessment.revision_root_id ?? assessment.assessment_id;
+    const current = latestSignedByRevision.get(root);
+    if (!current || (assessment.revision_number ?? 1) > (current.revision_number ?? 1)) {
+      latestSignedByRevision.set(root, assessment);
+    }
+  }
+  for (const assessment of latestSignedByRevision.values()) {
     const signedAt = assessment.signed_at;
     if (!signedAt || signedAt < range.start || signedAt >= range.end) continue;
     const assessorName = assessment.signed_by?.name.trim() || assessment.assessor?.trim() || "Unassigned";
@@ -480,6 +499,9 @@ async function createLocalAssessment(
     const assessment: PipelineAssessmentRecord = {
       ...data,
       assessment_id: assessmentId,
+      revision_root_id: assessmentId,
+      revision_number: 1,
+      supersedes_assessment_id: null,
       referral_id: input.referral_id,
       assessor_id: input.assigned_assessor?.id ?? null,
       canonical_client_id: input.canonical_client_id?.trim() || null,
@@ -512,6 +534,66 @@ async function createLocalAssessment(
     if (mutationId) state.createMutations.set(mutationId, assessmentId);
     await persist();
     await syncLocalReferralWorkflow(assessment, actor, "assessment_created");
+    return { ok: true, assessment, revision: state.revision };
+  });
+}
+
+async function createLocalAssessmentRevision(
+  assessmentId: string,
+  actor: AssessmentActor,
+  mutationId?: string,
+): Promise<AssessmentMutation | null> {
+  await ensureLoaded();
+  return withMutation(async () => {
+    const existingId = mutationId ? state.createMutations.get(`revision:${mutationId}`) : undefined;
+    const existing = existingId
+      ? state.assessments.find((assessment) => assessment.assessment_id === existingId)
+      : undefined;
+    if (existing) return { ok: true, assessment: existing, revision: state.revision };
+    const source = state.assessments.find((assessment) => assessment.assessment_id === assessmentId);
+    if (!source) return null;
+    if (!source.signed_at) {
+      return {
+        ok: false,
+        blocked: true,
+        assessment: source,
+        blockers: [{ code: "assessment_signature_required", label: "Only a signed assessment can be returned for correction." }],
+      };
+    }
+    const root = source.revision_root_id ?? source.assessment_id;
+    const nextRevisionNumber = Math.max(
+      ...state.assessments
+        .filter((assessment) => (assessment.revision_root_id ?? assessment.assessment_id) === root)
+        .map((assessment) => assessment.revision_number ?? 1),
+    ) + 1;
+    const now = new Date().toISOString();
+    const nextId = `asm_${randomUUID()}`;
+    const assessment = normalizeAssessmentRecord({
+      ...source,
+      ...pickAssessmentToolData(source),
+      assessment_id: nextId,
+      revision_root_id: root,
+      revision_number: nextRevisionNumber,
+      supersedes_assessment_id: source.assessment_id,
+      status: "draft",
+      completed_at: null,
+      signed_at: null,
+      signed_by: null,
+      signature_version: 1,
+      addenda: [],
+      version: 1,
+      created_at: now,
+      updated_at: now,
+      created_by: actor,
+      updated_by: actor,
+      field_provenance: cloneProvenance(source.field_provenance),
+      unmapped_fields: [...source.unmapped_fields],
+      audit_events: [createAuditEvent(nextId, source.referral_id, "assessment_revision_created", actor, [])],
+    });
+    state.assessments = [assessment, ...state.assessments];
+    state.revision += 1;
+    if (mutationId) state.createMutations.set(`revision:${mutationId}`, nextId);
+    await persist();
     return { ok: true, assessment, revision: state.revision };
   });
 }
@@ -692,6 +774,9 @@ async function addLocalAssessmentAddendum(
 
 type AssessmentRow = {
   assessment_id: string;
+  revision_root_id: string;
+  revision_number: number | string;
+  supersedes_assessment_id: string | null;
   referral_id: number | string;
   canonical_client_id: string | null;
   resident_key: string | null;
@@ -836,11 +921,18 @@ async function getPostgresAssessmentCompletionReport(
 ): Promise<AssessmentCompletionReport> {
   const sql = getPipelineSql();
   const rows = await sql<AssessmentCompletionCountRow[]>`
+    with latest_signed as (
+      select distinct on (revision_root_id)
+        signed_by, signed_by_name, assessor_name, signed_at, started_at
+      from pipeline.assessments
+      where signed_at is not null
+      order by revision_root_id, revision_number desc, signed_at desc, assessment_id desc
+    )
     select signed_by as assessor_id,
       coalesce(nullif(btrim(signed_by_name), ''), nullif(btrim(assessor_name), ''), 'Unassigned') as assessor_name,
       count(*)::integer as completed_assessments,
       round(avg(extract(epoch from (signed_at - started_at)) / 60.0))::integer as average_duration_minutes
-    from pipeline.assessments
+    from latest_signed
     where signed_at >= ${range.start}::timestamptz
       and signed_at < ${range.end}::timestamptz
     group by signed_by, coalesce(nullif(btrim(signed_by_name), ''), nullif(btrim(assessor_name), ''), 'Unassigned')
@@ -913,6 +1005,9 @@ async function createPostgresAssessment(
   const assessment: PipelineAssessmentRecord = {
     ...data,
     assessment_id: assessmentId,
+    revision_root_id: assessmentId,
+    revision_number: 1,
+    supersedes_assessment_id: null,
     referral_id: input.referral_id,
     assessor_id: input.assigned_assessor?.id ?? null,
     canonical_client_id: input.canonical_client_id?.trim() || null,
@@ -957,6 +1052,76 @@ async function createPostgresAssessment(
     if (!saved) throw new Error("The assessment could not be read after creation.");
     return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx) };
   });
+}
+
+async function createPostgresAssessmentRevision(
+  assessmentId: string,
+  actor: AssessmentActor,
+  mutationId?: string,
+): Promise<AssessmentMutation | null> {
+  const sql = getPipelineSql();
+  return sql.begin((tx) => createAssessmentRevisionInTransaction(tx, assessmentId, actor, mutationId));
+}
+
+export async function createAssessmentRevisionInTransaction(
+  tx: TransactionSql,
+  assessmentId: string,
+  actor: AssessmentActor,
+  mutationId?: string,
+): Promise<AssessmentMutation | null> {
+  if (mutationId) {
+    await lockIdempotencyMutation(tx, "assessment_revision", mutationId);
+    const existing = await findIdempotentAssessment(tx, "assessment_revision", mutationId);
+    if (existing) return { ok: true, assessment: existing, revision: await getAssessmentRevisionInTransaction(tx) };
+  }
+  const source = await getAssessmentInTransaction(tx, assessmentId, true);
+  if (!source) return null;
+  if (!source.signed_at) {
+    return {
+      ok: false,
+      blocked: true,
+      assessment: source,
+      blockers: [{ code: "assessment_signature_required", label: "Only a signed assessment can be returned for correction." }],
+    };
+  }
+  const root = source.revision_root_id ?? source.assessment_id;
+  const revisionRows = await tx<{ revision_number: number | string }[]>`
+    select coalesce(max(revision_number), 0) + 1 as revision_number
+    from pipeline.assessments
+    where revision_root_id = ${root}
+  `;
+  const nextId = `asm_${randomUUID()}`;
+  const now = new Date().toISOString();
+  const assessment = normalizeAssessmentRecord({
+    ...source,
+    ...pickAssessmentToolData(source),
+    assessment_id: nextId,
+    revision_root_id: root,
+    revision_number: Number(revisionRows[0]?.revision_number ?? 2),
+    supersedes_assessment_id: source.assessment_id,
+    status: "draft",
+    completed_at: null,
+    signed_at: null,
+    signed_by: null,
+    signature_version: 1,
+    addenda: [],
+    version: 1,
+    created_at: now,
+    updated_at: now,
+    created_by: actor,
+    updated_by: actor,
+    field_provenance: cloneProvenance(source.field_provenance),
+    unmapped_fields: [...source.unmapped_fields],
+    audit_events: [],
+  });
+  await insertAssessmentRow(tx, assessment);
+  await insertAssessmentProvenance(tx, nextId, assessment.field_provenance);
+  await insertAssessmentUnmapped(tx, nextId, assessment.unmapped_fields);
+  await writeAssessmentAudit(tx, assessment, "assessment_revision_created", actor, []);
+  if (mutationId) await saveAssessmentIdempotency(tx, "assessment_revision", mutationId, nextId);
+  const saved = await getAssessmentInTransaction(tx, nextId);
+  if (!saved) throw new Error("The assessment revision could not be read after creation.");
+  return { ok: true, assessment: saved, revision: await bumpAssessmentRevision(tx) };
 }
 
 async function patchPostgresAssessment(
@@ -1224,6 +1389,9 @@ function prepareAssessmentImport(
     ...(current ?? {} as PipelineAssessmentRecord),
     ...merged.data,
     assessment_id: assessmentId,
+    revision_root_id: current?.revision_root_id ?? assessmentId,
+    revision_number: current?.revision_number ?? 1,
+    supersedes_assessment_id: current?.supersedes_assessment_id ?? null,
     referral_id: input.referralId,
     assessor_id: current?.assessor_id ?? input.assignedAssessor?.id ?? null,
     canonical_client_id: preserveCanonicalClientId(
@@ -1599,6 +1767,9 @@ function hydrateAssessmentRows(rows: AssessmentRow[], relations: AssessmentRelat
     return normalizeAssessmentRecord({
       ...data,
       assessment_id: row.assessment_id,
+      revision_root_id: row.revision_root_id,
+      revision_number: Number(row.revision_number),
+      supersedes_assessment_id: row.supersedes_assessment_id,
       referral_id: Number(row.referral_id),
       assessor_id: row.assessor_id,
       canonical_client_id: row.canonical_client_id,
@@ -1668,13 +1839,16 @@ function groupRows<T>(rows: T[], keyFor: (row: T) => string) {
 async function insertAssessmentRow(tx: TransactionSql, assessment: PipelineAssessmentRecord) {
   await tx`
     insert into pipeline.assessments (
-      assessment_id, referral_id, canonical_client_id, resident_key, resident_number, assessment_date,
+      assessment_id, revision_root_id, revision_number, supersedes_assessment_id,
+      referral_id, canonical_client_id, resident_key, resident_number, assessment_date,
       assessor_id, assessor_name, status, data, version, completed_at,
       scheduled_start_at, scheduled_duration_minutes, scheduled_method, scheduled_location,
       schedule_status, started_at, signed_at, signed_by, signed_by_name, signature_version,
       section_versions, created_by, created_by_name, updated_by, updated_by_name, created_at, updated_at
     ) values (
-      ${assessment.assessment_id}, ${assessment.referral_id}, ${assessment.canonical_client_id}, ${assessment.resident_key},
+      ${assessment.assessment_id}, ${assessment.revision_root_id ?? assessment.assessment_id},
+      ${assessment.revision_number ?? 1}, ${assessment.supersedes_assessment_id ?? null},
+      ${assessment.referral_id}, ${assessment.canonical_client_id}, ${assessment.resident_key},
       ${assessment.resident_number}, ${assessment.assessment_date}::date,
       ${assessment.assessor_id},
       ${assessment.assessor}, ${assessment.status},
@@ -1902,6 +2076,7 @@ function isAssessmentAuditAction(value: string): value is AssessmentAuditAction 
     "assessment_no_show",
     "assessment_started",
     "assessment_signed",
+    "assessment_revision_created",
     "assessment_addendum_added",
   ].includes(value);
 }
@@ -1963,6 +2138,11 @@ function normalizeAssessmentRecord(value: PipelineAssessmentRecord): PipelineAss
   return {
     ...value,
     ...data,
+    revision_root_id: value.revision_root_id?.trim() || value.assessment_id,
+    revision_number: Number.isInteger(value.revision_number) && Number(value.revision_number) > 0
+      ? Number(value.revision_number)
+      : 1,
+    supersedes_assessment_id: value.supersedes_assessment_id?.trim() || null,
     assessor_id: value.assessor_id?.trim() || null,
     version: Number.isInteger(value.version) && value.version > 0 ? value.version : 1,
     section_versions: normalizeAssessmentSectionVersions(value.section_versions),
