@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T13:49:17.337Z",
+  "generated_at": "2026-09-10T14:05:36.145Z",
   "audit_date": "2026-09-10",
-  "git_head": "b9bc627437f5aca831a3808db6c2b56c41ed27fd",
+  "git_head": "58673882e71630fb30daaca03102813463a14860",
   "files": [
     {
       "path": ".dockerignore",
@@ -4689,10 +4689,10 @@
     },
     {
       "path": "docs/refactoring/evidence-matrix.json",
-      "content_sha256": "2a3ab4ee5b3b38faceb89219db722553e9eb0993e8ff75ab9ded4237bf5d43e0",
+      "content_sha256": "b86ae24999baa4888c3f2587e5e6007b7c1ff19da255b7d7939df3c5c586fff5",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 62154,
+      "bytes": 62130,
       "lines": 958,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -4744,11 +4744,11 @@
     },
     {
       "path": "docs/refactoring/proof-obligations.json",
-      "content_sha256": "deeb93652d8a4eb1bd2c14ca9f7ebacd882ffcabc64049b5eeb436e407b732ac",
+      "content_sha256": "e78ce033e6f79bc1ac0a94b69f5de475ad960e6cc1b8e8ff4b40835748cbd6bd",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 18850,
-      "lines": 312,
+      "bytes": 18956,
+      "lines": 314,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4843,10 +4843,10 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "104f36473530e0463a4451f0b4098b982393350221c8a13c1558dc864ee8b62f",
+      "content_sha256": "bd111d89cec7fd2e2f9ccccd47259626f544352d43a748f3488f0d115e0b6440",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 37820,
+      "bytes": 37817,
       "lines": 755,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -5047,22 +5047,22 @@
     },
     {
       "path": "docs/refactoring/workflow-permutation-hardening-assurance-record.json",
-      "content_sha256": "5f290962605694816688723b81d71cbedea9650e72af588ac26daff4b73b9856",
+      "content_sha256": "7d0d4ca6cc698534552f5d0b0a14fa4f66bd37fd6f59749d8e018edbebcaa791",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 3019,
-      "lines": 62,
+      "bytes": 15409,
+      "lines": 178,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
     },
     {
       "path": "docs/refactoring/workflow-permutation-hardening-file-audit.json",
-      "content_sha256": "a604dedaa9541d32f8eab0cdea8768a046833e4d52c3c0e6c9896d9014449293",
+      "content_sha256": "a7290c9fec7ce5b3e0c3761abe61286ea3562c9f29249dcb0ba4d4486840ae06",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 15268,
-      "lines": 284,
+      "bytes": 16051,
+      "lines": 298,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5110,7 +5110,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "580de83a63cdc364fd8da9f3c335589e79930e1008ee19164fbf9436d5bb9701",
+      "content_sha256": "0c3e941f61d465eb7a7038c6122252d789790a3ed618f35de18233e1e0510ddc",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 219657,
@@ -5169,7 +5169,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "51d19144d490130747e22ca845e6c090f46485c9d6044663f751937e5cbcd24e",
+      "content_sha256": "15fb397117896d08b5805f2aba8033322a0b78ae5a36c9e3fc9cecf190b99135",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 560832,

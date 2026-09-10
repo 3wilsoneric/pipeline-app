@@ -304,8 +304,10 @@
       ],
       "verificationGates": ["check:workflow-store-characterization", "check:workflow-fuzz", "check:route-policy", "database:concurrency", "test:e2e:operational:high", "certify:seeded-defects", "check:chaos", "check:recovery"],
       "claimBoundary": "The owner-approved non-extraction referral, assessment, review, decision, admission, EHR, scheduling, trash/restore, authorization, conflict, replay, collision, and recovery behaviors under the tested local-file and PostgreSQL configurations.",
-      "status": "planned",
-      "humanValidated": false
+      "status": "verified",
+      "humanValidated": false,
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-10T13:59:00Z"
     }
   ]
 }

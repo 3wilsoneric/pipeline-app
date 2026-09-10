@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "sliceId": "workflow-permutation-hardening",
-  "status": "in_progress",
+  "status": "complete",
   "startingCommit": "8da6634eaa0b9cc74e3576012b8e0e2e33872a31",
-  "candidateCommit": null,
+  "candidateCommit": "58673882e71630fb30daaca03102813463a14860",
   "humanOwner": "Eric",
   "approvalMode": "owner_fast_lane",
   "ownerAuthorization": {
@@ -16,9 +16,9 @@
   "approvedObligationIds": ["workflow_permutation_and_review_atomicity"],
   "preChangeMachineTrace": [
     "Starting commit 8da6634eaa0b9cc74e3576012b8e0e2e33872a31 is origin/main and the exact clean worktree branch point.",
-    "The complete existing browser, operational, fuzz, property, seeded-defect, PostgreSQL, capacity, chaos, recovery, performance, and artifact gates passed at the exact start.",
-    "A focused adversarial collision reproduced one critical defect on both adapters: two correction successors persisted for one submitted review while the public response pair was one success and one conflict.",
-    "Extraction quality and packet-corpus work is intentionally excluded by the owner's directive."
+    "The existing browser, operational, fuzz, property, seeded-defect, PostgreSQL, chaos, recovery, performance, and artifact gates passed at the exact start.",
+    "A focused adversarial collision reproduced one critical defect on both adapters: two correction successors could persist for one submitted review while the public response pair reported one success and one conflict.",
+    "Extraction quality and packet-corpus work was intentionally excluded by the owner's directive."
   ],
   "behaviorPreservation": {
     "required": true,
@@ -29,31 +29,147 @@
       "Signed assessment immutability, optimistic versions, stable replay, actor attribution, and audit coupling remain intact.",
       "All non-extraction core workflows retain their characterized successful, denied, blocked, conflict, replay, and recovery behavior."
     ],
-    "evidence": ["The candidate will repeat all exact-start gates and add focused local/PostgreSQL collision and exhaustive finite-input evidence."]
+    "evidence": [
+      "The final 120-pass browser suite, high-operational journeys, nine-scenario local and PostgreSQL characterization, 49-control PostgreSQL assurance suite, 858825-case workflow oracle, and three-run compiled performance certification passed at candidate 58673882e71630fb30daaca03102813463a14860."
+    ]
   },
-  "iterations": [],
-  "proofResults": [],
-  "gateResults": [],
-  "adversarialPasses": [],
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "workflow_permutation_hardening",
+      "obligationIds": ["workflow_permutation_and_review_atomicity"],
+      "baseCommit": "8da6634eaa0b9cc74e3576012b8e0e2e33872a31",
+      "headCommit": "ecd82330bb0bf353d9bd0790ea5f902b3aa86ffe",
+      "purpose": "Move PostgreSQL correction revision creation behind the locked referral, review, decision, and version guards; add narrowly guarded local compensation; expose supervisor-review audit history consistently; and add direct collision, lineage, role, and exhaustive transition evidence.",
+      "changedFiles": [
+        "lib/pipeline/workflow-store.ts",
+        "lib/assessment/assessment-store.ts",
+        "lib/pipeline/referral-activity.ts",
+        "scripts/workflow-stateful-fuzz.mjs",
+        "scripts/workflow-store-characterization.mjs",
+        "tests/e2e/operational/workflow-store-characterization.spec.ts",
+        "tests/e2e/operational/role-access.spec.ts"
+      ],
+      "preChangeCharacterization": [
+        "Two simultaneous correction requests returned one success and one conflict but persisted two draft successor assessments in local and PostgreSQL storage.",
+        "PostgreSQL referral activity omitted assessment-review audit events that local activity already displayed."
+      ],
+      "focusedEvidence": [
+        "Nine local and nine PostgreSQL workflow characterization scenarios passed, including complete correction-resubmission-decision lineage and both collision classes.",
+        "All 49 PostgreSQL integration controls passed, including 24-actor optimistic contention, 48 exact queue claims, deadlock recovery, constraints, integrity, migration application, and transactional rollback.",
+        "Runtime role/resource denial tests and the static inventory of 126 API methods passed."
+      ],
+      "baselineDelta": {
+        "before": "A losing correction command could leave an unlinked draft successor, and PostgreSQL activity did not show supervisor-review history.",
+        "after": "PostgreSQL validates and locks before successor creation; local storage removes only the exact uncommitted successor after a losing compare-and-swap; both adapters expose the review event.",
+        "comparison": "Public routes, user interface, schemas, storage formats, roles, and successful workflow results are unchanged.",
+        "regressions": []
+      },
+      "tradeoffs": [],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-10T13:59:00Z"
+    },
+    {
+      "id": "iteration-002",
+      "responsibilityId": "workflow_permutation_hardening",
+      "obligationIds": ["workflow_permutation_and_review_atomicity"],
+      "baseCommit": "ecd82330bb0bf353d9bd0790ea5f902b3aa86ffe",
+      "headCommit": "58673882e71630fb30daaca03102813463a14860",
+      "purpose": "Reduce the new transaction and independent-oracle branch complexity while retaining identical lock order, no-write outcomes, lineage, and exhaustive coverage.",
+      "changedFiles": ["lib/pipeline/workflow-store.ts", "scripts/workflow-stateful-fuzz.mjs"],
+      "preChangeCharacterization": [
+        "The complexity ratchet rejected the first correct implementation because the new PostgreSQL transaction owner and two oracle helpers exceeded reviewed ceilings."
+      ],
+      "focusedEvidence": [
+        "TypeScript, ESLint, the complexity ratchet, 858825 generated oracle cases, and the exact local/PostgreSQL characterization passed after decomposition.",
+        "The refactor removed three candidate complexity failures and lowered approved aggregate hotspot ceilings without changing workflow results."
+      ],
+      "baselineDelta": {
+        "before": "The atomic path was correct but concentrated validation, lock, replay, and revision branching in one helper.",
+        "after": "Small private helpers own replay lookup, referral version lock, submitted-review lock, final-decision detection, and revision creation while the transaction sequence remains explicit.",
+        "comparison": "No observable product or persistence behavior changed from iteration 001.",
+        "regressions": []
+      },
+      "tradeoffs": [],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-10T13:59:00Z"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "workflow_permutation_and_review_atomicity",
+      "candidateCommit": "58673882e71630fb30daaca03102813463a14860",
+      "status": "verified",
+      "methods": ["mechanical", "exhaustive_finite", "property_based", "mutation", "integration", "concurrency", "operational_recovery"],
+      "evidence": [
+        "The independent oracle enumerated all 18816 bounded stage/input combinations and 120000 randomized transitions; 858825 aggregate checks passed.",
+        "Simultaneous correction requests persisted one successor and one review audit; correction-versus-decision persisted exactly one coherent direction with no orphan revision.",
+        "The complete correction cycle preserved the signed source, edited and signed the successor, resubmitted it, and bound the final decision to the successor revision.",
+        "Denied roles and inaccessible resources produced no referral, review, assessment, decision, work-item, or audit side effect.",
+        "All 27 seeded defects were killed, all 49 PostgreSQL controls passed, and the commit-level reverse patch restored every bounded implementation path exactly to the starting commit."
+      ],
+      "implementationTrace": [
+        "lib/pipeline/workflow-store.ts",
+        "lib/assessment/assessment-store.ts",
+        "lib/pipeline/referral-activity.ts",
+        "scripts/workflow-stateful-fuzz.mjs"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-10T13:59:00Z"
+    }
+  ],
+  "gateResults": [
+    {"command":"npm run check:workflow-store-characterization","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"Nine local and nine PostgreSQL scenarios passed with zero unexpected or skipped cases."},
+    {"command":"npm run check:workflow-fuzz","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"858825 exhaustive and stateful oracle cases passed."},
+    {"command":"npm run check:route-policy","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"All 126 methods across 96 API route files passed authentication, resource, origin, logging, and cache policy."},
+    {"command":"npm run test:critical-safety","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"All 38 critical safety contracts passed."},
+    {"command":"npm run certify:seeded-defects","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"All 27 seeded defects were killed for a 100 percent kill rate."},
+    {"command":"npm run database:assurance:integration","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"All 49 PostgreSQL 16 schema, migration, constraint, transaction, contention, integrity, and rollback controls passed."},
+    {"command":"npm run database:concurrency","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"Covered within database assurance: 24 actors, one optimistic winner, exact replay/outbox behavior, 48 exact queue claims, lock timeout, and deadlock recovery passed."},
+    {"command":"npm run database:integrity","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"Covered within database assurance with zero critical or advisory integrity findings."},
+    {"command":"npm run test:e2e","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"The final complete browser run passed 120 tests; 15 explicitly environment-gated tests were skipped."},
+    {"command":"npm run test:e2e:operational:high","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"All 14 applicable multi-user, 100-user, collision, duplicate, role, recovery, and golden-thread journeys passed; dedicated harness cases were explicitly gated and the nine workflow cases passed separately on both adapters."},
+    {"command":"npm run check:chaos","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"All 12 bounded overload, dependency-loss, stale-callback, and recovery scenarios passed."},
+    {"command":"npm run check:recovery","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"All seven backup, checksum, disposable-restore, migration-history, and ownership checks passed."},
+    {"command":"npm run check:performance","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"Invoked by McMaster against four isolated compiled processes including calibration; every scorecard check passed."},
+    {"command":"npm run certify:mcmaster:performance","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"Three scored runs passed; worst TTFB 102 ms, LCP 244 ms, INP 56 ms, warm navigation 150 ms, ordinary API p95 8.7 ms, heavy API p95 6.1 ms, and zero API errors."},
+    {"command":"npm run check:artifacts","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"Production bundle, compression, source-map, and credential-marker budgets passed."},
+    {"command":"npm run complexity:check","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"No candidate exceeded the ratchet; aggregate hotspot ceilings were tightened."},
+    {"command":"npm run check:client-workspaces","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"The read-only audit covered 12 referral workspaces, 532 current residents, 1456 historical episodes, and 17 presentation surfaces with zero missing required fields, invalid names, duplicate workspace ids, or contract failures."}
+    ,{"command":"npm run check:refactor-assurance","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"The owner-fast-lane scope, obligation, exact-candidate gates, rollback evidence, and convergence record passed structural validation."}
+    ,{"command":"npm run certify:refactor","candidateCommit":"58673882e71630fb30daaca03102813463a14860","outcome":"passed","evidence":"Repository hygiene, Academy freshness, complexity, platform, assertion integrity, mutation effectiveness, TypeScript, ESLint, and production build passed for the bounded candidate and certification record."}
+  ],
+  "adversarialPasses": [
+    {"id":"adversarial-001","candidateCommit":"58673882e71630fb30daaca03102813463a14860","reviewer":"TARS transaction, authorization, and lineage critic","contextId":"correction-correction-decision-complete-cycle","implementationConversationUsed":true,"findings":[],"materialSimplificationFound":false,"completedAt":"2026-09-10T13:59:00Z"},
+    {"id":"adversarial-002","candidateCommit":"58673882e71630fb30daaca03102813463a14860","reviewer":"TARS exhaustive-oracle, PostgreSQL, recovery, performance, and browser critic","contextId":"all-non-extraction-workflow-permutations","implementationConversationUsed":true,"findings":[],"materialSimplificationFound":false,"completedAt":"2026-09-10T13:59:00Z"}
+  ],
   "rollbackAndRecovery": {
-    "candidateCommit": null,
-    "method": "Revert the bounded implementation and evidence commits. No schema or data rollback is required.",
-    "exercisedEvidence": [],
+    "candidateCommit": "58673882e71630fb30daaca03102813463a14860",
+    "method": "Reverse the bounded implementation diff from candidate 58673882e71630fb30daaca03102813463a14860 to starting commit 8da6634eaa0b9cc74e3576012b8e0e2e33872a31. No schema or production-data rollback is required.",
+    "exercisedEvidence": [
+      "A detached temporary worktree at the candidate accepted the reverse patch for all eight bounded implementation and test paths and then matched the starting commit exactly for those paths.",
+      "The PostgreSQL integration drill applied all 31 migrations and transactionally rolled the complete schema back to its original state.",
+      "All disposable local PostgreSQL databases created for the slice were removed after verification."
+    ],
     "approvedBy": "Eric",
-    "approvedAt": "2026-09-10T12:57:55Z"
+    "approvedAt": "2026-09-10T13:59:00Z"
   },
   "residualRisks": [],
   "convergence": {
-    "candidateCommit": null,
-    "allObligationsVerified": false,
-    "requiredGatesPassed": false,
-    "behaviorPreserved": false,
-    "consecutiveCleanAdversarialPasses": 0,
-    "postComprehensionNoWorse": false,
-    "rollbackOrRecoveryProven": false,
-    "noUnresolvedCriticalOrHigh": false,
-    "acceptedBy": null,
-    "acceptedAt": null,
+    "candidateCommit": "58673882e71630fb30daaca03102813463a14860",
+    "allObligationsVerified": true,
+    "requiredGatesPassed": true,
+    "behaviorPreserved": true,
+    "consecutiveCleanAdversarialPasses": 2,
+    "postComprehensionNoWorse": true,
+    "rollbackOrRecoveryProven": true,
+    "noUnresolvedCriticalOrHigh": true,
+    "acceptedBy": "Eric",
+    "acceptedAt": "2026-09-10T13:59:00Z",
     "authorizedBy": "Eric",
     "authorizedAt": "2026-09-10T12:57:55Z",
     "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."

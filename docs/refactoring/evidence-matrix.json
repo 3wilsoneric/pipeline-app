@@ -913,24 +913,24 @@
           ],
           "note": "Eric authorized the bounded non-extraction hardening slice through owner_fast_lane. Existing workflow and assessment owners remain canonical; the slice fixes one proven transaction defect and strengthens executable evidence without redesigning the product."
         },
-        {
-          "id": "correction_collision_and_cycle_evidence",
-          "phase": "before_complete",
-          "status": "missing",
+      {
+        "id": "correction_collision_and_cycle_evidence",
+        "phase": "before_complete",
+        "status": "satisfied",
           "gates": ["check:workflow-store-characterization", "database:concurrency", "test:e2e:operational:high"],
           "note": "The candidate must prove local and PostgreSQL parity for correction replay, stale conflicts, simultaneous correction requests, correction-versus-decision collisions, immutable source history, successor editing/signing, resubmission, and final decision binding."
         },
-        {
-          "id": "exhaustive_and_runtime_authorization_evidence",
-          "phase": "before_complete",
-          "status": "missing",
+      {
+        "id": "exhaustive_and_runtime_authorization_evidence",
+        "phase": "before_complete",
+        "status": "satisfied",
           "gates": ["check:workflow-fuzz", "check:route-policy", "test:e2e:operational:high"],
           "note": "The candidate must add bounded exhaustive transition-input enumeration and extend runtime allow, role-deny, resource-deny, worker-boundary, and denied-side-effect evidence while retaining the static every-method route inventory."
         },
-        {
-          "id": "non_extraction_recovery_performance_and_regression",
-          "phase": "before_complete",
-          "status": "missing",
+      {
+        "id": "non_extraction_recovery_performance_and_regression",
+        "phase": "before_complete",
+        "status": "satisfied",
           "gates": ["test:critical-safety", "certify:seeded-defects", "database:assurance:integration", "database:integrity", "test:e2e", "check:chaos", "check:recovery", "check:performance", "certify:mcmaster:performance", "check:artifacts"],
           "note": "All applicable non-extraction database, browser, collision, recovery, performance, artifact, and test-effectiveness gates must pass at the exact candidate."
         },
@@ -943,10 +943,10 @@
           "files": ["docs/refactoring/WORKFLOW_PERMUTATION_HARDENING_ARCHITECTURE_NARRATIVE.md"],
           "note": "This bounded fix introduces no migration, schema, stored-data transformation, route, Entra, provider, or paid-service change."
         },
-        {
-          "id": "permutation_convergence_and_recovery",
-          "phase": "before_complete",
-          "status": "missing",
+      {
+        "id": "permutation_convergence_and_recovery",
+        "phase": "before_complete",
+        "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": ["docs/refactoring/workflow-permutation-hardening-assurance-record.json"],
           "note": "The final exact candidate must bind all evidence, exercised commit-level revert recovery, and zero unresolved critical/high findings."

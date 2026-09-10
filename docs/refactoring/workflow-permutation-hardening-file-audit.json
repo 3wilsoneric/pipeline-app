@@ -18,7 +18,7 @@
       "tests": ["check:workflow-store-characterization", "database:concurrency"],
       "staticPrompts": [
         {
-          "prompt": "Large module (1777 lines): split by behavior before adding more responsibilities.",
+          "prompt": "Large module (1778 lines): split by behavior before adding more responsibilities.",
           "disposition": "confirmed",
           "reason": "This slice removes a transaction-order defect inside the existing cross-record owner and adds no route, presentation, or new domain responsibility.",
           "owner": "Eric",
@@ -240,6 +240,20 @@
       "staticPrompts": [],
       "decision": "keep",
       "decisionReason": "Required structural guidance coverage for a registered slice."
+    },
+    {
+      "path": "docs/refactoring/complexity-disposition.json",
+      "plannedNew": false,
+      "dependencyDirection": "The complexity ratchet consumes these exact owner-approved ceilings.",
+      "purpose": "Remove the temporary correction-transaction ceiling after simplifying the function and tighten aggregate ceilings to the measured candidate.",
+      "callers": ["complexity:check", "check:platform:fast"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Unapproved complexity growth blocks the slice.",
+      "tests": ["complexity:check"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The slice reduced its new transaction path below the default ceiling, so the temporary exception must not remain."
     },
     {
       "path": "docs/refactoring/WORKFLOW_PERMUTATION_HARDENING_ARCHITECTURE_NARRATIVE.md",

@@ -678,7 +678,7 @@
     {
       "id": "workflow-permutation-hardening",
       "priority": 11,
-      "status": "in_progress",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "lib/pipeline/workflow-store.ts",
