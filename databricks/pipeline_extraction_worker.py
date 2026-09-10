@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import sys
 import time
@@ -46,9 +47,16 @@ class WorkerError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class PageLine:
+    text: str
+    evidence_bbox: tuple[float, float, float, float] | None = None
+
+
+@dataclass(frozen=True)
 class PageText:
     page_number: int
     text: str
+    lines: tuple[PageLine, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -56,6 +64,7 @@ class ExtractedValue:
     value: str
     confidence: float
     page_number: int
+    evidence_bbox: tuple[float, float, float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -372,13 +381,17 @@ def pages_from_analysis(payload: dict[str, Any]) -> list[PageText]:
         page_number = raw_page.get("pageNumber", index)
         if not isinstance(page_number, int) or page_number < 1:
             continue
-        lines = raw_page.get("lines", [])
-        text = "\n".join(
-            str(line.get("content", "")).strip()
-            for line in lines
-            if isinstance(line, dict) and str(line.get("content", "")).strip()
+        width = positive_dimension(raw_page.get("width"))
+        height = positive_dimension(raw_page.get("height"))
+        lines = tuple(
+            PageLine(
+                normalize_text(str(line.get("content", ""))),
+                normalize_polygon(line.get("polygon"), width, height),
+            )
+            for line in raw_page.get("lines", [])
+            if isinstance(line, dict) and normalize_text(str(line.get("content", "")))
         )
-        pages.append(PageText(page_number, normalize_text(text)))
+        pages.append(PageText(page_number, "\n".join(line.text for line in lines), lines))
     return pages
 
 
@@ -447,6 +460,7 @@ def field_payload(key: str, extracted: ExtractedValue | None, evidence: dict[int
     value = clean_value(extracted.value) if extracted else None
     page = extracted.page_number if extracted else None
     evidence_key = evidence.get(page) if page else None
+    provenance = evidence_metadata(extracted, evidence_key)
     candidate = []
     if value is not None and extracted is not None:
         candidate.append({
@@ -454,31 +468,41 @@ def field_payload(key: str, extracted: ExtractedValue | None, evidence: dict[int
             "value": value,
             "confidence": extracted.confidence,
             "source_page": page,
-            **({"evidence_blob_key": evidence_key} if evidence_key else {}),
+            **provenance,
         })
     return {
         "field_key": key,
         "proposed_value": value,
         "confidence": extracted.confidence if value is not None and extracted else 0,
         **({"source_page": page} if page else {}),
-        **({"evidence_blob_key": evidence_key} if evidence_key else {}),
+        **provenance,
         "candidates": candidate,
     }
+
+
+def evidence_metadata(extracted: ExtractedValue | None, evidence_key: str | None) -> dict[str, Any]:
+    metadata: dict[str, Any] = {}
+    if evidence_key:
+        metadata["evidence_blob_key"] = evidence_key
+    if extracted and extracted.evidence_bbox:
+        metadata["evidence_bbox"] = list(extracted.evidence_bbox)
+    return metadata
 
 
 def extract_name(pages: Iterable[PageText]) -> ExtractedValue | None:
     candidates: dict[str, ExtractedValue] = {}
     for page in pages:
-        for line in text_lines(page.text):
+        for page_line in page_lines(page):
+            line = page_line.text
             match = re.search(r"(?:resident|patient|client)\s*name\s*[:|-]\s*([A-Za-z][A-Za-z'., -]{2,80})", line, re.I)
             if match:
                 name = normalize_name(match.group(1))
                 if name:
-                    candidates.setdefault(name.casefold(), ExtractedValue(name, 0.94, page.page_number))
+                    candidates.setdefault(name.casefold(), ExtractedValue(name, 0.94, page.page_number, page_line.evidence_bbox))
             titled = re.search(r"\b(?:Mr|Ms|Mrs|Miss)\.?\s+([A-Za-z][A-Za-z'. -]{1,50}),\s*([A-Za-z][A-Za-z'.-]{1,30})", line, re.I)
             if titled:
                 name = f"{title_case(titled.group(2))} {title_case(titled.group(1))}"
-                candidates.setdefault(name.casefold(), ExtractedValue(name, 0.97, page.page_number))
+                candidates.setdefault(name.casefold(), ExtractedValue(name, 0.97, page.page_number, page_line.evidence_bbox))
     # A packet containing more than one identity must be resolved by a human,
     # never by whichever patient's page happened to appear first.
     return next(iter(candidates.values())) if len(candidates) == 1 else None
@@ -488,7 +512,8 @@ def extract_birth(pages: Iterable[PageText]) -> tuple[ExtractedValue | None, Ext
     current_year = date.today().year
     candidates: dict[str, tuple[ExtractedValue, ExtractedValue]] = {}
     for page in pages:
-        for line in text_lines(page.text):
+        for page_line in page_lines(page):
+            line = page_line.text
             if not re.search(r"date\s*of\s*birth|birth\s*date|\bdob\b", line, re.I):
                 continue
             match = DATE_PATTERN.search(line)
@@ -501,7 +526,10 @@ def extract_birth(pages: Iterable[PageText]) -> tuple[ExtractedValue | None, Ext
                 continue
             candidates.setdefault(
                 iso,
-                (ExtractedValue(iso, 0.96, page.page_number), ExtractedValue(str(age), 0.94, page.page_number)),
+                (
+                    ExtractedValue(iso, 0.96, page.page_number, page_line.evidence_bbox),
+                    ExtractedValue(str(age), 0.94, page.page_number, page_line.evidence_bbox),
+                ),
             )
     if len(candidates) != 1:
         return None, None
@@ -510,13 +538,14 @@ def extract_birth(pages: Iterable[PageText]) -> tuple[ExtractedValue | None, Ext
 
 def extract_admission_date(pages: Iterable[PageText], excluded: str | None) -> ExtractedValue | None:
     for page in pages:
-        for line in text_lines(page.text):
+        for page_line in page_lines(page):
+            line = page_line.text
             if not re.search(r"admission\s*date|init\s*adm|orig\s*adm", line, re.I):
                 continue
             for match in DATE_PATTERN.finditer(line):
                 value = iso_date(match)
                 if value != excluded:
-                    return ExtractedValue(value, 0.91, page.page_number)
+                    return ExtractedValue(value, 0.91, page.page_number, page_line.evidence_bbox)
     return None
 
 
@@ -525,11 +554,12 @@ def extract_legal_status(pages: Iterable[PageText]) -> ExtractedValue | None:
     if explicit:
         return explicit
     for page in pages:
-        hold = re.search(r"\b(5150|5250|5270|voluntary)\b", page.text, re.I)
-        if hold:
-            return ExtractedValue(hold.group(1).upper(), 0.82, page.page_number)
-        if re.search(r"\bconservator(?:ship)?\b", page.text, re.I):
-            return ExtractedValue("Conservator listed in packet", 0.76, page.page_number)
+        for page_line in page_lines(page):
+            hold = re.search(r"\b(5150|5250|5270|voluntary)\b", page_line.text, re.I)
+            if hold:
+                return ExtractedValue(hold.group(1).upper(), 0.82, page.page_number, page_line.evidence_bbox)
+            if re.search(r"\bconservator(?:ship)?\b", page_line.text, re.I):
+                return ExtractedValue("Conservator listed in packet", 0.76, page.page_number, page_line.evidence_bbox)
     return None
 
 
@@ -541,11 +571,12 @@ def find_labeled(
 ) -> ExtractedValue | None:
     compiled = re.compile(pattern, re.I)
     for page in pages:
-        match = compiled.search(page.text)
-        if match:
-            value = clean_value(transform(match.group(1)))
-            if value:
-                return ExtractedValue(value, confidence, page.page_number)
+        for page_line in page_lines(page):
+            match = compiled.search(page_line.text)
+            if match:
+                value = clean_value(transform(match.group(1)))
+                if value:
+                    return ExtractedValue(value, confidence, page.page_number, page_line.evidence_bbox)
     return None
 
 
@@ -717,6 +748,71 @@ def normalize_text(value: str) -> str:
 
 def text_lines(value: str) -> list[str]:
     return [clean_value(line) for line in value.splitlines() if clean_value(line)]
+
+
+def page_lines(page: PageText) -> tuple[PageLine, ...]:
+    return page.lines or tuple(PageLine(line) for line in text_lines(page.text))
+
+
+def positive_dimension(value: Any) -> float | None:
+    return float(value) if finite_coordinate(value) and float(value) > 0 else None
+
+
+def normalize_polygon(
+    polygon: Any,
+    page_width: float | None,
+    page_height: float | None,
+) -> tuple[float, float, float, float] | None:
+    if not has_page_geometry(polygon, page_width, page_height):
+        return None
+    points = polygon_points(polygon)
+    if len(points) < 4:
+        return None
+    x1, x2 = min(point[0] for point in points), max(point[0] for point in points)
+    y1, y2 = min(point[1] for point in points), max(point[1] for point in points)
+    normalized = (
+        round(max(0.0, min(1.0, x1 / page_width)), 6),
+        round(max(0.0, min(1.0, y1 / page_height)), 6),
+        round(max(0.0, min(1.0, x2 / page_width)), 6),
+        round(max(0.0, min(1.0, y2 / page_height)), 6),
+    )
+    return normalized if valid_normalized_box(normalized) else None
+
+
+def has_page_geometry(polygon: Any, page_width: float | None, page_height: float | None) -> bool:
+    return bool(page_width and page_height and isinstance(polygon, list))
+
+
+def valid_normalized_box(value: tuple[float, float, float, float]) -> bool:
+    return value[0] < value[2] and value[1] < value[3]
+
+
+def polygon_points(polygon: list[Any]) -> list[tuple[float, float]]:
+    if numeric_polygon(polygon):
+        return [(float(polygon[index]), float(polygon[index + 1])) for index in range(0, len(polygon), 2)]
+    if not all(isinstance(value, dict) for value in polygon):
+        return []
+    points = [point_coordinates(point) for point in polygon]
+    return [point for point in points if point is not None] if all(point is not None for point in points) else []
+
+
+def numeric_polygon(polygon: list[Any]) -> bool:
+    return (
+        len(polygon) >= 8
+        and len(polygon) % 2 == 0
+        and all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in polygon)
+    )
+
+
+def point_coordinates(point: dict[str, Any]) -> tuple[float, float] | None:
+    x, y = point.get("x"), point.get("y")
+    if not finite_coordinate(x) or not finite_coordinate(y):
+        return None
+    return float(x), float(y)
+
+
+def finite_coordinate(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value))
 
 
 def clean_value(value: str) -> str | None:

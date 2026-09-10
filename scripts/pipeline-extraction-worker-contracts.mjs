@@ -30,6 +30,8 @@ check("setup remains compatible with macOS Bash 3.2", !setup.includes(",,"));
 check("bundle deployment authenticates as the Pipeline principal", setup.includes('DATABRICKS_AUTH_TYPE="oauth-m2m"'));
 check("all successful worker callbacks require digest and malware status", processingWorker.includes('if (!input.verified_sha256)') && processingWorker.includes('if (!input.malware_scan_status)'));
 check("successful worker callbacks revalidate the durable source blob", processingWorker.includes('getBlobProperties(job.blob_container, job.blob_key)') && processingWorker.includes('"uploaded_blob_missing"') && processingWorker.includes('"uploaded_blob_size_mismatch"'));
+check("worker reports normalized evidence geometry", worker.includes("normalize_polygon") && worker.includes('"evidence_bbox"'));
+check("provider and heartbeat writes are attempt fenced", (processingWorker.match(/attempt_count = \$\{job\.attempt_count\} and attempt_token = \$\{job\.attempt_token\}::uuid/g) ?? []).length >= 3 && processingWorker.includes("if (!heartbeat[0])"));
 
 const failed = checks.filter((item) => !item.ok);
 console.log(JSON.stringify({ ok: failed.length === 0, checks }, null, 2));

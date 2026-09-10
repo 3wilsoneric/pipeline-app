@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "extraction-capstone",
+  "status": "baseline_approved",
+  "startingCommit": "5f540edb0ddad56b4dbae6a4e49c6983170db838",
+  "candidateCommit": "5f540edb0ddad56b4dbae6a4e49c6983170db838",
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-10T15:00:55Z",
+    "directive": "do extraction and then we'll do the next six"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "extraction_immutable_source_and_provenance",
+    "extraction_worker_lease_and_write_boundary"
+  ],
+  "preChangeMachineTrace": [
+    "Starting commit 5f540edb0ddad56b4dbae6a4e49c6983170db838 is origin/main and the exact clean worktree branch point.",
+    "The exact-start extraction, worker, storage, backlog, quality-harness, critical-safety, and complexity gates passed.",
+    "The audit found stale asynchronous writes lacking complete attempt fencing and missing durable bounding-box plumbing.",
+    "Provider replacement, recognition-rule changes, paid calls, live PHI, and production backend activation are excluded."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Original packet bytes remain immutable and digest verified.",
+      "Extracted values retain source document, page, bounding box, confidence, and review history.",
+      "Leases, retries, dead letters, and callbacks remain bounded and idempotent.",
+      "Workers cannot write canonical referral or assessment state directly."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/extraction-capstone-start-5f540ed.json",
+      "The final candidate must rerun every focused gate and compare the same deterministic outcomes."
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": null,
+  "residualRisks": [],
+  "convergence": null
+}

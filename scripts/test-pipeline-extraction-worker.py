@@ -17,6 +17,31 @@ SPEC.loader.exec_module(worker)
 
 
 class PipelineExtractionWorkerTests(unittest.TestCase):
+    def test_normalizes_line_polygons_and_carries_field_provenance(self):
+        pages = worker.pages_from_analysis({
+            "analyzeResult": {
+                "pages": [{
+                    "pageNumber": 1,
+                    "width": 10,
+                    "height": 20,
+                    "lines": [{
+                        "content": "Primary Diagnosis: Synthetic condition",
+                        "polygon": [1, 4, 5, 4, 5, 6, 1, 6],
+                    }],
+                }],
+            },
+        })
+        fields = worker.build_intake_fields(pages, 1, {1: "safe/page-1.png"})
+        diagnosis = next(field for field in fields if field["field_key"] == "referral.primary_diagnosis")
+
+        self.assertEqual(diagnosis["evidence_bbox"], [0.1, 0.2, 0.5, 0.3])
+        self.assertEqual(diagnosis["candidates"][0]["evidence_bbox"], [0.1, 0.2, 0.5, 0.3])
+
+    def test_invalid_or_degenerate_polygons_are_omitted(self):
+        self.assertIsNone(worker.normalize_polygon([1, 1, 1, 1, 1, 1, 1, 1], 10, 10))
+        self.assertIsNone(worker.normalize_polygon([1, 1, 2], 10, 10))
+        self.assertIsNone(worker.normalize_polygon([1, 1, 2, 1, 2, 2, 1, 2], 0, 10))
+
     def test_builds_deterministic_fields_with_evidence(self):
         pages = [
             worker.PageText(1, "\n".join([

@@ -97,14 +97,17 @@
       "sliceId": "extraction-capstone",
       "criticality": "critical",
       "property": "Original packet bytes and digest remain immutable, and every accepted extracted value retains document, page, bounding box or declared location, confidence, candidates, review, correction, and audit lineage.",
-      "assuranceMethods": ["mechanical", "integration", "mutation", "statistical_human"],
+      "assuranceMethods": ["mechanical", "integration", "mutation", "golden_master"],
       "tracePaths": [
         "lib/extraction/extraction-service.ts",
         "lib/extraction/contracts.ts",
+        "lib/extraction/worker-report-provenance.ts",
+        "lib/extraction/document-processing.ts",
+        "databricks/pipeline_extraction_worker.py",
         "lib/extraction/azure-blob.ts"
       ],
       "verificationGates": ["check:sample-packet", "check:storage-consistency", "check:extraction-quality", "certify:seeded-defects"],
-      "claimBoundary": "Governed packet formats and values represented in the approved corpus; individual ambiguous values still require review.",
+      "claimBoundary": "Deterministic source, report, persistence, and human-review provenance mechanics only; field-recognition accuracy and representative packet quality remain outside this candidate.",
       "status": "planned",
       "humanValidated": false
     },

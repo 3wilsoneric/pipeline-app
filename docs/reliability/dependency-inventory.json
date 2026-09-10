@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T14:06:53.100Z",
+  "generated_at": "2026-09-10T16:00:38.997Z",
   "audit_date": "2026-09-10",
-  "git_head": "9740f5f23fa4c40115a7604aa88c92aeb8e62f5b",
+  "git_head": "5f540edb0ddad56b4dbae6a4e49c6983170db838",
   "direct": [
     {
       "name": "@azure/identity",
@@ -530,6 +530,7 @@
         "docs/academy/lessons/01_CREATE_REFERRAL.md",
         "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
         "docs/refactoring/COMPATIBILITY_MATRIX.md",
+        "docs/refactoring/EXTRACTION_CAPSTONE_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md",
         "docs/refactoring/REFERRAL_CANVAS_TECHNICAL_TRACE_AGENT_PREWORK.md",
         "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
@@ -542,6 +543,7 @@
         "docs/refactoring/characterization/referral-read-parity-run-741bf732.json",
         "docs/refactoring/code-quality-policy.json",
         "docs/refactoring/evidence-matrix.json",
+        "docs/refactoring/extraction-capstone-assurance-record.json",
         "docs/refactoring/refactor-eval-scenarios.json",
         "docs/refactoring/referral-store-file-audit-agent-prework.json",
         "docs/refactoring/referral-store-file-audit.json",
@@ -761,6 +763,7 @@
         "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json",
         "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json",
         "docs/refactoring/evidence-matrix.json",
+        "docs/refactoring/extraction-capstone-file-audit.json",
         "docs/refactoring/refactor-eval-scenarios.json",
         "docs/refactoring/refactor-slices.json",
         "docs/refactoring/supervisor-review-revision-assurance-record.json",
@@ -1021,6 +1024,7 @@
         "docs/refactoring/REFERRAL_STORE_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/REFERRAL_STORE_START_DECISION_PACKET.md",
         "docs/refactoring/REFERRAL_STORE_TECHNICAL_TRACE_AGENT_PREWORK.md",
+        "docs/refactoring/extraction-capstone-file-audit.json",
         "docs/refactoring/refactor-slices.json",
         "docs/refactoring/referral-canvas-assurance-record.json",
         "docs/refactoring/referral-canvas-file-audit-agent-prework.json",
@@ -7551,8 +7555,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-workflow-permutation-hardening/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-workflow-permutation-hardening/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-extraction-capstone-v2/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-extraction-capstone-v2/node_modules/@img/sharp-wasm32"
     ]
   }
 }

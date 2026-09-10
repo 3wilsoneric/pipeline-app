@@ -7,6 +7,13 @@ import { getAzureBlobUploadSigner } from "@/lib/extraction/azure-blob";
 import { DatabricksAdapterError, getDatabricksJobAdapter } from "@/lib/extraction/databricks";
 import { DocumentProcessingError } from "@/lib/extraction/document-processing";
 import { getExtractionFailureDisposition } from "@/lib/extraction/extraction-state";
+import {
+  collectReportedArtifacts,
+  toArtifactRows,
+  toCandidateRows,
+  toExtractedFieldRows,
+  toPreviewPageRows,
+} from "@/lib/extraction/worker-report-provenance";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import {
   validateWorkerReport,
@@ -90,11 +97,17 @@ export async function dispatchExtractionJobs(limit = 10, workerId = "pipeline-di
         attempt_token: job.attempt_token!,
         job_type: job.job_type,
       });
-      await sql`
+      const attached = await sql<{ extraction_job_id: string }[]>`
         update pipeline.extraction_jobs set provider_job_id = ${run.job_run_id}, provider_state = 'queued',
           heartbeat_at = now(), lease_expires_at = now() + interval '30 minutes', updated_at = now()
         where extraction_job_id = ${job.extraction_job_id}::uuid and status = 'running'
+          and attempt_count = ${job.attempt_count} and attempt_token = ${job.attempt_token}::uuid
+        returning extraction_job_id
       `;
+      if (!attached[0]) {
+        metric("dispatch", "stale", job.job_type);
+        continue;
+      }
       if (job.packet_id) {
         await sql`update pipeline.packet_uploads set status = 'extracting', updated_at = now() where packet_id = ${job.packet_id}::uuid`;
       }
@@ -133,12 +146,10 @@ export async function reconcileExtractionJobs(limit = 25) {
     try {
       const state = await adapter.getRunState(job.provider_job_id!);
       if (state === "queued" || state === "running") {
-        await sql`
-          update pipeline.extraction_jobs set provider_state = ${state}, heartbeat_at = now(),
-            lease_expires_at = now() + interval '30 minutes', updated_at = now()
-          where extraction_job_id = ${job.extraction_job_id}::uuid and status = 'running'
-        `;
-        running += 1;
+        const refreshed = await refreshProviderLease(sql, job, state);
+        running += refreshed.running;
+        metric("reconcile", refreshed.result, job.job_type);
+        continue;
       } else if (state === "succeeded") {
         const outcome = await failOrRetry(job, "worker_callback_missing", true);
         if (outcome === "dead_letter") deadLettered += 1;
@@ -184,12 +195,7 @@ export async function reportExtractionJob(input: WorkerReport) {
     throw new DocumentProcessingError("job_not_running", 409, "This extraction job is no longer running.");
   }
   if (input.status === "heartbeat") {
-    await sql`
-      update pipeline.extraction_jobs set heartbeat_at = now(), lease_expires_at = now() + interval '30 minutes',
-        provider_job_id = coalesce(${input.provider_job_id ?? null}, provider_job_id), updated_at = now()
-      where extraction_job_id = ${job.extraction_job_id}::uuid and status = 'running'
-        and attempt_count = ${input.attempt_count} and attempt_token = ${input.attempt_token}::uuid
-    `;
+    await refreshWorkerHeartbeat(sql, job, input);
     return { status: "running" as const };
   }
   if (input.status === "failed") {
@@ -240,7 +246,7 @@ export async function reportExtractionJob(input: WorkerReport) {
       where document_id = ${job.document_id}::uuid
     `;
     if (input.preview?.pages?.length) await upsertPreviewPages(tx, job.document_id, input.preview.pages);
-    const artifacts = collectReportedArtifacts(input);
+    const artifacts = collectReportedArtifacts(input, evidenceContainer());
     if (artifacts.length) await upsertArtifacts(tx, job.document_id, artifacts);
     if (job.packet_id && !unsafe && input.fields?.length) {
       const packet = await tx<{ referral_id: number | string }[]>`
@@ -397,8 +403,38 @@ async function failOrRetry(job: JobRow, code: string, retryable: boolean): Promi
   return nextStatus;
 }
 
+async function refreshProviderLease(sql: ReturnType<typeof getPipelineSql>, job: JobRow, state: "queued" | "running") {
+  const updated = await sql<{ extraction_job_id: string }[]>`
+    update pipeline.extraction_jobs set provider_state = ${state}, heartbeat_at = now(),
+      lease_expires_at = now() + interval '30 minutes', updated_at = now()
+    where extraction_job_id = ${job.extraction_job_id}::uuid and status = 'running'
+      and attempt_count = ${job.attempt_count} and attempt_token = ${job.attempt_token}::uuid
+      and provider_job_id = ${job.provider_job_id}
+    returning extraction_job_id
+  `;
+  return { running: Number(Boolean(updated[0])), result: updated[0] ? state : "stale" };
+}
+
+async function refreshWorkerHeartbeat(sql: ReturnType<typeof getPipelineSql>, job: JobRow, input: WorkerReport) {
+  const heartbeat = await sql<{ extraction_job_id: string }[]>`
+    update pipeline.extraction_jobs set heartbeat_at = now(), lease_expires_at = now() + interval '30 minutes',
+      provider_job_id = coalesce(${input.provider_job_id ?? null}, provider_job_id), updated_at = now()
+    where extraction_job_id = ${job.extraction_job_id}::uuid and status = 'running'
+      and attempt_count = ${input.attempt_count} and attempt_token = ${input.attempt_token}::uuid
+    returning extraction_job_id
+  `;
+  if (!heartbeat[0]) throw new DocumentProcessingError("stale_job_attempt", 409);
+}
+
 async function refreshPacketState(tx: TransactionSql, packetId: string) {
-  const states = await tx<{ active_count: number | string; failed_count: number | string; field_count: number | string; page_count: number | string }[]>`
+  const states = await tx<{
+    active_count: number | string;
+    failed_count: number | string;
+    unsafe_document_count: number | string;
+    unsafe_failure_code: string | null;
+    field_count: number | string;
+    page_count: number | string;
+  }[]>`
     select
       coalesce((select count(*) from pipeline.extraction_jobs j
         where j.packet_id = ${packetId}::uuid and j.job_type = 'referral_packet'
@@ -406,6 +442,16 @@ async function refreshPacketState(tx: TransactionSql, packetId: string) {
       coalesce((select count(*) from pipeline.extraction_jobs j
         where j.packet_id = ${packetId}::uuid and j.job_type = 'referral_packet'
           and j.status in ('failed', 'dead_letter')), 0) as failed_count,
+      coalesce((select count(*)
+        from pipeline.packet_upload_files pf
+        join pipeline.documents d on d.document_id = pf.document_id
+        where pf.packet_id = ${packetId}::uuid
+          and (d.processing_status = 'failed' or d.malware_scan_status in ('infected', 'failed'))), 0) as unsafe_document_count,
+      (select min(d.failure_code)
+        from pipeline.packet_upload_files pf
+        join pipeline.documents d on d.document_id = pf.document_id
+        where pf.packet_id = ${packetId}::uuid
+          and (d.processing_status = 'failed' or d.malware_scan_status in ('infected', 'failed'))) as unsafe_failure_code,
       coalesce((select count(*)
         from pipeline.referral_fields rf
         join pipeline.packet_upload_files pf on pf.document_id = rf.source_document_id
@@ -416,18 +462,19 @@ async function refreshPacketState(tx: TransactionSql, packetId: string) {
         where pf.packet_id = ${packetId}::uuid), 0) as page_count
   `;
   const state = states[0];
-  const status = Number(state.failed_count) > 0
-    ? "failed"
-    : Number(state.active_count) > 0
-      ? "extracting"
-      : Number(state.field_count) > 0
-        ? "ready_for_review"
-        : "failed";
+  const status = packetStatus(state);
   await tx`
     update pipeline.packet_uploads set status = ${status}, page_count = ${Number(state.page_count)},
-      failure_code = case when ${status} = 'failed' then coalesce(failure_code, 'worker_output_missing') else null end,
+      failure_code = case when ${status} = 'failed'
+        then coalesce(${state.unsafe_failure_code}, failure_code, 'worker_output_missing') else null end,
       updated_at = now() where packet_id = ${packetId}::uuid
   `;
+}
+
+function packetStatus(state: { unsafe_document_count: number | string; failed_count: number | string; active_count: number | string; field_count: number | string }) {
+  if (Number(state.unsafe_document_count) > 0 || Number(state.failed_count) > 0) return "failed";
+  if (Number(state.active_count) > 0) return "extracting";
+  return Number(state.field_count) > 0 ? "ready_for_review" : "failed";
 }
 
 async function upsertPreviewPages(
@@ -435,15 +482,7 @@ async function upsertPreviewPages(
   documentId: string,
   pages: NonNullable<NonNullable<WorkerReport["preview"]>["pages"]>,
 ) {
-  const rows = pages.map((page) => ({
-    page_number: page.page_number,
-    blob_container: page.blob_container,
-    blob_key: page.blob_key,
-    content_type: page.content_type,
-    byte_size: page.byte_size ?? null,
-    width: page.width ?? null,
-    height: page.height ?? null,
-  }));
+  const rows = toPreviewPageRows(pages);
   await tx`
     insert into pipeline.document_preview_pages (
       document_id, page_number, blob_container, blob_key, content_type, byte_size, width, height
@@ -466,13 +505,7 @@ async function upsertArtifacts(
   documentId: string,
   artifacts: ReturnType<typeof collectReportedArtifacts>,
 ) {
-  const rows = artifacts.map((artifact) => ({
-    artifact_kind: artifact.kind,
-    blob_container: artifact.blob_container,
-    blob_key: artifact.blob_key,
-    content_type: artifact.content_type ?? null,
-    byte_size: artifact.byte_size ?? null,
-  }));
+  const rows = toArtifactRows(artifacts);
   await tx`
     insert into pipeline.document_artifacts (
       document_id, artifact_kind, blob_container, blob_key, content_type, byte_size
@@ -493,27 +526,22 @@ async function upsertExtractedFields(
   documentId: string,
   fields: ExtractionFieldInput[],
 ) {
-  const fieldRows = fields.map((field) => ({
-    field_key: field.field_key,
-    proposed_value: field.proposed_value ?? null,
-    confidence: field.confidence,
-    source_page: field.source_page ?? null,
-    evidence_blob_key: field.evidence_blob_key ?? null,
-  }));
+  const fieldRows = toExtractedFieldRows(fields);
   const savedFields = await tx<{ referral_field_id: string; field_key: string }[]>`
     insert into pipeline.referral_fields (
       referral_id, field_key, proposed_value, confidence, review_status,
-      source_document_id, source_page, evidence_blob_key
+      source_document_id, source_page, evidence_blob_key, evidence_bbox
     )
     select ${referralId}, field_key, proposed_value, confidence, 'pending',
-      ${documentId}::uuid, source_page, evidence_blob_key
+      ${documentId}::uuid, source_page, evidence_blob_key, evidence_bbox
     from jsonb_to_recordset(${tx.json(fieldRows as never)}::jsonb) as field_rows(
-      field_key text, proposed_value jsonb, confidence numeric, source_page integer, evidence_blob_key text
+      field_key text, proposed_value jsonb, confidence numeric, source_page integer,
+      evidence_blob_key text, evidence_bbox jsonb
     )
     on conflict (referral_id, field_key) do update set
       proposed_value = excluded.proposed_value, confidence = excluded.confidence,
       source_document_id = excluded.source_document_id, source_page = excluded.source_page,
-      evidence_blob_key = excluded.evidence_blob_key, updated_at = now(),
+      evidence_blob_key = excluded.evidence_blob_key, evidence_bbox = excluded.evidence_bbox, updated_at = now(),
       version = pipeline.referral_fields.version + 1
     returning referral_field_id, field_key
   `;
@@ -521,59 +549,28 @@ async function upsertExtractedFields(
   const fieldIds = savedFields.map((field) => field.referral_field_id);
   await tx`delete from pipeline.extraction_candidates where referral_field_id in ${tx(fieldIds)}`;
 
-  const candidateRows = fields.flatMap((field) => {
-    const referralFieldId = fieldIdByKey.get(field.field_key);
-    if (!referralFieldId) throw new DocumentProcessingError("field_upsert_failed", 503);
-    return (field.candidates ?? []).map((candidate) => ({
-      referral_field_id: referralFieldId,
-      source: candidate.source,
-      candidate_value: candidate.value ?? null,
-      confidence: candidate.confidence,
-      source_page: candidate.source_page ?? null,
-      evidence_blob_key: candidate.evidence_blob_key ?? null,
-    }));
-  });
+  const candidateRows = toCandidateRows(fields, fieldIdByKey);
   if (!candidateRows.length) return;
   await tx`
     insert into pipeline.extraction_candidates (
-      referral_field_id, source, candidate_value, confidence, source_page, evidence_blob_key
+      referral_field_id, source, candidate_value, confidence, source_page, evidence_blob_key,
+      evidence_bbox
     )
-    select referral_field_id, source, candidate_value, confidence, source_page, evidence_blob_key
+    select referral_field_id, source, candidate_value, confidence, source_page, evidence_blob_key,
+      evidence_bbox
     from jsonb_to_recordset(${tx.json(candidateRows as never)}::jsonb) as candidate_rows(
       referral_field_id uuid, source text, candidate_value jsonb, confidence numeric,
-      source_page integer, evidence_blob_key text
+      source_page integer, evidence_blob_key text, evidence_bbox jsonb
     )
   `;
 }
 
-function collectReportedArtifacts(input: WorkerReport) {
-  const evidenceContainer = process.env.AZURE_STORAGE_CONTAINER_EVIDENCE?.trim() || "evidence";
-  const byLocation = new Map<string, NonNullable<WorkerReport["artifacts"]>[number]>();
-  const add = (artifact: NonNullable<WorkerReport["artifacts"]>[number]) => {
-    byLocation.set(`${artifact.blob_container}/${artifact.blob_key}`, artifact);
-  };
-  input.artifacts?.forEach(add);
-  if (input.preview) {
-    add({ kind: "preview", blob_container: input.preview.blob_container, blob_key: input.preview.blob_key, content_type: input.preview.content_type });
-    input.preview.pages?.forEach((page) => add({
-      kind: "preview",
-      blob_container: page.blob_container,
-      blob_key: page.blob_key,
-      content_type: page.content_type,
-      byte_size: page.byte_size,
-    }));
-  }
-  for (const field of input.fields ?? []) {
-    if (field.evidence_blob_key) add({ kind: "evidence", blob_container: evidenceContainer, blob_key: field.evidence_blob_key });
-    for (const candidate of field.candidates ?? []) {
-      if (candidate.evidence_blob_key) add({ kind: "evidence", blob_container: evidenceContainer, blob_key: candidate.evidence_blob_key });
-    }
-  }
-  return [...byLocation.values()];
-}
-
 function safeWorkerId(value: string) {
   return value.replace(/[^a-zA-Z0-9_.-]/g, "-").slice(0, 100) || "pipeline-worker";
+}
+
+function evidenceContainer() {
+  return process.env.AZURE_STORAGE_CONTAINER_EVIDENCE?.trim() || "evidence";
 }
 
 function safeErrorCode(error: unknown) {

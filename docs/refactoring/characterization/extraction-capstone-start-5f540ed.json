@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "extraction-capstone",
+  "startingCommit": "5f540edb0ddad56b4dbae6a4e49c6983170db838",
+  "recordedAt": "2026-09-10T15:00:55Z",
+  "results": [
+    {"command":"npm run check:extraction","outcome":"passed","evidence":"22 of 22 deterministic state, lease, retry, callback, duplicate, path, and active-job controls passed."},
+    {"command":"npm run check:extraction-worker","outcome":"passed","evidence":"Eight Python tests and 18 worker/deployment contracts passed."},
+    {"command":"npm run check:storage-consistency","outcome":"passed","evidence":"13 of 13 durable upload failure and recovery scenarios passed."},
+    {"command":"npm run check:backlog-rehearsal","outcome":"passed","evidence":"Twenty synthetic 600-page packets completed across ten workers with bounded retries, zero duplicate claims, zero dead letters, and verified resume."},
+    {"command":"npm run check:extraction-quality","outcome":"passed","evidence":"The schema-v2 synthetic harness passed eight labeled fields; its 0.6756 lower bound is not a production accuracy claim."},
+    {"command":"npm run test:critical-safety","outcome":"passed","evidence":"All 38 critical safety contracts passed."},
+    {"command":"npm run complexity:check","outcome":"passed","evidence":"The exact-start complexity ratchet passed with the inherited reviewed dispositions."}
+  ],
+  "observedFindings": [
+    "Provider attachment and reconciliation updates were not fenced by attempt token after their external waits, so a reclaimed attempt could receive stale provider state.",
+    "Heartbeat checked the attempt before its update but did not verify the update affected a row, allowing a concurrent lease transition to be reported as a successful heartbeat.",
+    "The worker and database retained page-level evidence images but did not carry Document Intelligence bounding polygons through the durable field and candidate contracts."
+  ]
+}

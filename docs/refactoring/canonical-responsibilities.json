@@ -201,6 +201,7 @@
         "lib/extraction/extraction-state.ts",
         "lib/extraction/extraction-service.ts",
         "lib/extraction/processing-worker.ts",
+        "lib/extraction/worker-report-provenance.ts",
         "databricks/pipeline_extraction_worker.py"
       ],
       "allowedRepresentations": [
@@ -217,7 +218,8 @@
       ],
       "forbiddenParallelOwners": [
         "Provider output treated as canonical without validation and review",
-        "Worker callbacks bypassing stale-attempt checks"
+        "Worker callbacks bypassing stale-attempt checks",
+        "Provider dispatch or reconciliation updates not fenced to the claimed attempt"
       ],
       "verificationGates": ["check:extraction", "check:extraction-worker", "check:storage-consistency", "check:extraction-quality"],
       "humanValidated": false

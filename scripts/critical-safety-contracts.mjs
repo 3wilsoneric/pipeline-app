@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
+
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const root = process.cwd();
@@ -7,6 +9,7 @@ const workflow = loadTypeScriptModule(root, "lib/pipeline/referral-workflow.ts")
 const extraction = loadTypeScriptModule(root, "lib/extraction/extraction-state.ts");
 const extractionContracts = loadTypeScriptModule(root, "lib/extraction/contracts.ts");
 const worker = loadTypeScriptModule(root, "lib/extraction/worker-report-validation.ts");
+const processingWorkerSource = readFileSync("lib/extraction/processing-worker.ts", "utf8");
 const matching = loadTypeScriptModule(root, "lib/pipeline/master-record-matching.ts");
 const clinicalMatching = loadTypeScriptModule(root, "lib/pipeline/referral-clinical-reconciliation.ts");
 const upload = loadTypeScriptModule(root, "lib/extraction/durable-upload-reconciliation.ts");
@@ -136,6 +139,40 @@ check("unsafe Blob traversal keys are rejected", throwsCode(() => worker.validat
   ...validReport,
   artifacts: [{ kind: "other", blob_container: "artifacts", blob_key: "packet/../source.pdf" }],
 })) === "blob_key_invalid");
+check("candidate Blob traversal keys are rejected", throwsCode(() => worker.validateWorkerReport({
+  ...validReport,
+  fields: [{
+    field_key: "identity.name",
+    proposed_value: "A",
+    confidence: 0.9,
+    candidates: [{
+      source: "document_intelligence",
+      value: "A",
+      confidence: 0.9,
+      evidence_blob_key: "../escape.png",
+    }],
+  }],
+})) === "blob_key_invalid");
+check("invalid normalized evidence geometry is rejected", throwsCode(() => worker.validateWorkerReport({
+  ...validReport,
+  fields: [{
+    field_key: "identity.name",
+    proposed_value: "A",
+    confidence: 0.9,
+    evidence_bbox: [0.7, 0.1, 0.2, 0.3],
+  }],
+})) === "evidence_bbox_invalid");
+check(
+  "asynchronous extraction writes are attempt fenced",
+  (processingWorkerSource.match(/attempt_count = \$\{job\.attempt_count\} and attempt_token = \$\{job\.attempt_token\}::uuid/g) ?? []).length >= 3
+    && processingWorkerSource.includes("if (!heartbeat[0]) throw new DocumentProcessingError(\"stale_job_attempt\""),
+);
+check(
+  "unsafe documents keep the packet failed even when stale extracted fields exist",
+  processingWorkerSource.includes("unsafe_document_count")
+    && processingWorkerSource.includes("Number(state.unsafe_document_count) > 0 || Number(state.failed_count) > 0")
+    && processingWorkerSource.includes("coalesce(${state.unsafe_failure_code}, failure_code, 'worker_output_missing')"),
+);
 
 const identityCandidates = [{
   canonical_person_id: "person-1",
