@@ -18,7 +18,7 @@
       "tests": ["check:workflow-store-characterization", "database:concurrency"],
       "staticPrompts": [
         {
-          "prompt": "Large module (1695 lines): split by behavior before adding more responsibilities.",
+          "prompt": "Large module (1702 lines): split by behavior before adding more responsibilities.",
           "disposition": "confirmed",
           "reason": "This slice removes a transaction-order defect inside the existing cross-record owner and adds no route, presentation, or new domain responsibility.",
           "owner": "Eric",
@@ -40,7 +40,7 @@
       "tests": ["check:workflow-store-characterization"],
       "staticPrompts": [
         {
-          "prompt": "Large module (2316 lines): split by behavior before adding more responsibilities.",
+          "prompt": "Large module (2347 lines): split by behavior before adding more responsibilities.",
           "disposition": "confirmed",
           "reason": "The only permitted addition is a guarded local-file compensation primitive owned by the assessment store; transaction orchestration remains in workflow-store.",
           "owner": "Eric",
