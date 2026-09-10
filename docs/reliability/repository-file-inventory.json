@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T13:48:13.727Z",
+  "generated_at": "2026-09-10T13:49:17.337Z",
   "audit_date": "2026-09-10",
-  "git_head": "ddfa6c6d35c66f50edc3dd98cd3e38170a7d3d82",
+  "git_head": "b9bc627437f5aca831a3808db6c2b56c41ed27fd",
   "files": [
     {
       "path": ".dockerignore",
@@ -5110,7 +5110,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "54c20358d7503f4c71687af988830ebe68c0e62d15bfbc42c2483ee570a82d90",
+      "content_sha256": "580de83a63cdc364fd8da9f3c335589e79930e1008ee19164fbf9436d5bb9701",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 219657,
@@ -5169,7 +5169,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "66b055e7e9bdab79a922e764bfacd3bcef268cfd712995c9f2d6f5cd8a6d49f0",
+      "content_sha256": "51d19144d490130747e22ca845e6c090f46485c9d6044663f751937e5cbcd24e",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 560832,
