@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { startTransition, useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
 
 import { fetchCurrentPipelineUser, fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import { fromPipelinePath, toPipelinePath } from "@/lib/pipeline/base-path";
@@ -26,6 +26,7 @@ import {
 } from "@/lib/training/operator-guided-tutorials";
 import {
   emptyOperatorGuideState,
+  consumePendingOperatorGuideEvent,
   normalizeOperatorGuideState,
   OPERATOR_GUIDE_EVENT,
   OPERATOR_GUIDE_NAVIGATION_RESUME_KEY,
@@ -165,7 +166,16 @@ export default function PipelineGuidedCoach() {
   const advanceFromTarget = useEffectEvent(() => advance());
 
   useEffect(() => {
-    startTransition(() => {
+    let cancelled = false;
+    const handleGuideEvent = (event: Event) => {
+      const detail = (event as CustomEvent<OperatorGuideEvent>).detail;
+      if (!detail || (detail.type !== "open-library" && detail.type !== "start" && detail.type !== "start-sequence")) return;
+      handleExternalGuideEvent(consumePendingOperatorGuideEvent() ?? detail);
+    };
+    window.addEventListener(OPERATOR_GUIDE_EVENT, handleGuideEvent);
+
+    queueMicrotask(() => {
+      if (cancelled) return;
       const stored = readGuideState();
       const next = shouldResumeGuideNavigation()
         ? stored
@@ -174,20 +184,18 @@ export default function PipelineGuidedCoach() {
       setState(next);
       setLocationKey(currentGuideLocationKey());
       setHydrated(true);
+      const pending = consumePendingOperatorGuideEvent();
+      if (pending) handleExternalGuideEvent(pending);
     });
+
     fetchCurrentPipelineUser()
       .then((payload) => setRoles(normalizeRoles(payload.user?.roles ?? [])))
       .catch(() => setRoles(["viewer"]));
-  }, []);
 
-  useEffect(() => {
-    const handleGuideEvent = (event: Event) => {
-      const detail = (event as CustomEvent<OperatorGuideEvent>).detail;
-      if (!detail || (detail.type !== "open-library" && detail.type !== "start" && detail.type !== "start-sequence")) return;
-      handleExternalGuideEvent(detail);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(OPERATOR_GUIDE_EVENT, handleGuideEvent);
     };
-    window.addEventListener(OPERATOR_GUIDE_EVENT, handleGuideEvent);
-    return () => window.removeEventListener(OPERATOR_GUIDE_EVENT, handleGuideEvent);
   }, []);
 
   useEffect(() => {
@@ -237,7 +245,7 @@ export default function PipelineGuidedCoach() {
   if (!hydrated) return null;
   const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
-  return <GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={target} locationKey={locationKey} onStart={startTutorial} onCommit={commit} onAdvance={advance} onBack={goBack} onResume={resumeTutorial} />;
+  return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={target} locationKey={locationKey} onStart={startTutorial} onCommit={commit} onAdvance={advance} onBack={goBack} onResume={resumeTutorial} /></>;
 }
 
 function GuideCoachSurface({ state, roles, tutorial, step, target, locationKey, onStart, onCommit, onAdvance, onBack, onResume }: { state: OperatorGuideState; roles: readonly OperatorRole[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; locationKey: string; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void }) {

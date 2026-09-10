@@ -112,6 +112,11 @@ const checks = [
     args: ["scripts/historical-chaos-contracts.mjs"],
   },
   {
+    name: "100-user Chaos Extreme virtual-machine policy",
+    command: "node",
+    args: ["scripts/historical-chaos-extreme-contracts.mjs"],
+  },
+  {
     name: "API behavior fixtures",
     command: "node",
     args: ["scripts/api-behavior-fixtures.mjs"],
