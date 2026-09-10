@@ -266,8 +266,12 @@ if (registry.mode === "active" && activeSlice) {
     if (activeSlice.startingCommit) {
       try { git(["merge-base", "--is-ancestor", activeSlice.startingCommit, "HEAD"]); } catch { errors.push(`${activeSlice.id} startingCommit is not an ancestor of HEAD.`); }
       try {
-        const branchPoint = git(["merge-base", "main", "HEAD"]);
-        if (branchPoint !== activeSlice.startingCommit) errors.push(`${activeSlice.id} must fork from its exact recorded startingCommit; merge-base with main is ${branchPoint}.`);
+        const branchPoints = ["main", "origin/main"].flatMap((baseRef) => {
+          try { return [`${baseRef}:${git(["merge-base", baseRef, "HEAD"])}`]; } catch { return []; }
+        });
+        if (!branchPoints.some((entry) => entry.endsWith(`:${activeSlice.startingCommit}`))) {
+          errors.push(`${activeSlice.id} must fork from its exact recorded startingCommit; observed ${branchPoints.join(", ") || "no main branch reference"}.`);
+        }
       } catch {
         errors.push(`${activeSlice.id} starting branch point could not be verified.`);
       }

@@ -16,6 +16,7 @@ let acceptedTransitions = 0;
 let blockedTransitions = 0;
 let acceptedOutcomes = 0;
 let declinedOutcomes = 0;
+let exhaustiveCases = 0;
 const allowedTargets = {
   New: ["Packet Needed", "Declined"],
   "Packet Needed": ["Packet Review", "Declined"],
@@ -25,6 +26,75 @@ const allowedTargets = {
   "Accepted / Admitted": [],
   Declined: [],
 };
+
+const exhaustiveBooleanFields = [
+  "ownerAssigned",
+  "packetAttached",
+  "packetReviewed",
+  "assessmentComplete",
+  "declineReason",
+  "moveInReady",
+  "manualIntakeAuthorized",
+];
+const preparationActions = [
+  (state) => { state.ownerAssigned = true; },
+  (state) => { state.packetAttached = true; },
+  (state) => { state.packetReviewed = state.packetReviewed || state.packetAttached; },
+  (state) => { state.assessmentComplete = true; },
+  (state) => {
+    state.decision = "accepted";
+    state.declineReason = false;
+  },
+  (state) => { state.decision = "declined"; },
+  (state) => { state.declineReason = state.declineReason || state.decision === "declined"; },
+  (state) => { state.moveInReady = true; },
+  (state) => { state.manualIntakeAuthorized = true; },
+];
+const transitionGateBlockers = {
+  "Packet Needed": (state) => state.ownerAssigned ? [] : ["owner_required"],
+  "Packet Review": (state) => state.packetAttached || state.manualIntakeAuthorized
+    ? []
+    : ["initial_packet_required"],
+  Assessment: (state) => state.packetReviewed || state.manualIntakeAuthorized
+    ? []
+    : ["packet_review_required"],
+  "Community Review": (state) => state.assessmentComplete ? [] : ["assessment_required"],
+  "Accepted / Admitted": acceptedBlockerCodes,
+  Declined: (state) => {
+    if (state.decision !== "declined") return ["decline_decision_required"];
+    return state.declineReason ? [] : ["decline_reason_required"];
+  },
+};
+for (const stage of workflow.boardStages) {
+  for (const target of workflow.boardStages) {
+    for (let mask = 0; mask < 2 ** exhaustiveBooleanFields.length; mask += 1) {
+      for (const decision of [null, "accepted", "declined"]) {
+        const state = initialState(8_000);
+        state.stage = stage;
+        state.decision = decision;
+        for (const [index, field] of exhaustiveBooleanFields.entries()) {
+          state[field] = Boolean(mask & (1 << index));
+        }
+        const actualCodes = workflow
+          .getReferralTransitionBlockers(toReferral(state), target, toContext(state))
+          .map((item) => item.code)
+          .sort();
+        const expectedCodes = expectedBlockerCodes(state, target).sort();
+        exhaustiveCases += 1;
+        if (!sameValues(actualCodes, expectedCodes)) {
+          recordFailure(-1, exhaustiveCases, "bounded_transition_oracle_mismatch", {
+            stage,
+            target,
+            mask,
+            decision,
+            actualCodes,
+            expectedCodes,
+          });
+        }
+      }
+    }
+  }
+}
 
 for (let trace = 0; trace < traces; trace += 1) {
   const state = initialState(trace);
@@ -132,13 +202,21 @@ checks.push({
 
 checks.unshift(
   {
+    name: "every bounded workflow transition input matches the independent oracle",
+    ok: failures.filter((item) => item.invariant === "bounded_transition_oracle_mismatch").length === 0,
+    cases: exhaustiveCases,
+  },
+  {
     name: "stateful transition traces match the independent workflow oracle",
     ok: failures.filter((item) => item.invariant === "transition_oracle_mismatch").length === 0,
     cases: attemptedTransitions,
   },
   {
     name: "workflow invariants survive randomized histories",
-    ok: failures.filter((item) => item.invariant !== "transition_oracle_mismatch").length === 0,
+    ok: failures.filter((item) => ![
+      "transition_oracle_mismatch",
+      "bounded_transition_oracle_mismatch",
+    ].includes(item.invariant)).length === 0,
     cases: attemptedTransitions * 5,
   },
   {
@@ -179,6 +257,7 @@ function initialState(trace) {
     decision: null,
     declineReason: false,
     moveInReady: false,
+    manualIntakeAuthorized: false,
     accepted: false,
     declined: false,
     audit: [],
@@ -189,53 +268,20 @@ function initialState(trace) {
 
 function applyRandomPreparation(state) {
   if (isTerminal(state.stage)) return;
-  switch (integer(0, 8)) {
-    case 0:
-      state.ownerAssigned = true;
-      break;
-    case 1:
-      state.packetAttached = true;
-      break;
-    case 2:
-      if (state.packetAttached) state.packetReviewed = true;
-      break;
-    case 3:
-      state.assessmentComplete = true;
-      break;
-    case 4:
-      state.decision = "accepted";
-      state.declineReason = false;
-      break;
-    case 5:
-      state.decision = "declined";
-      break;
-    case 6:
-      if (state.decision === "declined") state.declineReason = true;
-      break;
-    case 7:
-      state.moveInReady = true;
-      break;
-  }
+  preparationActions[integer(0, preparationActions.length)](state);
 }
 
 function expectedBlockerCodes(state, target) {
   if (target === state.stage) return [];
   if (!allowedTargets[state.stage].includes(target)) return ["stage_sequence"];
-  if (target === "Packet Needed" && !state.ownerAssigned) return ["owner_required"];
-  if (target === "Packet Review" && !state.packetAttached) return ["initial_packet_required"];
-  if (target === "Assessment" && !state.packetReviewed) return ["packet_review_required"];
-  if (target === "Community Review" && !state.assessmentComplete) return ["assessment_required"];
-  if (target === "Accepted / Admitted") {
-    const blockers = [];
-    if (state.decision !== "accepted") blockers.push("admission_decision_required");
-    if (!state.moveInReady) blockers.push("requirement:signed_admission_agreement");
-    return blockers;
-  }
-  if (target === "Declined") {
-    if (state.decision !== "declined") return ["decline_decision_required"];
-    if (!state.declineReason) return ["decline_reason_required"];
-  }
-  return [];
+  return transitionGateBlockers[target]?.(state) ?? [];
+}
+
+function acceptedBlockerCodes(state) {
+  const blockers = [];
+  if (state.decision !== "accepted") blockers.push("admission_decision_required");
+  if (!state.moveInReady) blockers.push("requirement:signed_admission_agreement");
+  return blockers;
 }
 
 function toReferral(state) {
@@ -258,6 +304,15 @@ function toReferral(state) {
       reasonNote: state.declineReason ? "Synthetic documented reason" : "",
     } : undefined,
     requirements: [moveInRequirement(state)],
+    ...(state.manualIntakeAuthorized ? {
+      manualIntakeAuthorization: {
+        mode: "manual_chart",
+        reason: "Synthetic packet unavailable exception",
+        authorizedBy: "synthetic-supervisor",
+        authorizedByName: "Synthetic Supervisor",
+        authorizedAt: "2026-01-01T08:00:00.000Z",
+      },
+    } : {}),
   };
 }
 

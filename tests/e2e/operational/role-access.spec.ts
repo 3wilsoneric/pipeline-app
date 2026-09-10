@@ -64,6 +64,28 @@ test.describe("operational account and role boundaries", () => {
       });
       expect(reviewerDecision.status()).toBe(403);
 
+      const supervisorOnlyReview = {
+        action: "request_changes",
+        if_match: 1,
+        if_match_section: 1,
+        if_match_review: 1,
+        review_id: "00000000-0000-4000-8000-000000000001",
+        reason_note: "Synthetic authorization boundary check.",
+      };
+      for (const context of [viewer, outsider, reviewer, coordinator]) {
+        const response = await context.post("/api/referrals/1/assessment-review", {
+          data: supervisorOnlyReview,
+        });
+        expect(response.status()).toBe(403);
+      }
+
+      for (const context of [viewer, outsider, reviewer]) {
+        const response = await context.delete("/api/referrals/1", {
+          data: { if_match: 1 },
+        });
+        expect(response.status()).toBe(403);
+      }
+
       const coordinatorCreateValidation = await coordinator.post("/api/referrals", {
         data: { client_mutation_id: operationalMutationId("coordinator-validation"), referral: {} },
       });

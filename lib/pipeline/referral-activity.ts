@@ -116,6 +116,9 @@ async function loadActivityEvents(
          or (entity_type = 'admission_decision' and entity_id in (
               select decision_id::text from pipeline.admission_decisions where referral_id = ${referral.id}
             ))
+         or (entity_type = 'assessment_review' and entity_id in (
+              select review_id::text from pipeline.assessment_reviews where referral_id = ${referral.id}
+            ))
       order by created_at desc, audit_event_id desc
       limit 100
     `;

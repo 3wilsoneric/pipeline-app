@@ -157,6 +157,191 @@ test.describe("workflow store characterization", () => {
     }
   });
 
+  test("returns a signed assessment for correction and binds the final decision to its successor", async ({ baseURL }) => {
+    const actors = await workflowActors(baseURL);
+    try {
+      const ready = await decisionReadyReferral(actors);
+      const initialSnapshot = await reviewSnapshot(actors.supervisor, ready.referral.id);
+      const initialReview = asRecord(initialSnapshot.review);
+      const request = reviewChangesRequest(
+        ready.referral,
+        initialReview,
+        `workflow-characterization-review-cycle-${ready.referral.id}`,
+      );
+
+      const viewer = await actors.viewer.post(`/api/referrals/${ready.referral.id}/assessment-review`, { data: request });
+      expect(viewer.status()).toBe(403);
+      const assessor = await actors.assessor.post(`/api/referrals/${ready.referral.id}/assessment-review`, { data: request });
+      expect(assessor.status()).toBe(403);
+
+      const first = await actors.supervisor.post(`/api/referrals/${ready.referral.id}/assessment-review`, { data: request });
+      const firstBody = await responseRecord(first, 200);
+      const changedReview = asRecord(firstBody.review);
+      const successorId = String(changedReview.successorAssessmentId);
+      expect(changedReview).toMatchObject({
+        reviewId: initialReview.reviewId,
+        status: "changes_requested",
+        successorAssessmentId: expect.any(String),
+      });
+
+      const replay = await actors.supervisor.post(`/api/referrals/${ready.referral.id}/assessment-review`, { data: request });
+      const replayBody = await responseRecord(replay, 200);
+      expect(asRecord(replayBody.review)).toMatchObject({
+        reviewId: initialReview.reviewId,
+        successorAssessmentId: successorId,
+        version: changedReview.version,
+      });
+
+      const assessments = await listReferralAssessments(actors.supervisor, ready.referral.id);
+      expect(assessments).toHaveLength(2);
+      expect(await readAssessmentRecord(actors.supervisor, ready.assessment.assessment_id)).toMatchObject({
+        assessment_id: ready.assessment.assessment_id,
+        signed_at: expect.any(String),
+      });
+      expect(await readAssessmentRecord(actors.assessor, successorId)).toMatchObject({
+        assessment_id: successorId,
+        revision_number: 2,
+        supersedes_assessment_id: ready.assessment.assessment_id,
+        status: "draft",
+        signed_at: null,
+      });
+
+      let correctedAssessment: OperationalAssessment = { assessment_id: successorId, version: 1 };
+      correctedAssessment = await completeOperationalAssessment(actors.assessor, correctedAssessment);
+      correctedAssessment = await signOperationalAssessment(actors.assessor, correctedAssessment);
+      let referral = await readOperationalReferral(actors.assessor, ready.referral.id);
+      const recommendation = await actors.assessor.put(`/api/referrals/${referral.id}/recommendation`, {
+        data: recommendationRequest(
+          referral,
+          correctedAssessment,
+          `workflow-characterization-corrected-recommendation-${referral.id}`,
+        ),
+      });
+      referral = asReferralPayload(await responseRecord(recommendation, 200)).referral;
+      const decision = await actors.supervisor.put(`/api/referrals/${referral.id}/decision`, {
+        data: decisionRequest(
+          referral,
+          "accepted",
+          `workflow-characterization-corrected-decision-${referral.id}`,
+        ),
+      });
+      const decisionBody = await responseRecord(decision, 200);
+      const finalSnapshot = await reviewSnapshot(actors.supervisor, referral.id);
+      const finalReview = asRecord(finalSnapshot.review);
+      const finalDecision = asRecord(decisionBody.decision);
+      expect(finalReview).toMatchObject({
+        assessmentId: successorId,
+        assessmentVersion: correctedAssessment.version,
+        previousReviewId: initialReview.reviewId,
+        status: "approved_for_placement",
+      });
+      expect(finalDecision).toMatchObject({
+        assessmentId: successorId,
+        assessmentVersion: correctedAssessment.version,
+        reviewId: finalReview.reviewId,
+        reviewVersion: finalReview.version,
+      });
+      expect(Array.isArray(finalSnapshot.history) ? finalSnapshot.history : []).toHaveLength(2);
+    } finally {
+      await actors.dispose();
+    }
+  });
+
+  test("creates exactly one correction successor for concurrent change requests", async ({ baseURL }) => {
+    const actors = await workflowActors(baseURL);
+    try {
+      const ready = await decisionReadyReferral(actors);
+      const review = asRecord((await reviewSnapshot(actors.supervisor, ready.referral.id)).review);
+      const [left, right] = await Promise.all([
+        actors.supervisor.post(`/api/referrals/${ready.referral.id}/assessment-review`, {
+          data: reviewChangesRequest(
+            ready.referral,
+            review,
+            `workflow-characterization-review-race-left-${ready.referral.id}`,
+          ),
+        }),
+        actors.supervisorPeer.post(`/api/referrals/${ready.referral.id}/assessment-review`, {
+          data: reviewChangesRequest(
+            ready.referral,
+            review,
+            `workflow-characterization-review-race-right-${ready.referral.id}`,
+          ),
+        }),
+      ]);
+      expect([left.status(), right.status()].sort()).toEqual([200, 409]);
+      const winner = await responseRecord(left.status() === 200 ? left : right, 200);
+      await responseRecord(left.status() === 409 ? left : right, 409);
+      const savedReview = asRecord(winner.review);
+      const assessments = await listReferralAssessments(actors.supervisor, ready.referral.id);
+      expect(assessments).toHaveLength(2);
+      const successors = assessments.filter((assessment) => assessment.supersedes_assessment_id === ready.assessment.assessment_id);
+      expect(successors).toHaveLength(1);
+      expect(savedReview.successorAssessmentId).toBe(successors[0].assessment_id);
+      expect(
+        (await activityActions(actors.supervisor, ready.referral.id))
+          .filter((action) => action === "assessment_review_changes_requested"),
+      ).toHaveLength(1);
+    } finally {
+      await actors.dispose();
+    }
+  });
+
+  test("commits one coherent outcome when correction and final decision collide", async ({ baseURL }) => {
+    const actors = await workflowActors(baseURL);
+    try {
+      const ready = await decisionReadyReferral(actors);
+      const review = asRecord((await reviewSnapshot(actors.supervisor, ready.referral.id)).review);
+      const [correction, decision] = await Promise.all([
+        actors.supervisor.post(`/api/referrals/${ready.referral.id}/assessment-review`, {
+          data: reviewChangesRequest(
+            ready.referral,
+            review,
+            `workflow-characterization-correction-decision-race-${ready.referral.id}`,
+          ),
+        }),
+        actors.supervisorPeer.put(`/api/referrals/${ready.referral.id}/decision`, {
+          data: decisionRequest(
+            ready.referral,
+            "accepted",
+            `workflow-characterization-decision-correction-race-${ready.referral.id}`,
+          ),
+        }),
+      ]);
+      expect([correction.status(), decision.status()]).toContain(200);
+      expect([409, 422]).toContain(correction.status() === 200 ? decision.status() : correction.status());
+      const snapshot = await decisionSnapshot(actors.supervisor, ready.referral.id);
+      const reviewState = await reviewSnapshot(actors.supervisor, ready.referral.id);
+      const assessments = await listReferralAssessments(actors.supervisor, ready.referral.id);
+      const currentReview = asRecord(reviewState.review);
+
+      if (correction.status() === 200) {
+        await responseRecord(correction, 200);
+        await responseRecord(decision, decision.status());
+        expect(snapshot.decision).toBeNull();
+        expect(assessments).toHaveLength(2);
+        expect(currentReview).toMatchObject({
+          status: "changes_requested",
+          successorAssessmentId: expect.any(String),
+        });
+        expect(assessments.some((assessment) => (
+          assessment.assessment_id === currentReview.successorAssessmentId
+          && assessment.supersedes_assessment_id === ready.assessment.assessment_id
+        ))).toBe(true);
+      } else {
+        await responseRecord(correction, correction.status());
+        await responseRecord(decision, 200);
+        expect(asRecord(snapshot.decision)).toMatchObject({ outcome: "accepted" });
+        expect(assessments).toHaveLength(1);
+        expect(currentReview).toMatchObject({
+          status: "approved_for_placement",
+          successorAssessmentId: undefined,
+        });
+      }
+    } finally {
+      await actors.dispose();
+    }
+  });
+
   test("validates work-item evidence and makes a replay audit-neutral", async ({ baseURL }) => {
     const actors = await workflowActors(baseURL);
     try {
@@ -302,7 +487,20 @@ test.describe("workflow store characterization", () => {
 
 type WorkflowActors = Awaited<ReturnType<typeof workflowActors>>;
 
-const syntheticSurnames = ["Aldrin", "Bishop", "Chandra", "Deckard", "Ellison", "Fisher"] as const;
+const syntheticSurnames = [
+  "Aldrin",
+  "Bishop",
+  "Chandra",
+  "Deckard",
+  "Ellison",
+  "Fisher",
+  "Gibson",
+  "Haldeman",
+  "Ishiguro",
+  "Jemisin",
+  "Kowal",
+  "Leckie",
+] as const;
 let referralSequence = 0;
 
 async function workflowActors(baseURL: string | undefined) {
@@ -438,6 +636,22 @@ function decisionRequest(
   };
 }
 
+function reviewChangesRequest(
+  referral: OperationalReferral,
+  review: Record<string, unknown>,
+  mutationId: string,
+) {
+  return {
+    action: "request_changes",
+    if_match: referral.version,
+    if_match_section: referral.sectionVersions.decision,
+    if_match_review: Number(review.version),
+    review_id: String(review.reviewId),
+    reason_note: "Synthetic correction request. Contains no PHI.",
+    client_mutation_id: mutationId,
+  };
+}
+
 function ehrRequest(
   referral: OperationalReferral,
   action: "queue" | "mark_sent" | "mark_failed" | "retry",
@@ -481,6 +695,22 @@ async function readReferralRecord(context: APIRequestContext, referralId: number
 async function decisionSnapshot(context: APIRequestContext, referralId: number) {
   const response = await context.get(`/api/referrals/${referralId}/decision`);
   return responseRecord(response, 200);
+}
+
+async function reviewSnapshot(context: APIRequestContext, referralId: number) {
+  const response = await context.get(`/api/referrals/${referralId}/assessment-review`);
+  return responseRecord(response, 200);
+}
+
+async function listReferralAssessments(context: APIRequestContext, referralId: number) {
+  const response = await context.get(`/api/referrals/${referralId}/assessments`);
+  const body = await responseRecord(response, 200);
+  return (Array.isArray(body.assessments) ? body.assessments : []).map(asRecord);
+}
+
+async function readAssessmentRecord(context: APIRequestContext, assessmentId: string) {
+  const response = await context.get(`/api/assessments/${assessmentId}`);
+  return asRecord((await responseRecord(response, 200)).assessment);
 }
 
 async function findWorkItem(context: APIRequestContext, referralId: number, type: string) {

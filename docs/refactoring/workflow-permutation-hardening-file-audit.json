@@ -1,0 +1,339 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "workflow-permutation-hardening",
+  "startingCommit": "8da6634eaa0b9cc74e3576012b8e0e2e33872a31",
+  "generatedInventory": "docs/reliability/repository-file-inventory.json",
+  "humanOwner": "Eric",
+  "reviewedAt": "2026-09-10T12:57:55Z",
+  "files": [
+    {
+      "path": "lib/pipeline/workflow-store.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Workflow routes depend on this canonical cross-record command and PostgreSQL transaction owner.",
+      "purpose": "Make correction-revision creation atomic with review validation and referral mutation.",
+      "callers": ["referral workflow routes"],
+      "publicExports": ["requestAssessmentReviewChanges"],
+      "sideEffects": ["PostgreSQL or local persistence", "audit", "idempotency", "store revisions"],
+      "failureBehavior": "Stale or blocked commands return typed no-write outcomes; unexpected PostgreSQL failures roll back.",
+      "tests": ["check:workflow-store-characterization", "database:concurrency"],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (1778 lines): split by behavior before adding more responsibilities.",
+          "disposition": "confirmed",
+          "reason": "This slice removes a transaction-order defect inside the existing cross-record owner and adds no route, presentation, or new domain responsibility.",
+          "owner": "Eric",
+          "followUp": "Do not add presentation, route validation, or assessment field policy to workflow-store."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "The defect is inside the existing canonical transaction owner."
+    },
+    {
+      "path": "lib/assessment/assessment-store.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Assessment routes and workflow-store depend on this canonical assessment persistence owner.",
+      "purpose": "Provide narrowly guarded local rollback of a just-created, unsigned correction successor after workflow compare-and-swap failure.",
+      "callers": ["workflow store"],
+      "publicExports": ["createAssessmentRevision", "discardUncommittedAssessmentRevision"],
+      "sideEffects": ["local-file assessment persistence only"],
+      "failureBehavior": "Refuses to discard missing, signed, edited, mismatched, or non-successor assessments.",
+      "tests": ["check:workflow-store-characterization"],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (2347 lines): split by behavior before adding more responsibilities.",
+          "disposition": "confirmed",
+          "reason": "The only permitted addition is a guarded local-file compensation primitive owned by the assessment store; transaction orchestration remains in workflow-store.",
+          "owner": "Eric",
+          "followUp": "Do not add workflow orchestration here."
+        },
+        {
+          "prompt": "Contains runtime console logging; verify messages cannot include PHI, tokens, query strings, or upstream bodies.",
+          "disposition": "expected",
+          "reason": "The existing fixed load-failure event contains no patient or request values; this slice adds no logging.",
+          "owner": "Eric",
+          "followUp": "Keep new logs free of values and PHI."
+        },
+        {
+          "prompt": "Uses SELECT *; verify response growth, schema coupling, and PHI minimization.",
+          "disposition": "expected",
+          "reason": "The existing internal row hydrator requires the complete assessment row; this slice changes no query or browser response.",
+          "owner": "Eric",
+          "followUp": "Do not expose database rows directly."
+        },
+        {
+          "prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+          "disposition": "expected",
+          "reason": "The existing queue recovery prevents a prior rejected local persistence from poisoning later saves; the actual command failure remains visible.",
+          "owner": "Eric",
+          "followUp": "Never suppress review or correction failures."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "Local-file recovery must remain owned by the assessment store rather than mutating its data from workflow-store."
+    },
+    {
+      "path": "lib/pipeline/referral-activity.ts",
+      "plannedNew": false,
+      "dependencyDirection": "The referral activity route depends on this read-only cross-entity activity aggregator.",
+      "purpose": "Include PostgreSQL supervisor-review audit records in the referral activity stream, matching the visible local workflow history.",
+      "callers": ["referral activity route"],
+      "publicExports": ["getReferralActivitySnapshot", "listReferralActivity"],
+      "sideEffects": ["read-only PostgreSQL queries"],
+      "failureBehavior": "Missing related audit rows yield an incomplete history but never mutate workflow data.",
+      "tests": ["check:workflow-store-characterization", "test:e2e:operational:high"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The focused PostgreSQL parity run proved the canonical activity aggregator omitted review audit entities."
+    },
+    {
+      "path": "tests/e2e/operational/workflow-store-characterization.spec.ts",
+      "plannedNew": false,
+      "dependencyDirection": "The focused Playwright harness exercises public workflow routes against both storage adapters.",
+      "purpose": "Permanently prove correction, replay, full resubmission, and collision behavior.",
+      "callers": ["check:workflow-store-characterization"],
+      "publicExports": [],
+      "sideEffects": ["isolated synthetic fixture mutations"],
+      "failureBehavior": "Any unexpected response, lineage, audit, or authorization state fails the run.",
+      "tests": ["check:workflow-store-characterization"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "This is the existing local/PostgreSQL parity surface for workflow commands."
+    },
+    {
+      "path": "scripts/workflow-store-characterization.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "Certification invokes this runner; application code does not depend on it.",
+      "purpose": "Bind the expanded focused suite and exact expected scenario count to evidence.",
+      "callers": ["check:workflow-store-characterization"],
+      "publicExports": [],
+      "sideEffects": ["disposable PostgreSQL database", "ignored evidence output"],
+      "failureBehavior": "A build, migration, adapter, scenario-count, or cleanup failure exits nonzero.",
+      "tests": ["check:workflow-store-characterization"],
+      "staticPrompts": [
+        {
+          "prompt": "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
+          "disposition": "expected",
+          "reason": "The runner uses spawn with fixed commands and argument arrays, captures bounded output, and propagates nonzero exit status.",
+          "owner": "Eric",
+          "followUp": "Keep commands and arguments non-shell and fixed by the repository."
+        },
+        {
+          "prompt": "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence.",
+          "disposition": "expected",
+          "reason": "Creation and deletion are limited to a randomly named disposable PostgreSQL database after a test-server guard; production targets are never accepted.",
+          "owner": "Eric",
+          "followUp": "Preserve the disposable database name and cleanup guard."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "The runner is the established exact-commit parity evidence owner."
+    },
+    {
+      "path": "scripts/workflow-stateful-fuzz.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "CI invokes this independent oracle against pure workflow policy.",
+      "purpose": "Add exhaustive bounded transition input enumeration while retaining randomized histories.",
+      "callers": ["check:workflow-fuzz", "CI"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Any oracle mismatch or invariant failure exits nonzero with synthetic diagnostics.",
+      "tests": ["check:workflow-fuzz"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Extending the established independent oracle is smaller than creating a parallel model."
+    },
+    {
+      "path": "tests/e2e/operational/role-access.spec.ts",
+      "plannedNew": false,
+      "dependencyDirection": "The operational test suite exercises route authentication, role, worker, and resource boundaries.",
+      "purpose": "Expand runtime role and resource-state denial evidence at high-risk workflow seams.",
+      "callers": ["test:e2e:operational:high"],
+      "publicExports": [],
+      "sideEffects": ["isolated synthetic fixture mutations"],
+      "failureBehavior": "A role leak, boundary crossover, or denied-command side effect fails the suite.",
+      "tests": ["test:e2e:operational:high"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "This is the existing runtime authorization matrix owner."
+    },
+    {
+      "path": "scripts/code-quality-readiness.mjs",
+      "plannedNew": false,
+      "dependencyDirection": "Refactor setup gates depend on this validator; application runtime does not.",
+      "purpose": "Recognize the recorded origin/main production branch point when the user's checked-out main branch is intentionally stale and dirty.",
+      "callers": ["check:code-quality", "check:refactor-setup"],
+      "publicExports": [],
+      "sideEffects": ["read-only Git inspection"],
+      "failureBehavior": "A branch that does not fork at the recorded starting commit still fails setup.",
+      "tests": ["check:refactor-setup"],
+      "staticPrompts": [
+        {
+          "prompt": "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
+          "disposition": "expected",
+          "reason": "The validator invokes Git with fixed argument arrays and propagates failures into explicit readiness errors.",
+          "owner": "Eric",
+          "followUp": "Keep Git calls non-shell and read-only."
+        },
+        {
+          "prompt": "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.",
+          "disposition": "false_positive",
+          "reason": "The matched text is repository/dependency policy data, not a runtime network endpoint or request target.",
+          "owner": "Eric",
+          "followUp": "No network behavior may be added to this validator."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "The validator must not require moving a dirty local main ref to recognize the exact deployed base."
+    },
+    {
+      "path": "docs/refactoring/canonical-responsibilities.json",
+      "plannedNew": false,
+      "dependencyDirection": "Assurance validation consumes this machine-readable owner map.",
+      "purpose": "Record the bounded correction atomicity and assurance owner.",
+      "callers": ["check:refactor-assurance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing or contradictory ownership blocks the slice.",
+      "tests": ["check:refactor-assurance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Required owner-fast-lane machine trace."
+    },
+    {
+      "path": "docs/refactoring/architecture-comprehension-probes.json",
+      "plannedNew": false,
+      "dependencyDirection": "Assurance validation consumes this trace question.",
+      "purpose": "Bind the collision and recovery comprehension trace.",
+      "callers": ["check:refactor-assurance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "A probe outside its responsibility blocks the slice.",
+      "tests": ["check:refactor-assurance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Required owner-fast-lane machine trace."
+    },
+    {
+      "path": "docs/refactoring/proof-obligations.json",
+      "plannedNew": false,
+      "dependencyDirection": "Assurance validation consumes this critical bounded property.",
+      "purpose": "Declare correction atomicity and non-extraction workflow safety evidence.",
+      "callers": ["check:refactor-assurance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Unverified critical obligations block completion.",
+      "tests": ["check:refactor-assurance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Required exact-candidate proof boundary."
+    },
+    {
+      "path": "docs/refactoring/refactor-eval-scenarios.json",
+      "plannedNew": false,
+      "dependencyDirection": "The guidance checker consumes this public setup scenario.",
+      "purpose": "Keep public guidance coverage aligned with the registered slice set.",
+      "callers": ["check:refactor-guidance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "An unrepresented slice blocks guidance validation.",
+      "tests": ["check:refactor-guidance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Required structural guidance coverage for a registered slice."
+    },
+    {
+      "path": "docs/refactoring/complexity-disposition.json",
+      "plannedNew": false,
+      "dependencyDirection": "The complexity ratchet consumes these exact owner-approved ceilings.",
+      "purpose": "Remove the temporary correction-transaction ceiling after simplifying the function and tighten aggregate ceilings to the measured candidate.",
+      "callers": ["complexity:check", "check:platform:fast"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Unapproved complexity growth blocks the slice.",
+      "tests": ["complexity:check"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The slice reduced its new transaction path below the default ceiling, so the temporary exception must not remain."
+    },
+    {
+      "path": "lib/academy/academy-atlas.generated.json",
+      "plannedNew": false,
+      "dependencyDirection": "Academy readiness generates this repository inventory; application workflow code does not depend on it.",
+      "purpose": "Refresh generated repository learning context after the certified bounded change.",
+      "callers": ["academy:refresh", "check:platform:fast"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Fingerprint drift blocks platform certification.",
+      "tests": ["certify:refactor"],
+      "staticPrompts": [],
+      "decision": "regenerate",
+      "decisionReason": "Required generated certification evidence."
+    },
+    {
+      "path": "docs/academy/academy-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Academy readiness owns this generated fingerprint registry.",
+      "purpose": "Bind Academy freshness to the certified repository fingerprint.",
+      "callers": ["academy:refresh", "check:platform:fast"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Stale source or atlas fingerprints block platform certification.",
+      "tests": ["certify:refactor"],
+      "staticPrompts": [],
+      "decision": "regenerate",
+      "decisionReason": "Required generated certification evidence."
+    },
+    {
+      "path": "docs/training/training-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Training readiness owns this generated curriculum registry.",
+      "purpose": "Confirm operator-training sources remain unchanged and current after the bounded change.",
+      "callers": ["training:refresh", "check:platform:fast"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Training fingerprint drift blocks readiness.",
+      "tests": ["certify:refactor"],
+      "staticPrompts": [],
+      "decision": "regenerate",
+      "decisionReason": "Required generated certification evidence."
+    },
+    {
+      "path": "docs/refactoring/WORKFLOW_PERMUTATION_HARDENING_ARCHITECTURE_NARRATIVE.md",
+      "plannedNew": true,
+      "dependencyDirection": "The registry and assurance record depend on this owner-authorized technical trace.",
+      "purpose": "Record exact scope, observed defect, invariants, recovery, and evidence boundary.",
+      "callers": ["check:refactor-setup", "check:refactor-assurance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing or mismatched scope blocks implementation.",
+      "tests": ["check:refactor-setup"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Required owner-fast-lane architecture trace."
+    },
+    {
+      "path": "docs/refactoring/workflow-permutation-hardening-file-audit.json",
+      "plannedNew": true,
+      "dependencyDirection": "Code-quality validation consumes this exact allowed-file disposition.",
+      "purpose": "Bind every intended changed file and static prompt to the approved scope.",
+      "callers": ["check:code-quality", "check:refactor-setup"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "An unlisted changed file or prompt blocks implementation.",
+      "tests": ["check:refactor-setup"],
+      "staticPrompts": [
+        {
+          "prompt": "Uses SELECT *; verify response growth, schema coupling, and PHI minimization.",
+          "disposition": "false_positive",
+          "reason": "The phrase appears only as a quoted static-review prompt about assessment-store; this JSON file executes no SQL.",
+          "owner": "Eric",
+          "followUp": "Keep the disposition tied to the actual assessment-store query."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "Required exact-path scope control."
+    }
+  ],
+  "reviewedBy": "Owner-authorized TARS machine trace",
+  "approvedAt": "2026-09-10T12:57:55Z"
+}

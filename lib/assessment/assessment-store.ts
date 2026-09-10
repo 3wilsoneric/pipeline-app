@@ -285,6 +285,37 @@ export async function createAssessmentRevision(
     : createLocalAssessmentRevision(assessmentId, actor, mutationId);
 }
 
+export async function discardUncommittedAssessmentRevision(
+  assessmentId: string,
+  sourceAssessmentId: string,
+  mutationId: string,
+): Promise<boolean> {
+  if (getAssessmentStoreReadiness().mode !== "local_file") return false;
+  await ensureLoaded();
+  return withMutation(async () => {
+    const mutationKey = `revision:${mutationId}`;
+    if (state.createMutations.get(mutationKey) !== assessmentId) return false;
+    const index = state.assessments.findIndex((assessment) => assessment.assessment_id === assessmentId);
+    if (index < 0) return false;
+    const assessment = state.assessments[index];
+    if (
+      assessment.supersedes_assessment_id !== sourceAssessmentId
+      || assessment.status !== "draft"
+      || assessment.version !== 1
+      || assessment.signed_at
+      || assessment.audit_events.length !== 1
+      || assessment.audit_events[0]?.action !== "assessment_revision_created"
+    ) {
+      return false;
+    }
+    state.assessments.splice(index, 1);
+    state.createMutations.delete(mutationKey);
+    state.revision += 1;
+    await persist();
+    return true;
+  });
+}
+
 export async function patchAssessment(
   assessmentId: string,
   patch: AssessmentPatchInput,

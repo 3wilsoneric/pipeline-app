@@ -7,6 +7,7 @@ import type { TransactionSql } from "postgres";
 import {
   createAssessmentRevision,
   createAssessmentRevisionInTransaction,
+  discardUncommittedAssessmentRevision,
   getAssessment,
   listAssessments,
 } from "@/lib/assessment/assessment-store";
@@ -131,6 +132,14 @@ type ReviewRow = {
   version: number | string;
   updated_at: Date | string;
 };
+
+type LockedReviewReferralRow = {
+  version: number;
+  data: unknown;
+  section_versions: unknown;
+};
+
+type ReviewChangeFailure = Exclude<WorkflowRecordMutation<AssessmentReview>, { ok: true }>;
 
 export async function getReferralWorkflowSnapshot(referralId: number): Promise<ReferralWorkflowSnapshot | null> {
   const referral = await getReferral(referralId);
@@ -679,52 +688,21 @@ export async function requestAssessmentReviewChanges(
       blockers: [{ code: "review_note_required", label: "Describe the specific corrections the assessor needs to make." }],
     };
   }
-  const revisionMutationId = mutationId ? `${mutationId}:assessment` : undefined;
+  const revisionMutationId = mutationId ? `${mutationId}:assessment` : `review-${review.reviewId}:${randomUUID()}`;
   if (getReferralStoreReadiness().mode === "postgres") {
     const sql = getPipelineSql();
-    const result = await sql.begin(async (tx) => {
-      const revisionResult = await createAssessmentRevisionInTransaction(
-        tx,
-        review.assessmentId,
-        actor,
-        revisionMutationId,
-      );
-      if (!revisionResult) return null;
-      if (!revisionResult.ok) {
-        return {
-          ok: false as const,
-          blocked: true as const,
-          referral: snapshot.referral,
-          blockers: "blockers" in revisionResult ? revisionResult.blockers : [
-            { code: "assessment_revision_conflict", label: "The assessment changed before its correction revision could be created." },
-          ],
-        };
-      }
-      const now = new Date().toISOString();
-      return recordPostgresReviewChanges(
-        tx,
-        referralId,
-        review,
-        {
-          ...review,
-          status: "changes_requested",
-          notificationStatus: "acknowledged",
-          reviewedBy: actor.id,
-          reviewedByName: actor.name,
-          reviewedAt: now,
-          reviewNote: reason,
-          successorAssessmentId: revisionResult.assessment.assessment_id,
-          version: review.version + 1,
-          updatedAt: now,
-        },
-        revisionResult.assessment,
-        expectedVersion,
-        expectedDecisionVersion,
-        actor,
-        snapshot.referral,
-        mutationId,
-      );
-    });
+    const result = await sql.begin((tx) => recordPostgresReviewChanges(
+      tx,
+      referralId,
+      review,
+      reason,
+      revisionMutationId,
+      expectedVersion,
+      expectedDecisionVersion,
+      actor,
+      snapshot.referral,
+      mutationId,
+    ));
     if (!result) return null;
     if (!result.ok) return result;
     const referral = await getReferral(referralId);
@@ -774,8 +752,12 @@ export async function requestAssessmentReviewChanges(
       mutationScope: "assessment_review_changes",
     },
   );
-  if (!mutation) return null;
+  if (!mutation) {
+    await requireDiscardedLocalRevision(revisionResult.assessment, review.assessmentId, revisionMutationId);
+    return null;
+  }
   if (!mutation.ok) {
+    await requireDiscardedLocalRevision(revisionResult.assessment, review.assessmentId, revisionMutationId);
     if ("conflict" in mutation) return { ok: false, conflict: true, referral: mutation.referral, record: snapshot.review ?? undefined };
     return { ok: false, blocked: true, referral: mutation.referral, blockers: mutation.blockers };
   }
@@ -1312,58 +1294,30 @@ async function recordPostgresReviewChanges(
   tx: TransactionSql,
   referralId: number,
   currentReview: AssessmentReview,
-  nextReview: AssessmentReview,
-  revision: PipelineAssessmentRecord,
+  reason: string,
+  revisionMutationId: string,
   expectedVersion: number,
   expectedDecisionVersion: number,
   actor: ReferralActor,
   fallback: Referral,
   mutationId?: string,
 ): Promise<WorkflowRecordMutation<AssessmentReview>> {
-  if (await lockWorkflowMutation(tx, "assessment_review_changes", mutationId, referralId)) {
-    const existing = await tx<ReviewRow[]>`
-      select review_id, referral_id, assessment_id, assessment_version,
-             recommendation_id, recommendation_version, submission_number, status,
-             submitted_by, submitted_by_name, submitted_at, due_at,
-             assigned_reviewer_id, assigned_reviewer_name, notification_status,
-             reviewed_by, reviewed_by_name, reviewed_at, review_note,
-             successor_assessment_id, previous_review_id, version, updated_at
-      from pipeline.assessment_reviews
-      where review_id = ${currentReview.reviewId}::uuid
-    `;
-    if (existing[0]) return { ok: true, record: mapReview(existing[0]), referral: fallback };
+  const replay = await getPostgresReviewChangeReplay(tx, referralId, currentReview, mutationId);
+  if (replay) return { ok: true, record: replay, referral: fallback };
+  const referralLock = await lockPostgresReviewChangeReferral(
+    tx,
+    referralId,
+    currentReview,
+    expectedVersion,
+    expectedDecisionVersion,
+    fallback,
+  );
+  if (!referralLock.ok) return referralLock.failure;
+  const reviewLock = await lockSubmittedPostgresReview(tx, referralId, currentReview);
+  if (!reviewLock.ok) {
+    return { ok: false, conflict: true, referral: fallback, record: reviewLock.record };
   }
-  const referralRows = await tx<{ version: number; data: unknown; section_versions: unknown }[]>`
-    select version, data, section_versions
-    from pipeline.referrals
-    where referral_id = ${referralId} and deleted_at is null
-    for update
-  `;
-  const referralRow = referralRows[0];
-  if (!referralRow) throw new Error("Referral not found.");
-  const sections = normalizeReferralSectionVersions(referralRow.section_versions);
-  if (Number(referralRow.version) !== expectedVersion || sections.decision !== expectedDecisionVersion) {
-    return { ok: false, conflict: true, referral: fallback, record: currentReview };
-  }
-  const reviewRows = await tx<ReviewRow[]>`
-    select review_id, referral_id, assessment_id, assessment_version,
-           recommendation_id, recommendation_version, submission_number, status,
-           submitted_by, submitted_by_name, submitted_at, due_at,
-           assigned_reviewer_id, assigned_reviewer_name, notification_status,
-           reviewed_by, reviewed_by_name, reviewed_at, review_note,
-           successor_assessment_id, previous_review_id, version, updated_at
-    from pipeline.assessment_reviews
-    where review_id = ${currentReview.reviewId}::uuid and referral_id = ${referralId}
-    for update
-  `;
-  const storedReview = reviewRows[0] ? mapReview(reviewRows[0]) : null;
-  if (!storedReview || storedReview.version !== currentReview.version || storedReview.status !== "submitted") {
-    return { ok: false, conflict: true, referral: fallback, record: storedReview ?? currentReview };
-  }
-  const decisions = await tx<{ exists: boolean }[]>`
-    select exists(select 1 from pipeline.admission_decisions where referral_id = ${referralId}) as exists
-  `;
-  if (decisions[0]?.exists) {
+  if (await postgresAdmissionDecisionExists(tx, referralId)) {
     return {
       ok: false,
       blocked: true,
@@ -1371,6 +1325,15 @@ async function recordPostgresReviewChanges(
       blockers: [{ code: "decision_already_recorded", label: "A final supervisor decision has already been recorded." }],
     };
   }
+  const revisionResult = await createPostgresCorrectionRevision(
+    tx,
+    currentReview,
+    actor,
+    revisionMutationId,
+    fallback,
+  );
+  if (!revisionResult.ok) return revisionResult.failure;
+  const revision = revisionResult.revision;
   const successorRows = await tx<{ assessment_id: string }[]>`
     select assessment_id
     from pipeline.assessments
@@ -1385,7 +1348,7 @@ async function recordPostgresReviewChanges(
     update pipeline.assessment_reviews
     set status = 'changes_requested', notification_status = 'acknowledged',
         reviewed_by = ${actor.id}, reviewed_by_name = ${actor.name}, reviewed_at = now(),
-        review_note = ${nextReview.reviewNote ?? null},
+        review_note = ${reason},
         successor_assessment_id = ${revision.assessment_id},
         version = version + 1, updated_at = now()
     where review_id = ${currentReview.reviewId}::uuid and version = ${currentReview.version}
@@ -1398,16 +1361,16 @@ async function recordPostgresReviewChanges(
   `;
   if (!rows[0]) return { ok: false, conflict: true, referral: fallback, record: currentReview };
   const review = mapReview(rows[0]);
-  const data = isRecord(referralRow.data) ? referralRow.data : {};
+  const data = isRecord(referralLock.referralRow.data) ? referralLock.referralRow.data : {};
   await tx`
     update pipeline.referrals
     set workflow_status = 'changes_requested',
         data = ${tx.json({ ...data, assessmentReview: review })},
         version = version + 1,
         section_versions = ${tx.json({
-          ...sections,
-          decision: sections.decision + 1,
-          workflow: sections.workflow + 1,
+          ...referralLock.sections,
+          decision: referralLock.sections.decision + 1,
+          workflow: referralLock.sections.workflow + 1,
         })},
         updated_by = ${actor.id}, updated_by_name = ${actor.name}, updated_at = now()
     where referral_id = ${referralId} and version = ${expectedVersion}
@@ -1425,6 +1388,126 @@ async function recordPostgresReviewChanges(
   await saveWorkflowMutation(tx, "assessment_review_changes", mutationId, referralId);
   await bumpRevisions(tx);
   return { ok: true, record: review, referral: fallback };
+}
+
+async function getPostgresReviewChangeReplay(
+  tx: TransactionSql,
+  referralId: number,
+  currentReview: AssessmentReview,
+  mutationId?: string,
+) {
+  const replay = await lockWorkflowMutation(tx, "assessment_review_changes", mutationId, referralId);
+  if (!replay) return null;
+  const existing = await tx<ReviewRow[]>`
+    select review_id, referral_id, assessment_id, assessment_version,
+           recommendation_id, recommendation_version, submission_number, status,
+           submitted_by, submitted_by_name, submitted_at, due_at,
+           assigned_reviewer_id, assigned_reviewer_name, notification_status,
+           reviewed_by, reviewed_by_name, reviewed_at, review_note,
+           successor_assessment_id, previous_review_id, version, updated_at
+    from pipeline.assessment_reviews
+    where review_id = ${currentReview.reviewId}::uuid
+  `;
+  return existing[0] ? mapReview(existing[0]) : null;
+}
+
+async function lockPostgresReviewChangeReferral(
+  tx: TransactionSql,
+  referralId: number,
+  currentReview: AssessmentReview,
+  expectedVersion: number,
+  expectedDecisionVersion: number,
+  fallback: Referral,
+): Promise<{
+  ok: true;
+  referralRow: LockedReviewReferralRow;
+  sections: ReturnType<typeof normalizeReferralSectionVersions>;
+} | { ok: false; failure: ReviewChangeFailure }> {
+  const referralRows = await tx<LockedReviewReferralRow[]>`
+    select version, data, section_versions
+    from pipeline.referrals
+    where referral_id = ${referralId} and deleted_at is null
+    for update
+  `;
+  const referralRow = referralRows[0];
+  if (!referralRow) throw new Error("Referral not found.");
+  const sections = normalizeReferralSectionVersions(referralRow.section_versions);
+  const stale = Number(referralRow.version) !== expectedVersion
+    || sections.decision !== expectedDecisionVersion;
+  if (stale) {
+    return { ok: false, failure: { ok: false, conflict: true, referral: fallback, record: currentReview } };
+  }
+  return { ok: true, referralRow, sections };
+}
+
+async function lockSubmittedPostgresReview(
+  tx: TransactionSql,
+  referralId: number,
+  currentReview: AssessmentReview,
+) {
+  const reviewRows = await tx<ReviewRow[]>`
+    select review_id, referral_id, assessment_id, assessment_version,
+           recommendation_id, recommendation_version, submission_number, status,
+           submitted_by, submitted_by_name, submitted_at, due_at,
+           assigned_reviewer_id, assigned_reviewer_name, notification_status,
+           reviewed_by, reviewed_by_name, reviewed_at, review_note,
+           successor_assessment_id, previous_review_id, version, updated_at
+    from pipeline.assessment_reviews
+    where review_id = ${currentReview.reviewId}::uuid and referral_id = ${referralId}
+    for update
+  `;
+  const storedReview = reviewRows[0] ? mapReview(reviewRows[0]) : null;
+  const submittedVersion = storedReview?.version === currentReview.version
+    && storedReview.status === "submitted";
+  return submittedVersion
+    ? { ok: true as const }
+    : { ok: false as const, record: storedReview ?? currentReview };
+}
+
+async function postgresAdmissionDecisionExists(tx: TransactionSql, referralId: number) {
+  const decisions = await tx<{ exists: boolean }[]>`
+    select exists(select 1 from pipeline.admission_decisions where referral_id = ${referralId}) as exists
+  `;
+  return decisions[0]?.exists === true;
+}
+
+async function createPostgresCorrectionRevision(
+  tx: TransactionSql,
+  currentReview: AssessmentReview,
+  actor: ReferralActor,
+  revisionMutationId: string,
+  fallback: Referral,
+): Promise<{
+  ok: true;
+  revision: PipelineAssessmentRecord;
+} | { ok: false; failure: ReviewChangeFailure }> {
+  const result = await createAssessmentRevisionInTransaction(
+    tx,
+    currentReview.assessmentId,
+    actor,
+    revisionMutationId,
+  );
+  if (!result) throw new Error("The reviewed assessment no longer exists.");
+  if (result.ok) return { ok: true, revision: result.assessment };
+  const blockers = "blockers" in result ? result.blockers : [
+    { code: "assessment_revision_conflict", label: "The assessment changed before its correction revision could be created." },
+  ];
+  return { ok: false, failure: { ok: false, blocked: true, referral: fallback, blockers } };
+}
+
+async function requireDiscardedLocalRevision(
+  revision: PipelineAssessmentRecord,
+  sourceAssessmentId: string,
+  mutationId: string,
+) {
+  const discarded = await discardUncommittedAssessmentRevision(
+    revision.assessment_id,
+    sourceAssessmentId,
+    mutationId,
+  );
+  if (!discarded) {
+    throw new Error("The rejected assessment correction could not be rolled back safely.");
+  }
 }
 
 async function patchPostgresWorkItem(

@@ -216,6 +216,22 @@
       ],
       "verificationGates": ["check:workflow-store-characterization", "database:concurrency", "test:e2e:operational:high"],
       "humanValidated": false
+    },
+    {
+      "id": "workflow_permutation_collision_recovery",
+      "sliceIds": ["workflow-permutation-hardening"],
+      "responsibilityId": "workflow_permutation_hardening",
+      "question": "Trace simultaneous correction, correction-versus-decision, stale, replay, denied-role, and denied-resource commands from route boundary through locks, assessment successor creation, referral projection, audit, and recovery. Prove a losing command cannot leave an orphan assessment and show how the exhaustive model remains independent of production policy.",
+      "codePaths": [
+        "lib/pipeline/workflow-store.ts",
+        "lib/assessment/assessment-store.ts",
+        "lib/pipeline/referral-activity.ts",
+        "scripts/workflow-stateful-fuzz.mjs",
+        "tests/e2e/operational/workflow-store-characterization.spec.ts",
+        "tests/e2e/operational/role-access.spec.ts"
+      ],
+      "verificationGates": ["check:workflow-store-characterization", "check:workflow-fuzz", "database:concurrency", "test:e2e:operational:high"],
+      "humanValidated": false
     }
   ]
 }
