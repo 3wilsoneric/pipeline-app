@@ -149,7 +149,7 @@ This verifies the setup controls and complexity ratchet, regenerates the baselin
 
 ## Preparation and implementation sequence
 
-The planned slices and their current `not_started` state live in `docs/refactoring/refactor-slices.json`. Scope and order come from that registry, evidence state comes from `docs/refactoring/evidence-matrix.json`, and regression limits come from `docs/refactoring/performance-budgets.json`. Run `npm run check:refactor-setup` to validate all three before implementation.
+The planned slices and their current lifecycle state live in `docs/refactoring/refactor-slices.json`. Scope and order come from that registry, evidence state comes from `docs/refactoring/evidence-matrix.json`, and regression limits come from `docs/refactoring/performance-budgets.json`. Run `npm run check:refactor-setup` to validate all three before implementation. A registry in `complete` mode is terminal and authorizes no further refactor execution.
 
 ### 1. Freeze the operating baseline
 

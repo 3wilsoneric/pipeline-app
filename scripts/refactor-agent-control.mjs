@@ -173,6 +173,9 @@ export function selectSlice({ registry, policy, manifest, requested = "auto", fi
   if (registry.mode === "setup_only") {
     return { enabled: false, reason: "The refactor registry remains in setup_only mode." };
   }
+  if (registry.mode === "complete") {
+    return { enabled: false, reason: "The refactor program is complete; no further refactor execution is authorized." };
+  }
   if (registry.mode !== "active") throw new Error(`Unsupported refactor registry mode: ${registry.mode}`);
   const slice = findActiveSlice(registry, requested);
   if (!slice) return { enabled: false, reason: "No refactor slice is in_progress." };

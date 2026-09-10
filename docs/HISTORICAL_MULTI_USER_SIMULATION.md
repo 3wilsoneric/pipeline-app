@@ -132,6 +132,25 @@ The full phase adds schedule/reschedule, start, save/reopen, verified assessment
 
 The same materialized manifest and mode are replayable. Every execution receives a new immutable run directory, so a new run is the reset mechanism and prior evidence remains intact.
 
+## Chaos Lab product
+
+`--mode=chaos` activates the versioned `pipeline-chaos-lab-v1` certification policy. The runner writes the exact private run plan to the immutable run directory and passes it to the browser harness; the plan is executable control data, not descriptive documentation.
+
+The extreme policy deliberately combines:
+
+- 20 simultaneous referral writers and a same-mutation replay of every one of the 100 create requests.
+- Eight concurrent real-file ingestion workers, planned rejection boundaries, and digest/byte reconciliation.
+- Unrelated-account access attempts for every case plus 40-way owner read fan-out across referrals, activity, and work items.
+- Source-grounded stop/reopen/resume and reschedule paths.
+- Same-version assessment save races where exactly one response must succeed and one must conflict.
+- Equivalent supervisor decision races where exactly one durable decision may be created.
+- Stale EHR handoff rejection followed by a visible downstream failure, retry, and successful send.
+- Parallel browser traversal across all global and workspace surfaces, God Mode owner inspection, and terminal cohort/activity reconciliation.
+
+Any unexpected server error, lost or duplicate referral, unauthorized disclosure, byte/digest mismatch, silent stale-write overwrite, or missing activity stream fails the run immediately. The attached certification summary contains only counts, policy/version identifiers, durations, and pass/fail evidence; it excludes names and source paths.
+
+The files phase certifies identity, referral, file, access, read pressure, UI, and reconciliation. The full phase additionally requires all human-verified truth packs and certifies the assessment, decision, and EHR collision waves. Passing the files phase is never presented as a full-lifecycle certification.
+
 ## Pass criteria
 
 A run passes only when all of these remain true:
@@ -151,6 +170,7 @@ Run evidence is written only beneath `.data/simulations/runs/<run-id>/`.
 
 ```bash
 npm run check:historical-simulation
+npm run check:historical-chaos
 ```
 
-This check uses synthetic fixtures only. It verifies deterministic selection, proportional community coverage, material disposition, chronology, summary redaction, the human truth-pack gate, and real-byte persistence for local supporting-file uploads.
+These checks use synthetic fixtures only. They verify deterministic selection, proportional community coverage, material disposition, chronology, summary redaction, the human truth-pack gate, real-byte persistence for local supporting-file uploads, the 100-case extreme policy, collision cohorts, zero-tolerance stop rules, and identifier-free certification evidence.

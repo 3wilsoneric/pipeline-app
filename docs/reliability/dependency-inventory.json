@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T17:29:57.699Z",
+  "generated_at": "2026-09-10T19:38:16.933Z",
   "audit_date": "2026-09-10",
-  "git_head": "e55a9f3954543c74ea6ec06631abae319dff4442",
+  "git_head": "669fc45b82e7834a5a1f7b930cbad7090f27be46",
   "direct": [
     {
       "name": "@azure/identity",
@@ -397,6 +397,7 @@
         "components/pipeline/StaffProfileSettings.tsx",
         "components/pipeline/StructuredNarrativeField.tsx",
         "components/pipeline/SupervisorCommandCenter.tsx",
+        "components/pipeline/WorkAssessmentGraph.tsx",
         "components/pipeline/WorkspaceActivityFeed.tsx",
         "components/pipeline/academy/AcademyCurriculumView.tsx",
         "components/pipeline/academy/AcademyJourneyLibrary.tsx",
@@ -483,6 +484,7 @@
         "components/pipeline/ReferralWorkflowTracker.tsx",
         "components/pipeline/StaffProfileSettings.tsx",
         "components/pipeline/TeamPresenceList.tsx",
+        "components/pipeline/WorkAssessmentGraph.tsx",
         "components/pipeline/WorkspaceActivityFeed.tsx",
         "components/pipeline/academy/AcademyRepositoryAtlas.tsx",
         "components/pipeline/assessment-workspace-state.ts",
@@ -598,6 +600,8 @@
         "lib/pipeline/resident-link-records.ts",
         "lib/pipeline/resident-link-store.ts",
         "lib/pipeline/user-workspace-state-store.ts",
+        "lib/pipeline/work-assessment-graph.d.mts",
+        "lib/pipeline/work-assessment-graph.mjs",
         "lib/pipeline/workflow-records.ts",
         "lib/pipeline/workflow-store.ts",
         "lib/pipeline/workspace-activity-types.ts",
@@ -668,6 +672,7 @@
         "scripts/seeded-defect-certification.mjs",
         "scripts/start-standalone.mjs",
         "scripts/test-pipeline-extraction-worker.py",
+        "scripts/work-assessment-graph-evaluation.mjs",
         "scripts/workflow-stateful-fuzz.mjs",
         "tests/e2e/academy.spec.ts",
         "tests/e2e/demo-environment.spec.ts",
@@ -858,6 +863,7 @@
         "scripts/reconcile-client-file-import.mjs",
         "scripts/refactor-agent-control.mjs",
         "scripts/referral-store-characterization.mjs",
+        "scripts/regional-recovery-readiness.mjs",
         "scripts/review-allo-canvas-content.mjs",
         "scripts/rollback-client-file-import.mjs",
         "scripts/security-boundary-check.mjs",
@@ -928,6 +934,7 @@
         "components/pipeline/StructuredNarrativeField.tsx",
         "components/pipeline/SupervisorCommandCenter.tsx",
         "components/pipeline/TeamPresenceList.tsx",
+        "components/pipeline/WorkAssessmentGraph.tsx",
         "components/pipeline/WorkspaceActivityFeed.tsx",
         "components/pipeline/academy/AcademyCurriculumView.tsx",
         "components/pipeline/academy/AcademyJourneyLibrary.tsx",
@@ -7560,8 +7567,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-next-six/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-next-six/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-enterprise-graph-chaos-recovery/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-enterprise-graph-chaos-recovery/node_modules/@img/sharp-wasm32"
     ]
   }
 }

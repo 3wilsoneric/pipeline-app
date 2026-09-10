@@ -15,6 +15,7 @@ import type {
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import SupervisorCommandCenter from "@/components/pipeline/SupervisorCommandCenter";
+import WorkAssessmentGraph from "@/components/pipeline/WorkAssessmentGraph";
 
 export default function OperationsDashboard({
   onOpenPacket,
@@ -106,6 +107,7 @@ export default function OperationsDashboard({
     <main aria-label="Reports" className="h-full overflow-y-auto bg-white text-[#171917]">
       <div data-testid="operations-workspace" data-guide-target="operations-workspace" className="mx-auto w-full max-w-[1500px] px-4 pb-12 pt-2 sm:px-6 lg:px-8">
         <SupervisorCommandCenter onOpenPacket={onOpenPacket} onOpenProfile={onOpenProfile} onOpenProfiles={onOpenProfiles} />
+        <WorkAssessmentGraph onOpenPacket={onOpenPacket} />
         <aside aria-label="Report library" className="min-w-0 border-b border-[#cfd4d1]">
           <div className="flex snap-x gap-6 overflow-x-auto">
             {(response?.catalog ?? []).map((item) => {

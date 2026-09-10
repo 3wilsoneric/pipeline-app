@@ -348,9 +348,11 @@ const result = {
   execution: { cloudRefactorRun },
   errors,
   warnings,
-  interpretation: registry.mode === "setup_only"
-    ? "Setup debt remains visible without authorizing a refactor. Active mode promotes inventory, runtime-alignment, and dedicated-worktree gaps to failures."
-    : "An active slice must remain inside its recorded dedicated worktree and current audited boundary.",
+  interpretation: registry.mode === "complete"
+    ? "The registered refactor program is closed. This inventory remains a repository health signal and does not authorize another slice."
+    : registry.mode === "setup_only"
+      ? "Setup debt remains visible without authorizing a refactor. Active mode promotes inventory, runtime-alignment, and dedicated-worktree gaps to failures."
+      : "An active slice must remain inside its recorded dedicated worktree and current audited boundary.",
 };
 
 console.log(JSON.stringify(result, null, 2));

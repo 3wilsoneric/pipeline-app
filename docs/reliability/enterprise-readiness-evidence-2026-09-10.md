@@ -1,25 +1,33 @@
-# Enterprise Readiness Evidence — 2026-09-10
+# Bounded refactor completion evidence
 
-## Result
+This record closes the twelve-slice Pipeline refactor program. It is not a claim that Pipeline is bug-free, formally verified, or complete as an enterprise product.
 
-The current single-company Pipeline deployment remained live during a five-minute public production soak. The isolated PostgreSQL workflow preserved identity separation and deterministic optimistic concurrency for 1,000 synthetic accounts. A schema-only backup was restored into a separate disposable database after correcting the restore verifier's fresh-database initialization.
+## Candidate boundary
 
-## Executed evidence
+- Cumulative deployed commit: `669fc45b82e7834a5a1f7b930cbad7090f27be46`
+- Approval lane: `owner_fast_lane`, authorized by Eric on 2026-09-07
+- Registry state: 12 of 12 slices `complete`; no active slice
+- Scope: the exact files, responsibilities, proof obligations, gates, rollback evidence, and residual-risk statements in each slice assurance record
 
-| Exercise | Result |
-| --- | --- |
-| Production public soak | 300 seconds, 272 requests, 0 errors, 105.21 ms mean, p95 at or below 750 ms, p99 at or below 1,500 ms, no final-phase regression. |
-| PostgreSQL multi-user collision | 1,000 distinct referrals and presence leases; 2,000 change polls; exactly 1 accepted and 999 rejected stale writes for both referral sections and same-user drafts. |
-| Per-user workspace state | 1,000 isolated recents and 1,000 isolated drafts created, read, contended, and cleaned up. |
-| Collision latency | Referral creation p95 752.8 ms; all other measured p95 values at or below 163.5 ms. |
-| Backup/restore | SHA-256 manifest verified; 32 migrations matched; the synthetic referral survived restoration into a distinct disposable database. |
-| Alert inventory | Repository defines 13 query and 3 capacity alerts. Production currently has 7 matching query alerts; the six newer queries and three foundation capacity alerts are not deployed. |
-| Company isolation | Current one-company-per-deployment model passed. Shared-database multitenancy did not pass because company keys and database-enforced company boundaries do not exist yet. |
-| Regional recovery | Zone-resilient storage and backup/restore controls passed. Cross-region runtime, database target, and traffic failover do not exist yet. |
-| Work Assessment Graph | Deterministic synthetic graph projection passed provenance, bounded-vector, no-free-text, no-auto-decision, and three held-out workflow-retrieval checks. |
+## Slice records
 
-## Release boundary
+| Slice | Exact evidence commit | Assurance record |
+| --- | --- | --- |
+| Referral store boundaries | `5a58f128dd80b9fb2110b0ac4b2c9c27d0f6eaad` | `referral-store-assurance-record.json` |
+| Assessment store boundaries | `dab27df822b87df466331407c1415bb81ea84109` | `assessment-store-assurance-record.json` |
+| Workflow and handoff owner | `2afc85bfb3e9fbf437e5034e6671904c20584e1f` | `workflow-and-handoff-assurance-record.json` |
+| Extraction capstone | `21b27089ffd7bd718547dbc0718f122af68ccdc0` | `extraction-capstone-assurance-record.json` |
+| Referral canvas components | `d666af6d4714756b02e082a991af0bb561e9afde` | `referral-canvas-assurance-record.json` |
+| Test-suite structure | `3f284a3688983209dd081170a987bb539e7d1428` | `test-suite-structure-assurance-record.json` |
+| Assessment workspace components | `ba92d371ef2bb92435d1a6803b62c499a70414fc` | `assessment-workspace-components-assurance-record.json` |
+| Referral home/directory components | `08438c0d38f61f1da753a0c909faaf41a0a2b660` | `referral-home-directory-components-assurance-record.json` |
+| Calendar components | `47e31850e62fb44447792f0fd7d89bb83938a567` | `calendar-components-assurance-record.json` |
+| Referral workflow panel components | `5b70ba848238791b80b66f9ca9dc04d7ae3f3e43` | `referral-workflow-panel-components-assurance-record.json` |
+| Supervisor review revision | `5086b9d2d9a49109ebffe3a47f35d738e81c32ad` | `supervisor-review-revision-assurance-record.json` |
+| Workflow permutation hardening | `58673882e71630fb30daaca03102813463a14860` | `workflow-permutation-hardening-assurance-record.json` |
 
-This evidence supports the existing application and a single-company deployment. It does not certify shared-database multitenancy, cross-region failover, or end-to-end notification delivery. Those strict gates remain intentionally red rather than being represented as complete.
+## Closure checks
 
-No production records were read by the load, graph, or restore fixtures. The production soak exercised only the public liveness endpoint and performed no mutation.
+On 2026-09-10, `check:refactor-setup`, `check:refactor-evidence`, `check:refactor-assurance`, and `check:refactor-guidance` all returned green in terminal `complete` mode. They reported 12 start-ready, complete-ready, and cutover-ready slices with no unresolved evidence errors. The owner fast lane kept independent human validation and blind guidance comparison advisory while retaining machine gates, bounded paths, behavior preservation, data integrity, recovery evidence, and the critical/high-finding prohibition.
+
+The cloud refactor selector now fails closed in `complete` mode. A future refactor requires a new owner-approved program; ordinary product work must not reopen or rewrite these historical slice records.

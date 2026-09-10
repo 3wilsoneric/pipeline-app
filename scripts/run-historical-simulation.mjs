@@ -3,7 +3,7 @@
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +13,10 @@ import {
   summarizeHistoricalSimulation,
   validateHistoricalSimulationPlan,
 } from "../lib/simulation/historical-simulation-core.mjs";
+import {
+  buildHistoricalChaosPlan,
+  summarizeHistoricalChaosPlan,
+} from "../lib/simulation/historical-chaos-policy.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const privateSimulationRoot = path.join(repositoryRoot, ".data", "simulations");
@@ -30,6 +34,7 @@ if (inspect && !execute) fail("--inspect requires --execute because it opens the
 
 const plan = JSON.parse(await readFile(manifestPath, "utf8"));
 validateHistoricalSimulationPlan(plan);
+const chaosPlan = mode === "chaos" ? buildHistoricalChaosPlan(plan, { phase }) : null;
 const corpusRoot = path.dirname(manifestPath);
 await verifyMaterializedCorpus(plan, corpusRoot);
 
@@ -52,6 +57,7 @@ const preflight = {
   materialized_corpus_verified: true,
   truth_packs_verified: phase === "full",
   summary: summarizeHistoricalSimulation(plan),
+  ...(chaosPlan ? { chaos_certification: summarizeHistoricalChaosPlan(chaosPlan) } : {}),
 };
 
 if (!execute) {
@@ -61,6 +67,13 @@ if (!execute) {
 
 const runId = `${plan.simulation_id}-${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}`;
 const runRoot = path.join(privateSimulationRoot, "runs", runId);
+await mkdir(path.dirname(runRoot), { recursive: true, mode: 0o700 });
+await mkdir(runRoot, { mode: 0o700 });
+await chmod(runRoot, 0o700);
+const chaosPlanPath = chaosPlan ? path.join(runRoot, "chaos-plan.json") : "";
+if (chaosPlan) {
+  await writeFile(chaosPlanPath, `${JSON.stringify(chaosPlan, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+}
 const command = process.platform === "win32" ? "npx.cmd" : "npx";
 const commandArgs = [
   "playwright",
@@ -83,6 +96,7 @@ const exitCode = await run(command, commandArgs, {
   PIPELINE_HISTORICAL_SIMULATION_MODE: mode,
   PIPELINE_HISTORICAL_INSPECT: inspect ? "true" : "false",
   PIPELINE_HISTORICAL_RUN_ROOT: runRoot,
+  ...(chaosPlan ? { PIPELINE_HISTORICAL_CHAOS_PLAN: chaosPlanPath } : {}),
 });
 process.exit(exitCode);
 

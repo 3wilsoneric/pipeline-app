@@ -44,6 +44,7 @@ import type {
   ReferralWorklistItem,
   ReferralWorklistSnapshot,
 } from "@/lib/pipeline/operations-types";
+import { buildWorkAssessmentGraphSnapshot } from "@/lib/pipeline/work-assessment-graph.mjs";
 import { recordPipelineMetric } from "@/lib/observability/pipeline-metrics";
 import {
   getResidentLinkStoreReadiness,
@@ -357,6 +358,15 @@ function matchesReferralWorklistBucket(item: ReferralWorklistItem, bucket: Refer
 export async function getSupervisorExceptionSnapshot(): Promise<SupervisorExceptionSnapshot> {
   const operational = await loadOperationalWork();
   return buildSupervisorExceptionSnapshot(operational);
+}
+
+export async function getWorkAssessmentGraphSnapshot(user: PipelineUser) {
+  const operational = await loadOperationalWork(user);
+  return buildWorkAssessmentGraphSnapshot(
+    operational.activeWork,
+    operational.openRequirements,
+    operational.now.toISOString(),
+  );
 }
 
 async function buildSupervisorExceptionSnapshot(
