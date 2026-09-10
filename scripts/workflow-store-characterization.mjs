@@ -93,6 +93,9 @@ const payload = {
     "ordered stage transitions and stale-write rejection",
     "assigned-assessor recommendation authorization and replay",
     "single-winner supervisor decision collisions",
+    "full correction, successor resubmission, and decision lineage",
+    "single-successor correction collisions without orphan assessments",
+    "coherent correction-versus-decision collisions without orphan assessments",
     "work-item validation, conflict detection, and audit-neutral replay",
     "recoverable at-most-once EHR handoff progression",
     "role and resource denial without side effects",
@@ -100,6 +103,7 @@ const payload = {
   normalized_nondeterminism: [
     "Store-generated referral, assessment, recommendation, decision, work-item, and audit identifiers are asserted within an adapter, not compared across adapters.",
     "The winning request in a deliberately concurrent admission-decision pair is nondeterministic; exactly one success and one stale conflict are required.",
+    "Correction-versus-correction and correction-versus-decision winners are nondeterministic; each pair must produce one success, one stale conflict, and one coherent persisted direction.",
     "Storage timestamps are checked through resulting state and audit cardinality, not equality across adapters.",
   ],
   failure: failureMessage || null,
@@ -156,7 +160,7 @@ async function runCommand(name, command, args, extraEnv = {}, captureJson = fals
 
 function commandPassed({ exitCode, spawnError, parseError, captureJson, stats }) {
   if (exitCode !== 0 || spawnError || parseError) return false;
-  return !captureJson || (stats?.expected === 6 && stats.unexpected === 0);
+  return !captureJson || (stats?.expected === 9 && stats.unexpected === 0);
 }
 
 function reportCapturedFailure({ name, ok, captureJson, spawnError, parseError, output }) {

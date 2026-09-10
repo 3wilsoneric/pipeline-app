@@ -7,6 +7,7 @@ import type { TransactionSql } from "postgres";
 import {
   createAssessmentRevision,
   createAssessmentRevisionInTransaction,
+  discardUncommittedAssessmentRevision,
   getAssessment,
   listAssessments,
 } from "@/lib/assessment/assessment-store";
@@ -679,52 +680,21 @@ export async function requestAssessmentReviewChanges(
       blockers: [{ code: "review_note_required", label: "Describe the specific corrections the assessor needs to make." }],
     };
   }
-  const revisionMutationId = mutationId ? `${mutationId}:assessment` : undefined;
+  const revisionMutationId = mutationId ? `${mutationId}:assessment` : `review-${review.reviewId}:${randomUUID()}`;
   if (getReferralStoreReadiness().mode === "postgres") {
     const sql = getPipelineSql();
-    const result = await sql.begin(async (tx) => {
-      const revisionResult = await createAssessmentRevisionInTransaction(
-        tx,
-        review.assessmentId,
-        actor,
-        revisionMutationId,
-      );
-      if (!revisionResult) return null;
-      if (!revisionResult.ok) {
-        return {
-          ok: false as const,
-          blocked: true as const,
-          referral: snapshot.referral,
-          blockers: "blockers" in revisionResult ? revisionResult.blockers : [
-            { code: "assessment_revision_conflict", label: "The assessment changed before its correction revision could be created." },
-          ],
-        };
-      }
-      const now = new Date().toISOString();
-      return recordPostgresReviewChanges(
-        tx,
-        referralId,
-        review,
-        {
-          ...review,
-          status: "changes_requested",
-          notificationStatus: "acknowledged",
-          reviewedBy: actor.id,
-          reviewedByName: actor.name,
-          reviewedAt: now,
-          reviewNote: reason,
-          successorAssessmentId: revisionResult.assessment.assessment_id,
-          version: review.version + 1,
-          updatedAt: now,
-        },
-        revisionResult.assessment,
-        expectedVersion,
-        expectedDecisionVersion,
-        actor,
-        snapshot.referral,
-        mutationId,
-      );
-    });
+    const result = await sql.begin((tx) => recordPostgresReviewChanges(
+      tx,
+      referralId,
+      review,
+      reason,
+      revisionMutationId,
+      expectedVersion,
+      expectedDecisionVersion,
+      actor,
+      snapshot.referral,
+      mutationId,
+    ));
     if (!result) return null;
     if (!result.ok) return result;
     const referral = await getReferral(referralId);
@@ -774,8 +744,12 @@ export async function requestAssessmentReviewChanges(
       mutationScope: "assessment_review_changes",
     },
   );
-  if (!mutation) return null;
+  if (!mutation) {
+    await requireDiscardedLocalRevision(revisionResult.assessment, review.assessmentId, revisionMutationId);
+    return null;
+  }
   if (!mutation.ok) {
+    await requireDiscardedLocalRevision(revisionResult.assessment, review.assessmentId, revisionMutationId);
     if ("conflict" in mutation) return { ok: false, conflict: true, referral: mutation.referral, record: snapshot.review ?? undefined };
     return { ok: false, blocked: true, referral: mutation.referral, blockers: mutation.blockers };
   }
@@ -1312,8 +1286,8 @@ async function recordPostgresReviewChanges(
   tx: TransactionSql,
   referralId: number,
   currentReview: AssessmentReview,
-  nextReview: AssessmentReview,
-  revision: PipelineAssessmentRecord,
+  reason: string,
+  revisionMutationId: string,
   expectedVersion: number,
   expectedDecisionVersion: number,
   actor: ReferralActor,
@@ -1371,6 +1345,24 @@ async function recordPostgresReviewChanges(
       blockers: [{ code: "decision_already_recorded", label: "A final supervisor decision has already been recorded." }],
     };
   }
+  const revisionResult = await createAssessmentRevisionInTransaction(
+    tx,
+    currentReview.assessmentId,
+    actor,
+    revisionMutationId,
+  );
+  if (!revisionResult) throw new Error("The reviewed assessment no longer exists.");
+  if (!revisionResult.ok) {
+    return {
+      ok: false,
+      blocked: true,
+      referral: fallback,
+      blockers: "blockers" in revisionResult ? revisionResult.blockers : [
+        { code: "assessment_revision_conflict", label: "The assessment changed before its correction revision could be created." },
+      ],
+    };
+  }
+  const revision = revisionResult.assessment;
   const successorRows = await tx<{ assessment_id: string }[]>`
     select assessment_id
     from pipeline.assessments
@@ -1385,7 +1377,7 @@ async function recordPostgresReviewChanges(
     update pipeline.assessment_reviews
     set status = 'changes_requested', notification_status = 'acknowledged',
         reviewed_by = ${actor.id}, reviewed_by_name = ${actor.name}, reviewed_at = now(),
-        review_note = ${nextReview.reviewNote ?? null},
+        review_note = ${reason},
         successor_assessment_id = ${revision.assessment_id},
         version = version + 1, updated_at = now()
     where review_id = ${currentReview.reviewId}::uuid and version = ${currentReview.version}
@@ -1425,6 +1417,21 @@ async function recordPostgresReviewChanges(
   await saveWorkflowMutation(tx, "assessment_review_changes", mutationId, referralId);
   await bumpRevisions(tx);
   return { ok: true, record: review, referral: fallback };
+}
+
+async function requireDiscardedLocalRevision(
+  revision: PipelineAssessmentRecord,
+  sourceAssessmentId: string,
+  mutationId: string,
+) {
+  const discarded = await discardUncommittedAssessmentRevision(
+    revision.assessment_id,
+    sourceAssessmentId,
+    mutationId,
+  );
+  if (!discarded) {
+    throw new Error("The rejected assessment correction could not be rolled back safely.");
+  }
 }
 
 async function patchPostgresWorkItem(
