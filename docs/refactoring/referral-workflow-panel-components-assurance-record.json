@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-workflow-panel-components",
+  "status": "complete",
+  "startingCommit": "01dd0fe8f781dd65d8128bb96afe379fa8608fcf",
+  "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T23:36:19Z",
+    "directive": "okay go"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "referral_workflow_panel_preserves_decision_and_handoff_safety"
+  ],
+  "preChangeMachineTrace": [
+    "At exact starting commit 01dd0fe8f781dd65d8128bb96afe379fa8608fcf, the existing Chromium recommendation, decision, admission, EHR failure, retry, sent, and client-activation journey passed.",
+    "The exact-start repository baseline records ReferralWorkflowPanel.tsx at 837 lines, complexity 263, eight dependencies, and branch depth four.",
+    "The source trace identifies ReferralWorkflowPanel as the only client owner of workflow requests, stable mutation identifiers, dirty drafts, confirmations, conflicts, and command feedback."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Recommendation, requirement, supervisor-decision, admission, EHR-handoff, and client-activation workflows keep their current click paths and presentation.",
+      "ReferralWorkflowPanel remains the sole owner of requests, mutation identifiers, optimistic versions, confirmations, dirty-draft preservation, conflict reconciliation, and feedback state.",
+      "Existing workflow stores and routes remain the sole owners of policy, authorization, persistence, audit, replay, and transition semantics.",
+      "Extracted presentation and pure-model modules do not become parallel network, persistence, authorization, timer, confirmation, or canonical-state owners.",
+      "No route, request shape, role policy, schema, migration, stored data, audit, extraction, or identity-link behavior changes."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/referral-workflow-panel-components-machine-run-01dd0fe.json records the exact-start browser and structural evidence."
+    ]
+  },
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "referral_workflow_panel_coordination",
+      "obligationIds": [
+        "referral_workflow_panel_preserves_decision_and_handoff_safety"
+      ],
+      "baseCommit": "01dd0fe8f781dd65d8128bb96afe379fa8608fcf",
+      "headCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "purpose": "Move the existing admission-workflow rendering and deterministic readiness derivation out of ReferralWorkflowPanel while retaining workflow loading, dirty drafts, stable mutation identifiers, optimistic versions, confirmations, conflict reconciliation, command request bodies, and feedback in one effectful coordinator.",
+      "changedFiles": [
+        "components/pipeline/ReferralWorkflowPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
+        "components/pipeline/referral-workflow-panel-model.ts"
+      ],
+      "preChangeCharacterization": [
+        "The exact-start Chromium journey passed signed assessment, clinical recommendation, decision-requirement gating, accepted supervisor decision, move-in completion, admitted transition, EHR queue, explicit failure, retry, sent confirmation, and client activation.",
+        "The exact-start source trace showed ReferralWorkflowPanel alone owned workflow requests, stable mutation identifiers, optimistic versions, dirty drafts, confirmations, conflict reconciliation, and command feedback.",
+        "The exact-start baseline recorded ReferralWorkflowPanel.tsx at 837 lines, module complexity 263, eight dependencies, and maximum branch depth four."
+      ],
+      "focusedEvidence": [
+        "The same end-to-end admission and EHR recovery journey passed at the candidate without label, DOM-order, styling, click-path, request-shape, or activation-condition changes.",
+        "Assessor workflow contracts passed, and 840,009 generated workflow-fuzz cases matched the independent finite-state oracle and retained all invariants.",
+        "The operational golden thread passed role-separated intake through EHR recovery; the high-assurance suite also passed concurrent stale-write, capacity, duplicate-create, account-isolation, and authorization scenarios.",
+        "The complete browser, desktop, cross-browser, visual, performance, artifact, TypeScript, ESLint, platform, mutation-effectiveness, and production-build gates passed."
+      ],
+      "baselineDelta": {
+        "before": "ReferralWorkflowPanel.tsx was 837 lines with module complexity 263, eight dependencies, and maximum branch depth four.",
+        "after": "ReferralWorkflowPanel.tsx is 292 lines with module complexity 66, seven dependencies, and maximum branch depth three; the callback presentation is 433 lines with complexity 108 and branch depth three, and the pure model is 265 lines with complexity 96 and branch depth four.",
+        "comparison": "The effectful coordinator lost 545 lines and 197 complexity points. Combined runtime module complexity is 270, seven points above the original due to explicit bounded helper seams; every new or changed named function remains within the repository ratchet, cycles stay at eight, duplicate groups at 71, and control-plane duplicate groups at 56.",
+        "regressions": []
+      },
+      "tradeoffs": [
+        {
+          "dimension": "module aggregate complexity",
+          "change": "The three responsibility-specific modules total seven more aggregate complexity points than the prior monolith.",
+          "reason": "The small increase comes from explicit presentation and deterministic-model seams; it removes 197 points from the effectful coordinator, adds no duplicate block or cycle, and keeps every named function under the enforced ceiling.",
+          "approvedBy": "Eric"
+        }
+      ],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-10T00:27:48Z"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "referral_workflow_panel_preserves_decision_and_handoff_safety",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "status": "verified",
+      "methods": [
+        "mechanical",
+        "integration",
+        "operational_recovery"
+      ],
+      "evidence": [
+        "The extracted presentation and model contain no fetch, API route, persistence, authorization, timer, browser storage, confirmation, or canonical-state implementation.",
+        "The coordinator retains every mutation request, stable replay identifier, optimistic referral and section version, confirmation, dirty-draft reference, 409 adoption, workflow reload, and visible feedback path.",
+        "The exact-start and candidate golden browser journeys passed the complete recommendation-to-client-activation workflow, including an explicit EHR failure and retry.",
+        "The full browser, desktop, cross-browser, unchanged visual, high-assurance operational, performance, artifact, platform, and production-build suites passed."
+      ],
+      "implementationTrace": [
+        "components/pipeline/ReferralWorkflowPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
+        "components/pipeline/referral-workflow-panel-model.ts",
+        "tests/e2e/pipeline-smoke.spec.ts",
+        "tests/e2e/operational/golden-thread.spec.ts"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-10T00:27:48Z"
+    }
+  ],
+  "gateResults": [
+    {
+      "command": "npm run check:assessor-workflow",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "All admission workflow, recommendation, decision, role, requirement, transition, EHR, and rollback contracts passed."
+    },
+    {
+      "command": "npm run check:workflow-fuzz",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "Two thousand deterministic histories produced 840,009 generated cases; the finite-state oracle and workflow invariants all passed."
+    },
+    {
+      "command": "npm run test:e2e",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "The complete browser suite passed, including the admission decision and EHR failure-recovery journey; environment-gated scenarios remained explicitly skipped."
+    },
+    {
+      "command": "npm run test:e2e:desktop",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "Seven desktop install, offline, recovery, concurrent-intake, and encrypted-sync journeys passed; one disabled-feature scenario was explicitly gated."
+    },
+    {
+      "command": "npm run test:e2e:cross-browser",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "Core Pipeline surfaces rendered and navigated in Chromium, Firefox, and WebKit."
+    },
+    {
+      "command": "npm run test:e2e:visual",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "All six desktop and mobile snapshots matched without updating approved baselines."
+    },
+    {
+      "command": "npm run test:e2e:operational:high",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "All 14 applicable multi-user, collision, duplicate, role, capacity, and golden-thread scenarios passed; 22 separately gated database or private-corpus characterizations were skipped."
+    },
+    {
+      "command": "npm run certify:mcmaster:performance",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "Three compiled runs passed every rendering, interaction, transfer, API, and navigation budget with zero API errors; worst LCP was 372 ms, useful content 398.2 ms, warm navigation 116.8 ms, localized interaction 96.7 ms, ordinary API p95 6 ms, and heavy API p95 2.9 ms."
+    },
+    {
+      "command": "npm run check:artifacts",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "The production artifact stayed within aggregate, JavaScript, stylesheet, compressed-code, source-map, and credential-marker budgets."
+    },
+    {
+      "command": "npm run check:refactor-assurance",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "The owner-fast-lane responsibility, obligation, scope, rollback, and convergence model passed the assurance checker."
+    },
+    {
+      "command": "npm run certify:refactor",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "outcome": "passed",
+      "evidence": "Refactor setup, repository quality, complexity, platform, test-effectiveness, mutation-kill, production build, and bounded assurance checks passed."
+    }
+  ],
+  "adversarialPasses": [
+    {
+      "id": "adversarial-001",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "reviewer": "TARS structural boundary critic",
+      "contextId": "workflow-panel-effect-ownership-scan",
+      "implementationConversationUsed": true,
+      "findings": [],
+      "materialSimplificationFound": false,
+      "completedAt": "2026-09-10T00:27:48Z"
+    },
+    {
+      "id": "adversarial-002",
+      "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+      "reviewer": "TARS workflow recovery critic",
+      "contextId": "workflow-panel-golden-operational-recovery",
+      "implementationConversationUsed": true,
+      "findings": [],
+      "materialSimplificationFound": false,
+      "completedAt": "2026-09-10T00:27:48Z"
+    }
+  ],
+  "rollbackAndRecovery": {
+    "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+    "method": "Revert the bounded workflow-panel commits after exact start 01dd0fe8f781dd65d8128bb96afe379fa8608fcf. No schema, migration, stored-data, route, request-shape, provider, permission, or environment rollback is required.",
+    "exercisedEvidence": [
+      "The candidate changes only admission-workflow client-module ownership plus the required assurance maps and generated repository inventories.",
+      "The exact starting commit remains available as 01dd0fe8f781dd65d8128bb96afe379fa8608fcf.",
+      "The same signed-assessment, recommendation, requirement, decision, admission, EHR recovery, and activation journey passed at the exact start and candidate."
+    ],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-10T00:27:48Z"
+  },
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+    "allObligationsVerified": true,
+    "requiredGatesPassed": true,
+    "behaviorPreserved": true,
+    "consecutiveCleanAdversarialPasses": 2,
+    "postComprehensionNoWorse": true,
+    "rollbackOrRecoveryProven": true,
+    "noUnresolvedCriticalOrHigh": true,
+    "acceptedBy": "Eric",
+    "acceptedAt": "2026-09-10T00:27:48Z",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-09T23:36:19Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}

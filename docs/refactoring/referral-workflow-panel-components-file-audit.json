@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-workflow-panel-components",
+  "startingCommit": "01dd0fe8f781dd65d8128bb96afe379fa8608fcf",
+  "generatedInventory": "docs/reliability/repository-file-inventory.json",
+  "humanOwner": "Eric",
+  "reviewedAt": "2026-09-09T23:36:19Z",
+  "reviewedBy": "Owner-authorized TARS machine trace",
+  "approvedBy": "Eric",
+  "approvedAt": "2026-09-09T23:36:19Z",
+  "files": [
+    {
+      "path": "components/pipeline/ReferralWorkflowPanel.tsx",
+      "plannedNew": false,
+      "dependencyDirection": "ReferralPacketCanvas imports this client coordinator; it may import the presentation and pure model, which may not import it.",
+      "purpose": "Owns workflow loading, dirty drafts, mutation identifiers, versioned commands, confirmations, conflict recovery, and feedback.",
+      "callers": ["components/pipeline/ReferralPacketCanvas.tsx"],
+      "publicExports": ["default ReferralWorkflowPanel"],
+      "sideEffects": ["authenticated API requests", "browser confirmations", "React effect lifecycle"],
+      "failureBehavior": "Shows load and mutation errors, keeps stable retry identifiers, adopts a returned conflict referral, reloads workflow truth, and preserves dirty drafts.",
+      "tests": ["npm run check:assessor-workflow", "npm run test:e2e", "npm run test:e2e:operational:high"],
+      "staticPrompts": [
+        {"prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.", "disposition": "confirmed", "reason": "Only the best-effort conflict refresh suppresses its secondary load failure; the original mutation error remains visible and the stable mutation identifier remains available for replay.", "owner": "Eric"}
+      ],
+      "decision": "split",
+      "decisionReason": "Separate presentation and deterministic derivation from the single command coordinator."
+    },
+    {
+      "path": "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
+      "plannedNew": true,
+      "dependencyDirection": "Imported only by ReferralWorkflowPanel; consumes workflow values and callbacks and imports no coordinator, route, auth, or store.",
+      "purpose": "Renders the existing admission workflow, disclosures, controls, readiness summary, activation panel, and detail dialog.",
+      "callers": ["components/pipeline/ReferralWorkflowPanel.tsx"],
+      "publicExports": ["ReferralWorkflowPanelPresentation"],
+      "sideEffects": [],
+      "failureBehavior": "Disabled states and visible feedback are supplied by the coordinator; callbacks propagate actions without catching failures.",
+      "tests": ["npm run test:e2e", "npm run test:e2e:cross-browser", "npm run test:e2e:visual"],
+      "staticPrompts": [],
+      "decision": "move",
+      "decisionReason": "The existing callback-driven JSX is one cohesive presentation seam."
+    },
+    {
+      "path": "components/pipeline/referral-workflow-panel-model.ts",
+      "plannedNew": true,
+      "dependencyDirection": "Imported by the coordinator and presentation; depends only on client-safe domain types and pure workflow helpers.",
+      "purpose": "Owns workflow response types and deterministic readiness, requirement grouping, labels, validation, and conflict-payload derivation.",
+      "callers": ["components/pipeline/ReferralWorkflowPanel.tsx", "components/pipeline/ReferralWorkflowPanelPresentation.tsx"],
+      "publicExports": ["workflow types", "pure workflow presentation helpers"],
+      "sideEffects": [],
+      "failureBehavior": "Returns conservative blocked/readiness results for incomplete workflow inputs and never catches or issues commands.",
+      "tests": ["npm run check:assessor-workflow", "npm run test:e2e", "npm run complexity:check"],
+      "staticPrompts": [],
+      "decision": "move",
+      "decisionReason": "Pure derivation is independently readable without becoming a state owner."
+    },
+    {
+      "path": "docs/refactoring/canonical-responsibilities.json",
+      "plannedNew": false,
+      "dependencyDirection": "Assurance tooling consumes this ownership map; runtime code does not.",
+      "purpose": "Registers the workflow-panel client coordination boundary without changing the canonical workflow policy owner.",
+      "callers": ["scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Invalid ownership or missing paths fail assurance.",
+      "tests": ["npm run check:refactor-assurance"], "staticPrompts": [],
+      "decision": "keep", "decisionReason": "Required bounded ownership evidence."
+    },
+    {
+      "path": "docs/refactoring/architecture-comprehension-probes.json",
+      "plannedNew": false,
+      "dependencyDirection": "Assurance tooling consumes this probe set; runtime code does not.",
+      "purpose": "Adds a recommendation-to-handoff trace for the new UI boundary.",
+      "callers": ["scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing slice and responsibility mappings fail assurance.",
+      "tests": ["npm run check:refactor-assurance"], "staticPrompts": [],
+      "decision": "keep", "decisionReason": "Required architecture trace."
+    },
+    {
+      "path": "docs/refactoring/proof-obligations.json",
+      "plannedNew": false,
+      "dependencyDirection": "Assurance tooling consumes bounded properties; runtime code does not.",
+      "purpose": "Defines candidate-bound behavior-preservation and no-parallel-owner evidence.",
+      "callers": ["scripts/refactor-high-assurance-readiness.mjs"],
+      "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing methods, paths, gates, or candidate evidence fail assurance.",
+      "tests": ["npm run check:refactor-assurance"], "staticPrompts": [],
+      "decision": "keep", "decisionReason": "Required bounded proof declaration."
+    },
+    {
+      "path": "docs/refactoring/refactor-eval-scenarios.json",
+      "plannedNew": false,
+      "dependencyDirection": "Guidance evaluation consumes registered slice coverage; runtime code does not.",
+      "purpose": "Extends the existing generic scope-control scenario to the new slice.",
+      "callers": ["scripts/refactor-guidance-eval.mjs"],
+      "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing registered-slice coverage fails guidance evaluation.",
+      "tests": ["npm run check:refactor-guidance"], "staticPrompts": [],
+      "decision": "keep", "decisionReason": "Reuse the existing calibration scenario."
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_WORKFLOW_PANEL_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+      "plannedNew": true,
+      "dependencyDirection": "TARS and readiness checks consume this record; runtime code does not.",
+      "purpose": "Records scope, responsibility trace, approved seam, invariants, evidence, exclusions, and rollback.",
+      "callers": ["TARS readiness review"],
+      "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing or inconsistent narrative blocks activation.",
+      "tests": ["npm run check:refactor-setup"], "staticPrompts": [],
+      "decision": "keep", "decisionReason": "Required architecture evidence."
+    },
+    {
+      "path": "docs/refactoring/referral-workflow-panel-components-file-audit.json",
+      "plannedNew": true,
+      "dependencyDirection": "Code-quality readiness consumes this disposition; runtime code does not.",
+      "purpose": "Disposes every runtime, generated, and governance file expected to change.",
+      "callers": ["scripts/code-quality-readiness.mjs"],
+      "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing paths or static-prompt dispositions block the active slice.",
+      "tests": ["npm run check:refactor-setup"], "staticPrompts": [],
+      "decision": "keep", "decisionReason": "Required exact file boundary."
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-workflow-panel-components-machine-run-01dd0fe.json",
+      "plannedNew": true,
+      "dependencyDirection": "The assurance record consumes this immutable exact-start evidence; runtime code does not.",
+      "purpose": "Records the focused golden workflow journey and structural baseline before code moves.",
+      "callers": ["TARS assurance review"],
+      "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing or failing exact-start evidence blocks activation.",
+      "tests": ["npm run codebase:baseline", "npm run test:e2e"], "staticPrompts": [],
+      "decision": "keep", "decisionReason": "Required behavior-preservation comparison point."
+    },
+    {
+      "path": "lib/academy/academy-atlas.generated.json",
+      "plannedNew": false,
+      "dependencyDirection": "Generated Academy topology observes repository sources; runtime workflow code does not import it.",
+      "purpose": "Keeps repository topology current after the split.",
+      "callers": ["scripts/academy-atlas.mjs"],
+      "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Stale topology blocks Academy certification.",
+      "tests": ["npm run academy:check"],
+      "staticPrompts": [{"prompt": "Large module (11066 lines): split by behavior before adding more responsibilities.", "disposition": "expected", "reason": "This is a deterministic generated topology artifact, not authored runtime code.", "owner": "Eric"}],
+      "decision": "keep", "decisionReason": "Refresh generated inventory only."
+    },
+    {
+      "path": "docs/academy/academy-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Academy readiness consumes generated fingerprints; runtime code does not.",
+      "purpose": "Records current Academy source and atlas fingerprints.",
+      "callers": ["scripts/academy-readiness.mjs"],
+      "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Stale fingerprints block certification.",
+      "tests": ["npm run academy:check"], "staticPrompts": [],
+      "decision": "keep", "decisionReason": "Refresh generated metadata only."
+    },
+    {
+      "path": "docs/training/training-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Training readiness consumes governed source fingerprints; runtime code does not.",
+      "purpose": "Keeps operator-training fingerprints current after the split.",
+      "callers": ["scripts/operator-training-readiness.mjs"],
+      "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Stale fingerprints block certification.",
+      "tests": ["npm run training:check"], "staticPrompts": [],
+      "decision": "keep", "decisionReason": "Refresh generated metadata only."
+    }
+  ]
+}

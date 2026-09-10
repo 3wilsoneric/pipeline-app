@@ -764,6 +764,69 @@
           "note": "The slice changes client-side module ownership and conflict-retry assessment reuse only; it introduces no schema, migration, stored-data transformation, route, provider, or environment cutover."
         }
       ]
+    },
+    {
+      "id": "referral-workflow-panel-components",
+      "budgetProfile": "interactive_ui",
+      "items": [
+        {
+          "id": "referral_workflow_interaction_characterization",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["test:e2e"],
+          "files": [
+            "docs/refactoring/REFERRAL_WORKFLOW_PANEL_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/characterization/referral-workflow-panel-components-machine-run-01dd0fe.json"
+          ],
+          "note": "At exact starting commit 01dd0fe8f781dd65d8128bb96afe379fa8608fcf, the existing Chromium golden journey passed signed assessment, recommendation, requirement gating, accepted decision, admission, EHR failure, retry, sent confirmation, and client activation."
+        },
+        {
+          "id": "owner_validated_assurance_model",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/canonical-responsibilities.json",
+            "docs/refactoring/architecture-comprehension-probes.json",
+            "docs/refactoring/proof-obligations.json",
+            "docs/refactoring/REFERRAL_WORKFLOW_PANEL_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/referral-workflow-panel-components-file-audit.json",
+            "docs/refactoring/referral-workflow-panel-components-assurance-record.json"
+          ],
+          "note": "Eric authorized the bounded admission workflow panel split through owner_fast_lane on 2026-09-09. The assurance model retains one effectful client coordinator, preserves the existing workflow-store policy boundary, and permits only callback presentation and pure derivation owners."
+        },
+        {
+          "id": "accessibility_visual_and_cross_browser",
+          "phase": "before_complete",
+          "status": "satisfied",
+          "gates": ["test:e2e:desktop", "test:e2e:cross-browser", "test:e2e:visual"],
+          "note": "Candidate 5b70ba848238791b80b66f9ca9dc04d7ae3f3e43 passed seven applicable desktop recovery journeys with one expected feature-mode skip, all three Chromium/Firefox/WebKit smoke journeys, and all six unchanged visual snapshots."
+        },
+        {
+          "id": "interaction_performance_and_artifacts",
+          "phase": "before_complete",
+          "status": "satisfied",
+          "gates": ["certify:mcmaster:performance", "check:artifacts"],
+          "note": "Candidate 5b70ba848238791b80b66f9ca9dc04d7ae3f3e43 passed three compiled McMaster runs and every artifact budget. Worst observed LCP was 372 ms, useful content 398.2 ms, warm navigation 116.8 ms, localized interaction 96.7 ms, ordinary API p95 6 ms, and heavy API p95 2.9 ms."
+        },
+        {
+          "id": "convergence_and_recovery",
+          "phase": "before_complete",
+          "status": "satisfied",
+          "gates": ["check:refactor-assurance"],
+          "files": ["docs/refactoring/referral-workflow-panel-components-assurance-record.json"],
+          "note": "Candidate 5b70ba848238791b80b66f9ca9dc04d7ae3f3e43 binds the focused admission and EHR recovery journey, 840,009-case workflow fuzzing, full browser, desktop recovery, cross-browser, visual, operational, performance, artifact, structural, and assurance evidence. Reverting the bounded candidate restores the exact-start implementation without a schema, data, route, or configuration rollback."
+        },
+        {
+          "id": "migration_and_cutover",
+          "phase": "before_cutover",
+          "status": "not_applicable",
+          "approvedBy": "Eric",
+          "approvedAt": "2026-09-09T23:36:19Z",
+          "files": ["docs/refactoring/REFERRAL_WORKFLOW_PANEL_COMPONENTS_ARCHITECTURE_NARRATIVE.md"],
+          "note": "The slice changes client-side module ownership only; it introduces no schema, migration, stored-data transformation, route, provider, or environment cutover."
+        }
+      ]
     }
   ]
 }

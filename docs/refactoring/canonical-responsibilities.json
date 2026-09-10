@@ -340,6 +340,37 @@
       ],
       "verificationGates": ["test:e2e", "test:e2e:cross-browser", "test:e2e:visual", "test:e2e:operational:high"],
       "humanValidated": false
+    },
+    {
+      "id": "referral_workflow_panel_coordination",
+      "title": "Admission workflow query, mutation coordination, draft recovery, and presentation",
+      "sliceIds": ["referral-workflow-panel-components"],
+      "ownershipKind": "ui_shell_boundary",
+      "canonicalOwnerPaths": [
+        "components/pipeline/ReferralWorkflowPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
+        "components/pipeline/referral-workflow-panel-model.ts"
+      ],
+      "allowedRepresentations": [
+        "server-confirmed workflow snapshot",
+        "recommendation and decision draft",
+        "stable client mutation identifier",
+        "callback-driven workflow presentation",
+        "pure readiness and requirement derivation"
+      ],
+      "invariants": [
+        "ReferralWorkflowPanel remains the only request, confirmation, retry, conflict-recovery, and dirty-draft owner.",
+        "Workflow policy, authorization, persistence, audit, and transition semantics remain in the existing route and store owners.",
+        "Presentation and model modules cannot fetch, persist, authorize, confirm, retry, or create canonical state.",
+        "Admission workflow accessibility, disclosure defaults, responsive behavior, and error recovery remain stable."
+      ],
+      "forbiddenParallelOwners": [
+        "Presentation components issuing referral workflow commands",
+        "UI derivation reimplementing finite-state or authorization policy",
+        "Multiple unsynchronized owners of workflow snapshots, dirty drafts, or mutation identifiers"
+      ],
+      "verificationGates": ["check:assessor-workflow", "check:workflow-fuzz", "test:e2e", "test:e2e:operational:high"],
+      "humanValidated": false
     }
   ]
 }
