@@ -46,6 +46,14 @@ run("historical action times preserve workflow order", () => {
   }
 });
 
+run("materialized plans validate after private source paths are removed", () => {
+  const materialized = structuredClone(first);
+  for (const material of materialized.cases.flatMap((item) => item.materials)) {
+    if (material.object_relpath) material.source_path = null;
+  }
+  assert.doesNotThrow(() => validateHistoricalSimulationPlan(materialized));
+});
+
 run("aggregate summaries contain no names or source paths", () => {
   const summaryText = JSON.stringify(summarizeHistoricalSimulation(first));
   assert.equal(summaryText.includes("Historical Person"), false);

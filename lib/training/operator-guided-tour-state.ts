@@ -3,6 +3,7 @@ import { getOperatorGuidedTutorial, operatorGuidedTutorialIds } from "@/lib/trai
 export const OPERATOR_GUIDE_STORAGE_KEY = "pipeline-guided-coach:v4";
 export const OPERATOR_GUIDE_EVENT = "pipeline:guided-coach";
 export const OPERATOR_GUIDE_NAVIGATION_RESUME_KEY = "pipeline-guided-coach:navigation-resume:v1";
+export const OPERATOR_GUIDE_PENDING_EVENT_KEY = "pipeline-guided-coach:pending-event:v1";
 export const OPERATOR_GUIDE_STATE_VERSION = 4 as const;
 
 export type OperatorGuideMode = "closed" | "library" | "active";
@@ -30,6 +31,10 @@ export type OperatorGuideEvent =
   | { type: "restart" }
   | { type: "finish" }
   | { type: "end" };
+
+type OperatorGuideExternalEvent = Extract<OperatorGuideEvent, { type: "open-library" | "start" | "start-sequence" }>;
+
+let pendingOperatorGuideEvent: OperatorGuideExternalEvent | null = null;
 
 export type OperatorGuideCommand = "next" | "back" | "pause" | "restart" | "why" | "safety" | "repeat" | "unknown";
 
@@ -185,9 +190,60 @@ export function parseOperatorGuideCommand(value: string): OperatorGuideCommand {
   return "unknown";
 }
 
-export function dispatchOperatorGuide(event: Extract<OperatorGuideEvent, { type: "open-library" | "start" | "start-sequence" }>) {
+export function dispatchOperatorGuide(event: OperatorGuideExternalEvent) {
   if (typeof window === "undefined") return;
+  writePendingOperatorGuideEvent(event);
+  emitOperatorGuideEvent(event);
+  for (const delay of [50, 250, 1_000]) {
+    window.setTimeout(() => {
+      const pending = readPendingOperatorGuideEvent();
+      if (pending) emitOperatorGuideEvent(pending);
+    }, delay);
+  }
+}
+
+export function consumePendingOperatorGuideEvent() {
+  const event = readPendingOperatorGuideEvent();
+  pendingOperatorGuideEvent = null;
+  try {
+    window.sessionStorage.removeItem(OPERATOR_GUIDE_PENDING_EVENT_KEY);
+  } catch {
+    // The in-memory fallback still preserves the command when storage is unavailable.
+  }
+  return event;
+}
+
+function emitOperatorGuideEvent(event: OperatorGuideExternalEvent) {
   window.dispatchEvent(new CustomEvent(OPERATOR_GUIDE_EVENT, { detail: event }));
+}
+
+function writePendingOperatorGuideEvent(event: OperatorGuideExternalEvent) {
+  pendingOperatorGuideEvent = event;
+  try {
+    window.sessionStorage.setItem(OPERATOR_GUIDE_PENDING_EVENT_KEY, JSON.stringify(event));
+  } catch {
+    // Private browsing policies can disable storage; retain the module-local fallback.
+  }
+}
+
+function readPendingOperatorGuideEvent(): OperatorGuideExternalEvent | null {
+  try {
+    const value = JSON.parse(window.sessionStorage.getItem(OPERATOR_GUIDE_PENDING_EVENT_KEY) ?? "null");
+    if (value?.type === "open-library") return { type: "open-library" };
+    if (value?.type === "start" && typeof value.tutorialId === "string") {
+      return {
+        type: "start",
+        tutorialId: value.tutorialId,
+        ...(Number.isSafeInteger(value.stepIndex) ? { stepIndex: value.stepIndex } : {}),
+      };
+    }
+    if (value?.type === "start-sequence" && Array.isArray(value.tutorialIds)) {
+      return { type: "start-sequence", tutorialIds: value.tutorialIds.filter((id: unknown): id is string => typeof id === "string") };
+    }
+  } catch {
+    // Fall back to the same-bundle copy below.
+  }
+  return pendingOperatorGuideEvent;
 }
 
 export function stageOperatorGuideForNavigation(tutorialId: string, stepId?: string) {

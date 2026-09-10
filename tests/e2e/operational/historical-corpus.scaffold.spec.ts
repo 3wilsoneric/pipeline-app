@@ -1,5 +1,5 @@
-import { expect, request, test, type APIRequestContext, type Browser, type Page, type TestInfo } from "@playwright/test";
-import { readFile } from "node:fs/promises";
+import { expect, request, test, type APIRequestContext, type APIResponse, type Browser, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -23,7 +23,8 @@ import {
   type OperationalReferral,
 } from "../support/operational-api";
 
-type HistoricalActor = PipelineActor & { role: "admin" | "reviewer" };
+type HistoricalRole = "admin" | "assessment_coordinator" | "reviewer" | "viewer";
+type HistoricalActor = PipelineActor & { role: HistoricalRole };
 
 type HistoricalMaterial = {
   material_id: string;
@@ -61,7 +62,7 @@ type HistoricalPlan = {
     actor_id: string;
     display_name: string;
     email: string;
-    role: "admin" | "reviewer";
+    role: HistoricalRole;
   }>;
   cases: HistoricalCase[];
 };
@@ -84,6 +85,7 @@ type HistoricalChaosPlan = {
   policy_version: string;
   simulation_id: string;
   phase: "files" | "full";
+  seed?: string;
   concurrency: { identities: number; referrals: number; files: number; workflow: number; reads: number; browsers: number };
   read_repetitions: number;
   cohorts: {
@@ -95,12 +97,48 @@ type HistoricalChaosPlan = {
   invariants: string[];
 };
 
+type ChaosExtremeVirtualUser = {
+  virtual_user_id: string;
+  principal: { id: string; email: string; display_name: string };
+  role: HistoricalRole;
+  device: { id: string; viewport: { width: number; height: number }; tab_count: number };
+  network: { id: string; disconnect_every: number; duplicate_every: number; timeout_every: number };
+  clock: { timezone: string; skew_ms: number };
+};
+
+type ChaosExtremeStep = {
+  step: number;
+  tick: number;
+  tab: number;
+  action: string;
+  target_case_id?: string;
+  expected_access: "owner" | "not_found" | "read_only" | "read_write";
+  inject_disconnect: boolean;
+  inject_duplicate: boolean;
+  inject_timeout: boolean;
+};
+
+type HistoricalChaosExtremePlan = HistoricalChaosPlan & {
+  virtual_user_count: number;
+  unique_principal_count: number;
+  control_principals: { supervisor_virtual_user_id: string; recovery_virtual_user_id: string };
+  virtual_users: ChaosExtremeVirtualUser[];
+  case_assignments: Array<{ case_id: string; source_owner_actor_id: string; virtual_user_id: string }>;
+  scripts: Array<{ virtual_user_id: string; assigned_case_count: number; steps: ChaosExtremeStep[] }>;
+};
+
 type ChaosEvidence = {
   duplicate_replays: number;
   read_while_write_requests: number;
   stale_assessment_conflicts: number;
   supervisor_decision_conflicts: number;
   ehr_failure_recoveries: number;
+  virtual_machine_requests: number;
+  virtual_machine_expected_rejections: number;
+  virtual_machine_disconnects: number;
+  virtual_machine_timeouts: number;
+  virtual_machine_duplicates: number;
+  backpressure_retries: number;
 };
 
 test.describe("private historical multi-user simulation", () => {
@@ -114,10 +152,10 @@ test.describe("private historical multi-user simulation", () => {
     const url = requireOperationalBaseURL(baseURL);
     const manifestPath = requiredEnvironmentPath("PIPELINE_HISTORICAL_SIMULATION_MANIFEST");
     const corpusRoot = path.dirname(manifestPath);
-    const plan = JSON.parse(await readFile(manifestPath, "utf8")) as HistoricalPlan;
+    const sourcePlan = JSON.parse(await readFile(manifestPath, "utf8")) as HistoricalPlan;
     const phase = process.env.PIPELINE_HISTORICAL_SIMULATION_PHASE === "full" ? "full" : "files";
     const mode = process.env.PIPELINE_HISTORICAL_SIMULATION_MODE ?? "busy_day";
-    const chaosPlan = await loadHistoricalChaosContext(mode, plan, phase);
+    const { chaosPlan, extremePlan, plan } = await resolveHistoricalPlans(mode, sourcePlan, phase);
     const truthByCase = phase === "full"
       ? await loadTruthCases(requiredEnvironmentPath("PIPELINE_HISTORICAL_TRUTH_PACKS"))
       : new Map<string, TruthCase>();
@@ -138,11 +176,17 @@ test.describe("private historical multi-user simulation", () => {
       stale_assessment_conflicts: 0,
       supervisor_decision_conflicts: 0,
       ehr_failure_recoveries: 0,
+      virtual_machine_requests: 0,
+      virtual_machine_expected_rejections: 0,
+      virtual_machine_disconnects: 0,
+      virtual_machine_timeouts: 0,
+      virtual_machine_duplicates: 0,
+      backpressure_retries: 0,
     };
     const startedAt = performance.now();
 
     try {
-      const registrations = await runWithConcurrency(actors, Math.min(20, actors.length), async (actor) => {
+      const registrations = await runWithConcurrency(actors, identityConcurrency(chaosPlan, actors.length), async (actor) => {
         const response = await requiredContext(contexts, actor.id).get("/api/members");
         return response.status();
       });
@@ -151,13 +195,13 @@ test.describe("private historical multi-user simulation", () => {
       const created = await runWithConcurrency(plan.cases, concurrency.referrals, async (item) => {
         const mutationId = `${plan.simulation_id}:${item.case_id}:create`;
         const referralInput = historicalReferralInput(plan.simulation_id, item);
-        const response = await supervisor.post("/api/referrals", {
+        const response = await withBackpressureRetry(() => supervisor.post("/api/referrals", {
           data: {
             client_mutation_id: mutationId,
             referral: referralInput,
             assignee_id: item.assigned_actor_id,
           },
-        });
+        }), `${item.case_id}:create`, chaosEvidence);
         const bodyText = await response.text();
         expect(response.status(), bodyText.slice(0, 1_000)).toBe(201);
         return { item, referralInput, mutationId, referral: asReferralPayload(JSON.parse(bodyText)).referral };
@@ -166,13 +210,13 @@ test.describe("private historical multi-user simulation", () => {
 
       const duplicateCases = chaosPlan ? created : created.filter(({ item }) => item.behavior === "duplicate_retry");
       const duplicateIds = await runWithConcurrency(duplicateCases, concurrency.referrals, async (createdCase) => {
-        const response = await supervisor.post("/api/referrals", {
+        const response = await withBackpressureRetry(() => supervisor.post("/api/referrals", {
           data: {
             client_mutation_id: createdCase.mutationId,
             referral: createdCase.referralInput,
             assignee_id: createdCase.item.assigned_actor_id,
           },
-        });
+        }), `${createdCase.item.case_id}:duplicate`, chaosEvidence);
         expect(response.status()).toBe(201);
         return asReferralPayload(await response.json()).referral.id;
       });
@@ -200,7 +244,7 @@ test.describe("private historical multi-user simulation", () => {
             continue;
           }
           if (material.disposition !== "upload") {
-            await expectRejectedDescriptor(owner, corpusRoot, createdCase.referral.id, createdCase.item.community, material);
+            await expectRejectedDescriptor(owner, corpusRoot, createdCase.referral.id, createdCase.item.community, material, chaosEvidence);
             evidence.rejected += 1;
             continue;
           }
@@ -211,6 +255,7 @@ test.describe("private historical multi-user simulation", () => {
             community: createdCase.item.community,
             material,
             extract: material === primary,
+            retryEvidence: chaosEvidence,
           });
           evidence.uploaded += 1;
           evidence.uploadedBytes += material.source_byte_size;
@@ -245,6 +290,11 @@ test.describe("private historical multi-user simulation", () => {
         concurrency.reads,
       );
 
+      if (extremePlan) {
+        const extremeEvidence = await runExtremeVirtualMachineStorm(extremePlan, progressed, contexts, url, concurrency.reads);
+        Object.assign(chaosEvidence, extremeEvidence);
+      }
+
       const lifecycle = phase === "full"
         ? await runFullLifecycle(
           progressed,
@@ -260,7 +310,15 @@ test.describe("private historical multi-user simulation", () => {
 
       assertChaosEvidence(chaosPlan, phase, plan.cases.length, lifecycle.length, chaosEvidence);
 
-      const surfaceEvidence = await exerciseAllSurfaces(browser, url, plan, progressed, testInfo);
+      const surfaceEvidence = await exerciseAllSurfaces(
+        browser,
+        url,
+        plan,
+        progressed,
+        testInfo,
+        surfaceConcurrency(chaosPlan),
+        extremePlan,
+      );
       const listResponse = await supervisor.get(`/api/referrals?limit=200&tag=${encodeURIComponent(plan.simulation_id)}&projection=summary`);
       expect(listResponse.status()).toBe(200);
       const list = asRecord(await listResponse.json());
@@ -271,31 +329,21 @@ test.describe("private historical multi-user simulation", () => {
       });
       expect(activityChecks.every((status) => status === 200)).toBe(true);
 
-      await testInfo.attach("historical-simulation-summary", {
-        body: Buffer.from(JSON.stringify({
-          simulation_id: plan.simulation_id,
-          phase,
-          mode,
-          case_count: progressed.length,
-          actor_count: actors.length,
-          uploaded_material_count: uploaded.reduce((sum, item) => sum + item.evidence.uploaded, 0),
-          uploaded_material_bytes: uploaded.reduce((sum, item) => sum + item.evidence.uploadedBytes, 0),
-          expected_rejection_count: uploaded.reduce((sum, item) => sum + item.evidence.rejected, 0),
-          missing_source_count: uploaded.reduce((sum, item) => sum + item.evidence.missing, 0),
-          completed_lifecycle_count: lifecycle.length,
-          surface_checks: surfaceEvidence,
-          duration_ms: Math.round(performance.now() - startedAt),
-          contains_names_or_source_paths: false,
-          ...(chaosPlan ? {
-            chaos_certification: {
-              policy_version: chaosPlan.policy_version,
-              invariant_count: chaosPlan.invariants.length,
-              evidence: chaosEvidence,
-              contains_names_or_source_paths: false,
-            },
-          } : {}),
-        }, null, 2)),
-        contentType: "application/json",
+      await persistSimulationSummary(testInfo, {
+        simulation_id: plan.simulation_id,
+        phase,
+        mode,
+        case_count: progressed.length,
+        actor_count: actors.length,
+        uploaded_material_count: uploaded.reduce((sum, item) => sum + item.evidence.uploaded, 0),
+        uploaded_material_bytes: uploaded.reduce((sum, item) => sum + item.evidence.uploadedBytes, 0),
+        expected_rejection_count: uploaded.reduce((sum, item) => sum + item.evidence.rejected, 0),
+        missing_source_count: uploaded.reduce((sum, item) => sum + item.evidence.missing, 0),
+        completed_lifecycle_count: lifecycle.length,
+        surface_checks: surfaceEvidence,
+        duration_ms: Math.round(performance.now() - startedAt),
+        contains_names_or_source_paths: false,
+        ...chaosCertificationSummary(chaosPlan, extremePlan, actors.length, chaosEvidence),
       });
       if (process.env.PIPELINE_HISTORICAL_INSPECT === "true") {
         await holdOpenForGodModeInspection(browser, url, plan);
@@ -305,6 +353,19 @@ test.describe("private historical multi-user simulation", () => {
     }
   });
 });
+
+async function persistSimulationSummary(testInfo: TestInfo, summary: Record<string, unknown>) {
+  const body = `${JSON.stringify(summary, null, 2)}\n`;
+  await writeFile(
+    path.join(requiredEnvironmentPath("PIPELINE_HISTORICAL_RUN_ROOT"), "certification-summary.json"),
+    body,
+    { encoding: "utf8", mode: 0o600, flag: "wx" },
+  );
+  await testInfo.attach("historical-simulation-summary", {
+    body: Buffer.from(body),
+    contentType: "application/json",
+  });
+}
 
 async function holdOpenForGodModeInspection(browser: Browser, baseURL: string, plan: HistoricalPlan) {
   const administratorRecord = plan.actors.find((actor) => actor.actor_id === plan.supervisor.actor_id);
@@ -554,17 +615,18 @@ async function uploadMaterial(input: {
   community: string;
   material: HistoricalMaterial;
   extract: boolean;
+  retryEvidence: ChaosEvidence;
 }) {
   const fileId = input.material.material_id;
-  const reservationResponse = await input.context.post("/api/uploads/create-url", {
+  const reservationResponse = await withBackpressureRetry(() => input.context.post("/api/uploads/create-url", {
     data: uploadReservationData(input.referralId, input.community, input.material, input.extract),
-  });
+  }), `${fileId}:reserve`, input.retryEvidence);
   const reservationText = await reservationResponse.text();
   expect(reservationResponse.status(), reservationText.slice(0, 1_000)).toBe(200);
   const reservation = asUploadReservation(JSON.parse(reservationText));
   const objectPath = requiredObjectPath(input.corpusRoot, input.material);
   const bytes = await readFile(objectPath);
-  const localResponse = await input.context.post("/api/uploads/local", {
+  const localResponse = await withBackpressureRetry(() => input.context.post("/api/uploads/local", {
     multipart: {
       packet_id: reservation.packet_id,
       file_id: fileId,
@@ -575,12 +637,12 @@ async function uploadMaterial(input: {
       },
     },
     timeout: 120_000,
-  });
+  }), `${fileId}:upload`, input.retryEvidence);
   const localText = await localResponse.text();
   expect(localResponse.status(), localText.slice(0, 1_000)).toBe(200);
-  const completion = await input.context.post("/api/uploads/complete", {
+  const completion = await withBackpressureRetry(() => input.context.post("/api/uploads/complete", {
     data: { packet_id: reservation.packet_id, uploaded_file_ids: [fileId] },
-  });
+  }), `${fileId}:complete`, input.retryEvidence);
   const completionText = await completion.text();
   expect(completion.status(), completionText.slice(0, 1_000)).toBe(200);
   const body = asRecord(JSON.parse(completionText));
@@ -597,10 +659,11 @@ async function expectRejectedDescriptor(
   referralId: number,
   community: string,
   material: HistoricalMaterial,
+  retryEvidence: ChaosEvidence,
 ) {
-  const response = await context.post("/api/uploads/create-url", {
+  const response = await withBackpressureRetry(() => context.post("/api/uploads/create-url", {
     data: uploadReservationData(referralId, community, material, false),
-  });
+  }), `${material.material_id}:reject-reserve`, retryEvidence);
   if (material.expected_rejection_stage === "reservation") {
     expect(response.status()).toBe(material.expected_api_status);
     return;
@@ -608,17 +671,18 @@ async function expectRejectedDescriptor(
   const responseText = await response.text();
   expect(response.status(), responseText.slice(0, 1_000)).toBe(200);
   const reservation = asUploadReservation(JSON.parse(responseText));
-  const localResponse = await context.post("/api/uploads/local", {
+  const rejectedBytes = await readFile(requiredObjectPath(corpusRoot, material));
+  const localResponse = await withBackpressureRetry(() => context.post("/api/uploads/local", {
     multipart: {
       packet_id: reservation.packet_id,
       file_id: material.material_id,
       file: {
         name: material.source_file_name,
         mimeType: material.source_content_type,
-        buffer: await readFile(requiredObjectPath(corpusRoot, material)),
+        buffer: rejectedBytes,
       },
     },
-  });
+  }), `${material.material_id}:reject-upload`, retryEvidence);
   expect(localResponse.status()).toBe(material.expected_api_status);
 }
 
@@ -645,6 +709,8 @@ async function exerciseAllSurfaces(
   plan: HistoricalPlan,
   cases: Array<CreatedCase & { referral: OperationalReferral }>,
   testInfo: TestInfo,
+  concurrency: number,
+  extremePlan: HistoricalChaosExtremePlan | null,
 ) {
   const caseByActor = new Map<string, typeof cases>();
   for (const item of cases) {
@@ -653,18 +719,14 @@ async function exerciseAllSurfaces(
     caseByActor.set(item.item.assigned_actor_id, assigned);
   }
   const actors = plan.actors.map(simulationActor);
-  const actorEvidence = await runWithConcurrency(actors, Math.min(6, actors.length), async (actor) => {
-    const context = await browser.newContext({
-      baseURL,
-      viewport: { width: 1440, height: 900 },
-      extraHTTPHeaders: {
-        ...operationalHeadersForActor(actor, baseURL),
-        Accept: "text/html,application/xhtml+xml,application/json",
-      },
-    });
+  const virtualUsersByPrincipal = new Map((extremePlan?.virtual_users ?? []).map((user) => [user.principal.id, user]));
+  const actorEvidence = await runWithConcurrency(actors, Math.min(concurrency, actors.length), async (actor) => {
+    const virtualUser = virtualUsersByPrincipal.get(actor.id);
+    const context = await createSurfaceContext(browser, baseURL, actor, virtualUser);
     const page = await context.newPage();
+    const backgroundPages = await openBackgroundPages(context, virtualUser);
     let surfaceCount = 0;
-    let godModeProfiles = false;
+    let guideLatencyMs = 0;
     try {
       for (const route of ["/", "/?view=referrals", "/?screen=calendar"]) {
         const response = await page.goto(route, { waitUntil: "domcontentloaded" });
@@ -672,29 +734,24 @@ async function exerciseAllSurfaces(
         await expect(page.locator("main").first()).toBeVisible({ timeout: 20_000 });
         surfaceCount += 1;
       }
+      const guideStartedAt = Date.now();
+      await page.locator('[data-pipeline-ready="guided-coach"]').waitFor({ state: "attached", timeout: 20_000 });
       await page.getByRole("button", { name: "Open guided tutorials" }).click();
-      await expect(page.getByRole("dialog", { name: "Guided tutorial library" })).toBeVisible();
+      await expect(page.getByRole("dialog", { name: "Guided tutorial library" })).toBeVisible({ timeout: 20_000 });
+      guideLatencyMs = Date.now() - guideStartedAt;
       await page.getByRole("button", { name: "Close guided tutorials" }).click();
       surfaceCount += 1;
-      if (actor.role === "admin") {
-        for (const route of ["/?screen=profiles", "/?screen=operations"]) {
-          const response = await page.goto(route, { waitUntil: "domcontentloaded" });
-          expect(response?.status(), route).toBeLessThan(400);
-          await expect(page.locator("main").first()).toBeVisible({ timeout: 20_000 });
-          surfaceCount += 1;
-        }
-        godModeProfiles = await verifyGodModeProfiles(page, plan, cases);
-        surfaceCount += 2;
-      }
+      const adminEvidence = await exerciseAdminSurfaces(page, actor, plan, cases);
+      surfaceCount += adminEvidence.surfaces;
       for (const createdCase of caseByActor.get(actor.id) ?? []) {
         const base = `/?view=referrals&screen=packet&referralId=${createdCase.referral.id}`;
         const response = await page.goto(base, { waitUntil: "domcontentloaded" });
         expect(response?.status()).toBeLessThan(400);
         await expect(page.getByTestId("packet-workspace")).toBeVisible({ timeout: 20_000 });
         await page.getByRole("button", { name: "Workspace files" }).click();
-        await expect(page.getByText("Files", { exact: true }).first()).toBeVisible();
+        await expect(page.getByRole("region", { name: "Files", exact: true })).toBeVisible({ timeout: 20_000 });
         await page.getByRole("button", { name: "Workspace activity" }).click();
-        await expect(page.getByText("Activity", { exact: true }).first()).toBeVisible();
+        await expect(page.getByRole("region", { name: "Activity", exact: true })).toBeVisible({ timeout: 20_000 });
         for (const stage of ["assessment", "chart"]) {
           await page.goto(`${base}&workspaceStage=${stage}`, { waitUntil: "domcontentloaded" });
           await expect(page.getByTestId("packet-workspace")).toBeVisible({ timeout: 20_000 });
@@ -702,11 +759,16 @@ async function exerciseAllSurfaces(
         await expect(page.getByText("Application error", { exact: false })).toHaveCount(0);
         surfaceCount += 5;
       }
+      surfaceCount += await exerciseOfflineRecovery(context, backgroundPages[0], virtualUser);
+      surfaceCount += backgroundPages.length;
       return {
         role: actor.role,
         cases: caseByActor.get(actor.id)?.length ?? 0,
         surfaces: surfaceCount,
-        god_mode_profiles: godModeProfiles,
+        tabs: backgroundPages.length + 1,
+        guide_latency_ms: guideLatencyMs,
+        network_recovery: isOfflineFlap(virtualUser),
+        god_mode_profiles: adminEvidence.godModeProfiles,
       };
     } finally {
       await context.close();
@@ -717,6 +779,70 @@ async function exerciseAllSurfaces(
     contentType: "application/json",
   });
   return actorEvidence;
+}
+
+async function createSurfaceContext(
+  browser: Browser,
+  baseURL: string,
+  actor: HistoricalActor,
+  virtualUser: ChaosExtremeVirtualUser | undefined,
+) {
+  return browser.newContext({
+    baseURL,
+    viewport: virtualUser?.device.viewport ?? { width: 1440, height: 900 },
+    ...(virtualUser ? { timezoneId: virtualUser.clock.timezone } : {}),
+    extraHTTPHeaders: {
+      ...operationalHeadersForActor(actor, baseURL),
+      Accept: "text/html,application/xhtml+xml,application/json",
+    },
+  });
+}
+
+async function openBackgroundPages(context: BrowserContext, virtualUser: ChaosExtremeVirtualUser | undefined) {
+  const routes = ["/", "/?view=referrals", "/?screen=calendar"];
+  const tabCount = virtualUser?.device.tab_count ?? 1;
+  return Promise.all(Array.from({ length: Math.max(0, tabCount - 1) }, async (_value, index) => {
+    const page = await context.newPage();
+    await page.goto(routes[index % routes.length] ?? "/", { waitUntil: "domcontentloaded" });
+    return page;
+  }));
+}
+
+async function exerciseAdminSurfaces(
+  page: Page,
+  actor: HistoricalActor,
+  plan: HistoricalPlan,
+  cases: Array<CreatedCase & { referral: OperationalReferral }>,
+) {
+  if (actor.role !== "admin") return { surfaces: 0, godModeProfiles: false };
+  for (const route of ["/?screen=profiles", "/?screen=operations"]) {
+    const response = await page.goto(route, { waitUntil: "domcontentloaded" });
+    expect(response?.status(), route).toBeLessThan(400);
+    await expect(page.locator("main").first()).toBeVisible({ timeout: 20_000 });
+  }
+  if (actor.id !== plan.supervisor.actor_id) return { surfaces: 2, godModeProfiles: false };
+  return { surfaces: 4, godModeProfiles: await verifyGodModeProfiles(page, plan, cases) };
+}
+
+async function exerciseOfflineRecovery(
+  context: BrowserContext,
+  page: Page | undefined,
+  virtualUser: ChaosExtremeVirtualUser | undefined,
+) {
+  if (!isOfflineFlap(virtualUser) || !page) return 0;
+  await context.setOffline(true);
+  try {
+    await expect(page.reload({ waitUntil: "domcontentloaded", timeout: 3_000 })).rejects.toThrow();
+  } finally {
+    await context.setOffline(false);
+  }
+  const recovered = await page.goto("/", { waitUntil: "domcontentloaded" });
+  expect(recovered?.status()).toBeLessThan(400);
+  return 1;
+}
+
+function isOfflineFlap(virtualUser: ChaosExtremeVirtualUser | undefined) {
+  return virtualUser?.network.id === "offline_flap";
 }
 
 async function verifyGodModeProfiles(
@@ -746,13 +872,17 @@ async function verifyGodModeProfiles(
   expect(effectiveIdentity.status()).toBe(200);
   expect(asRecord(asRecord(await effectiveIdentity.json()).user).id).toBe(target.actor_id);
   await page.goto("/?screen=profiles", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Search clients").fill(targetCase.item.display_name);
-  await expect(page.getByRole("button", {
-    name: new RegExp(`^Open profile for ${escapeRegularExpression(targetCase.item.display_name)}`),
-  })).toBeVisible({ timeout: 20_000 });
-  await page.getByRole("button", {
-    name: new RegExp(`^Open profile for ${escapeRegularExpression(targetCase.item.display_name)}`),
-  }).click();
+  const targetClientId = targetCase.referral.clientId;
+  const targetName = targetCase.referral.name;
+  if (!targetClientId || !targetName) {
+    throw new Error("God Mode target referral must have a stable Pipeline client ID and normalized display name.");
+  }
+  await page.getByLabel("Search clients").fill(targetClientId);
+  const targetProfile = page.getByRole("button", {
+    name: new RegExp(`^Open profile for ${escapeRegularExpression(targetName)}`),
+  });
+  await expect(targetProfile).toHaveCount(1, { timeout: 20_000 });
+  await targetProfile.click();
   await expect(page.getByTestId("profile-workspace")).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: `Exit God mode for ${target.display_name}` }).click();
   await expect(page.getByRole("button", { name: /^Open profile menu for / })).toBeVisible({ timeout: 20_000 });
@@ -784,15 +914,30 @@ function historicalReferralInput(simulationId: string, item: HistoricalCase) {
 }
 
 function simulationActor(actor: HistoricalPlan["actors"][number]): HistoricalActor {
+  const claims: Record<HistoricalRole, { roleClaim: string; expectedRoles: string[] }> = {
+    admin: {
+      roleClaim: "Pipeline.Admin",
+      expectedRoles: ["admin", "assessment_coordinator", "reviewer", "viewer"],
+    },
+    assessment_coordinator: {
+      roleClaim: "Pipeline.AssessmentCoordinator",
+      expectedRoles: ["assessment_coordinator", "reviewer", "viewer"],
+    },
+    reviewer: {
+      roleClaim: "Pipeline.Reviewer",
+      expectedRoles: ["reviewer", "viewer"],
+    },
+    viewer: {
+      roleClaim: "Pipeline.Viewer",
+      expectedRoles: ["viewer"],
+    },
+  };
   return {
     id: actor.actor_id,
     email: actor.email,
     name: actor.display_name,
     role: actor.role,
-    roleClaim: actor.role === "admin" ? "Pipeline.Admin" : "Pipeline.Reviewer",
-    expectedRoles: actor.role === "admin"
-      ? ["admin", "assessment_coordinator", "reviewer", "viewer"]
-      : ["reviewer", "viewer"],
+    ...claims[actor.role],
   };
 }
 
@@ -802,9 +947,49 @@ async function loadTruthCases(filePath: string) {
 }
 
 async function loadHistoricalChaosContext(mode: string, plan: HistoricalPlan, phase: "files" | "full") {
-  return mode === "chaos"
-    ? loadChaosPlan(requiredEnvironmentPath("PIPELINE_HISTORICAL_CHAOS_PLAN"), plan, phase)
-    : null;
+  if (mode === "chaos") {
+    return loadChaosPlan(requiredEnvironmentPath("PIPELINE_HISTORICAL_CHAOS_PLAN"), plan, phase);
+  }
+  if (mode === "chaos_extreme") {
+    return loadChaosExtremePlan(requiredEnvironmentPath("PIPELINE_HISTORICAL_CHAOS_EXTREME_PLAN"), plan, phase);
+  }
+  return null;
+}
+
+async function resolveHistoricalPlans(mode: string, sourcePlan: HistoricalPlan, phase: "files" | "full") {
+  const chaosPlan = await loadHistoricalChaosContext(mode, sourcePlan, phase);
+  const extremePlan = isChaosExtremePlan(chaosPlan) ? chaosPlan : null;
+  return {
+    chaosPlan,
+    extremePlan,
+    plan: extremePlan ? materializeExtremeRuntimePlan(sourcePlan, extremePlan) : sourcePlan,
+  };
+}
+
+function identityConcurrency(plan: HistoricalChaosPlan | HistoricalChaosExtremePlan | null, actorCount: number) {
+  return Math.min(plan?.concurrency.identities ?? 20, actorCount);
+}
+
+function surfaceConcurrency(plan: HistoricalChaosPlan | HistoricalChaosExtremePlan | null) {
+  return plan?.concurrency.browsers ?? 6;
+}
+
+function chaosCertificationSummary(
+  plan: HistoricalChaosPlan | HistoricalChaosExtremePlan | null,
+  extremePlan: HistoricalChaosExtremePlan | null,
+  actorCount: number,
+  evidence: ChaosEvidence,
+) {
+  if (!plan) return {};
+  return {
+    chaos_certification: {
+      policy_version: plan.policy_version,
+      invariant_count: plan.invariants.length,
+      evidence,
+      virtual_user_count: extremePlan?.virtual_user_count ?? actorCount,
+      contains_names_or_source_paths: false,
+    },
+  };
 }
 
 async function runChaosReadBurst(
@@ -829,6 +1014,237 @@ async function runChaosReadBurst(
   });
   expect(statuses.every((status) => status === 200)).toBe(true);
   return statuses.length;
+}
+
+async function runExtremeVirtualMachineStorm(
+  plan: HistoricalChaosExtremePlan,
+  cases: Array<CreatedCase & { referral: OperationalReferral }>,
+  contexts: Map<string, APIRequestContext>,
+  baseURL: string,
+  concurrency: number,
+) {
+  const users = new Map(plan.virtual_users.map((user) => [user.virtual_user_id, user]));
+  const casesById = new Map(cases.map((item) => [item.item.case_id, item]));
+  const { replaySelector, ticks } = buildExtremeSchedule(plan);
+  const evidence: Pick<ChaosEvidence,
+    | "virtual_machine_requests"
+    | "virtual_machine_expected_rejections"
+    | "virtual_machine_disconnects"
+    | "virtual_machine_timeouts"
+    | "virtual_machine_duplicates"> = {
+    virtual_machine_requests: 0,
+    virtual_machine_expected_rejections: 0,
+    virtual_machine_disconnects: 0,
+    virtual_machine_timeouts: 0,
+    virtual_machine_duplicates: 0,
+  };
+
+  for (const tick of [...ticks.keys()].sort((left, right) => left - right)) {
+    const scheduled = ticks.get(tick) ?? [];
+    const results = await runWithConcurrency(scheduled, concurrency, (scheduledStep) => executeScheduledExtremeStep({
+      plan,
+      tick,
+      scheduledStep,
+      users,
+      casesById,
+      contexts,
+      baseURL,
+      evidence,
+    }));
+    expect(results.every(Boolean), `Chaos Extreme virtual tick ${tick}`).toBe(true);
+  }
+  assertExtremeEvidence(evidence, replaySelector, plan.scripts.length * 80);
+  return evidence;
+}
+
+function buildExtremeSchedule(plan: HistoricalChaosExtremePlan) {
+  const replaySelector = process.env.PIPELINE_HISTORICAL_CHAOS_EXTREME_REPLAY ?? "";
+  const ticks = new Map<number, Array<{ virtualUserId: string; step: ChaosExtremeStep }>>();
+  for (const script of plan.scripts) {
+    for (const step of script.steps) {
+      if (replaySelector && `${script.virtual_user_id}:${step.step}` !== replaySelector) continue;
+      const scheduled = ticks.get(step.tick) ?? [];
+      scheduled.push({ virtualUserId: script.virtual_user_id, step });
+      ticks.set(step.tick, scheduled);
+    }
+  }
+  return { replaySelector, ticks };
+}
+
+async function executeScheduledExtremeStep(input: {
+  plan: HistoricalChaosExtremePlan;
+  tick: number;
+  scheduledStep: { virtualUserId: string; step: ChaosExtremeStep };
+  users: Map<string, ChaosExtremeVirtualUser>;
+  casesById: Map<string, CreatedCase & { referral: OperationalReferral }>;
+  contexts: Map<string, APIRequestContext>;
+  baseURL: string;
+  evidence: Pick<ChaosEvidence,
+    | "virtual_machine_requests"
+    | "virtual_machine_expected_rejections"
+    | "virtual_machine_disconnects"
+    | "virtual_machine_timeouts"
+    | "virtual_machine_duplicates">;
+}) {
+  const { virtualUserId, step } = input.scheduledStep;
+  const user = input.users.get(virtualUserId);
+  const createdCase = step.target_case_id ? input.casesById.get(step.target_case_id) : undefined;
+  if (!user || !createdCase) throw replayError(input.plan, input.tick, virtualUserId, step, "virtual_user_or_case_missing");
+  const actor = extremeVirtualActor(user);
+  const { context, disposable } = await extremeRequestContext(input.contexts, input.baseURL, actor, step);
+  if (disposable) input.evidence.virtual_machine_disconnects += 1;
+  try {
+    const expectedStatus = expectedExtremeStatus(user.role, step);
+    await executeAndVerifyExtremeStep(input, context, user, createdCase, expectedStatus, "expected");
+    if ([403, 404].includes(expectedStatus)) input.evidence.virtual_machine_expected_rejections += 1;
+    await executeExtremeRetry(input, context, user, createdCase, expectedStatus, "timeout");
+    await executeExtremeRetry(input, context, user, createdCase, expectedStatus, "duplicate");
+    return true;
+  } finally {
+    await disposable?.dispose();
+  }
+}
+
+async function extremeRequestContext(
+  contexts: Map<string, APIRequestContext>,
+  baseURL: string,
+  actor: PipelineActor,
+  step: ChaosExtremeStep,
+) {
+  if (!step.inject_disconnect) return { context: requiredContext(contexts, actor.id), disposable: null };
+  const context = await request.newContext({ baseURL, extraHTTPHeaders: operationalHeadersForActor(actor, baseURL) });
+  return { context, disposable: context };
+}
+
+async function executeExtremeRetry(
+  input: Parameters<typeof executeScheduledExtremeStep>[0],
+  context: APIRequestContext,
+  user: ChaosExtremeVirtualUser,
+  createdCase: CreatedCase & { referral: OperationalReferral },
+  expectedStatus: number,
+  kind: "timeout" | "duplicate",
+) {
+  const enabled = kind === "timeout" ? input.scheduledStep.step.inject_timeout : input.scheduledStep.step.inject_duplicate;
+  if (!enabled) return;
+  if (kind === "timeout") input.evidence.virtual_machine_timeouts += 1;
+  else input.evidence.virtual_machine_duplicates += 1;
+  await executeAndVerifyExtremeStep(input, context, user, createdCase, expectedStatus, `${kind}_retry`);
+}
+
+async function executeAndVerifyExtremeStep(
+  input: Parameters<typeof executeScheduledExtremeStep>[0],
+  context: APIRequestContext,
+  user: ChaosExtremeVirtualUser,
+  createdCase: CreatedCase & { referral: OperationalReferral },
+  expectedStatus: number,
+  attempt: string,
+) {
+  const { virtualUserId, step } = input.scheduledStep;
+  const response = await executeExtremeStep(context, user, step, createdCase, input.plan.simulation_id);
+  input.evidence.virtual_machine_requests += 1;
+  if (response.status() !== expectedStatus) {
+    throw replayError(input.plan, input.tick, virtualUserId, step, `${attempt}_expected_${expectedStatus}_received_${response.status()}`);
+  }
+}
+
+function assertExtremeEvidence(
+  evidence: Pick<ChaosEvidence,
+    | "virtual_machine_requests"
+    | "virtual_machine_expected_rejections"
+    | "virtual_machine_disconnects"
+    | "virtual_machine_timeouts"
+    | "virtual_machine_duplicates">,
+  replaySelector: string,
+  minimumRequests: number,
+) {
+  expect(evidence.virtual_machine_requests).toBeGreaterThanOrEqual(replaySelector ? 1 : minimumRequests);
+  if (replaySelector) return;
+  expect(evidence.virtual_machine_expected_rejections).toBeGreaterThan(0);
+  expect(evidence.virtual_machine_disconnects).toBeGreaterThan(0);
+  expect(evidence.virtual_machine_timeouts).toBeGreaterThan(0);
+  expect(evidence.virtual_machine_duplicates).toBeGreaterThan(0);
+}
+
+async function executeExtremeStep(
+  context: APIRequestContext,
+  user: ChaosExtremeVirtualUser,
+  step: ChaosExtremeStep,
+  createdCase: CreatedCase & { referral: OperationalReferral },
+  simulationId: string,
+) {
+  const referralId = createdCase.referral.id;
+  if (step.action === "list_referrals" || step.action === "open_home" || step.action === "background_poll") {
+    return context.get(`/api/referrals?limit=25&tag=${encodeURIComponent(simulationId)}&projection=summary`);
+  }
+  if (step.action === "read_activity") {
+    return context.get(`/api/referrals/${referralId}/activity`);
+  }
+  if (step.action === "read_work_items") {
+    return context.get(`/api/referrals/${referralId}/work-items`);
+  }
+  if (step.action === "cross_role_mutation_probe" && ["reviewer", "viewer"].includes(user.role)) {
+    return context.patch(`/api/referrals/${referralId}`, {
+      data: {
+        if_match: createdCase.referral.version,
+        client_mutation_id: `${simulationId}:${user.virtual_user_id}:${step.step}:forbidden`,
+        patch: { note: "Synthetic access-boundary probe. Contains no PHI." },
+      },
+    });
+  }
+  return context.get(`/api/referrals/${referralId}`);
+}
+
+function expectedExtremeStatus(role: HistoricalRole, step: ChaosExtremeStep) {
+  if (step.action === "cross_role_mutation_probe") {
+    if (role === "viewer") return 403;
+    if (role === "reviewer") return 404;
+  }
+  return step.expected_access === "not_found" ? 404 : 200;
+}
+
+function extremeVirtualActor(user: ChaosExtremeVirtualUser): PipelineActor {
+  const roleClaims: Record<HistoricalRole, string> = {
+    admin: "Pipeline.Admin",
+    assessment_coordinator: "Pipeline.AssessmentCoordinator",
+    reviewer: "Pipeline.Reviewer",
+    viewer: "Pipeline.Viewer",
+  };
+  const expectedRoles: Record<HistoricalRole, string[]> = {
+    admin: ["admin", "assessment_coordinator", "reviewer", "viewer"],
+    assessment_coordinator: ["assessment_coordinator", "reviewer", "viewer"],
+    reviewer: ["reviewer", "viewer"],
+    viewer: ["viewer"],
+  };
+  return {
+    id: user.principal.id,
+    email: user.principal.email,
+    name: user.principal.display_name,
+    roleClaim: roleClaims[user.role],
+    expectedRoles: expectedRoles[user.role],
+  };
+}
+
+function replayError(
+  plan: HistoricalChaosExtremePlan,
+  tick: number,
+  virtualUserId: string,
+  step: ChaosExtremeStep,
+  failure: string,
+) {
+  return new Error(JSON.stringify({
+    error: "chaos_extreme_replay_capsule",
+    policy_version: plan.policy_version,
+    simulation_id: plan.simulation_id,
+    seed: plan.seed ?? "",
+    tick,
+    virtual_user_id: virtualUserId,
+    step: step.step,
+    action: step.action,
+    replay_selector: `${virtualUserId}:${step.step}`,
+    target_case_id: step.target_case_id,
+    failure,
+    contains_names_or_source_paths: false,
+  }));
 }
 
 function assertChaosEvidence(
@@ -859,6 +1275,60 @@ async function loadChaosPlan(filePath: string, historicalPlan: HistoricalPlan, p
     throw new Error("Historical chaos plan does not match the selected corpus and phase.");
   }
   return value;
+}
+
+async function loadChaosExtremePlan(filePath: string, historicalPlan: HistoricalPlan, phase: "files" | "full") {
+  const value = JSON.parse(await readFile(filePath, "utf8")) as HistoricalChaosExtremePlan;
+  if (value.policy_version !== "pipeline-chaos-extreme-v2"
+    || value.simulation_id !== historicalPlan.simulation_id
+    || value.phase !== phase
+    || value.virtual_user_count !== 100
+    || value.unique_principal_count !== 100
+    || value.virtual_users.length !== 100
+    || value.scripts.length !== 100
+    || value.case_assignments.length !== historicalPlan.cases.length
+    || !Array.isArray(value.invariants)) {
+    throw new Error("Historical Chaos Extreme plan does not match the selected corpus and phase.");
+  }
+  return value;
+}
+
+function isChaosExtremePlan(plan: HistoricalChaosPlan | HistoricalChaosExtremePlan | null): plan is HistoricalChaosExtremePlan {
+  return plan?.policy_version === "pipeline-chaos-extreme-v2";
+}
+
+function materializeExtremeRuntimePlan(
+  source: HistoricalPlan,
+  extreme: HistoricalChaosExtremePlan,
+): HistoricalPlan {
+  const users = new Map(extreme.virtual_users.map((user) => [user.virtual_user_id, user]));
+  const assignments = new Map(extreme.case_assignments.map((item) => [item.case_id, item.virtual_user_id]));
+  const supervisor = users.get(extreme.control_principals.supervisor_virtual_user_id);
+  if (!supervisor || supervisor.role !== "admin") {
+    throw new Error("Historical Chaos Extreme supervisor is missing or is not an administrator.");
+  }
+  return {
+    ...source,
+    supervisor: { actor_id: supervisor.principal.id },
+    actors: extreme.virtual_users.map((user) => ({
+      actor_id: user.principal.id,
+      display_name: user.principal.display_name,
+      email: user.principal.email,
+      role: user.role,
+    })),
+    cases: source.cases.map((item) => {
+      const virtualUserId = assignments.get(item.case_id);
+      const user = virtualUserId ? users.get(virtualUserId) : undefined;
+      if (!user || !["assessment_coordinator", "reviewer"].includes(user.role)) {
+        throw new Error(`Historical Chaos Extreme has no mutation-capable assignee for ${item.case_id}.`);
+      }
+      return {
+        ...item,
+        assigned_actor_id: user.principal.id,
+        assigned_owner_name: user.principal.display_name,
+      };
+    }),
+  };
 }
 
 function requiredObjectPath(corpusRoot: string, material: HistoricalMaterial) {
@@ -925,6 +1395,33 @@ async function runWithConcurrency<T, R>(
     }
   }));
   return results;
+}
+
+async function withBackpressureRetry(
+  operation: () => Promise<APIResponse>,
+  deterministicKey: string,
+  evidence: ChaosEvidence,
+) {
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const response = await operation();
+    if (response.status() !== 429) return response;
+    evidence.backpressure_retries += 1;
+    if (attempt === 31) return response;
+    const retryAfter = Number.parseFloat(response.headers()["retry-after"] ?? "1");
+    const baseDelay = Number.isFinite(retryAfter) ? Math.max(50, Math.min(2_000, retryAfter * 1_000)) : 1_000;
+    const progressiveDelay = Math.min(2_000, attempt * 100);
+    await new Promise((resolve) => setTimeout(
+      resolve,
+      baseDelay + progressiveDelay + deterministicJitter(deterministicKey, attempt) * 10,
+    ));
+  }
+  throw new Error("Backpressure retry loop exited without a response.");
+}
+
+function deterministicJitter(value: string, attempt: number) {
+  let total = attempt * 17;
+  for (const character of value) total = (total * 31 + character.charCodeAt(0)) % 101;
+  return total;
 }
 
 function addMinutes(timestamp: string, minutes: number) {

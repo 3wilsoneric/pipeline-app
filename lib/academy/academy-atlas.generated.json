@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:717f3681905b22ab",
-  "fingerprint": "717f3681905b22ab05de0cd91b7657fcebacb794a28370bbea0db3e9e84b92df",
+  "generatedAt": "source-fingerprint:dc885995b0c2bd3f",
+  "fingerprint": "dc885995b0c2bd3f8735801915e9e4557b24606912464838ae3a6136350d06f0",
   "totals": {
-    "files": 953,
-    "lines": 304332,
-    "coveredFiles": 953
+    "files": 955,
+    "lines": 305486,
+    "coveredFiles": 955
   },
   "entries": [
     {
@@ -2527,7 +2527,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 632,
+      "lines": 640,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -3872,7 +3872,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 177,
+      "lines": 228,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8061,6 +8061,18 @@
       ]
     },
     {
+      "path": "lib/simulation/historical-chaos-extreme.mjs",
+      "subsystem": "Repository configuration",
+      "kind": "tooling",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 409,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
+      ]
+    },
+    {
       "path": "lib/simulation/historical-chaos-policy.mjs",
       "subsystem": "Repository configuration",
       "kind": "tooling",
@@ -8078,7 +8090,7 @@
       "kind": "tooling",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 617,
+      "lines": 624,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8114,7 +8126,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 225,
+      "lines": 281,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8258,7 +8270,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 241,
+      "lines": 242,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -8282,7 +8294,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 77,
+      "lines": 80,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -9753,6 +9765,18 @@
       ]
     },
     {
+      "path": "scripts/historical-chaos-extreme-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 68,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
+      ]
+    },
+    {
       "path": "scripts/historical-profile-contracts.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -9770,7 +9794,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 138,
+      "lines": 146,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10202,7 +10226,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 310,
+      "lines": 315,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10587,7 +10611,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 202,
+      "lines": 239,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -11115,7 +11139,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 937,
+      "lines": 1434,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11308,7 +11332,7 @@
       "kind": "typescript-module",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 404,
+      "lines": 408,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

@@ -16,6 +16,8 @@ export type OperationalReferral = {
   id: number;
   version: number;
   sectionVersions: Record<string, number>;
+  clientId?: string;
+  name?: string;
 };
 
 export type OperationalAssessment = {
@@ -307,6 +309,8 @@ export function asReferralPayload(value: unknown): { referral: OperationalReferr
       id,
       version,
       sectionVersions,
+      ...(typeof referral.clientId === "string" ? { clientId: referral.clientId } : {}),
+      ...(typeof referral.name === "string" ? { name: referral.name } : {}),
     },
   };
 }

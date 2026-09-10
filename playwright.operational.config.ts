@@ -11,6 +11,9 @@ const allowedEmails = [
   "assessor-a@pipeline.local",
   "assessor-b@pipeline.local",
   "viewer@pipeline.local",
+  ...(process.env.PIPELINE_HISTORICAL_SIMULATION_MODE === "chaos_extreme"
+    ? Array.from({ length: 100 }, (_, index) => `chaos-extreme-${String(index + 1).padStart(3, "0")}@pipeline.local`)
+    : []),
 ].join(",");
 
 process.env.PIPELINE_E2E_REFERRAL_STORE_PATH ??= `${storeRoot}/referrals.json`;

@@ -17,24 +17,34 @@ import {
   buildHistoricalChaosPlan,
   summarizeHistoricalChaosPlan,
 } from "../lib/simulation/historical-chaos-policy.mjs";
+import {
+  buildHistoricalChaosExtremePlan,
+  summarizeHistoricalChaosExtremePlan,
+} from "../lib/simulation/historical-chaos-extreme.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const privateSimulationRoot = path.join(repositoryRoot, ".data", "simulations");
 const args = parseArgs(process.argv.slice(2));
 const manifestPath = resolvePrivatePath(args.manifest ?? "", "--manifest");
 const phase = oneOf(args.phase ?? "files", ["files", "full"], "--phase");
-const mode = oneOf(args.mode ?? "busy_day", ["historical_replay", "busy_day", "interrupted", "chaos", "soak"], "--mode");
+const mode = oneOf(args.mode ?? "busy_day", ["historical_replay", "busy_day", "interrupted", "chaos", "chaos_extreme", "soak"], "--mode");
 const execute = args.execute === true;
 const inspect = args.inspect === true;
+const replay = parseReplaySelector(args.replay);
 const port = integer(args.port ?? 3201, "--port", 1024, 65_535);
 
 if (execute && args.confirm !== runConfirmation) fail(`Execution requires --confirm=${runConfirmation}.`);
 if (!execute && args.confirm) fail("--confirm is accepted only with --execute.");
 if (inspect && !execute) fail("--inspect requires --execute because it opens the populated isolated application.");
+if (replay && mode !== "chaos_extreme") fail("--replay is available only with --mode=chaos_extreme.");
 
 const plan = JSON.parse(await readFile(manifestPath, "utf8"));
 validateHistoricalSimulationPlan(plan);
-const chaosPlan = mode === "chaos" ? buildHistoricalChaosPlan(plan, { phase }) : null;
+const chaosPlan = mode === "chaos"
+  ? buildHistoricalChaosPlan(plan, { phase })
+  : mode === "chaos_extreme"
+    ? buildHistoricalChaosExtremePlan(plan, { phase })
+    : null;
 const corpusRoot = path.dirname(manifestPath);
 await verifyMaterializedCorpus(plan, corpusRoot);
 
@@ -54,10 +64,15 @@ const preflight = {
   phase,
   simulation_mode: mode,
   interactive_inspection: inspect,
+  replay_selector: replay,
   materialized_corpus_verified: true,
   truth_packs_verified: phase === "full",
   summary: summarizeHistoricalSimulation(plan),
-  ...(chaosPlan ? { chaos_certification: summarizeHistoricalChaosPlan(chaosPlan) } : {}),
+  ...(chaosPlan ? {
+    chaos_certification: mode === "chaos_extreme"
+      ? summarizeHistoricalChaosExtremePlan(chaosPlan)
+      : summarizeHistoricalChaosPlan(chaosPlan),
+  } : {}),
 };
 
 if (!execute) {
@@ -70,7 +85,7 @@ const runRoot = path.join(privateSimulationRoot, "runs", runId);
 await mkdir(path.dirname(runRoot), { recursive: true, mode: 0o700 });
 await mkdir(runRoot, { mode: 0o700 });
 await chmod(runRoot, 0o700);
-const chaosPlanPath = chaosPlan ? path.join(runRoot, "chaos-plan.json") : "";
+const chaosPlanPath = chaosPlan ? path.join(runRoot, mode === "chaos_extreme" ? "chaos-extreme-plan.json" : "chaos-plan.json") : "";
 if (chaosPlan) {
   await writeFile(chaosPlanPath, `${JSON.stringify(chaosPlan, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
 }
@@ -95,8 +110,11 @@ const exitCode = await run(command, commandArgs, {
   PIPELINE_HISTORICAL_SIMULATION_PHASE: phase,
   PIPELINE_HISTORICAL_SIMULATION_MODE: mode,
   PIPELINE_HISTORICAL_INSPECT: inspect ? "true" : "false",
+  ...(replay ? { PIPELINE_HISTORICAL_CHAOS_EXTREME_REPLAY: replay } : {}),
   PIPELINE_HISTORICAL_RUN_ROOT: runRoot,
-  ...(chaosPlan ? { PIPELINE_HISTORICAL_CHAOS_PLAN: chaosPlanPath } : {}),
+  ...(chaosPlan ? {
+    [mode === "chaos_extreme" ? "PIPELINE_HISTORICAL_CHAOS_EXTREME_PLAN" : "PIPELINE_HISTORICAL_CHAOS_PLAN"]: chaosPlanPath,
+  } : {}),
 });
 process.exit(exitCode);
 
@@ -168,18 +186,37 @@ function isChildPath(parent, candidate) {
 
 function parseArgs(values) {
   const parsed = {};
+  const valueFlags = new Map([
+    ["--manifest=", "manifest"],
+    ["--phase=", "phase"],
+    ["--mode=", "mode"],
+    ["--port=", "port"],
+    ["--replay=", "replay"],
+    ["--confirm=", "confirm"],
+  ]);
   for (const value of values) {
     if (value === "--execute") parsed.execute = true;
     else if (value === "--dry-run") parsed.execute = false;
     else if (value === "--inspect") parsed.inspect = true;
-    else if (value.startsWith("--manifest=")) parsed.manifest = value.slice("--manifest=".length);
-    else if (value.startsWith("--phase=")) parsed.phase = value.slice("--phase=".length);
-    else if (value.startsWith("--mode=")) parsed.mode = value.slice("--mode=".length);
-    else if (value.startsWith("--port=")) parsed.port = Number(value.slice("--port=".length));
-    else if (value.startsWith("--confirm=")) parsed.confirm = value.slice("--confirm=".length);
-    else fail(`Unknown argument: ${value}`);
+    else assignValueArgument(parsed, value, valueFlags);
   }
   return parsed;
+}
+
+function assignValueArgument(parsed, value, valueFlags) {
+  const entry = [...valueFlags].find(([prefix]) => value.startsWith(prefix));
+  if (!entry) fail(`Unknown argument: ${value}`);
+  const [prefix, key] = entry;
+  const argument = value.slice(prefix.length);
+  parsed[key] = key === "port" ? Number(argument) : argument;
+}
+
+function parseReplaySelector(value) {
+  if (value === undefined) return null;
+  if (typeof value !== "string" || !/^vu-\d{3}:(?:[1-9]|[1-7]\d|80)$/.test(value)) {
+    fail("--replay must use vu-NNN:STEP with a step from 1 to 80.");
+  }
+  return value;
 }
 
 function oneOf(value, allowed, flag) {

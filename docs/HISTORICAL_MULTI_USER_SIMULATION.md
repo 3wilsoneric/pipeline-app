@@ -128,6 +128,7 @@ The full phase adds schedule/reschedule, start, save/reopen, verified assessment
 - `busy_day` — normal simultaneous referral and file pressure.
 - `interrupted` — lower write concurrency with stop/resume emphasis.
 - `chaos` — highest bounded concurrency and retry pressure.
+- `chaos_extreme` — 100 independent, stateful virtual users with deterministic multi-tab, reconnect, retry, access-probe, collision, crash/restart, and replay behavior.
 - `soak` — conservative concurrency for repeated long-running passes.
 
 The same materialized manifest and mode are replayable. Every execution receives a new immutable run directory, so a new run is the reset mechanism and prior evidence remains intact.
@@ -151,6 +152,55 @@ Any unexpected server error, lost or duplicate referral, unauthorized disclosure
 
 The files phase certifies identity, referral, file, access, read pressure, UI, and reconciliation. The full phase additionally requires all human-verified truth packs and certifies the assessment, decision, and EHR collision waves. Passing the files phase is never presented as a full-lifecycle certification.
 
+## Chaos Extreme virtual-user lab
+
+`--mode=chaos_extreme` activates `pipeline-chaos-extreme-v2`. It is a virtual-machine-style application simulator, not 100 operating-system VMs: each user has a unique principal, isolated API/browser session state, its own cookie-jar and cache identity, one to five tabs, device viewport, timezone and clock skew, network fault profile, retry budget, stale-view threshold, and deterministic 80-step behavior script. The run uses 100 unique principals with five administrators, ten assessment coordinators, seventy owner-scoped assessors, and fifteen read-only viewers.
+
+For a 100-case corpus, the fixed seed compiles 8,000 per-user operations plus coordinated workload waves. The executable harness registers all accounts at one barrier, assigns each case to a mutation-capable user, drives 100-way API pressure, recreates sessions after planned disconnects, retries simulated lost responses, duplicates selected requests, probes owner and role boundaries, traverses every product surface through a bounded browser pool, and then reconciles durable state from fresh sessions.
+
+The coordinated waves cover:
+
+- same-key replay and same-person duplicate collisions;
+- stale tabs, multiple tabs, refresh/navigation churn, response loss, timeouts, disconnects, and retry storms;
+- same-section, disjoint-section, same-field, schedule, signature, decision, trash/restore, upload, worker, and EHR races;
+- guessed workspace IDs, unrelated-assessor access, viewer mutation attempts, role/context switches, and God Mode entry/exit while other sessions remain active;
+- database/read-pool saturation, real-file upload pressure, browser viewport variation, crash/restart recovery, and immutable final reconciliation.
+
+The apparatus cannot target production: it accepts only materialized manifests beneath `.data/simulations/`, starts an isolated local application/data plane, and emits aggregate evidence without client names or original source paths.
+
+Preflight and execute it with the same commands as other modes:
+
+```bash
+npm run simulation:historical:run -- \
+  --dry-run \
+  --manifest=.data/simulations/<simulation-id>/simulation.private.json \
+  --phase=files \
+  --mode=chaos_extreme
+
+npm run simulation:historical:run -- \
+  --execute \
+  --confirm=RUN-ISOLATED-HISTORICAL-SIMULATION \
+  --manifest=.data/simulations/<simulation-id>/simulation.private.json \
+  --phase=files \
+  --mode=chaos_extreme
+```
+
+When a virtual-user step fails, the error contains a redacted replay capsule with the seed, tick, virtual-user ID, step, action, target case ID, and failure class. Re-run only that step after the full setup using its selector:
+
+```bash
+npm run simulation:historical:run -- \
+  --execute \
+  --confirm=RUN-ISOLATED-HISTORICAL-SIMULATION \
+  --manifest=.data/simulations/<simulation-id>/simulation.private.json \
+  --phase=files \
+  --mode=chaos_extreme \
+  --replay=vu-042:18
+```
+
+Every successful execution also writes a PHI-free `certification-summary.json` into its private run directory. It preserves aggregate workflow, upload, surface, backpressure, authorization-rejection, disconnect, timeout, duplicate-delivery, and virtual-request evidence without client names or source paths.
+
+Files mode deliberately leaves clinical values untouched. Full mode unlocks assessment, schedule, signature, recommendation, supervisor-decision, worker, and EHR race waves only after all 100 truth packs pass the existing human-provenance gate.
+
 ## Pass criteria
 
 A run passes only when all of these remain true:
@@ -171,6 +221,7 @@ Run evidence is written only beneath `.data/simulations/runs/<run-id>/`.
 ```bash
 npm run check:historical-simulation
 npm run check:historical-chaos
+npm run check:historical-chaos-extreme
 ```
 
-These checks use synthetic fixtures only. They verify deterministic selection, proportional community coverage, material disposition, chronology, summary redaction, the human truth-pack gate, real-byte persistence for local supporting-file uploads, the 100-case extreme policy, collision cohorts, zero-tolerance stop rules, and identifier-free certification evidence.
+These checks use synthetic fixtures only. They verify deterministic selection, proportional community coverage, material disposition, chronology, summary redaction, the human truth-pack gate, real-byte persistence for local supporting-file uploads, the 100-case policy, the 100-principal virtual-user topology, 8,000-step scheduler, collision cohorts, fault families, zero-tolerance stop rules, production lockout, and identifier-free certification evidence.
