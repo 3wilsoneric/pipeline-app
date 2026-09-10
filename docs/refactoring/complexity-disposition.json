@@ -54,7 +54,6 @@
       "lib/pipeline/workflow-store.ts::recordAssessmentRecommendation::1": 26,
       "lib/pipeline/workflow-store.ts::recordPostgresDecision::1": 29,
       "lib/pipeline/workflow-store.ts::recordPostgresRecommendation::1": 16,
-      "lib/pipeline/workflow-store.ts::recordPostgresReviewChanges::1": 17,
       "lib/pipeline/workflow-store.ts::requestAssessmentReviewChanges::1": 26,
       "lib/pipeline/workflow-store.ts::updateEhrHandoff::1": 18,
       "lib/pipeline/workspace-activity.ts::activityAttention::1": 12,
@@ -63,9 +62,9 @@
       "scripts/operator-training-route-contracts.mjs::<callback:check:1>::22": 12
     },
     "totals": {
-      "hotspots": 278,
-      "criticalHotspots": 134,
-      "controlPlaneHotspots": 139
+      "hotspots": 274,
+      "criticalHotspots": 132,
+      "controlPlaneHotspots": 135
     }
   },
   "requirements": [

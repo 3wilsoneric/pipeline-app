@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T13:42:43.650Z",
+  "generated_at": "2026-09-10T13:48:13.727Z",
   "audit_date": "2026-09-10",
-  "git_head": "c647653eac307681aa360cbdfd608e02c8387548",
+  "git_head": "ddfa6c6d35c66f50edc3dd98cd3e38170a7d3d82",
   "files": [
     {
       "path": ".dockerignore",
@@ -4678,11 +4678,11 @@
     },
     {
       "path": "docs/refactoring/complexity-disposition.json",
-      "content_sha256": "0239e8c2baa5b598ca9e8fe743689479979133e93cc5b1b014ed87a3fd84f44d",
+      "content_sha256": "057062e421676d4464749ab22dd58fc6b111adb9f3dca847b72779d68e30c657",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 5337,
-      "lines": 79,
+      "bytes": 5261,
+      "lines": 78,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -5058,7 +5058,7 @@
     },
     {
       "path": "docs/refactoring/workflow-permutation-hardening-file-audit.json",
-      "content_sha256": "a65f28482f3768f108129b1de5b279bc673aa4c44eae2ab571d583791b189dbe",
+      "content_sha256": "a604dedaa9541d32f8eab0cdea8768a046833e4d52c3c0e6c9896d9014449293",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 15268,
@@ -5082,7 +5082,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "e924641acf5244cf0ae2d756731ca7d45680e0554fbb3ef061d0cacca81b34f2",
+      "content_sha256": "5d7b555779c8ec163776256a487b6d5937fbb5c38ba58d67b21b0ea88e2400f2",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 397728,
@@ -5110,7 +5110,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "41676da156d86783943fd16f92a8b6f9f4541562cf2be6d634a44a42a93b61c0",
+      "content_sha256": "54c20358d7503f4c71687af988830ebe68c0e62d15bfbc42c2483ee570a82d90",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 219657,
@@ -5169,7 +5169,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "94825d2a1415ffc3f240641d180adaca7439c179735b5be58327f085f3d141c2",
+      "content_sha256": "66b055e7e9bdab79a922e764bfacd3bcef268cfd712995c9f2d6f5cd8a6d49f0",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 560832,
@@ -7337,15 +7337,15 @@
     },
     {
       "path": "lib/pipeline/workflow-store.ts",
-      "content_sha256": "52cb0417cd669009ea4694c6ee15bd3f2f4e777a672819056911b53afeb69eec",
+      "content_sha256": "6d068c85dc058ec4f91e07ec838be8cee894353279f2e9fce192b99c28c492f0",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 69521,
-      "lines": 1702,
+      "bytes": 71791,
+      "lines": 1778,
       "detected_concerns": [
-        "Large module (1702 lines): split by behavior before adding more responsibilities."
+        "Large module (1778 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (1702 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (1778 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -10435,11 +10435,11 @@
     },
     {
       "path": "scripts/workflow-stateful-fuzz.mjs",
-      "content_sha256": "b7ae621792539bbf0c809db7edf9ea57fc97e9b6a2eb6400e56e8e830e1ebd4b",
+      "content_sha256": "4b675b3f9cf4ddc6b1d50bcd0dda10d42e2b266a1fcb8e35f31909deba44821c",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 12988,
-      "lines": 399,
+      "bytes": 13041,
+      "lines": 388,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"

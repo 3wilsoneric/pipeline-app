@@ -36,6 +36,35 @@ const exhaustiveBooleanFields = [
   "moveInReady",
   "manualIntakeAuthorized",
 ];
+const preparationActions = [
+  (state) => { state.ownerAssigned = true; },
+  (state) => { state.packetAttached = true; },
+  (state) => { state.packetReviewed = state.packetReviewed || state.packetAttached; },
+  (state) => { state.assessmentComplete = true; },
+  (state) => {
+    state.decision = "accepted";
+    state.declineReason = false;
+  },
+  (state) => { state.decision = "declined"; },
+  (state) => { state.declineReason = state.declineReason || state.decision === "declined"; },
+  (state) => { state.moveInReady = true; },
+  (state) => { state.manualIntakeAuthorized = true; },
+];
+const transitionGateBlockers = {
+  "Packet Needed": (state) => state.ownerAssigned ? [] : ["owner_required"],
+  "Packet Review": (state) => state.packetAttached || state.manualIntakeAuthorized
+    ? []
+    : ["initial_packet_required"],
+  Assessment: (state) => state.packetReviewed || state.manualIntakeAuthorized
+    ? []
+    : ["packet_review_required"],
+  "Community Review": (state) => state.assessmentComplete ? [] : ["assessment_required"],
+  "Accepted / Admitted": acceptedBlockerCodes,
+  Declined: (state) => {
+    if (state.decision !== "declined") return ["decline_decision_required"];
+    return state.declineReason ? [] : ["decline_reason_required"];
+  },
+};
 for (const stage of workflow.boardStages) {
   for (const target of workflow.boardStages) {
     for (let mask = 0; mask < 2 ** exhaustiveBooleanFields.length; mask += 1) {
@@ -239,60 +268,20 @@ function initialState(trace) {
 
 function applyRandomPreparation(state) {
   if (isTerminal(state.stage)) return;
-  switch (integer(0, 9)) {
-    case 0:
-      state.ownerAssigned = true;
-      break;
-    case 1:
-      state.packetAttached = true;
-      break;
-    case 2:
-      if (state.packetAttached) state.packetReviewed = true;
-      break;
-    case 3:
-      state.assessmentComplete = true;
-      break;
-    case 4:
-      state.decision = "accepted";
-      state.declineReason = false;
-      break;
-    case 5:
-      state.decision = "declined";
-      break;
-    case 6:
-      if (state.decision === "declined") state.declineReason = true;
-      break;
-    case 7:
-      state.moveInReady = true;
-      break;
-    case 8:
-      state.manualIntakeAuthorized = true;
-      break;
-  }
+  preparationActions[integer(0, preparationActions.length)](state);
 }
 
 function expectedBlockerCodes(state, target) {
   if (target === state.stage) return [];
   if (!allowedTargets[state.stage].includes(target)) return ["stage_sequence"];
-  if (target === "Packet Needed" && !state.ownerAssigned) return ["owner_required"];
-  if (target === "Packet Review" && !state.packetAttached && !state.manualIntakeAuthorized) {
-    return ["initial_packet_required"];
-  }
-  if (target === "Assessment" && !state.packetReviewed && !state.manualIntakeAuthorized) {
-    return ["packet_review_required"];
-  }
-  if (target === "Community Review" && !state.assessmentComplete) return ["assessment_required"];
-  if (target === "Accepted / Admitted") {
-    const blockers = [];
-    if (state.decision !== "accepted") blockers.push("admission_decision_required");
-    if (!state.moveInReady) blockers.push("requirement:signed_admission_agreement");
-    return blockers;
-  }
-  if (target === "Declined") {
-    if (state.decision !== "declined") return ["decline_decision_required"];
-    if (!state.declineReason) return ["decline_reason_required"];
-  }
-  return [];
+  return transitionGateBlockers[target]?.(state) ?? [];
+}
+
+function acceptedBlockerCodes(state) {
+  const blockers = [];
+  if (state.decision !== "accepted") blockers.push("admission_decision_required");
+  if (!state.moveInReady) blockers.push("requirement:signed_admission_agreement");
+  return blockers;
 }
 
 function toReferral(state) {
