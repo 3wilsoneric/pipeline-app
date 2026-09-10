@@ -2,6 +2,7 @@ import type {
   AdmissionDecision,
   AdmissionRequirement,
   AssessmentRecommendation,
+  AssessmentReview,
   Referral,
   RequirementGate,
   RequirementStatus,
@@ -24,6 +25,7 @@ export type WorkflowContext = {
   assessmentData?: AssessmentToolData | null;
   decision?: AdmissionDecision | null;
   recommendation?: AssessmentRecommendation | null;
+  review?: AssessmentReview | null;
   requirements?: AdmissionRequirement[];
 };
 
@@ -31,7 +33,6 @@ export type AdmissionDecisionInput = {
   outcome: AdmissionDecision["outcome"];
   reasonCode?: string;
   reasonNote?: string;
-  overrideReason?: string;
   decidedByRole?: string;
 };
 
@@ -40,6 +41,11 @@ export type AssessmentRecommendationInput = {
   outcome: AssessmentRecommendation["outcome"];
   reasonCode?: string;
   reasonNote?: string;
+};
+
+export type AssessmentReviewChangesInput = {
+  reviewId: string;
+  reasonNote: string;
 };
 
 export type WorkItemPatch = {
@@ -63,6 +69,8 @@ export type WorkflowRecordSnapshot = {
   work_items: AdmissionRequirement[];
   decision: AdmissionDecision | null;
   recommendation: AssessmentRecommendation | null;
+  review: AssessmentReview | null;
+  reviews: AssessmentReview[];
 };
 
 type DefaultRequirement = {
@@ -300,8 +308,20 @@ export function getAdmissionDecisionBlockers(
   if (!snapshot.context.assessmentSigned) {
     return [{ code: "assessment_required", label: "Sign the assessment before recording the admission decision." }];
   }
-  if (!snapshot.recommendation && !input.overrideReason?.trim()) {
-    return [{ code: "recommendation_required", label: "An assessor recommendation is required, or the supervisor must record an override reason." }];
+  if (!snapshot.review) {
+    return [{ code: "review_required", label: "Submit a signed assessment and recommendation for supervisor review before recording a decision." }];
+  }
+  if (snapshot.review.status === "changes_requested") {
+    return [{ code: "review_changes_requested", label: "Complete and resubmit the requested assessment corrections before recording a decision." }];
+  }
+  if (snapshot.review.status !== "submitted") {
+    return [{ code: "review_not_open", label: "This supervisor review is no longer open for a decision." }];
+  }
+  if (snapshot.context.assessmentId !== snapshot.review.assessmentId) {
+    return [{ code: "stale_review_submission", label: "Submit the current signed assessment revision for supervisor review." }];
+  }
+  if (!snapshot.recommendation || snapshot.review.recommendationId !== snapshot.recommendation.recommendationId) {
+    return [{ code: "recommendation_required", label: "The open supervisor review must include the current assessor recommendation." }];
   }
   if (input.outcome === "accepted") {
     const incomplete = getBlockingRequirementsForGates(snapshot.work_items, ["admission_decision"]);
@@ -323,7 +343,9 @@ export function workflowStatusAfterWorkItem(
   requirements: AdmissionRequirement[],
 ): Referral["workflowStatus"] {
   const current = snapshot.referral.workflowStatus;
-  if (current && ["accepted", "declined", "closed"].includes(current)) return current;
+  if (current && ["approved_for_placement", "accepted", "admitted", "declined", "closed"].includes(current)) return current;
+  if (snapshot.review?.status === "changes_requested") return "changes_requested";
+  if (snapshot.review?.status === "submitted") return "recommendation_submitted";
   if (snapshot.recommendation) return "decision_pending";
   if (snapshot.context.assessmentSigned) return "assessment_signed";
   if (snapshot.context.assessmentComplete) return "assessment_ready_to_sign";

@@ -33,7 +33,11 @@ export async function GET(
     ]);
     if (!snapshot) return jsonError("Referral not found.", 404);
 
-    const assessment = selectSignedAssessment(assessmentList.assessments, snapshot.recommendation?.assessmentId);
+    const assessment = selectSignedAssessment(
+      assessmentList.assessments,
+      snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId,
+      snapshot.decision?.assessmentVersion,
+    );
     const report = assessment ? buildAssessmentSummaryReport(assessment, snapshot.referral) : null;
     const mail = getGraphMailReadiness();
     const admissionPacket = await loadAdmissionPacketInventory(
@@ -94,9 +98,15 @@ async function loadAdmissionPacketInventory(
 function selectSignedAssessment(
   assessments: Awaited<ReturnType<typeof listAssessments>>["assessments"],
   recommendedAssessmentId?: string,
+  expectedVersion?: number,
 ) {
   const recommended = assessments.find((item) => item.assessment_id === recommendedAssessmentId);
-  return recommended?.signed_at ? recommended : assessments.find((item) => item.signed_at) ?? null;
+  if (recommendedAssessmentId) {
+    return recommended?.signed_at && (expectedVersion === undefined || recommended.version === expectedVersion)
+      ? recommended
+      : null;
+  }
+  return assessments.find((item) => item.signed_at) ?? null;
 }
 
 function meetClientEmailBlockers(

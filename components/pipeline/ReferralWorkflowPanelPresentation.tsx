@@ -25,7 +25,7 @@ import {
   type WorkflowResponse,
 } from "@/components/pipeline/referral-workflow-panel-model";
 import { referralStageDefinitions, type ReferralStage } from "@/lib/pipeline/referral-workflow";
-import type { AdmissionRequirement, AssessmentRecommendation, EhrHandoffStatus, RequirementStatus } from "@/lib/pipeline/referral-types";
+import type { AdmissionRequirement, AssessmentRecommendation, AssessmentReview, EhrHandoffStatus, RequirementStatus } from "@/lib/pipeline/referral-types";
 import { isRequirementComplete } from "@/lib/pipeline/workflow-records";
 
 type RecommendationDraft = {
@@ -38,7 +38,6 @@ type DecisionDraft = {
   outcome: DecisionOutcomeDraft;
   reasonCode: string;
   reasonNote: string;
-  overrideReason: string;
 };
 
 type HandoffActionProps = {
@@ -74,6 +73,7 @@ type ReferralWorkflowPanelPresentationProps = {
   onUpdateRequirement: (item: AdmissionRequirement, status: RequirementStatus) => void;
   onSubmitRecommendation: () => void;
   onSubmitDecision: () => void;
+  onRequestReviewChanges: () => void;
   onSubmitTransition: (target: ReferralStage) => void;
   onAuthorizeManualIntake: () => void;
   onUpdateHandoff: (action: "queue" | "retry") => void;
@@ -102,6 +102,7 @@ export function ReferralWorkflowPanelPresentation({
   onUpdateRequirement,
   onSubmitRecommendation,
   onSubmitDecision,
+  onRequestReviewChanges,
   onSubmitTransition,
   onAuthorizeManualIntake,
   onUpdateHandoff,
@@ -150,6 +151,7 @@ export function ReferralWorkflowPanelPresentation({
           onManualIntakeReasonChange={onManualIntakeReasonChange}
           onSubmitRecommendation={onSubmitRecommendation}
           onSubmitDecision={onSubmitDecision}
+          onRequestReviewChanges={onRequestReviewChanges}
           onSubmitTransition={onSubmitTransition}
           onAuthorizeManualIntake={onAuthorizeManualIntake}
           onOpenIntake={onOpenIntake}
@@ -187,6 +189,7 @@ function WorkflowPrimaryColumn({
   onManualIntakeReasonChange,
   onSubmitRecommendation,
   onSubmitDecision,
+  onRequestReviewChanges,
   onSubmitTransition,
   onAuthorizeManualIntake,
   onOpenIntake,
@@ -194,14 +197,14 @@ function WorkflowPrimaryColumn({
   onOpenFiles,
 }: Pick<ReferralWorkflowPanelPresentationProps,
   "workflow" | "busy" | "recommendation" | "decision" | "manualIntakeReason" | "onRecommendationChange" | "onDecisionChange" |
-  "onManualIntakeReasonChange" | "onSubmitRecommendation" | "onSubmitDecision" | "onSubmitTransition" | "onAuthorizeManualIntake" |
+  "onManualIntakeReasonChange" | "onSubmitRecommendation" | "onSubmitDecision" | "onRequestReviewChanges" | "onSubmitTransition" | "onAuthorizeManualIntake" |
   "onOpenIntake" | "onOpenAssessment" | "onOpenFiles"
 > & { view: WorkflowView }) {
   return (
     <div className="space-y-5">
       <CurrentGateCard workflow={workflow} view={view} busy={busy} manualIntakeReason={manualIntakeReason} onManualIntakeReasonChange={onManualIntakeReasonChange} onSubmitTransition={onSubmitTransition} onAuthorizeManualIntake={onAuthorizeManualIntake} onOpenIntake={onOpenIntake} onOpenAssessment={onOpenAssessment} onOpenFiles={onOpenFiles} />
       <ClinicalRecommendationDisclosure workflow={workflow} busy={busy} recommendation={recommendation} onRecommendationChange={onRecommendationChange} onSubmitRecommendation={onSubmitRecommendation} />
-      <SupervisorDecisionDisclosure workflow={workflow} view={view} busy={busy} decision={decision} onDecisionChange={onDecisionChange} onSubmitDecision={onSubmitDecision} />
+      <SupervisorDecisionDisclosure workflow={workflow} view={view} busy={busy} decision={decision} onDecisionChange={onDecisionChange} onSubmitDecision={onSubmitDecision} onRequestReviewChanges={onRequestReviewChanges} />
     </div>
   );
 }
@@ -250,22 +253,26 @@ function ClinicalRecommendationDisclosure({ workflow, busy, recommendation, onRe
         <WorkflowInput label="Reason code (optional)" value={recommendation.reasonCode} onChange={(reasonCode) => onRecommendationChange({ reasonCode })} />
       </div>
       <WorkflowTextArea label="Clinical rationale" value={recommendation.reasonNote} onChange={(reasonNote) => onRecommendationChange({ reasonNote })} />
-      <PrimaryButton busy={busy.startsWith("recommendation:")} disabled={!workflow.capabilities.can_recommend || !workflow.context.assessmentId || (recommendation.outcome !== "accept" && !recommendation.reasonNote.trim())} onClick={onSubmitRecommendation}>Submit recommendation</PrimaryButton>
+      <PrimaryButton busy={busy.startsWith("recommendation:")} disabled={!workflow.capabilities.can_recommend || !workflow.context.assessmentId || workflow.review?.status === "submitted" || (recommendation.outcome !== "accept" && !recommendation.reasonNote.trim())} onClick={onSubmitRecommendation}>Submit for supervisor review</PrimaryButton>
     </WorkflowDisclosure>
   );
 }
 
-function SupervisorDecisionDisclosure({ workflow, view, busy, decision, onDecisionChange, onSubmitDecision }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "decision" | "onDecisionChange" | "onSubmitDecision"> & { view: WorkflowView }) {
+function SupervisorDecisionDisclosure({ workflow, view, busy, decision, onDecisionChange, onSubmitDecision, onRequestReviewChanges }: Pick<ReferralWorkflowPanelPresentationProps, "workflow" | "busy" | "decision" | "onDecisionChange" | "onSubmitDecision" | "onRequestReviewChanges"> & { view: WorkflowView }) {
   return (
     <WorkflowDisclosure key={`decision-${view.decisionDisclosureKey}`} icon={<CheckCircle2 size={17} />} title="Supervisor decision" detail={workflow.capabilities.can_decide ? "Supervisor authority" : "Visible to the assigned team"} defaultOpen={view.decisionDisclosureIsOpen}>
       {workflow.decision ? <RecordSummary title={`${formatOutcome(workflow.decision.outcome)} decision`} actor={workflow.decision.decidedByName} date={workflow.decision.decidedAt} note={workflow.decision.reasonNote} /> : null}
-      {workflow.capabilities.can_decide ? (
+      {workflow.review ? <ReviewSummary review={workflow.review} /> : null}
+      {workflow.capabilities.can_decide && !workflow.decision ? (
         <>
-          <DecisionReadiness workflow={workflow} outcome={decision.outcome} note={decision.reasonNote} overrideReason={decision.overrideReason} incompleteDecision={view.incompleteDecision} />
+          <DecisionReadiness workflow={workflow} outcome={decision.outcome} note={decision.reasonNote} incompleteDecision={view.incompleteDecision} />
           <div className="mt-3 grid gap-3 sm:grid-cols-2"><WorkflowSelect label="Decision" value={decision.outcome} onChange={(value) => onDecisionChange({ outcome: value as DecisionOutcomeDraft })} options={[{ value: "", label: "Select a decision" }, { value: "accepted", label: "Accept" }, { value: "declined", label: "Decline" }]} /><WorkflowInput label="Reason code (optional)" value={decision.reasonCode} onChange={(reasonCode) => onDecisionChange({ reasonCode })} /></div>
           <WorkflowTextArea label="Decision rationale (required for decline)" value={decision.reasonNote} onChange={(reasonNote) => onDecisionChange({ reasonNote })} />
-          {!workflow.recommendation ? <WorkflowTextArea label="Supervisor override reason" value={decision.overrideReason} onChange={(overrideReason) => onDecisionChange({ overrideReason })} /> : null}
-          <PrimaryButton busy={busy.startsWith("decision:")} disabled={decisionSubmissionIsBlocked(workflow, decision.outcome, decision.reasonNote, decision.overrideReason, view.incompleteDecision)} onClick={onSubmitDecision}>{workflow.decision ? "Update decision" : "Record decision"}</PrimaryButton>
+          {!workflow.review ? <WorkflowNotice tone="error">Submit a signed assessment and recommendation for supervisor review before recording a final decision.</WorkflowNotice> : null}
+          <div className="flex flex-wrap gap-2">
+            <PrimaryButton busy={busy.startsWith("decision:")} disabled={decisionSubmissionIsBlocked(workflow, decision.outcome, decision.reasonNote, view.incompleteDecision)} onClick={onSubmitDecision}>Record final decision</PrimaryButton>
+            {workflow.review?.status === "submitted" && workflow.capabilities.can_request_changes ? <SecondaryButton disabled={Boolean(busy)} onClick={onRequestReviewChanges}>Request changes</SecondaryButton> : null}
+          </div>
         </>
       ) : null}
     </WorkflowDisclosure>
@@ -352,6 +359,9 @@ function WorkflowDetailDialog({ pending, onConfirm, onClose }: { pending: Pendin
   if (pending.kind === "ehr_failure") {
     return <ActionDetailDialog title="Record EHR handoff failure" description="This reason is recorded in the referral activity log for follow-up." label="Failure reason" confirmLabel="Record failure" minimumLength={3} onConfirm={onConfirm} onClose={onClose} />;
   }
+  if (pending.kind === "review_changes") {
+    return <ActionDetailDialog title="Request assessment changes" description="The signed submission remains frozen. Pipeline will create a new editable revision and record these correction instructions in activity." label="Specific corrections" confirmLabel="Request changes" minimumLength={3} onConfirm={onConfirm} onClose={onClose} />;
+  }
   return <ActionDetailDialog {...requirementDetailPresentation(pending.item, pending.status)} onConfirm={onConfirm} onClose={onClose} />;
 }
 
@@ -396,10 +406,11 @@ function DecisionHandoffOverview({ workflow, incompleteDecision, incompleteMoveI
   );
 }
 
-function DecisionReadiness({ workflow, outcome, note, overrideReason, incompleteDecision }: { workflow: WorkflowResponse; outcome: DecisionOutcomeDraft; note: string; overrideReason: string; incompleteDecision: AdmissionRequirement[] }) {
+function DecisionReadiness({ workflow, outcome, note, incompleteDecision }: { workflow: WorkflowResponse; outcome: DecisionOutcomeDraft; note: string; incompleteDecision: AdmissionRequirement[] }) {
   const items = [
     { label: "Signed assessment", complete: Boolean(workflow.context.assessmentSigned) },
-    { label: workflow.recommendation ? `${formatOutcome(workflow.recommendation.outcome)} recommendation recorded` : "Supervisor override documented", complete: Boolean(workflow.recommendation || overrideReason.trim()) },
+    { label: workflow.review?.status === "submitted" ? "Supervisor review is open" : "Submit for supervisor review", complete: workflow.review?.status === "submitted" },
+    { label: workflow.recommendation ? `${formatOutcome(workflow.recommendation.outcome)} recommendation recorded` : "Recommendation required", complete: Boolean(workflow.recommendation) },
     { label: incompleteDecision.length === 0 ? "Decision requirements resolved" : `${incompleteDecision.length} decision requirement${incompleteDecision.length === 1 ? "" : "s"} remaining`, complete: incompleteDecision.length === 0 },
     { label: outcome ? `${formatOutcome(outcome)} selected` : "Decision selected", complete: Boolean(outcome) },
     ...(outcome === "declined" ? [{ label: "Decline rationale documented", complete: Boolean(note.trim()) }] : []),
@@ -429,4 +440,23 @@ function WorkflowSelect({ label, value, onChange, options }: { label: string; va
 
 function RecordSummary({ title, actor, date, note }: { title: string; actor: string; date: string; note: string }) {
   return <div className="border-l-2 border-[#0f8b73] bg-[#f3faf7] px-3 py-2"><div className="text-[11px] font-black text-[#174f43]">{title}</div><div className="mt-0.5 text-[9px] text-[#597068]">{actor} · {new Date(date).toLocaleString()}</div>{note ? <div className="mt-1 whitespace-pre-wrap text-[10px] leading-4 text-[#40534d]">{note}</div> : null}</div>;
+}
+
+function ReviewSummary({ review }: { review: AssessmentReview }) {
+  const label = {
+    submitted: "Awaiting supervisor review",
+    changes_requested: "Changes requested",
+    approved_for_placement: "Approved for placement",
+    not_accepted: "Not accepted",
+  }[review.status];
+  return (
+    <div className="mt-3 border border-[#dfe5e2] bg-white px-3 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[10px] font-black text-[#202522]">Review {review.submissionNumber} · {label}</div>
+        <div className="text-[9px] font-bold text-[#68716c]">Signed assessment v{review.assessmentVersion}</div>
+      </div>
+      <div className="mt-1 text-[9px] text-[#68716c]">Submitted by {review.submittedByName} · {new Date(review.submittedAt).toLocaleString()}</div>
+      {review.reviewNote ? <div className="mt-2 whitespace-pre-wrap text-[10px] leading-4 text-[#40534d]">{review.reviewNote}</div> : null}
+    </div>
+  );
 }

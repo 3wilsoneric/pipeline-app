@@ -21,8 +21,11 @@ export type ReferralWorkflowStatus =
   | "assessment_ready_to_sign"
   | "assessment_signed"
   | "recommendation_submitted"
+  | "changes_requested"
   | "decision_pending"
+  | "approved_for_placement"
   | "accepted"
+  | "admitted"
   | "declined"
   | "closed";
 
@@ -134,6 +137,38 @@ export type AssessmentRecommendation = {
   version: number;
 };
 
+export type AssessmentReviewStatus =
+  | "submitted"
+  | "changes_requested"
+  | "approved_for_placement"
+  | "not_accepted";
+
+export type AssessmentReview = {
+  reviewId: string;
+  referralId: number;
+  assessmentId: string;
+  assessmentVersion: number;
+  recommendationId: string;
+  recommendationVersion: number;
+  submissionNumber: number;
+  status: AssessmentReviewStatus;
+  submittedBy: string;
+  submittedByName: string;
+  submittedAt: string;
+  dueAt: string;
+  assignedReviewerId?: string;
+  assignedReviewerName: string;
+  notificationStatus: "pending" | "acknowledged";
+  reviewedBy?: string;
+  reviewedByName?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+  successorAssessmentId?: string;
+  previousReviewId?: string;
+  version: number;
+  updatedAt: string;
+};
+
 export type AdmissionDecision = {
   decisionId: string;
   outcome: "accepted" | "declined";
@@ -144,6 +179,10 @@ export type AdmissionDecision = {
   decidedAt: string;
   version: number;
   recommendationId?: string;
+  reviewId?: string;
+  reviewVersion?: number;
+  assessmentId?: string;
+  assessmentVersion?: number;
   decidedByRole?: string;
 };
 
@@ -282,6 +321,10 @@ export type Referral = {
   admissionDecision?: AdmissionDecision;
   /** Latest assessor recommendation. The supervisor's decision remains authoritative. */
   assessmentRecommendation?: AssessmentRecommendation;
+  /** Latest durable supervisor review projection. PostgreSQL stores the authoritative row separately. */
+  assessmentReview?: AssessmentReview;
+  /** Local-store history for immutable review submissions and outcomes. */
+  assessmentReviewHistory?: AssessmentReview[];
   /** Pipeline-owned handoff state. This never represents an EHR write unless status is sent. */
   ehrHandoff?: EhrHandoffRecord;
 };

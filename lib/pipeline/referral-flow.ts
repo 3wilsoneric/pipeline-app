@@ -37,12 +37,13 @@ export function referralFlowStateForStatus(status: ReferralWorkflowStatus): Refe
     || status === "ready_to_schedule"
   ) return "ready_to_schedule";
   if (status === "assessment_scheduled") return "scheduled";
-  if (status === "assessment_in_progress" || status === "waiting_for_information") return "assessment";
+  if (status === "assessment_in_progress" || status === "waiting_for_information" || status === "changes_requested") return "assessment";
   if (
     status === "assessment_ready_to_sign"
     || status === "assessment_signed"
     || status === "recommendation_submitted"
     || status === "decision_pending"
+    || status === "approved_for_placement"
   ) return "complete_chart";
   return "complete";
 }

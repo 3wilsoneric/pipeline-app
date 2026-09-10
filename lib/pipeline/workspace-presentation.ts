@@ -168,7 +168,7 @@ export function getWorkspaceWorkflowLabel(referral: Referral) {
   const workflowStatus = referral.workflowStatus ?? resolveReferralWorkflowStatus(referral);
   if (isImportedWorkspace(referral)) {
     const outcome = getWorkspaceAdmissionOutcome(referral);
-    return outcome.status !== "pending" || ["accepted", "declined", "closed"].includes(workflowStatus)
+    return outcome.status !== "pending" || ["approved_for_placement", "accepted", "admitted", "declined", "closed"].includes(workflowStatus)
       ? "Completed"
       : "In progress";
   }

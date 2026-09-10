@@ -124,7 +124,7 @@ check("signed assessments remain signed even when historical recommendations exi
   assessment: { ...assessment, status: "complete", signed_at: "2026-08-23T16:00:00.000Z" },
   recommendation: { recommendationId: "rec-1" },
 }) === "assessment_signed");
-check("final decision closes to accepted", workflow.resolveReferralWorkflowStatus(referral, { decision: { outcome: "accepted" } }) === "accepted");
+check("final decision approves placement without inventing admission", workflow.resolveReferralWorkflowStatus(referral, { decision: { outcome: "accepted" } }) === "approved_for_placement");
 check("active referral statuses map to one operational flow state", [
   ["intake_unassigned", "ready_to_schedule"],
   ["intake_documents_needed", "ready_to_schedule"],
@@ -137,8 +137,10 @@ check("active referral statuses map to one operational flow state", [
   ["assessment_signed", "complete_chart"],
   ["recommendation_submitted", "complete_chart"],
   ["decision_pending", "complete_chart"],
+  ["changes_requested", "assessment"],
+  ["approved_for_placement", "complete_chart"],
 ].every(([status, state]) => referralFlow.referralFlowStateForStatus(status) === state));
-check("terminal referral statuses stay out of current work", ["accepted", "declined", "closed"]
+check("terminal referral statuses stay out of current work", ["accepted", "admitted", "declined", "closed"]
   .every((status) => referralFlow.referralFlowStateForStatus(status) === "complete"));
 
 const acceptedDecision = {
@@ -415,6 +417,8 @@ const assessmentSeedSource = read("lib/assessment/assessment-seed.ts");
 const referralCanvasPersistence = read("lib/pipeline/referral-canvas-persistence.ts");
 const migration = read("database/migrations/0015_assessor_workflow.sql");
 const rollback = read("database/rollbacks/0015_assessor_workflow.sql");
+const reviewMigration = read("database/migrations/0031_assessment_review_revisions.sql");
+const reviewRollback = read("database/rollbacks/0031_assessment_review_revisions.sql");
 const admissionSummaryRoute = read("app/api/referrals/[referralId]/admission-summary/route.ts");
 const meetClientEmailRoute = read("app/api/referrals/[referralId]/meet-client-email/route.ts");
 const graphMail = read("lib/notifications/microsoft-graph-mail.ts");
@@ -468,7 +472,13 @@ check("authorized referral users can open signed assessment charts", admissionSu
 check("only supervisors can send Meet the Client", meetClientEmailRoute.includes('["admin", "assessment_coordinator"]'));
 check("Meet the Client requires explicit recipient confirmation and same-origin protection", meetClientEmailRoute.includes("body.value.confirmed !== true") && meetClientEmailRoute.includes("requireSameOriginMutation"));
 check("Meet the Client requires an accepted decision and signed assessment", meetClientEmailRoute.includes('snapshot.decision?.outcome !== "accepted"') && meetClientEmailRoute.includes("selectSignedAssessment") && meetClientEmailRoute.includes("recommended?.signed_at"));
-check("summary and email prefer the recommendation's exact assessment", admissionSummaryRoute.includes("snapshot.recommendation?.assessmentId") && meetClientEmailRoute.includes("snapshot.recommendation?.assessmentId"));
+check("summary and email pin the supervisor-approved assessment id and version",
+  admissionSummaryRoute.includes("snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId")
+    && admissionSummaryRoute.includes("snapshot.decision?.assessmentVersion")
+    && meetClientEmailRoute.includes("snapshot.decision?.assessmentId ?? snapshot.recommendation?.assessmentId")
+    && meetClientEmailRoute.includes("snapshot.decision?.assessmentVersion")
+    && deliveryAudit.includes("assessment_version")
+    && deliveryAudit.includes("review_version"));
 check("email recipients are constrained to approved organization domains", graphMail.includes("PIPELINE_MEET_CLIENT_ALLOWED_EMAIL_DOMAINS") && graphMail.includes("allowedRecipientDomains.includes(emailDomain(value))"));
 check("email subject excludes the client name", meetClientTemplateSource.includes('Meet the Client | ${summary.community') && !meetClientTemplateSource.match(/subject\s*=.*summary\.name/));
 check("admission packet selection is server-owned and referral-scoped", meetClientEmailRoute.includes("getMeetClientAttachmentInventory")
@@ -505,15 +515,36 @@ check("the supervisor sees the exact packet before confirming delivery", assessm
 check("the complete chart is generated only from a signed assessment", admissionSummaryRoute.includes("selectSignedAssessment") && admissionSummaryRoute.includes("recommended?.signed_at") && admissionSummaryRoute.includes("find((item) => item.signed_at)"));
 check("only supervisors can move a referral to trash", referralRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
 check("only supervisors can authorize intake without an initial packet", manualIntakeRoute.includes('requirePipelineUser(request, ["admin", "assessment_coordinator"])'));
-check("final decisions require a recommendation or audited override", workflowStore.includes("recommendation_required") && workflowStore.includes("overrideReason"));
+check("final decisions require the current immutable review submission",
+  workflowStore.includes("review_not_ready")
+    && workflowStore.includes('review.status !== "submitted"')
+    && workflowStore.includes("review.recommendationId !== recommendation.recommendationId")
+    && !workflowStore.includes("admission_decision_overridden"));
 check(
-  "accepted decisions preserve admission gates until an explicit transition",
+  "placement approval preserves admission gates until an explicit admission transition",
   workflowStore.includes('snapshot.referral.stage === "Assessment"')
     && workflowStore.includes('? "Community Review"')
-    && workflowStore.includes('targetStage === "Accepted / Admitted" ? { workflowStatus: "accepted" as const }')
+    && workflowStore.includes('targetStage === "Accepted / Admitted" ? { workflowStatus: "admitted" as const }')
     && !workflowStore.includes("workflowTransitionValidated: true")
     && referralStore.match(/!metadata\?\.workflowTransitionValidated/g)?.length >= 2,
 );
+check("review submissions are durable and assessment-specific",
+  reviewMigration.includes("create table if not exists pipeline.assessment_reviews")
+    && reviewMigration.includes("unique (assessment_id)")
+    && reviewMigration.includes("unique (referral_id, submission_number)")
+    && reviewMigration.includes("assessment_reviews_open_queue_idx"));
+check("signed assessment corrections create an explicit revision lineage",
+  reviewMigration.includes("revision_root_id")
+    && reviewMigration.includes("revision_number")
+    && reviewMigration.includes("supersedes_assessment_id")
+    && assessmentStore.includes("createAssessmentRevisionInTransaction")
+    && assessmentStore.includes('status: "draft"')
+    && assessmentStore.includes("signed_at: null"));
+check("review change requests and revision creation share one PostgreSQL transaction",
+  workflowStore.includes("createAssessmentRevisionInTransaction")
+    && workflowStore.includes("recordPostgresReviewChanges")
+    && workflowStore.includes("sql.begin(async (tx)"));
+check("review migration has a transactional rollback", /^\s*begin;/i.test(reviewRollback) && /commit;\s*$/i.test(reviewRollback));
 check("requirements cannot drift from the referral assignment", workItemRoute.includes("Change the referral assignment to change requirement ownership") && !workItemRoute.includes('"ownerId",'));
 check(
   "assessment interview uses one focused schedule-then-begin shell with grouped responsive navigation",

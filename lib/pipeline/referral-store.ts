@@ -2727,6 +2727,8 @@ function sanitizePatch(patch: ReferralPatch): ReferralPatch {
     "assessmentMessage",
     "requirements",
     "assessmentRecommendation",
+    "assessmentReview",
+    "assessmentReviewHistory",
     "admissionDecision",
     "ehrHandoff",
   ];
@@ -2996,7 +2998,7 @@ function matchesAssignmentScope(
 function matchesReferralQueue(referral: Referral, queue: ReferralQueueView) {
   if (queue === "unassigned") return isUnassignedOwner(referral.owner);
   if (queue === "packet_review") return ["intake_documents_needed", "profile_incomplete"].includes(referral.workflowStatus ?? "");
-  if (queue === "assessment") return ["ready_to_schedule", "assessment_scheduled", "assessment_in_progress", "waiting_for_information", "assessment_ready_to_sign"].includes(referral.workflowStatus ?? "");
+  if (queue === "assessment") return ["ready_to_schedule", "assessment_scheduled", "assessment_in_progress", "waiting_for_information", "assessment_ready_to_sign", "changes_requested"].includes(referral.workflowStatus ?? "");
   if (queue === "decision") return ["assessment_signed", "recommendation_submitted", "decision_pending"].includes(referral.workflowStatus ?? "");
   return true;
 }

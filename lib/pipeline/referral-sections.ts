@@ -52,6 +52,8 @@ const sectionByField = {
   requirements: "workflow",
   admissionDecision: "decision",
   assessmentRecommendation: "decision",
+  assessmentReview: "decision",
+  assessmentReviewHistory: "decision",
   ehrHandoff: "decision",
 } satisfies Partial<Record<keyof Referral, ReferralSection>>;
 

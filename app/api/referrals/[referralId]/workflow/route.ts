@@ -54,6 +54,7 @@ function workflowCapabilities(
     can_update: canUpdate,
     can_recommend: canUpdate && Boolean(assessment?.signed_at) && canWorkAssessment(user, assessment?.assessor_id ?? null),
     can_decide: mutable && canRecordAdmissionDecision(user),
+    can_request_changes: mutable && canRecordAdmissionDecision(user),
     can_authorize_manual_intake: mutable && user.roles.some((role) => workflowSupervisorRoles.has(role)),
     can_reconcile_identity: canUpdate,
     can_review_identity: mutable && user.roles.some((role) => workflowRoles.has(role)),

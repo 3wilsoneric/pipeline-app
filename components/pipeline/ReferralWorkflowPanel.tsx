@@ -41,7 +41,6 @@ type DecisionDraft = {
   outcome: DecisionOutcomeDraft;
   reasonCode: string;
   reasonNote: string;
-  overrideReason: string;
 };
 
 export default function ReferralWorkflowPanel({
@@ -58,7 +57,7 @@ export default function ReferralWorkflowPanel({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [recommendationDraft, setRecommendationDraft] = useState<RecommendationDraft>({ outcome: "accept", reasonCode: "", reasonNote: "" });
-  const [decisionDraft, setDecisionDraft] = useState<DecisionDraft>({ outcome: "", reasonCode: "", reasonNote: "", overrideReason: "" });
+  const [decisionDraft, setDecisionDraft] = useState<DecisionDraft>({ outcome: "", reasonCode: "", reasonNote: "" });
   const [manualIntakeReason, setManualIntakeReason] = useState("");
   const [pendingDetail, setPendingDetail] = useState<PendingWorkflowDetail | null>(null);
   const mutationIds = useRef(new Map<string, string>());
@@ -124,7 +123,6 @@ export default function ReferralWorkflowPanel({
       if (key.startsWith("recommendation:")) recommendationDirty.current = false;
       if (key.startsWith("decision:")) {
         decisionDirty.current = false;
-        setDecisionDraft((current) => ({ ...current, overrideReason: "" }));
       }
       setMessage(successMessage);
       await loadWorkflow();
@@ -192,7 +190,7 @@ export default function ReferralWorkflowPanel({
 
   const submitDecision = () => {
     if (!decisionDraft.outcome) return;
-    if (!window.confirm(decisionConfirmationMessage(decisionDraft.outcome, Boolean(workflow.decision)))) return;
+    if (!window.confirm(decisionConfirmationMessage(decisionDraft.outcome, false))) return;
     void runMutation(
       `decision:${currentReferral.version}:${sections.decision}`,
       `/api/referrals/${currentReferral.id}/decision`,
@@ -203,9 +201,27 @@ export default function ReferralWorkflowPanel({
         outcome: decisionDraft.outcome,
         reason_code: decisionDraft.reasonCode,
         reason_note: decisionDraft.reasonNote,
-        override_reason: decisionDraft.overrideReason,
       },
-      workflow.decision ? "Supervisor decision updated" : "Supervisor decision recorded",
+      "Supervisor decision recorded",
+    );
+  };
+
+  const requestReviewChanges = (reason: string) => {
+    const review = workflow.review;
+    if (!review) return;
+    void runMutation(
+      `review-changes:${review.reviewId}:${review.version}`,
+      `/api/referrals/${currentReferral.id}/assessment-review`,
+      "POST",
+      {
+        action: "request_changes",
+        if_match: currentReferral.version,
+        if_match_section: sections.decision,
+        if_match_review: review.version,
+        review_id: review.reviewId,
+        reason_note: reason,
+      },
+      "Changes requested and a new assessment revision created",
     );
   };
 
@@ -269,6 +285,7 @@ export default function ReferralWorkflowPanel({
       onUpdateRequirement={updateRequirement}
       onSubmitRecommendation={submitRecommendation}
       onSubmitDecision={submitDecision}
+      onRequestReviewChanges={() => workflow.review && setPendingDetail({ kind: "review_changes", review: workflow.review })}
       onSubmitTransition={submitTransition}
       onAuthorizeManualIntake={authorizeManualIntake}
       onUpdateHandoff={updateHandoff}
@@ -279,6 +296,7 @@ export default function ReferralWorkflowPanel({
         setPendingDetail(null);
         if (!current) return;
         if (current.kind === "ehr_failure") updateHandoff("mark_failed", detail);
+        else if (current.kind === "review_changes") requestReviewChanges(detail);
         else void saveRequirement(current.item, current.status, detail);
       }}
       onCloseDetail={() => setPendingDetail(null)}
