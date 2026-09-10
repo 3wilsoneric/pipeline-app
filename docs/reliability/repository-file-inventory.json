@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T05:11:19.287Z",
+  "generated_at": "2026-09-10T05:13:37.260Z",
   "audit_date": "2026-09-10",
-  "git_head": "30551d4c33fcd8141e9b3d3e196631ac94f1108b",
+  "git_head": "b7852222898a5ab4e83cb16925244421be52dd39",
   "files": [
     {
       "path": ".dockerignore",
@@ -3979,7 +3979,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "0969c503553e31fa4bedea74f014a22f254c8c0122b0cf84321b61699642e4ef",
+      "content_sha256": "f840b89dbbc9fc16d604cefa3e99e5a3b8ea4d9030ba44f842ee826da09a350d",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4979,11 +4979,11 @@
     },
     {
       "path": "docs/refactoring/supervisor-review-revision-file-audit.json",
-      "content_sha256": "ce76d003e1f3e69abae2d51a88c7f09bbd4b13e67f2ad8e657a0196f693f5c66",
+      "content_sha256": "4e4d95321c7d8441c9ef9c5e0bfcec18f3a0030fab9ab41c0f9c554989c5d1c5",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 40012,
-      "lines": 665,
+      "bytes": 42094,
+      "lines": 701,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5047,7 +5047,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "91a0a45338c26660049ec7ee75af7ff319a5134b447b5bd1bf03709241676c93",
+      "content_sha256": "a687140231ce84d4e1094bf207f5f4cb4866db9882b96dbc64958d2fbab2c203",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 396645,
@@ -5075,7 +5075,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "1478f6bf800716eedc600c6790b2577980cdb51b3bed89bf0afb434620f3c242",
+      "content_sha256": "1914ac86eb3846050cde107560616b5e7dc2cedaa8178fc7f23be60f371160f7",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 219572,
@@ -5134,7 +5134,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "26937856d1fdaffef034ab3f4c0694655fc66bfc96171a4d15c1b6d7a37dc19b",
+      "content_sha256": "df92c13351ef2bad33ffd61654a601ac7f5b04c62c155fa9d14a56f4c780eb34",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 559083,
@@ -5329,15 +5329,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "c95b85a81ef00aa4e82eb8fd79737d7c5032f7fd56b0afaa22d32a4fcc825877",
+      "content_sha256": "67d199e59ac8bb0d0ce56e0e4d73a8a05c7e7a295dcbdc77b47538f3e2c47084",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 283694,
-      "lines": 11066,
+      "bytes": 287669,
+      "lines": 11210,
       "detected_concerns": [
-        "Large module (11066 lines): split by behavior before adding more responsibilities."
+        "Large module (11210 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (11066 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (11210 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {

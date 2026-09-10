@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:7e6e9c7f855814f2",
-  "fingerprint": "7e6e9c7f855814f2834a499dc934d8b434ac6248cda157074dd37f612fc8e8c4",
+  "generatedAt": "source-fingerprint:a9ff988a8556f64b",
+  "fingerprint": "a9ff988a8556f64b4ffbffad95f2c5b578e4787d1fa9f037b03df4c976b950c1",
   "totals": {
-    "files": 915,
-    "lines": 296158,
-    "coveredFiles": 915
+    "files": 927,
+    "lines": 299628,
+    "coveredFiles": 927
   },
   "entries": [
     {
@@ -1039,11 +1039,23 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 126,
+      "lines": 136,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
         "validation-authorization"
+      ]
+    },
+    {
+      "path": "app/api/referrals/[referralId]/assessment-review/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 99,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
       ]
     },
     {
@@ -1130,7 +1142,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 114,
+      "lines": 113,
       "moduleIds": [
         "assessment-decision-handoff",
         "medication-decision-ehr"
@@ -1180,7 +1192,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 261,
+      "lines": 287,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1293,7 +1305,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 62,
+      "lines": 63,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -2011,7 +2023,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 382,
+      "lines": 385,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2138,6 +2150,18 @@
       ]
     },
     {
+      "path": "components/pipeline/referral-workflow-panel-model.ts",
+      "subsystem": "Pipeline UI",
+      "kind": "typescript-module",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 285,
+      "moduleIds": [
+        "admissions-operating-model",
+        "workflow-state"
+      ]
+    },
+    {
       "path": "components/pipeline/ReferralActivityPanel.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2239,7 +2263,19 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 837,
+      "lines": 310,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 463,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2515,7 +2551,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 37,
+      "lines": 38,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -2882,6 +2918,18 @@
       ]
     },
     {
+      "path": "database/migrations/0031_assessment_review_revisions.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 160,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -3188,6 +3236,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 81,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0031_assessment_review_revisions.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 42,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -4004,7 +4064,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 194,
+      "lines": 222,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4112,7 +4172,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 60,
+      "lines": 225,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4136,7 +4196,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 346,
+      "lines": 410,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4313,6 +4373,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/characterization/referral-workflow-panel-components-machine-run-01dd0fe.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 41,
+      "moduleIds": [
+        "admissions-operating-model",
+        "workflow-state"
+      ]
+    },
+    {
       "path": "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json",
       "subsystem": "Documentation",
       "kind": "configuration",
@@ -4426,7 +4498,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 68,
+      "lines": 79,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4498,7 +4570,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 770,
+      "lines": 891,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4582,7 +4654,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 254,
+      "lines": 293,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4726,7 +4798,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 506,
+      "lines": 679,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4799,6 +4871,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 169,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_WORKFLOW_PANEL_COMPONENTS_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 55,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4904,6 +4988,30 @@
       ]
     },
     {
+      "path": "docs/refactoring/referral-workflow-panel-components-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 228,
+      "moduleIds": [
+        "admissions-operating-model",
+        "workflow-state"
+      ]
+    },
+    {
+      "path": "docs/refactoring/referral-workflow-panel-components-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 169,
+      "moduleIds": [
+        "admissions-operating-model",
+        "workflow-state"
+      ]
+    },
+    {
       "path": "docs/refactoring/SHADOW_COMPARISON_CONTRACT.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -4922,6 +5030,42 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 165,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/SUPERVISOR_REVIEW_REVISION_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 63,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/supervisor-review-revision-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 60,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/supervisor-review-revision-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 665,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5089,7 +5233,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1837,
+      "lines": 1850,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5125,7 +5269,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7555,
+      "lines": 7558,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5185,7 +5329,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 11136,
+      "lines": 11270,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5653,7 +5797,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 165,
+      "lines": 169,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -5689,7 +5833,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 2136,
+      "lines": 2316,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -7005,7 +7149,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 111,
+      "lines": 117,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7185,7 +7329,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 49,
+      "lines": 50,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7282,7 +7426,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 100,
+      "lines": 102,
       "moduleIds": [
         "concurrency-idempotency",
         "stores-transactions"
@@ -7318,7 +7462,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3234,
+      "lines": 3236,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -7331,7 +7475,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 314,
+      "lines": 357,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -7344,7 +7488,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 535,
+      "lines": 537,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -7525,7 +7669,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 462,
+      "lines": 484,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -7537,7 +7681,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 148,
+      "lines": 158,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -7549,7 +7693,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 1162,
+      "lines": 1695,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -7573,7 +7717,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 358,
+      "lines": 360,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8521,7 +8665,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 548,
+      "lines": 579,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9085,7 +9229,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 464,
+      "lines": 476,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -9109,7 +9253,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 828,
+      "lines": 852,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -9841,7 +9985,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 206,
+      "lines": 208,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
