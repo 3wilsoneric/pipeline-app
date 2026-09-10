@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T05:06:09.064Z",
+  "generated_at": "2026-09-10T05:11:19.287Z",
   "audit_date": "2026-09-10",
-  "git_head": "4574db3d14666e882d52e5e4ba1d6f5dddb7fba1",
+  "git_head": "30551d4c33fcd8141e9b3d3e196631ac94f1108b",
   "files": [
     {
       "path": ".dockerignore",
@@ -4667,11 +4667,11 @@
     },
     {
       "path": "docs/refactoring/complexity-disposition.json",
-      "content_sha256": "db0152d6e8405244d1d68dee5685f5c5e2413ad7ca5a1aa705c8631571434c9d",
+      "content_sha256": "0239e8c2baa5b598ca9e8fe743689479979133e93cc5b1b014ed87a3fd84f44d",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 4381,
-      "lines": 68,
+      "bytes": 5337,
+      "lines": 79,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4832,11 +4832,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "bd25382d633b66bfae4ccd4c48a14114e8e8579da0ca85780271887f2c69780e",
+      "content_sha256": "dd5ea8ea3682236883c976111a9ea662b7fdd4f5808fdd84409ccd1a4f5402fb",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 33898,
-      "lines": 678,
+      "bytes": 33954,
+      "lines": 679,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4979,11 +4979,11 @@
     },
     {
       "path": "docs/refactoring/supervisor-review-revision-file-audit.json",
-      "content_sha256": "564434b697175679978bb3101d9988ef3c7b5b174036721254401287b4593a51",
+      "content_sha256": "ce76d003e1f3e69abae2d51a88c7f09bbd4b13e67f2ad8e657a0196f693f5c66",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 39192,
-      "lines": 651,
+      "bytes": 40012,
+      "lines": 665,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5047,7 +5047,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "0f10e9aea085c69ef9925d22d0460ffed2e2829851ea678918772cbcc3e02d90",
+      "content_sha256": "91a0a45338c26660049ec7ee75af7ff319a5134b447b5bd1bf03709241676c93",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 396645,
@@ -5075,7 +5075,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "3fa1929ec2fb211f61ed74e2c54e2ec786549a1695e19fffaab0f29ce0243be3",
+      "content_sha256": "1478f6bf800716eedc600c6790b2577980cdb51b3bed89bf0afb434620f3c242",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 219572,
@@ -5134,7 +5134,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "06af0a832e18bdd95cf5227821a0c9bfe2eb303f2de04d52d0ff4abf3d8ef94a",
+      "content_sha256": "26937856d1fdaffef034ab3f4c0694655fc66bfc96171a4d15c1b6d7a37dc19b",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 559083,

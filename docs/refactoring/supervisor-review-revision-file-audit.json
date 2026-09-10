@@ -214,6 +214,20 @@
       "decisionReason": "Reuse the fixed scenario rather than inventing a guidance rule."
     },
     {
+      "path": "docs/refactoring/complexity-disposition.json",
+      "plannedNew": false,
+      "dependencyDirection": "The complexity ratchet consumes this owner-approved ceiling record; runtime code does not depend on it.",
+      "purpose": "Freeze exact candidate complexity without regenerating or weakening the historical baseline.",
+      "callers": ["complexity:check", "certify:refactor"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Any unlisted growth or growth above the exact ceiling remains a hard certification failure.",
+      "tests": ["complexity:check", "certify:refactor"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The fast lane explicitly records bounded structural debt while preserving the non-regression ratchet."
+    },
+    {
       "path": "app/api/referrals/[referralId]/admission-summary/route.ts",
       "plannedNew": false,
       "dependencyDirection": "The HTTP boundary depends on the canonical referral, workflow, and assessment stores.",

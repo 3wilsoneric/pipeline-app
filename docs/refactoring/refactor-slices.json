@@ -629,6 +629,7 @@
         "docs/refactoring/architecture-comprehension-probes.json",
         "docs/refactoring/proof-obligations.json",
         "docs/refactoring/refactor-eval-scenarios.json",
+        "docs/refactoring/complexity-disposition.json",
         "docs/refactoring/SUPERVISOR_REVIEW_REVISION_ARCHITECTURE_NARRATIVE.md",
         "docs/refactoring/supervisor-review-revision-file-audit.json",
         "docs/refactoring/supervisor-review-revision-assurance-record.json",
