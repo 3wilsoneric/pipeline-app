@@ -24,6 +24,7 @@ Two stale-concurrent `request_changes` commands can both create assessment succe
 
 - `lib/pipeline/workflow-store.ts` remains the cross-record command and PostgreSQL transaction owner. It must lock and validate the referral, review, and terminal-decision state before creating a correction successor.
 - `lib/assessment/assessment-store.ts` remains the assessment persistence owner. Local-mode compensation may remove only an uncommitted draft successor created by the failed workflow command; signed or linked history is never deleted.
+- `lib/pipeline/referral-activity.ts` remains the read-only cross-entity activity aggregator. PostgreSQL review audit records must be visible in the same referral activity surface as local review mutations.
 - `lib/pipeline/referral-workflow.ts` remains the finite transition-policy owner. The workflow fuzz harness independently enumerates its bounded input space rather than replacing that policy.
 - API routes remain the authentication, same-origin, role, and resource-access boundary. Runtime role tests complement the repository-wide static route inventory.
 
@@ -34,6 +35,7 @@ Two stale-concurrent `request_changes` commands can both create assessment succe
 - The assigned assessor or authorized supervisor retains assessment and recommendation behavior.
 - Signed assessments remain immutable; a successful correction request creates exactly one editable successor.
 - Stable mutation identifiers replay the stored result without a second assessment, review, audit, or referral write.
+- Review corrections remain visible in the referral activity history on both persistence adapters.
 - Trash/restore, scheduling/no-show, admission, EHR handoff, client activation, and all non-extraction workflows retain current behavior.
 
 ## Failure, contention, and recovery contract

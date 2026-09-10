@@ -683,6 +683,7 @@
       "paths": [
         "lib/pipeline/workflow-store.ts",
         "lib/assessment/assessment-store.ts",
+        "lib/pipeline/referral-activity.ts",
         "scripts/workflow-stateful-fuzz.mjs",
         "tests/e2e/operational/workflow-store-characterization.spec.ts",
         "tests/e2e/operational/role-access.spec.ts"
@@ -690,6 +691,7 @@
       "allowedChangePaths": [
         "lib/pipeline/workflow-store.ts",
         "lib/assessment/assessment-store.ts",
+        "lib/pipeline/referral-activity.ts",
         "scripts/workflow-stateful-fuzz.mjs",
         "scripts/workflow-store-characterization.mjs",
         "scripts/code-quality-readiness.mjs",

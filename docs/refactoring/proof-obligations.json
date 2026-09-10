@@ -297,6 +297,7 @@
       "tracePaths": [
         "lib/pipeline/workflow-store.ts",
         "lib/assessment/assessment-store.ts",
+        "lib/pipeline/referral-activity.ts",
         "lib/pipeline/referral-workflow.ts",
         "tests/e2e/operational/workflow-store-characterization.spec.ts",
         "tests/e2e/operational/role-access.spec.ts"

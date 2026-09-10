@@ -72,6 +72,20 @@
       "decisionReason": "Local-file recovery must remain owned by the assessment store rather than mutating its data from workflow-store."
     },
     {
+      "path": "lib/pipeline/referral-activity.ts",
+      "plannedNew": false,
+      "dependencyDirection": "The referral activity route depends on this read-only cross-entity activity aggregator.",
+      "purpose": "Include PostgreSQL supervisor-review audit records in the referral activity stream, matching the visible local workflow history.",
+      "callers": ["referral activity route"],
+      "publicExports": ["getReferralActivitySnapshot", "listReferralActivity"],
+      "sideEffects": ["read-only PostgreSQL queries"],
+      "failureBehavior": "Missing related audit rows yield an incomplete history but never mutate workflow data.",
+      "tests": ["check:workflow-store-characterization", "test:e2e:operational:high"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The focused PostgreSQL parity run proved the canonical activity aggregator omitted review audit entities."
+    },
+    {
       "path": "tests/e2e/operational/workflow-store-characterization.spec.ts",
       "plannedNew": false,
       "dependencyDirection": "The focused Playwright harness exercises public workflow routes against both storage adapters.",

@@ -413,11 +413,13 @@
       "canonicalOwnerPaths": [
         "lib/pipeline/workflow-store.ts",
         "lib/assessment/assessment-store.ts",
+        "lib/pipeline/referral-activity.ts",
         "lib/pipeline/referral-workflow.ts"
       ],
       "allowedRepresentations": [
         "transaction-bound correction command",
         "guarded local compensation",
+        "cross-entity referral activity aggregation",
         "independent exhaustive transition oracle",
         "runtime role and resource matrix"
       ],
