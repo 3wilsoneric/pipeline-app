@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T05:13:37.260Z",
+  "generated_at": "2026-09-10T05:16:29.120Z",
   "audit_date": "2026-09-10",
-  "git_head": "b7852222898a5ab4e83cb16925244421be52dd39",
+  "git_head": "f64d1c59974b15148f050d816268cca9b4f733ee",
   "files": [
     {
       "path": ".dockerignore",
@@ -3979,7 +3979,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "f840b89dbbc9fc16d604cefa3e99e5a3b8ea4d9030ba44f842ee826da09a350d",
+      "content_sha256": "f114d2e5ce45411078c2d94c93ea2e2dddfce59019299c8ef90e198cf2449b0d",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4612,11 +4612,11 @@
     },
     {
       "path": "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json",
-      "content_sha256": "ed221c25daa3487192e438f7725ef55b7c239c78983c1da3ac73fa11e5827dc9",
+      "content_sha256": "c6514db0803312e12f97cf5de64ada6d689abecac40eb153feee679d55290381",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 1705,
-      "lines": 32,
+      "bytes": 1978,
+      "lines": 36,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4832,11 +4832,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "dd5ea8ea3682236883c976111a9ea662b7fdd4f5808fdd84409ccd1a4f5402fb",
+      "content_sha256": "35f86b8f19fb78aeb6024bc1b7b621ed0b1e9c51686389b01c200d1767629e90",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 33954,
-      "lines": 679,
+      "bytes": 34043,
+      "lines": 680,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4979,11 +4979,11 @@
     },
     {
       "path": "docs/refactoring/supervisor-review-revision-file-audit.json",
-      "content_sha256": "4e4d95321c7d8441c9ef9c5e0bfcec18f3a0030fab9ab41c0f9c554989c5d1c5",
+      "content_sha256": "498a6285e0d0d0dd2ee091215b0bd7176afda1db9033db8888d9e97c7a0969f6",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 42094,
-      "lines": 701,
+      "bytes": 43125,
+      "lines": 715,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5047,7 +5047,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "a687140231ce84d4e1094bf207f5f4cb4866db9882b96dbc64958d2fbab2c203",
+      "content_sha256": "1c4beec52c233880c8cd54c1ac6d746f270bb71e3f989c7087ecf29863812bd7",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 396645,
@@ -5075,7 +5075,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "1914ac86eb3846050cde107560616b5e7dc2cedaa8178fc7f23be60f371160f7",
+      "content_sha256": "23f35fc0e7ccadfd880a60f3a560c280cadb132cf1001319eec2e23ef7a9159f",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 219572,
@@ -5134,7 +5134,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "df92c13351ef2bad33ffd61654a601ac7f5b04c62c155fa9d14a56f4c780eb34",
+      "content_sha256": "6c0a764b57d10862665a8a7b66eb17e520788f867dab8bc3938b2f60ff7e35fd",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 559083,
@@ -5329,7 +5329,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "67d199e59ac8bb0d0ce56e0e4d73a8a05c7e7a295dcbdc77b47538f3e2c47084",
+      "content_sha256": "5c57d67af1b5bf2a9d17f364c6bef7bc3788d9d258d22750093d36fb68640454",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 287669,

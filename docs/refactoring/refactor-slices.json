@@ -634,6 +634,7 @@
         "docs/refactoring/supervisor-review-revision-file-audit.json",
         "docs/refactoring/supervisor-review-revision-assurance-record.json",
         "docs/refactoring/characterization/supervisor-review-revision-machine-run-1f98a66.json",
+        "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json",
         "docs/reliability/complete-repository-audit-latest.md",
         "docs/reliability/dependency-inventory.json",
         "docs/reliability/repository-file-inventory.json"

@@ -693,6 +693,20 @@
       ],
       "decision": "keep",
       "decisionReason": "Preserves the end-to-end workflow proof while adopting the approved review wording."
+    },
+    {
+      "path": "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json",
+      "plannedNew": false,
+      "dependencyDirection": "The test-effectiveness gate consumes this reviewed assertion manifest; product and test code do not depend on it.",
+      "purpose": "Advance only the Playwright assertion digest for four deliberately renamed workflow controls while preserving case identity, counts, titles, hooks, and the critical multi-session trace.",
+      "callers": ["check:test-assertion-inventory", "certify:test-effectiveness"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Any unreviewed case, assertion, title, hook, API behavior, or critical-journey drift remains a hard certification failure.",
+      "tests": ["check:test-assertion-inventory", "certify:test-effectiveness"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "The old and new digests plus exact candidate commit preserve an auditable anti-tamper transition."
     }
   ],
   "reviewedBy": "Owner-authorized TARS machine trace",
