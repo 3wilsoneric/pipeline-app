@@ -102,6 +102,16 @@ const checks = [
     args: ["scripts/chaos-recovery-replay.mjs"],
   },
   {
+    name: "Historical simulation contracts",
+    command: "node",
+    args: ["scripts/historical-simulation-contracts.mjs"],
+  },
+  {
+    name: "100-packet chaos certification policy",
+    command: "node",
+    args: ["scripts/historical-chaos-contracts.mjs"],
+  },
+  {
     name: "API behavior fixtures",
     command: "node",
     args: ["scripts/api-behavior-fixtures.mjs"],

@@ -12,12 +12,18 @@ request, data, job, domain, or deployment path.
 - `runtime.bicep` deploys an immutable web revision, a manual database bootstrap
   job, and the scheduled extraction/reconciliation jobs. Retention remains off
   until an approved policy explicitly enables it.
+- `recovery-vault.bicep` is the opt-in cold-recovery data vault for an approved
+  secondary region. It is never part of a routine application deployment.
 - `.github/workflows/deploy-azure.yml` builds one immutable image, pushes it to
   ACR through GitHub OIDC, applies `runtime.bicep`, runs checksum-guarded
   migrations inside the VNet, and verifies liveness and readiness.
 
 Routine releases never redeploy `main.bicep`. This prevents an application
 release from silently replacing the database or network.
+
+Regional recovery is documented in `docs/REGIONAL_RECOVERY.md`. The current
+pilot is not automatic cross-region failover; the recovery vault and all
+billable copy jobs require a separate Azure what-if and owner approval.
 
 ## Security defaults
 

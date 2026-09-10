@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T17:29:57.699Z",
+  "generated_at": "2026-09-10T19:38:16.933Z",
   "audit_date": "2026-09-10",
-  "git_head": "e55a9f3954543c74ea6ec06631abae319dff4442",
+  "git_head": "669fc45b82e7834a5a1f7b930cbad7090f27be46",
   "files": [
     {
       "path": ".dockerignore",
@@ -979,6 +979,17 @@
       "verification": "check:api + check:route-policy + targeted E2E"
     },
     {
+      "path": "app/api/operations/work-assessment-graph/route.ts",
+      "content_sha256": "afdcd727f4965f61c245df0df894f20e4794ea713b89714ff53cd4931f300712",
+      "role": "HTTP API route",
+      "risk": "high",
+      "bytes": 766,
+      "lines": 18,
+      "detected_concerns": [],
+      "review_focus": "Check authentication and role authorization, schema validation, status mapping, idempotency/version conflicts, bounded payloads, and PHI-safe errors/logs.",
+      "verification": "check:api + check:route-policy + targeted E2E"
+    },
+    {
       "path": "app/api/packets/[packetId]/evidence/[fieldKey]/route.ts",
       "content_sha256": "93e255c45ffe720d4d4f57ecf2a70a403b9dc1cbfab79d036433304aeb218e0b",
       "role": "HTTP API route",
@@ -1816,11 +1827,11 @@
     },
     {
       "path": "components/pipeline/OperationsDashboard.tsx",
-      "content_sha256": "203b02ec39949e27a90ae6163be9cab73c2b0d5c15ca80c0513a52e9ad9aee92",
+      "content_sha256": "36deaea36a83f5d84b85457b896241cf46b2bc1bc4df60042694873886cf0b93",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 15902,
-      "lines": 325,
+      "bytes": 16039,
+      "lines": 327,
       "detected_concerns": [],
       "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
@@ -2196,6 +2207,19 @@
       "risk": "medium",
       "bytes": 5409,
       "lines": 127,
+      "detected_concerns": [
+        "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers."
+      ],
+      "review_focus": "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
+      "verification": "typecheck + lint + build + responsive/accessibility E2E"
+    },
+    {
+      "path": "components/pipeline/WorkAssessmentGraph.tsx",
+      "content_sha256": "8a7cfa58db3308d2ec3a7066da96ddd4df6e19c08c44316be451e711c701ab45",
+      "role": "Pipeline user interface",
+      "risk": "medium",
+      "bytes": 12101,
+      "lines": 253,
       "detected_concerns": [
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers."
       ],
@@ -3603,11 +3627,11 @@
     },
     {
       "path": "docs/HISTORICAL_MULTI_USER_SIMULATION.md",
-      "content_sha256": "f259f05917fbf7d2df9e0f3a6fff608f04a1a8fccabdb184d23c77abdbd4585c",
+      "content_sha256": "cf38857932a7c4e2c9fb28ea53008de4d7cf3bfde0bb78728a7eaca54607b6a5",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 7531,
-      "lines": 157,
+      "bytes": 9499,
+      "lines": 177,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3803,10 +3827,10 @@
     },
     {
       "path": "docs/REFACTORING_PLAYBOOK.md",
-      "content_sha256": "52290da164bb5e8d439824dc3f32f66e2442765130100093eb60099fa898e04e",
+      "content_sha256": "e1768367cf4b1d0d1ea44e868bf629bb37d6550926c661a8cf9d9aabc2270e3a",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 22642,
+      "bytes": 22726,
       "lines": 310,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -3863,6 +3887,17 @@
       "risk": "low",
       "bytes": 3667,
       "lines": 86,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/REGIONAL_RECOVERY.md",
+      "content_sha256": "eb70703f34952bb9316535488cb336dd5443af1e00f86b747f2ed79cca92c47d",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 5013,
+      "lines": 49,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3946,11 +3981,11 @@
     },
     {
       "path": "docs/WORK_ASSESSMENT_GRAPH_PRODUCT.md",
-      "content_sha256": "ef6eacc07b706267fc38ee8b10f415c92b997c181305463c8375f5cdc93c6a66",
+      "content_sha256": "62fb25fb058ca0294a20daff8a60baea83e1dad3bf311fd139b3cedb92d353fe",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 2641,
-      "lines": 36,
+      "bytes": 3543,
+      "lines": 42,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4023,7 +4058,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "768f124bb767203c279ec8201b5122954bb32984f06fcebb430b43d657d47117",
+      "content_sha256": "1af7a63175da54eb02d7f7ee99131eb646432c76c04603957ca79d97b6727ae1",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4111,10 +4146,10 @@
     },
     {
       "path": "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
-      "content_sha256": "31649cf7357f715cf136c0bfdf665886ee399da973dfd95cfc5c72d0832d5257",
+      "content_sha256": "41ef1ea40f045e5bfd800c21c9f21773b9d14c9f0a1b37d1343f08239e621500",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 6461,
+      "bytes": 6521,
       "lines": 107,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -4245,11 +4280,11 @@
     },
     {
       "path": "docs/refactoring/README.md",
-      "content_sha256": "12db5bd3eceaf7faf55b7d701ff75d35886421e500297bcc86d083f9c2acb8c6",
+      "content_sha256": "225bfa4227b18f0f6dac2f29b7a14d944e4b3fdae9cba3018eba4b80e69d532d",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 10633,
-      "lines": 150,
+      "bytes": 9735,
+      "lines": 139,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4812,11 +4847,11 @@
     },
     {
       "path": "docs/refactoring/owner-fast-lane.json",
-      "content_sha256": "e51792191e9962bf90674b28ee84305f2ab9d64ba0a4ab4290ee78fe2063dfea",
+      "content_sha256": "0d9758136dfc9775573089fa1a46d2905aa2d91d42ed823854389948ba339b41",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 1121,
-      "lines": 29,
+      "bytes": 1318,
+      "lines": 32,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4933,10 +4968,10 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "8baaaf01acc40c05001c7a7fe5737cd7c2e88923950d108a401526939da3619b",
+      "content_sha256": "3c4a687d5c56258438764b539049e43de4324bdd8f0cbd0bb383ae2710cafc60",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 40866,
+      "bytes": 40868,
       "lines": 811,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -5172,11 +5207,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "48d596f8d6b83603535d02e7cad11f936656ea0b8ecfd926491d0e18c38d10b5",
+      "content_sha256": "8f38bd0bcdea3a2ac94b3d7c124e8be69290b427e77a078384b1f9703417083f",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 402316,
-      "lines": 1869,
+      "bytes": 405172,
+      "lines": 1879,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -5200,22 +5235,33 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "3dabacefa2e27ed3272b19998af3840e1b7c673366491030320499e0a4e35e10",
+      "content_sha256": "708ccc36cdea15096318c6af1bb9734e91c52824e47033c5608fd489107b28c0",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 220156,
-      "lines": 7568,
+      "bytes": 220558,
+      "lines": 7575,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
     },
     {
       "path": "docs/reliability/enterprise-readiness-evidence-2026-09-10.md",
-      "content_sha256": "9e12b6288fcee4426ef20f430a411dcafd47026a4ae6e2c555aabc7ec0a79687",
+      "content_sha256": "e1fe7ffda5078d2fd30d5ada0f39baf75dc1f6fffb022447e387b5c16bc6ac02",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 2445,
-      "lines": 26,
+      "bytes": 2936,
+      "lines": 34,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/reliability/operational-alert-deployment-2026-09-10.md",
+      "content_sha256": "0af7f8b3995c00c62718ac453f85c1f1feae99da29bb17a16683074254aeb2d0",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 945,
+      "lines": 20,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -5270,11 +5316,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "347d48880b13cb371a6c3851aa82b4da1499025fa56491b4fdb96b575821587b",
+      "content_sha256": "91b6503e93101bcc096e6df251a434960c8c67f73b6f1b0b7de11f6c51a37c10",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 568811,
-      "lines": 11461,
+      "bytes": 573784,
+      "lines": 11562,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -5358,11 +5404,11 @@
     },
     {
       "path": "infra/azure/README.md",
-      "content_sha256": "1b3a61e8baffc7d4f7b4258dd0d5680664f31ebaeb14cc947e58f095ee4f5a2b",
+      "content_sha256": "ceda72322ec8c80bba2fe6bccd575d6bdc09bb03d7537a0eab8d529873e43f56",
       "role": "Azure infrastructure as code",
       "risk": "critical",
-      "bytes": 1826,
-      "lines": 37,
+      "bytes": 2202,
+      "lines": 43,
       "detected_concerns": [],
       "review_focus": "Check least-privilege RBAC, secret references, private networking, retention/backup, resource names, cost defaults, and what-if output.",
       "verification": "check:infrastructure + Azure what-if"
@@ -5416,12 +5462,23 @@
       "verification": "check:infrastructure + Azure what-if"
     },
     {
-      "path": "infra/azure/runtime.bicep",
-      "content_sha256": "bd2837a5caacfc0335ef0adaddf8bd503c9a89f2154b75c5d166de623dc60b86",
+      "path": "infra/azure/recovery-vault.bicep",
+      "content_sha256": "bf17a075f864a4329322b07109fc4ed583984a44db1d2f0ec37634d16ff66e17",
       "role": "Azure infrastructure as code",
       "risk": "critical",
-      "bytes": 23821,
-      "lines": 693,
+      "bytes": 2876,
+      "lines": 97,
+      "detected_concerns": [],
+      "review_focus": "Check least-privilege RBAC, secret references, private networking, retention/backup, resource names, cost defaults, and what-if output.",
+      "verification": "check:infrastructure + Azure what-if"
+    },
+    {
+      "path": "infra/azure/runtime.bicep",
+      "content_sha256": "0a682047c9d0a59a2cc5c9b72f1db19d82c4132e7ff934da12148fdc3274c372",
+      "role": "Azure infrastructure as code",
+      "risk": "critical",
+      "bytes": 24264,
+      "lines": 698,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -5465,15 +5522,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "5f7936f7756d9c237e2b40a1450c1b1ef223484312ceaaedbe71fcd1775d0acc",
+      "content_sha256": "ebbf8aeffcd6b8636c466861ad93c218761dbc43c0c6aa2713c1d112110c67d0",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 293149,
-      "lines": 11415,
+      "bytes": 295945,
+      "lines": 11523,
       "detected_concerns": [
-        "Large module (11415 lines): split by behavior before adding more responsibilities."
+        "Large module (11523 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (11415 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (11523 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -6970,11 +7027,11 @@
     },
     {
       "path": "lib/pipeline/operations-snapshot.ts",
-      "content_sha256": "4bf96852b0c1700889fd7dd658f45c45a73438a93aed16ee0157f86086c599af",
+      "content_sha256": "af3c57e3af4eda40ec6d1959df1b14b2a0a69b858888ec81d557d2fe0c566e5f",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 36211,
-      "lines": 896,
+      "bytes": 36582,
+      "lines": 906,
       "detected_concerns": [],
       "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
       "verification": "check:platform:fast and owning feature test"
@@ -7426,6 +7483,28 @@
       "verification": "check:platform:fast and owning feature test"
     },
     {
+      "path": "lib/pipeline/work-assessment-graph.d.mts",
+      "content_sha256": "db914296df849e4e86dbcca5fbcf64da29d322292f326a3374ab09d093691712",
+      "role": "Pipeline domain",
+      "risk": "medium",
+      "bytes": 2654,
+      "lines": 97,
+      "detected_concerns": [],
+      "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "lib/pipeline/work-assessment-graph.mjs",
+      "content_sha256": "6151edbb39ff07e8d73e147d71b096041d7583415e6c020b64d37f32de07e4ef",
+      "role": "Pipeline domain",
+      "risk": "medium",
+      "bytes": 9243,
+      "lines": 257,
+      "detected_concerns": [],
+      "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
       "path": "lib/pipeline/workflow-records.ts",
       "content_sha256": "3079f1a3c86db3cec811ea6daa5830ee8792df2092119c00a3bfc99163f8875c",
       "role": "Pipeline domain",
@@ -7568,6 +7647,17 @@
       "risk": "low",
       "bytes": 4224,
       "lines": 127,
+      "detected_concerns": [],
+      "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
+      "verification": "check:platform:fast and owning feature test"
+    },
+    {
+      "path": "lib/simulation/historical-chaos-policy.mjs",
+      "content_sha256": "7d302011e20fe96ed1b197b8069d843c0a396aa70cf4abbc69d19f4287b436d4",
+      "role": "Shared server/domain library",
+      "risk": "low",
+      "bytes": 7330,
+      "lines": 148,
       "detected_concerns": [],
       "review_focus": "Check ownership, stale duplication, unsafe defaults, error handling, and whether an executable test covers the file's behavior.",
       "verification": "check:platform:fast and owning feature test"
@@ -7749,11 +7839,11 @@
     },
     {
       "path": "package.json",
-      "content_sha256": "6ce0139043294bca52285728abfd190d540a249c11a56f2c84c64774d7493573",
+      "content_sha256": "e14529c0f84eb56ee03e50d27999a492f0130386f2f6dea5865f3d2faae10f97",
       "role": "Build, runtime, or repository configuration",
       "risk": "low",
-      "bytes": 18334,
-      "lines": 240,
+      "bytes": 18411,
+      "lines": 241,
       "detected_concerns": [],
       "review_focus": "Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults.",
       "verification": "check:platform:fast and owning feature test"
@@ -8918,11 +9008,11 @@
     },
     {
       "path": "scripts/code-quality-readiness.mjs",
-      "content_sha256": "97061ae7dc7c2277f522295145f17dedfc7eb9f60fbd29dfcdf51132a3347582",
+      "content_sha256": "a1c885df28560a5052d60faa8aa7eadcaafd3e0f53baf164978a44d0c55c1b22",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 22244,
-      "lines": 358,
+      "bytes": 22422,
+      "lines": 360,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
@@ -9513,6 +9603,17 @@
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
+      "path": "scripts/historical-chaos-contracts.mjs",
+      "content_sha256": "821e4630e96707f748a2744d5cea18a8586064f0afcdf6b195a1c828b9eb2688",
+      "role": "Operator, verification, or data script",
+      "risk": "low",
+      "bytes": 2677,
+      "lines": 41,
+      "detected_concerns": [],
+      "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
+      "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
+    },
+    {
       "path": "scripts/historical-profile-contracts.mjs",
       "content_sha256": "c323317b34fd4c4ccb9e4be17de611448c846edcae7c0fc1fc6c208ef1dbfd36",
       "role": "Operator, verification, or data script",
@@ -9955,11 +10056,11 @@
     },
     {
       "path": "scripts/platform-readiness.mjs",
-      "content_sha256": "ee723452fa9d0f6b7b67da0d770764efe0520d664bb4bad6158f60fa3b605a42",
+      "content_sha256": "024ce32a670236dec02f12f8f3dc071909a6629ce6e5dfc3e518d5a4a8d40717",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 7035,
-      "lines": 300,
+      "bytes": 7304,
+      "lines": 310,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures."
       ],
@@ -10163,22 +10264,22 @@
     },
     {
       "path": "scripts/refactor-agent-control-fixtures.mjs",
-      "content_sha256": "b8b38acbaf6cf4b0f24b36fc376f745cd699175826973d102635efae6f46b125",
+      "content_sha256": "909ef69a2161434681a77206d5c60c25b03b96e283719bffae678af4cd73a158",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 2643,
-      "lines": 64,
+      "bytes": 2883,
+      "lines": 69,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
       "path": "scripts/refactor-agent-control.mjs",
-      "content_sha256": "1d818be71f42112b653ceed38248bcd2a0867b903fcc9a652d3bfd12961f18b2",
+      "content_sha256": "fd844c793dd813965c23fb73c57f642db377895a528f6a14f975cde65ac44b56",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 14470,
-      "lines": 336,
+      "bytes": 14633,
+      "lines": 339,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures."
       ],
@@ -10187,22 +10288,22 @@
     },
     {
       "path": "scripts/refactor-evidence-readiness.mjs",
-      "content_sha256": "eb9e9b779eb1aaedaa3f9815ec8e5419343a7019870c538a126cf4c0143870fb",
+      "content_sha256": "80d261e00a0d80ba0748ca55fe00d32358fcba58d7551310cdefc0cbc2e2c9cc",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 9157,
-      "lines": 160,
+      "bytes": 9325,
+      "lines": 162,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
       "path": "scripts/refactor-guidance-eval.mjs",
-      "content_sha256": "3044879a9dfea5c1e6eba77f4fc612dc60d7e0e0de61cce77c7a8cf6083dfb34",
+      "content_sha256": "b80e0970b1243163586235e76c76db1ee2eec391333a4e663d4c89bb55b2cf25",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 49146,
-      "lines": 951,
+      "bytes": 49382,
+      "lines": 953,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
         "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence."
@@ -10212,11 +10313,11 @@
     },
     {
       "path": "scripts/refactor-high-assurance-readiness.mjs",
-      "content_sha256": "df3f5e87ef7d3dbbea9e8b2904ebd9a64c30563e604edb31f29bdf3279e72864",
+      "content_sha256": "c83d0f3c8170aed37777b9516fac1731e2b9fb3d6d1245099abfcae9a46824d8",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 29064,
-      "lines": 562,
+      "bytes": 29251,
+      "lines": 564,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures."
       ],
@@ -10225,11 +10326,11 @@
     },
     {
       "path": "scripts/refactor-setup-readiness.mjs",
-      "content_sha256": "48aa85288f81f6078c7138b094d8a4d9c4a14e6e42f62e0bebcb6c1c43590e7f",
+      "content_sha256": "54147eb94c60dc2b9bd108b234a0b9264056e93d5dbaf77f571ad44f38a4cda4",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 11613,
-      "lines": 215,
+      "bytes": 12179,
+      "lines": 221,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -10283,11 +10384,11 @@
     },
     {
       "path": "scripts/regional-recovery-readiness.mjs",
-      "content_sha256": "16c1bedb0c120bb0fd7450864606e22fd8b50d16fe896dd2e5cde9a533c44eb9",
+      "content_sha256": "98335a9c6286d7ffca61240f7b63205a0eb409b6fa68d23b09c607abce2df5fd",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 2391,
-      "lines": 39,
+      "bytes": 4112,
+      "lines": 62,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -10340,11 +10441,11 @@
     },
     {
       "path": "scripts/run-historical-simulation.mjs",
-      "content_sha256": "e4361828f91d4fcc8bac34118c429eafe0d8435570297dcc9f363d34268cf5c4",
+      "content_sha256": "935dfd834c0c83a18adc32a5fc523161e28c12953d87315ccd69fc081eed95f0",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 7759,
-      "lines": 188,
+      "bytes": 8520,
+      "lines": 202,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures."
       ],
@@ -10580,11 +10681,11 @@
     },
     {
       "path": "scripts/work-assessment-graph-evaluation.mjs",
-      "content_sha256": "003caa736a61f12ad59b03fe386c5ef6c458f86eddbd738fdb08ffe9ec755d5b",
+      "content_sha256": "6983cbbc6edcf1b468d644b3c8e1d9a6cf8fc0235d3c66ea347c30d4a6b6dc47",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 3880,
-      "lines": 92,
+      "bytes": 5776,
+      "lines": 134,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -10782,11 +10883,11 @@
     },
     {
       "path": "tests/e2e/home-reports.spec.ts",
-      "content_sha256": "a5925d45e7e6cc4807d8e39afcd6d037aedba42f57d564cdb088bf83a7e38407",
+      "content_sha256": "a1a6f7ee96a44455417baa046ec7a667acf73cf7cd3ea3dfee15b1a6c35bd4fd",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 19209,
-      "lines": 419,
+      "bytes": 22490,
+      "lines": 498,
       "detected_concerns": [
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup."
       ],
@@ -10872,11 +10973,11 @@
     },
     {
       "path": "tests/e2e/operational/historical-corpus.scaffold.spec.ts",
-      "content_sha256": "c0a0b30ccf1fe3f9d489a3881e7c59c7e74497e0b398802b7cba233abbcd17f9",
+      "content_sha256": "44dce0e5a48797f0f986756d985580bc129856072f4d06639b3ccad7b62f802a",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 31275,
-      "lines": 723,
+      "bytes": 39364,
+      "lines": 937,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
       "verification": "run owning Playwright project and review skips/snapshots"

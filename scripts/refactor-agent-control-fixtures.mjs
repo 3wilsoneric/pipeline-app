@@ -33,6 +33,11 @@ assert.deepEqual(
   { enabled: false, reason: "The refactor registry remains in setup_only mode." },
 );
 
+assert.deepEqual(
+  selectSlice({ registry: { mode: "complete", slices: [approvedSlice] }, policy, manifest, fileExists }),
+  { enabled: false, reason: "The refactor program is complete; no further refactor execution is authorized." },
+);
+
 const selected = selectSlice({ registry: { mode: "active", slices: [approvedSlice] }, policy, manifest, fileExists });
 assert.equal(selected.enabled, true);
 assert.equal(selected.sliceId, approvedSlice.id);
@@ -60,4 +65,4 @@ const validResult = {
 assert.equal(validateAgentResult(validResult), validResult);
 assert.throws(() => validateAgentResult({ ...validResult, status: "complete" }), /status is invalid/u);
 
-console.log(JSON.stringify({ ok: true, fixtures: 11 }, null, 2));
+console.log(JSON.stringify({ ok: true, fixtures: 12 }, null, 2));

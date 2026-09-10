@@ -747,7 +747,7 @@ function validateGuidanceBaseline() {
 
 function validateFastLaneGuidanceWaiver(baselineItem) {
   const completeApproval = [
-    ownerFastLaneRecord?.status === "active",
+    ["active", "complete"].includes(ownerFastLaneRecord?.status),
     baselineItem.approvedBy === ownerFastLaneRecord?.owner,
     baselineItem.approvedAt === ownerFastLaneRecord?.authorizedAt,
     timestamps.test(baselineItem.approvedAt ?? ""),
@@ -941,8 +941,10 @@ const result = {
   },
   errors,
   warnings,
-  interpretation: ownerFastLane
-    ? "The owner fast lane keeps guidance structure checks active while blind comparison and private holdouts remain advisory. This harness does not certify application correctness."
+  interpretation: registry.mode === "complete"
+    ? "The closed owner-fast-lane record retains executable guidance checks; its advisory blind-comparison status does not certify application correctness or authorize new work."
+    : ownerFastLane
+      ? "The owner fast lane keeps guidance structure checks active while blind comparison and private holdouts remain advisory. This harness does not certify application correctness."
     : "The guidance harness measures bounded first-attempt decision behavior and cannot certify application correctness or authorize a refactor slice.",
 };
 

@@ -32,4 +32,10 @@ Freeze representative scenarios for ready-for-decision, records-blocked, active-
 4. Prove that no automatic admission decision is emitted.
 5. Compare operator time, missed blockers, duplicate work, and false urgency against the current workspace.
 
-The first implementation slice is a read-only projection and evaluation harness using synthetic fixtures. It changes no production UI, workflow, database, or vendor cost.
+## Version 1
+
+Version 1 is a read-only supervisor feature in Operations. It projects the existing operational work and requirement records into a deterministic graph, presents the five explainable dimensions, groups work into observable archetypes, names the next existing workflow action, and links directly back to the canonical workspace.
+
+The server route is limited to administrators and assessment coordinators and returns a private, non-cacheable response. The retrieval projection excludes names, notes, and other free text; the authorized presentation layer adds the existing client and owner labels only for navigation. Per-referral edit-collision telemetry does not yet exist, so `collision_pressure` is explicitly reported as unobserved instead of being guessed.
+
+Version 1 writes no workflow, assessment, decision, database, or vector-index state and creates no vendor cost. Its next evaluation is operator outcome measurement: compare time-to-locate the next action, missed blockers, and duplicate work with and without the map before considering embeddings.

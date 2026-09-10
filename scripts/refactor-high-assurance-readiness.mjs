@@ -550,7 +550,9 @@ const result = {
   slices: sliceResults,
   errors,
   warnings,
-  interpretation: registry.mode === "setup_only"
+  interpretation: registry.mode === "complete"
+    ? "The bounded refactor program is complete. Its exact-commit evidence remains historical assurance and does not authorize further implementation."
+    : registry.mode === "setup_only"
     ? "The high-assurance model is a draft setup control. Its warnings do not authorize implementation or make whole-application correctness claims."
     : ownerFastLane
       ? "The active owner-fast-lane slice binds machine-traced responsibilities, proof obligations, required gates, and rollback evidence to exact commits."

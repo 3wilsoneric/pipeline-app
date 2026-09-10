@@ -1,38 +1,53 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
+
+import { buildWorkAssessmentGraphSnapshot } from "../lib/pipeline/work-assessment-graph.mjs";
+
+const observedAt = "2026-01-08T12:00:00.000Z";
 const training = [
-  fixture("ready-a", "ready_for_decision", [1, 1, 1, 0.1, 0]),
-  fixture("ready-b", "ready_for_decision", [0.95, 1, 0.9, 0.15, 0]),
-  fixture("records-a", "records_blocked", [0.8, 0.15, 0.25, 0.8, 0.1]),
-  fixture("records-b", "records_blocked", [0.7, 0.2, 0.2, 0.9, 0]),
-  fixture("assessment-a", "assessment_active", [0.9, 0.85, 0.5, 0.45, 0.1]),
-  fixture("assessment-b", "assessment_active", [0.85, 0.9, 0.55, 0.4, 0]),
+  work(101, "ready-a", { assessment_state: "signed", completion_pct: 96 }),
+  work(102, "ready-b", { assessment_state: "ready_to_sign", completion_pct: 91 }),
+  work(201, "records-a", { document_state: "none", blocker_count: 3, completion_pct: 35 }),
+  work(202, "records-b", { document_state: "attention", blocker_count: 2, completion_pct: 42 }),
+  work(301, "assessment-a", { assessment_state: "in_progress", completion_pct: 68 }),
+  work(302, "assessment-b", { assessment_state: "waiting_for_information", completion_pct: 64 }),
 ];
 const holdout = [
-  fixture("holdout-ready", "ready_for_decision", [0.98, 1, 0.95, 0.12, 0]),
-  fixture("holdout-records", "records_blocked", [0.75, 0.1, 0.2, 0.85, 0.05]),
-  fixture("holdout-assessment", "assessment_active", [0.88, 0.88, 0.52, 0.42, 0.05]),
+  work(103, "holdout-ready", { assessment_state: "signed", completion_pct: 94 }),
+  work(203, "holdout-records", { document_state: "none", blocker_count: 2, completion_pct: 39 }),
+  work(303, "holdout-assessment", { assessment_state: "in_progress", completion_pct: 66 }),
 ];
+const allWork = [...training, ...holdout];
+const requirements = allWork.flatMap((item) => item.blocker_count > 0 ? [requirement(item)] : []);
+const first = buildWorkAssessmentGraphSnapshot(allWork, requirements, observedAt);
+const second = buildWorkAssessmentGraphSnapshot(allWork, requirements, observedAt);
+const byId = new Map(first.cases.map((item) => [item.referral_id, item]));
+const route = readFileSync("app/api/operations/work-assessment-graph/route.ts", "utf8");
+const component = readFileSync("components/pipeline/WorkAssessmentGraph.tsx", "utf8");
+const retrievalProjection = first.cases.map((item) => ({
+  archetype: item.archetype,
+  vector: item.vector,
+  similar_work: item.similar_work,
+}));
 
-const graph = projectGraph([...training, ...holdout]);
-const predictions = holdout.map((item) => {
-  const nearest = training
-    .map((candidate) => ({ candidate, similarity: cosine(item.vector, candidate.vector) }))
-    .sort((left, right) => right.similarity - left.similarity || left.candidate.id.localeCompare(right.candidate.id))[0];
-  return {
-    holdout: item.id,
-    expected_archetype: item.archetype,
-    nearest_archetype: nearest.candidate.archetype,
-    similarity: rounded(nearest.similarity),
-  };
-});
+const expectedArchetypes = new Map([
+  [103, "decision_ready"],
+  [203, "records_blocked"],
+  [303, "assessment_active"],
+]);
 const checks = {
-  deterministic_projection: JSON.stringify(graph) === JSON.stringify(projectGraph([...training, ...holdout])),
-  every_edge_has_provenance: graph.edges.every((edge) => edge.provenance.event_id && edge.provenance.occurred_at),
-  bounded_vector_schema: [...training, ...holdout].every((item) => item.vector.length === 5 && item.vector.every((value) => value >= 0 && value <= 1)),
-  holdout_archetypes_recovered: predictions.every((item) => item.expected_archetype === item.nearest_archetype),
-  no_free_text_in_projection: !JSON.stringify(graph).toLowerCase().includes("note"),
-  no_automated_admission_decision: graph.nodes.every((node) => node.type !== "admission_decision"),
+  deterministic_projection: JSON.stringify(first) === JSON.stringify(second),
+  every_node_has_provenance: first.graph.nodes.every(hasProvenance),
+  every_edge_has_provenance: first.graph.edges.every(hasProvenance),
+  bounded_vector_schema: first.cases.every((item) => Object.values(item.vector).length === 5 && Object.values(item.vector).every((value) => value >= 0 && value <= 1)),
+  held_out_archetypes_recovered: [...expectedArchetypes].every(([id, archetype]) => byId.get(id)?.archetype === archetype),
+  held_out_similarity_recovered: [...expectedArchetypes].every(([id, archetype]) => byId.get(id)?.similar_work[0]?.archetype === archetype),
+  retrieval_projection_excludes_direct_identifiers_and_free_text: !/(ready-a|records-a|assessment-a|client_name|inspect_next|why)/i.test(JSON.stringify(retrievalProjection)),
+  no_automated_admission_decision: first.assurance.automated_admission_decisions === false && first.graph.nodes.every((node) => node.type !== "admission_decision"),
+  collision_unknown_is_explicit: first.cases.every((item) => item.collision_signal === "not_observed" && item.vector.collision_pressure === 0),
+  supervisor_route_is_private_and_role_scoped: route.includes("operationsReportRoles") && route.includes('private, no-store, max-age=0'),
+  operator_surface_is_actionable: component.includes('aria-label="Work assessment graph"') && component.includes("Inspect next") && component.includes("similar_work"),
 };
 const ok = Object.values(checks).every(Boolean);
 
@@ -40,52 +55,79 @@ console.log(JSON.stringify({
   ok,
   model: "deterministic_workflow_feature_baseline",
   vector_dimensions: ["intake_completeness", "document_readiness", "assessment_progress", "queue_urgency", "collision_pressure"],
-  graph: { nodes: graph.nodes.length, edges: graph.edges.length },
-  holdout_predictions: predictions,
+  graph: { nodes: first.graph.nodes.length, edges: first.graph.edges.length, cases: first.cases.length },
+  held_out: [...expectedArchetypes].map(([id, expected]) => ({
+    id,
+    expected,
+    actual: byId.get(id)?.archetype,
+    nearest: byId.get(id)?.similar_work[0] ?? null,
+  })),
   checks,
-  note: "The fixture is synthetic and contains no PHI. This baseline retrieves similar work states; it does not recommend admission or replace human review.",
+  note: "Synthetic, deterministic, read-only evaluation. The map explains workflow state; it does not recommend or record an admission decision.",
 }, null, 2));
 
 if (!ok) process.exit(1);
 
-function fixture(id, archetype, vector) {
+function hasProvenance(item) {
+  return item.provenance?.source_id
+    && item.provenance?.observed_at === observedAt
+    && item.provenance?.transformation_version === "work-assessment-graph-v1";
+}
+
+function work(id, name, overrides = {}) {
   return {
-    id,
-    archetype,
-    vector,
-    events: [
-      { id: `${id}-created`, type: "referral_created", occurredAt: "2026-01-01T00:00:00.000Z" },
-      { id: `${id}-current`, type: archetype, occurredAt: "2026-01-02T00:00:00.000Z" },
-    ],
+    referral_id: id,
+    client_id: `client-${id}`,
+    client_name: name,
+    community: "San Pablo",
+    stage: "Assessment",
+    workflow_status: "assessment_in_progress",
+    flow_state: "assessment",
+    assignment_state: "assigned",
+    assessment_state: "not_started",
+    outcome_state: "pending",
+    document_state: "complete",
+    profile_state: "complete",
+    assessment_is_reassessment: false,
+    owner_id: "reviewer-1",
+    owner: "Synthetic Reviewer",
+    priority: "standard",
+    blocker_count: 0,
+    blockers: [],
+    missing_data: [],
+    next_action: "Review the synthetic workspace.",
+    action_required: true,
+    waiting: false,
+    age_hours: 4,
+    stale: false,
+    due_soon: false,
+    assignment_due_at: null,
+    assignment_overdue: false,
+    assessment_complete: false,
+    has_decision: false,
+    completion_pct: 50,
+    ...overrides,
   };
 }
 
-function projectGraph(fixtures) {
-  const nodes = [];
-  const edges = [];
-  for (const item of [...fixtures].sort((left, right) => left.id.localeCompare(right.id))) {
-    nodes.push({ id: `case:${item.id}`, type: "work_case", state: item.archetype });
-    for (const event of item.events) {
-      const eventId = `event:${event.id}`;
-      nodes.push({ id: eventId, type: "workflow_event", event_type: event.type });
-      edges.push({
-        from: `case:${item.id}`,
-        to: eventId,
-        type: "HAS_EVENT",
-        provenance: { event_id: event.id, occurred_at: event.occurredAt },
-      });
-    }
-  }
-  return { nodes, edges };
-}
-
-function cosine(left, right) {
-  const dot = left.reduce((sum, value, index) => sum + value * right[index], 0);
-  const leftMagnitude = Math.sqrt(left.reduce((sum, value) => sum + value ** 2, 0));
-  const rightMagnitude = Math.sqrt(right.reduce((sum, value) => sum + value ** 2, 0));
-  return dot / (leftMagnitude * rightMagnitude);
-}
-
-function rounded(value) {
-  return Math.round(value * 10_000) / 10_000;
+function requirement(item) {
+  return {
+    work_item_id: `requirement-${item.referral_id}`,
+    version: 1,
+    referral_id: item.referral_id,
+    client_name: item.client_name,
+    community: item.community,
+    label: "Synthetic source record",
+    status: "needed",
+    owner_id: item.owner_id,
+    owner: item.owner,
+    due_at: null,
+    next_action: "Obtain the synthetic source record.",
+    evidence_document_name: null,
+    overdue: false,
+    due_soon: false,
+    unassigned: false,
+    type: "face_sheet",
+    blocker: true,
+  };
 }

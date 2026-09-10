@@ -1,10 +1,10 @@
 # Refactoring Workspace
 
-Current mode: `setup_only`
+Current mode: `complete`
 Approval mode: `owner_fast_lane`
-Started slices: `0`
+Completed slices: `12 of 12`
 
-This directory prepares a controlled refactor program. It does not authorize implementation work and it is not evidence that a refactor has started.
+The bounded Pipeline refactor program is complete. Its records preserve the exact scope, evidence, rollback, and candidate commits for the twelve completed slices. Completion does not authorize another refactor program and does not claim that the application is bug-free.
 
 ## Single source of truth
 
@@ -36,24 +36,13 @@ The refactor-guidance evaluation layer tests whether that model changes fresh-ag
 
 These files contain setup candidates, not universal truth. In the standard lane their relevant entries require independent human validation before a slice starts. In `owner_fast_lane`, the named owner may authorize machine-traced entries in the slice-specific assurance record.
 
-## Current readiness
+## Completion record
 
-All six slices are intentionally `not_started`. No slice is start-ready yet:
+All twelve registered slices are `complete`; every global and slice evidence item is either `satisfied` or explicitly owner-approved `not_applicable`. The completion record at `669fc45b82e7834a5a1f7b930cbad7090f27be46` contains every slice-specific assurance record and is the first deployed cumulative commit containing the closed program. Later enterprise-product work is deliberately outside this refactor record.
 
-| Slice | Before-start gap |
-| --- | --- |
-| Referral store | Owner-approved narrative, machine-complete behavior/retry/parity contract (including open-assessment handoff), exact allowed paths, and owner-authorized assurance/file dispositions |
-| Assessment store | Owner, narrative, approval, frozen lifecycle/workflow-sync behavior, local/PostgreSQL parity |
-| Workflow and handoff | Owner, narrative, approval, database-effect goldens, runtime role matrix, retry contract |
-| Extraction | Owner, narrative, approval, packet-level goldens, governed labeled corpus |
-| Referral canvas | Owner, narrative, approval, autosave/conflict recovery and identity-link characterization |
-| Test structure | Owner, narrative, approval, and machine-backed assertion inventory; independent review is advisory in the fast lane |
+The closed program used `owner_fast_lane`, so independent review and blind guidance comparison remained advisory. Machine gates, bounded paths, behavior preservation, data integrity, critical/high-finding prohibition, and rollback or recovery evidence were retained. Future product work is not a continuation of these slices and must not rewrite their evidence.
 
-Every slice still inherits the machine-owned global before-start gates: a risk-ranked exact-start baseline, commit-attached required checks, the complexity non-regression ratchet, and an exact-start dedicated `codex/refactor-*` worktree recorded in the active slice. Eric activated `owner_fast_lane` on 2026-09-07, so independent review and the adopted guidance comparison are no longer start gates. The inherited 531-location dependency ceiling and exact complexity ceilings remain hard limits; the authorization permits no new dependency or complexity growth. The current file/dependency inventory is generated evidence, not a hand-maintained list.
-
-The consolidated machine baseline at `92fa991` passed repository hygiene, code-quality setup, the 20/20 seeded-defect suite, the broader safety corpus, and the production build. The owner-authorized complexity disposition now makes its exact inherited ceilings enforceable without an independent reviewer; any increase or unlisted failure remains red.
-
-The checker derives the authoritative state from the JSON files. Update this summary only when the registry or matrix changes.
+The checker derives the authoritative state from the JSON files. `complete` is terminal for automated refactor selection: the cloud controller must return disabled until a separately approved future program is defined.
 
 ## Operating documents
 

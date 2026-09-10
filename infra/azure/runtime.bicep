@@ -16,6 +16,10 @@ param runtimeIdentityResourceId string
 param runtimeIdentityClientId string
 param keyVaultUri string
 param storageAccountName string
+@description('Storage account used by the manual database recovery job. Defaults to the application account; set to the separately deployed recovery vault for cross-region copies.')
+param backupStorageAccountName string = storageAccountName
+@description('Private container used by the database recovery job.')
+param backupStorageContainer string = 'artifacts'
 param entraTenantId string
 param pipelineEntraClientId string
 @description('Existing custom hostname bindings that must survive immutable runtime revisions.')
@@ -553,8 +557,8 @@ resource databaseBackupJob 'Microsoft.App/jobs@2025-01-01' = {
           env: [
             { name: 'PIPELINE_DATABASE_URL', secretRef: 'database-migration-url' }
             { name: 'PIPELINE_DATABASE_SSL_MODE', value: 'require' }
-            { name: 'PIPELINE_BACKUP_STORAGE_ACCOUNT', value: storageAccountName }
-            { name: 'PIPELINE_BACKUP_CONTAINER', value: 'artifacts' }
+            { name: 'PIPELINE_BACKUP_STORAGE_ACCOUNT', value: backupStorageAccountName }
+            { name: 'PIPELINE_BACKUP_CONTAINER', value: backupStorageContainer }
             { name: 'PIPELINE_BACKUP_REASON', value: 'pre-migration' }
             { name: 'AZURE_CLIENT_ID', value: runtimeIdentityClientId }
           ]
@@ -687,6 +691,7 @@ output readinessUrl string = 'https://${web.properties.configuration.ingress.fqd
 output pipelineApiScope string = pipelineApiScope
 output databaseBootstrapJobName string = databaseBootstrapJobName
 output databaseBackupJobName string = databaseBackupJob.name
+output backupStorageAccountName string = backupStorageAccountName
 output databaseMigrationJobName string = databaseMigrationJob.name
 output scheduledJobNames array = map(filter(scheduledJobs, job => job.enabled), job => take('${namePrefix}-${environment}-${job.name}', 32))
 output runtimeAlertRuleCount int = enableRuntimeAlerts ? 2 : 0

@@ -80,6 +80,29 @@ type CreatedCase = {
   mutationId: string;
 };
 
+type HistoricalChaosPlan = {
+  policy_version: string;
+  simulation_id: string;
+  phase: "files" | "full";
+  concurrency: { identities: number; referrals: number; files: number; workflow: number; reads: number; browsers: number };
+  read_repetitions: number;
+  cohorts: {
+    all_case_ids: string[];
+    stale_write_case_ids: string[];
+    decision_race_case_ids: string[];
+    handoff_recovery_case_ids: string[];
+  };
+  invariants: string[];
+};
+
+type ChaosEvidence = {
+  duplicate_replays: number;
+  read_while_write_requests: number;
+  stale_assessment_conflicts: number;
+  supervisor_decision_conflicts: number;
+  ehr_failure_recoveries: number;
+};
+
 test.describe("private historical multi-user simulation", () => {
   test.skip(
     process.env.PIPELINE_HISTORICAL_SIMULATION !== "true",
@@ -94,6 +117,7 @@ test.describe("private historical multi-user simulation", () => {
     const plan = JSON.parse(await readFile(manifestPath, "utf8")) as HistoricalPlan;
     const phase = process.env.PIPELINE_HISTORICAL_SIMULATION_PHASE === "full" ? "full" : "files";
     const mode = process.env.PIPELINE_HISTORICAL_SIMULATION_MODE ?? "busy_day";
+    const chaosPlan = await loadHistoricalChaosContext(mode, plan, phase);
     const truthByCase = phase === "full"
       ? await loadTruthCases(requiredEnvironmentPath("PIPELINE_HISTORICAL_TRUTH_PACKS"))
       : new Map<string, TruthCase>();
@@ -107,7 +131,14 @@ test.describe("private historical multi-user simulation", () => {
     ] as const));
     const contexts = new Map(contextEntries);
     const supervisor = requiredContext(contexts, plan.supervisor.actor_id);
-    const concurrency = concurrencyForMode(mode);
+    const concurrency = chaosPlan?.concurrency ?? concurrencyForMode(mode);
+    const chaosEvidence: ChaosEvidence = {
+      duplicate_replays: 0,
+      read_while_write_requests: 0,
+      stale_assessment_conflicts: 0,
+      supervisor_decision_conflicts: 0,
+      ehr_failure_recoveries: 0,
+    };
     const startedAt = performance.now();
 
     try {
@@ -133,7 +164,7 @@ test.describe("private historical multi-user simulation", () => {
       });
       expect(new Set(created.map(({ referral }) => referral.id)).size).toBe(plan.cases.length);
 
-      const duplicateCases = created.filter(({ item }) => item.behavior === "duplicate_retry");
+      const duplicateCases = chaosPlan ? created : created.filter(({ item }) => item.behavior === "duplicate_retry");
       const duplicateIds = await runWithConcurrency(duplicateCases, concurrency.referrals, async (createdCase) => {
         const response = await supervisor.post("/api/referrals", {
           data: {
@@ -146,6 +177,7 @@ test.describe("private historical multi-user simulation", () => {
         return asReferralPayload(await response.json()).referral.id;
       });
       expect(duplicateIds).toEqual(duplicateCases.map(({ referral }) => referral.id));
+      chaosEvidence.duplicate_replays = duplicateIds.length;
 
       const uploaded = await runWithConcurrency(created, concurrency.files, async (createdCase) => {
         const owner = requiredContext(contexts, createdCase.item.assigned_actor_id);
@@ -206,6 +238,13 @@ test.describe("private historical multi-user simulation", () => {
       });
       expect(isolationStatuses.every((status) => status === 404)).toBe(true);
 
+      chaosEvidence.read_while_write_requests = await runChaosReadBurst(
+        chaosPlan,
+        progressed,
+        contexts,
+        concurrency.reads,
+      );
+
       const lifecycle = phase === "full"
         ? await runFullLifecycle(
           progressed,
@@ -214,8 +253,12 @@ test.describe("private historical multi-user simulation", () => {
           truthByCase,
           conflictFreeScheduleTimes(progressed.map(({ item }) => item)),
           concurrency.workflow,
+          chaosPlan,
+          chaosEvidence,
         )
         : [];
+
+      assertChaosEvidence(chaosPlan, phase, plan.cases.length, lifecycle.length, chaosEvidence);
 
       const surfaceEvidence = await exerciseAllSurfaces(browser, url, plan, progressed, testInfo);
       const listResponse = await supervisor.get(`/api/referrals?limit=200&tag=${encodeURIComponent(plan.simulation_id)}&projection=summary`);
@@ -243,6 +286,14 @@ test.describe("private historical multi-user simulation", () => {
           surface_checks: surfaceEvidence,
           duration_ms: Math.round(performance.now() - startedAt),
           contains_names_or_source_paths: false,
+          ...(chaosPlan ? {
+            chaos_certification: {
+              policy_version: chaosPlan.policy_version,
+              invariant_count: chaosPlan.invariants.length,
+              evidence: chaosEvidence,
+              contains_names_or_source_paths: false,
+            },
+          } : {}),
         }, null, 2)),
         contentType: "application/json",
       });
@@ -283,7 +334,12 @@ async function runFullLifecycle(
   truthByCase: Map<string, TruthCase>,
   scheduleTimes: Map<string, string>,
   concurrency: number,
+  chaosPlan: HistoricalChaosPlan | null,
+  chaosEvidence: ChaosEvidence,
 ) {
+  const staleWriteCases = new Set(chaosPlan?.cohorts.stale_write_case_ids ?? []);
+  const decisionRaceCases = new Set(chaosPlan?.cohorts.decision_race_case_ids ?? []);
+  const handoffRecoveryCases = new Set(chaosPlan?.cohorts.handoff_recovery_case_ids ?? []);
   return runWithConcurrency(cases, concurrency, async (createdCase) => {
     const truth = truthByCase.get(createdCase.item.case_id);
     if (!truth) throw new Error(`Missing verified truth pack for ${createdCase.item.case_id}.`);
@@ -301,6 +357,14 @@ async function runFullLifecycle(
       );
     }
     assessment = await startOperationalAssessment(owner, assessment);
+    assessment = await exerciseChaosAssessmentConflict(
+      staleWriteCases.has(createdCase.item.case_id),
+      owner,
+      assessment,
+      createdCase.item.case_id,
+      truth,
+      chaosEvidence,
+    );
     if (["interrupted_resume", "save_reopen"].includes(createdCase.item.behavior)) {
       const firstVerifiedField = Object.entries(truth.assessment_data)[0];
       if (!firstVerifiedField) throw new Error(`Verified assessment data is empty for ${createdCase.item.case_id}.`);
@@ -348,22 +412,28 @@ async function runFullLifecycle(
     const recommendationText = await recommendation.text();
     expect(recommendation.status(), recommendationText.slice(0, 1_000)).toBe(200);
     referral = asReferralPayload(JSON.parse(recommendationText)).referral;
-    const decision = await supervisor.put(`/api/referrals/${referral.id}/decision`, {
-      data: {
-        if_match: referral.version,
-        if_match_section: referral.sectionVersions.decision,
-        ...truth.supervisor_decision,
-      },
-    });
-    const decisionText = await decision.text();
-    expect(decision.status(), decisionText.slice(0, 1_000)).toBe(200);
-    referral = asReferralPayload(JSON.parse(decisionText)).referral;
+    const decisionData = {
+      if_match: referral.version,
+      if_match_section: referral.sectionVersions.decision,
+      ...truth.supervisor_decision,
+    };
+    referral = await recordChaosAwareDecision(
+      decisionRaceCases.has(createdCase.item.case_id),
+      supervisor,
+      referral,
+      decisionData,
+      createdCase.item.case_id,
+      chaosEvidence,
+    );
     await resolveOperationalMoveInRequirements(supervisor, referral.id);
     referral = await readOperationalReferral(supervisor, referral.id);
     referral = await transitionOperationalReferral(supervisor, referral, "Accepted / Admitted");
-    const queued = await mutateOperationalEhrHandoff(supervisor, referral, "queue");
-    expect(queued.response.status()).toBe(200);
-    const sent = await mutateOperationalEhrHandoff(supervisor, queued.referral, "mark_sent");
+    const sent = await exerciseChaosAwareHandoff(
+      handoffRecoveryCases.has(createdCase.item.case_id),
+      supervisor,
+      referral,
+      chaosEvidence,
+    );
     expect(sent.response.status()).toBe(200);
     return { referral: sent.referral, assessment };
   });
@@ -391,6 +461,90 @@ async function scheduleHistoricalAssessment(
   const text = await response.text();
   expect(response.status(), text.slice(0, 1_000)).toBe(200);
   return asAssessmentPayload(JSON.parse(text));
+}
+
+async function exerciseChaosAssessmentConflict(
+  enabled: boolean,
+  owner: APIRequestContext,
+  assessment: { assessment_id: string; version: number },
+  caseId: string,
+  truth: TruthCase,
+  evidence: ChaosEvidence,
+) {
+  if (!enabled) return assessment;
+  const firstVerifiedField = Object.entries(truth.assessment_data)[0];
+  if (!firstVerifiedField) throw new Error(`Verified assessment data is empty for ${caseId}.`);
+  const race = (suffix: string) => owner.patch(`/api/assessments/${assessment.assessment_id}`, {
+    data: {
+      if_match: assessment.version,
+      client_mutation_id: `${caseId}:stale-race:${suffix}`,
+      patch: { data: { [firstVerifiedField[0]]: firstVerifiedField[1] } },
+    },
+  });
+  const [left, right] = await Promise.all([race("left"), race("right")]);
+  expect([left.status(), right.status()].sort()).toEqual([200, 409]);
+  const winner = left.status() === 200 ? left : right;
+  evidence.stale_assessment_conflicts += 1;
+  return asAssessmentPayload(JSON.parse(await winner.text()));
+}
+
+async function recordChaosAwareDecision(
+  raceEnabled: boolean,
+  supervisor: APIRequestContext,
+  referral: OperationalReferral,
+  decisionData: Record<string, unknown>,
+  caseId: string,
+  evidence: ChaosEvidence,
+) {
+  if (raceEnabled) {
+    const [left, right] = await Promise.all([
+      supervisor.put(`/api/referrals/${referral.id}/decision`, { data: { ...decisionData, client_mutation_id: `${caseId}:decision:left` } }),
+      supervisor.put(`/api/referrals/${referral.id}/decision`, { data: { ...decisionData, client_mutation_id: `${caseId}:decision:right` } }),
+    ]);
+    expect([left.status(), right.status()].sort()).toEqual([200, 409]);
+    const winner = left.status() === 200 ? left : right;
+    evidence.supervisor_decision_conflicts += 1;
+    return asReferralPayload(JSON.parse(await winner.text())).referral;
+  }
+  const decision = await supervisor.put(`/api/referrals/${referral.id}/decision`, { data: decisionData });
+  const decisionText = await decision.text();
+  expect(decision.status(), decisionText.slice(0, 1_000)).toBe(200);
+  return asReferralPayload(JSON.parse(decisionText)).referral;
+}
+
+async function exerciseChaosAwareHandoff(
+  recoveryEnabled: boolean,
+  supervisor: APIRequestContext,
+  referral: OperationalReferral,
+  evidence: ChaosEvidence,
+) {
+  const queued = await mutateOperationalEhrHandoff(supervisor, referral, "queue");
+  expect(queued.response.status()).toBe(200);
+  let current = queued.referral;
+  if (recoveryEnabled) {
+    const stale = await supervisor.post(`/api/referrals/${referral.id}/ehr-handoff`, {
+      data: {
+        if_match: referral.version,
+        if_match_section: referral.sectionVersions.decision,
+        action: "mark_sent",
+      },
+    });
+    expect(stale.status()).toBe(409);
+    const failed = await mutateOperationalEhrHandoff(
+      supervisor,
+      current,
+      "mark_failed",
+      "Synthetic chaos-lab downstream rejection. Contains no PHI.",
+    );
+    expect(failed.response.status()).toBe(200);
+    const retried = await mutateOperationalEhrHandoff(supervisor, failed.referral, "retry");
+    expect(retried.response.status()).toBe(200);
+    current = retried.referral;
+    evidence.ehr_failure_recoveries += 1;
+  }
+  const sent = await mutateOperationalEhrHandoff(supervisor, current, "mark_sent");
+  expect(sent.response.status()).toBe(200);
+  return sent;
 }
 
 async function uploadMaterial(input: {
@@ -645,6 +799,66 @@ function simulationActor(actor: HistoricalPlan["actors"][number]): HistoricalAct
 async function loadTruthCases(filePath: string) {
   const value = JSON.parse(await readFile(filePath, "utf8")) as { cases?: TruthCase[] };
   return new Map((value.cases ?? []).map((item) => [item.case_id, item]));
+}
+
+async function loadHistoricalChaosContext(mode: string, plan: HistoricalPlan, phase: "files" | "full") {
+  return mode === "chaos"
+    ? loadChaosPlan(requiredEnvironmentPath("PIPELINE_HISTORICAL_CHAOS_PLAN"), plan, phase)
+    : null;
+}
+
+async function runChaosReadBurst(
+  chaosPlan: HistoricalChaosPlan | null,
+  cases: Array<CreatedCase & { referral: OperationalReferral }>,
+  contexts: Map<string, APIRequestContext>,
+  concurrency: number,
+) {
+  if (!chaosPlan) return 0;
+  const readBurst = cases.flatMap((createdCase) => Array.from(
+    { length: chaosPlan.read_repetitions },
+    (_value, repetition) => ({ createdCase, repetition }),
+  ));
+  const statuses = await runWithConcurrency(readBurst, concurrency, async ({ createdCase, repetition }) => {
+    const owner = requiredContext(contexts, createdCase.item.assigned_actor_id);
+    const routes = [
+      `/api/referrals/${createdCase.referral.id}`,
+      `/api/referrals/${createdCase.referral.id}/activity`,
+      `/api/referrals/${createdCase.referral.id}/work-items`,
+    ];
+    return (await owner.get(routes[repetition % routes.length] ?? routes[0])).status();
+  });
+  expect(statuses.every((status) => status === 200)).toBe(true);
+  return statuses.length;
+}
+
+function assertChaosEvidence(
+  chaosPlan: HistoricalChaosPlan | null,
+  phase: "files" | "full",
+  caseCount: number,
+  lifecycleCount: number,
+  evidence: ChaosEvidence,
+) {
+  if (!chaosPlan) return;
+  expect(evidence.duplicate_replays).toBe(chaosPlan.cohorts.all_case_ids.length);
+  expect(evidence.read_while_write_requests).toBe(caseCount * chaosPlan.read_repetitions);
+  if (phase !== "full") return;
+  expect(evidence.stale_assessment_conflicts).toBe(chaosPlan.cohorts.stale_write_case_ids.length);
+  expect(evidence.supervisor_decision_conflicts).toBe(chaosPlan.cohorts.decision_race_case_ids.length);
+  expect(evidence.ehr_failure_recoveries).toBe(chaosPlan.cohorts.handoff_recovery_case_ids.length);
+  expect(lifecycleCount).toBe(caseCount);
+}
+
+async function loadChaosPlan(filePath: string, historicalPlan: HistoricalPlan, phase: "files" | "full") {
+  const value = JSON.parse(await readFile(filePath, "utf8")) as HistoricalChaosPlan;
+  if (value.policy_version !== "pipeline-chaos-lab-v1"
+    || value.simulation_id !== historicalPlan.simulation_id
+    || value.phase !== phase
+    || !Array.isArray(value.cohorts?.all_case_ids)
+    || value.cohorts.all_case_ids.length !== historicalPlan.cases.length
+    || !Array.isArray(value.invariants)) {
+    throw new Error("Historical chaos plan does not match the selected corpus and phase.");
+  }
+  return value;
 }
 
 function requiredObjectPath(corpusRoot: string, material: HistoricalMaterial) {

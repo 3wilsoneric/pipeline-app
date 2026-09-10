@@ -1,10 +1,13 @@
 {
   "schemaVersion": 1,
-  "status": "active",
+  "status": "complete",
   "owner": "Eric",
   "authorizedAt": "2026-09-07T14:37:17Z",
   "source": "Codex conversation",
   "directive": "Replace TARS’s mandatory independent-review and guidance-evaluation start gates with an owner-authorized fast lane. Keep all machine tests, rollback protection, and behavior-preservation requirements.",
+  "completedAt": "2026-09-10T00:00:00Z",
+  "completionCommit": "669fc45b82e7834a5a1f7b930cbad7090f27be46",
+  "completionEvidence": "docs/reliability/enterprise-readiness-evidence-2026-09-10.md",
   "startPolicy": {
     "independentHumanReviewRequired": false,
     "blindGuidanceComparisonRequired": false,

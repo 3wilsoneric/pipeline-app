@@ -83,7 +83,7 @@ for (const command of ["check:refactor-setup", "complexity:check", "codebase:bas
 }
 
 if (registry.schemaVersion !== 1) errors.push("Refactor slice registry must use schemaVersion 1.");
-if (!["setup_only", "active"].includes(registry.mode)) errors.push("Refactor slice registry mode must be setup_only or active.");
+if (!["setup_only", "active", "complete"].includes(registry.mode)) errors.push("Refactor slice registry mode must be setup_only, active, or complete.");
 if (!["standard", "owner_fast_lane"].includes(registry.approvalMode ?? "standard")) errors.push("Refactor slice registry approvalMode must be standard or owner_fast_lane.");
 if (!Array.isArray(registry.slices) || registry.slices.length < 5) errors.push("Refactor slice registry must define the planned bounded slices.");
 
@@ -106,7 +106,7 @@ function validateOwnerFastLane() {
   ];
   const headerIsComplete = [
     record.schemaVersion === 1,
-    record.status === "active",
+    record.status === (registry.mode === "complete" ? "complete" : "active"),
     Boolean(record.owner),
     Boolean(record.authorizedAt),
     Boolean(record.directive),
@@ -180,6 +180,10 @@ for (const slice of registry.slices ?? []) {
 const activeSlices = registry.slices?.filter((slice) => slice.status === "in_progress") ?? [];
 if (activeSlices.length > 1) errors.push("Only one bounded refactor slice may be in_progress at a time.");
 if (registry.mode === "active" && activeSlices.length === 0) warnings.push("Registry is active but no slice is currently in_progress.");
+if (registry.mode === "complete" && (registry.slices ?? []).some((slice) => slice.status !== "complete")) {
+  errors.push("A completed refactor registry requires every planned slice to be complete.");
+}
+if (registry.mode === "complete" && activeSlices.length > 0) errors.push("A completed refactor registry cannot have an in_progress slice.");
 
 const orderedSlices = [...(registry.slices ?? [])].sort((left, right) => left.priority - right.priority);
 for (const [index, slice] of orderedSlices.entries()) {
@@ -205,9 +209,11 @@ const result = {
   activeSlice: activeSlices[0]?.id ?? null,
   errors,
   warnings,
-  nextHumanAction: registry.approvalMode === "owner_fast_lane"
-    ? "Satisfy the selected slice's machine-owned before-start evidence, record the owner-approved bounded paths, and activate one clean dedicated worktree."
-    : "Choose one slice, assign its human owner, complete its architecture narrative, and resolve its before_start evidence before changing implementation code.",
+  nextHumanAction: registry.mode === "complete"
+    ? "Keep the completed evidence immutable and govern future product work outside the closed refactor program."
+    : registry.approvalMode === "owner_fast_lane"
+      ? "Satisfy the selected slice's machine-owned before-start evidence, record the owner-approved bounded paths, and activate one clean dedicated worktree."
+      : "Choose one slice, assign its human owner, complete its architecture narrative, and resolve its before_start evidence before changing implementation code.",
 };
 
 console.log(JSON.stringify(result, null, 2));

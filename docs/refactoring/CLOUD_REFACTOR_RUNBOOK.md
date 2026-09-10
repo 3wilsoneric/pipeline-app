@@ -5,7 +5,7 @@ The cloud controller lets an approved refactor slice continue on GitHub-hosted i
 ## Safety model
 
 - `docs/refactoring/refactor-slices.json` remains the authorization source.
-- The registry must be `active`, and exactly one slice must be `in_progress`.
+- The registry must be `active`, and exactly one slice must be `in_progress`; `setup_only` and `complete` both fail closed.
 - The active slice must satisfy the existing owner, approval, architecture, file-audit, high-assurance, branch, starting-commit, allowlist, and evidence controls.
 - Codex receives a workspace-only permission profile and no Azure, production, patient-data, or deployment credentials.
 - The agent checkout does not retain GitHub credentials; the workflow authenticates only after validation when it publishes a safe checkpoint.
@@ -20,7 +20,7 @@ The cloud controller lets an approved refactor slice continue on GitHub-hosted i
 ## Cloud lifecycle
 
 1. The selector reads the committed registry from `main`.
-2. A preflight exits without invoking Codex when the registry is `setup_only`, no slice is active, approval metadata is incomplete, scheduled continuation is disabled, or a PR is already waiting for review.
+2. A preflight exits without invoking Codex when the registry is `setup_only` or `complete`, no slice is active, approval metadata is incomplete, scheduled continuation is disabled, or a PR is already waiting for review.
 3. A live run checks out the recorded branch or creates it from the exact recorded starting commit after verifying that commit is on `main`.
 4. Existing setup checks run before editing.
 5. The static prompt is combined with only the approved slice context.

@@ -152,7 +152,9 @@ const result = {
   slices: sliceResults,
   errors,
   warnings,
-  interpretation: "Setup gaps are warnings while all slices remain not_started. The same gaps become failures when a slice advances beyond its permitted evidence phase.",
+  interpretation: registry.mode === "complete"
+    ? "All registered slices have complete and cutover-ready evidence. The closed record does not authorize further implementation."
+    : "Setup gaps are warnings while all slices remain not_started. The same gaps become failures when a slice advances beyond its permitted evidence phase.",
 };
 
 console.log(JSON.stringify(result, null, 2));
