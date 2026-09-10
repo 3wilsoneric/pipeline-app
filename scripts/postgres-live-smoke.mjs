@@ -73,11 +73,11 @@ try {
       `;
       await tx`
         insert into pipeline.assessments (
-          assessment_id, referral_id, canonical_client_id, status, data,
+          assessment_id, referral_id, canonical_client_id, status, data, revision_root_id,
           created_by, created_by_name, updated_by, updated_by_name
         ) values (
           ${assessmentId}, ${referrals[0].referral_id}, ${`smoke-client-${suffix}`}, 'needs_review',
-          ${tx.json({ resident_number: `SMOKE-${suffix}` })},
+          ${tx.json({ resident_number: `SMOKE-${suffix}` })}, ${assessmentId},
           'smoke', 'Pipeline smoke', 'smoke', 'Pipeline smoke'
         )
       `;
@@ -192,11 +192,13 @@ try {
     note: "The smoke check uses synthetic values, rolls back, and never prints connection or row data.",
   }, null, 2));
   if (failed.length > 0) process.exitCode = 1;
-} catch {
+} catch (error) {
   console.error(JSON.stringify({
     ok: false,
     checks,
     configuration_present: { PIPELINE_DATABASE_URL: true },
+    error_code: error && typeof error === "object" && "code" in error ? String(error.code) : "unexpected",
+    error_field: error && typeof error === "object" && "column_name" in error ? String(error.column_name) : null,
     error: "The live PostgreSQL smoke check failed. Review database connectivity, migration state, and runtime grants.",
   }, null, 2));
   process.exitCode = 1;

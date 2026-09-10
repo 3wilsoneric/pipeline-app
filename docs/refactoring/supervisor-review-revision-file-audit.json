@@ -625,6 +625,24 @@
       "staticPrompts": [],
       "decision": "keep",
       "decisionReason": "Only the required migration count changes."
+    },
+    {
+      "path": "tests/e2e/pipeline-smoke.spec.ts",
+      "plannedNew": false,
+      "dependencyDirection": "The browser regression suite exercises the public workflow UI and API contracts.",
+      "purpose": "Keep the existing full admission and EHR journey aligned with the explicit supervisor-review action label.",
+      "callers": ["test:e2e", "CI"],
+      "publicExports": [],
+      "sideEffects": ["isolated Playwright fixture mutations"],
+      "failureBehavior": "Missing controls, failed requests, stale state, or broken recovery fail the browser test.",
+      "tests": ["test:e2e"],
+      "staticPrompts": [
+        {"prompt": "Large module (2656 lines): split by behavior before adding more responsibilities.", "disposition": "confirmed", "reason": "This slice changes four assertions in one existing end-to-end journey; it adds no helper, fixture, or application responsibility to the large suite.", "owner": "Eric", "followUp": "Keep future workflow scenarios in focused spec files when they require new setup."},
+        {"prompt": "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.", "disposition": "expected", "reason": "The existing tests exercise only synthetic browser-storage fixtures and verify user scoping and recovery behavior; this slice does not change storage use.", "owner": "Eric", "followUp": "Keep browser fixtures synthetic and scoped."},
+        {"prompt": "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.", "disposition": "expected", "reason": "The suite uses origin-relative application paths and an isolated loopback clinical mock; this slice changes only accessible control labels.", "owner": "Eric", "followUp": "Keep product navigation origin-relative and external mocks loopback-only."}
+      ],
+      "decision": "keep",
+      "decisionReason": "Preserves the end-to-end workflow proof while adopting the approved review wording."
     }
   ],
   "reviewedBy": "Owner-authorized TARS machine trace",

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T04:37:24.384Z",
+  "generated_at": "2026-09-10T05:06:09.064Z",
   "audit_date": "2026-09-10",
-  "git_head": "3c60ae26d5124e1f2251d36ad396a17d06ac8a64",
+  "git_head": "4574db3d14666e882d52e5e4ba1d6f5dddb7fba1",
   "files": [
     {
       "path": ".dockerignore",
@@ -4979,11 +4979,11 @@
     },
     {
       "path": "docs/refactoring/supervisor-review-revision-file-audit.json",
-      "content_sha256": "2448fcda241d239cfcadcf78e253703089ba5f3b24a7536f4da0aed57cd09d9e",
+      "content_sha256": "564434b697175679978bb3101d9988ef3c7b5b174036721254401287b4593a51",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 37206,
-      "lines": 633,
+      "bytes": 39192,
+      "lines": 651,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5047,7 +5047,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "071786c87e365eca14e407e12e708ccb0accb9d7b2ff7542e61aa9391fb14dba",
+      "content_sha256": "0f10e9aea085c69ef9925d22d0460ffed2e2829851ea678918772cbcc3e02d90",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 396645,
@@ -5075,11 +5075,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "c1ea8f7743f581842314ebcfa9aacd00c15ff1555322cbac6f56657de75ff461",
+      "content_sha256": "3fa1929ec2fb211f61ed74e2c54e2ec786549a1695e19fffaab0f29ce0243be3",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 219501,
-      "lines": 7557,
+      "bytes": 219572,
+      "lines": 7558,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -5134,7 +5134,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "e3778dbc041f9ff055090a16530434bdd4c407ff367c35782186215b0c04a47f",
+      "content_sha256": "06af0a832e18bdd95cf5227821a0c9bfe2eb303f2de04d52d0ff4abf3d8ef94a",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 559083,
@@ -9824,7 +9824,7 @@
     },
     {
       "path": "scripts/postgres-concurrency-certification.mjs",
-      "content_sha256": "cd8d1fad93621d60e124156ff5d5b65793b0588671067dbd0a9bc1f54541fb2e",
+      "content_sha256": "38ae11307c2cef77739e0f35b04f6ef2c8fdd76d2cdd685d5c033cb8e52e76d2",
       "role": "Operator, verification, or data script",
       "risk": "low",
       "bytes": 17353,
@@ -9862,11 +9862,11 @@
     },
     {
       "path": "scripts/postgres-live-smoke.mjs",
-      "content_sha256": "75cb6a78c5237b5f9bd3f72d3b736df6d6845f6cf799cd8802f1ec43ea56619c",
+      "content_sha256": "ac1a549e2b2cf6419d95f4c8661aa94bf6c658c28cfea43f42e773eb7fc24711",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 9681,
-      "lines": 206,
+      "bytes": 9945,
+      "lines": 208,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -10811,10 +10811,10 @@
     },
     {
       "path": "tests/e2e/pipeline-smoke.spec.ts",
-      "content_sha256": "8c7b1bba233cbe32fde284e9bb0c8844021d9ac33632864e5875b73d1f307801",
+      "content_sha256": "a226c94cd167d2201029fc45c3abf50c2f5aa09c5e78abcbdbc67754b10e5665",
       "role": "Browser journey test or snapshot",
       "risk": "medium",
-      "bytes": 136221,
+      "bytes": 136298,
       "lines": 2656,
       "detected_concerns": [
         "Large module (2656 lines): split by behavior before adding more responsibilities.",
