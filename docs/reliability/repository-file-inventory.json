@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T14:05:36.145Z",
+  "generated_at": "2026-09-10T14:06:53.100Z",
   "audit_date": "2026-09-10",
-  "git_head": "58673882e71630fb30daaca03102813463a14860",
+  "git_head": "9740f5f23fa4c40115a7604aa88c92aeb8e62f5b",
   "files": [
     {
       "path": ".dockerignore",
@@ -3979,7 +3979,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "00c518c23f269caf26bcce4ffa03fc1d48104ec6cd7dcaae03a9ad276c3c3d2f",
+      "content_sha256": "6f16b4c9204c54f72f012df9d9c6b2ba3a4f73e29a1bab2f3758fd0357c84512",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -5058,11 +5058,11 @@
     },
     {
       "path": "docs/refactoring/workflow-permutation-hardening-file-audit.json",
-      "content_sha256": "a7290c9fec7ce5b3e0c3761abe61286ea3562c9f29249dcb0ba4d4486840ae06",
+      "content_sha256": "a4a694c3e94534070359e4c55afc9687a065c2e8d554f84e034db602a9c57593",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 16051,
-      "lines": 298,
+      "bytes": 18028,
+      "lines": 340,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5082,10 +5082,10 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "5d7b555779c8ec163776256a487b6d5937fbb5c38ba58d67b21b0ea88e2400f2",
+      "content_sha256": "d7b2188e1a149011d933be193fd3069af548d7029dfc31935b711b675cd7591b",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 397728,
+      "bytes": 397730,
       "lines": 1854,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -5110,7 +5110,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "0c3e941f61d465eb7a7038c6122252d789790a3ed618f35de18233e1e0510ddc",
+      "content_sha256": "09827ee72fd49f8964d30987130dc110f5b76dd8b31d8e499b88c7bf54c48cde",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 219657,
@@ -5169,10 +5169,10 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "15fb397117896d08b5805f2aba8033322a0b78ae5a36c9e3fc9cecf190b99135",
+      "content_sha256": "afb7d5820b2230d2ee38ab28bec922ea2b055e0bee5abce3f51203a59347310f",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 560832,
+      "bytes": 560834,
       "lines": 11305,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -5235,7 +5235,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "a904d7c528f7faaadf9a0e94f7da4d05ee7e0eba9349f2a669d55f9b8c68eb13",
+      "content_sha256": "17af96904d0ec598cc1fb8986580cc948b5514f01de8143de1e481e14c6b095e",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -5364,15 +5364,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "5722656a03baca8f8cab3418e6f969054ac21967de6439acba39fe149d6c2932",
+      "content_sha256": "464abb58b3fd2043040c170c863818a01120dc21e35b869862fad9348798c7a2",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 287670,
-      "lines": 11210,
+      "bytes": 288678,
+      "lines": 11246,
       "detected_concerns": [
-        "Large module (11210 lines): split by behavior before adding more responsibilities."
+        "Large module (11246 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (11210 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (11246 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {

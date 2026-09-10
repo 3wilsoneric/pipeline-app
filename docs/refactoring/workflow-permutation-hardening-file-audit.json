@@ -256,6 +256,48 @@
       "decisionReason": "The slice reduced its new transaction path below the default ceiling, so the temporary exception must not remain."
     },
     {
+      "path": "lib/academy/academy-atlas.generated.json",
+      "plannedNew": false,
+      "dependencyDirection": "Academy readiness generates this repository inventory; application workflow code does not depend on it.",
+      "purpose": "Refresh generated repository learning context after the certified bounded change.",
+      "callers": ["academy:refresh", "check:platform:fast"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Fingerprint drift blocks platform certification.",
+      "tests": ["certify:refactor"],
+      "staticPrompts": [],
+      "decision": "regenerate",
+      "decisionReason": "Required generated certification evidence."
+    },
+    {
+      "path": "docs/academy/academy-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Academy readiness owns this generated fingerprint registry.",
+      "purpose": "Bind Academy freshness to the certified repository fingerprint.",
+      "callers": ["academy:refresh", "check:platform:fast"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Stale source or atlas fingerprints block platform certification.",
+      "tests": ["certify:refactor"],
+      "staticPrompts": [],
+      "decision": "regenerate",
+      "decisionReason": "Required generated certification evidence."
+    },
+    {
+      "path": "docs/training/training-registry.json",
+      "plannedNew": false,
+      "dependencyDirection": "Training readiness owns this generated curriculum registry.",
+      "purpose": "Confirm operator-training sources remain unchanged and current after the bounded change.",
+      "callers": ["training:refresh", "check:platform:fast"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Training fingerprint drift blocks readiness.",
+      "tests": ["certify:refactor"],
+      "staticPrompts": [],
+      "decision": "regenerate",
+      "decisionReason": "Required generated certification evidence."
+    },
+    {
       "path": "docs/refactoring/WORKFLOW_PERMUTATION_HARDENING_ARCHITECTURE_NARRATIVE.md",
       "plannedNew": true,
       "dependencyDirection": "The registry and assurance record depend on this owner-authorized technical trace.",

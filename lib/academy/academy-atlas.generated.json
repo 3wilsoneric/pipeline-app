@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:471897a2849e7e51",
-  "fingerprint": "471897a2849e7e51f194d85612b0fe807671a0c60f9aefb35101952fb12660d4",
+  "generatedAt": "source-fingerprint:75a298a9ebe75a6e",
+  "fingerprint": "75a298a9ebe75a6efaf7fa0f864aacfd875f682eb1c70a2fdc3a948769d35d33",
   "totals": {
-    "files": 927,
-    "lines": 299779,
-    "coveredFiles": 927
+    "files": 930,
+    "lines": 300992,
+    "coveredFiles": 930
   },
   "entries": [
     {
@@ -4064,7 +4064,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 222,
+      "lines": 238,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4196,7 +4196,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 410,
+      "lines": 443,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4498,7 +4498,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 79,
+      "lines": 78,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4570,7 +4570,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 891,
+      "lines": 958,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4654,7 +4654,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 293,
+      "lines": 314,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4798,7 +4798,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 680,
+      "lines": 755,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5120,6 +5120,18 @@
       ]
     },
     {
+      "path": "docs/refactoring/WORKFLOW_PERMUTATION_HARDENING_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 54,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/refactoring/workflow-and-handoff-assurance-record.json",
       "subsystem": "Documentation",
       "kind": "configuration",
@@ -5138,6 +5150,30 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 310,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/workflow-permutation-hardening-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 178,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/workflow-permutation-hardening-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 298,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5233,7 +5269,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1850,
+      "lines": 1854,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5269,7 +5305,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7558,
+      "lines": 7559,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5329,7 +5365,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 11270,
+      "lines": 11305,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5833,7 +5869,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 2316,
+      "lines": 2347,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -7257,7 +7293,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 304,
+      "lines": 307,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7693,7 +7729,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 1695,
+      "lines": 1778,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -8893,7 +8929,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 354,
+      "lines": 358,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10526,7 +10562,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 333,
+      "lines": 388,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10538,7 +10574,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "critical",
-      "lines": 253,
+      "lines": 257,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
@@ -10851,7 +10887,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 198,
+      "lines": 220,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10863,7 +10899,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "critical",
-      "lines": 506,
+      "lines": 736,
       "moduleIds": [
         "admissions-operating-model",
         "workflow-state"
