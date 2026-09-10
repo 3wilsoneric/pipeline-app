@@ -10,7 +10,8 @@ if (baseUrl.hostname === "127.0.0.1") baseUrl.hostname = "localhost";
 if (!["localhost", "127.0.0.1", "::1"].includes(baseUrl.hostname) && !process.argv.includes("--allow-remote")) {
   fail("Remote collaboration checks require --allow-remote.");
 }
-const userCount = boundedInteger("PIPELINE_COLLABORATION_USERS", 20, 2, 100);
+const userCount = boundedInteger("PIPELINE_COLLABORATION_USERS", 20, 2, 1_000);
+const requestConcurrency = boundedInteger("PIPELINE_COLLABORATION_CONCURRENCY", 32, 1, 200);
 const p95LimitMs = boundedInteger("PIPELINE_COLLABORATION_P95_LIMIT_MS", 500, 25, 10_000);
 const users = Array.from({ length: userCount }, (_, index) => ({
   id: `pipeline-load-user-${index + 1}`,
@@ -39,10 +40,10 @@ if (!assessorRoster.members?.some((member) => member.principal_id === users[0].i
 }
 
 const now = new Date();
-const createdResponses = await Promise.all(users.map((_, index) => timedRequest("referral_create", index, "/api/referrals", {
+const createdResponses = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("referral_create", index, "/api/referrals", {
   method: "POST",
   body: syntheticReferral(index, now),
-})));
+}));
 assertStatuses(createdResponses, [201], "simultaneous synthetic referral creation");
 const createdReferrals = await Promise.all(createdResponses.map(async (response) => (await response.json()).referral));
 if (new Set(createdReferrals.map((item) => item?.id)).size !== userCount) {
@@ -53,10 +54,10 @@ if (!referral?.id || !referral.sectionVersions) fail("The collaboration referral
 
 const leases = users.map(() => randomUUID());
 const sections = ["identity", "intake", "documents", "assessment", "workflow", "decision"];
-const heartbeatResponses = await Promise.all(users.map((_, index) => timedRequest("presence_write", index, `/api/referrals/${referral.id}/presence`, {
+const heartbeatResponses = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("presence_write", index, `/api/referrals/${referral.id}/presence`, {
   method: "POST",
   body: { lease_id: leases[index], section: sections[index % sections.length] },
-})));
+}));
 assertStatuses(heartbeatResponses, [200], "presence heartbeats");
 const presenceResponse = await timedRequest("presence_read", 0, `/api/referrals/${referral.id}/presence`);
 expectStatus(presenceResponse, 200, "presence list");
@@ -64,8 +65,13 @@ const presence = await presenceResponse.json();
 if (presence.presence?.length !== userCount || new Set(presence.presence.map((item) => item.actor_id)).size !== userCount) {
   fail(`The server did not preserve ${userCount} distinct authenticated editing leases. Run it in header auth mode with the load users allowlisted.`);
 }
+const releaseResponses = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("presence_release", index, `/api/referrals/${referral.id}/presence`, {
+  method: "DELETE",
+  body: { lease_id: leases[index] },
+}));
+assertStatuses(releaseResponses, [200], "presence releases");
 
-const initialPolls = await Promise.all(users.map((_, index) => timedRequest("poll", index, `/api/referrals/${referral.id}/changes?after=${referral.version}`)));
+const initialPolls = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("poll", index, `/api/referrals/${referral.id}/changes?after=${referral.version}`));
 assertStatuses(initialPolls, [200], "initial change polling");
 
 const [identitySave, intakeSave] = await Promise.all([
@@ -91,31 +97,25 @@ assertStatuses([identitySave, intakeSave], [200], "disjoint section saves");
 const latestResponse = await timedRequest("referral_read", 0, `/api/referrals/${referral.id}`);
 expectStatus(latestResponse, 200, "load latest referral");
 const latest = (await latestResponse.json()).referral;
-const sameSectionResponses = await Promise.all(users.map((_, index) => timedRequest("contended_save", index, `/api/referrals/${referral.id}`, {
+const sameSectionResponses = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("contended_save", index, `/api/referrals/${referral.id}`, {
   method: "PATCH",
   body: {
     if_match: latest.version,
     if_match_sections: { intake: latest.sectionVersions.intake },
     patch: { note: `Contended synthetic save ${index + 1}` },
   },
-})));
+}));
 const sameSectionStatuses = sameSectionResponses.map((response) => response.status);
 if (sameSectionStatuses.filter((status) => status === 200).length !== 1 || sameSectionStatuses.filter((status) => status === 409).length !== userCount - 1) {
   fail(`Same-section optimistic contention did not produce exactly one winner and ${userCount - 1} conflicts.`);
 }
 
-const changedPolls = await Promise.all(users.map((_, index) => timedRequest("poll", index, `/api/referrals/${referral.id}/changes?after=${latest.version}`)));
+const changedPolls = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("poll", index, `/api/referrals/${referral.id}/changes?after=${latest.version}`));
 assertStatuses(changedPolls, [200], "post-save change polling");
 for (const response of changedPolls) {
   const payload = await response.json();
   if (!payload.changed || !Number.isInteger(payload.sequence)) fail("Change polling did not expose a newer sequence after the contended save.");
 }
-
-const releaseResponses = await Promise.all(users.map((_, index) => timedRequest("presence_release", index, `/api/referrals/${referral.id}/presence`, {
-  method: "DELETE",
-  body: { lease_id: leases[index] },
-})));
-assertStatuses(releaseResponses, [200], "presence releases");
 
 const workspaceChecks = workspaceStateReady
   ? await exerciseWorkspaceState()
@@ -135,6 +135,7 @@ const slowOperations = Object.entries(timingSummary)
 console.log(JSON.stringify({
   ok: slowOperations.length === 0,
   users: userCount,
+  request_concurrency: requestConcurrency,
   backend: databaseMode,
   database_contention_exercised: databaseMode === "postgres",
   p95_limit_ms: p95LimitMs,
@@ -156,7 +157,7 @@ if (slowOperations.length > 0) process.exit(1);
 
 async function exerciseWorkspaceState() {
   const draftKey = String(Date.now());
-  const recentWrites = await Promise.all(users.map((_, index) => timedRequest("recent_write", index, "/api/me/recents", {
+  const recentWrites = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("recent_write", index, "/api/me/recents", {
     method: "POST",
     body: {
       destination: {
@@ -168,10 +169,10 @@ async function exerciseWorkspaceState() {
         visitedAt: new Date().toISOString(),
       },
     },
-  })));
+  }));
   assertStatuses(recentWrites, [200], "per-user recent writes");
 
-  const recentReads = await Promise.all(users.map((_, index) => timedRequest("recent_read", index, "/api/me/recents")));
+  const recentReads = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("recent_read", index, "/api/me/recents"));
   assertStatuses(recentReads, [200], "per-user recent reads");
   for (const response of recentReads) {
     const payload = await response.json();
@@ -180,13 +181,13 @@ async function exerciseWorkspaceState() {
     }
   }
 
-  const draftCreates = await Promise.all(users.map((_, index) => timedRequest("draft_create", index, `/api/me/referral-drafts/${draftKey}`, {
+  const draftCreates = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("draft_create", index, `/api/me/referral-drafts/${draftKey}`, {
     method: "PUT",
     body: { if_match: 0, draft: recoveryDraft(`Synthetic workspace ${index + 1}`) },
-  })));
+  }));
   assertStatuses(draftCreates, [200], "per-user draft creates");
 
-  const draftReads = await Promise.all(users.map((_, index) => timedRequest("draft_read", index, `/api/me/referral-drafts/${draftKey}`)));
+  const draftReads = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("draft_read", index, `/api/me/referral-drafts/${draftKey}`));
   assertStatuses(draftReads, [200], "per-user draft reads");
   for (let index = 0; index < draftReads.length; index += 1) {
     const payload = await draftReads[index].json();
@@ -195,25 +196,25 @@ async function exerciseWorkspaceState() {
     }
   }
 
-  const contendedDrafts = await Promise.all(users.map((_, index) => timedRequest("contended_draft", 0, `/api/me/referral-drafts/${draftKey}`, {
+  const contendedDrafts = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("contended_draft", 0, `/api/me/referral-drafts/${draftKey}`, {
     method: "PUT",
     body: { if_match: 1, draft: recoveryDraft(`Synthetic contender ${index + 1}`) },
-  })));
+  }));
   const contendedDraftStatuses = contendedDrafts.map((response) => response.status);
   if (contendedDraftStatuses.filter((status) => status === 200).length !== 1
     || contendedDraftStatuses.filter((status) => status === 409).length !== userCount - 1) {
     fail(`Same-draft optimistic contention did not produce exactly one winner and ${userCount - 1} conflicts.`);
   }
 
-  const deletes = await Promise.all(users.map((_, index) => request(index, `/api/me/referral-drafts/${draftKey}`, {
+  const deletes = await mapConcurrently(users, requestConcurrency, (_, index) => request(index, `/api/me/referral-drafts/${draftKey}`, {
     method: "DELETE",
     body: { if_match: index === 0 ? 2 : 1 },
-  })));
+  }));
   assertStatuses(deletes, [200], "per-user draft cleanup");
-  const recentDeletes = await Promise.all(users.map((_, index) => request(index, "/api/me/recents", {
+  const recentDeletes = await mapConcurrently(users, requestConcurrency, (_, index) => request(index, "/api/me/recents", {
     method: "DELETE",
     body: { id: "page:referrals" },
-  })));
+  }));
   assertStatuses(recentDeletes, [200], "per-user recent cleanup");
 
   return {
@@ -295,17 +296,40 @@ async function request(userIndex, path, options = {}) {
       { typ: "roles", val: user.claimRole },
     ],
   })).toString("base64");
-  return fetch(new URL(path, baseUrl), {
-    method: options.method || "GET",
-    headers: {
-      Accept: "application/json",
-      Origin: baseUrl.origin,
-      "x-ms-client-principal": principal,
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-    cache: "no-store",
-  });
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const response = await fetch(new URL(path, baseUrl), {
+      method: options.method || "GET",
+      headers: {
+        Accept: "application/json",
+        Origin: baseUrl.origin,
+        "x-ms-client-principal": principal,
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      cache: "no-store",
+    });
+    if (response.status !== 429 || attempt === 7) return response;
+    const retryAfterSeconds = Number.parseFloat(response.headers.get("retry-after") ?? "0");
+    await wait(Math.max(25, Math.min(2_000, retryAfterSeconds * 1_000 || 25 * (attempt + 1))));
+  }
+  throw new Error("Unreachable retry loop.");
+}
+
+async function mapConcurrently(items, limit, operation) {
+  const results = Array(items.length);
+  let nextIndex = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await operation(items[index], index);
+    }
+  }));
+  return results;
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function summarizeTimings(samples) {

@@ -5,9 +5,9 @@ import { readFileSync } from "node:fs";
 const read = (file) => readFileSync(file, "utf8");
 
 const targets = {
-  named_users: 250,
-  concurrent_browser_users: 100,
-  concurrent_referral_editors: 50,
+  named_users: 1_000,
+  concurrent_browser_users: 1_000,
+  concurrent_referral_editors: 1_000,
   concurrent_api_reads: 250,
   concurrent_mutations: 100,
   concurrent_upload_reservations: 25,
@@ -29,6 +29,7 @@ const operationalDoc = read("docs/OPERATIONAL_TESTING_STRATEGY.md");
 const operationalRunner = read("scripts/operational-certification.mjs");
 const operationalActors = read("tests/e2e/support/pipeline-actors.ts");
 const highTrafficSpec = read("tests/e2e/operational/high-traffic-capacity.scaffold.spec.ts");
+const collaborationLoad = read("scripts/collaboration-load-smoke.mjs");
 const defaultPlaywright = read("playwright.config.ts");
 const operationalPlaywright = read("playwright.operational.config.ts");
 const packageJson = JSON.parse(read("package.json"));
@@ -48,6 +49,7 @@ check("operational testing strategy documents staged certification tiers", opera
 check("default browser smoke excludes high-assurance operational scaffolds", /testIgnore:\s*["'](?:\.\/tests\/e2e\/)?\*\*\/operational\/\*\*["']/.test(defaultPlaywright));
 check("operational Playwright uses isolated stores and header-auth role mimics", operationalPlaywright.includes("PIPELINE_AUTH_MODE: \"headers\"") && operationalPlaywright.includes("PIPELINE_E2E_REFERRAL_STORE_PATH"));
 check("synthetic account generator supports a 10x cohort", operationalActors.includes("operationalLoadActors") && operationalActors.includes("syntheticPipelineActor"));
+check("collaboration harness supports 1,000 identities with bounded client concurrency", collaborationLoad.includes('2, 1_000') && collaborationLoad.includes("mapConcurrently") && collaborationLoad.includes("response.status !== 429"));
 check("high-traffic Playwright scaffold is opt-in", highTrafficSpec.includes("PIPELINE_HIGH_ASSURANCE_E2E") && /operationalLoadActors\((?:[6-9]\d|\d{3,})\)/.test(highTrafficSpec));
 check("certification runner has high-assurance and capacity tiers", operationalRunner.includes("high_assurance") && operationalRunner.includes("capacity"));
 check("package exposes high-assurance operational commands", Boolean(packageJson.scripts["certify:operations:high"]) && Boolean(packageJson.scripts["certify:operations:capacity"]));
@@ -58,7 +60,7 @@ console.log(JSON.stringify({
   ok: failed.length === 0,
   targets,
   checks,
-  note: "This model is static and PHI-free. It verifies the repository has the guardrails and test hooks needed to rehearse a 10x operating profile; it does not send traffic.",
+  note: "This model is static and PHI-free. It verifies the repository has the guardrails and test hooks needed to rehearse 1,000 logical users while keeping request concurrency bounded; it does not send traffic.",
 }, null, 2));
 
 if (failed.length) process.exit(1);

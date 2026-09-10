@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T16:16:12.746Z",
+  "generated_at": "2026-09-10T17:29:57.699Z",
   "audit_date": "2026-09-10",
-  "git_head": "21b27089ffd7bd718547dbc0718f122af68ccdc0",
+  "git_head": "e55a9f3954543c74ea6ec06631abae319dff4442",
   "direct": [
     {
       "name": "@azure/identity",
@@ -527,6 +527,7 @@
         "docs/REFERRAL_WORK_QUEUE_DESIGN.md",
         "docs/SPRING_CLEANING_AUDIT_2026-08-22.md",
         "docs/WORKFLOW_BUILD_QUEUE.md",
+        "docs/WORK_ASSESSMENT_GRAPH_PRODUCT.md",
         "docs/academy/lessons/01_CREATE_REFERRAL.md",
         "docs/refactoring/CLOUD_REFACTOR_RUNBOOK.md",
         "docs/refactoring/COMPATIBILITY_MATRIX.md",
@@ -633,6 +634,7 @@
         "scripts/code-hygiene-audit.mjs",
         "scripts/code-quality-readiness.mjs",
         "scripts/codebase-refactor-baseline.mjs",
+        "scripts/collaboration-load-smoke.mjs",
         "scripts/complete-performance-certification.mjs",
         "scripts/complete-repository-audit.mjs",
         "scripts/configure-azure-clinical.sh",
@@ -658,6 +660,7 @@
         "scripts/refactor-setup-readiness.mjs",
         "scripts/referral-journey-replay.mjs",
         "scripts/referral-reliability-replay.mjs",
+        "scripts/regional-recovery-readiness.mjs",
         "scripts/reset-local-synthetic-data.mjs",
         "scripts/review-allo-canvas-content.mjs",
         "scripts/run-historical-simulation.mjs",
@@ -813,6 +816,7 @@
         "scripts/apply-database-migrations.mjs",
         "scripts/assessment-store-characterization.mjs",
         "scripts/audit-material-workspaces.mjs",
+        "scripts/azure-operational-alert-audit.mjs",
         "scripts/backfill-allo-admission-evidence.mjs",
         "scripts/bootstrap-azure-foundation.sh",
         "scripts/bootstrap-production-database.mjs",
@@ -7556,8 +7560,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-extraction-capstone-v2/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-extraction-capstone-v2/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-next-six/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-next-six/node_modules/@img/sharp-wasm32"
     ]
   }
 }

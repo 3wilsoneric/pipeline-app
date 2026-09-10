@@ -53,7 +53,7 @@ jobs:
       attempt: ${{ steps.continuation.outputs.attempt }}
       pr_number: ${{ steps.continuation.outputs.pr_number }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0
@@ -186,7 +186,7 @@ jobs:
       PIPELINE_ALLOWED_MUTATION_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
       PIPELINE_REPOSITORY_ROOT: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0
@@ -380,7 +380,7 @@ jobs:
             --add-label "refactor:$SLICE" \
             --add-label "refactor-agent:$STATE" \
             --add-label "$attempt_label"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: refactor-agent-${{ needs.select.outputs.slice_id }}-attempt-${{ needs.select.outputs.attempt }}
