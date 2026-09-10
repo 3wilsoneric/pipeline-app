@@ -404,6 +404,37 @@
       ],
       "verificationGates": ["check:workflow-store-characterization", "database:concurrency", "test:e2e:operational:high"],
       "humanValidated": false
+    },
+    {
+      "id": "workflow_permutation_hardening",
+      "title": "Atomic review corrections and exhaustive non-extraction workflow evidence",
+      "sliceIds": ["workflow-permutation-hardening"],
+      "ownershipKind": "cross_aggregate_transaction_and_assurance_boundary",
+      "canonicalOwnerPaths": [
+        "lib/pipeline/workflow-store.ts",
+        "lib/assessment/assessment-store.ts",
+        "lib/pipeline/referral-workflow.ts"
+      ],
+      "allowedRepresentations": [
+        "transaction-bound correction command",
+        "guarded local compensation",
+        "independent exhaustive transition oracle",
+        "runtime role and resource matrix"
+      ],
+      "invariants": [
+        "A failed or losing correction command leaves no assessment successor or audit effect.",
+        "Exactly one direct correction successor is linked to one submitted review.",
+        "The workflow-store remains the only cross-record mutation owner.",
+        "Test models and runtime matrices observe but never become product policy owners."
+      ],
+      "forbiddenParallelOwners": [
+        "Route-level cross-record writes",
+        "UI-created review or correction state",
+        "A test-only workflow policy imported by production",
+        "A local compensation path that can remove signed or independently edited history"
+      ],
+      "verificationGates": ["check:workflow-store-characterization", "check:workflow-fuzz", "test:e2e:operational:high", "database:concurrency"],
+      "humanValidated": false
     }
   ]
 }

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "workflow-permutation-hardening",
+  "status": "in_progress",
+  "startingCommit": "8da6634eaa0b9cc74e3576012b8e0e2e33872a31",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-10T12:57:55Z",
+    "directive": "do everything but i dont care about extracction right now"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": ["workflow_permutation_and_review_atomicity"],
+  "preChangeMachineTrace": [
+    "Starting commit 8da6634eaa0b9cc74e3576012b8e0e2e33872a31 is origin/main and the exact clean worktree branch point.",
+    "The complete existing browser, operational, fuzz, property, seeded-defect, PostgreSQL, capacity, chaos, recovery, performance, and artifact gates passed at the exact start.",
+    "A focused adversarial collision reproduced one critical defect on both adapters: two correction successors persisted for one submitted review while the public response pair was one success and one conflict.",
+    "Extraction quality and packet-corpus work is intentionally excluded by the owner's directive."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "No UI, route-shape, role assignment, Entra, schema, migration, or production-data behavior changes.",
+      "A submitted supervisor review can create at most one linked correction successor under contention.",
+      "A correction-versus-decision race commits one coherent terminal direction without an orphan successor.",
+      "Signed assessment immutability, optimistic versions, stable replay, actor attribution, and audit coupling remain intact.",
+      "All non-extraction core workflows retain their characterized successful, denied, blocked, conflict, replay, and recovery behavior."
+    ],
+    "evidence": ["The candidate will repeat all exact-start gates and add focused local/PostgreSQL collision and exhaustive finite-input evidence."]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": {
+    "candidateCommit": null,
+    "method": "Revert the bounded implementation and evidence commits. No schema or data rollback is required.",
+    "exercisedEvidence": [],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-10T12:57:55Z"
+  },
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": null,
+    "allObligationsVerified": false,
+    "requiredGatesPassed": false,
+    "behaviorPreserved": false,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": false,
+    "noUnresolvedCriticalOrHigh": false,
+    "acceptedBy": null,
+    "acceptedAt": null,
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-10T12:57:55Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}

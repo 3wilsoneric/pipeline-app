@@ -287,6 +287,24 @@
       "claimBoundary": "The owner-approved signed assessment, review, correction revision, resubmission, placement-decision, and explicit-admission commands under the tested local and PostgreSQL configurations.",
       "status": "planned",
       "humanValidated": false
+    },
+    {
+      "id": "workflow_permutation_and_review_atomicity",
+      "sliceId": "workflow-permutation-hardening",
+      "criticality": "critical",
+      "property": "Across the bounded non-extraction referral workflow, allowed commands preserve sequential state, authorization, replay, audit, signed immutability, and recovery; denied, blocked, stale, or losing commands have no material side effect; and one submitted supervisor review creates at most one linked correction successor under correction/correction and correction/decision contention.",
+      "assuranceMethods": ["mechanical", "exhaustive_finite", "property_based", "mutation", "integration", "concurrency", "operational_recovery"],
+      "tracePaths": [
+        "lib/pipeline/workflow-store.ts",
+        "lib/assessment/assessment-store.ts",
+        "lib/pipeline/referral-workflow.ts",
+        "tests/e2e/operational/workflow-store-characterization.spec.ts",
+        "tests/e2e/operational/role-access.spec.ts"
+      ],
+      "verificationGates": ["check:workflow-store-characterization", "check:workflow-fuzz", "check:route-policy", "database:concurrency", "test:e2e:operational:high", "certify:seeded-defects", "check:chaos", "check:recovery"],
+      "claimBoundary": "The owner-approved non-extraction referral, assessment, review, decision, admission, EHR, scheduling, trash/restore, authorization, conflict, replay, collision, and recovery behaviors under the tested local-file and PostgreSQL configurations.",
+      "status": "planned",
+      "humanValidated": false
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T05:25:31.286Z",
+  "generated_at": "2026-09-10T13:10:45.186Z",
   "audit_date": "2026-09-10",
-  "git_head": "5086b9d2d9a49109ebffe3a47f35d738e81c32ad",
+  "git_head": "8da6634eaa0b9cc74e3576012b8e0e2e33872a31",
   "direct": [
     {
       "name": "@azure/identity",
@@ -7551,8 +7551,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-supervisor-review-revision/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-supervisor-review-revision/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-workflow-permutation-hardening/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-workflow-permutation-hardening/node_modules/@img/sharp-wasm32"
     ]
   }
 }
