@@ -17,6 +17,8 @@ const p99LimitMs = boundedInteger("PIPELINE_SOAK_P99_LIMIT_MS", 1_500, 25, 90_00
 const minimumRequestsPerSecond = boundedNumber("PIPELINE_SOAK_MIN_RPS", 10, 0.1, 10_000);
 const maximumErrorRate = boundedNumber("PIPELINE_SOAK_MAX_ERROR_RATE", 0, 0, 1);
 const includeClinical = process.env.PIPELINE_SOAK_INCLUDE_CLINICAL === "true";
+const profile = process.env.PIPELINE_SOAK_PROFILE?.trim() || "authenticated";
+if (!["authenticated", "public"].includes(profile)) fail("PIPELINE_SOAK_PROFILE must be authenticated or public.");
 const histogramBounds = [10, 25, 50, 75, 100, 150, 200, 300, 500, 750, 1_000, 1_500, 2_000, 3_000, 5_000, 10_000, 30_000, 60_000];
 const availableMissions = [
   { name: "health_live", path: "/api/health/live", auth: false },
@@ -29,7 +31,10 @@ const availableMissions = [
   { name: "calendar", path: "/api/calendar/events?start=2026-08-01&end=2026-08-31", auth: true },
   { name: "census", path: "/api/clinical/census", auth: true, clinical: true },
 ];
-const missions = availableMissions.filter((mission) => includeClinical || !mission.clinical);
+const missions = availableMissions.filter((mission) => (
+  (profile === "authenticated" || !mission.auth)
+  && (includeClinical || !mission.clinical)
+));
 const overall = accumulator();
 const phases = [accumulator(), accumulator(), accumulator()];
 const byMission = Object.fromEntries(missions.map((mission) => [mission.name, accumulator()]));
@@ -66,6 +71,7 @@ const checks = {
 const result = {
   ok: Object.values(checks).every(Boolean),
   configuration: {
+    profile,
     duration_seconds: durationSeconds,
     concurrency,
     think_ms: thinkMs,
@@ -88,7 +94,7 @@ const result = {
   },
   drift_limit_ms: driftLimitMs,
   checks,
-  note: "The soak check keeps bounded histograms and aggregate status classes only. It discards response bodies, identities, query values, and record identifiers.",
+  note: "The public profile is safe for production liveness soaks and never presents synthetic credentials. The authenticated profile is for isolated environments. Both keep bounded histograms and aggregate status classes only.",
 };
 
 console.log(JSON.stringify(result, null, 2));

@@ -37,6 +37,7 @@ check("concurrency output is aggregate-only", concurrency.includes("unique_claim
 check("capacity harness is bounded, configurable, and self-cleaning", capacity.includes("1_000_000") && capacity.includes("p95BudgetMs") && capacity.includes("await cleanup()"));
 check("integrity audit is read-only and aggregate-only", integrity.includes("transaction read only") && integrity.includes("count(*)::integer") && !integrity.includes("select *"));
 check("restore drill requires both environment and CLI acknowledgement", restore.includes("PIPELINE_ALLOW_RESTORE_DRILL") && restore.includes("--confirm-disposable"));
+check("restore drill initializes schema dependencies before pg_restore", restore.includes("create extension if not exists pgcrypto") && restore.includes("create extension if not exists pg_trgm") && restore.includes("create schema pipeline"));
 check("operator documentation separates safe, integration, and disaster commands", ["database:assurance:local", "database:assurance:integration", "database:assurance:disaster"].every((term) => documentation.includes(term)));
 
 const failed = checks.filter((item) => !item.ok);

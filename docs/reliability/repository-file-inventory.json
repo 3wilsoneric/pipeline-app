@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T16:16:12.746Z",
+  "generated_at": "2026-09-10T17:29:57.699Z",
   "audit_date": "2026-09-10",
-  "git_head": "21b27089ffd7bd718547dbc0718f122af68ccdc0",
+  "git_head": "e55a9f3954543c74ea6ec06631abae319dff4442",
   "files": [
     {
       "path": ".dockerignore",
@@ -97,7 +97,7 @@
     },
     {
       "path": ".github/workflows/assurance.yml",
-      "content_sha256": "e0469bf468e69c26634344e7070c4a0480cf28624b67bd5573be94f59c9a28ea",
+      "content_sha256": "08c0e47b609566330454ead8ad5a7da3babb6e0e50bc2c1dc8d2671be1857ed2",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
       "bytes": 1126,
@@ -108,11 +108,11 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "content_sha256": "d651d27ef5e926c77ae5d9b184bf129eef03f285068b554d56aec6b656096289",
+      "content_sha256": "4100277de505ca047ab700896f16727c486592caac69781d88a999853e1885af",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
-      "bytes": 11054,
-      "lines": 269,
+      "bytes": 11158,
+      "lines": 271,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -121,18 +121,18 @@
     },
     {
       "path": ".github/workflows/deploy-azure.yml",
-      "content_sha256": "27d068318302c73d8b970aefb57383d8541693b891718f549791339cdd0205a9",
+      "content_sha256": "d7c50ea6e1c78cb9b70a818504fa2ff63f245e73e4d3cbe86b0ed9af127a848b",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
-      "bytes": 16555,
-      "lines": 341,
+      "bytes": 16895,
+      "lines": 348,
       "detected_concerns": [],
       "review_focus": "Check least-privilege tokens, pinned actions, path filters, cache poisoning, secret exposure, cancellation/concurrency, and required-gate coverage.",
       "verification": "check:ci-impact + check:supply-chain + CI dry run"
     },
     {
       "path": ".github/workflows/refactor-agent.yml",
-      "content_sha256": "3e5caa6c9092ed8f3797ca8cc06201d00e8640eddcddc945a2024d05e5d4b93a",
+      "content_sha256": "a59b6a50d34eca0938e64a8d807d17f94a5888a5f96e899102e726b5d11a36fc",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
       "bytes": 17618,
@@ -145,7 +145,7 @@
     },
     {
       "path": ".github/workflows/security.yml",
-      "content_sha256": "77562d498d8dc57552290de5fd8c8ca1a8de7019ae465120b8172cafe7fe49cc",
+      "content_sha256": "b63b40d3e01537894ae9e4bbf623f27c1ec9cf8e90be7e64db7b95bb1b5b4955",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
       "bytes": 1803,
@@ -3480,10 +3480,10 @@
     },
     {
       "path": "docs/DATABASE_RECOVERY.md",
-      "content_sha256": "df45e0755929a797d3f389e1b7cd10a49066123bf0a8bc28e9eb08f5cf081aa2",
+      "content_sha256": "1ec32fa9b652b6fbaa542a7d51f0884a966fb4f33bbb1a4ba0b9c3195ba0562c",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 3914,
+      "bytes": 4006,
       "lines": 83,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -3540,6 +3540,17 @@
       "risk": "low",
       "bytes": 10283,
       "lines": 204,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
+      "path": "docs/ENTERPRISE_READINESS.md",
+      "content_sha256": "683d4aaeb6da3d00ee4e3a3211c12a9a1a70f0f9cff216f6751fc948bb3e358f",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 2317,
+      "lines": 23,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -3934,6 +3945,17 @@
       "verification": "link/config drift review against executable source"
     },
     {
+      "path": "docs/WORK_ASSESSMENT_GRAPH_PRODUCT.md",
+      "content_sha256": "ef6eacc07b706267fc38ee8b10f415c92b997c181305463c8375f5cdc93c6a66",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 2641,
+      "lines": 36,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
+    },
+    {
       "path": "docs/academy/ARCHITECTURE_GUIDE.md",
       "content_sha256": "e1443536cf4abe90f4c330eca9194f8bcf550e931a706b5a7f95c20ba64125fe",
       "role": "Documentation or runbook",
@@ -4001,7 +4023,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "b1595d7f5d532d74ce861aee54ceb1232428100f9cf0921f2b4d65f42ba5c9dd",
+      "content_sha256": "768f124bb767203c279ec8201b5122954bb32984f06fcebb430b43d657d47117",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -5150,11 +5172,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "1028d178f23bfb19d99f953b406bd0c845c08ab1a7fa08a8fff8eebe2ddb04e4",
+      "content_sha256": "48d596f8d6b83603535d02e7cad11f936656ea0b8ecfd926491d0e18c38d10b5",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 400064,
-      "lines": 1862,
+      "bytes": 402316,
+      "lines": 1869,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -5178,14 +5200,25 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "d9b712bdd8fe2e2decaa68e781e12231fea85c67059007aa6d7c4361a38a4a7b",
+      "content_sha256": "3dabacefa2e27ed3272b19998af3840e1b7c673366491030320499e0a4e35e10",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 219983,
-      "lines": 7564,
+      "bytes": 220156,
+      "lines": 7568,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
+    },
+    {
+      "path": "docs/reliability/enterprise-readiness-evidence-2026-09-10.md",
+      "content_sha256": "9e12b6288fcee4426ef20f430a411dcafd47026a4ae6e2c555aabc7ec0a79687",
+      "role": "Documentation or runbook",
+      "risk": "low",
+      "bytes": 2445,
+      "lines": 26,
+      "detected_concerns": [],
+      "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
+      "verification": "link/config drift review against executable source"
     },
     {
       "path": "docs/reliability/refactor-baseline-2026-08-27-setup.json",
@@ -5237,11 +5270,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "ad8914d8afa90e0d0b9618abeb2b4a42fbce41980af6e90dd54a5bf02cf47831",
+      "content_sha256": "347d48880b13cb371a6c3851aa82b4da1499025fa56491b4fdb96b575821587b",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 564837,
-      "lines": 11384,
+      "bytes": 568811,
+      "lines": 11461,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -5432,15 +5465,15 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "12c793d794fb7388f2c7ad5af04b11cb20eb60ecaa165bc13df0c72ef86acfd7",
+      "content_sha256": "5f7936f7756d9c237e2b40a1450c1b1ef223484312ceaaedbe71fcd1775d0acc",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 290978,
-      "lines": 11331,
+      "bytes": 293149,
+      "lines": 11415,
       "detected_concerns": [
-        "Large module (11331 lines): split by behavior before adding more responsibilities."
+        "Large module (11415 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (11331 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (11415 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -7716,11 +7749,11 @@
     },
     {
       "path": "package.json",
-      "content_sha256": "2cc5a91454b8ecdd5eca23828de6e92d8cae39910a0f5b8f09962d6ca172e6c9",
+      "content_sha256": "6ce0139043294bca52285728abfd190d540a249c11a56f2c84c64774d7493573",
       "role": "Build, runtime, or repository configuration",
       "risk": "low",
-      "bytes": 17832,
-      "lines": 235,
+      "bytes": 18334,
+      "lines": 240,
       "detected_concerns": [],
       "review_focus": "Check local/CI/production parity, secret handling, ignored outputs, runtime version pinning, bundle boundaries, and deployment defaults.",
       "verification": "check:platform:fast and owning feature test"
@@ -8665,6 +8698,17 @@
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
+      "path": "scripts/azure-operational-alert-audit.mjs",
+      "content_sha256": "2f9d177a32b15734fbdcd64794d22d177c324b74804cd55b4f13e99b21340614",
+      "role": "Operator, verification, or data script",
+      "risk": "low",
+      "bytes": 3817,
+      "lines": 69,
+      "detected_concerns": [],
+      "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
+      "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
+    },
+    {
       "path": "scripts/backfill-allo-admission-evidence.mjs",
       "content_sha256": "5c47bc8f8a253d941a26f44282ebb23047e0fc23f581de4be4b1908504c570fa",
       "role": "Operator, verification, or data script",
@@ -8901,11 +8945,11 @@
     },
     {
       "path": "scripts/collaboration-load-smoke.mjs",
-      "content_sha256": "c25f5a95e6882c4866035d453f619f0e07cc82d50d9a05a23b47505a5acf09d0",
+      "content_sha256": "fdcf36a393c63a92fc0636042dd373335337b1bdeb0d812f3f281951ca92750e",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 14945,
-      "lines": 354,
+      "bytes": 16235,
+      "lines": 378,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -9153,11 +9197,11 @@
     },
     {
       "path": "scripts/database-assurance-contracts.mjs",
-      "content_sha256": "42f99015605ed94b76946918d445b759aa40816db9e9afdb4eb121c5b7d374a2",
+      "content_sha256": "8edfd9f034ac04590a70b4e18d5fb931261d975e122ec772b9c4362f206a1aa1",
       "role": "Operator, verification, or data script",
       "risk": "high",
-      "bytes": 3928,
-      "lines": 53,
+      "bytes": 4171,
+      "lines": 54,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -9239,11 +9283,11 @@
     },
     {
       "path": "scripts/database-restore-verify.mjs",
-      "content_sha256": "e6fb8e7ab252a0c87ce9371ec9cde1ad3903bf298e2cf955fdf0e75752f15ebc",
+      "content_sha256": "42b3411123fd4a699071843ddbae984574808d8d528cf3014e74c72a4ccf754a",
       "role": "Operator, verification, or data script",
       "risk": "high",
-      "bytes": 5315,
-      "lines": 129,
+      "bytes": 5774,
+      "lines": 141,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -9514,11 +9558,11 @@
     },
     {
       "path": "scripts/http-soak-smoke.mjs",
-      "content_sha256": "58bd2731bd44df372dd880009e6cde116d5e854e94650cdc641d28018fa6b8d1",
+      "content_sha256": "ef71b6d28579cdbc18af9729885198d13cc329df24debb7c96edd382b74d4a1b",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 9295,
-      "lines": 213,
+      "bytes": 9627,
+      "lines": 219,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -9753,11 +9797,11 @@
     },
     {
       "path": "scripts/operational-capacity-model.mjs",
-      "content_sha256": "611fcc32d37c361150a27a76ed62857acdcffb9cfce20b4c4b3cbd2472df3dde",
+      "content_sha256": "5e37a44358c5a87027f00bc2166be884b4350eb83f0a2d41ac9dade2288e3e39",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 4626,
-      "lines": 65,
+      "bytes": 4979,
+      "lines": 67,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
@@ -10238,6 +10282,17 @@
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
+      "path": "scripts/regional-recovery-readiness.mjs",
+      "content_sha256": "16c1bedb0c120bb0fd7450864606e22fd8b50d16fe896dd2e5cde9a533c44eb9",
+      "role": "Operator, verification, or data script",
+      "risk": "low",
+      "bytes": 2391,
+      "lines": 39,
+      "detected_concerns": [],
+      "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
+      "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
+    },
+    {
       "path": "scripts/release-compatibility.mjs",
       "content_sha256": "1e573cfe4367f8c9e161c2e8b98fb1eb7ea2c64e03098b2a10e16aa6fac84fae",
       "role": "Operator, verification, or data script",
@@ -10430,6 +10485,17 @@
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
+      "path": "scripts/tenant-isolation-audit.mjs",
+      "content_sha256": "fa8fb6a9d21ff0b2ef594060dbf5d7c3febedfb6e75acdf86d98ab0831ba74bd",
+      "role": "Operator, verification, or data script",
+      "risk": "low",
+      "bytes": 2929,
+      "lines": 50,
+      "detected_concerns": [],
+      "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
+      "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
+    },
+    {
       "path": "scripts/test-assertion-inventory.mjs",
       "content_sha256": "2af4854d6bc5e820a0c504abd16a7bc1f679eb5fb4a0cf3dd2cedc46c2967fc4",
       "role": "Operator, verification, or data script",
@@ -10508,6 +10574,17 @@
       "risk": "low",
       "bytes": 3736,
       "lines": 61,
+      "detected_concerns": [],
+      "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
+      "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
+    },
+    {
+      "path": "scripts/work-assessment-graph-evaluation.mjs",
+      "content_sha256": "003caa736a61f12ad59b03fe386c5ef6c458f86eddbd738fdb08ffe9ec755d5b",
+      "role": "Operator, verification, or data script",
+      "risk": "low",
+      "bytes": 3880,
+      "lines": 92,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"

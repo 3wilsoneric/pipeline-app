@@ -49,7 +49,7 @@ npm run database:restore:verify -- \
   --confirm-disposable
 ```
 
-The drill verifies the backup checksum, migration history, and aggregate table readability. Destroy the disposable database after the operator records the result.
+The drill verifies the backup checksum, recreates the disposable `pipeline` schema and required PostgreSQL extensions, then verifies migration history and aggregate table readability. Destroy the disposable database after the operator records the result.
 
 ## Release gate
 

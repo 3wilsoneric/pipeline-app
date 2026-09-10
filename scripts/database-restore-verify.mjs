@@ -27,6 +27,18 @@ if (manifest.schema_version !== 1 || manifest.sha256 !== checksum || manifest.da
   fail("Backup manifest verification failed.");
 }
 
+const resetSql = postgres(databaseUrl, databaseOptions(1));
+try {
+  await resetSql.unsafe("create extension if not exists pgcrypto");
+  await resetSql.unsafe("create extension if not exists pg_trgm");
+  await resetSql.unsafe("drop schema if exists pipeline cascade");
+  await resetSql.unsafe("create schema pipeline");
+} catch {
+  fail("The disposable Pipeline schema could not be reset before restore.");
+} finally {
+  await resetSql.end({ timeout: 5 });
+}
+
 try {
   await run(options.pgRestore, [
     `--dbname=${connection.database}`,

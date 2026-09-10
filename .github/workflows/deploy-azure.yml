@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Sign in to Azure with GitHub OIDC
         uses: azure/login@93381592711f247e165c389ebb30b596c84cdc48 # v3.0.0
@@ -338,3 +338,10 @@ jobs:
           done
           curl --fail --silent --show-error --max-time 15 '${{ steps.runtime.outputs.readiness_url }}' > /dev/null
           echo "Pipeline deployed at ${{ steps.runtime.outputs.application_url }}"
+
+      - name: Inventory deployed alert coverage
+        env:
+          PIPELINE_AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          PIPELINE_AZURE_NAME_PREFIX: ${{ steps.foundation.outputs.name_prefix }}
+          PIPELINE_AZURE_ENVIRONMENT: ${{ steps.foundation.outputs.environment }}
+        run: npm run check:alerts:azure

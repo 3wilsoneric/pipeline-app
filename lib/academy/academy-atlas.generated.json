@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:3e48c6bfec9d5822",
-  "fingerprint": "3e48c6bfec9d5822fb6d5cb15ade5c915abbc15ff38d4681b7ba0d2ea42a6f04",
+  "generatedAt": "source-fingerprint:23304bac35c65cce",
+  "fingerprint": "23304bac35c65cce248c2c3579ca4a9fe213c7b39fcc9b913d15fcb6298ee3d1",
   "totals": {
-    "files": 937,
-    "lines": 302407,
-    "coveredFiles": 937
+    "files": 944,
+    "lines": 302882,
+    "coveredFiles": 944
   },
   "entries": [
     {
@@ -74,7 +74,7 @@
       "kind": "repository-file",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 269,
+      "lines": 271,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -3783,6 +3783,18 @@
       ]
     },
     {
+      "path": "docs/ENTERPRISE_READINESS.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 23,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "docs/ENTRA_AUTHENTICATION.md",
       "subsystem": "Documentation",
       "kind": "documentation",
@@ -5341,7 +5353,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1862,
+      "lines": 1869,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5377,7 +5389,19 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7564,
+      "lines": 7568,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/reliability/enterprise-readiness-evidence-2026-09-10.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 26,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5437,7 +5461,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 11384,
+      "lines": 11461,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5558,6 +5582,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 21,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/WORK_ASSESSMENT_GRAPH_PRODUCT.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 36,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -8126,7 +8162,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 235,
+      "lines": 240,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -8805,6 +8841,18 @@
       ]
     },
     {
+      "path": "scripts/azure-operational-alert-audit.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 69,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
+      ]
+    },
+    {
       "path": "scripts/backfill-allo-admission-evidence.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -9038,7 +9086,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 354,
+      "lines": 378,
       "moduleIds": [
         "concurrency-idempotency",
         "stores-transactions"
@@ -9278,7 +9326,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 53,
+      "lines": 54,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -9362,7 +9410,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "high",
-      "lines": 129,
+      "lines": 141,
       "moduleIds": [
         "operations-recovery-release",
         "query-performance-retention"
@@ -9650,7 +9698,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 213,
+      "lines": 219,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -9890,7 +9938,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 65,
+      "lines": 67,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -10366,6 +10414,18 @@
       ]
     },
     {
+      "path": "scripts/regional-recovery-readiness.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 39,
+      "moduleIds": [
+        "operations-recovery-release",
+        "threat-supply-chain"
+      ]
+    },
+    {
       "path": "scripts/release-compatibility.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -10558,6 +10618,18 @@
       ]
     },
     {
+      "path": "scripts/tenant-isolation-audit.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 50,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/test-assertion-inventory.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -10639,6 +10711,18 @@
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
+      ]
+    },
+    {
+      "path": "scripts/work-assessment-graph-evaluation.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 92,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
       ]
     },
     {
