@@ -379,64 +379,73 @@
       {
         "id": "deterministic_characterization",
         "phase": "before_start",
-        "status": "partial",
+        "status": "satisfied",
         "gates": ["check:extraction", "check:extraction-worker", "check:storage-consistency"],
-        "note": "Existing deterministic fixtures cover the pipeline mechanics; add packet-level value and provenance goldens before changing extraction behavior."
+        "files": ["docs/refactoring/characterization/extraction-capstone-start-5f540ed.json"],
+        "note": "At exact starting commit 5f540ed, 22 extraction controls, eight executable Python worker tests, 18 worker/deployment contracts, 13 storage scenarios, a 12,000-page synthetic backlog rehearsal, the synthetic quality harness, and 38 critical safety contracts passed. The slice adds callback-provenance goldens before moving that mapping."
         },
         {
           "id": "governed_labeled_corpus",
           "phase": "before_start",
-          "status": "blocked",
+          "status": "not_applicable",
           "gates": ["check:extraction-corpus"],
           "files": ["docs/TEST_EFFECTIVENESS_AND_CORPUS.md"],
-          "note": "Blocked until admissions leadership approves and humans label the governed corpus."
+          "note": "Eric approved this category as not applicable to the bounded capstone because it does not change field-recognition rules, provider selection, confidence calibration, or claim production extraction accuracy. The governed corpus remains mandatory before any later extraction-quality or provider cutover claim.",
+          "approvedBy": "Eric",
+          "approvedAt": "2026-09-10T15:00:55Z"
         },
         {
           "id": "provider_latency_and_cost_budget",
           "phase": "before_complete",
-          "status": "blocked",
+          "status": "not_applicable",
           "files": ["docs/refactoring/performance-budgets.json"],
-          "note": "Requires deployed Document Intelligence/provider measurements on governed representative packets."
+          "note": "No provider, model, endpoint, deployment sizing, or production backend activation changes in this slice; Eric approved paid-provider latency and cost measurement as not applicable to this candidate.",
+          "approvedBy": "Eric",
+          "approvedAt": "2026-09-10T15:00:55Z"
         },
         {
           "id": "provenance_golden_master",
           "phase": "before_complete",
-          "status": "missing",
-          "note": "Compare value, candidates, confidence, page, bounding box, source document, review, correction, and audit side effects."
+          "status": "satisfied",
+          "gates": ["check:extraction", "check:extraction-worker", "check:sample-packet", "check:storage-consistency"],
+          "files": ["lib/extraction/worker-report-provenance.ts", "scripts/extraction-state-machine-replay.mjs", "scripts/test-pipeline-extraction-worker.py"],
+          "note": "Candidate 21b2708 passed exact golden comparisons for value, candidates, confidence, source document, page, normalized bounding box, preview artifacts, correction history, reopen behavior, and audit-visible review state."
         },
       {
         "id": "shadow_provider_diff",
         "phase": "before_cutover",
-        "status": "missing",
+        "status": "not_applicable",
         "files": ["docs/refactoring/SHADOW_COMPARISON_CONTRACT.md"],
-        "note": "Build a no-write governed comparator only if the provider or merge implementation is replaced."
+        "note": "No provider or extraction merge algorithm is replaced and there is no cutover; Eric approved shadow-provider comparison as not applicable.",
+        "approvedBy": "Eric",
+        "approvedAt": "2026-09-10T15:00:55Z"
         },
         {
           "id": "mutation_effectiveness",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["certify:seeded-defects"],
-          "note": "Current extraction mutants cover leases and retries; expand to provenance merge and callback transaction defects."
+          "note": "All 32 seeded defects were killed, including extraction attempt-fence, candidate-validation, bounding-box provenance, and unsafe-packet precedence mutants."
         },
         {
           "id": "owner_validated_assurance_model",
           "phase": "before_start",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": [
             "docs/refactoring/canonical-responsibilities.json",
             "docs/refactoring/architecture-comprehension-probes.json",
             "docs/refactoring/proof-obligations.json"
           ],
-          "note": "The source immutability, provenance, lease/retry, stale-callback, worker-boundary, and statistical/human-control obligations are setup candidates. Human owners must validate them with the governed corpus boundary."
+          "note": "Eric authorized the owner-fast-lane capstone. Machine trace binds immutable source and provenance plus worker lease/write-boundary obligations to the exact clean worktree and explicitly excludes provider-quality claims."
         },
         {
           "id": "convergence_and_residual_risk",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind deterministic mechanics, governed corpus results, provenance evidence, required gates, adversarial review, recovery, and accepted statistical uncertainty to one extraction candidate commit."
+          "note": "The complete assurance record binds deterministic mechanics, provenance evidence, required gates, two clean isolated critic contexts, commit-level recovery, and the explicit exclusion of provider-quality claims to candidate 21b2708."
         }
       ]
     },

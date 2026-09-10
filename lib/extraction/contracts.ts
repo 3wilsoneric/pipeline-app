@@ -13,6 +13,7 @@ export type ReviewStatus = "pending" | "accepted" | "edited" | "rejected";
 export type ReviewAction = "accept" | "edit" | "reject";
 
 export type ExtractorSource = "document_intelligence" | "claude" | "human";
+export type EvidenceBoundingBox = [number, number, number, number];
 
 export const documentCategories = [
   "referral_packet",
@@ -99,6 +100,7 @@ export type FieldCandidate = {
   confidence: number;
   source_page_no?: number;
   evidence_url?: string;
+  evidence_bbox?: EvidenceBoundingBox;
 };
 
 export type ExtractedField = {
@@ -109,6 +111,7 @@ export type ExtractedField = {
   review_status: ReviewStatus;
   source_page_no?: number;
   evidence_url?: string;
+  evidence_bbox?: EvidenceBoundingBox;
   is_conflict: boolean;
   candidates: FieldCandidate[];
   final_value?: string | null;

@@ -10,6 +10,7 @@ import type {
   CreateUploadUrlRequest,
   CreateUploadUrlResponse,
   ExtractedField,
+  EvidenceBoundingBox,
   FieldAuditEvent,
   FieldCandidate,
   PacketFieldsResponse,
@@ -63,6 +64,7 @@ type FieldRow = {
   source_document_id: string | null;
   source_page: number | null;
   evidence_blob_key: string | null;
+  evidence_bbox: EvidenceBoundingBox | null;
   version: number;
 };
 
@@ -74,6 +76,7 @@ type CandidateRow = {
   confidence: number | string;
   source_page: number | null;
   evidence_blob_key: string | null;
+  evidence_bbox: EvidenceBoundingBox | null;
 };
 
 const requiredPacketFields = [
@@ -368,7 +371,7 @@ export async function getDurablePacketFields(packetId: string): Promise<PacketFi
   const rows = await sql<FieldRow[]>`
     select distinct rf.referral_field_id, rf.field_key, rf.proposed_value, rf.final_value,
       rf.confidence, rf.review_status, rf.source_document_id, rf.source_page,
-      rf.evidence_blob_key, rf.version
+      rf.evidence_blob_key, rf.evidence_bbox, rf.version
     from pipeline.packet_upload_files pf
     join pipeline.referral_fields rf on rf.source_document_id = pf.document_id
     where pf.packet_id = ${packetId}::uuid
@@ -378,7 +381,7 @@ export async function getDurablePacketFields(packetId: string): Promise<PacketFi
   const candidates = fieldIds.length
     ? await sql<CandidateRow[]>`
         select candidate_id, referral_field_id, source, candidate_value, confidence,
-          source_page, evidence_blob_key
+          source_page, evidence_blob_key, evidence_bbox
         from pipeline.extraction_candidates
         where referral_field_id in ${sql(fieldIds)}
         order by confidence desc, candidate_id
@@ -446,7 +449,7 @@ export async function reviewDurableField(
     const rows = await tx<FieldRow[]>`
       select rf.referral_field_id, rf.field_key, rf.proposed_value, rf.final_value,
         rf.confidence, rf.review_status, rf.source_document_id, rf.source_page,
-        rf.evidence_blob_key, rf.version
+        rf.evidence_blob_key, rf.evidence_bbox, rf.version
       from pipeline.packet_upload_files pf
       join pipeline.referral_fields rf on rf.source_document_id = pf.document_id
       where pf.packet_id = ${packetId}::uuid and rf.field_key = ${fieldKey}
@@ -484,7 +487,7 @@ export async function reviewDurableField(
           reviewed_at = now(), version = version + 1, updated_at = now()
       where referral_field_id = ${current.referral_field_id}::uuid and version = ${current.version}
       returning referral_field_id, field_key, proposed_value, final_value, confidence, review_status,
-        source_document_id, source_page, evidence_blob_key, version
+        source_document_id, source_page, evidence_blob_key, evidence_bbox, version
     `;
     if (!updated[0]) throw new DocumentProcessingError("field_version_conflict", 409, "This field changed in another session.");
     const events = await tx<{ review_event_id: string; created_at: Date | string }[]>`
@@ -540,7 +543,7 @@ export async function retryDurableField(
     const fields = await tx<FieldRow[]>`
       select rf.referral_field_id, rf.field_key, rf.proposed_value, rf.final_value,
         rf.confidence, rf.review_status, rf.source_document_id, rf.source_page,
-        rf.evidence_blob_key, rf.version
+        rf.evidence_blob_key, rf.evidence_bbox, rf.version
       from pipeline.packet_upload_files pf
       join pipeline.referral_fields rf on rf.source_document_id = pf.document_id
       where pf.packet_id = ${packetId}::uuid and rf.field_key = ${fieldKey} limit 1
@@ -601,6 +604,7 @@ function mapField(packetId: string, row: FieldRow, candidates: FieldCandidate[])
     review_status: contractReviewStatus(row.review_status),
     source_page_no: row.source_page ?? undefined,
     evidence_url: row.evidence_blob_key ? evidenceUrl(packetId, row.field_key) : undefined,
+    evidence_bbox: row.evidence_bbox ?? undefined,
     is_conflict: distinct.size > 1,
     candidates,
     ...(row.review_status !== "pending" ? { final_value: finalValue } : {}),
@@ -615,6 +619,7 @@ function mapCandidate(packetId: string, row: CandidateRow): FieldCandidate {
     confidence: clampConfidence(row.confidence),
     source_page_no: row.source_page ?? undefined,
     evidence_url: row.evidence_blob_key ? evidenceUrl(packetId, row.referral_field_id) : undefined,
+    evidence_bbox: row.evidence_bbox ?? undefined,
   };
 }
 

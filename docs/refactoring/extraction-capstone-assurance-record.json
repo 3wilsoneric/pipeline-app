@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "extraction-capstone",
+  "status": "complete",
+  "startingCommit": "5f540edb0ddad56b4dbae6a4e49c6983170db838",
+  "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0",
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-10T15:00:55Z",
+    "directive": "do extraction and then we'll do the next six"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "extraction_immutable_source_and_provenance",
+    "extraction_worker_lease_and_write_boundary"
+  ],
+  "preChangeMachineTrace": [
+    "Starting commit 5f540edb0ddad56b4dbae6a4e49c6983170db838 is origin/main and the exact clean worktree branch point.",
+    "The exact-start extraction, worker, storage, backlog, quality-harness, critical-safety, and complexity gates passed.",
+    "The audit found stale asynchronous writes lacking complete attempt fencing and missing durable bounding-box plumbing.",
+    "Provider replacement, recognition-rule changes, paid calls, live PHI, and production backend activation are excluded."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Original packet bytes remain immutable and digest verified.",
+      "Extracted values retain source document, page, bounding box, confidence, and review history.",
+      "Leases, retries, dead letters, and callbacks remain bounded and idempotent.",
+      "Workers cannot write canonical referral or assessment state directly."
+    ],
+    "evidence": [
+      "The deterministic replay, Python worker tests, deployment contracts, storage checks, synthetic packet journey, backlog rehearsal, recovery drill, PostgreSQL 16 suite, mutation suite, and build passed for candidate 21b27089ffd7bd718547dbc0718f122af68ccdc0.",
+      "The slice changes no public route, page, role, provider, model, canonical referral or assessment write boundary, or production extraction-backend setting."
+    ]
+  },
+  "iterations": [
+    {
+      "id": "iteration-001",
+      "responsibilityId": "extraction_provenance_and_worker_state",
+      "obligationIds": [
+        "extraction_immutable_source_and_provenance",
+        "extraction_worker_lease_and_write_boundary"
+      ],
+      "baseCommit": "5f540edb0ddad56b4dbae6a4e49c6983170db838",
+      "headCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0",
+      "purpose": "Fence every asynchronous provider, heartbeat, and persistence write to the claimed extraction attempt; centralize report-to-row provenance mapping; preserve normalized evidence geometry durably; reject malformed candidate evidence; and keep unsafe-document failures authoritative at packet level.",
+      "changedFiles": [
+        "lib/extraction/processing-worker.ts",
+        "lib/extraction/worker-report-validation.ts",
+        "lib/extraction/worker-report-provenance.ts",
+        "lib/extraction/contracts.ts",
+        "lib/extraction/document-processing.ts",
+        "databricks/pipeline_extraction_worker.py",
+        "database/migrations/0032_extraction_evidence_bounding_boxes.sql",
+        "database/rollbacks/0032_extraction_evidence_bounding_boxes.sql"
+      ],
+      "preChangeCharacterization": [
+        "Provider attachment, reconciliation, and heartbeat writes were not all fenced to the current attempt token.",
+        "Worker reports could express page evidence but did not preserve normalized bounding boxes through validation, persistence, and durable reads.",
+        "Candidate evidence was not traversed by the report validator, and stale extracted fields could outrank a failed or malware-marked document when packet state was refreshed."
+      ],
+      "focusedEvidence": [
+        "Twenty-nine deterministic extraction-state and provenance checks, ten Python worker tests, twenty worker/deployment contracts, and thirteen storage-consistency scenarios passed.",
+        "A one-page synthetic referral packet completed the full mock extraction, field review, correction-history, and reopen journey with eight populated fields and eight evidence records.",
+        "All 49 isolated PostgreSQL 16 controls and the migration-0032 rollback drill passed."
+      ],
+      "baselineDelta": {
+        "before": "A stale worker attempt retained several opportunities to mutate current provider or heartbeat state, while exact evidence geometry could not survive the complete pipeline.",
+        "after": "Every asynchronous mutation checks extraction job, running state, attempt count, attempt token, and provider identity as applicable; report provenance has one pure mapping owner; valid normalized geometry is stored and read end to end.",
+        "comparison": "Existing extraction state transitions, canonical write boundaries, public UI, routes, provider behavior, and human review flow remain unchanged.",
+        "regressions": []
+      },
+      "tradeoffs": [
+        "Bounding boxes remain optional so previously extracted rows and provider outputs without geometry remain valid; provider-recognition accuracy is deliberately outside this mechanics-only slice."
+      ],
+      "diffInspectedBy": "TARS owner-fast-lane machine trace",
+      "decision": "accepted",
+      "decidedBy": "Eric",
+      "decidedAt": "2026-09-10T16:04:18Z"
+    }
+  ],
+  "proofResults": [
+    {
+      "obligationId": "extraction_immutable_source_and_provenance",
+      "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0",
+      "status": "verified",
+      "methods": ["mechanical", "integration", "mutation", "property_based"],
+      "evidence": [
+        "Golden tests compare field and candidate identity, value, confidence, source document, page, normalized bounding box, evidence text, preview metadata, and deduplicated artifacts.",
+        "The synthetic packet journey preserved the immutable source digest, extraction evidence, reviewer correction history, and reopened review state.",
+        "Migration 0032 adds optional validated geometry without rewriting historical rows and has a focused rollback."
+      ],
+      "implementationTrace": [
+        "lib/extraction/worker-report-provenance.ts",
+        "lib/extraction/worker-report-validation.ts",
+        "lib/extraction/document-processing.ts",
+        "databricks/pipeline_extraction_worker.py",
+        "database/migrations/0032_extraction_evidence_bounding_boxes.sql"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-10T16:04:18Z"
+    },
+    {
+      "obligationId": "extraction_worker_lease_and_write_boundary",
+      "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0",
+      "status": "verified",
+      "methods": ["exhaustive_finite", "property_based", "integration", "operational_recovery"],
+      "evidence": [
+        "Attempt-token replay checks reject stale provider attachment, provider reconciliation, heartbeat, and report persistence writes.",
+        "The 12,000-page synthetic backlog rehearsal completed twenty packets with twenty bounded retries, zero dead letters, and zero duplicate claims.",
+        "Static and behavioral worker contracts keep canonical referral and assessment mutation outside the worker boundary, and unsafe document state retains packet-level precedence."
+      ],
+      "implementationTrace": [
+        "lib/extraction/processing-worker.ts",
+        "lib/extraction/extraction-state.ts",
+        "app/api/internal/extraction/report/route.ts",
+        "scripts/extraction-state-machine-replay.mjs",
+        "scripts/pipeline-extraction-worker-contracts.mjs"
+      ],
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-10T16:04:18Z"
+    }
+  ],
+  "gateResults": [
+    {"command": "npm run check:extraction", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "All 29 deterministic state-machine, stale-attempt, validation, packet-state, and provenance-golden checks passed."},
+    {"command": "npm run check:extraction-worker", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "All ten Python worker tests and twenty TypeScript worker/deployment contracts passed."},
+    {"command": "npm run check:sample-packet", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "A disposable synthetic one-page referral packet reached ready-for-review with 13 fields, eight populated values, eight evidence records, one correction-history entry, and a successful reopen."},
+    {"command": "npm run check:storage-consistency", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "All 13 storage consistency scenarios passed."},
+    {"command": "npm run check:backlog-rehearsal", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "Twenty synthetic packets totaling 12,000 pages completed with twenty bounded retries, zero dead letters, and zero duplicate claims."},
+    {"command": "npm run check:extraction-quality", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "The checked-in synthetic quality harness passed at 100 percent; this is a mechanics regression signal, not a representative provider-accuracy claim."},
+    {"command": "npm run test:critical-safety", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "All 42 critical safety contracts passed."},
+    {"command": "npm run certify:seeded-defects", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "All 32 seeded defects were killed for a 100 percent kill rate."},
+    {"command": "npm run database:assurance:integration", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "All 49 isolated PostgreSQL 16 schema, migration, constraint, transaction, contention, integrity, and rollback controls passed."},
+    {"command": "npm run check:recovery", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "All seven backup, checksum, disposable restore, migration-history, and recovery-owner checks passed."},
+    {"command": "npm run check:refactor-assurance", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "The owner-fast-lane scope, obligations, candidate-bound gates, rollback evidence, and convergence record passed structural validation."},
+    {"command": "npm run certify:refactor", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "outcome": "passed", "evidence": "Repository hygiene, Academy freshness, complexity, platform, assertion integrity, mutation effectiveness, TypeScript, ESLint, production build, and bounded assurance checks passed."}
+  ],
+  "adversarialPasses": [
+    {"id": "adversarial-001", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "reviewer": "TARS isolated mutation and provenance oracle", "contextId": "isolated-mutation-oracle-extraction-capstone", "implementationConversationUsed": false, "findings": [], "materialSimplificationFound": false, "completedAt": "2026-09-10T16:04:18Z"},
+    {"id": "adversarial-002", "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0", "reviewer": "TARS disposable PostgreSQL, rollback, and sample-packet critic", "contextId": "disposable-postgresql-and-sample-packet-critic", "implementationConversationUsed": false, "findings": [], "materialSimplificationFound": false, "completedAt": "2026-09-10T16:04:18Z"}
+  ],
+  "rollbackAndRecovery": {
+    "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0",
+    "method": "Reverse candidate 21b27089ffd7bd718547dbc0718f122af68ccdc0 to starting commit 5f540edb0ddad56b4dbae6a4e49c6983170db838 and apply the scoped migration-0032 rollback before application rollback if production geometry has been written.",
+    "exercisedEvidence": [
+      "The migration rollback drill removed only both evidence-bounding-box columns, their validated constraints, and migration-0032 history while preserving migration 0031, then restored the candidate transactionally.",
+      "A detached temporary worktree reverse-patch exercise restored every candidate path to the exact starting commit without conflict.",
+      "The seven-control recovery suite and isolated PostgreSQL restore checks passed."
+    ],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-10T16:04:18Z"
+  },
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": "21b27089ffd7bd718547dbc0718f122af68ccdc0",
+    "allObligationsVerified": true,
+    "requiredGatesPassed": true,
+    "behaviorPreserved": true,
+    "consecutiveCleanAdversarialPasses": 2,
+    "postComprehensionNoWorse": true,
+    "rollbackOrRecoveryProven": true,
+    "noUnresolvedCriticalOrHigh": true,
+    "acceptedBy": "Eric",
+    "acceptedAt": "2026-09-10T16:04:18Z",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-10T15:00:55Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}

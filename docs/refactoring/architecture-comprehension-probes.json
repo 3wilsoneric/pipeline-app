@@ -99,7 +99,7 @@
       "id": "extraction_lease_and_stale_callback",
       "sliceIds": ["extraction-capstone"],
       "responsibilityId": "extraction_provenance_and_worker_state",
-      "question": "Trace job creation, claim, lease, retry, dead-letter, and callback. Explain how stale attempts are rejected and prove a worker cannot write canonical referral or assessment state.",
+      "question": "Trace job creation, claim, provider attachment, reconciliation, heartbeat, retry, dead-letter, and callback. Explain how every asynchronous write is fenced to the claimed attempt and prove a worker cannot write canonical referral or assessment state.",
       "codePaths": [
         "lib/extraction/extraction-state.ts",
         "lib/extraction/processing-worker.ts",
@@ -116,9 +116,13 @@
       "question": "For one accepted extracted value, identify immutable source bytes, digest, document, page, bounding box, confidence, candidate history, reviewer correction, audit effect, and the governed quality evidence.",
       "codePaths": [
         "lib/extraction/extraction-service.ts",
+        "lib/extraction/worker-report-provenance.ts",
+        "lib/extraction/worker-report-validation.ts",
+        "lib/extraction/document-processing.ts",
+        "databricks/pipeline_extraction_worker.py",
         "components/pipeline/ReferralPacketCanvas.tsx"
       ],
-      "verificationGates": ["check:storage-consistency", "check:extraction-quality", "check:extraction-corpus"],
+      "verificationGates": ["check:extraction", "check:extraction-worker", "check:sample-packet", "check:storage-consistency", "check:extraction-quality"],
       "humanValidated": false
     },
     {

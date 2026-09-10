@@ -37,6 +37,7 @@ const staffProfilesRollback = await readFile("database/rollbacks/0027_staff_prof
 const workspaceRosterRollback = await readFile("database/rollbacks/0028_workspace_roster.sql", "utf8");
 const historicalWorkspaceArchiveRollback = await readFile("database/rollbacks/0029_historical_workspace_archive.sql", "utf8");
 const assessmentReviewRevisionRollback = await readFile("database/rollbacks/0031_assessment_review_revisions.sql", "utf8");
+const extractionEvidenceBoundingBoxesRollback = await readFile("database/rollbacks/0032_extraction_evidence_bounding_boxes.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -121,6 +122,9 @@ try {
       to_regclass('pipeline.assessment_reviews') is not null as assessment_reviews,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='revision_root_id') as assessment_revision_lineage,
       exists(select 1 from pipeline.schema_migrations where migration_id='0031_assessment_review_revisions') as assessment_review_revision_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referral_fields' and column_name='evidence_bbox') as referral_field_evidence_bbox,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='extraction_candidates' and column_name='evidence_bbox') as candidate_evidence_bbox,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0032_extraction_evidence_bounding_boxes') as extraction_evidence_bbox_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -186,6 +190,9 @@ try {
       && before[0].assessment_reviews
       && before[0].assessment_revision_lineage
       && before[0].assessment_review_revision_history
+      && before[0].referral_field_evidence_bbox
+      && before[0].candidate_evidence_bbox
+      && before[0].extraction_evidence_bbox_history
       && before[0].canvas_content_snapshots
       && before[0].canvas_content_candidates
       && before[0].allo_canvas_content_history
@@ -199,6 +206,29 @@ try {
       && before[0].workspace_month_index
       && before[0].workspace_month_history
     ),
+  });
+  await connection.unsafe(extractionEvidenceBoundingBoxesRollback);
+  const extractionEvidenceDuring = await connection`
+    select not exists(
+        select 1 from information_schema.columns
+        where table_schema='pipeline' and table_name='referral_fields' and column_name='evidence_bbox'
+      ) as referral_field_bbox_removed,
+      not exists(
+        select 1 from information_schema.columns
+        where table_schema='pipeline' and table_name='extraction_candidates' and column_name='evidence_bbox'
+      ) as candidate_bbox_removed,
+      not exists(
+        select 1 from pipeline.schema_migrations
+        where migration_id='0032_extraction_evidence_bounding_boxes'
+      ) as history_removed,
+      exists(
+        select 1 from pipeline.schema_migrations
+        where migration_id='0031_assessment_review_revisions'
+      ) as prior_history_preserved
+  `;
+  checks.push({
+    name: "extraction evidence bounding-box rollback is scoped and preserves prior migration history",
+    ok: Object.values(extractionEvidenceDuring[0]).every(Boolean),
   });
   await connection.unsafe(assessmentReviewRevisionRollback);
   const reviewRevisionDuring = await connection`
@@ -752,6 +782,9 @@ try {
       to_regclass('pipeline.assessment_reviews') is not null as assessment_reviews,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='assessments' and column_name='revision_root_id') as assessment_revision_lineage,
       exists(select 1 from pipeline.schema_migrations where migration_id='0031_assessment_review_revisions') as assessment_review_revision_history,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referral_fields' and column_name='evidence_bbox') as referral_field_evidence_bbox,
+      exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='extraction_candidates' and column_name='evidence_bbox') as candidate_evidence_bbox,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0032_extraction_evidence_bounding_boxes') as extraction_evidence_bbox_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -819,6 +852,9 @@ try {
       && after[0].assessment_reviews
       && after[0].assessment_revision_lineage
       && after[0].assessment_review_revision_history
+      && after[0].referral_field_evidence_bbox
+      && after[0].candidate_evidence_bbox
+      && after[0].extraction_evidence_bbox_history
       && after[0].canvas_content_snapshots
       && after[0].canvas_content_candidates
       && after[0].allo_canvas_content_history

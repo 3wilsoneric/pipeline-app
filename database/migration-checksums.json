@@ -32,6 +32,7 @@
     "0028_workspace_roster.sql": "b184e03f80eb2ffaafa6346a08b4d88d051921e4fd18c43aeb68b7c1d94607f0",
     "0029_historical_workspace_archive.sql": "844bab50d1a44158249283b142b01213bd0b646895f9a8b5045bd1448249e7b8",
     "0030_annette_everhart_display_name.sql": "a053bbcf4f543d7f74a38645aad3b0d1e210c5aa4b3482a49ca1a4759e119573",
-    "0031_assessment_review_revisions.sql": "dff5ecd540e56799cafddc096ec4ac00d89e39358d8f5f237affb0a563da1cb8"
+    "0031_assessment_review_revisions.sql": "dff5ecd540e56799cafddc096ec4ac00d89e39358d8f5f237affb0a563da1cb8",
+    "0032_extraction_evidence_bounding_boxes.sql": "2ddbbb8f6c6a73989f8df21129a81c4029e4a231ea47af21496a030504a35260"
   }
 }

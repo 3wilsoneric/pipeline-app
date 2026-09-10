@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:75a298a9ebe75a6e",
-  "fingerprint": "75a298a9ebe75a6efaf7fa0f864aacfd875f682eb1c70a2fdc3a948769d35d33",
+  "generatedAt": "source-fingerprint:3e48c6bfec9d5822",
+  "fingerprint": "3e48c6bfec9d5822fb6d5cb15ade5c915abbc15ff38d4681b7ba0d2ea42a6f04",
   "totals": {
-    "files": 930,
-    "lines": 300992,
-    "coveredFiles": 930
+    "files": 937,
+    "lines": 302407,
+    "coveredFiles": 937
   },
   "entries": [
     {
@@ -2551,7 +2551,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 38,
+      "lines": 39,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -2930,6 +2930,18 @@
       ]
     },
     {
+      "path": "database/migrations/0032_extraction_evidence_bounding_boxes.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 48,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -3254,6 +3266,18 @@
       ]
     },
     {
+      "path": "database/rollbacks/0032_extraction_evidence_bounding_boxes.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 11,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "databricks.yml",
       "subsystem": "Repository configuration",
       "kind": "repository-file",
@@ -3271,7 +3295,7 @@
       "kind": "worker",
       "runtime": "worker",
       "risk": "high",
-      "lines": 782,
+      "lines": 878,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -4064,7 +4088,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 238,
+      "lines": 242,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4196,7 +4220,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 443,
+      "lines": 445,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4257,6 +4281,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 43,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/extraction-capstone-start-5f540ed.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 21,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4570,7 +4606,43 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 958,
+      "lines": 967,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/EXTRACTION_CAPSTONE_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 50,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/extraction-capstone-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 173,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/extraction-capstone-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 428,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4654,7 +4726,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 314,
+      "lines": 321,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4798,7 +4870,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 755,
+      "lines": 811,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5173,7 +5245,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 298,
+      "lines": 340,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5269,7 +5341,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1854,
+      "lines": 1862,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5305,7 +5377,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7559,
+      "lines": 7564,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5365,7 +5437,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 11305,
+      "lines": 11384,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6244,7 +6316,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 451,
+      "lines": 454,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -6296,7 +6368,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 665,
+      "lines": 670,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -6413,7 +6485,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 591,
+      "lines": 588,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -6447,12 +6519,25 @@
       ]
     },
     {
+      "path": "lib/extraction/worker-report-provenance.ts",
+      "subsystem": "Document extraction",
+      "kind": "typescript-module",
+      "runtime": "next-server",
+      "risk": "critical",
+      "lines": 77,
+      "moduleIds": [
+        "extraction-worker",
+        "provenance-review",
+        "upload-storage"
+      ]
+    },
+    {
       "path": "lib/extraction/worker-report-validation.ts",
       "subsystem": "Document extraction",
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 133,
+      "lines": 205,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -9157,7 +9242,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 261,
+      "lines": 298,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9265,7 +9350,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 476,
+      "lines": 488,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -9289,7 +9374,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 852,
+      "lines": 888,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -9373,7 +9458,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 99,
+      "lines": 183,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9889,7 +9974,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "high",
-      "lines": 37,
+      "lines": 39,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10021,7 +10106,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 208,
+      "lines": 220,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -10394,7 +10479,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 154,
+      "lines": 167,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10490,7 +10575,7 @@
       "kind": "worker",
       "runtime": "tooling",
       "risk": "high",
-      "lines": 130,
+      "lines": 155,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
