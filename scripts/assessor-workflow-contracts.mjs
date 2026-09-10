@@ -544,7 +544,7 @@ check("review change requests and revision creation share one PostgreSQL transac
   workflowStore.includes("createAssessmentRevisionInTransaction")
     && workflowStore.includes("recordPostgresReviewChanges")
     && workflowStore.includes("sql.begin(async (tx)"));
-check("review migration has a transactional rollback", /^\s*begin;/i.test(reviewRollback) && /commit;\s*$/i.test(reviewRollback));
+check("review rollback delegates transaction ownership to the drill", !/^\s*(begin|commit)\s*;/im.test(reviewRollback));
 check("requirements cannot drift from the referral assignment", workItemRoute.includes("Change the referral assignment to change requirement ownership") && !workItemRoute.includes('"ownerId",'));
 check(
   "assessment interview uses one focused schedule-then-begin shell with grouped responsive navigation",

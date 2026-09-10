@@ -1,5 +1,3 @@
-begin;
-
 -- Map new states to the closest prior operational meaning before restoring the
 -- prior constraint. Forward recovery remains preferred once review data exists.
 update pipeline.referrals
@@ -41,5 +39,3 @@ alter table pipeline.assessments
 
 delete from pipeline.schema_migrations
 where migration_id = '0031_assessment_review_revisions';
-
-commit;
