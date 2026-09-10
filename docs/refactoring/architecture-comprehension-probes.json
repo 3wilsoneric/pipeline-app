@@ -202,6 +202,20 @@
       ],
       "verificationGates": ["check:assessor-workflow", "check:workflow-fuzz", "test:e2e", "test:e2e:operational:high"],
       "humanValidated": false
+    },
+    {
+      "id": "assessment_review_correction_resubmission",
+      "sliceIds": ["supervisor-review-revision"],
+      "responsibilityId": "assessment_review_revision_cycle",
+      "question": "Trace one signed assessment through recommendation submission, durable supervisor review, a changes-requested collision, editable successor creation, resubmission, placement decision, explicit admission, and downstream binding. Prove that stale or replayed commands do not duplicate effects and signed source content remains unchanged.",
+      "codePaths": [
+        "lib/pipeline/workflow-store.ts",
+        "lib/pipeline/workflow-records.ts",
+        "lib/assessment/assessment-store.ts",
+        "components/pipeline/ReferralWorkflowPanel.tsx"
+      ],
+      "verificationGates": ["check:workflow-store-characterization", "database:concurrency", "test:e2e:operational:high"],
+      "humanValidated": false
     }
   ]
 }

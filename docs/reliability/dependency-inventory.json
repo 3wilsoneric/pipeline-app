@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T00:33:29.716Z",
+  "generated_at": "2026-09-10T01:59:39.754Z",
   "audit_date": "2026-09-10",
-  "git_head": "5b70ba848238791b80b66f9ca9dc04d7ae3f3e43",
+  "git_head": "1f98a663965850985eb1fcceb3049a442d5a2797",
   "direct": [
     {
       "name": "@azure/identity",
@@ -762,6 +762,7 @@
         "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json",
         "docs/refactoring/evidence-matrix.json",
         "docs/refactoring/refactor-eval-scenarios.json",
+        "docs/refactoring/refactor-slices.json",
         "docs/refactoring/workflow-and-handoff-file-audit.json",
         "infra/azure/foundation-state.bicep",
         "infra/azure/main.bicep",
@@ -7548,8 +7549,8 @@
     "resolvedPackages": 520,
     "dependencyEdges": 1063,
     "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-workflow-panel/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-workflow-panel/node_modules/@img/sharp-wasm32"
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-supervisor-review-revision/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-supervisor-review-revision/node_modules/@img/sharp-wasm32"
     ]
   }
 }

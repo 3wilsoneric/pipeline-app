@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "supervisor-review-revision",
+  "status": "in_progress",
+  "startingCommit": "1f98a663965850985eb1fcceb3049a442d5a2797",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-10T01:45:41Z"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": ["assessment_review_revision_atomicity"],
+  "preChangeMachineTrace": [
+    "Starting commit 1f98a663965850985eb1fcceb3049a442d5a2797 is current origin/main and the exact clean worktree branch point.",
+    "Existing workflow characterization proves signed assessment, recommendation, head-supervisor decision, admission, EHR recovery, role denial, optimistic conflict, and replay behavior before this slice.",
+    "The audit found no missing autosave, signing, addendum, presence, extraction provenance, scheduling, trash, or role-scoped queue primitive; the bounded gap is the durable review and correction-revision chain."
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Existing referral intake, assignment, scheduling, assessment editing, signing, addenda, decision, admission, EHR handoff, client activation, trash, and restoration behavior remains available.",
+      "Signed assessment content and provenance remain immutable; corrections create a linked editable successor rather than overwriting the signed source.",
+      "Only the head supervisor/admin records the terminal decision, while the existing assigned-assessor and supervisor-takeover recommendation policy remains intact.",
+      "Review submission, review outcome, correction revision, referral projection, audit, optimistic conflict, and idempotent replay remain transactionally coherent in PostgreSQL and recoverable in local mode.",
+      "Placement acceptance does not claim admission; only the explicit admitted transition enables the existing downstream handoff path."
+    ],
+    "evidence": ["The pre-change workflow and assessment characterization suites bind the current observable behavior at the exact starting commit; candidate evidence will repeat and extend those suites."]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": {
+    "candidateCommit": null,
+    "method": "Revert the bounded implementation commits; for an applied schema, run the paired 0031 rollback only under the documented database rollback drill.",
+    "exercisedEvidence": [],
+    "approvedBy": "Eric",
+    "approvedAt": "2026-09-10T01:45:41Z"
+  },
+  "residualRisks": [],
+  "convergence": {
+    "candidateCommit": null,
+    "allObligationsVerified": false,
+    "requiredGatesPassed": false,
+    "behaviorPreserved": false,
+    "consecutiveCleanAdversarialPasses": 0,
+    "postComprehensionNoWorse": false,
+    "rollbackOrRecoveryProven": false,
+    "noUnresolvedCriticalOrHigh": false,
+    "acceptedBy": null,
+    "acceptedAt": null,
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-10T01:45:41Z",
+    "claim": "The named candidate commit satisfied the recorded bounded obligations and evidence for the approved slice."
+  }
+}

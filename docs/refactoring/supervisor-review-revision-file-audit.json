@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "supervisor-review-revision",
+  "startingCommit": "1f98a663965850985eb1fcceb3049a442d5a2797",
+  "generatedInventory": "docs/reliability/repository-file-inventory.json",
+  "humanOwner": "Eric",
+  "reviewedAt": "2026-09-10T01:45:41Z",
+  "files": [
+    {
+      "path": "lib/pipeline/workflow-store.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Effectful routes depend on this canonical workflow transaction owner; it depends on assessment, referral, and database primitives.",
+      "purpose": "Own review submission, outcome, correction revision orchestration, decision binding, replay, and audit.",
+      "callers": ["referral workflow routes"],
+      "publicExports": ["getReferralWorkflowSnapshot", "recordAssessmentRecommendation", "requestAssessmentChanges", "recordAdmissionDecision"],
+      "sideEffects": ["PostgreSQL or local persistence", "audit", "idempotency", "store revisions"],
+      "failureBehavior": "Stale or blocked commands return typed no-write outcomes; unexpected PostgreSQL failures roll back the transaction.",
+      "tests": ["check:workflow-store-characterization", "database:concurrency"],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (1162 lines): split by behavior before adding more responsibilities.",
+          "disposition": "confirmed",
+          "reason": "The review/revision transaction is the same workflow aggregate, but pure review policy will stay in workflow-records and route/UI concerns stay outside this module.",
+          "owner": "Eric",
+          "followUp": "Do not add presentation, route validation, or assessment field policy to workflow-store."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "It is the existing canonical transaction owner and is the narrowest safe home for the cross-record command."
+    },
+    {
+      "path": "lib/assessment/assessment-store.ts",
+      "plannedNew": false,
+      "dependencyDirection": "Assessment routes and workflow reads depend on this canonical assessment owner.",
+      "purpose": "Expose revision lineage and keep ordinary assessment persistence and signed immutability unchanged.",
+      "callers": ["assessment routes", "workflow store"],
+      "publicExports": ["listAssessments", "getAssessment", "createAssessment", "patchAssessment"],
+      "sideEffects": ["PostgreSQL or local persistence", "audit", "referral workflow synchronization"],
+      "failureBehavior": "Expected versions reject stale writes and signed content cannot be patched.",
+      "tests": ["check:assessor-workflow", "database:assurance:integration"],
+      "staticPrompts": [
+        {
+          "prompt": "Large module (2136 lines): split by behavior before adding more responsibilities.",
+          "disposition": "confirmed",
+          "reason": "This slice limits assessment-store changes to lineage fields and hydration; review transaction logic remains in workflow-store.",
+          "owner": "Eric",
+          "followUp": "No review command orchestration may be added here."
+        },
+        {
+          "prompt": "Contains runtime console logging; verify messages cannot include PHI, tokens, query strings, or upstream bodies.",
+          "disposition": "expected",
+          "reason": "The existing load-failure event is a fixed structured identifier and includes no patient or request values; this slice will not broaden it.",
+          "owner": "Eric",
+          "followUp": "Keep new logs free of values and PHI."
+        },
+        {
+          "prompt": "Uses SELECT *; verify response growth, schema coupling, and PHI minimization.",
+          "disposition": "confirmed",
+          "reason": "The existing internal row hydrator requires the full assessment row. New lineage columns are bounded scalars and no browser route gains extra clinical data.",
+          "owner": "Eric",
+          "followUp": "Keep relation queries explicit and do not expose database rows directly."
+        },
+        {
+          "prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+          "disposition": "expected",
+          "reason": "The existing queue recovery prevents a prior rejected persistence from permanently poisoning later saves; the actual mutation still rejects to its caller.",
+          "owner": "Eric",
+          "followUp": "Do not suppress review or revision command failures."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "Lineage is added without moving or duplicating assessment ownership."
+    },
+    {
+      "path": "database/migrations/0031_assessment_review_revisions.sql",
+      "plannedNew": true,
+      "dependencyDirection": "Runtime review persistence depends on this additive schema after the old application remains able to read existing columns.",
+      "purpose": "Add durable review tasks, assessment revision lineage, decision binding, and explicit review/admission workflow states.",
+      "callers": ["checksum-guarded migration runner"],
+      "publicExports": [],
+      "sideEffects": ["PostgreSQL schema and deterministic backfill"],
+      "failureBehavior": "Transactional migration rolls back on failure and is paired with an explicit rollback drill.",
+      "tests": ["check:release", "database:assurance:integration"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "A forward migration is required; applied history remains immutable."
+    },
+    {
+      "path": "components/pipeline/ReferralWorkflowPanel.tsx",
+      "plannedNew": false,
+      "dependencyDirection": "The client coordinator depends on server-confirmed workflow state and passes callbacks to presentation.",
+      "purpose": "Coordinate submit, request-changes, decision, conflict recovery, and draft preservation.",
+      "callers": ["referral workspace"],
+      "publicExports": ["ReferralWorkflowPanel"],
+      "sideEffects": ["browser requests", "confirmation", "local draft state"],
+      "failureBehavior": "409 responses reload server truth without silently discarding the user's drafts.",
+      "tests": ["test:e2e", "test:e2e:operational:high"],
+      "staticPrompts": [
+        {
+          "prompt": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+          "disposition": "expected",
+          "reason": "The existing best-effort refresh after a surfaced conflict does not suppress the original visible mutation error; this slice preserves that behavior.",
+          "owner": "Eric",
+          "followUp": "Review and revision failures remain visible in the panel error state."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "It remains the single UI effect coordinator."
+    },
+    {
+      "path": "docs/refactoring/architecture-comprehension-probes.json",
+      "plannedNew": false,
+      "dependencyDirection": "The assurance validator reads this control artifact; runtime code does not depend on it.",
+      "purpose": "Add the exact review/revision comprehension trace.",
+      "callers": ["check:refactor-assurance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing mappings fail the setup gate.",
+      "tests": ["check:refactor-assurance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Required slice control-plane evidence."
+    },
+    {
+      "path": "docs/refactoring/canonical-responsibilities.json",
+      "plannedNew": false,
+      "dependencyDirection": "The assurance validator reads this control artifact; runtime code does not depend on it.",
+      "purpose": "Declare one canonical review/revision transaction responsibility.",
+      "callers": ["check:refactor-assurance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing or ambiguous ownership fails the setup gate.",
+      "tests": ["check:refactor-assurance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Prevents parallel workflow writers."
+    },
+    {
+      "path": "docs/refactoring/proof-obligations.json",
+      "plannedNew": false,
+      "dependencyDirection": "The assurance validator reads this control artifact; runtime code does not depend on it.",
+      "purpose": "Define the review/revision atomicity and immutability obligation.",
+      "callers": ["check:refactor-assurance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Missing proof results block slice completion.",
+      "tests": ["check:refactor-assurance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Binds implementation to executable evidence."
+    },
+    {
+      "path": "docs/refactoring/SUPERVISOR_REVIEW_REVISION_ARCHITECTURE_NARRATIVE.md",
+      "plannedNew": true,
+      "dependencyDirection": "This decision artifact constrains the slice; runtime code does not depend on it.",
+      "purpose": "Record owner-approved workflow, role, transaction, compatibility, and rollback policy.",
+      "callers": ["TARS evidence review"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Absent narrative blocks activation.",
+      "tests": ["check:refactor-setup"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Required exact-start architecture narrative."
+    },
+    {
+      "path": "docs/refactoring/supervisor-review-revision-file-audit.json",
+      "plannedNew": true,
+      "dependencyDirection": "The repository quality gate reads this scope disposition; runtime code does not depend on it.",
+      "purpose": "Bound reviewed files and static concerns.",
+      "callers": ["check:code-quality"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Undispositioned changed files or prompts fail the gate.",
+      "tests": ["check:code-quality"],
+      "staticPrompts": [
+        {
+          "prompt": "Uses SELECT *; verify response growth, schema coupling, and PHI minimization.",
+          "disposition": "false_positive",
+          "reason": "The phrase appears only as the exact repository-audit prompt being dispositioned in this control document; this JSON performs no query and contains no PHI.",
+          "owner": "Eric",
+          "followUp": "None."
+        }
+      ],
+      "decision": "keep",
+      "decisionReason": "Required exact-scope control."
+    },
+    {
+      "path": "docs/refactoring/supervisor-review-revision-assurance-record.json",
+      "plannedNew": true,
+      "dependencyDirection": "The assurance validator reads this candidate-bound record; runtime code does not depend on it.",
+      "purpose": "Bind approval, invariants, proof results, gates, rollback, and convergence to exact commits.",
+      "callers": ["check:refactor-assurance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "Incomplete or mismatched evidence blocks start or completion.",
+      "tests": ["check:refactor-assurance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Required candidate assurance record."
+    },
+    {
+      "path": "docs/refactoring/refactor-eval-scenarios.json",
+      "plannedNew": false,
+      "dependencyDirection": "The guidance evaluator reads this public scenario suite; runtime code does not depend on it.",
+      "purpose": "Apply the existing setup-and-scope scenario to the new bounded slice.",
+      "callers": ["check:refactor-guidance"],
+      "publicExports": [],
+      "sideEffects": [],
+      "failureBehavior": "A slice without public scenario coverage fails the guidance gate.",
+      "tests": ["check:refactor-guidance"],
+      "staticPrompts": [],
+      "decision": "keep",
+      "decisionReason": "Reuse the fixed scenario rather than inventing a guidance rule."
+    }
+  ],
+  "reviewedBy": "Owner-authorized TARS machine trace",
+  "approvedAt": "2026-09-10T01:45:41Z"
+}

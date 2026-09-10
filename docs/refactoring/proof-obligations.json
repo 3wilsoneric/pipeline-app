@@ -271,6 +271,22 @@
       "claimBoundary": "The characterized admission-workflow UI states, existing route/store semantics, supported browsers, responsive viewports, and synthetic workflow journey at the approved exact start and candidate commits.",
       "status": "planned",
       "humanValidated": false
+    },
+    {
+      "id": "assessment_review_revision_atomicity",
+      "sliceId": "supervisor-review-revision",
+      "criticality": "critical",
+      "property": "Each submitted review binds exactly one immutable signed assessment revision and recommendation; exactly one stale-concurrent review outcome commits; requested corrections create one linked editable successor without mutating signed source content; placement acceptance remains distinct from confirmed admission.",
+      "assuranceMethods": ["mechanical", "integration", "concurrency", "mutation", "operational_recovery"],
+      "tracePaths": [
+        "lib/pipeline/workflow-store.ts",
+        "lib/pipeline/workflow-records.ts",
+        "lib/assessment/assessment-store.ts"
+      ],
+      "verificationGates": ["check:workflow-store-characterization", "check:workflow-fuzz", "database:concurrency", "test:e2e:operational:high", "certify:seeded-defects"],
+      "claimBoundary": "The owner-approved signed assessment, review, correction revision, resubmission, placement-decision, and explicit-admission commands under the tested local and PostgreSQL configurations.",
+      "status": "planned",
+      "humanValidated": false
     }
   ]
 }
