@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T23:45:52.359Z",
-  "audit_date": "2026-09-09",
-  "git_head": "01dd0fe8f781dd65d8128bb96afe379fa8608fcf",
+  "generated_at": "2026-09-10T00:13:55.126Z",
+  "audit_date": "2026-09-10",
+  "git_head": "8dc27d9d2d577c09aa5a4fb86974f28c6a0f9c68",
   "direct": [
     {
       "name": "@azure/identity",
@@ -390,7 +390,7 @@
         "components/pipeline/ReferralHomeDirectory.tsx",
         "components/pipeline/ReferralPacketCanvas.tsx",
         "components/pipeline/ReferralProgressPanel.tsx",
-        "components/pipeline/ReferralWorkflowPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
         "components/pipeline/ReferralWorkflowTracker.tsx",
         "components/pipeline/ReferralWorklist.tsx",
         "components/pipeline/ReferralWorkspaceGallery.tsx",
@@ -480,7 +480,6 @@
         "components/pipeline/ReferralHomeDirectory.tsx",
         "components/pipeline/ReferralPacketCanvas.tsx",
         "components/pipeline/ReferralProgressPanel.tsx",
-        "components/pipeline/ReferralWorkflowPanel.tsx",
         "components/pipeline/ReferralWorkflowTracker.tsx",
         "components/pipeline/StaffProfileSettings.tsx",
         "components/pipeline/TeamPresenceList.tsx",
@@ -490,6 +489,7 @@
         "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
         "components/pipeline/pipeline-calendar-model.ts",
         "components/pipeline/referral-home-directory-model.ts",
+        "components/pipeline/referral-workflow-panel-model.ts",
         "components/pipeline/training/DemoEnvironmentBanner.tsx",
         "components/pipeline/training/FullWorkflowWalkthroughPreview.tsx",
         "components/pipeline/training/OperatorDemoEntry.tsx",
@@ -909,6 +909,7 @@
         "components/pipeline/ReferralPacketCanvas.tsx",
         "components/pipeline/ReferralProgressPanel.tsx",
         "components/pipeline/ReferralWorkflowPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
         "components/pipeline/ReferralWorkflowTracker.tsx",
         "components/pipeline/ReferralWorklist.tsx",
         "components/pipeline/ReferralWorkspaceGallery.tsx",

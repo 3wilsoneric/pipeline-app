@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T23:45:52.359Z",
-  "audit_date": "2026-09-09",
-  "git_head": "01dd0fe8f781dd65d8128bb96afe379fa8608fcf",
+  "generated_at": "2026-09-10T00:13:55.126Z",
+  "audit_date": "2026-09-10",
+  "git_head": "8dc27d9d2d577c09aa5a4fb86974f28c6a0f9c68",
   "files": [
     {
       "path": ".dockerignore",
@@ -2086,15 +2086,26 @@
     },
     {
       "path": "components/pipeline/ReferralWorkflowPanel.tsx",
-      "content_sha256": "c98ee85feee9192fbb18268fc399087254ce26ff4bc93b9651f66edf835e00ac",
+      "content_sha256": "06da2aebdcfe47b3de9daee29ba7c206de405cde762450de1f875afbfce4ff46",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 44331,
-      "lines": 837,
+      "bytes": 11247,
+      "lines": 292,
       "detected_concerns": [
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
       "review_focus": "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.",
+      "verification": "typecheck + lint + build + responsive/accessibility E2E"
+    },
+    {
+      "path": "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
+      "content_sha256": "12aae502228c59e4328479134297ba8586bdb527fbcc9bb715adb8baf2623080",
+      "role": "Pipeline user interface",
+      "risk": "medium",
+      "bytes": 30748,
+      "lines": 433,
+      "detected_concerns": [],
+      "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
     },
     {
@@ -2315,6 +2326,17 @@
       "risk": "medium",
       "bytes": 6563,
       "lines": 168,
+      "detected_concerns": [],
+      "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
+      "verification": "typecheck + lint + build + responsive/accessibility E2E"
+    },
+    {
+      "path": "components/pipeline/referral-workflow-panel-model.ts",
+      "content_sha256": "4fc3c869ebe9410f4c702d2bb8bcf706d94476a7b48fab3773c91bc97d052e42",
+      "role": "Pipeline user interface",
+      "risk": "medium",
+      "bytes": 12029,
+      "lines": 265,
       "detected_concerns": [],
       "review_focus": "Check duplicated state, autosave/conflicts, focus and labels, responsive overflow, stale data, and recoverable actions.",
       "verification": "typecheck + lint + build + responsive/accessibility E2E"
@@ -4291,11 +4313,11 @@
     },
     {
       "path": "docs/refactoring/architecture-comprehension-probes.json",
-      "content_sha256": "e2865344e2d65ae122815e32bb1ef38aaca4e565c681bc7032735242f5a848e1",
+      "content_sha256": "6dbbfff91eb08e0671e5951e8af07c96e0956e23e964883162b674abab7ae8bf",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 10889,
-      "lines": 206,
+      "bytes": 11022,
+      "lines": 208,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4370,11 +4392,11 @@
     },
     {
       "path": "docs/refactoring/canonical-responsibilities.json",
-      "content_sha256": "34608229a1ebf4e27f717bc02a2dd8d0d8089afb29ce9183e4aa0c19e5ece814",
+      "content_sha256": "2e3837506443e4fa442e084fbcd8c305887ccdb6ae231bee6b89db84c72402da",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 16359,
-      "lines": 375,
+      "bytes": 16492,
+      "lines": 377,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4667,11 +4689,11 @@
     },
     {
       "path": "docs/refactoring/proof-obligations.json",
-      "content_sha256": "91879b65727f44eda0c873c027ef3c4f979e65ca25b97bab423a52a3ca3d0d4c",
+      "content_sha256": "42e7877882ecda40557e1090c394461b1599d5746df6bbd00684d5436ba5e588",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 15934,
-      "lines": 275,
+      "bytes": 16067,
+      "lines": 277,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4957,11 +4979,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "4bd2f3a813e3ce7e0f31019ebcd0ff1ec6c879f98d38a2ddc20b2ab5ca867f9b",
+      "content_sha256": "542119e0baf5b97f8d63f0072f599ad31ce0ae99ed3b39025c821010f73ce927",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 394025,
-      "lines": 1841,
+      "bytes": 394622,
+      "lines": 1843,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -4985,11 +5007,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "170c827f855e035146019a176e19351954465b48d28faa91a5ba4fed66beb5e5",
+      "content_sha256": "35017da2a8a17d10b7e9cc0c5aa50397e415f97c13812ac513e0e85d24243776",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 219358,
-      "lines": 7555,
+      "bytes": 219446,
+      "lines": 7556,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -5044,11 +5066,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "ae63b69391da8ecb396a1ca96bebee04b87418b50369b098e7b8a35733dc32e5",
+      "content_sha256": "f9ba7cba0a1a0fc450f630a3733c32241bc62314fd0d6a97cab2dca0749c4e7e",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 554581,
-      "lines": 11180,
+      "bytes": 555662,
+      "lines": 11202,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"

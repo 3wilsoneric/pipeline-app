@@ -196,6 +196,8 @@
       "question": "Trace a signed assessment through recommendation, requirement gating, accepted supervisor decision, admission, EHR failure, retry, sent confirmation, and client activation. Identify optimistic versions and mutation replay, prove a 409 preserves dirty drafts while reloading server truth, and prove presentation cannot issue or reinterpret a command.",
       "codePaths": [
         "components/pipeline/ReferralWorkflowPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
+        "components/pipeline/referral-workflow-panel-model.ts",
         "tests/e2e/pipeline-smoke.spec.ts"
       ],
       "verificationGates": ["check:assessor-workflow", "check:workflow-fuzz", "test:e2e", "test:e2e:operational:high"],

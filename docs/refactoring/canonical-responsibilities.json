@@ -347,7 +347,9 @@
       "sliceIds": ["referral-workflow-panel-components"],
       "ownershipKind": "ui_shell_boundary",
       "canonicalOwnerPaths": [
-        "components/pipeline/ReferralWorkflowPanel.tsx"
+        "components/pipeline/ReferralWorkflowPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
+        "components/pipeline/referral-workflow-panel-model.ts"
       ],
       "allowedRepresentations": [
         "server-confirmed workflow snapshot",

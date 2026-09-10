@@ -257,6 +257,8 @@
       "assuranceMethods": ["mechanical", "integration", "operational_recovery"],
       "tracePaths": [
         "components/pipeline/ReferralWorkflowPanel.tsx",
+        "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
+        "components/pipeline/referral-workflow-panel-model.ts",
         "tests/e2e/pipeline-smoke.spec.ts"
       ],
       "verificationGates": [
