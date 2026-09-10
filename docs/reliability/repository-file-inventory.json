@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T13:10:45.186Z",
+  "generated_at": "2026-09-10T13:41:29.678Z",
   "audit_date": "2026-09-10",
-  "git_head": "8da6634eaa0b9cc74e3576012b8e0e2e33872a31",
+  "git_head": "ecd82330bb0bf353d9bd0790ea5f902b3aa86ffe",
   "files": [
     {
       "path": ".dockerignore",
@@ -4346,11 +4346,11 @@
     },
     {
       "path": "docs/refactoring/WORKFLOW_PERMUTATION_HARDENING_ARCHITECTURE_NARRATIVE.md",
-      "content_sha256": "f6325c7931c1ac1ecbbda1d445d1eb68746d07708d0a75354c9d29885e80575a",
+      "content_sha256": "63b85a614ec27a078d971f1c4c17cb01835a5d2f62fe8cc2307d715619b5a92b",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 4135,
-      "lines": 52,
+      "bytes": 4441,
+      "lines": 54,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4368,11 +4368,11 @@
     },
     {
       "path": "docs/refactoring/architecture-comprehension-probes.json",
-      "content_sha256": "02a5701bbe145ef91300467c7a3660c0566116241e1707da1b8f482ac144c03a",
+      "content_sha256": "21bfe14277d8af680cce3cf53401b85a9f6ed146c4d713003cebc6cbb73bc1ff",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 12957,
-      "lines": 237,
+      "bytes": 13002,
+      "lines": 238,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4447,11 +4447,11 @@
     },
     {
       "path": "docs/refactoring/canonical-responsibilities.json",
-      "content_sha256": "12fd3f5ed3f7a30ba9a94a881f09b6c2530070d483e8aed9c2fb56fe888da154",
+      "content_sha256": "3809124857f02fc498cca420580f936fbd3ca2bbd51814dfec7ab178fa0663b7",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 19552,
-      "lines": 441,
+      "bytes": 19651,
+      "lines": 443,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4744,11 +4744,11 @@
     },
     {
       "path": "docs/refactoring/proof-obligations.json",
-      "content_sha256": "8bfc7b5b0ba2a0d579f016d0c1d71eb88b5383f4fcaab029e11df0490d71cb6e",
+      "content_sha256": "deeb93652d8a4eb1bd2c14ca9f7ebacd882ffcabc64049b5eeb436e407b732ac",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 18805,
-      "lines": 311,
+      "bytes": 18850,
+      "lines": 312,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4843,11 +4843,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "9a15a82d9076f35adde055a3b4f6dbc051c557728c4561968fc15c785de29c95",
+      "content_sha256": "104f36473530e0463a4451f0b4098b982393350221c8a13c1558dc864ee8b62f",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 37730,
-      "lines": 753,
+      "bytes": 37820,
+      "lines": 755,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -5058,11 +5058,11 @@
     },
     {
       "path": "docs/refactoring/workflow-permutation-hardening-file-audit.json",
-      "content_sha256": "a72f2c30265ff64b467a0b1a6bb85e9cd24e78d9f47529ccbc8718dffaa9b99a",
+      "content_sha256": "d11d0dcaf0a55503c1806bb7d10e47dab32deaa4f573a2523820e1c25ee70dc9",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 14340,
-      "lines": 270,
+      "bytes": 15268,
+      "lines": 284,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5082,7 +5082,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "c2b51c401bb0fd9399364ae44d70d03e39bfcaab52104dbed8617f25a480f8f0",
+      "content_sha256": "3078568ea4c9b59367beca531232afc6b32bb99dd6fa5dd0b5b33d23162b8bb6",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 397728,
@@ -5110,7 +5110,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "4b4793526f3d4fd8999d79b6ddf8c7724bc1fb0018dba55f3efa48400952e508",
+      "content_sha256": "a30fcc1229723063b4034c0bf36243ad0c5996ee3dd3d831be075afda4b14d84",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 219657,
@@ -5169,7 +5169,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "11b10b4c513c1238fa6e6b5e3a0070b1de9adea3f063f442f705701a9f744362",
+      "content_sha256": "89b3968f8cb3e0ed1f1bd15ab1874fec37308e8e1a378343e18ab9f5db7877df",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 560832,
@@ -5590,18 +5590,18 @@
     },
     {
       "path": "lib/assessment/assessment-store.ts",
-      "content_sha256": "750793fa2a36e8eed93106875393f7630d4b2caea21ba98ef0015e15d396b19e",
+      "content_sha256": "e1bcf5fa7043e592196cb485bbd730e796b69229470ab427b78d04696cf165df",
       "role": "Assessment domain",
       "risk": "medium",
-      "bytes": 91533,
-      "lines": 2316,
+      "bytes": 92635,
+      "lines": 2347,
       "detected_concerns": [
-        "Large module (2316 lines): split by behavior before adding more responsibilities.",
+        "Large module (2347 lines): split by behavior before adding more responsibilities.",
         "Contains runtime console logging; verify messages cannot include PHI, tokens, query strings, or upstream bodies.",
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization.",
         "Explicitly suppresses a rejected promise; verify this is genuinely optional and observable."
       ],
-      "review_focus": "Large module (2316 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (2347 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -6927,11 +6927,11 @@
     },
     {
       "path": "lib/pipeline/referral-activity.ts",
-      "content_sha256": "9888c5be8233b316d9b3b5b7a6a581472d02aa14ecec7cd0cab31956fc90a7e4",
+      "content_sha256": "f1ade83f227ed655fd343b53bba486850029f22aca2e7427884eeb0782b3f6ea",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 11621,
-      "lines": 304,
+      "bytes": 11807,
+      "lines": 307,
       "detected_concerns": [],
       "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
       "verification": "check:platform:fast and owning feature test"
@@ -7337,15 +7337,15 @@
     },
     {
       "path": "lib/pipeline/workflow-store.ts",
-      "content_sha256": "84076ff563c8170c3db145da0c3d513da987a55079d8a83c6e9193420a0ad857",
+      "content_sha256": "52cb0417cd669009ea4694c6ee15bd3f2f4e777a672819056911b53afeb69eec",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 69339,
-      "lines": 1695,
+      "bytes": 69521,
+      "lines": 1702,
       "detected_concerns": [
-        "Large module (1695 lines): split by behavior before adding more responsibilities."
+        "Large module (1702 lines): split by behavior before adding more responsibilities."
       ],
-      "review_focus": "Large module (1695 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (1702 lines): split by behavior before adding more responsibilities.",
       "verification": "check:platform:fast and owning feature test"
     },
     {
@@ -10435,22 +10435,22 @@
     },
     {
       "path": "scripts/workflow-stateful-fuzz.mjs",
-      "content_sha256": "b45be59d8d9e7bdd20dccd6ac8c8dae5a6e3b3a6e778287248fd6bb90bc84262",
+      "content_sha256": "b7ae621792539bbf0c809db7edf9ea57fc97e9b6a2eb6400e56e8e830e1ebd4b",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 10888,
-      "lines": 333,
+      "bytes": 12988,
+      "lines": 399,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {
       "path": "scripts/workflow-store-characterization.mjs",
-      "content_sha256": "bf552875cf90d7f1d89df526feaea394b6a85ad3f9805ecb2147942b663e5f64",
+      "content_sha256": "9dd552443f53410de4c1b1fb3c657301c99105c53ba24b32083983eac04eed40",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 10593,
-      "lines": 253,
+      "bytes": 11118,
+      "lines": 257,
       "detected_concerns": [
         "Executes a subprocess; validate arguments, avoid shell interpolation, bound runtime, and propagate failures.",
         "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence."
@@ -10762,22 +10762,22 @@
     },
     {
       "path": "tests/e2e/operational/role-access.spec.ts",
-      "content_sha256": "a1080200d2f2347d049207691bbbc38f1f46d9f5b900faa3cda7c0be71468b8f",
+      "content_sha256": "4233524c05ac86763cd0e8c1c19d8b83269f8e4d835b120ff5e200b27f85491e",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 8312,
-      "lines": 198,
+      "bytes": 9082,
+      "lines": 220,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
       "verification": "run owning Playwright project and review skips/snapshots"
     },
     {
       "path": "tests/e2e/operational/workflow-store-characterization.spec.ts",
-      "content_sha256": "1354c882069e88575bc56eaf8884c103718823c2292401bc7d8eaadb3bf100f7",
+      "content_sha256": "3cab329977a27367c1d7a02b13ee05196b14858bdde2106a2cc9e873cda7fd42",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 21609,
-      "lines": 506,
+      "bytes": 31651,
+      "lines": 736,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",
       "verification": "run owning Playwright project and review skips/snapshots"

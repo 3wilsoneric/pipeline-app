@@ -103,7 +103,7 @@ const payload = {
   normalized_nondeterminism: [
     "Store-generated referral, assessment, recommendation, decision, work-item, and audit identifiers are asserted within an adapter, not compared across adapters.",
     "The winning request in a deliberately concurrent admission-decision pair is nondeterministic; exactly one success and one stale conflict are required.",
-    "Correction-versus-correction and correction-versus-decision winners are nondeterministic; each pair must produce one success, one stale conflict, and one coherent persisted direction.",
+    "Concurrent correction requests must produce one success and one stale conflict. In correction-versus-decision races, the losing request may report either a stale conflict or that the review is already closed; the persisted workflow must still have one coherent direction and no orphan revision.",
     "Storage timestamps are checked through resulting state and audit cardinality, not equality across adapters.",
   ],
   failure: failureMessage || null,
