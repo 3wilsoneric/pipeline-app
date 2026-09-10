@@ -406,8 +406,10 @@
         {
           "id": "provenance_golden_master",
           "phase": "before_complete",
-          "status": "missing",
-          "note": "Compare value, candidates, confidence, page, bounding box, source document, review, correction, and audit side effects."
+          "status": "satisfied",
+          "gates": ["check:extraction", "check:extraction-worker", "check:sample-packet", "check:storage-consistency"],
+          "files": ["lib/extraction/worker-report-provenance.ts", "scripts/extraction-state-machine-replay.mjs", "scripts/test-pipeline-extraction-worker.py"],
+          "note": "Candidate 21b2708 passed exact golden comparisons for value, candidates, confidence, source document, page, normalized bounding box, preview artifacts, correction history, reopen behavior, and audit-visible review state."
         },
       {
         "id": "shadow_provider_diff",
@@ -421,9 +423,9 @@
         {
           "id": "mutation_effectiveness",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["certify:seeded-defects"],
-          "note": "Current extraction mutants cover leases and retries; expand to provenance merge and callback transaction defects."
+          "note": "All 32 seeded defects were killed, including extraction attempt-fence, candidate-validation, bounding-box provenance, and unsafe-packet precedence mutants."
         },
         {
           "id": "owner_validated_assurance_model",
@@ -440,10 +442,10 @@
         {
           "id": "convergence_and_residual_risk",
           "phase": "before_complete",
-          "status": "missing",
+          "status": "satisfied",
           "gates": ["check:refactor-assurance"],
           "files": ["docs/refactoring/HIGH_ASSURANCE_CONVERGENCE_PROTOCOL.md", "docs/refactoring/slice-assurance-record.example.json"],
-          "note": "Bind deterministic mechanics, governed corpus results, provenance evidence, required gates, adversarial review, recovery, and accepted statistical uncertainty to one extraction candidate commit."
+          "note": "The complete assurance record binds deterministic mechanics, provenance evidence, required gates, two clean isolated critic contexts, commit-level recovery, and the explicit exclusion of provider-quality claims to candidate 21b2708."
         }
       ]
     },

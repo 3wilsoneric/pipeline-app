@@ -185,7 +185,7 @@
     {
       "id": "extraction-capstone",
       "priority": 12,
-      "status": "in_progress",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "lib/extraction/processing-worker.ts",

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T16:00:38.997Z",
+  "generated_at": "2026-09-10T16:16:12.746Z",
   "audit_date": "2026-09-10",
-  "git_head": "5f540edb0ddad56b4dbae6a4e49c6983170db838",
+  "git_head": "21b27089ffd7bd718547dbc0718f122af68ccdc0",
   "files": [
     {
       "path": ".dockerignore",
@@ -4001,7 +4001,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "478f6442b65e85f64c178606b22a6548f2793e6056c19d624cae9c8c749f0e44",
+      "content_sha256": "b1595d7f5d532d74ce861aee54ceb1232428100f9cf0921f2b4d65f42ba5c9dd",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -4733,22 +4733,22 @@
     },
     {
       "path": "docs/refactoring/evidence-matrix.json",
-      "content_sha256": "8fb40532d94f5576dfa1d3caeee74674873cc1ad5189ac3051fdc89598e99503",
+      "content_sha256": "5a15385f4660cc6ba51fcfae83dfb855c66e90ea39d1e412dac91382b5d27881",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 63053,
-      "lines": 965,
+      "bytes": 63520,
+      "lines": 967,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
     },
     {
       "path": "docs/refactoring/extraction-capstone-assurance-record.json",
-      "content_sha256": "5760725416c9d9b178c235fabb5e48fb72cade457aa0e5d75a7259ece954a4b3",
+      "content_sha256": "2d2554fda727493646af61d80036f7c8a5855006bbd8c9cd70229e33f60da0c3",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 1996,
-      "lines": 47,
+      "bytes": 13198,
+      "lines": 173,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4812,11 +4812,11 @@
     },
     {
       "path": "docs/refactoring/proof-obligations.json",
-      "content_sha256": "03f3689bd661de86fe5c8f1805ea16718d92bda9da7a3de91e3b6f23a7e8112e",
+      "content_sha256": "f073efa5bf410bdca7c2bd3e5944d13ac26ccf944aedc64c5a3390f287248df9",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 19165,
-      "lines": 317,
+      "bytes": 19378,
+      "lines": 321,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -4911,10 +4911,10 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "a3172de09a725623e918923a8460914e4a0b351c713709634df3abc4ed8acaf8",
+      "content_sha256": "8baaaf01acc40c05001c7a7fe5737cd7c2e88923950d108a401526939da3619b",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 40869,
+      "bytes": 40866,
       "lines": 811,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
@@ -5150,10 +5150,10 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "7769a85384572eb50c0136d1621dc72da0f7c177d08408279c5a82fe26baba2a",
+      "content_sha256": "1028d178f23bfb19d99f953b406bd0c845c08ab1a7fa08a8fff8eebe2ddb04e4",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 400062,
+      "bytes": 400064,
       "lines": 1862,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -5178,11 +5178,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "1e7e16a46c57b4303cdc361de7b78be9d72ddab97bbfd7bf4a3154cb6bb26c60",
+      "content_sha256": "d9b712bdd8fe2e2decaa68e781e12231fea85c67059007aa6d7c4361a38a4a7b",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 219913,
-      "lines": 7563,
+      "bytes": 219983,
+      "lines": 7564,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -5237,10 +5237,10 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "15b1412e53e0a76e518db5da06661a9992d869ad0e1eb884331683e821ebb44a",
+      "content_sha256": "ad8914d8afa90e0d0b9618abeb2b4a42fbce41980af6e90dd54a5bf02cf47831",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 564835,
+      "bytes": 564837,
       "lines": 11384,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
@@ -5303,7 +5303,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "944f277181ae8122548011d9ce382d44764e5738fe604abfe6350ffe2dfe0c66",
+      "content_sha256": "1e41954736d9ef0ffa0f9b6940a14968329b8a048ac014f0a0056612db931ee4",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -5432,10 +5432,10 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "15122619fb8c1dfb1cbffc0ac4aa5dae287f9e0c208213cffab09d553d3a287b",
+      "content_sha256": "12c793d794fb7388f2c7ad5af04b11cb20eb60ecaa165bc13df0c72ef86acfd7",
       "role": "Shared server/domain library",
       "risk": "medium",
-      "bytes": 290977,
+      "bytes": 290978,
       "lines": 11331,
       "detected_concerns": [
         "Large module (11331 lines): split by behavior before adding more responsibilities."

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T16:00:38.997Z",
+  "generated_at": "2026-09-10T16:16:12.746Z",
   "audit_date": "2026-09-10",
-  "git_head": "5f540edb0ddad56b4dbae6a4e49c6983170db838",
+  "git_head": "21b27089ffd7bd718547dbc0718f122af68ccdc0",
   "direct": [
     {
       "name": "@azure/identity",
@@ -763,6 +763,7 @@
         "docs/refactoring/characterization/workflow-and-handoff-machine-run-88149a3.json",
         "docs/refactoring/characterization/workflow-and-handoff-machine-run-baa7ca9.json",
         "docs/refactoring/evidence-matrix.json",
+        "docs/refactoring/extraction-capstone-assurance-record.json",
         "docs/refactoring/extraction-capstone-file-audit.json",
         "docs/refactoring/refactor-eval-scenarios.json",
         "docs/refactoring/refactor-slices.json",
