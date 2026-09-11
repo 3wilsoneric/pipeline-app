@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-11T21:11:31.388Z",
+  "generated_at": "2026-09-11T21:14:59.236Z",
   "audit_date": "2026-09-11",
-  "git_head": "0f69d88feb25ac1a11a19618305934e05a6c42d4",
+  "git_head": "f76972a6647a50a5e967cb971c75f59250102a99",
   "files": [
     {
       "path": ".dockerignore",
@@ -108,11 +108,11 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "content_sha256": "73ba5cfcfc4e3d792fd2b8707644a17e10be88d15fb28ff4a67d4cd9b6f59e67",
+      "content_sha256": "08cee19ef0f8507f413a897822e7108e3188c68be373cabae1874a3b65b78d48",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
-      "bytes": 11197,
-      "lines": 273,
+      "bytes": 11305,
+      "lines": 276,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -4180,7 +4180,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "e9e2f0eb7243d72ff852866215445120bc112556d4558907e7a971ac05ee2309",
+      "content_sha256": "04500746fb3e598b70ce1d35b36ab8b240c65070afea57c5f56c6a8a602dc478",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -5228,10 +5228,10 @@
     },
     {
       "path": "docs/refactoring/referral-to-decision-operating-spine-file-audit.json",
-      "content_sha256": "fdf405cc4eaa60f82c4269b016b9dc88d20a75fcfe43970f9aa6f9c690af73f8",
+      "content_sha256": "3d509ad89637920417296c61f7ff55f395a47953f5f02959063f92f1bdfab9be",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 52438,
+      "bytes": 52613,
       "lines": 415,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
@@ -5405,7 +5405,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "4c376c56d603be60ca2e93ba5c347dff3d858c90bd7d8fa9f0a86ee1c75a50b0",
+      "content_sha256": "588fde553d84d338a01b53dfc2488dc6fd212f2e4c1c7b59dd3163e751457b0d",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 221419,
@@ -5486,7 +5486,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "0e760d8a9f0146274d06746448d191d971085167e1dd200925469051ff308719",
+      "content_sha256": "695b964ed27018e99ec64f16f70b5b434512cb08af3c9ae6cee24eb5ffacd9e8",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 588403,
@@ -5692,7 +5692,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "204680d255a30e980bdcba56984099004276faa16eebb0ffd37e2e1e4dd7aedc",
+      "content_sha256": "3708f2cfad2c8d33cc812773fa52f357fd6c9b97d338f50e4e45f1857756832d",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 304063,
