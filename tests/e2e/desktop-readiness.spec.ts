@@ -458,6 +458,8 @@ test.describe("desktop feature enabled", () => {
     const begin = beginDialog.getByRole("button", { name: "Begin assessment", exact: true });
     await begin.click();
     await expect(beginDialog).toBeHidden();
+    await expect(assessmentDialog).toHaveAttribute("data-guided-assessment", "true");
+    await assessmentDialog.getByRole("button", { name: "Exit guided interview" }).click();
     const location = page.getByRole("textbox", { name: "Current location *", exact: true });
     await expect(location).toBeVisible();
 

@@ -2079,6 +2079,8 @@ test.describe("Referral home and packet canvas", () => {
     const beginDialog = page.getByRole("dialog", { name: "Begin assessment" });
     await expect(beginDialog).toBeVisible();
     await beginDialog.getByRole("button", { name: "Begin assessment", exact: true }).click();
+    await expect(assessmentInterview).toHaveAttribute("data-guided-assessment", "true");
+    await assessmentInterview.getByRole("button", { name: "Exit guided interview" }).click();
     const assessmentReadiness = assessmentInterview.getByRole("region", { name: "Assessment readiness" });
     await expect(assessmentReadiness).toContainText("required areas remain");
     await expect(assessmentReadiness.getByRole("button", { name: /^Next required:/ })).toBeVisible();
@@ -2114,6 +2116,8 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "Resume assessment", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Resume assessment", exact: true }).click();
     await expect(assessmentInterview).toBeVisible();
+    await expect(assessmentInterview).toHaveAttribute("data-guided-assessment", "true");
+    await assessmentInterview.getByRole("button", { name: "Exit guided interview" }).click();
     await expect(assessmentReadiness.getByRole("button", { name: /^Next required:/ })).toBeVisible();
 
     const assessmentsBeforeSignature = await page.request.get(`/api/referrals/${referralId}/assessments`);

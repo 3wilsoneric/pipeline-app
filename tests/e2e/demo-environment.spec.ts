@@ -1,7 +1,50 @@
 import { expect, test, type Locator } from "@playwright/test";
 
 test.describe("Pipeline Demo Environment", () => {
+  test("runs a complete hybrid medication section", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const response = await page.goto("/training/assessment-preview");
+    expect(response?.status()).toBe(200);
+
+    const preview = page.getByRole("dialog", { name: "Focused assessment preview" });
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole("heading", { name: "Is the client taking medication as prescribed?" })).toBeVisible();
+    await expect(preview.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
+    await expect(preview.getByRole("heading", { name: "Record the refusals" })).toBeVisible();
+    await expect(preview.getByLabel("Most recent refusal")).toHaveValue("2026-09-02");
+    await expect(preview.getByLabel("Medication refused")).toHaveValue("Synthetic medication A");
+    await expect(preview.getByRole("spinbutton", { name: "Refusals in the last 30 days" })).toHaveValue("2");
+
+    await preview.getByRole("radio", { name: "Yes" }).click();
+    await expect(preview.getByRole("heading", { name: "Record the refusals" })).toHaveCount(0);
+    await preview.getByRole("radio", { name: "No" }).click();
+    await preview.getByRole("button", { name: "Continue" }).click();
+    await expect(preview.getByRole("heading", { name: "What medications is the client currently taking?" })).toBeVisible();
+    await expect(preview.getByRole("textbox", { name: "Medications at intake" })).toHaveValue(/Synthetic medication A/);
+    await expect(preview.getByRole("radio", { name: "Oral only" })).toHaveAttribute("aria-checked", "true");
+
+    await preview.getByRole("button", { name: "Continue" }).click();
+    await expect(preview.getByRole("heading", { name: "Does the client receive IM injections?" })).toBeVisible();
+    await expect(preview.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
+
+    await preview.getByRole("button", { name: "Continue" }).click();
+    await expect(preview.getByRole("heading", { name: "Review the Medication section" })).toBeVisible();
+    await expect(preview.getByText("No · 2 refusals in the last 30 days")).toBeVisible();
+    await expect(preview.getByText("2 listed · Oral only")).toBeVisible();
+
+    await preview.getByRole("button", { name: "Back" }).click();
+    await expect(preview.getByRole("heading", { name: "Does the client receive IM injections?" })).toBeVisible();
+
+    const bounds = await preview.boundingBox();
+    expect(bounds).toMatchObject({ x: 0, y: 0, width: 1280, height: 800 });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(preview.getByRole("button", { name: "Continue" })).toBeVisible();
+    expect(await preview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  });
+
   test("opens a real synthetic assessment rehearsal", async ({ page }) => {
+    test.setTimeout(60_000);
     const errors = watchBrowserErrors(page);
     const response = await page.goto("/training/demo");
     expect(response?.status()).toBe(200);
@@ -23,12 +66,41 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.getByRole("button", { name: /02 Assessment/ })).toHaveAttribute("aria-current", "page");
     const interview = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(interview).toBeVisible();
+    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
+    await expect(interview).toHaveAttribute("data-total-questions", "151");
     await expect(interview.getByRole("textbox", { name: "Resident number" })).toBeEditable();
+    const desktopNextBounds = await interview.getByRole("button", { name: "Next", exact: true }).boundingBox();
+    expect(desktopNextBounds).not.toBeNull();
+    expect((desktopNextBounds?.x ?? 0) + (desktopNextBounds?.width ?? 0)).toBeGreaterThan(1_390);
+    await interview.getByRole("button", { name: "Next", exact: true }).click();
+    const desktopBackBounds = await interview.getByRole("button", { name: "Back", exact: true }).boundingBox();
+    expect(desktopBackBounds?.x ?? 100).toBeLessThan(60);
+    await interview.getByRole("button", { name: "Back", exact: true }).click();
+    await interview.getByRole("textbox", { name: "Resident number" }).fill("TR-1008");
+    await interview.getByRole("button", { name: "Exit guided interview" }).click();
+    await expect(interview).toHaveAttribute("data-assessment-view", "chart");
+    await expect(interview.getByRole("textbox", { name: "Resident number" })).toHaveValue("TR-1008");
     await interview.getByRole("button", { name: /Clinical 0\/6/ }).click();
     await expect(interview.getByRole("heading", { name: "Current presentation" })).toBeVisible();
     await expect(interview.getByRole("textbox", { name: "Current symptoms" })).toBeEditable();
     await interview.getByText("Language Lab", { exact: true }).first().click();
     await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
+
+    await interview.getByRole("button", { name: "Guided interview" }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await interview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await expect(interview.getByRole("button", { name: "Next", exact: true })).toBeInViewport();
+    const screenCount = Number(await interview.getAttribute("data-visible-screens"));
+    expect(screenCount).toBeGreaterThan(20);
+    expect(screenCount).toBeLessThan(50);
+    for (let index = 0; index < screenCount; index += 1) {
+      const next = interview.getByRole("button", { name: "Next", exact: true });
+      if (await next.count() === 0) break;
+      await next.click();
+    }
+    await interview.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(interview).toHaveAttribute("data-assessment-view", "chart");
+    await expect(interview.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });
 

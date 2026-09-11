@@ -103,6 +103,7 @@ import {
   AssessmentField,
   PracticeAssessmentReview,
 } from "@/components/pipeline/AssessmentInterviewFields";
+import GuidedAssessmentInterview from "@/components/pipeline/GuidedAssessmentInterview";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
 
 type AssessmentWorkspaceProps = {
@@ -183,6 +184,7 @@ export default function AssessmentWorkspace({
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [showBeginDialog, setShowBeginDialog] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [assessmentView, setAssessmentView] = useState<"guided" | "chart">("chart");
   const [scheduleStart, setScheduleStart] = useState("");
   const [scheduleDuration, setScheduleDuration] = useState("60");
   const [scheduleMethod, setScheduleMethod] = useState<"in_person" | "phone" | "zoom" | "record_review">("in_person");
@@ -235,6 +237,7 @@ export default function AssessmentWorkspace({
 
   const openFocusedAssessment = () => {
     if (selected?.started_at && nextRequiredTarget) setActiveSection(nextRequiredTarget.section);
+    setAssessmentView(selected?.started_at && !selected.signed_at && !trainingAssessmentMode ? "guided" : "chart");
     setIsFocused(true);
     setShowScheduleDialog(Boolean(selected && !selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
     setShowBeginDialog(Boolean(selected?.scheduled_start_at && !selected.started_at && !selected.signed_at));
@@ -548,10 +551,11 @@ export default function AssessmentWorkspace({
     if (selected.started_at && nextRequiredTarget && !initialSection) {
       setActiveSection(nextRequiredTarget.section);
     }
+    setAssessmentView(selected.started_at && !selected.signed_at && !trainingAssessmentMode ? "guided" : "chart");
     setIsFocused(true);
     setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
     setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
-  }, [initialSection, nextRequiredTarget, selected?.assessment_id, selected?.scheduled_start_at, selected?.signed_at, selected?.started_at]);
+  }, [initialSection, nextRequiredTarget, selected?.assessment_id, selected?.scheduled_start_at, selected?.signed_at, selected?.started_at, trainingAssessmentMode]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -560,6 +564,10 @@ export default function AssessmentWorkspace({
       if (event.key !== "Escape") return;
       if (showBeginDialog) setShowBeginDialog(false);
       if (showScheduleDialog) setShowScheduleDialog(false);
+      if (assessmentView === "guided" && !showBeginDialog && !showScheduleDialog) {
+        setAssessmentView("chart");
+        return;
+      }
       setIsFocused(false);
     };
     document.body.style.overflow = "hidden";
@@ -568,7 +576,7 @@ export default function AssessmentWorkspace({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isFocused, showBeginDialog, showScheduleDialog]);
+  }, [assessmentView, isFocused, showBeginDialog, showScheduleDialog]);
 
   useEffect(() => {
     onSummaryChange?.({
@@ -598,6 +606,7 @@ export default function AssessmentWorkspace({
       upsertAssessment(payload.assessment, true);
       setMessage("Assessment draft created");
       setActiveSection("identity");
+      setAssessmentView("chart");
       setIsFocused(true);
       setShowScheduleDialog(true);
       setShowBeginDialog(false);
@@ -622,6 +631,7 @@ export default function AssessmentWorkspace({
         });
         upsertAssessment(updated, true);
         setMessage("Training assessment in progress");
+        setAssessmentView("chart");
         setShowBeginDialog(false);
         return;
       }
@@ -638,6 +648,7 @@ export default function AssessmentWorkspace({
       upsertAssessment(payload.assessment, true);
       await onAssessmentSaved?.(payload.assessment);
       setMessage("Assessment in progress");
+      setAssessmentView("guided");
       setShowBeginDialog(false);
     } catch (startError) {
       setError(messageFor(startError, "The assessment could not be begun."));
@@ -1179,8 +1190,36 @@ export default function AssessmentWorkspace({
     );
   }
 
+  if (assessmentView === "guided" && selected.started_at && !selected.signed_at && !trainingAssessmentMode) {
+    const saveStatus = assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves });
+    return createPortal(
+      <GuidedAssessmentInterview
+        key={selected.assessment_id}
+        assessment={selected}
+        data={draft}
+        activeSection={activeSection}
+        requiredFields={requiredInterviewFields}
+        disabled={!canEditClinical}
+        reviewDisabled={isBusy || !canEditClinical}
+        saveStatus={saveStatus}
+        saveTone={error ? "error" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "pending" : "saved"}
+        error={error}
+        hasConflicts={Boolean(remoteChange?.conflicts.length)}
+        onChange={updateField}
+        onReview={(field, action) => void reviewExtractedField(field, action)}
+        onSectionChange={setActiveSection}
+        onExitToChart={() => setAssessmentView("chart")}
+        onDone={() => {
+          setActiveSection("provenance_qc");
+          setAssessmentView("chart");
+        }}
+      />,
+      document.body,
+    );
+  }
+
   return createPortal(
-    <section role="dialog" aria-modal="true" aria-label="Assessment interview" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
+    <section role="dialog" aria-modal="true" aria-label="Assessment interview" data-assessment-view="chart" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
       <header className="relative flex min-h-16 shrink-0 items-center gap-3 border-b border-[#d9dfdb] bg-white px-3 py-2 sm:px-5">
         <button type="button" onClick={() => { setShowScheduleDialog(false); setShowBeginDialog(false); setIsFocused(false); }} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
         <div className="min-w-[170px] flex-1">
@@ -1199,6 +1238,9 @@ export default function AssessmentWorkspace({
         ) : null}
         {!selected.signed_at && !selected.started_at && selected.scheduled_start_at && canEditClinical ? (
           <button type="button" data-guide-target="assessment-begin" onClick={() => setShowBeginDialog(true)} className="flex h-10 items-center gap-2 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] sm:px-4"><Play size={13} fill="currentColor" /><span className="hidden sm:inline">Begin assessment</span><span className="sm:hidden">Begin</span></button>
+        ) : null}
+        {selected.started_at && !selected.signed_at && !trainingAssessmentMode && canEditClinical ? (
+          <button type="button" onClick={() => setAssessmentView("guided")} aria-label="Guided interview" title="Guided interview" className="flex h-10 w-10 shrink-0 items-center justify-center gap-2 border border-[#c9ceca] text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73] sm:w-auto sm:px-3"><Play size={13} /><span className="hidden sm:inline">Guided interview</span></button>
         ) : null}
         {selected.signed_at ? (
           canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"><Plus size={14} /> Addendum</button> : <span className="text-[11px] font-black text-[#0f6f5e]">Signed</span>

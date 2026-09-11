@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileCheck2,
   FileText,
+  ListChecks,
   LockKeyhole,
   Play,
   RefreshCcw,
@@ -780,6 +781,19 @@ function DecisionPathVisual() {
 function ScenarioLab({ referrals, loading, launchingId, canWrite, onLaunch, onOpen }: { referrals: DemoReferralSummary[]; loading: boolean; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onLaunch: (scenario: PipelineDemoScenario) => void; onOpen: (referral: DemoReferralSummary) => void }) {
   return (
     <section data-demo-surface="practice" className="min-h-full bg-white">
+      <div className="flex flex-col justify-between gap-4 border-b border-[#d8dfdc] bg-[#f7faf8] px-5 py-5 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-4">
+          <span className="flex size-10 shrink-0 items-center justify-center bg-[#e4f2ed] text-[#0c705f]"><ListChecks size={18} aria-hidden="true" /></span>
+          <div>
+            <h2 className="text-[15px] font-black text-[#202623]">Focused assessment</h2>
+            <p className="mt-1 text-[11px] font-semibold text-[#68736f]">One question at a time with the current Pipeline assessment content.</p>
+          </div>
+        </div>
+        <button type="button" onClick={() => window.location.assign(toPipelinePath("/training/assessment-preview"))} className="flex h-11 items-center justify-between gap-5 bg-[#111111] px-4 text-[10px] font-black text-white hover:bg-[#0f8b73]">
+          Open mockup
+          <ArrowRight size={13} aria-hidden="true" />
+        </button>
+      </div>
       <div className="grid gap-px bg-[#d8dfdc] md:grid-cols-2 xl:grid-cols-4">
         {pipelineDemoScenarios.map((scenario) => {
           const existing = latestScenarioReferral(referrals, scenario.id);
