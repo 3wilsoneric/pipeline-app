@@ -377,11 +377,11 @@ await measureJourney("referrals_to_learning_center", "navigation", async () => {
 });
 await measureJourney("learning_workflow_open", "navigation", async () => {
   await activate(page.getByRole("link", { name: "Open Pipeline walkthrough presentation", exact: true }));
-  await page.getByRole("heading", { name: "Review your assigned work", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: "How assessors use Pipeline from referral to recommendation", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("learning_workflow_step", "interaction", async () => {
-  await activate(page.getByRole("navigation", { name: "Presentation slides", exact: true }).getByRole("button", { name: /02 Open the workspace/ }));
-  await page.getByRole("heading", { name: "Open the workspace", exact: true }).waitFor({ state: "visible" });
+  await activate(page.getByRole("navigation", { name: "Presentation slides", exact: true }).getByRole("button", { name: /3 Start/ }));
+  await page.getByRole("heading", { name: "Where to start each day", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("learning_workflow_close", "navigation", async () => {
   await page.goBack();
@@ -618,7 +618,7 @@ async function installSanitizedTrainingFixture(page) {
   let revision = 0;
   let progress = {
     version: 2,
-    curriculumVersion: "2026.08.operator.3",
+    curriculumVersion: "2026.09.operator.1",
     role: "admin",
     completedActivityIds: [],
     activeModuleId: "pipeline-purpose",

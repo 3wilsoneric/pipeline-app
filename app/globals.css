@@ -126,6 +126,21 @@ textarea {
   animation: pipeline-search-enter 100ms ease-out both;
 }
 
+@keyframes pipeline-presentation-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pipeline-presentation-enter {
+  animation: pipeline-presentation-enter 180ms ease-out both;
+}
+
 @keyframes pipeline-directory-meter-cycle {
   0%, 10% { opacity: 0.14; }
   12%, 55% { opacity: 1; }
@@ -184,6 +199,7 @@ textarea {
   .pipeline-search-enter,
   .pipeline-nav-dock-enter,
   .pipeline-nav-launch-enter,
+  .pipeline-presentation-enter,
   .pipeline-step-enter {
     animation: none;
   }

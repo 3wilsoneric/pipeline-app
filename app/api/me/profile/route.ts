@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     if (!store.ok) return store.response;
 
     const member = await touchWorkspaceMember(auth.user);
-    if (!member) return jsonError("Your staff profile could not be loaded.", 404);
+    if (!member) return jsonError("Your profile settings could not be loaded.", 404);
     return Response.json({ member }, { headers: noStoreHeaders });
   });
 }
@@ -68,5 +68,5 @@ function profileUpdateFailure(result: Exclude<Awaited<ReturnType<typeof updateOw
       { status: 409, headers: noStoreHeaders },
     );
   }
-  return jsonError("Your staff profile could not be updated.", result.reason === "delegated_session" ? 403 : 404);
+  return jsonError("Your profile settings could not be updated.", result.reason === "delegated_session" ? 403 : 404);
 }

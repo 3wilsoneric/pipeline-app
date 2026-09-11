@@ -1,13 +1,13 @@
 # Operator Curriculum
 
-Curriculum version: `2026.08.operator.3`
+Curriculum version: `2026.09.operator.1`
 
 The program contains ten tracks and thirty-six modules. Every module has four activities:
 briefing, guided practice, a synthetic evidence exercise, and a knowledge check. Required
 modules are selected from the signed-in user's real Pipeline role and include prerequisite
 closure so no path starts in the middle of a workflow.
 
-Four role-filtered guided workflows add deterministic job rehearsal inside the actual product.
+Eight role-filtered guided workflows add deterministic job rehearsal inside the actual product.
 Each action has a workflow phase, versioned route, source-owned UI target, authored instruction,
 observable completion condition, safety boundary, and explicit advance rule. Safe clicks,
 typing, and selection changes may auto-advance after the user performs them. The guide never
@@ -31,8 +31,8 @@ or handoff.
 
 - Admissions coordinators emphasize duplicate triage, referral creation, packet review,
   readiness, assignment, scheduling, decision support, and EHR handoff.
-- Assessors/reviewers emphasize packet evidence, readiness handoff, assessment execution,
-  signature, recommendation, collaboration, and safe recovery.
+- Assessors/reviewers emphasize their permitted referral intake, packet evidence, readiness
+  handoff, assessment execution, signature, recommendation, collaboration, and safe recovery.
 - Operations administrators receive the complete path and supervisor exception controls.
 - Read-only stakeholders receive navigation, privacy, operational interpretation, and
   safe escalation without mutation training.

@@ -3,14 +3,21 @@
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarDays,
+  Check,
   ClipboardCheck,
   ExternalLink,
+  FileCheck2,
+  FileText,
+  LockKeyhole,
   Play,
   RefreshCcw,
+  ShieldCheck,
+  UserRound,
 } from "lucide-react";
-import Image from "next/image";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { startTransition, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineDemoEnvironment } from "@/lib/demo/demo-environment";
@@ -27,7 +34,10 @@ import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { stageOperatorGuideForNavigation } from "@/lib/training/operator-guided-tour-state";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
-import MeetClientHandoffDemo from "@/components/pipeline/training/MeetClientHandoffDemo";
+
+const MeetClientHandoffDemo = dynamic(() => import("@/components/pipeline/training/MeetClientHandoffDemo"), {
+  loading: () => <div className="flex min-h-[260px] items-center justify-center text-[11px] font-bold text-[#68736f]">Loading handoff preview...</div>,
+});
 
 type DemoActor = {
   id: string;
@@ -43,23 +53,17 @@ type DemoView = "presentation" | "journey" | "lab" | "handoff";
 type PresentationSlide = {
   id: string;
   number: number;
+  navLabel: string;
+  eyebrow: string;
   title: string;
-  points: readonly string[];
-  sections?: readonly string[];
-  rule?: string;
-  graphic?: "assignments";
-  screenshots?: readonly PresentationScreenshot[];
+  lead: string;
+  graphic: "case-spine" | "ownership" | "workday" | "source-stack" | "assessment-map" | "note-comparison" | "decision-path" | "handoff";
+  nextLabel: string;
+  dark?: boolean;
   action?: {
     label: string;
     href: string;
   };
-};
-
-type PresentationScreenshot = {
-  src: string;
-  alt: string;
-  label: string;
-  caption: string;
 };
 
 type DemoChapter = {
@@ -76,158 +80,89 @@ type DemoChapter = {
 
 const presentationSlides: readonly PresentationSlide[] = [
   {
-    id: "assigned-work",
+    id: "decision-ready",
     number: 1,
-    title: "Review your assigned work",
-    points: [
-      "Start on Home. It shows the referrals, drafts, and appointments assigned to you.",
-      "Open an existing draft instead of creating the referral again.",
-      "Check today's work and upcoming appointments before opening a workspace.",
-    ],
-    graphic: "assignments",
+    navLabel: "Outcome",
+    eyebrow: "Supervisor-led assessor orientation",
+    title: "How assessors use Pipeline from referral to recommendation",
+    lead: "This overview covers where work appears, how to verify and document the assessment, what signing changes, and where assessor responsibility ends.",
+    graphic: "case-spine",
+    nextLabel: "Review responsibilities",
+    dark: true,
   },
   {
-    id: "open-workspace",
+    id: "assessor-role",
     number: 2,
-    title: "Open the workspace",
-    points: [
-      "Confirm the client, assigned assessor, community, and current stage.",
-      "Use Files for source documents and Activity for the change history.",
-      "Add later documents to this same workspace so the record stays together.",
-    ],
-    screenshots: [{
-      src: "/training/presentation/intake-workspace.png",
-      alt: "Synthetic Pipeline intake workspace with the referral packet and workspace navigation visible.",
-      label: "Referral workspace",
-      caption: "One workspace holds the source packet, intake facts, assessment, files, and activity.",
-    }],
+    navLabel: "Ownership",
+    eyebrow: "Roles and responsibilities",
+    title: "Your responsibilities in Pipeline",
+    lead: "Assessors verify the source material, complete and sign the assessment, and submit a clinical recommendation. An authorized administrator records the admission decision.",
+    graphic: "ownership",
+    nextLabel: "See where work appears",
   },
   {
-    id: "review-intake",
+    id: "find-work",
     number: 3,
-    title: "Verify the intake",
-    points: [
-      "Check identity, referral source, contacts, prior setting, community, and medications against the packet.",
-      "Correct inherited information in Intake before starting the assessment.",
-      "Mark missing or conflicting information. Do not guess.",
-    ],
-    screenshots: [{
-      src: "/training/presentation/intake-review.png",
-      alt: "Synthetic Pipeline intake workspace populated with reviewed referral and medication information.",
-      label: "Intake review",
-      caption: "Verified intake facts carry forward while missing and conflicting source information stays visible.",
-    }],
+    navLabel: "Start",
+    eyebrow: "Home · Calendar · Workspace",
+    title: "Where to start each day",
+    lead: "Home lists work requiring attention. Calendar shows scheduled assessments. The workspace contains the referral record and its activity.",
+    graphic: "workday",
+    nextLabel: "Verify the intake",
   },
   {
-    id: "schedule-assessment",
+    id: "verify-sources",
     number: 4,
-    title: "Schedule the assessment",
-    points: [
-      "Set the date, time, duration, and method.",
-      "Add the Zoom link, location, or appointment detail, then save.",
-      "Confirm it appears on your calendar. Reschedule or record a no-show without changing the referral outcome.",
-    ],
-    screenshots: [
-      {
-        src: "/training/presentation/assessment-schedule.png",
-        alt: "Synthetic Pipeline assessment scheduling dialog with date, duration, method, and location fields.",
-        label: "Schedule",
-        caption: "The appointment remains attached to the referral and assigned assessor.",
-      },
-      {
-        src: "/training/presentation/assessor-calendar.png",
-        alt: "Synthetic Pipeline team calendar showing a scheduled assessment and ready-to-schedule queue.",
-        label: "Calendar",
-        caption: "The saved appointment appears in the assessor-scoped calendar.",
-      },
-    ],
+    navLabel: "Prepare",
+    eyebrow: "Before the interview",
+    title: "Verify the intake and its sources",
+    lead: "Verify inherited intake against the packet before the interview. Preserve disagreements between sources and leave unsupported facts unknown.",
+    graphic: "source-stack",
+    nextLabel: "Review the interview",
   },
   {
-    id: "open-assessment",
+    id: "structured-interview",
     number: 5,
-    title: "Open the assessment",
-    points: [
-      "Review the inherited client, referral, placement, and medication information.",
-      "Complete all 12 sections. You can return directly to any unfinished section.",
-      "Keep client report, collateral information, records, and assessor observations distinguishable.",
-    ],
-    sections: [
-      "Client & referral",
-      "Placement",
-      "History",
-      "Clinical",
-      "Function",
-      "Legal",
-      "Medication",
-      "Substance use",
-      "Behavior & safety",
-      "Physical health",
-      "Support & goals",
-      "Review",
-    ],
-    screenshots: [{
-      src: "/training/presentation/assessment-guided.png",
-      alt: "Synthetic Pipeline assessment with section navigation, interview fields, progress, and guided tutorial visible.",
-      label: "Full assessment",
-      caption: "The section rail, inherited context, conditional questions, and saved progress remain together.",
-    }],
+    navLabel: "Interview",
+    eyebrow: "During the assessment",
+    title: "Use the section map to stay oriented",
+    lead: "The assessment contains twelve sections grouped into four phases. Conditional questions appear only when the client’s answers make them relevant.",
+    graphic: "assessment-map",
+    nextLabel: "Compare documentation",
   },
   {
-    id: "document-interview",
+    id: "write-evidence",
     number: 6,
-    title: "Complete each section",
-    points: [
-      "Answer conditional follow-up questions only when they appear.",
-      "Write each finding in the section where it belongs.",
-      "Use Answer Help when a narrative field needs structure or an example.",
-    ],
-  },
-  {
-    id: "practice-language",
-    number: 7,
-    title: "Practice in Notes Lab",
-    points: [
-      "Practice the same assessment fields with a synthetic client.",
-      "Use Answer Help only when you need it.",
-      "Return to this presentation when you finish.",
-    ],
+    navLabel: "Document",
+    eyebrow: "Documenting the interview",
+    title: "Write evidence—not polished guesses",
+    lead: "A useful note says who reported the fact, what is known now, what conflicts, and what must happen next.",
+    graphic: "note-comparison",
+    nextLabel: "Review and sign",
     action: {
-      label: "Open Assessment Notes Lab",
+      label: "Practice this note",
       href: "/note-lab/practice?from=demo",
     },
   },
   {
     id: "review-and-sign",
-    number: 8,
-    title: "Review and sign",
-    points: [
-      "Confirm autosave has finished.",
-      "Review missing required answers, conflicts, sources, and the recommendation.",
-      "Sign only when the assessment is complete. Add later information as an addendum.",
-    ],
-    screenshots: [{
-      src: "/training/presentation/assessment-review.png",
-      alt: "Synthetic Pipeline assessment review section showing saved status, required-field progress, and final narrative fields.",
-      label: "Final review",
-      caption: "Saved status and unresolved required fields remain visible before signature.",
-    }],
+    number: 7,
+    navLabel: "Recommend",
+    eyebrow: "Completing assessor work",
+    title: "Review, sign, then submit your recommendation",
+    lead: "Resolve missing answers and conflicts before signing. The signature locks the assessment; your recommendation then becomes clinical input to the administrator’s decision.",
+    graphic: "decision-path",
+    nextLabel: "See the handoff",
   },
   {
-    id: "submit-assessment",
-    number: 9,
-    title: "Submit for supervisor review",
-    points: [
-      "The supervisor reviews the signed assessment and returns anything that needs correction.",
-      "After an accepted decision, verified data feeds the Chart and Meet the Client handoff.",
-      "Files remain in the workspace and Activity records who changed the record and when.",
-    ],
-    rule: "The assessor documents and signs the assessment. The supervisor makes the admission decision.",
-    screenshots: [{
-      src: "/training/presentation/meet-client-handoff.png",
-      alt: "Synthetic Meet the Client handoff preview created from verified intake and signed assessment information.",
-      label: "Downstream record",
-      caption: "Accepted referrals use the verified record for the Chart, receiving summary, and approved packet files.",
-    }],
+    id: "accepted-handoff",
+    number: 8,
+    navLabel: "Impact",
+    eyebrow: "After an accepted decision",
+    title: "How the assessment supports the receiving team",
+    lead: "Verified findings can populate Chart and Meet the Client. Authorized staff review the receiving summary and approved attachments before sending.",
+    graphic: "handoff",
+    nextLabel: "Start the referral journey",
   },
 ] as const;
 
@@ -270,18 +205,18 @@ const demoChapters: readonly DemoChapter[] = [
   },
   {
     number: 5,
-    title: "Review for decision",
-    instruction: "A supervisor reviews the completed assessment before the admission decision.",
-    actions: ["Review evidence, conflicts, and missing information", "Return unclear or incomplete work for correction", "Confirm the recommendation and open requirements"],
-    completeWhen: "The assessment is ready for an authorized admission decision.",
+    title: "Sign and recommend",
+    instruction: "Finish the assessor-owned work before the referral moves to authorized decision review.",
+    actions: ["Confirm saved status and resolve required gaps", "Sign the completed assessment", "Submit a clinical recommendation with a clear rationale"],
+    completeWhen: "The assessment is signed and the recommendation is recorded separately from the final decision.",
     scenarioId: "assessment-complex",
   },
   {
     number: 6,
-    title: "Prepare the handoff",
-    instruction: "For an accepted referral, review the receiving-community information and approved files.",
-    actions: ["Review the complete Chart", "Check the Meet the Client summary", "Confirm the admission packet attachments before sending"],
-    completeWhen: "The receiving team has the approved summary and admission files.",
+    title: "Understand the downstream handoff",
+    instruction: "See how an accepted referral becomes a receiving-community record after the administrator's decision.",
+    actions: ["Review the assessment-derived Chart", "Check the Meet the Client summary", "Identify the authorized handoff staff and approved attachments"],
+    completeWhen: "You can explain what your assessment supplies downstream and where your assessor responsibility ends.",
     destination: "handoff",
   },
 ] as const;
@@ -302,6 +237,7 @@ export default function PipelineDemoCenter({
   const [loadingCases, setLoadingCases] = useState(true);
   const [launchingId, setLaunchingId] = useState<PipelineDemoScenarioId | null>(null);
   const [error, setError] = useState("");
+  const casesLoadedRef = useRef(false);
   const canWrite = environment.writable && actor.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role));
   const chapter = demoChapters[chapterIndex] ?? demoChapters[0];
 
@@ -311,6 +247,9 @@ export default function PipelineDemoCenter({
   };
 
   useEffect(() => {
+    if (view !== "lab" || casesLoadedRef.current) return;
+    casesLoadedRef.current = true;
+    setLoadingCases(true);
     activatePipelineDemoSession();
     void loadDemoReferrals().then((items) => {
       startTransition(() => {
@@ -321,7 +260,7 @@ export default function PipelineDemoCenter({
       setLoadingCases(false);
       setError("Existing demo cases could not be loaded. You can still create a fresh synthetic case.");
     });
-  }, []);
+  }, [view]);
 
   const launchScenario = async (
     scenario: PipelineDemoScenario,
@@ -477,115 +416,239 @@ function PresentationDeck({
   });
   const slide = presentationSlides[slideIndex] ?? presentationSlides[0];
   const isLast = slideIndex === presentationSlides.length - 1;
-  const hasSupportingVisual = Boolean(slide.graphic || slide.screenshots?.length);
 
-  useEffect(() => {
-    for (const presentationSlide of presentationSlides) {
-      for (const screenshot of presentationSlide.screenshots ?? []) {
-        const preload = new window.Image();
-        preload.src = toPipelinePath(screenshot.src);
-      }
-    }
-  }, []);
-
-  const selectSlide = (index: number) => {
+  const selectSlide = useCallback((index: number) => {
     setSlideIndex(Math.max(0, Math.min(presentationSlides.length - 1, index)));
     onSlideChange();
-  };
+  }, [onSlideChange]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches("input, textarea, select, [contenteditable='true']")) return;
+      if (event.key === "ArrowRight") selectSlide(slideIndex + 1);
+      else if (event.key === "ArrowLeft") selectSlide(slideIndex - 1);
+      else if (event.key === "Home") selectSlide(0);
+      else if (event.key === "End") selectSlide(presentationSlides.length - 1);
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectSlide, slideIndex]);
 
   return (
-    <section data-demo-surface="presentation" className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-white lg:grid-cols-[230px_minmax(0,1fr)] lg:grid-rows-none">
-      <aside className="min-h-0 border-b border-[#d8dfdc] bg-[#eef3f1] p-3 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-4">
-        <nav aria-label="Presentation slides" className="flex gap-1 overflow-x-auto lg:block">
+    <section data-demo-surface="presentation" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
+      <header className="shrink-0 border-b border-[#d8dfdc] bg-white">
+        <div className="flex items-center justify-between gap-4 px-4 pb-2 pt-3 sm:px-6 lg:px-10">
+          <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#52605a]">Supervisor-led assessor orientation <span className="text-[#0f8b73]">· 4 minutes</span></div>
+          <div className="hidden text-[10px] font-semibold text-[#7a8580] sm:block">Use ← → to move</div>
+        </div>
+        <nav aria-label="Presentation slides" className="overflow-x-auto px-2 pb-2 sm:px-4 lg:px-8">
+          <div className="flex min-w-max items-center gap-1">
           {presentationSlides.map((item, index) => (
-            <button key={item.number} type="button" onClick={() => selectSlide(index)} aria-current={index === slideIndex ? "step" : undefined} className={`grid min-h-[50px] w-[176px] shrink-0 grid-cols-[24px_minmax(0,1fr)] items-center gap-2 border-l-2 px-3 text-left lg:mb-1 lg:w-full ${index === slideIndex ? "border-[#0f8b73] bg-white text-[#20302b]" : "border-transparent text-[#63706b] hover:bg-white/70"}`}>
-              <span className="text-[10px] font-bold tabular-nums">{String(item.number).padStart(2, "0")}</span>
-              <span className="text-[11px] font-bold leading-4">{item.title}</span>
+            <button key={item.number} type="button" onClick={() => selectSlide(index)} aria-current={index === slideIndex ? "step" : undefined} className={`group flex h-10 min-w-[104px] items-center gap-2 border-b-2 px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-1 ${index === slideIndex ? "border-[#0f8b73] bg-[#f1f7f5] text-[#183a31]" : "border-transparent text-[#717c77] hover:bg-[#f6f8f7] hover:text-[#29332f]"}`}>
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black tabular-nums ${index === slideIndex ? "bg-[#0f8b73] text-white" : "border border-[#c7d0cc] bg-white text-[#6a756f] group-hover:border-[#8cab9f]"}`}>{item.number}</span>
+              <span className="text-[10px] font-black">{item.navLabel}</span>
             </button>
           ))}
-        </nav>
-      </aside>
-      <div className="flex min-h-0 min-w-0 flex-col">
-        <article aria-label={`Presentation slide ${slide.number}`} className="min-h-0 flex-1 overflow-y-auto px-5 py-7 sm:px-8 lg:px-10 lg:py-7 xl:px-12">
-          <div className="text-[10px] font-bold uppercase tracking-[0.09em] text-[#0c705f]">Step {slide.number} of {presentationSlides.length}</div>
-          <h2 className="mt-2 max-w-[900px] text-[28px] font-semibold leading-9 tracking-[-0.035em] text-[#1c2421] sm:text-[32px] sm:leading-[38px]">{slide.title}</h2>
-          <div className={hasSupportingVisual ? "mt-6 grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(250px,0.72fr)_minmax(440px,1.28fr)]" : "mt-6 max-w-[920px]"}>
-            <div className="min-w-0">
-              <ul className="border-y border-[#d9dfdc]">
-                {slide.points.map((point, index) => <li key={point} className="grid grid-cols-[28px_minmax(0,1fr)] items-start border-b border-[#e1e5e3] py-3 last:border-b-0"><span className="pt-0.5 text-[10px] font-bold tabular-nums text-[#0c705f]">{index + 1}</span><span className="text-[12px] font-semibold leading-5 text-[#39423e]">{point}</span></li>)}
-              </ul>
-              {slide.sections ? <ol className="mt-5 grid grid-cols-2 border-t border-[#d5ddda]">{slide.sections.map((section, index) => <li key={section} className="flex min-h-9 items-center gap-2 border-b border-[#e0e5e2] py-1.5 pr-2"><span className="text-[8px] font-black tabular-nums text-[#0c705f]">{String(index + 1).padStart(2, "0")}</span><span className="text-[10px] font-bold leading-4 text-[#34413c]">{section}</span></li>)}</ol> : null}
-              {slide.rule ? <p className="mt-5 border-l-[3px] border-[#0f8b73] bg-[#f0f6f4] px-4 py-3 text-[11px] font-bold leading-5 text-[#355047]">{slide.rule}</p> : null}
-              {slide.action ? <Link href={toPipelinePath(slide.action.href)} className="mt-5 inline-flex h-11 items-center bg-[#0f8b73] px-5 text-[11px] font-bold text-white hover:bg-[#0b6d5b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">{slide.action.label}</Link> : null}
-            </div>
-            {hasSupportingVisual ? <PresentationVisual key={slide.number} slide={slide} /> : null}
           </div>
-        </article>
-        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-3 sm:px-8">
-          <button type="button" disabled={slideIndex === 0} onClick={() => selectSlide(slideIndex - 1)} className="inline-flex h-10 items-center px-2 text-[10px] font-bold text-[#5d6863] disabled:invisible">Previous</button>
-          {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center bg-[#0f8b73] px-5 text-[10px] font-bold text-white hover:bg-[#0b6d5b]">Start the referral journey</button> : <button type="button" onClick={() => selectSlide(slideIndex + 1)} className="inline-flex h-10 items-center bg-[#111111] px-5 text-[10px] font-bold text-white">Next</button>}
-        </footer>
-      </div>
+        </nav>
+      </header>
+      <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className={`pipeline-presentation-enter min-h-0 flex-1 overflow-y-auto ${slide.dark ? "bg-[#143d34] text-white" : "bg-[#fbfcfb] text-[#17221e]"}`}>
+        <div className="mx-auto grid min-h-full w-full max-w-[1500px] content-start gap-7 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[minmax(360px,0.85fr)_minmax(480px,1.15fr)] lg:items-center lg:gap-10 lg:px-10 xl:px-12">
+          <div className="min-w-0">
+            <div className={`text-[11px] font-black uppercase tracking-[0.12em] ${slide.dark ? "text-[#8be0c5]" : "text-[#0c705f]"}`}>{slide.eyebrow}</div>
+            <h2 className="mt-4 max-w-[720px] text-[36px] font-semibold leading-[1.02] tracking-[-0.045em] sm:text-[44px] lg:text-[46px]">{slide.title}</h2>
+            <p className={`mt-5 max-w-[660px] text-[16px] font-medium leading-7 sm:text-[18px] sm:leading-8 ${slide.dark ? "text-[#d2e5df]" : "text-[#52605a]"}`}>{slide.lead}</p>
+            {slide.action ? <Link href={toPipelinePath(slide.action.href)} className={`mt-6 inline-flex h-11 items-center gap-2 px-5 text-[12px] font-black outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${slide.dark ? "bg-white text-[#143d34] focus-visible:ring-white focus-visible:ring-offset-[#143d34]" : "bg-[#0f8b73] text-white hover:bg-[#0b6d5b] focus-visible:ring-[#0f8b73]"}`}>{slide.action.label}<ArrowRight size={15} aria-hidden="true" /></Link> : null}
+          </div>
+          <PresentationVisual slide={slide} />
+        </div>
+      </article>
+      <p className="sr-only" aria-live="polite">Slide {slide.number} of {presentationSlides.length}: {slide.title}</p>
+      <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d8dfdc] bg-white px-4 py-3 sm:px-8 lg:px-10">
+        <button type="button" disabled={slideIndex === 0} onClick={() => selectSlide(slideIndex - 1)} className="inline-flex h-10 items-center gap-2 px-2 text-[11px] font-bold text-[#5d6863] outline-none hover:text-[#17221e] focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:invisible"><ArrowLeft size={14} aria-hidden="true" />Previous</button>
+        <div className="hidden items-center gap-1.5 sm:flex" aria-hidden="true">{presentationSlides.map((item, index) => <span key={item.id} className={`h-1.5 transition-[width,background-color] ${index === slideIndex ? "w-8 bg-[#0f8b73]" : "w-1.5 bg-[#cbd4d0]"}`} />)}</div>
+        {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">Start the referral journey<ArrowRight size={14} aria-hidden="true" /></button> : <button type="button" onClick={() => selectSlide(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white outline-none hover:bg-[#26302c] focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-2">{slide.nextLabel}<ArrowRight size={14} aria-hidden="true" /></button>}
+      </footer>
     </section>
   );
 }
 
 function PresentationVisual({ slide }: { slide: PresentationSlide }) {
-  if (slide.screenshots?.length) return <PresentationScreenshots screenshots={slide.screenshots} />;
-  if (slide.graphic) return <AssignedWorkExample />;
-  return null;
+  if (slide.graphic === "case-spine") return <CaseSpineVisual />;
+  if (slide.graphic === "ownership") return <OwnershipVisual />;
+  if (slide.graphic === "workday") return <WorkdayVisual />;
+  if (slide.graphic === "source-stack") return <SourceStackVisual />;
+  if (slide.graphic === "assessment-map") return <AssessmentMapVisual />;
+  if (slide.graphic === "note-comparison") return <NoteComparisonVisual />;
+  if (slide.graphic === "decision-path") return <DecisionPathVisual />;
+  return <HandoffVisual />;
 }
 
-function PresentationScreenshots({ screenshots }: { screenshots: readonly PresentationScreenshot[] }) {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const selected = screenshots[selectedIndex] ?? screenshots[0];
-
+function CaseSpineVisual() {
+  const stages = [
+    { label: "Referral packet", detail: "What arrived", icon: FileText },
+    { label: "Assessment", detail: "What you verified", icon: ClipboardCheck },
+    { label: "Recommendation", detail: "What you concluded", icon: FileCheck2 },
+    { label: "Care handoff", detail: "What the next team needs", icon: ShieldCheck },
+  ] as const;
   return (
-    <figure className="min-w-0 border border-[#cbd5d1] bg-white">
-      {screenshots.length > 1 ? (
-        <div role="tablist" aria-label="Slide screenshots" className="flex min-h-10 border-b border-[#d7dfdb] bg-[#f4f7f5]">
-          {screenshots.map((screenshot, index) => (
-            <button key={screenshot.src} type="button" role="tab" aria-selected={index === selectedIndex} onClick={() => setSelectedIndex(index)} className={`border-b-2 px-4 text-[10px] font-bold ${index === selectedIndex ? "border-[#0f8b73] bg-white text-[#1f342d]" : "border-transparent text-[#6a746f] hover:text-[#26332e]"}`}>{screenshot.label}</button>
-          ))}
-        </div>
-      ) : null}
-      <div className="relative aspect-video overflow-hidden bg-[#e6ece9]">
-        <Image
-          key={selected.src}
-          src={toPipelinePath(selected.src)}
-          alt={selected.alt}
-          fill
-          unoptimized
-          loading="eager"
-          sizes="(max-width: 1023px) 100vw, 60vw"
-          className="object-cover object-top"
-        />
+    <section aria-label="Taylor Rivera referral journey" className="min-w-0 overflow-hidden border border-white/20 bg-[#0f3029] shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
+      <div className="flex items-center justify-between gap-4 border-b border-white/15 px-5 py-4 sm:px-6">
+        <div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8be0c5]">Synthetic case</div><div className="mt-1 text-[20px] font-semibold text-white">Taylor Rivera</div></div>
+        <div className="text-right text-[11px] font-semibold leading-5 text-[#bdd3cc]">Turlock<br />Assigned assessment</div>
       </div>
-      <figcaption className="border-t border-[#d7dfdb] px-3 py-2.5 text-[10px] font-medium leading-4 text-[#56615c]">{selected.caption}</figcaption>
-    </figure>
+      <ol className="grid gap-px bg-white/15 sm:grid-cols-2 xl:grid-cols-4">
+        {stages.map(({ label, detail, icon: Icon }, index) => (
+          <li key={label} className="relative min-h-[150px] bg-[#143d34] p-5 sm:p-6">
+            <div className="flex items-start justify-between"><Icon size={22} className="text-[#8be0c5]" aria-hidden="true" /><span className="text-[10px] font-black text-white/45">0{index + 1}</span></div>
+            <div className="mt-8 text-[15px] font-black text-white">{label}</div>
+            <div className="mt-1 text-[11px] font-medium leading-5 text-[#bdd3cc]">{detail}</div>
+          </li>
+        ))}
+      </ol>
+      <div className="flex items-center gap-3 border-t border-white/15 px-5 py-4 text-[12px] font-bold text-white sm:px-6"><Check size={16} className="text-[#8be0c5]" aria-hidden="true" />The packet, assessment, recommendation, and handoff remain connected.</div>
+    </section>
   );
 }
 
-function AssignedWorkExample() {
+function OwnershipVisual() {
   return (
-    <section aria-label="Assessor assigned work" className="border border-[#cbd5d1] bg-white">
-      <div className="border-b border-[#d7dfdb] px-4 py-3 text-[11px] font-bold text-[#27322d]">Assigned work</div>
-      <div className="divide-y divide-[#dfe5e2] px-4">
-        <AssignmentRow name="Jordan Practice" detail="Intake review due today" status="Needs review" />
-        <AssignmentRow name="Taylor Example" detail="Assessment tomorrow at 10:00 AM" status="Scheduled" />
-        <AssignmentRow name="Morgan Training" detail="Assessment draft saved" status="In progress" />
+    <section aria-label="Assessor and administrator responsibilities" className="min-w-0 overflow-hidden border border-[#c8d3ce] bg-white shadow-[0_24px_70px_rgba(28,50,42,0.10)]">
+      <div className="grid gap-px bg-[#d8e0dc] sm:grid-cols-2">
+        <div className="bg-[#eaf5f1] p-6 sm:p-7">
+          <div className="flex items-center gap-3 text-[#0c705f]"><UserRound size={21} aria-hidden="true" /><span className="text-[11px] font-black uppercase tracking-[0.1em]">You · assessor</span></div>
+          <ul className="mt-7 space-y-4 text-[15px] font-bold leading-6 text-[#243a32]">
+            <OwnershipItem>Verify the source material</OwnershipItem>
+            <OwnershipItem>Complete and sign the assessment</OwnershipItem>
+            <OwnershipItem>Submit the clinical recommendation</OwnershipItem>
+          </ul>
+        </div>
+        <div className="bg-white p-6 sm:p-7">
+          <div className="flex items-center gap-3 text-[#5c6762]"><ShieldCheck size={21} aria-hidden="true" /><span className="text-[11px] font-black uppercase tracking-[0.1em]">Authorized administrator</span></div>
+          <ul className="mt-7 space-y-4 text-[15px] font-bold leading-6 text-[#39443f]">
+            <OwnershipItem muted>Review assessment and requirements</OwnershipItem>
+            <OwnershipItem muted>Discuss operational fit</OwnershipItem>
+            <OwnershipItem muted>Record the admission decision</OwnershipItem>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t border-[#d8e0dc] bg-[#17221e] px-6 py-4 text-[13px] font-bold text-white"><span className="text-[#8bd5bd]">The boundary:</span> recommend acceptance, decline, or more information. Do not record the final decision.</div>
+    </section>
+  );
+}
+
+function OwnershipItem({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
+  return <li className="flex items-start gap-3"><span className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${muted ? "bg-[#eef1ef] text-[#68736e]" : "bg-white text-[#0f8b73]"}`}><Check size={12} aria-hidden="true" /></span><span>{children}</span></li>;
+}
+
+function WorkdayVisual() {
+  const surfaces = [
+    { label: "Home", title: "Taylor Rivera", detail: "Assessment due today", status: "Needs you", icon: UserRound },
+    { label: "Calendar", title: "10:00 AM · Zoom", detail: "60-minute assessment", status: "Scheduled", icon: CalendarDays },
+    { label: "Workspace", title: "One connected record", detail: "Intake · Assessment · Chart · Activity", status: "Open", icon: FileCheck2 },
+  ] as const;
+  return (
+    <section aria-label="Home calendar and workspace sequence" className="min-w-0">
+      <ol className="grid gap-3 lg:grid-cols-3">
+        {surfaces.map(({ label, title, detail, status, icon: Icon }, index) => (
+          <li key={label} className="relative border border-[#cbd5d1] bg-white p-5 shadow-[0_16px_40px_rgba(29,52,44,0.08)]">
+            <div className="flex items-center justify-between"><div className="flex h-9 w-9 items-center justify-center bg-[#e7f3ef] text-[#0c705f]"><Icon size={18} aria-hidden="true" /></div><span className="text-[9px] font-black uppercase tracking-[0.09em] text-[#77817c]">{label}</span></div>
+            <div className="mt-8 text-[16px] font-black text-[#1f2c27]">{title}</div>
+            <div className="mt-2 min-h-10 text-[11px] font-medium leading-5 text-[#66716c]">{detail}</div>
+            <div className="mt-5 border-t border-[#e0e5e2] pt-3 text-[10px] font-black text-[#0c705f]">{status}</div>
+            {index < surfaces.length - 1 ? <span className="absolute -right-[14px] top-1/2 z-10 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[#cbd5d1] bg-white text-[#0c705f] lg:flex"><ArrowRight size={13} aria-hidden="true" /></span> : null}
+          </li>
+        ))}
+      </ol>
+      <div className="mt-4 flex items-center gap-3 border-l-4 border-[#0f8b73] bg-[#edf5f2] px-5 py-4 text-[13px] font-bold leading-6 text-[#315047]">If the referral already exists, open it. Creating it again can split documents and activity across duplicate workspaces.</div>
+    </section>
+  );
+}
+
+function SourceStackVisual() {
+  const sources = [
+    ["Client report", "Missed two evening doses this week"],
+    ["Referral packet", "Medication list dated three months ago"],
+    ["Collateral", "Current pharmacy record not received"],
+    ["Your observation", "Client identifies purpose of medication"],
+  ] as const;
+  return (
+    <section aria-label="Source attribution example" className="grid min-w-0 gap-4 xl:grid-cols-[0.86fr_1.14fr]">
+      <div className="space-y-2">
+        {sources.map(([source, fact], index) => <div key={source} className="border border-[#cbd5d1] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(29,52,44,0.05)]"><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#e5f3ee]">{index + 1}</span>{source}</div><p className="mt-2 text-[12px] font-semibold leading-5 text-[#384640]">{fact}</p></div>)}
+      </div>
+      <div className="border border-[#b6c8c1] bg-[#17372f] p-5 text-white shadow-[0_24px_60px_rgba(24,54,46,0.16)] sm:p-6">
+        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8bd5bd]">Verified intake</div>
+        <div className="mt-4 text-[21px] font-semibold">Medication adherence</div>
+        <div className="mt-5 space-y-4 text-[12px] leading-6 text-[#d5e3de]"><p><strong className="text-white">Known:</strong> Taylor reports two missed evening doses this week.</p><p><strong className="text-white">Conflict:</strong> The available medication list may be outdated.</p><p><strong className="text-white">Next action:</strong> Verify the current regimen with the pharmacy or referring team.</p></div>
+        <div className="mt-6 border-t border-white/15 pt-4 text-[11px] font-black text-[#8bd5bd]">No current record? Leave the regimen unverified.</div>
       </div>
     </section>
   );
 }
 
-function AssignmentRow({ name, detail, status }: { name: string; detail: string; status: string }) {
+function AssessmentMapVisual() {
+  const groups = [
+    ["Understand the referral", ["Client & referral", "Placement", "History"]],
+    ["Understand the person", ["Clinical", "Function", "Medication", "Substance use"]],
+    ["Understand safety and care", ["Behavior & safety", "Physical health", "Legal"]],
+    ["Plan and finish", ["Support & goals", "Review"]],
+  ] as const;
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-white py-3">
-      <div className="min-w-0"><div className="truncate text-[11px] font-bold text-[#27322d]">{name}</div><div className="mt-1 truncate text-[9px] font-medium text-[#68736e]">{detail}</div></div>
-      <span className="text-[9px] font-bold text-[#0c705f]">{status}</span>
-    </div>
+    <section aria-label="Assessment interview map" className="min-w-0 border border-[#c9d4cf] bg-white shadow-[0_24px_70px_rgba(28,50,42,0.10)]">
+      <div className="flex items-end justify-between gap-4 border-b border-[#d9e0dd] px-5 py-3"><div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Taylor Rivera assessment</div><div className="mt-1 text-[15px] font-black text-[#26332e]">Interview map</div></div><div className="text-right"><div className="text-[21px] font-semibold text-[#1f2d28]">7 / 12</div><div className="text-[9px] font-black uppercase text-[#7a8580]">Sections visited</div></div></div>
+      <div className="grid gap-px bg-[#dce3e0] sm:grid-cols-2">
+        {groups.map(([label, sections], groupIndex) => <div key={label} className="bg-[#fbfcfb] p-4"><div className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e5f3ee] text-[9px] font-black text-[#0c705f]">{groupIndex + 1}</span><h3 className="text-[12px] font-black text-[#2b3933]">{label}</h3></div><ul className="mt-3 space-y-1.5">{sections.map((section) => <li key={section} className="flex items-center gap-2 text-[10px] font-semibold text-[#5d6963]"><span className="h-1.5 w-1.5 rounded-full bg-[#68a792]" />{section}</li>)}</ul></div>)}
+      </div>
+      <div className="flex items-center gap-3 border-t border-[#d9e0dd] bg-[#eef6f3] px-5 py-3 text-[11px] font-bold text-[#315047]"><Check size={15} className="text-[#0f8b73]" aria-hidden="true" />Autosave keeps progress; the section map keeps orientation.</div>
+    </section>
   );
+}
+
+function NoteComparisonVisual() {
+  return (
+    <section aria-label="Weak and source-backed note comparison" className="grid min-w-0 gap-3 xl:grid-cols-2">
+      <article className="border border-[#dbc9c5] bg-[#fffafa] p-5 sm:p-6"><div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#91574e]">Too vague</span><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f5e7e4] text-[13px] font-black text-[#9b5146]">×</span></div><blockquote className="mt-8 text-[21px] font-semibold leading-8 tracking-[-0.02em] text-[#4d3834]">“Client is medication noncompliant.”</blockquote><p className="mt-8 border-t border-[#eadbd8] pt-4 text-[11px] font-semibold leading-5 text-[#795f5a]">No source. No time frame. No verified regimen. No next action.</p></article>
+      <article className="border border-[#9fc3b7] bg-[#eaf5f1] p-5 shadow-[0_20px_55px_rgba(26,83,65,0.12)] sm:p-6"><div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Source-attributed</span><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#0c705f]"><Check size={14} aria-hidden="true" /></span></div><blockquote className="mt-6 text-[16px] font-semibold leading-7 text-[#24443a]">“Taylor reports missing two evening doses this week. The current medication record is unavailable. Verify the regimen with the pharmacy or referring team.”</blockquote><div className="mt-6 flex flex-wrap gap-2"><EvidenceTag>Source</EvidenceTag><EvidenceTag>Status</EvidenceTag><EvidenceTag>Next action</EvidenceTag></div></article>
+    </section>
+  );
+}
+
+function EvidenceTag({ children }: { children: React.ReactNode }) {
+  return <span className="border border-[#9fc3b7] bg-white px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#0c705f]">{children}</span>;
+}
+
+function DecisionPathVisual() {
+  const steps = [
+    ["Draft", "Editable", "Assessor"],
+    ["Signed assessment", "Locked", "Assessor"],
+    ["Recommendation", "Submitted", "Assessor"],
+    ["Admission decision", "Accepted · declined · deferred", "Administrator"],
+  ] as const;
+  return (
+    <section aria-label="Assessment signature and decision sequence" className="min-w-0 overflow-hidden border border-[#c8d3ce] bg-white shadow-[0_24px_70px_rgba(28,50,42,0.10)]">
+      <ol className="grid gap-px bg-[#d9e1dd] sm:grid-cols-2 xl:grid-cols-4">{steps.map(([label, detail, owner], index) => <li key={label} className={`relative min-h-[170px] p-5 ${index === 3 ? "bg-[#17221e] text-white" : "bg-white text-[#27342f]"}`}><div className="flex items-center justify-between"><span className={`flex h-8 w-8 items-center justify-center ${index === 3 ? "bg-[#29463c] text-[#8bd5bd]" : "bg-[#e7f3ef] text-[#0c705f]"}`}>{index === 1 ? <LockKeyhole size={15} aria-hidden="true" /> : <span className="text-[10px] font-black">0{index + 1}</span>}</span><span className={`text-[8px] font-black uppercase tracking-[0.08em] ${index === 3 ? "text-[#a9beb7]" : "text-[#84908a]"}`}>{owner}</span></div><div className="mt-8 text-[14px] font-black leading-5">{label}</div><div className={`mt-2 text-[10px] font-semibold leading-5 ${index === 3 ? "text-[#b9cbc5]" : "text-[#69756f]"}`}>{detail}</div>{index < steps.length - 1 ? <ArrowRight size={14} className="absolute -right-2 top-1/2 z-10 hidden -translate-y-1/2 text-[#0f8b73] xl:block" aria-hidden="true" /> : null}</li>)}</ol>
+      <div className="grid gap-px border-t border-[#d9e1dd] bg-[#d9e1dd] sm:grid-cols-2"><div className="bg-[#eaf5f1] px-5 py-4 text-[11px] font-black text-[#315047]">Your work ends with a signed assessment and submitted recommendation.</div><div className="bg-[#f8faf9] px-5 py-4 text-[11px] font-black text-[#5b6661]">New facts after signature belong in a source-attributed addendum.</div></div>
+    </section>
+  );
+}
+
+function HandoffVisual() {
+  const facts = [["Medication", "Two missed evening doses · verify regimen"], ["Daily living", "Independent mobility · bathing support"], ["Support", "Quiet setting helps during escalation"]] as const;
+  return (
+    <section aria-label="Assessment to care handoff lineage" className="grid min-w-0 gap-4 xl:grid-cols-[0.9fr_auto_1.1fr] xl:items-center">
+      <div className="border border-[#cbd5d1] bg-white p-5 shadow-[0_18px_50px_rgba(28,50,42,0.08)]"><div className="flex items-center gap-3"><FileCheck2 size={20} className="text-[#0c705f]" aria-hidden="true" /><div><div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#0c705f]">Signed assessment</div><div className="mt-1 text-[15px] font-black text-[#27352f]">Taylor Rivera</div></div></div><ul className="mt-5 space-y-3">{facts.map(([label, fact]) => <li key={label} className="border-t border-[#e0e5e2] pt-3"><div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#7a8580]">{label}</div><div className="mt-1 text-[11px] font-semibold leading-5 text-[#44514b]">{fact}</div></li>)}</ul></div>
+      <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#0f8b73] text-white xl:flex"><ArrowRight size={17} aria-hidden="true" /></div>
+      <div className="overflow-hidden border border-[#9fc3b7] bg-[#153d34] text-white shadow-[0_24px_70px_rgba(21,61,52,0.18)]"><div className="border-b border-white/15 px-5 py-4"><div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#8bd5bd]">Meet the Client</div><div className="mt-1 text-[19px] font-semibold">Receiving-team summary</div></div><div className="grid gap-px bg-white/10 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3"><HandoffCard label="Medication" value="Verification needed" /><HandoffCard label="Care needs" value="Bathing support" /><HandoffCard label="Helpful context" value="Quiet setting" /></div><div className="flex items-center gap-3 border-t border-white/15 px-5 py-4 text-[11px] font-bold text-[#d4e3de]"><ShieldCheck size={15} className="text-[#8bd5bd]" aria-hidden="true" />Receiving staff review before sending.</div></div>
+    </section>
+  );
+}
+
+function HandoffCard({ label, value }: { label: string; value: string }) {
+  return <div className="bg-[#153d34] p-4"><div className="text-[8px] font-black uppercase tracking-[0.09em] text-[#8bd5bd]">{label}</div><div className="mt-2 text-[11px] font-bold leading-5 text-white">{value}</div></div>;
 }
 
 function ReferralJourney({ chapter, chapterIndex, launchingId, canWrite, onSelect, onLaunch }: { chapter: DemoChapter; chapterIndex: number; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onSelect: (index: number) => void; onLaunch: (chapter: DemoChapter) => void }) {

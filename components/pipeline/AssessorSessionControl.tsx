@@ -97,7 +97,7 @@ export function AssessorSessionMenuAction({
       <button
         type="button"
         onClick={() => void openDialog()}
-        className="grid min-h-[58px] w-full grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-y border-l-[3px] border-y-[#e5e5e5] border-l-transparent px-4 py-3 text-left outline-none transition-colors hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:bg-[#edf7f3]"
+        className="grid min-h-[58px] w-full grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-t border-l-[3px] border-t-[#e5e5e5] border-l-transparent px-4 py-3 text-left outline-none transition-colors hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:bg-[#edf7f3]"
       >
         <UsersRound size={17} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" />
         <span><span className="block text-[11px] font-black text-[#111111]">God mode</span><span className="mt-0.5 block text-[9px] text-[#737373]">Open any user’s account and workspaces</span></span>
@@ -126,7 +126,7 @@ function ReturnToAdministratorButton({ closeProfileMenu }: { closeProfileMenu: (
         setStatus("Returning…");
         void endAssessorSession().catch((error) => setStatus(messageFor(error, "Try again")));
       }}
-      className="grid min-h-[58px] w-full grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-y border-l-[3px] border-y-[#ead7b8] border-l-[#a66b12] bg-[#fff8ed] px-4 py-3 text-left outline-none transition-colors hover:bg-[#ffefcf] focus-visible:bg-[#ffefcf]"
+      className="grid min-h-[58px] w-full grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-t border-l-[3px] border-t-[#ead7b8] border-l-[#a66b12] bg-[#fff8ed] px-4 py-3 text-left outline-none transition-colors hover:bg-[#ffefcf] focus-visible:bg-[#ffefcf]"
     >
       <RotateCcw size={17} strokeWidth={1.9} className="text-[#8a5a10]" aria-hidden="true" />
       <span><span className="block text-[11px] font-black text-[#111111]">Exit God mode</span><span className="mt-0.5 block text-[9px] text-[#737373]">{status}</span></span>

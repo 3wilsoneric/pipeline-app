@@ -30,6 +30,26 @@ the guided walkthrough begins.
 The detailed curriculum, scenarios, job aids, product map, demo environment, and readiness
 records remain maintained source material. They are not separate operator-facing tabs.
 
+## Initial Assessor Presentation
+
+The four-minute walkthrough follows one synthetic client through eight sections:
+outcome, ownership, work discovery, source verification, interview structure, evidence-based
+documentation, signature and recommendation, and care handoff. Detailed click instructions
+remain in the referral journey so the opening presentation can stay focused and
+scannable. The presentation is written for a supervisor to deliver to assessors moving from
+Allo to Pipeline; it is an operational orientation, not a product pitch. It must never imply
+that an assessor records the final admission decision or
+normally sends the receiving packet.
+
+Each slide teaches one idea with a distinct, adjacent visual rather than repeating prose in a
+generic slide template. The deck supports previous/next controls, direct slide navigation,
+Arrow Left/Arrow Right, Home/End, a polite slide announcement for assistive technology, and a
+reduced-motion presentation transition.
+
+The presentation and guided assessment use the same canonical section order as the live
+assessment workspace. Training readiness fails when that order or a role's tutorial modules
+drift from the current product contract.
+
 The interactive environment contract and two-week UAT plan are maintained in
 [`docs/DEMO_ENVIRONMENT.md`](../DEMO_ENVIRONMENT.md).
 

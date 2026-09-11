@@ -115,7 +115,7 @@ export function operatorGuideChapterAtStep(tutorial: OperatorGuidedTutorial, ste
 
 const allRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer", "viewer"];
 const writeRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator", "reviewer"];
-const assessorRoles: readonly OperatorRole[] = ["admin", "reviewer"];
+const assessorRoles = writeRoles;
 const supervisorRoles: readonly OperatorRole[] = ["admin", "assessment_coordinator"];
 
 const assessmentSchedulingRoute = "/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule";
@@ -153,7 +153,7 @@ export const operatorGuidedTutorials: readonly OperatorGuidedTutorial[] = [
     persona: "supervisor",
     clickpath: ["Workspaces", "Referral", "Chart", "Complete chart", "Meet the Client"],
     audiences: supervisorRoles,
-    moduleIds: ["assessment-complete-sign", "final-decision", "ehr-handoff"],
+    moduleIds: ["assessment-complete-sign", "move-in-requirements", "ehr-handoff"],
     steps: [
       step("chart-find", "/?view=referrals", "workspace-search", "Find", "Find the reviewed referral", "Chart review begins from the existing referral so its signed assessment, decision state, and source files remain connected.", "Enter a training client or referral search term.", "The matching workspace results are visible.", "A deliberate lookup reduces wrong-record review risk.", "Verify the referral episode and authorized purpose before opening it.", "target-input", "bottom"),
       step("chart-open-referral", "/?view=referrals", "workspace-results", "Find", "Open the referral", "The workspace connects the assessment source, generated Chart views, files, and activity in one governed episode.", "Select the correct training workspace.", "The referral workspace is open.", "The source workspace makes Chart provenance reviewable.", "Only open records required for authorized review.", "target-click", "top"),

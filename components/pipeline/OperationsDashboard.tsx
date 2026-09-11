@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, Download } from "lucide-react";
 
 import { fetchPipelineApi, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
@@ -13,9 +14,12 @@ import type {
   OperationsReportRow,
 } from "@/lib/pipeline/operations-report-types";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
+import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/client-navigation";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import SupervisorCommandCenter from "@/components/pipeline/SupervisorCommandCenter";
 import WorkAssessmentGraph from "@/components/pipeline/WorkAssessmentGraph";
+
+type ReportsView = "reports" | "exceptions";
 
 export default function OperationsDashboard({
   onOpenPacket,
@@ -31,6 +35,9 @@ export default function OperationsDashboard({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const searchParams = useSearchParams();
+  const locationSearch = usePipelineLocationSearch(searchParams?.toString() ?? "");
+  const view: ReportsView = new URLSearchParams(locationSearch).get("reportView") === "exceptions" ? "exceptions" : "reports";
 
   const loadReport = useCallback(async (nextFilters: OperationsReportFilters, signal?: AbortSignal) => {
     setLoading(true);
@@ -75,6 +82,14 @@ export default function OperationsDashboard({
     void loadReport(next);
   };
 
+  const selectView = (nextView: ReportsView) => {
+    if (nextView === view) return;
+    const params = new URLSearchParams(window.location.search);
+    if (nextView === "exceptions") params.set("reportView", "exceptions");
+    else params.delete("reportView");
+    pushPipelineHistory(`/?${params.toString()}`);
+  };
+
   const exportReport = async () => {
     if (!response || filtersChanged) return;
     setExporting(true);
@@ -104,94 +119,187 @@ export default function OperationsDashboard({
   };
 
   return (
+    <OperationsDashboardView
+      view={view}
+      filters={filters}
+      response={response}
+      selectedDefinition={selectedDefinition}
+      error={error}
+      loading={loading}
+      exporting={exporting}
+      filtersChanged={filtersChanged}
+      onSelectView={selectView}
+      onSelectReport={selectReport}
+      onSetFilters={setFilters}
+      onReload={() => void loadReport(filters)}
+      onExport={() => void exportReport()}
+      onOpenPacket={onOpenPacket}
+      onOpenProfile={onOpenProfile}
+      onOpenProfiles={onOpenProfiles}
+    />
+  );
+}
+
+function OperationsDashboardView({
+  view,
+  filters,
+  response,
+  selectedDefinition,
+  error,
+  loading,
+  exporting,
+  filtersChanged,
+  onSelectView,
+  onSelectReport,
+  onSetFilters,
+  onReload,
+  onExport,
+  onOpenPacket,
+  onOpenProfile,
+  onOpenProfiles,
+}: {
+  view: ReportsView;
+  filters: OperationsReportFilters;
+  response: OperationsReportResponse | null;
+  selectedDefinition: OperationsReportResponse["report"]["definition"] | null;
+  error: string;
+  loading: boolean;
+  exporting: boolean;
+  filtersChanged: boolean;
+  onSelectView: (view: ReportsView) => void;
+  onSelectReport: (reportId: OperationsReportId) => void;
+  onSetFilters: Dispatch<SetStateAction<OperationsReportFilters>>;
+  onReload: () => void;
+  onExport: () => void;
+  onOpenPacket: (referral: { id: number; name?: string; community?: Referral["community"] }) => void;
+  onOpenProfile: (profileId: string) => void;
+  onOpenProfiles: () => void;
+}) {
+  return (
     <main aria-label="Reports" className="h-full overflow-y-auto bg-white text-[#171917]">
       <div data-testid="operations-workspace" data-guide-target="operations-workspace" className="mx-auto w-full max-w-[1500px] px-4 pb-12 pt-2 sm:px-6 lg:px-8">
-        <SupervisorCommandCenter onOpenPacket={onOpenPacket} onOpenProfile={onOpenProfile} onOpenProfiles={onOpenProfiles} />
-        <WorkAssessmentGraph onOpenPacket={onOpenPacket} />
-        <aside aria-label="Report library" className="min-w-0 border-b border-[#cfd4d1]">
-          <div className="flex snap-x gap-6 overflow-x-auto">
-            {(response?.catalog ?? []).map((item) => {
-              const selected = item.id === filters.report_id;
-              return (
-                <button
-                  type="button"
-                  key={item.id}
-                  aria-pressed={selected}
-                  aria-label={`View ${item.label} report`}
-                  data-guide-target={selected ? "operations-report-select" : undefined}
-                  onClick={() => selectReport(item.id)}
-                  className={`min-h-12 shrink-0 snap-start border-b-[3px] px-1 pt-1 text-[12px] font-bold transition-colors ${selected ? "border-[#0f8b73] text-[#0b6f5e]" : "border-transparent text-[#656b67] hover:text-[#171917]"}`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
+        <div className="flex items-center py-3">
+          <div role="group" aria-label="Reports view" className="inline-flex rounded-md bg-[#eef1ef] p-1">
+            <ViewToggle selected={view === "reports"} onClick={() => onSelectView("reports")}>Reports</ViewToggle>
+            <ViewToggle selected={view === "exceptions"} onClick={() => onSelectView("exceptions")}>Exceptions</ViewToggle>
           </div>
-        </aside>
+        </div>
 
-        <section data-guide-target="operations-summary" aria-label="Report controls" className="flex flex-wrap items-end justify-end gap-2 py-3">
-            {selectedDefinition?.filters.includes("month") ? (
-              <Control label="Month">
-                <input
-                  data-guide-target="operations-report-month"
-                  aria-label="Report month"
-                  type="month"
-                  value={filters.month}
-                  onChange={(event) => setFilters((current) => ({ ...current, month: event.target.value }))}
-                  className={`${selectClass} min-w-[165px]`}
-                />
-              </Control>
-            ) : null}
-            {selectedDefinition?.filters.includes("community") ? (
-              <Control label="Community">
-                <select aria-label="Report community" value={filters.community} onChange={(event) => setFilters((current) => ({ ...current, community: event.target.value }))} className={`${selectClass} min-w-[190px]`}>
-                  <option value="">All communities</option>
-                  {(response?.facets.communities ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}
-                </select>
-              </Control>
-            ) : null}
-            {selectedDefinition?.filters.includes("owner") ? (
-              <Control label="Owner">
-                <select aria-label="Report owner" value={filters.owner} onChange={(event) => setFilters((current) => ({ ...current, owner: event.target.value }))} className={`${selectClass} min-w-[180px]`}>
-                  <option value="">All owners</option>
-                  {(response?.facets.owners ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}
-                </select>
-              </Control>
-            ) : null}
-            <button type="button" onClick={() => void loadReport(filters)} disabled={loading || !filtersChanged} className="h-9 border border-[#171917] bg-[#171917] px-4 text-[11px] font-semibold text-white hover:bg-[#343734] disabled:cursor-not-allowed disabled:opacity-40">
-              {loading ? "Loading" : "Apply"}
-            </button>
-            <button type="button" data-guide-target="operations-report-export" onClick={() => void exportReport()} disabled={!response || filtersChanged || exporting} className="flex h-9 items-center justify-center gap-2 border border-[#b9c6c1] bg-white px-4 text-[11px] font-semibold text-[#176f60] hover:border-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-45">
-              <Download size={14} /> {exporting ? "Exporting" : "Export CSV"}
-            </button>
-        </section>
-
-        {error ? (
-          <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-[3px] border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]">
-            <span>{error}</span>
-            <button type="button" onClick={() => void loadReport(filters)} className="font-semibold underline underline-offset-2">Retry</button>
-          </div>
-        ) : null}
-
-        <article aria-label={`${selectedDefinition?.label ?? "Selected"} report`} className="min-w-0">
-          {response ? <MetricGrid metrics={response.report.metrics} /> : null}
-          <section data-guide-target="operations-report-results" className="mt-5" aria-label="Report results">
-            <div className="flex justify-end">
-              <span className="text-[10px] font-semibold text-[#727a75]">
-                {response ? `${response.report.row_count.toLocaleString()} total${response.report.truncated ? " · first 500 shown" : ""}` : "Loading"}
-              </span>
-            </div>
-            {loading && !response ? <ReportSkeleton /> : null}
-            {response && response.report.rows.length === 0 && !loading ? (
-              <div className="border-b border-[#d9d9d9] py-12 text-center text-[12px] text-[#727a75]">No recorded data matches this scope.</div>
-            ) : null}
-            {response && response.report.rows.length > 0 ? (
-              <ReportTable columns={response.report.columns} rows={response.report.rows} onOpenPacket={onOpenPacket} refreshing={loading} />
-            ) : null}
-          </section>
-        </article>
+        {view === "exceptions" ? (
+          <SupervisorCommandCenter onOpenPacket={onOpenPacket} onOpenProfile={onOpenProfile} onOpenProfiles={onOpenProfiles} />
+        ) : (
+          <>
+            <WorkAssessmentGraph onOpenPacket={onOpenPacket} />
+            <ReportsPanel
+              filters={filters}
+              response={response}
+              selectedDefinition={selectedDefinition}
+              error={error}
+              loading={loading}
+              exporting={exporting}
+              filtersChanged={filtersChanged}
+              onSelectReport={onSelectReport}
+              onSetFilters={onSetFilters}
+              onReload={onReload}
+              onExport={onExport}
+              onOpenPacket={onOpenPacket}
+            />
+          </>
+        )}
       </div>
     </main>
+  );
+}
+
+function ReportsPanel({
+  filters,
+  response,
+  selectedDefinition,
+  error,
+  loading,
+  exporting,
+  filtersChanged,
+  onSelectReport,
+  onSetFilters,
+  onReload,
+  onExport,
+  onOpenPacket,
+}: {
+  filters: OperationsReportFilters;
+  response: OperationsReportResponse | null;
+  selectedDefinition: OperationsReportResponse["report"]["definition"] | null;
+  error: string;
+  loading: boolean;
+  exporting: boolean;
+  filtersChanged: boolean;
+  onSelectReport: (reportId: OperationsReportId) => void;
+  onSetFilters: Dispatch<SetStateAction<OperationsReportFilters>>;
+  onReload: () => void;
+  onExport: () => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+}) {
+  return (
+    <>
+      <ReportControls filters={filters} response={response} selectedDefinition={selectedDefinition} loading={loading} exporting={exporting} filtersChanged={filtersChanged} onSelectReport={onSelectReport} onSetFilters={onSetFilters} onReload={onReload} onExport={onExport} />
+      {error ? <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-[3px] border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]"><span>{error}</span><button type="button" onClick={onReload} className="font-semibold underline underline-offset-2">Retry</button></div> : null}
+      <ReportResults response={response} selectedDefinition={selectedDefinition} loading={loading} onOpenPacket={onOpenPacket} />
+    </>
+  );
+}
+
+function ReportControls({ filters, response, selectedDefinition, loading, exporting, filtersChanged, onSelectReport, onSetFilters, onReload, onExport }: {
+  filters: OperationsReportFilters;
+  response: OperationsReportResponse | null;
+  selectedDefinition: OperationsReportResponse["report"]["definition"] | null;
+  loading: boolean;
+  exporting: boolean;
+  filtersChanged: boolean;
+  onSelectReport: (reportId: OperationsReportId) => void;
+  onSetFilters: Dispatch<SetStateAction<OperationsReportFilters>>;
+  onReload: () => void;
+  onExport: () => void;
+}) {
+  return (
+    <section data-guide-target="operations-summary" aria-label="Report controls" className="flex flex-wrap items-end gap-2 border-t border-[#cfd4d1] py-3">
+      <Control label="Report"><select data-guide-target="operations-report-select" aria-label="Report" value={filters.report_id} onChange={(event) => onSelectReport(event.target.value as OperationsReportId)} className={`${selectClass} min-w-[230px]`}>{(response?.catalog ?? []).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></Control>
+      {selectedDefinition?.filters.includes("month") ? <Control label="Month"><input data-guide-target="operations-report-month" aria-label="Report month" type="month" value={filters.month} onChange={(event) => onSetFilters((current) => ({ ...current, month: event.target.value }))} className={`${selectClass} min-w-[165px]`} /></Control> : null}
+      {selectedDefinition?.filters.includes("community") ? <Control label="Community"><select aria-label="Report community" value={filters.community} onChange={(event) => onSetFilters((current) => ({ ...current, community: event.target.value }))} className={`${selectClass} min-w-[190px]`}><option value="">All communities</option>{(response?.facets.communities ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}</select></Control> : null}
+      {selectedDefinition?.filters.includes("owner") ? <Control label="Owner"><select aria-label="Report owner" value={filters.owner} onChange={(event) => onSetFilters((current) => ({ ...current, owner: event.target.value }))} className={`${selectClass} min-w-[180px]`}><option value="">All owners</option>{(response?.facets.owners ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}</select></Control> : null}
+      <button type="button" onClick={onReload} disabled={loading || !filtersChanged} className="h-9 border border-[#171917] bg-[#171917] px-4 text-[11px] font-semibold text-white hover:bg-[#343734] disabled:cursor-not-allowed disabled:opacity-40">{loading ? "Loading" : "Apply"}</button>
+      <button type="button" data-guide-target="operations-report-export" onClick={onExport} disabled={!response || filtersChanged || exporting} className="flex h-9 items-center justify-center gap-2 border border-[#b9c6c1] bg-white px-4 text-[11px] font-semibold text-[#176f60] hover:border-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-45"><Download size={14} /> {exporting ? "Exporting" : "Export CSV"}</button>
+    </section>
+  );
+}
+
+function ReportResults({ response, selectedDefinition, loading, onOpenPacket }: {
+  response: OperationsReportResponse | null;
+  selectedDefinition: OperationsReportResponse["report"]["definition"] | null;
+  loading: boolean;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+}) {
+  return (
+    <article aria-label={`${selectedDefinition?.label ?? "Selected"} report`} className="min-w-0">
+      {response ? <MetricGrid metrics={response.report.metrics} /> : null}
+      <section data-guide-target="operations-report-results" className="mt-5" aria-label="Report results">
+        <div className="flex justify-end"><span className="text-[10px] font-semibold text-[#727a75]">{response ? `${response.report.row_count.toLocaleString()} total${response.report.truncated ? " · first 500 shown" : ""}` : "Loading"}</span></div>
+        {loading && !response ? <ReportSkeleton /> : null}
+        {response && response.report.rows.length === 0 && !loading ? <div className="border-b border-[#d9d9d9] py-12 text-center text-[12px] text-[#727a75]">No recorded data matches this scope.</div> : null}
+        {response && response.report.rows.length > 0 ? <ReportTable columns={response.report.columns} rows={response.report.rows} onOpenPacket={onOpenPacket} refreshing={loading} /> : null}
+      </section>
+    </article>
+  );
+}
+
+function ViewToggle({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={`h-8 rounded px-4 text-[11px] font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-1 ${selected ? "bg-white text-[#111111] shadow-sm" : "text-[#68706b] hover:text-[#111111]"}`}
+    >
+      {children}
+    </button>
   );
 }
 

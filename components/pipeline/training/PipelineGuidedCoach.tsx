@@ -35,10 +35,12 @@ import {
   type OperatorGuideEvent,
   type OperatorGuideState,
 } from "@/lib/training/operator-guided-tour-state";
-import type {
-  OperatorProgressRecord,
-  OperatorTrainingProgress,
-  OperatorTutorialResult,
+import {
+  mergeOperatorProgress,
+  normalizeOperatorProgress,
+  type OperatorProgressRecord,
+  type OperatorTrainingProgress,
+  type OperatorTutorialResult,
 } from "@/lib/training/operator-training-progress-contract";
 import type { OperatorRole } from "@/lib/training/operator-training-types";
 
@@ -54,6 +56,8 @@ type TargetInteraction = {
   event: "click" | "input" | "change" | "pipeline:guide-complete" | null;
 };
 
+type ProgressSyncState = "idle" | "server" | "browser" | "guide";
+
 const emptyTarget: TargetView = { element: null, rect: null, available: false };
 export default function PipelineGuidedCoach() {
   const [state, setState] = useState<OperatorGuideState>(() => emptyOperatorGuideState());
@@ -61,6 +65,7 @@ export default function PipelineGuidedCoach() {
   const [roles, setRoles] = useState<readonly OperatorRole[]>(["viewer"]);
   const [target, setTarget] = useState<TargetView>(emptyTarget);
   const [locationKey, setLocationKey] = useState("");
+  const [progressSyncState, setProgressSyncState] = useState<ProgressSyncState>("idle");
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
   const tutorial = getOperatorGuidedTutorial(state.activeTutorialId);
   const step = tutorial?.steps[state.stepIndex];
@@ -76,7 +81,8 @@ export default function PipelineGuidedCoach() {
   function queueProgressSync(tutorialId: string, result: OperatorTutorialResult) {
     syncQueueRef.current = syncQueueRef.current
       .catch(() => undefined)
-      .then(() => syncTutorialProgress(tutorialId, result));
+      .then(() => syncTutorialProgress(tutorialId, result))
+      .then((syncState) => setProgressSyncState(syncState));
   }
 
   function startTutorial(tutorialId: string, requestedStepIndex = 0) {
@@ -245,14 +251,14 @@ export default function PipelineGuidedCoach() {
   if (!hydrated) return null;
   const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
-  return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={target} locationKey={locationKey} onStart={startTutorial} onCommit={commit} onAdvance={advance} onBack={goBack} onResume={resumeTutorial} /></>;
+  return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={target} locationKey={locationKey} progressSyncState={progressSyncState} onStart={startTutorial} onCommit={commit} onAdvance={advance} onBack={goBack} onResume={resumeTutorial} /></>;
 }
 
-function GuideCoachSurface({ state, roles, tutorial, step, target, locationKey, onStart, onCommit, onAdvance, onBack, onResume }: { state: OperatorGuideState; roles: readonly OperatorRole[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; locationKey: string; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void }) {
+function GuideCoachSurface({ state, roles, tutorial, step, target, locationKey, progressSyncState, onStart, onCommit, onAdvance, onBack, onResume }: { state: OperatorGuideState; roles: readonly OperatorRole[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; locationKey: string; progressSyncState: ProgressSyncState; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void }) {
   if (state.mode === "closed") return null;
   if (state.mode === "library") return <GuideLibrary roles={roles} completed={state.completedTutorialIds} resumableTutorialId={state.activeTutorialId} onStart={onStart} onResume={onResume} onClose={() => onCommit({ type: "close" })} />;
   if (!tutorial || !step) return null;
-  const conversation = <GuideConversation tutorial={tutorial} step={step} stepIndex={state.stepIndex} sequenceIndex={state.sequenceIndex} sequenceCount={state.sequenceTutorialIds.length} targetAvailable={target.available} targetRect={target.rect} routeMatches={guideRouteMatches(step.route, locationKey)} onBack={onBack} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
+  const conversation = <GuideConversation tutorial={tutorial} step={step} stepIndex={state.stepIndex} sequenceIndex={state.sequenceIndex} sequenceCount={state.sequenceTutorialIds.length} targetAvailable={target.available} targetRect={target.rect} routeMatches={guideRouteMatches(step.route, locationKey)} progressSyncState={progressSyncState} onBack={onBack} onAdvance={onAdvance} onOpenRoute={() => openGuideRoute(step.route)} onPause={() => onCommit({ type: "close" })} onEnd={() => onCommit({ type: "end" })} />;
   return <>{target.available && target.rect ? <GuideSpotlight rect={target.rect} /> : null}{conversation}</>;
 }
 
@@ -345,7 +351,7 @@ function GuideLibrary({ roles, completed, resumableTutorialId, onStart, onResume
   );
 }
 
-function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceCount, targetAvailable, targetRect, routeMatches, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorial: OperatorGuidedTutorial; step: OperatorGuideStep; stepIndex: number; sequenceIndex: number; sequenceCount: number; targetAvailable: boolean; targetRect: DOMRect | null; routeMatches: boolean; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
+function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceCount, targetAvailable, targetRect, routeMatches, progressSyncState, onBack, onAdvance, onOpenRoute, onPause, onEnd }: { tutorial: OperatorGuidedTutorial; step: OperatorGuideStep; stepIndex: number; sequenceIndex: number; sequenceCount: number; targetAvailable: boolean; targetRect: DOMRect | null; routeMatches: boolean; progressSyncState: ProgressSyncState; onBack: () => void; onAdvance: () => void; onOpenRoute: () => void; onPause: () => void; onEnd: () => void }) {
   const targetReady = routeMatches && targetAvailable;
   const canConfirm = step.advance === "confirm" && !usesVerifiedCompletionEvent(step);
   const isFullWorkflow = sequenceCount > 1;
@@ -355,6 +361,8 @@ function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceC
       <header className="border-b border-[#d5ddda] bg-[#f2f6f4] px-4 py-3">
         <div className="flex items-start justify-between gap-3"><div className="min-w-0">{isFullWorkflow ? <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">Full tour · Module {sequenceIndex + 1} of {sequenceCount}</div> : null}<h2 className="mt-1 truncate text-[16px] font-black text-[#202623]">{tutorial.title}</h2><div className="mt-1 text-[10px] font-bold text-[#6d7773]">Step {stepIndex + 1} of {tutorial.steps.length}</div></div><div className="flex items-center gap-1"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={16} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={17} /></button></div></div>
         <div className="mt-3 flex gap-1" aria-label={`Action ${stepIndex + 1} of ${tutorial.steps.length}`}>{Array.from({ length: tutorial.steps.length }, (_, index) => <span key={index} className={`h-1 flex-1 ${index <= stepIndex ? "bg-[#0f8b73]" : "bg-[#d7dfdc]"}`} />)}</div>
+        {progressSyncState === "browser" ? <p role="status" className="mt-2 text-[9px] font-bold text-[#7a5e1e]">Progress saved in this browser and will sync automatically.</p> : null}
+        {progressSyncState === "guide" ? <p role="status" className="mt-2 text-[9px] font-bold text-[#7a5e1e]">Tutorial position is saved in this browser; account progress is not synced yet.</p> : null}
       </header>
       <GuideConversationBody step={step} targetReady={targetReady} routeMatches={routeMatches} onOpenRoute={onOpenRoute} />
       <GuideConversationFooter step={step} stepIndex={stepIndex} stepCount={tutorial.steps.length} canConfirm={canConfirm} hasPreviousModule={sequenceIndex > 0} hasNextModule={sequenceIndex < sequenceCount - 1} onBack={onBack} onAdvance={onAdvance} />
@@ -565,41 +573,71 @@ async function syncTutorialProgress(tutorialId: string, result: OperatorTutorial
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const record = await fetchPipelineJson<OperatorProgressRecord>("/api/training/progress", { cache: "no-store" }, { maxResponseBytes: 360_000 });
+      const currentProgress = await mergeServerAndBrowserProgress(record, identity);
       const progress: OperatorTrainingProgress = {
-        ...record.progress,
-        tutorialResults: { ...record.progress.tutorialResults, [tutorialId]: mergeTutorialResult(record.progress.tutorialResults[tutorialId], result) },
+        ...currentProgress,
+        tutorialResults: { ...currentProgress.tutorialResults, [tutorialId]: mergeTutorialResult(currentProgress.tutorialResults[tutorialId], result) },
       };
       await fetchPipelineJson<OperatorProgressRecord>("/api/training/progress", {
         method: "PUT",
         body: JSON.stringify({ expectedRevision: record.revision, progress }),
       }, { maxResponseBytes: 360_000 });
-      return;
+      return "server" as const;
     } catch (error) {
       if (error instanceof PipelineApiError && error.status === 409) continue;
-      if (error instanceof PipelineApiError && error.status === 503 && identity?.user?.id) {
-        await saveBrowserTrainingProgress(identity.user.id, identity.user.roles, tutorialId, result);
-      }
-      return;
+      return saveTutorialProgressFallback(identity, tutorialId, result);
     }
   }
+  return saveTutorialProgressFallback(identity, tutorialId, result);
+}
+
+async function mergeServerAndBrowserProgress(record: OperatorProgressRecord, identity: Awaited<ReturnType<typeof fetchCurrentPipelineUser>> | null) {
+  const browserProgress = identity?.user?.id
+    ? await readBrowserTrainingProgress(identity.user.id, identity.user.roles)
+    : null;
+  return browserProgress
+    ? mergeOperatorProgress(record.progress, browserProgress, identity?.user?.roles ?? [record.progress.role])
+    : record.progress;
+}
+
+async function saveTutorialProgressFallback(identity: Awaited<ReturnType<typeof fetchCurrentPipelineUser>> | null, tutorialId: string, result: OperatorTutorialResult) {
+  if (identity?.user?.id && await saveBrowserTrainingProgress(identity.user.id, identity.user.roles, tutorialId, result)) return "browser" as const;
+  return "guide" as const;
 }
 
 async function saveBrowserTrainingProgress(principalId: string, roles: readonly string[], tutorialId: string, result: OperatorTutorialResult) {
-  const digest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(principalId));
-  const identity = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("").slice(0, 16);
-  const key = `pipeline-operator-training:${identity}`;
   try {
+    const key = await browserTrainingProgressKey(principalId);
     const stored = JSON.parse(window.localStorage.getItem(key) ?? "null") as Partial<OperatorTrainingProgress> | null;
     const current = stored?.tutorialResults?.[tutorialId];
-    const next = {
+    const next = normalizeOperatorProgress({
       ...(stored ?? {}),
       role: primaryRole(roles),
       tutorialResults: { ...(stored?.tutorialResults ?? {}), [tutorialId]: mergeTutorialResult(current, result) },
-    };
+    }, roles);
     window.localStorage.setItem(key, JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent("pipeline:training-progress-local", { detail: { tutorialId } }));
+    return true;
   } catch {
     // The guide's own completion record remains available in browser storage.
+    return false;
   }
+}
+
+async function readBrowserTrainingProgress(principalId: string, roles: readonly string[]) {
+  try {
+    const key = await browserTrainingProgressKey(principalId);
+    const stored = window.localStorage.getItem(key);
+    return stored ? normalizeOperatorProgress(JSON.parse(stored), roles) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function browserTrainingProgressKey(principalId: string) {
+  const digest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(principalId));
+  const identity = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("").slice(0, 16);
+  return `pipeline-operator-training:${identity}`;
 }
 
 function mergeTutorialResult(current: OperatorTutorialResult | undefined, candidate: OperatorTutorialResult) {

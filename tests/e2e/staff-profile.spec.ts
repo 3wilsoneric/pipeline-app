@@ -18,15 +18,15 @@ type ProfilePayload = {
   };
 };
 
-test("shows live staff presence while keeping identity locked and profile preferences editable", async ({ page }) => {
+test("keeps account identity locked and profile settings editable", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Open profile menu for Playwright QA" }).click();
-  await expect(page.getByRole("region", { name: "Team presence" })).toBeVisible();
-  await expect(page.getByText("Playwright QA (you)", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Staff profile View and edit profile preferences" }).click();
+  await expect(page.getByRole("dialog", { name: "Profile settings" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Team presence" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Profile settings Account and display preferences" }).click();
 
   await expect(page).toHaveURL(/\/settings$/);
-  await expect(page.getByRole("heading", { name: "Staff profile" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Profile settings" })).toBeVisible();
   await expect(page.getByText("Playwright QA", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Microsoft verified", { exact: true }).first()).toBeVisible();
 
@@ -37,7 +37,7 @@ test("shows live staff presence while keeping identity locked and profile prefer
 
   await page.getByLabel("Status message").fill(status);
   await page.getByLabel("Time zone").selectOption("America/Los_Angeles");
-  await page.getByRole("button", { name: "Save profile" }).click();
+  await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Profile preferences saved.", { exact: true })).toBeVisible();
 
   const savedResponse = await page.request.get("/api/me/profile");
@@ -61,7 +61,7 @@ test("shows live staff presence while keeping identity locked and profile prefer
   expect(restoreResponse.status()).toBe(200);
 });
 
-test("rejects invalid and cross-origin staff profile changes", async ({ page }) => {
+test("rejects invalid and cross-origin profile setting changes", async ({ page }) => {
   await page.goto("/");
   const current = await page.request.get("/api/me/profile");
   const payload = await current.json() as ProfilePayload;
@@ -81,13 +81,12 @@ test("rejects invalid and cross-origin staff profile changes", async ({ page }) 
   expect(crossOrigin.status()).toBe(403);
 });
 
-test("keeps presence and profile editing usable on a narrow screen", async ({ page }) => {
+test("keeps profile settings usable on a narrow screen", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
   await page.getByRole("button", { name: "Open profile menu for Playwright QA" }).click();
-  await expect(page.getByRole("dialog", { name: "Profile menu" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Team presence" })).toBeVisible();
-  await page.getByRole("link", { name: "Staff profile View and edit profile preferences" }).click();
-  await expect(page.getByRole("form", { name: "Edit staff profile" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Profile settings" })).toBeVisible();
+  await page.getByRole("link", { name: "Profile settings Account and display preferences" }).click();
+  await expect(page.getByRole("form", { name: "Profile settings" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
 });

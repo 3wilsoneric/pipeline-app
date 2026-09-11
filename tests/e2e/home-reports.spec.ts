@@ -293,16 +293,16 @@ test.describe("role-scoped home and reports", () => {
     await page.getByRole("button", { name: "Open reports" }).click();
 
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "View Workspaces report" })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("complementary", { name: "Report library" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reports", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("workspace_inventory");
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
 
-    await page.getByRole("button", { name: "View Assessment calendar report" }).click();
+    await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_schedule");
     await expect(page.getByLabel("Report month")).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Report community" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Report owner" })).toBeVisible();
 
-    await page.getByRole("button", { name: "View Completed assessments report" }).click();
+    await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_completion");
     await expect(page.getByLabel("Report month")).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Report community" })).toHaveCount(0);
     await expect(page.getByRole("combobox", { name: "Report owner" })).toHaveCount(0);
@@ -378,6 +378,7 @@ test.describe("role-scoped home and reports", () => {
     });
 
     await page.goto("/?screen=operations");
+    await page.getByRole("button", { name: "Exceptions", exact: true }).click();
     const commandCenter = page.getByRole("region", { name: "Supervisor command center" });
     await expect(commandCenter).toBeVisible();
     await expect(commandCenter.getByText("Zachary Laman", { exact: true })).toBeVisible();
@@ -487,11 +488,13 @@ test.describe("role-scoped home and reports", () => {
 
     await page.goto("/?screen=operations");
 
+    await page.getByRole("button", { name: "Exceptions", exact: true }).click();
     const commandCenter = page.getByRole("region", { name: "Supervisor command center" });
     await expect(commandCenter.getByRole("alert")).toContainText("Supervisor queue is temporarily unavailable.");
     await expect(commandCenter.getByRole("button", { name: "Retry" })).toBeVisible();
+    await page.getByRole("button", { name: "Reports", exact: true }).click();
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
-    await expect(page.getByRole("complementary", { name: "Report library" })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
   });
 });

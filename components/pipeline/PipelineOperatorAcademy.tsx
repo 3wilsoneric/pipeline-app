@@ -31,9 +31,7 @@ export default function PipelineOperatorAcademy({
     let cancelled = false;
     const serverProgress = normalizeOperatorProgress(initialProgress.progress, assignedRoles);
     const storedProgress = readLocalProgress(progressStorageKey, assignedRoles);
-    const next = initialProgress.persistence === "browser" || initialProgress.revision === 0
-      ? mergeOperatorProgress(serverProgress, storedProgress, assignedRoles)
-      : serverProgress;
+    const next = mergeOperatorProgress(serverProgress, storedProgress, assignedRoles);
     queueMicrotask(() => {
       if (cancelled) return;
       setProgress(next);

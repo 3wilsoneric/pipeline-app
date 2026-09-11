@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 const managedKeys = [
@@ -19,6 +20,7 @@ const { getPipelineDemoEnvironment } = loadTypeScriptModule(
   "lib/demo/demo-environment.ts",
 );
 const checks = [];
+const centerSource = readFileSync("components/pipeline/training/PipelineDemoCenter.tsx", "utf8");
 
 try {
   verify("local disconnected storage permits rehearsal", {
@@ -58,6 +60,14 @@ try {
     NODE_ENV: "production",
     NEXT_PUBLIC_PIPELINE_DEMO_URL: "https://pipeline-demo.example.org",
   }, (result) => !result.enabled && result.entryUrl === "https://pipeline-demo.example.org");
+
+  checks.push({
+    name: "the presentation defers practice data and the handoff surface without shipping screenshot payloads",
+    ok: centerSource.includes('if (view !== "lab" || casesLoadedRef.current) return;')
+      && centerSource.includes('dynamic(() => import("@/components/pipeline/training/MeetClientHandoffDemo")')
+      && !centerSource.includes('from "next/image"')
+      && !centerSource.includes('/training/presentation/'),
+  });
 } finally {
   restoreEnvironment();
 }

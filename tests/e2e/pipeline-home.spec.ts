@@ -44,7 +44,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Referral workspaces", { exact: true })).toHaveCount(0);
     const signedInProfile = page.getByRole("button", { name: "Open profile menu for Playwright QA" });
     await signedInProfile.click();
-    await expect(page.getByRole("dialog", { name: "Profile menu" }).getByText("Playwright QA", { exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Profile settings" }).getByText("Playwright QA", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Pipeline operations Queue, ownership, and record gaps" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Open reports" })).toBeVisible();
     const referralsLink = page.getByRole("button", { name: "Open referrals" });
@@ -832,12 +832,11 @@ test.describe("Pipeline home", () => {
 
     await page.getByRole("button", { name: "Open reports" }).click();
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
-    await expect(page.getByRole("complementary", { name: "Report library" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "View Workspaces report" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Reports", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("workspace_inventory");
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
     await expect(page.getByText("Work queue", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Data gaps", { exact: true })).toHaveCount(0);
   });
 });
-

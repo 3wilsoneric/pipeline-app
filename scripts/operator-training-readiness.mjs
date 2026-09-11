@@ -13,6 +13,8 @@ const refresh = process.argv.includes("--refresh");
 const curriculum = loadTypeScriptModule(root, "lib/training/operator-training-curriculum.ts");
 const resources = loadTypeScriptModule(root, "lib/training/operator-training-resources.ts");
 const tutorials = loadTypeScriptModule(root, "lib/training/operator-guided-tutorials.ts");
+const assessmentSchema = loadTypeScriptModule(root, "lib/assessment/assessment-tool-schema.ts");
+const assessmentInterview = loadTypeScriptModule(root, "lib/assessment/assessment-interview-schema.ts");
 const videos = loadTypeScriptModule(root, "lib/training/operator-training-video-catalog.ts");
 let registry = readJson(registryPath);
 const errors = [];
@@ -22,6 +24,16 @@ const sourcePaths = [...new Set([
   ...resources.operatorJobAids.map((aid) => aid.location.source),
   ...resources.operatorCapabilities.map((capability) => capability.location.source),
   ...Object.values(tutorials.operatorGuideTargetSources),
+  "app/api/assessments/[assessmentId]/sign/route.ts",
+  "app/api/referrals/[referralId]/decision/route.ts",
+  "app/api/referrals/[referralId]/recommendation/route.ts",
+  "components/pipeline/ReferralWorkflowPanelPresentation.tsx",
+  "lib/assessment/assessment-access.ts",
+  "lib/assessment/assessment-interview-schema.ts",
+  "lib/assessment/assessment-tool-schema.ts",
+  "lib/pipeline/referral-access.ts",
+  "lib/pipeline/referral-workflow.ts",
+  "lib/pipeline/workflow-store.ts",
 ])].sort();
 const sourceFingerprint = fingerprintSources(sourcePaths);
 const trainingArtifactPaths = [
@@ -58,6 +70,9 @@ check("scenario library covers every role and has one safe answer per case", res
 check("job aids cover every role and have explicit stop conditions", ["admin", "assessment_coordinator", "reviewer", "viewer"].every((role) => resources.jobAidsForRole(role).length >= 1) && resources.operatorJobAids.every((aid) => aid.steps.length >= 5 && aid.stopAndEscalate.length >= 3));
 check("product capabilities connect to current modules and files", resources.operatorCapabilities.length >= 10 && resources.operatorCapabilities.every((capability) => validRepositoryFile(capability.location.source) && capability.moduleIds.every((id) => curriculum.operatorModuleIds.includes(id))));
 check("guided tutorials are distinct, substantive, and role complete", tutorials.operatorGuidedTutorials.length >= 4 && unique(tutorials.operatorGuidedTutorialIds) && [["admin", 2], ["assessment_coordinator", 2], ["reviewer", 2], ["viewer", 1]].every(([role, minimum]) => tutorials.guidedTutorialsForRole(role).length >= minimum) && tutorials.operatorGuidedTutorials.every((tutorial) => tutorial.steps.length >= 4 && unique(tutorial.steps.map((step) => step.id)) && tutorial.moduleIds.every((id) => curriculum.operatorModuleIds.includes(id))));
+check("guided tutorial audiences only receive modules in their role curriculum", tutorials.operatorGuidedTutorials.every((tutorial) => tutorial.audiences.every((role) => { const roleModuleIds = new Set(curriculum.operatorModulesForRole(role).map((module) => module.id)); return tutorial.moduleIds.every((id) => roleModuleIds.has(id)); })));
+check("assessment schema, interface, and guide use one section order", assessmentSectionOrderIsCanonical());
+check("final decision training is restricted to the runtime administrator role", finalDecisionTrainingMatchesRuntime());
 check("every guided step has a local route, authored rationale, and safety boundary", tutorials.operatorGuidedTutorials.every((tutorial) => tutorial.steps.every((step) => step.route.startsWith("/") && !step.route.startsWith("//") && step.message.length >= 40 && step.instruction.length >= 20 && step.why.length >= 30 && step.safety.length >= 30)));
 check("guided target registry exactly covers the authored steps", unique(tutorials.operatorGuideTargetIds) && tutorials.operatorGuideTargetIds.length === Object.keys(tutorials.operatorGuideTargetSources).length && tutorials.operatorGuideTargetIds.every((id) => typeof tutorials.operatorGuideTargetSources[id] === "string"));
 check("every guided target remains declared by its source component", tutorials.operatorGuideTargetIds.every((id) => { const source = tutorials.operatorGuideTargetSources[id]; return validRepositoryFile(source) && readFileSync(source, "utf8").includes(`\"${id}\"`); }));
@@ -87,4 +102,6 @@ function prerequisitesAreOrdered() { const positions = new Map(curriculum.operat
 function findCycles() { const graph = new Map(curriculum.operatorModules.map((module) => [module.id, module.prerequisites])); const visited = new Set(); const active = new Set(); const cycles = []; const visit = (id) => { if (active.has(id)) { cycles.push(id); return; } if (visited.has(id)) return; visited.add(id); active.add(id); for (const prerequisite of graph.get(id) ?? []) visit(prerequisite); active.delete(id); }; for (const id of graph.keys()) visit(id); return cycles; }
 function fingerprintSources(paths) { const records = paths.map((relativePath) => `${relativePath}:${validRepositoryFile(relativePath) ? createHash("sha256").update(readFileSync(relativePath)).digest("hex") : "missing"}`); return createHash("sha256").update(records.join("\n")).digest("hex"); }
 function requiredCommandsExist() { const scripts = readJson("package.json").scripts ?? {}; return registry.requiredCommands.every((command) => typeof scripts[command] === "string"); }
+function assessmentSectionOrderIsCanonical() { const keys = assessmentInterview.assessmentInterviewSections.map((section) => section.key); const guide = tutorials.operatorGuidedTutorials.find((tutorial) => tutorial.id === "complete-assessment"); const guideLabels = guide?.steps.filter((step) => step.id.startsWith("assessment-section-")).map((step) => step.title) ?? []; const labels = assessmentInterview.assessmentInterviewSections.map((section) => section.label); return JSON.stringify(keys) === JSON.stringify(assessmentSchema.assessmentToolSections) && JSON.stringify(guideLabels) === JSON.stringify(labels); }
+function finalDecisionTrainingMatchesRuntime() { const trainingModule = curriculum.getOperatorModule("final-decision"); const aid = resources.operatorJobAids.find((candidate) => candidate.id === "decision"); return JSON.stringify(trainingModule?.audiences) === JSON.stringify(["admin"]) && JSON.stringify(aid?.audiences) === JSON.stringify(["admin"]); }
 function currentCommit() { try { return execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(); } catch { return "unknown"; } }

@@ -13,6 +13,6 @@ test("core Pipeline surfaces render and navigate", async ({ page }) => {
   await page.goto("/?screen=operations");
   await expect(page.getByTestId("operations-workspace")).toBeVisible();
   await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
-  await expect(page.getByRole("complementary", { name: "Report library" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Report", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Report controls" })).toBeVisible();
 });

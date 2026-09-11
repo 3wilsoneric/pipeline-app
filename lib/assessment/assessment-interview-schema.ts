@@ -136,11 +136,11 @@ export const assessmentInterviewSections: readonly AssessmentInterviewSectionDef
   section("prior_history", "History", "Capture hospitalization, crisis, and placement trajectory."),
   section("diagnosis_clinical", "Clinical", "Document diagnoses, symptoms, cognition, and current presentation."),
   section("functional_adl", "Function", "Assess ADLs, communication, mobility, and participation."),
-  section("legal_conservatorship", "Legal", "Capture conservatorship, forensic history, and court requirements."),
   section("medication", "Medication", "Review medication use, refusals, and injection needs."),
   section("substance_use", "Substance use", "Document use history, current use, frequency, and insight."),
   section("behavioral_risk", "Behavior & safety", "Assess challenging behavior, self-harm, assaults, elopement, and hallucinations."),
   section("physical_health", "Physical health", "Record health concerns, diet, skin integrity, and supportive equipment."),
+  section("legal_conservatorship", "Legal", "Capture conservatorship, forensic history, and court requirements."),
   section("social_support", "Support & goals", "Capture relationships, prior living stability, and placement preferences."),
   section("provenance_qc", "Review", "Add information and placement questions that do not fit elsewhere."),
 ] as const;

@@ -269,7 +269,7 @@ test.describe("Pipeline Learning Center", () => {
 
     await expect(page).toHaveURL(/\/training\/demo$/);
     await expect(page.getByRole("tab", { name: "Presentation" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: "Review your assigned work" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "How assessors use Pipeline from referral to recommendation" })).toBeVisible();
   });
 
   test("opens modules as full-page learning workspaces", async ({ page }) => {
@@ -382,7 +382,7 @@ async function mockTrainingProgress(page: import("@playwright/test").Page) {
   let revision = 0;
   let progress = {
     version: 2,
-    curriculumVersion: "2026.08.operator.3",
+    curriculumVersion: "2026.09.operator.1",
     role: "assessment_coordinator",
     completedActivityIds: [] as string[],
     activeModuleId: "pipeline-purpose",

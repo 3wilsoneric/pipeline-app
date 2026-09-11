@@ -1009,7 +1009,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(preview).toBeVisible();
     await preview.getByRole("button", { name: "Close preview" }).click();
     await expect(preview).toHaveCount(0);
-    await expect(page.getByRole("dialog", { name: "Profile menu" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Profile settings" })).toHaveCount(0);
   });
 
   test("opens imported history as a read-only workspace with source files intact", async ({ page }) => {

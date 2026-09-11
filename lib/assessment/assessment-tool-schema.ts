@@ -6,11 +6,11 @@ export const assessmentToolSections = [
   "prior_history",
   "diagnosis_clinical",
   "functional_adl",
-  "behavioral_risk",
-  "legal_conservatorship",
   "medication",
   "substance_use",
+  "behavioral_risk",
   "physical_health",
+  "legal_conservatorship",
   "social_support",
   "provenance_qc",
 ] as const;
