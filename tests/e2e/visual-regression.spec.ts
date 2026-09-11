@@ -5,6 +5,19 @@ test.describe("Stable visual surfaces", () => {
 
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
+    await page.route("**/api/operations/home", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.continuity = {
+        ...payload.continuity,
+        resume_items: [],
+        new_assignments: [],
+        assignment_tracking_started_at: "2026-09-04T12:00:00.000Z",
+        needs_assignment_tracking_initialization: false,
+        unavailable: false,
+      };
+      await route.fulfill({ response, json: payload });
+    });
   });
 
   test("desktop home matches its baseline", async ({ page }) => {
