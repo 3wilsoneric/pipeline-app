@@ -253,11 +253,11 @@ await measureJourney("new_referral_to_home", "navigation", async () => {
 
 await measureJourney("profile_menu_open", "overlay", async () => {
   await activate(page.getByRole("button", { name: /Open profile menu for / }).first());
-  await page.getByRole("dialog", { name: "Profile menu", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("dialog", { name: "Profile settings", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("profile_menu_close", "overlay", async () => {
   await activate(page.getByRole("button", { name: /Open profile menu for / }).first());
-  await page.getByRole("dialog", { name: "Profile menu", exact: true }).waitFor({ state: "hidden" });
+  await page.getByRole("dialog", { name: "Profile settings", exact: true }).waitFor({ state: "hidden" });
 });
 
 await measureJourney("guide_library_open", "guide", async () => {
@@ -319,10 +319,10 @@ await measureJourney("calendar_to_operations", "navigation", async () => {
   await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("report_tab_change", "tab", async () => {
-  await activate(page.getByRole("button", { name: "View Documents report", exact: true }));
+  await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("document_coverage");
   await waitForReport(page, "Documents");
 });
-await activate(page.getByRole("button", { name: "View Workspaces report", exact: true }));
+await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("workspace_inventory");
 await waitForReport(page, "Workspaces");
 await page.getByLabel("Report community", { exact: true }).selectOption("San Pablo");
 await measureJourney("report_filter_apply", "filter", async () => {
