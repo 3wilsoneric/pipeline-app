@@ -840,6 +840,7 @@
         "lib/pipeline/referral-canvas-extraction.ts",
         "lib/pipeline/work-continuity.ts",
         "lib/pipeline/home-continuity.ts",
+        "lib/pipeline/user-workspace-state-types.ts",
         "lib/pipeline/calendar-store.ts",
         "lib/pipeline/calendar-types.ts",
         "lib/pipeline/referral-activity.ts",

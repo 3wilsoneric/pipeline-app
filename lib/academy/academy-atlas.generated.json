@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:b08e7ecd2c90deef",
-  "fingerprint": "b08e7ecd2c90deefc8711b32bd381d6a594cd4284049676bc3e2eb9b15731ad9",
+  "generatedAt": "source-fingerprint:65d5f508d57118c0",
+  "fingerprint": "65d5f508d57118c08762e77a3c2fa879a8ed0a0c83baa31a6a06d62b260e98ea",
   "totals": {
     "files": 979,
-    "lines": 310666,
+    "lines": 310677,
     "coveredFiles": 979
   },
   "entries": [
@@ -5052,7 +5052,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 926,
+      "lines": 927,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5271,7 +5271,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 415,
+      "lines": 421,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -8104,7 +8104,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 315,
+      "lines": 316,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -9124,7 +9124,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2103,
+      "lines": 2106,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

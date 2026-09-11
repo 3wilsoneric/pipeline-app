@@ -132,6 +132,12 @@
       "failureBehavior": "Missing or stale preference entries are ignored.", "tests": ["check:assessor-workflow", "test:e2e"], "decision": "keep", "decisionReason": "Reuse the current Home continuity owner."
     },
     {
+      "path": "lib/pipeline/user-workspace-state-types.ts", "plannedNew": false, "dependencyDirection": "The user-scoped draft parser consumes canonical referral field keys and remains independent of route, filesystem, and database adapters.",
+      "purpose": "Default newly introduced phone and email fields when recovering a schema-1 draft saved by the previous deployed application.", "callers": ["referral draft routes", "ReferralPacketCanvas"], "publicExports": ["parsePipelineReferralDraft"], "sideEffects": [],
+      "failureBehavior": "Only the three explicitly recognized later-added fields default empty; malformed, unknown, oversized, or incomplete legacy drafts still fail closed.", "tests": ["check:api", "check:collaboration-load"],
+      "decision": "keep", "decisionReason": "Preserve deployed schema-1 draft recovery at the canonical parser rather than teaching each caller a compatibility exception."
+    },
+    {
       "path": "lib/pipeline/calendar-store.ts", "plannedNew": false, "dependencyDirection": "Calendar projection consumes canonical referrals, assessments, workflow, and derived contact readiness.",
       "purpose": "Reflect contact readiness in preparation state without becoming the policy owner.", "callers": ["calendar route"], "publicExports": ["getPipelineCalendarSnapshot"], "sideEffects": ["reads only"],
       "failureBehavior": "Unavailable optional readiness data yields an explicit blocker, not fabricated readiness.", "tests": ["check:assessor-workflow", "database:integrity"], "decision": "keep", "decisionReason": "Calendar remains the projection owner."
@@ -198,7 +204,7 @@
       "purpose": "Keep create and recovery-draft fixtures complete after adding phone and email to the canonical canvas field set.", "callers": ["check:api", "check:platform:fast"], "publicExports": [], "sideEffects": ["isolated synthetic fixtures"],
       "failureBehavior": "Any missing field mapping or invalid recovery shape fails the platform gate.", "tests": ["check:api", "check:platform:fast"],
       "staticPrompts": [
-        {"prompt":"Large module (2103 lines): split by behavior before adding more responsibilities.","disposition":"expected","reason":"This change extends two existing table-driven field inventories only; it adds no new fixture responsibility or control flow.","owner":"Eric","followUp":"check:api"},
+        {"prompt":"Large module (2106 lines): split by behavior before adding more responsibilities.","disposition":"expected","reason":"This change extends existing table-driven field inventories and adds one backward-compatibility assertion; it adds no new fixture responsibility or runtime control flow.","owner":"Eric","followUp":"check:api"},
         {"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"Existing URLs are isolated synthetic same-app fixture values and are unrelated to the field-list update.","owner":"Eric","followUp":"check:api"}
       ],
       "decision": "keep", "decisionReason": "Repair the canonical cross-field contract instead of weakening platform readiness."

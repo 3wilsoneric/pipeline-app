@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-11T21:14:59.236Z",
+  "generated_at": "2026-09-11T21:22:38.469Z",
   "audit_date": "2026-09-11",
-  "git_head": "f76972a6647a50a5e967cb971c75f59250102a99",
+  "git_head": "6aa4458db72ae866a8ce2954edbaf05001542004",
   "files": [
     {
       "path": ".dockerignore",
@@ -4180,7 +4180,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "04500746fb3e598b70ce1d35b36ab8b240c65070afea57c5f56c6a8a602dc478",
+      "content_sha256": "3b1d5bd121b5499ec67161893906b7da2b391cf08aef59a8d1cfed3e88829c2e",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -5114,11 +5114,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "0ed1e051d86dd149692dc2dc72ea80e3f842959f3df6b5c7042c7d01be3f4264",
+      "content_sha256": "60f5d8505e55107896f5f333020a4b9b456417f2d9426aec5eced03e920ac711",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 46936,
-      "lines": 926,
+      "bytes": 46990,
+      "lines": 927,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -5228,11 +5228,11 @@
     },
     {
       "path": "docs/refactoring/referral-to-decision-operating-spine-file-audit.json",
-      "content_sha256": "3d509ad89637920417296c61f7ff55f395a47953f5f02959063f92f1bdfab9be",
+      "content_sha256": "1531384ed2df5c28589a3c8d1128e85cb2676eda65eefe289ec742111a3e608c",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 52613,
-      "lines": 415,
+      "bytes": 53591,
+      "lines": 421,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5377,7 +5377,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "de58e6cd020dacdfa2f04c2e95afb7c951feb9d090832ab5e59fe4c98e67c159",
+      "content_sha256": "5e85c6f6dbbbaef32f68339db8b838c533e0657f6c46b4d8f8f6e48ee186f430",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 413697,
@@ -5405,7 +5405,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "588fde553d84d338a01b53dfc2488dc6fd212f2e4c1c7b59dd3163e751457b0d",
+      "content_sha256": "f2e2c5097eed31ae21783f51a016c8da2dfc063c41b8cc187142b13eea086541",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 221419,
@@ -5486,7 +5486,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "695b964ed27018e99ec64f16f70b5b434512cb08af3c9ae6cee24eb5ffacd9e8",
+      "content_sha256": "a5966e32d2cbe94bcfc92eae7fc40baa575d3f526be74de2254c85fcdb20c638",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 588403,
@@ -5692,7 +5692,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "3708f2cfad2c8d33cc812773fa52f357fd6c9b97d338f50e4e45f1857756832d",
+      "content_sha256": "48bb087874702dd02123ff0fa2e2f456b10233d591d332139140f12e126b4b03",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 304063,
@@ -7689,11 +7689,11 @@
     },
     {
       "path": "lib/pipeline/user-workspace-state-types.ts",
-      "content_sha256": "f7b686833758228bdf061aefb51962cf60b586ce14c7d41f98e85307b0b28b1d",
+      "content_sha256": "97d86ac70f7bd952ec030760bc06ba6559289286c51055b07f4829a461773100",
       "role": "Pipeline domain",
       "risk": "medium",
-      "bytes": 12779,
-      "lines": 315,
+      "bytes": 12884,
+      "lines": 316,
       "detected_concerns": [],
       "review_focus": "Check single sources of truth, explicit state transitions, ownership/deadlines, concurrency versions, deterministic search/filtering, and audit records.",
       "verification": "check:platform:fast and owning feature test"
@@ -8951,16 +8951,16 @@
     },
     {
       "path": "scripts/api-behavior-fixtures.mjs",
-      "content_sha256": "70bb6a7780e64687bf5a34a4d9bd4eb2e7b88146ae2620ef14ccae6391b84c78",
+      "content_sha256": "664ef9d1f285555364ac8d7530b12700487fc3864032f85b8bcc590596abb63d",
       "role": "Operator, verification, or data script",
       "risk": "medium",
-      "bytes": 107054,
-      "lines": 2103,
+      "bytes": 107471,
+      "lines": 2106,
       "detected_concerns": [
-        "Large module (2103 lines): split by behavior before adding more responsibilities.",
+        "Large module (2106 lines): split by behavior before adding more responsibilities.",
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
-      "review_focus": "Large module (2103 lines): split by behavior before adding more responsibilities.",
+      "review_focus": "Large module (2106 lines): split by behavior before adding more responsibilities.",
       "verification": "execute with sanitized fixture; verify dry-run/fail-closed behavior"
     },
     {

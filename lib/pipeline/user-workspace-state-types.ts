@@ -58,6 +58,7 @@ export type RecentDestinationInput =
 
 export const referralDraftExtraKeys = ["conserved", "tags", "documents", "initialPacket"] as const;
 export type ReferralDraftDirtyKey = ReferralCanvasFieldKey | (typeof referralDraftExtraKeys)[number];
+const legacyDefaultDraftFieldKeys = new Set<ReferralCanvasFieldKey>(["currentMedications", "phone", "email"]);
 
 export type PipelineReferralDraft = {
   schema: 1;
@@ -156,7 +157,7 @@ export function parsePipelineReferralDraft(value: unknown): PipelineReferralDraf
       ? legacyCommunity
       : key === "county" && legacyCommunity
         ? { value: "" }
-        : key === "currentMedications" && candidate.fields.currentMedications === undefined
+        : legacyDefaultDraftFieldKeys.has(key) && candidate.fields[key] === undefined
           ? { value: "" }
         : candidate.fields[key];
     if (!field || typeof field !== "object" || Array.isArray(field) || !isBoundedText(field.value, 40_000, true)) return null;
