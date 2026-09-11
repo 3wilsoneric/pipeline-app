@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f8c008b108b2f7dc",
-  "fingerprint": "f8c008b108b2f7dc6ed05d9d4ca61f712b0c9cedd04cf5f2e0d32dbe2c783451",
+  "generatedAt": "source-fingerprint:6ae6ecdb101fb0fb",
+  "fingerprint": "6ae6ecdb101fb0fbc50042e61dbe38a51736e3d904d9e157cded606bb7633e45",
   "totals": {
-    "files": 979,
-    "lines": 310850,
-    "coveredFiles": 979
+    "files": 982,
+    "lines": 311965,
+    "coveredFiles": 982
   },
   "entries": [
     {
@@ -222,6 +222,18 @@
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
+      ]
+    },
+    {
+      "path": "app/(pipeline)/training/assessment-preview/page.tsx",
+      "subsystem": "App Router",
+      "kind": "react-component",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 24,
+      "moduleIds": [
+        "assessment-lifecycle",
+        "assessment-schema-ownership"
       ]
     },
     {
@@ -1845,7 +1857,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1654,
+      "lines": 1696,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -1966,6 +1978,18 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 143,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/GuidedAssessmentInterview.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 535,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2476,6 +2500,18 @@
       ]
     },
     {
+      "path": "components/pipeline/training/FocusedAssessmentDemo.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 422,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/training/FullWorkflowWalkthroughPreview.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2589,7 +2625,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 840,
+      "lines": 854,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -11273,7 +11309,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 345,
+      "lines": 417,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11285,7 +11321,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 614,
+      "lines": 616,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11550,7 +11586,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2663,
+      "lines": 2667,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

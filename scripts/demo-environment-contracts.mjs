@@ -62,9 +62,9 @@ try {
   }, (result) => !result.enabled && result.entryUrl === "https://pipeline-demo.example.org");
 
   checks.push({
-    name: "the presentation defers practice data and the handoff surface while loading one screenshot at a time",
+    name: "the presentation defers practice data and the submission surface while loading one screenshot at a time",
     ok: centerSource.includes('if (view !== "lab" || casesLoadedRef.current) return;')
-      && centerSource.includes('dynamic(() => import("@/components/pipeline/training/MeetClientHandoffDemo")')
+      && centerSource.includes('dynamic(() => import("@/components/pipeline/training/SubmissionAcceptanceDemo")')
       && centerSource.includes('from "next/image"')
       && centerSource.includes('key={selected.src}')
       && !centerSource.includes("preload.src ="),
