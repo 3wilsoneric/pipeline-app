@@ -189,7 +189,7 @@ function AssessmentFieldWritingGuidePanel({ field }: { field: AssessmentToolFiel
   return (
     <details className="mt-2 border border-[#d9dfdb] bg-[#f8faf9]">
       <summary data-guide-target="assessment-answer-help" className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 marker:hidden">
-        <span className="flex items-center gap-2 text-[10px] font-black text-[#315e50]"><Sparkles size={12} /> Answer format</span>
+        <span className="flex items-center gap-2 text-[10px] font-black text-[#315e50]"><Sparkles size={12} /> Language Lab</span>
         <span className="text-[9px] font-semibold text-[#7b837e]">{specification.formatLabel} · {specification.lengthGuidance}</span>
       </summary>
       <div className="border-t border-[#d9dfdb] px-3 py-3">

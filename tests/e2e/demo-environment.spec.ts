@@ -29,12 +29,12 @@ test.describe("Pipeline Demo Environment", () => {
     await interview.getByRole("button", { name: /Clinical 0\/6/ }).click();
     await expect(interview.getByRole("heading", { name: "Current presentation" })).toBeVisible();
     await expect(interview.getByRole("textbox", { name: "Current symptoms" })).toBeEditable();
-    await interview.getByText("Answer format", { exact: true }).first().click();
+    await interview.getByText("Language Lab", { exact: true }).first().click();
     await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });
 
-  test("separates the presentation from the referral journey", async ({ page }) => {
+  test("moves directly from the presentation into the real walkthrough", async ({ page }) => {
     await page.goto("/training/demo");
 
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
@@ -61,12 +61,11 @@ test.describe("Pipeline Demo Environment", () => {
     await page.keyboard.press("End");
     await expect(page.getByRole("heading", { name: "Accepted referrals continue into the receiving-team handoff" })).toBeVisible();
     await expect(page.getByRole("img", { name: /Meet the Client email preview/ })).toBeVisible();
-    await page.getByRole("button", { name: "Open the live walkthrough" }).click();
+    await page.getByRole("button", { name: "Begin walkthrough" }).click();
 
-    await expect(page.getByRole("tab", { name: "Live walkthrough" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: "Create the referral" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Referral journey stages" })).toBeVisible();
-    await expect.poll(() => page.locator('[data-demo-center="true"]').evaluate((element) => element.scrollTop)).toBe(0);
+    await expect(page).toHaveURL(/view=referrals.*screen=packet.*draftId=.*demoScenario=new-intake/);
+    await expect(page.getByRole("dialog", { name: "Create a referral guided tutorial" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
   });
 
   test("defers practice data until the practice surface is opened", async ({ page }) => {
@@ -83,7 +82,6 @@ test.describe("Pipeline Demo Environment", () => {
     expect(referralRequests).toEqual([]);
 
     await closePresentation(page);
-    await page.getByRole("tab", { name: "Practice cases" }).click();
     await expect.poll(() => referralRequests.length).toBe(1);
   });
 
@@ -98,31 +96,33 @@ test.describe("Pipeline Demo Environment", () => {
     expect(await center.evaluate((element) => element.scrollHeight)).toBe(await center.evaluate((element) => element.clientHeight));
 
     await closePresentation(page);
-    const journey = page.locator('[data-demo-surface="journey"]');
-    await expect(journey).toBeVisible();
-    await expectDemoSurfaceToFillBody(journey, center);
+    const practice = page.locator('[data-demo-surface="practice"]');
+    await expect(practice).toBeVisible();
+    await expectDemoSurfaceToFillBody(practice, center);
   });
 
-  test("moves from the evidence example into Notes Lab and returns for final review", async ({ page }) => {
+  test("opens Language Lab inside the real assessment", async ({ page }) => {
+    await mockTrainingProgress(page);
     await page.goto("/training/demo");
 
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
     await slideNavigation.getByRole("combobox", { name: "Jump to slide" }).selectOption("6");
-    await page.getByRole("link", { name: "Practice in Notes Lab" }).click();
+    await page.getByRole("button", { name: "Try Language Lab in the assessment" }).click();
 
-    await expect(page).toHaveURL(/\/note-lab\/practice\?from=demo$/);
-    await expect(page.getByRole("heading", { name: "Jordan Practice" })).toBeVisible();
-    await page.getByRole("link", { name: "Back to presentation" }).click();
-
-    await expect(page).toHaveURL(/\/training\/demo\?slide=review-and-sign$/);
-    await expect(page.getByRole("heading", { name: "Review the saved draft before signing" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" })).toHaveValue("7");
+    await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=prior_history/);
+    const coach = page.getByRole("dialog", { name: "Finish an assessment guided tutorial" });
+    const interview = page.getByRole("dialog", { name: "Assessment interview" });
+    await expect(coach.getByRole("heading", { name: "Enter an answer" })).toBeVisible();
+    await interview.locator('[data-guide-target~="assessment-answer"]:visible').first().fill("Client reports one crisis visit last month; packet review is pending.");
+    await expect(coach.getByRole("heading", { name: "Open Language Lab" })).toBeVisible();
+    await interview.locator('[data-guide-target~="assessment-answer-help"]:visible').first().click();
+    await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
   });
 
-  test("starts the referral journey in the real intake workspace", async ({ page }) => {
+  test("starts an intake guide from the workspace slide", async ({ page }) => {
     await page.goto("/training/demo");
-    await closePresentation(page);
-    await page.getByRole("button", { name: "Start tooltip walkthrough" }).click();
+    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("2");
+    await page.getByRole("button", { name: "Try the intake walkthrough" }).click();
 
     await expect(page).toHaveURL(/view=referrals.*screen=packet.*draftId=.*demoScenario=new-intake/);
     await expect(page.getByRole("dialog", { name: "Create a referral guided tutorial" })).toBeVisible();
@@ -134,9 +134,8 @@ test.describe("Pipeline Demo Environment", () => {
     const errors = watchBrowserErrors(page);
     await mockTrainingProgress(page);
     await page.goto("/training/demo");
-    await closePresentation(page);
-    await page.getByRole("navigation", { name: "Referral journey stages" }).getByRole("button", { name: /Complete the interview/ }).click();
-    await page.getByRole("button", { name: "Start tooltip walkthrough" }).click();
+    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("5");
+    await page.getByRole("button", { name: "Start the assessment walkthrough" }).click();
 
     await expect(page).toHaveURL(/screen=packet.*workspaceStage=assessment.*trainingAssessment=interview/);
     const coach = page.getByRole("dialog", { name: "Finish an assessment guided tutorial" });
@@ -145,7 +144,7 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(coach.getByText("Do this", { exact: true })).toHaveCount(0);
     await expect(coach.getByText("Done when", { exact: true })).toHaveCount(0);
     await expect(coach.getByText("Why this matters", { exact: true })).toHaveCount(0);
-    await expect(coach.getByText(/Check the name, date of birth, community, referral date/)).toBeVisible();
+    await expect(coach.getByText("Review this section, then select it to continue.", { exact: true })).toBeVisible();
     const interview = page.getByRole("dialog", { name: "Assessment interview" });
     const sectionNavigation = interview.getByRole("navigation", { name: "Assessment sections" });
     await expect(sectionNavigation).toBeVisible();
@@ -168,8 +167,10 @@ test.describe("Pipeline Demo Environment", () => {
 
     await expect(coach.getByRole("heading", { name: "Enter an answer" })).toBeVisible();
     await interview.locator('[data-guide-target~="assessment-answer"]:visible').first().fill("Synthetic history reviewed with the client.");
-    await expect(coach.getByRole("heading", { name: "Open Answer Help" })).toBeVisible();
+    await expect(coach.getByRole("heading", { name: "Open Language Lab" })).toBeVisible();
     await interview.locator('[data-guide-target~="assessment-answer-help"]:visible').first().click();
+    await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
+    await coach.getByRole("button", { name: "Continue" }).click();
 
     await confirmSection("Clinical", "diagnosis_clinical");
     await confirmSection("Function", "functional_adl");
@@ -188,9 +189,8 @@ test.describe("Pipeline Demo Environment", () => {
     const errors = watchBrowserErrors(page);
     await mockTrainingProgress(page);
     await page.goto("/training/demo");
-    await closePresentation(page);
-    await page.getByRole("navigation", { name: "Referral journey stages" }).getByRole("button", { name: /Schedule the assessment/ }).click();
-    await page.getByRole("button", { name: "Start tooltip walkthrough" }).click();
+    await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("4");
+    await page.getByRole("button", { name: "Try the scheduling walkthrough" }).click();
 
     const coach = page.getByRole("dialog", { name: "Schedule an assessment guided tutorial" });
     const schedule = page.getByRole("dialog", { name: "Schedule assessment" });
@@ -208,33 +208,21 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.getByRole("dialog", { name: "Begin assessment" })).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible();
     await expect(coach.getByRole("heading", { name: "Open the assessment" })).toBeVisible();
-    await expect(coach).toContainText("Select Client & referral");
+    await expect(coach).toContainText("Select the highlighted control.");
     await expect.poll(() => errors).toEqual([]);
   });
 
-  test("opens intake review on Intake instead of skipping ahead to Assessment", async ({ page }) => {
-    await page.goto("/training/demo");
-    await closePresentation(page);
-    await page.getByRole("navigation", { name: "Referral journey stages" }).getByRole("button", { name: /Review the intake/ }).click();
-    await page.getByRole("button", { name: "Open practice record" }).click();
-
-    await expect(page).toHaveURL(/screen=packet.*workspaceStage=intake/);
-    await expect(page.getByRole("button", { name: /01 Intake/ })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("button", { name: /02 Assessment/ })).not.toHaveAttribute("aria-current", "page");
-  });
-
-  test("keeps the presentation and referral journey usable on a narrow screen", async ({ page }) => {
+  test("keeps the presentation and practice cases usable on a narrow screen", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/training/demo");
     await expect(page.getByRole("heading", { name: "One referral stays connected from packet to handoff" })).toBeVisible();
     await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("2");
     await expect(page.getByRole("img", { name: /Intake screen with the referral packet area highlighted/ })).toBeVisible();
     await closePresentation(page);
-    await expect(page.getByRole("heading", { name: "Create the referral" })).toBeVisible();
-    await expect(page.getByText("Attach the source packet", { exact: true })).toBeVisible();
+    await expect(page.locator('[data-demo-surface="practice"]')).toBeVisible();
     const center = page.locator('[data-demo-center="true"]');
     expect(await center.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    for (const tab of ["Presentation", "Live walkthrough", "Practice cases", "Meet the Client"]) {
+    for (const tab of ["Presentation", "Practice cases", "Meet the Client"]) {
       await expect(page.getByRole("tab", { name: tab })).toBeInViewport();
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -247,15 +235,14 @@ test.describe("Pipeline Demo Environment", () => {
     await expectPresentationToFillViewport(page.locator('[data-demo-surface="presentation"]'), page);
     await closePresentation(page);
 
-    for (const tab of ["Live walkthrough", "Practice cases", "Meet the Client"]) {
+    for (const tab of ["Practice cases", "Meet the Client"]) {
       await page.getByRole("tab", { name: tab }).click();
       await expect(page.getByRole("tab", { name: tab })).toHaveAttribute("aria-selected", "true");
       expect(await center.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     }
 
-    await page.getByRole("tab", { name: "Live walkthrough" }).click();
-    await expect(page.getByRole("navigation", { name: "Referral journey stages" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Start tooltip walkthrough" })).toBeVisible();
+    await page.getByRole("tab", { name: "Practice cases" }).click();
+    await expect(page.locator('[data-demo-surface="practice"]')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
@@ -308,7 +295,7 @@ async function expectPresentationToFillViewport(surface: Locator, page: import("
 
 async function closePresentation(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Close presentation" }).click();
-  await expect(page.getByRole("tab", { name: "Live walkthrough" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Practice cases" })).toHaveAttribute("aria-selected", "true");
 }
 
 function watchBrowserErrors(page: import("@playwright/test").Page) {

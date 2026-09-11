@@ -359,11 +359,11 @@ function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceC
   const panelStyle = guidePanelLayout(targetRect, step.placement ?? "auto");
   return (
     <section role="dialog" aria-label={`${isFullWorkflow ? "Full Pipeline walkthrough" : tutorial.title} guided tutorial`} data-testid="guided-coach-panel" style={panelStyle} className="fixed z-[100] flex flex-col overflow-hidden border border-[#aebfba] bg-white shadow-[0_22px_70px_rgba(14,31,26,0.28)]">
-      <header className="border-b border-[#d5ddda] bg-[#f2f6f4] px-4 py-3">
-        <div className="flex items-start justify-between gap-3"><div className="min-w-0">{isFullWorkflow ? <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#0c705f]">Full tour · Module {sequenceIndex + 1} of {sequenceCount}</div> : null}<h2 className="mt-1 truncate text-[16px] font-black text-[#202623]">{tutorial.title}</h2><div className="mt-1 text-[10px] font-bold text-[#6d7773]">Step {stepIndex + 1} of {tutorial.steps.length}</div></div><div className="flex items-center gap-1"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={16} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-9 w-9 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={17} /></button></div></div>
-        <div className="mt-3 flex gap-1" aria-label={`Action ${stepIndex + 1} of ${tutorial.steps.length}`}>{Array.from({ length: tutorial.steps.length }, (_, index) => <span key={index} className={`h-1 flex-1 ${index <= stepIndex ? "bg-[#0f8b73]" : "bg-[#d7dfdc]"}`} />)}</div>
-        {progressSyncState === "browser" ? <p role="status" className="mt-2 text-[9px] font-bold text-[#7a5e1e]">Progress saved in this browser and will sync automatically.</p> : null}
-        {progressSyncState === "guide" ? <p role="status" className="mt-2 text-[9px] font-bold text-[#7a5e1e]">Tutorial position is saved in this browser; account progress is not synced yet.</p> : null}
+      <header className="border-b border-[#d5ddda] bg-[#f2f6f4] px-3 py-2">
+        <div className="flex items-center justify-between gap-3"><div className="min-w-0 truncate text-[10px] font-black text-[#52605a]">{isFullWorkflow ? `Module ${sequenceIndex + 1}/${sequenceCount} · ` : ""}{step.phase} · {stepIndex + 1}/{tutorial.steps.length}</div><div className="flex items-center gap-0.5"><button type="button" onClick={onPause} aria-label="Pause tutorial" title="Pause" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#111111]"><Pause size={14} /></button><button type="button" onClick={onEnd} aria-label="End tutorial" title="End tutorial" className="flex h-8 w-8 items-center justify-center text-[#68736f] hover:bg-white hover:text-[#a9473d]"><X size={15} /></button></div></div>
+        <div className="mt-1.5 h-1 bg-[#d7dfdc]" aria-label={`Action ${stepIndex + 1} of ${tutorial.steps.length}`}><div className="h-full bg-[#0f8b73]" style={{ width: `${((stepIndex + 1) / tutorial.steps.length) * 100}%` }} /></div>
+        {progressSyncState === "browser" ? <p role="status" className="mt-1.5 text-[9px] font-bold text-[#7a5e1e]">Saving in this browser until sync resumes.</p> : null}
+        {progressSyncState === "guide" ? <p role="status" className="mt-1.5 text-[9px] font-bold text-[#7a5e1e]">Saving this guide in this browser.</p> : null}
       </header>
       <GuideConversationBody step={step} targetReady={targetReady} routeMatches={routeMatches} onOpenRoute={onOpenRoute} />
       <GuideConversationFooter step={step} stepIndex={stepIndex} stepCount={tutorial.steps.length} canConfirm={canConfirm} hasPreviousModule={sequenceIndex > 0} hasNextModule={sequenceIndex < sequenceCount - 1} onBack={onBack} onAdvance={onAdvance} />
@@ -373,20 +373,28 @@ function GuideConversation({ tutorial, step, stepIndex, sequenceIndex, sequenceC
 
 function GuideConversationBody({ step, targetReady, routeMatches, onOpenRoute }: { step: OperatorGuideStep; targetReady: boolean; routeMatches: boolean; onOpenRoute: () => void }) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-5" aria-live="polite">
-      <h3 className="text-[24px] font-black leading-7 tracking-normal text-[#1d2421]">{operatorGuideStepTitle(step)}</h3>
-      <p className="mt-4 border-l-[3px] border-[#0f8b73] pl-4 text-[16px] font-bold leading-6 text-[#244b40]">{step.instruction}</p>
-      <div className="mt-5 border border-[#dce4e1] bg-[#f6f9f8] px-4 py-3 text-[12px] font-semibold leading-5 text-[#4f5b56]">
-        <span className="font-black text-[#27322e]">Check: </span>{step.completion}
-      </div>
-      <details className="mt-4 border-t border-[#e3e8e6] pt-3 text-[12px] leading-5 text-[#66716d]">
-        <summary className="cursor-pointer font-black text-[#52605a] hover:text-[#0f7c68]">Notes</summary>
-        <p className="mt-2">{step.message}</p>
-        <p className="mt-2 font-semibold text-[#705924]">{step.safety}</p>
+    <div className="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-3.5" aria-live="polite">
+      <h3 className="text-[16px] font-black leading-5 text-[#1d2421]">{operatorGuideStepTitle(step)}</h3>
+      <p className="mt-2 border-l-[3px] border-[#0f8b73] pl-3 text-[13px] font-bold leading-5 text-[#244b40]">{compactGuideInstruction(step)}</p>
+      <details className="mt-2.5 text-[10px] leading-4 text-[#66716d]">
+        <summary className="w-fit cursor-pointer font-black text-[#61706a] hover:text-[#0f7c68]">Why?</summary>
+        <p className="mt-1.5">{step.why}</p>
+        <p className="mt-1.5 font-semibold text-[#705924]">{step.safety}</p>
       </details>
       {!targetReady ? <UnavailableGuideAction step={step} routeMatches={routeMatches} onOpenRoute={onOpenRoute} /> : null}
     </div>
   );
+}
+
+function compactGuideInstruction(step: OperatorGuideStep) {
+  if (step.id === "referral-packet") return "Upload the referral packet here.";
+  if (step.id === "assessment-answer") return "Enter the finding, source, timeframe, and useful detail.";
+  if (step.id === "assessment-help") return "Open Language Lab for a field-specific format.";
+  if (step.id.startsWith("assessment-section-")) return "Review this section, then select it to continue.";
+  if (step.advance === "target-input") return "Type in the highlighted field.";
+  if (step.advance === "target-change") return "Set the highlighted field.";
+  if (step.advance === "target-click") return "Select the highlighted control.";
+  return "Review this screen, then continue.";
 }
 
 function UnavailableGuideAction({ step, routeMatches, onOpenRoute }: { step: OperatorGuideStep; routeMatches: boolean; onOpenRoute: () => void }) {
@@ -400,7 +408,7 @@ function unavailableGuideMessage(step: OperatorGuideStep, routeMatches: boolean)
 }
 
 function GuideConversationFooter({ step, stepIndex, stepCount, canConfirm, hasPreviousModule, hasNextModule, onBack, onAdvance }: { step: OperatorGuideStep; stepIndex: number; stepCount: number; canConfirm: boolean; hasPreviousModule: boolean; hasNextModule: boolean; onBack: () => void; onAdvance: () => void }) {
-  return <footer className="flex items-center justify-between gap-2 border-t border-[#d8dfdc] bg-[#fafcfb] px-4 py-3"><button type="button" disabled={stepIndex === 0 && !hasPreviousModule} onClick={onBack} className="flex h-10 items-center gap-1.5 px-2 text-[12px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={15} /> Back</button><div className="flex items-center gap-2"><button type="button" onClick={onAdvance} className="h-10 px-2 text-[12px] font-black text-[#66716d] hover:text-[#111111]">{guideSkipLabel(stepIndex, stepCount, hasNextModule)}</button>{canConfirm ? <button type="button" onClick={onAdvance} className="flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[12px] font-black text-white">{guideAdvanceLabel(stepIndex, stepCount, hasNextModule)}<ArrowRight size={15} /></button> : <span className="flex h-10 items-center gap-1.5 px-2 text-[12px] font-black text-[#0c705f]">{guideInteractionLabel(step)} <ChevronRight size={14} /></span>}</div></footer>;
+  return <footer className="flex items-center justify-between gap-1 border-t border-[#d8dfdc] bg-[#fafcfb] px-3 py-2"><button type="button" disabled={stepIndex === 0 && !hasPreviousModule} onClick={onBack} className="flex h-8 items-center gap-1 px-1.5 text-[10px] font-black text-[#626d69] disabled:invisible"><ArrowLeft size={13} /> Back</button><div className="flex items-center gap-1"><button type="button" onClick={onAdvance} className="h-8 px-1.5 text-[10px] font-black text-[#66716d] hover:text-[#111111]">{guideSkipLabel(stepIndex, stepCount, hasNextModule)}</button>{canConfirm ? <button type="button" onClick={onAdvance} className="flex h-8 items-center gap-1.5 bg-[#0f8b73] px-3 text-[10px] font-black text-white">{guideAdvanceLabel(stepIndex, stepCount, hasNextModule)}<ArrowRight size={13} /></button> : <span className="flex h-8 items-center gap-1 px-1.5 text-[10px] font-black text-[#0c705f]">{guideInteractionLabel(step)} <ChevronRight size={12} /></span>}</div></footer>;
 }
 
 function guideInteractionLabel(step: OperatorGuideStep) {
@@ -442,9 +450,9 @@ function guidePanelLayout(rect: DOMRect | null, preferred: OperatorGuidePlacemen
   const viewportHeight = window.innerHeight;
   const margin = viewportWidth < 640 ? 8 : 16;
   const gap = viewportWidth < 640 ? 10 : 16;
-  const width = Math.min(430, viewportWidth - margin * 2);
+  const width = Math.min(340, viewportWidth - margin * 2);
   const fullHeight = Math.max(1, viewportHeight - margin * 2);
-  const estimatedHeight = Math.min(520, fullHeight);
+  const estimatedHeight = Math.min(300, fullHeight);
 
   if (!rect) {
     return {
@@ -464,7 +472,7 @@ function guidePanelLayout(rect: DOMRect | null, preferred: OperatorGuidePlacemen
   const centeredX = clamp(rect.left + rect.width / 2 - width / 2, margin, viewportWidth - width - margin);
   const sideTop = clamp(rect.top, margin, viewportHeight - estimatedHeight - margin);
   const sideMaxHeight = Math.max(1, viewportHeight - sideTop - margin);
-  const minimumVerticalSpace = Math.min(220, Math.max(120, viewportHeight * 0.3));
+  const minimumVerticalSpace = Math.min(180, Math.max(120, viewportHeight * 0.24));
   const candidates: Record<Exclude<OperatorGuidePlacement, "auto">, CSSProperties | null> = {
     right: space.right >= width ? { left: rect.right + gap, top: sideTop, width, maxHeight: sideMaxHeight } : null,
     left: space.left >= width ? { left: rect.left - gap - width, top: sideTop, width, maxHeight: sideMaxHeight } : null,

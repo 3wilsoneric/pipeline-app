@@ -2087,7 +2087,7 @@ test.describe("Referral home and packet canvas", () => {
     }
     await assessmentInterview.getByRole("button", { name: /^History/ }).click();
     await assessmentInterview.getByLabel("Prior placements", { exact: true }).fill("Client reports one prior placement; dates and discharge reason are not yet verified.");
-    await assessmentInterview.getByText("Answer format", { exact: true }).first().click();
+    await assessmentInterview.getByText("Language Lab", { exact: true }).first().click();
     await expect(assessmentInterview.getByText("Use this order", { exact: true }).first()).toBeVisible();
     await expect(assessmentInterview.getByText("Include", { exact: true }).first()).toBeVisible();
     await expect(assessmentInterview.getByText("Example format", { exact: true }).first()).toBeVisible();
