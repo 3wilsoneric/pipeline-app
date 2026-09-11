@@ -16,6 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
@@ -54,16 +55,34 @@ type PresentationSlide = {
   id: string;
   number: number;
   navLabel: string;
-  eyebrow: string;
+  location: string;
   title: string;
-  lead: string;
-  graphic: "case-spine" | "ownership" | "workday" | "source-stack" | "assessment-map" | "note-comparison" | "decision-path" | "handoff";
+  summary: string;
+  points: readonly string[];
+  graphic?: "case-spine" | "ownership" | "workday" | "source-stack" | "assessment-map" | "note-comparison" | "decision-path" | "handoff";
+  screenshots?: readonly PresentationScreenshot[];
+  sections?: readonly string[];
+  rule?: string;
+  guide?: {
+    label: string;
+    scenarioId: PipelineDemoScenarioId;
+    tutorialId: string;
+    stepId: string;
+    workspaceStage?: "intake" | "assessment";
+  };
   nextLabel: string;
   dark?: boolean;
   action?: {
     label: string;
     href: string;
   };
+};
+
+type PresentationScreenshot = {
+  src: string;
+  alt: string;
+  label: string;
+  caption: string;
 };
 
 type DemoChapter = {
@@ -80,89 +99,184 @@ type DemoChapter = {
 
 const presentationSlides: readonly PresentationSlide[] = [
   {
-    id: "decision-ready",
+    id: "referral-map",
     number: 1,
-    navLabel: "Outcome",
-    eyebrow: "Supervisor-led assessor orientation",
-    title: "How assessors use Pipeline from referral to recommendation",
-    lead: "This overview covers where work appears, how to verify and document the assessment, what signing changes, and where assessor responsibility ends.",
+    navLabel: "Map",
+    location: "The whole referral",
+    title: "One referral stays connected from packet to handoff",
+    summary: "Pipeline keeps the documents, intake, appointment, assessment, recommendation, decision, and receiving-team handoff in one traceable referral record.",
+    points: [
+      "The workspace is the referral record.",
+      "The client profile carries the person's history across referrals.",
+      "The live walkthrough will point to each control on the real screen.",
+    ],
     graphic: "case-spine",
-    nextLabel: "Review responsibilities",
+    nextLabel: "See the main screens",
     dark: true,
   },
   {
-    id: "assessor-role",
-    number: 2,
-    navLabel: "Ownership",
-    eyebrow: "Roles and responsibilities",
-    title: "Your responsibilities in Pipeline",
-    lead: "Assessors verify the source material, complete and sign the assessment, and submit a clinical recommendation. An authorized administrator records the admission decision.",
-    graphic: "ownership",
-    nextLabel: "See where work appears",
-  },
-  {
     id: "find-work",
-    number: 3,
-    navLabel: "Start",
-    eyebrow: "Home · Calendar · Workspace",
-    title: "Where to start each day",
-    lead: "Home lists work requiring attention. Calendar shows scheduled assessments. The workspace contains the referral record and its activity.",
+    number: 2,
+    navLabel: "Screens",
+    location: "Home · Workspaces · Calendar · Clients",
+    title: "Where everything lives",
+    summary: "Each main screen answers a different question. Home shows assigned work, Workspaces opens the referral record, Calendar holds appointments, and Clients holds the durable person profile.",
+    points: [
+      "Home: assigned referrals, drafts, and upcoming work.",
+      "Workspaces: packet, intake, assessment, files, Chart, and activity.",
+      "Calendar and Clients: appointment view and person-level history.",
+    ],
     graphic: "workday",
-    nextLabel: "Verify the intake",
+    nextLabel: "Open the workspace",
   },
   {
-    id: "verify-sources",
+    id: "open-workspace",
+    number: 3,
+    navLabel: "Workspace",
+    location: "Workspaces → referral → Intake",
+    title: "The workspace opens in Intake",
+    summary: "The stage bar runs across the top. Files and Activity sit beside it. The source packet and document checklist are the first things on the Intake screen.",
+    points: [
+      "The highlighted area is where the initial referral packet is attached.",
+      "Intake, Assessment, and Chart stay attached to this referral.",
+      "The tooltip guide remains on screen and points to the next control.",
+    ],
+    screenshots: [{
+      src: "/training/presentation/intake-workspace.png",
+      alt: "Synthetic Pipeline Intake screen with the referral packet area highlighted and the Create a referral tooltip walkthrough open.",
+      label: "Intake and packet",
+      caption: "The stage bar is above the record; Files and Activity are at its right; the packet area is highlighted inside Intake.",
+    }],
+    guide: { label: "Try the intake walkthrough", scenarioId: "new-intake", tutorialId: "create-referral", stepId: "referral-packet", workspaceStage: "intake" },
+    nextLabel: "Review the intake",
+  },
+  {
+    id: "review-intake",
     number: 4,
-    navLabel: "Prepare",
-    eyebrow: "Before the interview",
-    title: "Verify the intake and its sources",
-    lead: "Verify inherited intake against the packet before the interview. Preserve disagreements between sources and leave unsupported facts unknown.",
-    graphic: "source-stack",
-    nextLabel: "Review the interview",
+    navLabel: "Intake",
+    location: "Workspace → Intake",
+    title: "Review the packet before the interview",
+    summary: "Intake is where packet facts are checked, corrected, and attributed before they carry into the assessment.",
+    points: [
+      "Confirm identity, referral source, county, community, contacts, and medication context against the source.",
+      "Keep conflicting sources visible and leave unsupported facts unrecorded.",
+      "Add later documents to this workspace rather than opening another referral.",
+    ],
+    screenshots: [{
+      src: "/training/presentation/intake-review.png",
+      alt: "Synthetic Pipeline Intake screen showing the attached referral packet and document checklist.",
+      label: "Reviewed intake",
+      caption: "The attached source packet sits above its document checklist; the Intake save action stays in the stage bar.",
+    }],
+    nextLabel: "Schedule the assessment",
   },
   {
-    id: "structured-interview",
+    id: "schedule-assessment",
     number: 5,
-    navLabel: "Interview",
-    eyebrow: "During the assessment",
-    title: "Use the section map to stay oriented",
-    lead: "The assessment contains twelve sections grouped into four phases. Conditional questions appear only when the client’s answers make them relevant.",
-    graphic: "assessment-map",
-    nextLabel: "Compare documentation",
+    navLabel: "Schedule",
+    location: "Workspace → Assessment → Schedule",
+    title: "Schedule from the referral, then see it on Calendar",
+    summary: "The appointment is part of the referral record. Date, time, duration, method, and location or meeting link are saved together and reflected on Calendar.",
+    points: [
+      "Schedule is at the upper-right of the Assessment screen.",
+      "The walkthrough highlights each appointment field and the save action.",
+      "Rescheduling changes the appointment, not the referral outcome.",
+    ],
+    screenshots: [
+      {
+        src: "/training/presentation/assessment-schedule.png",
+        alt: "Synthetic Pipeline assessment with the Schedule dialog open and the scheduling tooltip walkthrough beside it.",
+        label: "Schedule dialog",
+        caption: "The appointment dialog opens over Assessment; the guide moves through date, method, location, and save.",
+      },
+      {
+        src: "/training/presentation/assessor-calendar.png",
+        alt: "Synthetic Pipeline Calendar showing an assessor schedule and a ready-to-schedule queue.",
+        label: "Calendar",
+        caption: "Calendar shows the saved appointment and the ready-to-schedule queue for the selected assessor.",
+      },
+    ],
+    guide: { label: "Try the scheduling walkthrough", scenarioId: "assessment-preparation", tutorialId: "start-assessment", stepId: "assessment-schedule-fields", workspaceStage: "assessment" },
+    nextLabel: "Open the assessment",
   },
   {
-    id: "write-evidence",
+    id: "open-assessment",
     number: 6,
+    navLabel: "Assessment",
+    location: "Workspace → Assessment → Open assessment",
+    title: "The assessment is organized into 12 sections",
+    summary: "The section rail is on the left, the current questions are in the middle, and progress plus key answers stay visible on the right.",
+    points: [
+      "Select a section in the left rail or move forward one section at a time.",
+      "Inherited intake context appears with the interview fields it supports.",
+      "The guide spotlights the current control without entering or signing anything for you.",
+    ],
+    sections: ["Client & referral", "Placement", "History", "Clinical", "Function", "Medication", "Substance use", "Behavior & safety", "Physical health", "Legal", "Support & goals", "Review"],
+    screenshots: [{
+      src: "/training/presentation/assessment-guided.png",
+      alt: "Synthetic Pipeline assessment showing its 12-section rail, interview fields, progress panel, and live tooltip walkthrough.",
+      label: "Assessment with guide",
+      caption: "Left: section navigation. Center: current interview fields. Right: progress. The tooltip identifies the exact next action.",
+    }],
+    guide: { label: "Start the assessment walkthrough", scenarioId: "assessment-interview", tutorialId: "complete-assessment", stepId: "assessment-section-identity", workspaceStage: "assessment" },
+    nextLabel: "Document the interview",
+  },
+  {
+    id: "document-interview",
+    number: 7,
     navLabel: "Document",
-    eyebrow: "Documenting the interview",
-    title: "Write evidence—not polished guesses",
-    lead: "A useful note says who reported the fact, what is known now, what conflicts, and what must happen next.",
+    location: "Assessment → section field → Answer format",
+    title: "Document the source, timeframe, and finding",
+    summary: "Narrative fields belong in the section where the information was established. Answer format supplies structure when useful; it does not invent the answer.",
+    points: [
+      "Keep client report, collateral information, records, and direct observation distinguishable.",
+      "Conditional follow-ups appear only when a preceding answer makes them relevant.",
+      "Autosave protects the draft so an unfinished assessment can be resumed.",
+    ],
     graphic: "note-comparison",
     nextLabel: "Review and sign",
-    action: {
-      label: "Practice this note",
-      href: "/note-lab/practice?from=demo",
-    },
+    action: { label: "Practice in Notes Lab", href: "/note-lab/practice?from=demo" },
   },
   {
     id: "review-and-sign",
-    number: 7,
-    navLabel: "Recommend",
-    eyebrow: "Completing assessor work",
-    title: "Review, sign, then submit your recommendation",
-    lead: "Resolve missing answers and conflicts before signing. The signature locks the assessment; your recommendation then becomes clinical input to the administrator’s decision.",
-    graphic: "decision-path",
+    number: 8,
+    navLabel: "Sign",
+    location: "Assessment → Review → Sign assessment",
+    title: "Review the saved draft before signing",
+    summary: "Review names missing required answers and unresolved information. Signing locks the completed assessment; later information is recorded as an addendum.",
+    points: [
+      "The Review section is the last item in the left rail.",
+      "Saved status and the Sign assessment action are in the top bar.",
+      "The clinical recommendation remains separate from the administrator's admission decision.",
+    ],
+    screenshots: [{
+      src: "/training/presentation/assessment-review.png",
+      alt: "Synthetic Pipeline Review section showing completion counts, narrative fields, overall progress, and the Sign assessment action.",
+      label: "Final review",
+      caption: "Review is selected in the left rail; saved status and Sign assessment remain visible in the top bar.",
+    }],
+    rule: "Assessment: completed and signed by the assessor. Admission decision: recorded by an authorized administrator.",
     nextLabel: "See the handoff",
   },
   {
     id: "accepted-handoff",
-    number: 8,
-    navLabel: "Impact",
-    eyebrow: "After an accepted decision",
-    title: "How the assessment supports the receiving team",
-    lead: "Verified findings can populate Chart and Meet the Client. Authorized staff review the receiving summary and approved attachments before sending.",
-    graphic: "handoff",
-    nextLabel: "Start the referral journey",
+    number: 9,
+    navLabel: "Handoff",
+    location: "Workspace → Chart → Meet the Client",
+    title: "Accepted referrals continue into the receiving-team handoff",
+    summary: "Verified intake and signed assessment information can populate Chart and Meet the Client. Authorized staff review the summary, recipient, and approved attachments before sending.",
+    points: [
+      "Chart remains connected to the signed assessment that produced it.",
+      "Meet the Client is a concise receiving-team view, not a second assessment.",
+      "The send action stays a deliberate human checkpoint.",
+    ],
+    screenshots: [{
+      src: "/training/presentation/meet-client-handoff.png",
+      alt: "Synthetic Pipeline Meet the Client email preview with the receiving-team summary visible.",
+      label: "Meet the Client",
+      caption: "The receiving summary is reviewed with the destination and approved admission materials before delivery.",
+    }],
+    nextLabel: "Start the live walkthrough",
   },
 ] as const;
 
@@ -351,7 +465,7 @@ export default function PipelineDemoCenter({
         <header className="shrink-0 border-b border-[#d8dfdc] bg-[#edf2f0]">
           <div className="flex min-w-0 items-end gap-1 overflow-x-auto px-2 pt-1.5 sm:px-3" role="tablist" aria-label="Demo Center sections">
             <DemoTab active={view === "presentation"} label="Presentation" onClick={() => selectView("presentation")} />
-            <DemoTab active={view === "journey"} label="Referral journey" onClick={() => selectView("journey")} />
+            <DemoTab active={view === "journey"} label="Live walkthrough" onClick={() => selectView("journey")} />
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => selectView("lab")} />
             <DemoTab active={view === "handoff"} label="Meet the Client" onClick={() => selectView("handoff")} />
           </div>
@@ -365,6 +479,10 @@ export default function PipelineDemoCenter({
             <PresentationDeck
               initialSlideId={initialPresentationSlide}
               onStartJourney={() => selectView("journey")}
+              onStartGuide={(guide) => {
+                const scenario = getPipelineDemoScenario(guide.scenarioId);
+                if (scenario) void launchScenario(scenario, { tutorialId: guide.tutorialId, stepId: guide.stepId }, guide.workspaceStage);
+              }}
               onSlideChange={() => scrollContainerRef.current?.scrollTo({ top: 0 })}
             />
           ) : view === "journey" ? (
@@ -404,10 +522,12 @@ export default function PipelineDemoCenter({
 function PresentationDeck({
   initialSlideId,
   onStartJourney,
+  onStartGuide,
   onSlideChange,
 }: {
   initialSlideId?: string;
   onStartJourney: () => void;
+  onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void;
   onSlideChange: () => void;
 }) {
   const [slideIndex, setSlideIndex] = useState(() => {
@@ -438,30 +558,37 @@ function PresentationDeck({
   }, [selectSlide, slideIndex]);
 
   return (
-    <section data-demo-surface="presentation" className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
-      <header className="shrink-0 border-b border-[#d8dfdc] bg-white">
-        <div className="flex items-center justify-between gap-4 px-4 pb-2 pt-3 sm:px-6 lg:px-10">
-          <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#52605a]">Supervisor-led assessor orientation <span className="text-[#0f8b73]">· 4 minutes</span></div>
-          <div className="hidden text-[10px] font-semibold text-[#7a8580] sm:block">Use ← → to move</div>
+    <section data-demo-surface="presentation" className="fixed inset-0 z-[150] flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-white">
+      <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">AHS · Pipeline</div>
+          <div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor orientation</div>
         </div>
-        <nav aria-label="Presentation slides" className="overflow-x-auto px-2 pb-2 sm:px-4 lg:px-8">
-          <div className="flex min-w-max items-center gap-1">
-          {presentationSlides.map((item, index) => (
-            <button key={item.number} type="button" onClick={() => selectSlide(index)} aria-current={index === slideIndex ? "step" : undefined} className={`group flex h-10 min-w-[104px] items-center gap-2 border-b-2 px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-1 ${index === slideIndex ? "border-[#0f8b73] bg-[#f1f7f5] text-[#183a31]" : "border-transparent text-[#717c77] hover:bg-[#f6f8f7] hover:text-[#29332f]"}`}>
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black tabular-nums ${index === slideIndex ? "bg-[#0f8b73] text-white" : "border border-[#c7d0cc] bg-white text-[#6a756f] group-hover:border-[#8cab9f]"}`}>{item.number}</span>
-              <span className="text-[10px] font-black">{item.navLabel}</span>
-            </button>
-          ))}
-          </div>
+        <div className="hidden min-w-0 flex-1 text-center lg:block">
+          <div className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#6a756f]">{slide.location}</div>
+        </div>
+        <nav aria-label="Presentation slides" className="flex shrink-0 items-center gap-2">
+          <label htmlFor="presentation-slide" className="sr-only">Jump to slide</label>
+          <select id="presentation-slide" value={slideIndex} onChange={(event) => selectSlide(Number(event.target.value))} className="h-10 max-w-[150px] border border-[#cbd5d1] bg-white px-3 text-[11px] font-bold text-[#34403b] outline-none focus:border-[#0f8b73] sm:max-w-[230px]">
+            {presentationSlides.map((item, index) => <option key={item.id} value={index}>{item.number}. {item.navLabel}</option>)}
+          </select>
+          <button type="button" onClick={onStartJourney} className="flex h-10 items-center border border-[#cbd5d1] px-3 text-[11px] font-black text-[#59645f] hover:border-[#0f8b73] hover:text-[#0f705f]">Close presentation</button>
         </nav>
       </header>
-      <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className={`pipeline-presentation-enter min-h-0 flex-1 overflow-y-auto ${slide.dark ? "bg-[#143d34] text-white" : "bg-[#fbfcfb] text-[#17221e]"}`}>
-        <div className="mx-auto grid min-h-full w-full max-w-[1500px] content-start gap-7 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[minmax(360px,0.85fr)_minmax(480px,1.15fr)] lg:items-center lg:gap-10 lg:px-10 xl:px-12">
+      <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className={`min-h-0 flex-1 overflow-y-auto ${slide.dark ? "bg-[#143d34] text-white" : "bg-[#fbfcfb] text-[#17221e]"}`}>
+        <div className="mx-auto grid min-h-full w-full max-w-[1720px] content-center gap-7 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[minmax(320px,370px)_minmax(600px,1fr)] lg:items-center lg:gap-10 lg:px-10 xl:grid-cols-[minmax(350px,400px)_minmax(680px,1fr)] xl:px-12 2xl:grid-cols-[minmax(390px,440px)_minmax(760px,1fr)] 2xl:gap-14 2xl:px-14">
           <div className="min-w-0">
-            <div className={`text-[11px] font-black uppercase tracking-[0.12em] ${slide.dark ? "text-[#8be0c5]" : "text-[#0c705f]"}`}>{slide.eyebrow}</div>
-            <h2 className="mt-4 max-w-[720px] text-[36px] font-semibold leading-[1.02] tracking-[-0.045em] sm:text-[44px] lg:text-[46px]">{slide.title}</h2>
-            <p className={`mt-5 max-w-[660px] text-[16px] font-medium leading-7 sm:text-[18px] sm:leading-8 ${slide.dark ? "text-[#d2e5df]" : "text-[#52605a]"}`}>{slide.lead}</p>
-            {slide.action ? <Link href={toPipelinePath(slide.action.href)} className={`mt-6 inline-flex h-11 items-center gap-2 px-5 text-[12px] font-black outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${slide.dark ? "bg-white text-[#143d34] focus-visible:ring-white focus-visible:ring-offset-[#143d34]" : "bg-[#0f8b73] text-white hover:bg-[#0b6d5b] focus-visible:ring-[#0f8b73]"}`}>{slide.action.label}<ArrowRight size={15} aria-hidden="true" /></Link> : null}
+            <div className={`text-[11px] font-black uppercase tracking-[0.12em] ${slide.dark ? "text-[#8be0c5]" : "text-[#0c705f]"}`}>{slide.location}</div>
+            <h2 className="mt-3 max-w-[700px] text-[34px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[42px] lg:text-[36px] xl:text-[40px] 2xl:text-[48px]">{slide.title}</h2>
+            <p className={`mt-4 max-w-[680px] text-[16px] font-medium leading-7 sm:text-[18px] lg:text-[15px] lg:leading-6 xl:text-[17px] xl:leading-7 2xl:text-[18px] ${slide.dark ? "text-[#d2e5df]" : "text-[#52605a]"}`}>{slide.summary}</p>
+            <ul className={`mt-5 border-y ${slide.dark ? "border-white/20" : "border-[#d5ddda]"}`}>
+              {slide.points.map((point, index) => <li key={point} className={`grid grid-cols-[30px_minmax(0,1fr)] gap-2 border-b py-2.5 last:border-b-0 ${slide.dark ? "border-white/15 text-[#e4efeb]" : "border-[#e0e5e2] text-[#37433e]"}`}><span className={`text-[10px] font-black tabular-nums ${slide.dark ? "text-[#8be0c5]" : "text-[#0c705f]"}`}>{String(index + 1).padStart(2, "0")}</span><span className="text-[12px] font-bold leading-5 2xl:text-[13px]">{point}</span></li>)}
+            </ul>
+            {slide.rule ? <p className={`mt-4 border-l-[3px] px-4 py-2.5 text-[11px] font-bold leading-5 ${slide.dark ? "border-[#8be0c5] bg-white/10 text-[#e1eee9]" : "border-[#0f8b73] bg-[#edf6f3] text-[#355047]"}`}>{slide.rule}</p> : null}
+            <div className="mt-4 flex flex-wrap gap-3">
+              {slide.guide ? <button type="button" onClick={() => onStartGuide(slide.guide!)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"><Play size={14} aria-hidden="true" />{slide.guide.label}</button> : null}
+              {slide.action ? <Link href={toPipelinePath(slide.action.href)} className={`inline-flex h-10 items-center gap-2 px-4 text-[11px] font-black outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${slide.dark ? "bg-white text-[#143d34] focus-visible:ring-white focus-visible:ring-offset-[#143d34]" : "border border-[#8dafa4] bg-white text-[#0b6959] hover:border-[#0f8b73] focus-visible:ring-[#0f8b73]"}`}>{slide.action.label}<ArrowRight size={15} aria-hidden="true" /></Link> : null}
+            </div>
           </div>
           <PresentationVisual slide={slide} />
         </div>
@@ -470,13 +597,14 @@ function PresentationDeck({
       <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d8dfdc] bg-white px-4 py-3 sm:px-8 lg:px-10">
         <button type="button" disabled={slideIndex === 0} onClick={() => selectSlide(slideIndex - 1)} className="inline-flex h-10 items-center gap-2 px-2 text-[11px] font-bold text-[#5d6863] outline-none hover:text-[#17221e] focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:invisible"><ArrowLeft size={14} aria-hidden="true" />Previous</button>
         <div className="hidden items-center gap-1.5 sm:flex" aria-hidden="true">{presentationSlides.map((item, index) => <span key={item.id} className={`h-1.5 transition-[width,background-color] ${index === slideIndex ? "w-8 bg-[#0f8b73]" : "w-1.5 bg-[#cbd4d0]"}`} />)}</div>
-        {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">Start the referral journey<ArrowRight size={14} aria-hidden="true" /></button> : <button type="button" onClick={() => selectSlide(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white outline-none hover:bg-[#26302c] focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-2">{slide.nextLabel}<ArrowRight size={14} aria-hidden="true" /></button>}
+        {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">Open the live walkthrough<ArrowRight size={14} aria-hidden="true" /></button> : <button type="button" onClick={() => selectSlide(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white outline-none hover:bg-[#26302c] focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-2">{slide.nextLabel}<ArrowRight size={14} aria-hidden="true" /></button>}
       </footer>
     </section>
   );
 }
 
 function PresentationVisual({ slide }: { slide: PresentationSlide }) {
+  if (slide.screenshots?.length) return <PresentationScreenshots screenshots={slide.screenshots} />;
   if (slide.graphic === "case-spine") return <CaseSpineVisual />;
   if (slide.graphic === "ownership") return <OwnershipVisual />;
   if (slide.graphic === "workday") return <WorkdayVisual />;
@@ -484,7 +612,45 @@ function PresentationVisual({ slide }: { slide: PresentationSlide }) {
   if (slide.graphic === "assessment-map") return <AssessmentMapVisual />;
   if (slide.graphic === "note-comparison") return <NoteComparisonVisual />;
   if (slide.graphic === "decision-path") return <DecisionPathVisual />;
-  return <HandoffVisual />;
+  if (slide.graphic === "handoff") return <HandoffVisual />;
+  return null;
+}
+
+function PresentationScreenshots({ screenshots }: { screenshots: readonly PresentationScreenshot[] }) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const selected = screenshots[selectedIndex] ?? screenshots[0];
+
+  useEffect(() => {
+    if (!expanded) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [expanded]);
+
+  return (
+    <figure className="min-w-0 overflow-hidden border border-[#bfcac5] bg-white shadow-[0_24px_70px_rgba(20,48,39,0.14)]">
+      <div className="flex min-h-11 items-stretch justify-between border-b border-[#d5ddda] bg-[#f2f6f4]">
+        <div role={screenshots.length > 1 ? "tablist" : undefined} aria-label={screenshots.length > 1 ? "Slide screenshots" : undefined} className="flex min-w-0 overflow-x-auto">
+          {screenshots.map((screenshot, index) => screenshots.length > 1 ? (
+            <button key={screenshot.src} type="button" role="tab" aria-selected={index === selectedIndex} onClick={() => setSelectedIndex(index)} className={`shrink-0 border-b-2 px-4 text-[11px] font-black ${index === selectedIndex ? "border-[#0f8b73] bg-white text-[#183a31]" : "border-transparent text-[#65706b] hover:text-[#25322d]"}`}>{screenshot.label}</button>
+          ) : <span key={screenshot.src} className="flex items-center px-4 text-[10px] font-black uppercase tracking-[0.09em] text-[#0c705f]">{screenshot.label}</span>)}
+        </div>
+        <button type="button" onClick={() => setExpanded(true)} className="shrink-0 px-4 text-[9px] font-black uppercase tracking-[0.09em] text-[#5e6a65] hover:bg-white hover:text-[#0c705f]">View full size</button>
+      </div>
+      <div className="relative aspect-video w-full overflow-hidden bg-[#e8edeb]">
+        <Image key={selected.src} src={toPipelinePath(selected.src)} alt={selected.alt} fill unoptimized loading="eager" sizes="(max-width: 1023px) 100vw, 68vw" className="object-contain object-top" />
+      </div>
+      <figcaption className="border-t border-[#d5ddda] bg-white px-4 py-3 text-[12px] font-semibold leading-5 text-[#52605a]">{selected.caption}</figcaption>
+      {expanded ? <div className="fixed inset-0 z-[170] flex h-dvh flex-col bg-[#0d1713] text-white" role="dialog" aria-modal="true" aria-label={`${selected.label} full-size screen`}>
+        <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-white/20 px-5 sm:px-8"><div><div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8be0c5]">Synthetic Pipeline screen</div><div className="mt-1 text-[14px] font-black">{selected.label}</div></div><button type="button" onClick={() => setExpanded(false)} className="h-10 border border-white/30 px-4 text-[11px] font-black hover:border-[#8be0c5] hover:text-[#8be0c5]">Close full-size screen</button></header>
+        <div className="relative min-h-0 flex-1"><Image src={toPipelinePath(selected.src)} alt={selected.alt} fill unoptimized sizes="100vw" className="object-contain" /></div>
+        <p className="shrink-0 border-t border-white/20 px-5 py-3 text-center text-[12px] font-semibold text-[#d5e2dd] sm:px-8">{selected.caption}</p>
+      </div> : null}
+    </figure>
+  );
 }
 
 function CaseSpineVisual() {
@@ -672,7 +838,7 @@ function ReferralJourney({ chapter, chapterIndex, launchingId, canWrite, onSelec
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#d8dfdc] bg-[#fafcfb] px-5 py-3 sm:px-8">
           <button type="button" disabled={chapterIndex === 0} onClick={() => onSelect(Math.max(0, chapterIndex - 1))} className="inline-flex h-10 items-center gap-2 border border-[#cbd5d1] px-4 text-[10px] font-black disabled:invisible"><ArrowLeft size={13} /> Previous</button>
           <div className="flex gap-2">
-            <button type="button" disabled={disabled} onClick={() => onLaunch(chapter)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b] disabled:bg-[#aeb9b5]"><Play size={13} />{launchingId === chapter.scenarioId ? "Preparing..." : chapter.destination === "handoff" ? "Open handoff preview" : chapter.guide ? "Open guided practice" : "Open practice record"}</button>
+            <button type="button" disabled={disabled} onClick={() => onLaunch(chapter)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[10px] font-black text-white hover:bg-[#0b6d5b] disabled:bg-[#aeb9b5]"><Play size={13} />{launchingId === chapter.scenarioId ? "Preparing..." : chapter.destination === "handoff" ? "Open handoff preview" : chapter.guide ? "Start tooltip walkthrough" : "Open practice record"}</button>
             {chapterIndex < demoChapters.length - 1 ? <button type="button" onClick={() => onSelect(chapterIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-4 text-[10px] font-black text-white">Next <ArrowRight size={13} /></button> : null}
           </div>
         </footer>
