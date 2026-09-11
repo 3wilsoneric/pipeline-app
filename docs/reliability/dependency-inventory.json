@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T19:38:16.933Z",
-  "audit_date": "2026-09-10",
-  "git_head": "669fc45b82e7834a5a1f7b930cbad7090f27be46",
+  "generated_at": "2026-09-11T06:27:08.535Z",
+  "audit_date": "2026-09-11",
+  "git_head": "7c6986ced5f02355f58115f43f870b87965b4b46",
   "direct": [
     {
       "name": "@azure/identity",
@@ -551,6 +551,7 @@
         "docs/refactoring/referral-store-file-audit-agent-prework.json",
         "docs/refactoring/referral-store-file-audit.json",
         "docs/refactoring/workflow-and-handoff-file-audit.json",
+        "docs/training/README.md",
         "eslint.config.mjs",
         "lib/academy/academy-atlas.generated.json",
         "lib/academy/academy-curriculum.ts",
@@ -647,6 +648,7 @@
         "scripts/cyclomatic-complexity-audit.mjs",
         "scripts/database-readiness.mjs",
         "scripts/demo-clinical-snapshot-contracts.mjs",
+        "scripts/demo-environment-contracts.mjs",
         "scripts/desktop-readiness.mjs",
         "scripts/extraction-corpus-readiness.mjs",
         "scripts/extraction-quality-score.mjs",
@@ -7564,11 +7566,8 @@
     }
   ],
   "installed": {
-    "resolvedPackages": 520,
-    "dependencyEdges": 1063,
-    "problems": [
-      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-enterprise-graph-chaos-recovery/node_modules/@emnapi/runtime",
-      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-enterprise-graph-chaos-recovery/node_modules/@img/sharp-wasm32"
-    ]
+    "resolvedPackages": 528,
+    "dependencyEdges": 1094,
+    "problems": []
   }
 }
