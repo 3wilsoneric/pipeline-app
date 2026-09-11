@@ -252,7 +252,7 @@ export default function PipelineGuidedCoach() {
   if (!hydrated) return null;
   const pathname = fromPipelinePath(window.location.pathname);
   if (pathname === "/training/demo" || pathname === "/note-lab" || pathname.startsWith("/note-lab/")) return null;
-  return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={target} locationKey={locationKey} progressSyncState={progressSyncState} onStart={startTutorial} onCommit={commit} onAdvance={advance} onBack={goBack} onResume={resumeTutorial} /></>;
+  return <><span hidden data-pipeline-ready="guided-coach" /><GuideCoachSurface state={state} roles={roles} tutorial={tutorial} step={step} target={target} locationKey={locationKey} progressSyncState={progressSyncState} onStart={startTutorial} onCommit={commit} onAdvance={() => advance()} onBack={goBack} onResume={resumeTutorial} /></>;
 }
 
 function GuideCoachSurface({ state, roles, tutorial, step, target, locationKey, progressSyncState, onStart, onCommit, onAdvance, onBack, onResume }: { state: OperatorGuideState; roles: readonly OperatorRole[]; tutorial: ReturnType<typeof getOperatorGuidedTutorial>; step: OperatorGuideStep | undefined; target: TargetView; locationKey: string; progressSyncState: ProgressSyncState; onStart: (id: string) => void; onCommit: (event: OperatorGuideEvent) => void; onAdvance: () => void; onBack: () => void; onResume: () => void }) {
