@@ -530,77 +530,103 @@ function PresentationDeck({
   onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void;
   onSlideChange: () => void;
 }) {
-  const [slideIndex, setSlideIndex] = useState(() => {
-    const requestedIndex = presentationSlides.findIndex((slide) => slide.id === initialSlideId);
-    return requestedIndex >= 0 ? requestedIndex : 0;
-  });
+  const [slideIndex, setSlideIndex] = useState(() => initialPresentationSlideIndex(initialSlideId));
   const slide = presentationSlides[slideIndex] ?? presentationSlides[0];
-  const isLast = slideIndex === presentationSlides.length - 1;
 
   const selectSlide = useCallback((index: number) => {
     setSlideIndex(Math.max(0, Math.min(presentationSlides.length - 1, index)));
     onSlideChange();
   }, [onSlideChange]);
 
+  usePresentationKeyboard(slideIndex, selectSlide);
+
+  return (
+    <section data-demo-surface="presentation" className="fixed inset-0 z-[150] flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-white">
+      <PresentationHeader slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onClose={onStartJourney} />
+      <PresentationSlideBody slide={slide} onStartGuide={onStartGuide} />
+      <p className="sr-only" aria-live="polite">Slide {slide.number} of {presentationSlides.length}: {slide.title}</p>
+      <PresentationFooter slide={slide} slideIndex={slideIndex} onSelect={selectSlide} onFinish={onStartJourney} />
+    </section>
+  );
+}
+
+function initialPresentationSlideIndex(initialSlideId?: string) {
+  const requestedIndex = presentationSlides.findIndex((slide) => slide.id === initialSlideId);
+  return requestedIndex >= 0 ? requestedIndex : 0;
+}
+
+function usePresentationKeyboard(slideIndex: number, selectSlide: (index: number) => void) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.matches("input, textarea, select, [contenteditable='true']")) return;
-      if (event.key === "ArrowRight") selectSlide(slideIndex + 1);
-      else if (event.key === "ArrowLeft") selectSlide(slideIndex - 1);
-      else if (event.key === "Home") selectSlide(0);
-      else if (event.key === "End") selectSlide(presentationSlides.length - 1);
-      else return;
+      const nextIndex = presentationSlideIndexForKey(event, slideIndex);
+      if (nextIndex === null) return;
       event.preventDefault();
+      selectSlide(nextIndex);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectSlide, slideIndex]);
+}
 
-  return (
-    <section data-demo-surface="presentation" className="fixed inset-0 z-[150] flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-white">
-      <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8">
-        <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">AHS · Pipeline</div>
-          <div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor orientation</div>
-        </div>
-        <div className="hidden min-w-0 flex-1 text-center lg:block">
-          <div className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#6a756f]">{slide.location}</div>
-        </div>
-        <nav aria-label="Presentation slides" className="flex shrink-0 items-center gap-2">
-          <label htmlFor="presentation-slide" className="sr-only">Jump to slide</label>
-          <select id="presentation-slide" value={slideIndex} onChange={(event) => selectSlide(Number(event.target.value))} className="h-10 max-w-[150px] border border-[#cbd5d1] bg-white px-3 text-[11px] font-bold text-[#34403b] outline-none focus:border-[#0f8b73] sm:max-w-[230px]">
-            {presentationSlides.map((item, index) => <option key={item.id} value={index}>{item.number}. {item.navLabel}</option>)}
-          </select>
-          <button type="button" onClick={onStartJourney} className="flex h-10 items-center border border-[#cbd5d1] px-3 text-[11px] font-black text-[#59645f] hover:border-[#0f8b73] hover:text-[#0f705f]">Close presentation</button>
-        </nav>
-      </header>
-      <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className={`min-h-0 flex-1 overflow-y-auto ${slide.dark ? "bg-[#143d34] text-white" : "bg-[#fbfcfb] text-[#17221e]"}`}>
-        <div className="mx-auto grid min-h-full w-full max-w-[1720px] content-center gap-7 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[minmax(320px,370px)_minmax(600px,1fr)] lg:items-center lg:gap-10 lg:px-10 xl:grid-cols-[minmax(350px,400px)_minmax(680px,1fr)] xl:px-12 2xl:grid-cols-[minmax(390px,440px)_minmax(760px,1fr)] 2xl:gap-14 2xl:px-14">
-          <div className="min-w-0">
-            <div className={`text-[11px] font-black uppercase tracking-[0.12em] ${slide.dark ? "text-[#8be0c5]" : "text-[#0c705f]"}`}>{slide.location}</div>
-            <h2 className="mt-3 max-w-[700px] text-[34px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[42px] lg:text-[36px] xl:text-[40px] 2xl:text-[48px]">{slide.title}</h2>
-            <p className={`mt-4 max-w-[680px] text-[16px] font-medium leading-7 sm:text-[18px] lg:text-[15px] lg:leading-6 xl:text-[17px] xl:leading-7 2xl:text-[18px] ${slide.dark ? "text-[#d2e5df]" : "text-[#52605a]"}`}>{slide.summary}</p>
-            <ul className={`mt-5 border-y ${slide.dark ? "border-white/20" : "border-[#d5ddda]"}`}>
-              {slide.points.map((point, index) => <li key={point} className={`grid grid-cols-[30px_minmax(0,1fr)] gap-2 border-b py-2.5 last:border-b-0 ${slide.dark ? "border-white/15 text-[#e4efeb]" : "border-[#e0e5e2] text-[#37433e]"}`}><span className={`text-[10px] font-black tabular-nums ${slide.dark ? "text-[#8be0c5]" : "text-[#0c705f]"}`}>{String(index + 1).padStart(2, "0")}</span><span className="text-[12px] font-bold leading-5 2xl:text-[13px]">{point}</span></li>)}
-            </ul>
-            {slide.rule ? <p className={`mt-4 border-l-[3px] px-4 py-2.5 text-[11px] font-bold leading-5 ${slide.dark ? "border-[#8be0c5] bg-white/10 text-[#e1eee9]" : "border-[#0f8b73] bg-[#edf6f3] text-[#355047]"}`}>{slide.rule}</p> : null}
-            <div className="mt-4 flex flex-wrap gap-3">
-              {slide.guide ? <button type="button" onClick={() => onStartGuide(slide.guide!)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"><Play size={14} aria-hidden="true" />{slide.guide.label}</button> : null}
-              {slide.action ? <Link href={toPipelinePath(slide.action.href)} className={`inline-flex h-10 items-center gap-2 px-4 text-[11px] font-black outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${slide.dark ? "bg-white text-[#143d34] focus-visible:ring-white focus-visible:ring-offset-[#143d34]" : "border border-[#8dafa4] bg-white text-[#0b6959] hover:border-[#0f8b73] focus-visible:ring-[#0f8b73]"}`}>{slide.action.label}<ArrowRight size={15} aria-hidden="true" /></Link> : null}
-            </div>
-          </div>
-          <PresentationVisual slide={slide} />
-        </div>
-      </article>
-      <p className="sr-only" aria-live="polite">Slide {slide.number} of {presentationSlides.length}: {slide.title}</p>
-      <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d8dfdc] bg-white px-4 py-3 sm:px-8 lg:px-10">
-        <button type="button" disabled={slideIndex === 0} onClick={() => selectSlide(slideIndex - 1)} className="inline-flex h-10 items-center gap-2 px-2 text-[11px] font-bold text-[#5d6863] outline-none hover:text-[#17221e] focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:invisible"><ArrowLeft size={14} aria-hidden="true" />Previous</button>
-        <div className="hidden items-center gap-1.5 sm:flex" aria-hidden="true">{presentationSlides.map((item, index) => <span key={item.id} className={`h-1.5 transition-[width,background-color] ${index === slideIndex ? "w-8 bg-[#0f8b73]" : "w-1.5 bg-[#cbd4d0]"}`} />)}</div>
-        {isLast ? <button type="button" onClick={onStartJourney} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">Open the live walkthrough<ArrowRight size={14} aria-hidden="true" /></button> : <button type="button" onClick={() => selectSlide(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white outline-none hover:bg-[#26302c] focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-2">{slide.nextLabel}<ArrowRight size={14} aria-hidden="true" /></button>}
-      </footer>
-    </section>
-  );
+function presentationSlideIndexForKey(event: KeyboardEvent, slideIndex: number) {
+  const target = event.target as HTMLElement | null;
+  if (target?.matches("input, textarea, select, [contenteditable='true']")) return null;
+  if (event.key === "ArrowRight") return slideIndex + 1;
+  if (event.key === "ArrowLeft") return slideIndex - 1;
+  if (event.key === "Home") return 0;
+  if (event.key === "End") return presentationSlides.length - 1;
+  return null;
+}
+
+function PresentationHeader({ slide, slideIndex, onSelect, onClose }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onClose: () => void }) {
+  return <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8"><div className="min-w-0 flex-1"><div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">AHS · Pipeline</div><div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor orientation</div></div><div className="hidden min-w-0 flex-1 text-center lg:block"><div className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#6a756f]">{slide.location}</div></div><nav aria-label="Presentation slides" className="flex shrink-0 items-center gap-2"><label htmlFor="presentation-slide" className="sr-only">Jump to slide</label><select id="presentation-slide" value={slideIndex} onChange={(event) => onSelect(Number(event.target.value))} className="h-10 max-w-[150px] border border-[#cbd5d1] bg-white px-3 text-[11px] font-bold text-[#34403b] outline-none focus:border-[#0f8b73] sm:max-w-[230px]">{presentationSlides.map((item, index) => <option key={item.id} value={index}>{item.number}. {item.navLabel}</option>)}</select><button type="button" onClick={onClose} className="flex h-10 items-center border border-[#cbd5d1] px-3 text-[11px] font-black text-[#59645f] hover:border-[#0f8b73] hover:text-[#0f705f]">Close presentation</button></nav></header>;
+}
+
+function PresentationSlideBody({ slide, onStartGuide }: { slide: PresentationSlide; onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void }) {
+  const palette = presentationPalette(slide.dark);
+  return <article key={slide.id} aria-label={`Presentation slide ${slide.number}`} className={`min-h-0 flex-1 overflow-y-auto ${palette.article}`}><div className="mx-auto grid min-h-full w-full max-w-[1720px] content-center gap-7 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[minmax(320px,370px)_minmax(600px,1fr)] lg:items-center lg:gap-10 lg:px-10 xl:grid-cols-[minmax(350px,400px)_minmax(680px,1fr)] xl:px-12 2xl:grid-cols-[minmax(390px,440px)_minmax(760px,1fr)] 2xl:gap-14 2xl:px-14"><div className="min-w-0"><div className={`text-[11px] font-black uppercase tracking-[0.12em] ${palette.eyebrow}`}>{slide.location}</div><h2 className="mt-3 max-w-[700px] text-[34px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[42px] lg:text-[36px] xl:text-[40px] 2xl:text-[48px]">{slide.title}</h2><p className={`mt-4 max-w-[680px] text-[16px] font-medium leading-7 sm:text-[18px] lg:text-[15px] lg:leading-6 xl:text-[17px] xl:leading-7 2xl:text-[18px] ${palette.summary}`}>{slide.summary}</p><PresentationPoints slide={slide} palette={palette} /><PresentationRule slide={slide} palette={palette} /><PresentationSlideActions slide={slide} palette={palette} onStartGuide={onStartGuide} /></div><PresentationVisual slide={slide} /></div></article>;
+}
+
+type PresentationPalette = ReturnType<typeof presentationPalette>;
+
+function presentationPalette(dark?: boolean) {
+  return dark ? {
+    article: "bg-[#143d34] text-white",
+    eyebrow: "text-[#8be0c5]",
+    summary: "text-[#d2e5df]",
+    list: "border-white/20",
+    point: "border-white/15 text-[#e4efeb]",
+    number: "text-[#8be0c5]",
+    rule: "border-[#8be0c5] bg-white/10 text-[#e1eee9]",
+    action: "bg-white text-[#143d34] focus-visible:ring-white focus-visible:ring-offset-[#143d34]",
+  } : {
+    article: "bg-[#fbfcfb] text-[#17221e]",
+    eyebrow: "text-[#0c705f]",
+    summary: "text-[#52605a]",
+    list: "border-[#d5ddda]",
+    point: "border-[#e0e5e2] text-[#37433e]",
+    number: "text-[#0c705f]",
+    rule: "border-[#0f8b73] bg-[#edf6f3] text-[#355047]",
+    action: "border border-[#8dafa4] bg-white text-[#0b6959] hover:border-[#0f8b73] focus-visible:ring-[#0f8b73]",
+  };
+}
+
+function PresentationPoints({ slide, palette }: { slide: PresentationSlide; palette: PresentationPalette }) {
+  return <ul className={`mt-5 border-y ${palette.list}`}>{slide.points.map((point, index) => <li key={point} className={`grid grid-cols-[30px_minmax(0,1fr)] gap-2 border-b py-2.5 last:border-b-0 ${palette.point}`}><span className={`text-[10px] font-black tabular-nums ${palette.number}`}>{String(index + 1).padStart(2, "0")}</span><span className="text-[12px] font-bold leading-5 2xl:text-[13px]">{point}</span></li>)}</ul>;
+}
+
+function PresentationRule({ slide, palette }: { slide: PresentationSlide; palette: PresentationPalette }) {
+  if (!slide.rule) return null;
+  return <p className={`mt-4 border-l-[3px] px-4 py-2.5 text-[11px] font-bold leading-5 ${palette.rule}`}>{slide.rule}</p>;
+}
+
+function PresentationSlideActions({ slide, palette, onStartGuide }: { slide: PresentationSlide; palette: PresentationPalette; onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void }) {
+  return <div className="mt-4 flex flex-wrap gap-3">{slide.guide ? <button type="button" onClick={() => onStartGuide(slide.guide!)} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-4 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2"><Play size={14} aria-hidden="true" />{slide.guide.label}</button> : null}{slide.action ? <Link href={toPipelinePath(slide.action.href)} className={`inline-flex h-10 items-center gap-2 px-4 text-[11px] font-black outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${palette.action}`}>{slide.action.label}<ArrowRight size={15} aria-hidden="true" /></Link> : null}</div>;
+}
+
+function PresentationFooter({ slide, slideIndex, onSelect, onFinish }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onFinish: () => void }) {
+  const isLast = slideIndex === presentationSlides.length - 1;
+  return <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#d8dfdc] bg-white px-4 py-3 sm:px-8 lg:px-10"><button type="button" disabled={slideIndex === 0} onClick={() => onSelect(slideIndex - 1)} className="inline-flex h-10 items-center gap-2 px-2 text-[11px] font-bold text-[#5d6863] outline-none hover:text-[#17221e] focus-visible:ring-2 focus-visible:ring-[#0f8b73] disabled:invisible"><ArrowLeft size={14} aria-hidden="true" />Previous</button><div className="hidden items-center gap-1.5 sm:flex" aria-hidden="true">{presentationSlides.map((item, index) => <span key={item.id} className={`h-1.5 transition-[width,background-color] ${index === slideIndex ? "w-8 bg-[#0f8b73]" : "w-1.5 bg-[#cbd4d0]"}`} />)}</div>{isLast ? <button type="button" onClick={onFinish} className="inline-flex h-10 items-center gap-2 bg-[#0f8b73] px-5 text-[11px] font-black text-white outline-none hover:bg-[#0b6d5b] focus-visible:ring-2 focus-visible:ring-[#0f8b73] focus-visible:ring-offset-2">Open the live walkthrough<ArrowRight size={14} aria-hidden="true" /></button> : <button type="button" onClick={() => onSelect(slideIndex + 1)} className="inline-flex h-10 items-center gap-2 bg-[#111111] px-5 text-[11px] font-black text-white outline-none hover:bg-[#26302c] focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-2">{slide.nextLabel}<ArrowRight size={14} aria-hidden="true" /></button>}</footer>;
 }
 
 function PresentationVisual({ slide }: { slide: PresentationSlide }) {
