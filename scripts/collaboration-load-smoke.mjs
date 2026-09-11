@@ -156,7 +156,7 @@ console.log(JSON.stringify({
 if (slowOperations.length > 0) process.exit(1);
 
 async function exerciseWorkspaceState() {
-  const draftKey = String(Date.now());
+  const draftKey = `new-${randomUUID()}`;
   const recentWrites = await mapConcurrently(users, requestConcurrency, (_, index) => timedRequest("recent_write", index, "/api/me/recents", {
     method: "POST",
     body: {

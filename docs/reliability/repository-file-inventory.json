@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-11T14:55:01.425Z",
+  "generated_at": "2026-09-11T15:01:11.186Z",
   "audit_date": "2026-09-11",
-  "git_head": "f6c887c0beb1e133ae1a450d54b62f5f4633f172",
+  "git_head": "c74bc7db2194558e1691f0bcf3b5d692026bcf65",
   "files": [
     {
       "path": ".dockerignore",
@@ -5250,7 +5250,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "541218ca14e6bacfe312bbf696116b45eff0c6897a31d72f7b15f6fb6aebf19e",
+      "content_sha256": "5336d0aaa60ec62ab01a902c6bddebe754aee72c776318045e8fcc69178da73b",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 407883,
@@ -5278,7 +5278,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "71461cde90a4f4c79e9f03aa17a2ba506ac07d948045efdbf9cc69660d8b6f75",
+      "content_sha256": "b3aa037052656a098b2c114878a5aea1bd1631ce2f5f494b87fd0cbf86ade35c",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 220630,
@@ -5359,7 +5359,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "076a11709d6ef5962096555061d84f20a11e2defaf8894e7092372f932c68917",
+      "content_sha256": "fe592c3eb67da371c96e94e7490a34fe09f38199e6ecc2b6cc3cc78817e5f403",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 579301,
@@ -9135,10 +9135,10 @@
     },
     {
       "path": "scripts/collaboration-load-smoke.mjs",
-      "content_sha256": "fdcf36a393c63a92fc0636042dd373335337b1bdeb0d812f3f281951ca92750e",
+      "content_sha256": "7f9ad6e933920d604c81758f513abbcda60fe4e956bd0ca6610829206b77aec4",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 16235,
+      "bytes": 16238,
       "lines": 378,
       "detected_concerns": [],
       "review_focus": "Check destructive confirmation, dry-run mode, bounded inputs, deterministic exit codes, resumability, secret/PHI-safe output, and partial-failure recovery.",
