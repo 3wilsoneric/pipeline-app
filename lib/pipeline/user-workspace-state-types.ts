@@ -69,6 +69,7 @@ export type PipelineReferralDraft = {
   conserved: "yes" | "no" | "";
   tagsInput: string;
   documents: Record<string, string>;
+  lastFocus?: ReferralCanvasFieldKey;
   initialPacketName?: string;
   initialPacketCategory?: "referral_packet" | "face_sheet";
 };
@@ -88,10 +89,12 @@ export type PipelineReferralDraftSummary = {
 export type PipelineAssessmentDraft = {
   schema: 1;
   assessmentId: string;
+  referralId?: number;
   savedAt: string;
   baseVersion: number;
   sectionVersions: AssessmentSectionVersions;
   dirtySections: AssessmentToolSection[];
+  activeSection?: AssessmentToolSection;
   data: AssessmentToolData;
   baseData: AssessmentToolData;
 };
@@ -173,8 +176,8 @@ export function parsePipelineReferralDraft(value: unknown): PipelineReferralDraf
   if (!documents) return null;
   if (candidate.conserved !== "yes" && candidate.conserved !== "no" && candidate.conserved !== "") return null;
   if (!isBoundedText(candidate.tagsInput, 2_000, true)) return null;
-  if (candidate.initialPacketName !== undefined && !isBoundedText(candidate.initialPacketName, 255, true)) return null;
-  if (candidate.initialPacketCategory !== undefined && candidate.initialPacketCategory !== "referral_packet" && candidate.initialPacketCategory !== "face_sheet") return null;
+  const metadata = parseReferralDraftMetadata(candidate);
+  if (!metadata) return null;
 
   return {
     schema: 1,
@@ -186,8 +189,7 @@ export function parsePipelineReferralDraft(value: unknown): PipelineReferralDraf
     conserved: candidate.conserved,
     tagsInput: candidate.tagsInput,
     documents,
-    ...(candidate.initialPacketName ? { initialPacketName: candidate.initialPacketName } : {}),
-    ...(candidate.initialPacketCategory ? { initialPacketCategory: candidate.initialPacketCategory } : {}),
+    ...metadata,
   };
 }
 
@@ -226,21 +228,65 @@ function hasValidReferralDraftSummaryProgress(candidate: Partial<PipelineReferra
 export function parsePipelineAssessmentDraft(value: unknown): PipelineAssessmentDraft | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const candidate = value as Partial<PipelineAssessmentDraft>;
-  if (candidate.schema !== 1 || !isBoundedText(candidate.assessmentId, 160) || !validTimestamp(candidate.savedAt)) return null;
-  if (!Number.isSafeInteger(candidate.baseVersion) || Number(candidate.baseVersion) < 1) return null;
-  if (!Array.isArray(candidate.dirtySections) || candidate.dirtySections.length > 11) return null;
-  const dirtySections = [...new Set(candidate.dirtySections.filter(isAssessmentToolSection))];
-  if (dirtySections.length !== candidate.dirtySections.length) return null;
-  if (!candidate.data || typeof candidate.data !== "object" || Array.isArray(candidate.data)) return null;
-  if (!candidate.baseData || typeof candidate.baseData !== "object" || Array.isArray(candidate.baseData)) return null;
+  const identity = parseAssessmentDraftIdentity(candidate);
+  const referral = parseOptionalAssessmentReferral(candidate.referralId);
+  const sections = parseAssessmentDraftSections(candidate);
+  const values = parseAssessmentDraftValues(candidate);
+  if (!identity || !referral || !sections || !values) return null;
 
   return {
     schema: 1,
-    assessmentId: candidate.assessmentId,
-    savedAt: candidate.savedAt,
-    baseVersion: Number(candidate.baseVersion),
+    ...identity,
+    ...referral,
     sectionVersions: normalizeAssessmentSectionVersions(candidate.sectionVersions),
+    ...sections,
+    ...values,
+  };
+}
+
+function parseReferralDraftMetadata(candidate: Partial<PipelineReferralDraft>) {
+  if (candidate.initialPacketName !== undefined && !isBoundedText(candidate.initialPacketName, 255, true)) return null;
+  if (candidate.initialPacketCategory !== undefined && candidate.initialPacketCategory !== "referral_packet" && candidate.initialPacketCategory !== "face_sheet") return null;
+  if (candidate.lastFocus !== undefined && !referralCanvasFieldKeys.includes(candidate.lastFocus)) return null;
+  return {
+    lastFocus: candidate.lastFocus,
+    initialPacketName: candidate.initialPacketName,
+    initialPacketCategory: candidate.initialPacketCategory,
+  };
+}
+
+function parseAssessmentDraftIdentity(candidate: Partial<PipelineAssessmentDraft>) {
+  if (candidate.schema !== 1 || !isBoundedText(candidate.assessmentId, 160) || !validTimestamp(candidate.savedAt)) return null;
+  if (!Number.isSafeInteger(candidate.baseVersion) || Number(candidate.baseVersion) < 1) return null;
+  return {
+    assessmentId: candidate.assessmentId as string,
+    savedAt: candidate.savedAt as string,
+    baseVersion: Number(candidate.baseVersion),
+  };
+}
+
+function parseOptionalAssessmentReferral(value: unknown) {
+  if (value === undefined) return {};
+  return Number.isSafeInteger(value) && Number(value) > 0
+    ? { referralId: Number(value) }
+    : null;
+}
+
+function parseAssessmentDraftSections(candidate: Partial<PipelineAssessmentDraft>) {
+  if (!Array.isArray(candidate.dirtySections) || candidate.dirtySections.length > 11) return null;
+  const dirtySections = [...new Set(candidate.dirtySections.filter(isAssessmentToolSection))];
+  if (dirtySections.length !== candidate.dirtySections.length) return null;
+  if (candidate.activeSection !== undefined && !isAssessmentToolSection(candidate.activeSection)) return null;
+  return {
     dirtySections,
+    activeSection: candidate.activeSection,
+  };
+}
+
+function parseAssessmentDraftValues(candidate: Partial<PipelineAssessmentDraft>) {
+  if (!candidate.data || typeof candidate.data !== "object" || Array.isArray(candidate.data)) return null;
+  if (!candidate.baseData || typeof candidate.baseData !== "object" || Array.isArray(candidate.baseData)) return null;
+  return {
     data: pickAssessmentToolData(candidate.data),
     baseData: pickAssessmentToolData(candidate.baseData),
   };

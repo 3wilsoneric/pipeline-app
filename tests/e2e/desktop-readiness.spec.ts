@@ -260,6 +260,61 @@ test.describe("desktop feature enabled", () => {
     await expect(page.getByRole("combobox", { name: "Community:", exact: true })).toHaveValue("San Pablo");
   });
 
+  test("resumes unfinished work from Home at the exact intake field", async ({ page }) => {
+    const draftId = randomUUID();
+    const draftKey = `new-${draftId}`;
+    const clientName = `Continuity ${draftId.slice(0, 8)}`;
+    const createDraft = await page.request.put(`/api/me/referral-drafts/${draftKey}`, {
+      data: {
+        if_match: 0,
+        draft: { ...referralDraft("Continue this summary", clientName, "San Pablo"), lastFocus: "summary" },
+      },
+    });
+    expect(createDraft.status(), await createDraft.text()).toBe(200);
+
+    await page.goto("/");
+    const continuity = page.getByRole("region", { name: "Continue working" });
+    await expect(continuity).toContainText(clientName);
+    await continuity.getByRole("button").first().click();
+
+    await expect.poll(() => new URL(page.url()).searchParams.get("draftId")).toBe(draftId);
+    await expect.poll(() => new URL(page.url()).searchParams.get("workspaceField")).toBe("summary");
+    const summary = page.getByRole("region", { name: "Summary chart field" });
+    await expect(summary).toContainText("Continue this summary");
+    await expect(summary).toBeInViewport();
+  });
+
+  test("persists assignment acknowledgments and last-work locations across requests", async ({ page }) => {
+    const assignmentId = `assignment-${randomUUID()}`;
+    const timestamp = new Date().toISOString();
+    const updated = await page.request.patch("/api/me/work-continuity", {
+      data: {
+        initializeAssignmentTrackingAt: timestamp,
+        acknowledgeAssignmentIds: [assignmentId],
+        acknowledgeAssignmentsThrough: timestamp,
+        lastWorkspace: {
+          referralId: 42,
+          location: { view: "assessment", assessmentSection: "medication" },
+          visitedAt: timestamp,
+        },
+      },
+    });
+    expect(updated.status(), await updated.text()).toBe(200);
+
+    const read = await page.request.get("/api/me/work-continuity");
+    expect(read.status(), await read.text()).toBe(200);
+    expect(await read.json()).toMatchObject({
+      state: {
+        assignmentAcknowledgedThrough: timestamp,
+        acknowledgedAssignmentIds: expect.arrayContaining([assignmentId]),
+        lastWorkspace: {
+          referralId: 42,
+          location: { view: "assessment", assessmentSection: "medication" },
+        },
+      },
+    });
+  });
+
   test("merges disjoint edits when two tabs explicitly create the same intake", async ({ context, page }) => {
     await page.goto("/?view=referrals");
     const draftId = randomUUID();

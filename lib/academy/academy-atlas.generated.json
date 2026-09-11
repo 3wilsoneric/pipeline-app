@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:9754f635b4af3af3",
-  "fingerprint": "9754f635b4af3af36db07208d0fd74b60f971a79195399fe723379433f28ff7d",
+  "generatedAt": "source-fingerprint:9d0aae23fe8e21a6",
+  "fingerprint": "9d0aae23fe8e21a69b45ac3eef3586cd011ad0f0de89792fd0660a8cb269bab9",
   "totals": {
-    "files": 955,
-    "lines": 305834,
-    "coveredFiles": 955
+    "files": 963,
+    "lines": 307204,
+    "coveredFiles": 963
   },
   "entries": [
     {
@@ -769,7 +769,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 152,
+      "lines": 177,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
@@ -785,6 +785,18 @@
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "frontend-resilience"
+      ]
+    },
+    {
+      "path": "app/api/me/work-continuity/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 54,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
       ]
     },
     {
@@ -1783,7 +1795,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1632,
+      "lines": 1654,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -1862,12 +1874,24 @@
       ]
     },
     {
+      "path": "components/pipeline/ContinueWorkPanel.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 82,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/CurrentWorkOverlay.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 167,
+      "lines": 169,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2095,7 +2119,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 401,
+      "lines": 445,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2131,7 +2155,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 351,
+      "lines": 399,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2251,7 +2275,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3712,
+      "lines": 3786,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2299,7 +2323,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 150,
+      "lines": 151,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2551,7 +2575,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 382,
+      "lines": 388,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2575,7 +2599,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 39,
+      "lines": 40,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -2966,6 +2990,18 @@
       ]
     },
     {
+      "path": "database/migrations/0033_workflow_continuity.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 25,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -3296,6 +3332,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 11,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0033_workflow_continuity.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 19,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -5389,7 +5437,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1881,
+      "lines": 1889,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5425,7 +5473,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7574,
+      "lines": 7579,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5509,7 +5557,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 11586,
+      "lines": 11675,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -7258,7 +7306,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 21,
+      "lines": 46,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7270,7 +7318,19 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 86,
+      "lines": 90,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/pipeline/home-continuity.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 225,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7402,7 +7462,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 906,
+      "lines": 934,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -7414,7 +7474,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 233,
+      "lines": 236,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -7862,7 +7922,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 463,
+      "lines": 465,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -7874,7 +7934,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 269,
+      "lines": 315,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7902,6 +7962,42 @@
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
+      ]
+    },
+    {
+      "path": "lib/pipeline/work-continuity-client.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 38,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/pipeline/work-continuity-store.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 48,
+      "moduleIds": [
+        "database-foundations",
+        "stores-transactions"
+      ]
+    },
+    {
+      "path": "lib/pipeline/work-continuity.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 256,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
       ]
     },
     {
@@ -8858,7 +8954,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2067,
+      "lines": 2099,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -8870,7 +8966,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 223,
+      "lines": 224,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9506,7 +9602,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 488,
+      "lines": 499,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -9530,7 +9626,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 888,
+      "lines": 930,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -10262,7 +10358,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 212,
+      "lines": 221,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10286,7 +10382,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 220,
+      "lines": 230,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -10526,7 +10622,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 676,
+      "lines": 677,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10995,7 +11091,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 342,
+      "lines": 348,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11007,7 +11103,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 559,
+      "lines": 614,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11043,7 +11139,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 501,
+      "lines": 519,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11272,7 +11368,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2656,
+      "lines": 2661,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

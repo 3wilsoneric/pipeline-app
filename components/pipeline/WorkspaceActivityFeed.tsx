@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, AlertTriangle, ArrowRight, RefreshCw, UserPlus, UserRound, UsersRound } from "lucide-react";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type {
   WorkspaceActivityItem,
@@ -16,7 +17,7 @@ export default function WorkspaceActivityFeed({
   onOpenPacket,
 }: {
   canViewTeam: boolean;
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
   const [scope, setScope] = useState<WorkspaceActivityScope>("attention");
   const [items, setItems] = useState<WorkspaceActivityItem[]>([]);
@@ -121,53 +122,55 @@ export default function WorkspaceActivityFeed({
 }
 
 export function SinceLastVisitAssignments({
-  viewerId,
+  items,
+  unavailable,
+  generatedAt,
   onOpenPacket,
+  onAcknowledge,
 }: {
-  viewerId: string;
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+  items: WorkspaceActivityItem[];
+  unavailable: boolean;
+  generatedAt: string;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
+  onAcknowledge: (ids: string[], through?: string) => Promise<void>;
 }) {
-  const [items, setItems] = useState<WorkspaceActivityItem[] | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const [acknowledging, setAcknowledging] = useState(false);
+  const [acknowledgmentError, setAcknowledgmentError] = useState("");
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const storageKey = lastVisitStorageKey(viewerId);
-    const fallback = new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString();
-    const stored = window.localStorage.getItem(storageKey);
-    const since = stored && Number.isFinite(Date.parse(stored)) ? stored : fallback;
-    const params = new URLSearchParams({ scope: "assigned", limit: "6", since });
-    fetchPipelineJson<WorkspaceActivityResponse>(`/api/operations/activity?${params}`, {
-      cache: "no-store",
-      signal: controller.signal,
-    }, { cacheTtlMs: 5_000 })
-      .then((payload) => {
-        setItems(payload.items);
-        setUnavailable(false);
-        window.localStorage.setItem(storageKey, payload.generated_at);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setUnavailable(true);
-      });
-    return () => controller.abort();
-  }, [viewerId]);
+  const acknowledgeAll = async () => {
+    setAcknowledging(true);
+    setAcknowledgmentError("");
+    try {
+      await onAcknowledge(items.map((item) => item.event_id), generatedAt);
+    } catch {
+      setAcknowledgmentError("Assignments could not be marked seen. Try again.");
+    } finally {
+      setAcknowledging(false);
+    }
+  };
 
   return (
     <section aria-label="Since your last visit" className="min-w-0 bg-white">
       <div className="flex h-12 items-center justify-between gap-3 px-1">
         <h2 className="flex items-center gap-2.5 text-[15px] font-bold text-[#202723]"><UserPlus size={15} className="text-[#0f8b73]" />New assignments</h2>
-        <span className="text-[11px] font-bold text-[#626a65]">Since your last visit</span>
+        {items.length > 0 ? (
+          <button type="button" disabled={acknowledging} onClick={() => void acknowledgeAll()} className="text-[10px] font-black text-[#0c705f] underline underline-offset-2 disabled:opacity-50">
+            {acknowledging ? "Saving" : "Mark all seen"}
+          </button>
+        ) : <span className="text-[11px] font-bold text-[#626a65]">Since your last visit</span>}
       </div>
+      {acknowledgmentError ? <p role="alert" className="mb-2 border-l-2 border-[#a9473d] bg-[#fff6f4] px-3 py-2 text-[10px] text-[#723d35]">{acknowledgmentError}</p> : null}
       {unavailable ? (
         <p className="border border-[#ead5ad] bg-[#fffaf0] px-5 py-10 text-center text-[12px] text-[#8a5a10]">New assignments could not be checked. Your current queue is still available above.</p>
-      ) : items === null ? (
-        <div className="h-28 animate-pulse border border-[#e1e6e3] bg-[#f3f6f4]" aria-label="Checking new referral assignments" />
       ) : items.length === 0 ? (
         <p className="border border-[#e0e5e2] px-5 py-10 text-center text-[13px] font-medium text-[#626a65]">No referrals were assigned since your last visit.</p>
       ) : (
         <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
           {items.slice(0, 6).map((item) => (
-            <button key={item.event_id} type="button" onClick={() => openActivityItem(item, onOpenPacket)} className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f1f8f5] sm:px-4">
+            <button key={item.event_id} type="button" onClick={() => {
+              void onAcknowledge([item.event_id]);
+              openActivityItem(item, onOpenPacket);
+            }} className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f1f8f5] sm:px-4">
               <span className="min-w-0">
                 <span className="block truncate text-[14px] font-bold text-[#202723]">{item.workspace.client_name}</span>
                 <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{item.workspace.community}</span>
@@ -198,7 +201,7 @@ type ActivityGroup = {
   items: WorkspaceActivityItem[];
 };
 
-function ActivityGroupRow({ group, onOpenPacket }: { group: ActivityGroup; onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void }) {
+function ActivityGroupRow({ group, onOpenPacket }: { group: ActivityGroup; onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void }) {
   if (group.items.length === 1) {
     const item = group.items[0];
     return (
@@ -286,12 +289,19 @@ function mergeActivityItems(current: WorkspaceActivityItem[], incoming: Workspac
   return [...byId.values()].sort((left, right) => right.created_at.localeCompare(left.created_at) || right.event_id.localeCompare(left.event_id));
 }
 
-function openActivityItem(item: WorkspaceActivityItem, onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void) {
+function openActivityItem(item: WorkspaceActivityItem, onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void) {
   onOpenPacket({
     id: item.workspace.referral_id,
     name: item.workspace.client_name,
     community: item.workspace.community as Referral["community"],
-  });
+  }, activityLocation(item));
+}
+
+function activityLocation(item: WorkspaceActivityItem): PipelineWorkspaceLocation {
+  if (item.action.startsWith("assessment_")) return { view: "assessment" };
+  if (item.action === "work_item_updated") return { view: "files" };
+  if (item.action.includes("decision") || item.action.includes("assigned") || item.action.includes("stage")) return { view: "workflow" };
+  return { view: "intake" };
 }
 
 function activityVerb(action: string) {
@@ -352,10 +362,6 @@ function dayLabel(value: string) {
   if (date.toDateString() === today.toDateString()) return "Today";
   if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
   return date.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
-}
-
-function lastVisitStorageKey(viewerId: string) {
-  return `pipeline:last-activity-visit:${encodeURIComponent(viewerId)}`;
 }
 
 function emptyTitle(scope: WorkspaceActivityScope) {

@@ -4,18 +4,19 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArrowRight, CalendarClock, CalendarPlus } from "lucide-react";
 
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
+import ContinueWorkPanel from "@/components/pipeline/ContinueWorkPanel";
 import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
-import ReferralDraftResumeList from "@/components/pipeline/ReferralDraftResumeList";
 import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
 import type { PipelineHomeModuleId } from "@/lib/pipeline/home-dashboard-layout";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
+import { acknowledgePipelineAssignments, initializePipelineAssignmentTracking } from "@/lib/pipeline/work-continuity-client";
+import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { activeReferralFlowStates } from "@/lib/pipeline/referral-flow";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
 
 export default function PipelineWelcome({
@@ -31,11 +32,11 @@ export default function PipelineWelcome({
   onFinishEditingHome,
   canAccessReports = false,
 }: {
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   onOpenProfile: (residentKey: string) => void;
   onOpenSearchDestination: (screen: PipelineSiteScreen) => void;
   onViewAllSearchResults: (query: string) => void;
-  onResumeDraft: (draftKey: `new-${string}`) => void;
+  onResumeDraft: (draftKey: `new-${string}`, intakeField?: PipelineWorkspaceLocation["intakeField"]) => void;
   currentWorkOpen: boolean;
   onOpenCurrentWork: () => void;
   onCloseCurrentWork: () => void;
@@ -76,6 +77,29 @@ export default function PipelineWelcome({
     };
   }, [loadBriefing]);
 
+  useEffect(() => {
+    const startedAt = briefing?.continuity.assignment_tracking_started_at;
+    if (!briefing?.continuity.needs_assignment_tracking_initialization || !startedAt) return;
+    void initializePipelineAssignmentTracking(startedAt)
+      .then(() => setBriefing((current) => current ? {
+        ...current,
+        continuity: { ...current.continuity, needs_assignment_tracking_initialization: false },
+      } : current))
+      .catch(() => undefined);
+  }, [briefing?.continuity.assignment_tracking_started_at, briefing?.continuity.needs_assignment_tracking_initialization]);
+
+  const acknowledgeAssignments = useCallback(async (ids: string[], through?: string) => {
+    await acknowledgePipelineAssignments(ids, through);
+    const acknowledged = new Set(ids);
+    setBriefing((current) => current ? {
+      ...current,
+      continuity: {
+        ...current.continuity,
+        new_assignments: current.continuity.new_assignments.filter((item) => !acknowledged.has(item.event_id)),
+      },
+    } : current);
+  }, []);
+
   return (
     <>
       <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
@@ -100,8 +124,6 @@ export default function PipelineWelcome({
             </div>
           ) : null}
 
-          <ReferralDraftResumeList onResume={onResumeDraft} className="mt-2" />
-
           {!briefing && !error ? <HomeSkeleton /> : null}
           {briefing ? (
             <div className="mt-2 space-y-4">
@@ -110,13 +132,26 @@ export default function PipelineWelcome({
                   A few live counts could not be refreshed. Open records remain available.
                 </div>
               ) : null}
+              <ContinueWorkPanel
+                items={briefing.continuity.resume_items}
+                onOpenPacket={onOpenPacket}
+                onResumeDraft={onResumeDraft}
+              />
               <HomeModuleDashboard
                 viewerId={briefing.viewer.id}
                 initialEditing={editHome}
                 onFinishEditing={onFinishEditingHome}
                 modules={{
-                  "current-work": <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} />,
-                  "new-assignments": <SinceLastVisitAssignments viewerId={briefing.viewer.id} onOpenPacket={onOpenPacket} />,
+                  "current-work": <CurrentWorkSummary briefing={briefing} onOpen={onOpenCurrentWork} onOpenPacket={onOpenPacket} />,
+                  "new-assignments": (
+                    <SinceLastVisitAssignments
+                      items={briefing.continuity.new_assignments}
+                      unavailable={briefing.continuity.unavailable}
+                      generatedAt={briefing.generated_at}
+                      onOpenPacket={onOpenPacket}
+                      onAcknowledge={acknowledgeAssignments}
+                    />
+                  ),
                   "upcoming-assessments": <UpcomingAssessmentsPanel briefing={briefing} onOpenPacket={onOpenPacket} />,
                   "scheduling-queue": <SchedulingQueuePanel briefing={briefing} onOpenPacket={onOpenPacket} />,
                 } satisfies Record<PipelineHomeModuleId, ReactNode>}
@@ -132,48 +167,47 @@ export default function PipelineWelcome({
   );
 }
 
-function CurrentWorkSummary({ briefing, onOpen }: { briefing: HomeBriefingSnapshot; onOpen: () => void }) {
-  const counts = briefing.workflow.flow_counts ?? {
-    ready_to_schedule: 0,
-    scheduled: 0,
-    assessment: 0,
-    complete_chart: 0,
-  };
-  const unavailable = briefing.unavailable_sections.includes("workflow");
-  const activeLabel = unavailable
-    ? "Temporarily unavailable"
-    : `${briefing.workflow.active_total.toLocaleString()} active ${briefing.workflow.active_total === 1 ? "referral" : "referrals"} · intake through decision`;
-
+function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
+  briefing: HomeBriefingSnapshot;
+  onOpen: () => void;
+  onOpenPacket: BriefingPanelProps["onOpenPacket"];
+}) {
+  const unavailable = briefing.unavailable_sections.includes("current_work");
+  const items = briefing.current_work.items;
   return (
     <section data-guide-target="my-queue" aria-label="Current work" className="bg-white">
-      <button
-        type="button"
-        aria-label="Open current work"
-        onClick={onOpen}
-        className="group w-full border-y border-[#dfe4e1] text-left outline-none transition-colors hover:bg-[#f6faf8] focus-visible:bg-[#eef7f3] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
-      >
-        <span className="flex min-h-14 items-center justify-between gap-4 px-2 sm:px-3">
-          <span className="min-w-0">
-            <span className="block text-[15px] font-black text-[#111111]">Active referrals</span>
-            <span className="mt-0.5 block text-[11px] font-semibold text-[#68706b]">
-              {activeLabel}
-            </span>
-          </span>
-          <span className="flex shrink-0 items-center gap-2 text-[11px] font-black uppercase text-[#176f60]">
-            Open worklist
-            <ArrowRight size={16} strokeWidth={1.8} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5" />
-          </span>
-        </span>
-        {!unavailable ? (
-          <span className="grid grid-cols-2 border-t border-[#e7ebe8] sm:grid-cols-4">
-            {activeReferralFlowStates.map((state) => (
-              <span key={state.key} className="flex min-h-12 items-center justify-between gap-3 border-[#e7ebe8] px-3 even:border-l sm:border-l sm:first:border-l-0">
-                <span className="truncate text-[10px] font-extrabold uppercase text-[#68706b]">{state.label}</span>
-                <strong className="text-[14px] font-black tabular-nums text-[#202320]">{counts[state.key].toLocaleString()}</strong>
+      <SectionHeader
+        title="My work"
+        detail={unavailable ? "Unavailable" : `${briefing.current_work.total.toLocaleString()} requiring action`}
+      />
+      {unavailable ? <UnavailableLine /> : items.length === 0 ? (
+        <EmptyLine>No assigned referrals require action right now.</EmptyLine>
+      ) : (
+        <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
+          {items.slice(0, 5).map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onOpenPacket({
+                id: item.referral_id,
+                name: item.client_name,
+                community: item.community as Referral["community"],
+              }, item.location)}
+              className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5faf8] sm:px-4"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-[14px] font-bold text-[#202723]">{clientDisplayName(item.client_name, item.community)}</span>
+                <span className="mt-0.5 block truncate text-[11px] font-medium text-[#69716c]">{item.next_action}</span>
               </span>
-            ))}
-          </span>
-        ) : null}
+              <span className="flex shrink-0 items-center gap-2 text-[10px] font-black text-[#176f60]">
+                {urgencyLabel(item.urgency)}<ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      <button type="button" aria-label="Open current work" onClick={onOpen} className="mt-2 flex min-h-9 w-full items-center justify-end gap-2 px-2 text-[10px] font-black uppercase tracking-[0.05em] text-[#176f60] hover:bg-[#f5faf8]">
+        {briefing.scope === "team" ? "Open team work" : "Open all assigned work"}<ArrowRight size={14} />
       </button>
     </section>
   );
@@ -224,7 +258,10 @@ function UnscheduledAssessmentRow({ item, onOpenPacket }: { item: PipelineUnsche
   return (
     <button
       type="button"
-      onClick={() => onOpenPacket({ id: item.referralId, name: clientDisplayName(item.clientName, item.community), community: item.community as Referral["community"] })}
+      onClick={() => onOpenPacket(
+        { id: item.referralId, name: clientDisplayName(item.clientName, item.community), community: item.community as Referral["community"] },
+        item.nextAction === "complete_intake" ? { view: "intake" } : item.nextAction === "assign" ? { view: "workflow" } : { view: "assessment" },
+      )}
       className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5faf8] sm:px-4"
     >
       <span className="min-w-0">
@@ -243,7 +280,10 @@ function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } &
   return (
     <button
       type="button"
-      onClick={() => onOpenPacket({ id: event.referralId, name: clientDisplayName(event.clientName, event.community), community: event.community as Referral["community"] })}
+      onClick={() => onOpenPacket(
+        { id: event.referralId, name: clientDisplayName(event.clientName, event.community), community: event.community as Referral["community"] },
+        { view: "assessment" },
+      )}
       className="grid min-h-14 w-full grid-cols-[108px_minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f5faf8] sm:px-4"
     >
       <span className="text-[11px] font-bold text-[#176f60]">{formatScheduleDate(event)}</span>
@@ -258,7 +298,7 @@ function ScheduleRow({ event, onOpenPacket }: { event: PipelineCalendarEvent } &
 
 type BriefingPanelProps = {
   briefing: HomeBriefingSnapshot;
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 };
 
 function SectionHeader({ title, detail, icon }: { title: string; detail: string; icon?: ReactNode }) {
@@ -347,4 +387,12 @@ function unscheduledActionLabel(action: PipelineUnscheduledAssessment["nextActio
 
 function clientDisplayName(name: string, community?: string) {
   return formatClientIdentityTitle({ name, community });
+}
+
+function urgencyLabel(value: HomeBriefingSnapshot["current_work"]["items"][number]["urgency"]) {
+  if (value === "overdue") return "Overdue";
+  if (value === "blocked") return "Blocked";
+  if (value === "due_soon") return "Due soon";
+  if (value === "stale") return "Needs follow-up";
+  return "Open";
 }

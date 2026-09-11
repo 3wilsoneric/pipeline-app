@@ -36,6 +36,7 @@ const workspaceRosterMigration = read("database/migrations/0028_workspace_roster
 const historicalWorkspaceArchiveMigration = read("database/migrations/0029_historical_workspace_archive.sql");
 const assessmentReviewRevisionMigration = read("database/migrations/0031_assessment_review_revisions.sql");
 const extractionEvidenceBoundingBoxesMigration = read("database/migrations/0032_extraction_evidence_bounding_boxes.sql");
+const workflowContinuityMigration = read("database/migrations/0033_workflow_continuity.sql");
 const migrationRunner = read("scripts/apply-database-migrations.mjs");
 const canonicalClientVerifier = read("scripts/verify-database-migration-0007.mjs");
 const productionBootstrap = read("scripts/bootstrap-production-database.mjs");
@@ -78,6 +79,7 @@ const workspaceRosterRollback = read("database/rollbacks/0028_workspace_roster.s
 const historicalWorkspaceArchiveRollback = read("database/rollbacks/0029_historical_workspace_archive.sql");
 const assessmentReviewRevisionRollback = read("database/rollbacks/0031_assessment_review_revisions.sql");
 const extractionEvidenceBoundingBoxesRollback = read("database/rollbacks/0032_extraction_evidence_bounding_boxes.sql");
+const workflowContinuityRollback = read("database/rollbacks/0033_workflow_continuity.sql");
 const rollbackDrill = read("scripts/database-rollback-drill.mjs");
 const productionSeed = read("scripts/seed-production-reference-data.mjs");
 const pilotReset = read("scripts/pilot-reset.mjs");
@@ -401,6 +403,14 @@ check("extraction evidence geometry rollback is scoped to migration 0032",
   extractionEvidenceBoundingBoxesRollback.includes("evidence_bbox")
     && extractionEvidenceBoundingBoxesRollback.includes("0032_extraction_evidence_bounding_boxes")
     && !extractionEvidenceBoundingBoxesRollback.includes("drop schema"));
+check("workflow continuity is an explicit per-user workspace state",
+  workflowContinuityMigration.includes("workflow_continuity")
+    && workflowContinuityMigration.includes("user_workspace_state_state_kind_check")
+    && workflowContinuityMigration.includes("0033_workflow_continuity"));
+check("workflow continuity rollback is scoped to migration 0033",
+  workflowContinuityRollback.includes("state_kind = 'workflow_continuity'")
+    && workflowContinuityRollback.includes("0033_workflow_continuity")
+    && !workflowContinuityRollback.includes("drop schema"));
 check(
   "workspace roster rollback flushes deferred member constraints before older table-shape rollbacks",
   workspaceRosterRollback.includes("set constraints pipeline.workspace_members_merged_into_fkey immediate"),
@@ -435,12 +445,13 @@ check(
     historicalWorkspaceArchiveRollback,
     assessmentReviewRevisionRollback,
     extractionEvidenceBoundingBoxesRollback,
+    workflowContinuityRollback,
   ].some((rollback) => /^\s*(begin|commit)\s*;/im.test(rollback)),
 );
-check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("workspaceCountyRollback") && rollbackDrill.includes("assessorWorkflowRollback") && rollbackDrill.includes("zoomAssessmentMethodRollback") && rollbackDrill.includes("referralReceivedMonthRollback") && rollbackDrill.includes("academyProgressRollback") && rollbackDrill.includes("operatorTrainingProgressRollback") && rollbackDrill.includes("alloCanvasContentRollback") && rollbackDrill.includes("notePracticeLabRollback") && rollbackDrill.includes("noteLabPatternSelectionsRollback") && rollbackDrill.includes("noteLabFieldReviewsRollback") && rollbackDrill.includes("workspaceMonthRollback") && rollbackDrill.includes("homeDashboardLayoutRollback") && rollbackDrill.includes("importedWorkspaceLifecycleRollback") && rollbackDrill.includes("staffProfilesRollback") && rollbackDrill.includes("workspaceRosterRollback") && rollbackDrill.includes("historicalWorkspaceArchiveRollback") && rollbackDrill.includes("assessmentReviewRevisionRollback") && rollbackDrill.includes("extractionEvidenceBoundingBoxesRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
+check("rollback drill is transactional, current, and opt-in", rollbackDrill.includes("PIPELINE_ALLOW_MIGRATION_ROLLBACK_DRILL") && rollbackDrill.includes("assessmentCollaborationRollback") && rollbackDrill.includes("provisionalMembersRollback") && rollbackDrill.includes("referralTrashRollback") && rollbackDrill.includes("searchPerformanceRollback") && rollbackDrill.includes("workspaceCountyRollback") && rollbackDrill.includes("assessorWorkflowRollback") && rollbackDrill.includes("zoomAssessmentMethodRollback") && rollbackDrill.includes("referralReceivedMonthRollback") && rollbackDrill.includes("academyProgressRollback") && rollbackDrill.includes("operatorTrainingProgressRollback") && rollbackDrill.includes("alloCanvasContentRollback") && rollbackDrill.includes("notePracticeLabRollback") && rollbackDrill.includes("noteLabPatternSelectionsRollback") && rollbackDrill.includes("noteLabFieldReviewsRollback") && rollbackDrill.includes("workspaceMonthRollback") && rollbackDrill.includes("homeDashboardLayoutRollback") && rollbackDrill.includes("importedWorkspaceLifecycleRollback") && rollbackDrill.includes("staffProfilesRollback") && rollbackDrill.includes("workspaceRosterRollback") && rollbackDrill.includes("historicalWorkspaceArchiveRollback") && rollbackDrill.includes("assessmentReviewRevisionRollback") && rollbackDrill.includes("extractionEvidenceBoundingBoxesRollback") && rollbackDrill.includes("workflowContinuityRollback") && rollbackDrill.includes("rollback") && rollbackDrill.includes("pg_advisory_lock"));
 check("production seed creates reference rows only", productionSeed.includes("synthetic_client_rows: 0") && !productionSeed.includes("insert into pipeline.people") && !productionSeed.includes("insert into pipeline.referrals"));
-check("production seed requires the latest migration", productionSeed.includes("0032_extraction_evidence_bounding_boxes") && productionSeed.includes("migrations.length !== 32"));
-check("live database smoke requires the latest migration", liveSmoke.includes("0032_extraction_evidence_bounding_boxes") && liveSmoke.includes("migrations.length === 32") && liveSmoke.includes("referral_fields_evidence_bbox_check") && liveSmoke.includes("pipeline.client_update_outbox"));
+check("production seed requires the latest migration", productionSeed.includes("0033_workflow_continuity") && productionSeed.includes("migrations.length !== 33"));
+check("live database smoke requires the latest migration", liveSmoke.includes("0033_workflow_continuity") && liveSmoke.includes("migrations.length === 33") && liveSmoke.includes("workflow_continuity") && liveSmoke.includes("pipeline.client_update_outbox"));
 check("restore verification includes workspace state", restoreVerify.includes("pipeline.user_workspace_state"));
 check("account-state purge is dry-run-first and identity-redacted", workspacePurge.includes('mode: execute ? "execute" : "dry_run"') && workspacePurge.includes("principal_configured: true"));
 check(
@@ -478,7 +489,7 @@ const configuration = Object.fromEntries(
 
 console.log(JSON.stringify({
   ok: failed.length === 0,
-  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance", "0014_workspace_county", "0015_assessor_workflow", "0016_zoom_assessment_method", "0017_referral_received_month", "0018_academy_progress", "0019_operator_training_progress", "0020_allo_canvas_content", "0021_note_practice_lab", "0022_note_lab_pattern_selections", "0023_note_lab_field_reviews", "0024_workspace_month_provenance", "0025_home_dashboard_layout", "0026_imported_workspace_lifecycle", "0027_staff_profiles", "0028_workspace_roster", "0029_historical_workspace_archive", "0030_annette_everhart_display_name", "0031_assessment_review_revisions", "0032_extraction_evidence_bounding_boxes"],
+  migrations: ["0001_pipeline_core", "0002_workflow_engine", "0003_operational_hardening", "0004_document_processing", "0005_collaboration", "0006_user_workspace_state", "0007_canonical_client_assessments", "0008_client_workspaces", "0009_assessment_collaboration", "0010_provisional_workspace_members", "0011_historical_material_workspaces", "0012_referral_trash", "0013_search_performance", "0014_workspace_county", "0015_assessor_workflow", "0016_zoom_assessment_method", "0017_referral_received_month", "0018_academy_progress", "0019_operator_training_progress", "0020_allo_canvas_content", "0021_note_practice_lab", "0022_note_lab_pattern_selections", "0023_note_lab_field_reviews", "0024_workspace_month_provenance", "0025_home_dashboard_layout", "0026_imported_workspace_lifecycle", "0027_staff_profiles", "0028_workspace_roster", "0029_historical_workspace_archive", "0030_annette_everhart_display_name", "0031_assessment_review_revisions", "0032_extraction_evidence_bounding_boxes", "0033_workflow_continuity"],
   checks,
   configuration_present: configuration,
   note: "Configuration reports presence only; values are never printed.",

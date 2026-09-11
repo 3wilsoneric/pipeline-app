@@ -39,8 +39,8 @@ type HomeModuleDefinition = {
 const homeModuleDefinitions: HomeModuleDefinition[] = [
   {
     id: "current-work",
-    title: "Active referrals",
-    detail: "Your live intake-to-decision workload and stage counts.",
+    title: "My work",
+    detail: "Assigned referrals that require your next action.",
     icon: BriefcaseBusiness,
     wide: true,
   },

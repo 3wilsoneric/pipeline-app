@@ -38,8 +38,40 @@ const assessmentAccess = loadTypeScriptModule(root, "lib/assessment/assessment-a
 const assessmentLifecycle = loadTypeScriptModule(root, "lib/assessment/assessment-lifecycle-validation.ts");
 const assessorSessionPolicy = loadTypeScriptModule(root, "lib/auth/assessor-session-policy.ts");
 const homeDashboardLayout = loadTypeScriptModule(root, "lib/pipeline/home-dashboard-layout.ts");
+const workContinuity = loadTypeScriptModule(root, "lib/pipeline/work-continuity.ts");
 
 const results = [
+  run("work continuity validates, merges, and canonicalizes exact workspace destinations", () => {
+    const location = workContinuity.parsePipelineWorkspaceLocation({ view: "assessment", assessmentSection: "medication" });
+    assert(location?.assessmentSection === "medication", "A known assessment section must be retained");
+    assert(workContinuity.parsePipelineWorkspaceLocation({ view: "files", intakeField: "name" }) === null, "A field cannot leak into another workspace surface");
+
+    const merged = workContinuity.mergePipelineWorkContinuityState(
+      {
+        schema: 1,
+        assignmentTrackingStartedAt: "2026-09-01T00:00:00.000Z",
+        assignmentAcknowledgedThrough: "2026-09-02T00:00:00.000Z",
+        acknowledgedAssignmentIds: ["assignment-1"],
+      },
+      {
+        lastWorkspace: {
+          referralId: 42,
+          location,
+          visitedAt: "2026-09-03T00:00:00.000Z",
+        },
+        acknowledgeAssignmentIds: ["assignment-2"],
+        acknowledgeAssignmentsThrough: "2026-09-04T00:00:00.000Z",
+      },
+    );
+    assert(merged.lastWorkspace?.referralId === 42, "The latest exact workspace must survive the merge");
+    assert(merged.assignmentTrackingStartedAt === "2026-09-01T00:00:00.000Z", "The tracking baseline cannot move forward accidentally");
+    assert(merged.assignmentAcknowledgedThrough === "2026-09-04T00:00:00.000Z", "The acknowledgment watermark must move only forward");
+    assert(merged.acknowledgedAssignmentIds.join(",") === "assignment-2,assignment-1", "Specific acknowledgments must be retained across concurrent updates");
+
+    const params = new URLSearchParams("workspaceStage=assessment&assessmentSection=identity&workspaceView=files&workspaceField=name");
+    workContinuity.applyPipelineWorkspaceLocation(params, { view: "workflow" });
+    assert(params.toString() === "workspaceView=workflow", "Changing surfaces must remove every stale destination parameter");
+  }),
   run("Home dashboard layouts preserve valid module order and reject malformed customization state", () => {
     const defaults = homeDashboardLayout.defaultPipelineHomeDashboardLayout();
     assert(defaults.locked === true, "The default Home must be locked against accidental edits");

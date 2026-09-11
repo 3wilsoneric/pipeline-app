@@ -3,6 +3,7 @@ import "server-only";
 import type { PipelineUser } from "@/lib/auth/pipeline-auth";
 import { getAssessmentCalendar } from "@/lib/pipeline/calendar-store";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
+import { getHomeContinuity } from "@/lib/pipeline/home-continuity";
 import type { HomeWorkflowSummary } from "@/lib/pipeline/operations-types";
 import { getHomeWorkflowSummary } from "@/lib/pipeline/operations-snapshot";
 import { isAssessorUser } from "@/lib/pipeline/referral-access";
@@ -26,9 +27,11 @@ export async function getHomeBriefing(user: PipelineUser): Promise<HomeBriefingS
   const upcoming = calendar.events
     .filter((event) => event.kind === "assessment")
     .slice(0, 8);
+  const generatedAt = new Date().toISOString();
+  const continuity = await getHomeContinuity(user, workflow, generatedAt);
 
   return {
-    generated_at: new Date().toISOString(),
+    generated_at: generatedAt,
     scope: isAssessorUser(user) ? "personal" : "team",
     viewer: { id: user.id, name: user.name },
     current_work: {
@@ -39,6 +42,7 @@ export async function getHomeBriefing(user: PipelineUser): Promise<HomeBriefingS
     upcoming,
     unscheduled: calendar.unscheduled.slice(0, 5),
     unscheduled_total: calendar.unscheduledTotal,
+    continuity,
     unavailable_sections: unavailableSections,
   };
 }

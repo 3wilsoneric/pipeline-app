@@ -7,11 +7,12 @@ import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presen
 import { activeReferralFlowStates } from "@/lib/pipeline/referral-flow";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import type { ReferralWorklistItem } from "@/lib/pipeline/operations-types";
+import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 export default function ReferralWorkflowTracker({ briefing, onOpenPacket }: {
   briefing: HomeBriefingSnapshot;
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
   const counts = briefing.workflow.flow_counts ?? {
     ready_to_schedule: 0,
@@ -93,7 +94,7 @@ function WorkflowCard({ item, state, showOwner, onOpenPacket }: {
   item: ReferralWorklistItem;
   state: (typeof activeReferralFlowStates)[number]["key"];
   showOwner: boolean;
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
   const clientName = formatClientIdentityTitle({ name: item.client_name, community: item.community });
   const owner = showOwner && item.owner !== "Unassigned" ? item.owner : null;
@@ -103,7 +104,7 @@ function WorkflowCard({ item, state, showOwner, onOpenPacket }: {
     <button
       type="button"
       aria-label={`Open ${clientName}`}
-      onClick={() => onOpenPacket({ id: item.referral_id, name: clientName, community: item.community as Referral["community"] })}
+      onClick={() => onOpenPacket({ id: item.referral_id, name: clientName, community: item.community as Referral["community"] }, item.location)}
       className={`group min-h-[108px] w-full border border-l-[3px] border-[#dce3df] bg-white px-4 py-3.5 text-left shadow-[0_2px_9px_rgba(32,35,32,0.04)] outline-none transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[#0f8b73] hover:shadow-[0_6px_16px_rgba(32,35,32,0.07)] focus-visible:ring-2 focus-visible:ring-[#0f8b73] ${cardAccent(state)}`}
     >
       <span className="flex items-start justify-between gap-2">

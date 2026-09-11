@@ -108,6 +108,7 @@ import {
   referralSaveStatus,
   type ReferralSaveSnapshot,
 } from "@/components/pipeline/referral-canvas-save-state";
+import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 
 const ReferralWorkflowPanel = dynamic(
   () => import("@/components/pipeline/ReferralWorkflowPanel"),
@@ -144,11 +145,13 @@ type ReferralPacketCanvasProps = {
   };
   newDraftKey?: `new-${string}`;
   initialWorkspaceStage?: WorkspaceStageName;
+  initialWorkspaceLocation?: PipelineWorkspaceLocation;
   trainingAssessmentMode?: TrainingAssessmentMode;
   trainingAssessmentSection?: AssessmentToolSection;
   onReferralSaved?: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onReferralDeleted?: () => void;
   onWorkspaceStageChange?: (stage: WorkspaceStageName) => void;
+  onWorkspaceLocationChange?: (location: PipelineWorkspaceLocation) => void;
   onOpenProfile?: (canonicalClientId: string) => void;
 };
 
@@ -310,11 +313,13 @@ export default function ReferralPacketCanvas({
   referral,
   newDraftKey,
   initialWorkspaceStage = "intake",
+  initialWorkspaceLocation,
   trainingAssessmentMode,
   trainingAssessmentSection,
   onReferralSaved,
   onReferralDeleted,
   onWorkspaceStageChange,
+  onWorkspaceLocationChange,
   onOpenProfile = () => undefined,
 }: ReferralPacketCanvasProps = {}) {
   const [fields, setFields] = useState<Record<FieldKey, PacketField>>(() => ({
@@ -328,7 +333,8 @@ export default function ReferralPacketCanvas({
   const [initialPacket, setInitialPacket] = useState<File | null>(null);
   const [initialPacketCategory, setInitialPacketCategory] = useState<InitialDocumentCategory>("face_sheet");
   const [tagsInput, setTagsInput] = useState("");
-  const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForStage(initialWorkspaceStage));
+  const routedWorkspaceLocation = initialWorkspaceLocationOrStage(initialWorkspaceLocation, initialWorkspaceStage);
+  const [activePage, setActivePage] = useState<WorkspaceView>(workspacePageForLocation(routedWorkspaceLocation));
   const [assessmentSummary, setAssessmentSummary] = useState<{
     captured: number;
     total: number;
@@ -378,7 +384,9 @@ export default function ReferralPacketCanvas({
   const patchMutationIdsRef = useRef(new Map<string, string>());
   const deleteMutationIdRef = useRef(createMutationId());
   const ownerPrincipalIdRef = useRef(ownerPrincipalId);
-  useWorkspaceStageRouting(referral?.id, newDraftKey, initialWorkspaceStage, setActivePage);
+  const lastFocusRef = useRef<FieldKey | undefined>(initialIntakeFocus(routedWorkspaceLocation));
+  const locallyFocusedFieldRef = useRef<FieldKey | undefined>(undefined);
+  useWorkspaceLocationRouting(referral?.id, newDraftKey, routedWorkspaceLocation, setActivePage);
   const defaultOwnerRef = useRef<{ principalId: string; displayName: string } | null>(null);
   const handoffReasonRef = useRef("");
   const draftBaseVersionRef = useRef<number | undefined>(undefined);
@@ -517,6 +525,7 @@ export default function ReferralPacketCanvas({
       conserved: conservedRef.current,
       tagsInput: tagsInputRef.current,
       documents: documentsRef.current,
+      ...(lastFocusRef.current ? { lastFocus: lastFocusRef.current } : {}),
       ...(initialPacketRef.current ? { initialPacketName: initialPacketRef.current.name } : {}),
       initialPacketCategory: initialPacketCategoryRef.current,
     };
@@ -589,6 +598,7 @@ export default function ReferralPacketCanvas({
 
   const restoreDraftTracking = (draft: CanvasSessionDraft | null) => {
     if (!draft) return null;
+    lastFocusRef.current = draft.lastFocus;
     const recoveredDirtyKeys = new Set(draft.dirtyKeys.filter((key) => key !== "initialPacket"));
     dirtyKeysRef.current = recoveredDirtyKeys;
     draftBaseVersionRef.current = draft.baseVersion;
@@ -822,6 +832,21 @@ export default function ReferralPacketCanvas({
       return next;
     });
   }, [loadedReferral?.documentName, loadedReferral?.packetFields, loadedReferral?.workspaceStatus]);
+
+  useEffect(() => {
+    const field = routedWorkspaceLocation.view === "intake" ? routedWorkspaceLocation.intakeField : undefined;
+    if (!field || draftRecoveryLoading || activePage !== 1) return;
+    if (locallyFocusedFieldRef.current === field) {
+      locallyFocusedFieldRef.current = undefined;
+      return;
+    }
+    lastFocusRef.current = field;
+    const frame = window.requestAnimationFrame(() => {
+      canvasRef.current?.querySelector<HTMLElement>(`[data-workspace-field="${field}"]`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activePage, draftRecoveryLoading, newDraftKey, referral?.id, routedWorkspaceLocation.intakeField, routedWorkspaceLocation.view]);
 
   const receiveRemoteReferral = (latest: Referral, updatedBy?: string, force = false) => {
     const base = loadedReferralRef.current;
@@ -1069,9 +1094,18 @@ export default function ReferralPacketCanvas({
   const openPage = (page: WorkspaceView) => {
     setActivePage(page);
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
+    onWorkspaceLocationChange?.(workspaceLocationForPage(page));
     requestAnimationFrame(() => {
       canvasRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
+  };
+
+  const focusWorkspaceField = (key: FieldKey) => {
+    lastFocusRef.current = key;
+    if (activePage === 1 && onWorkspaceLocationChange) {
+      locallyFocusedFieldRef.current = key;
+      onWorkspaceLocationChange({ view: "intake", intakeField: key });
+    }
   };
 
   const persistExistingChanges = async (
@@ -2034,9 +2068,11 @@ export default function ReferralPacketCanvas({
                     {(["name", "gender", "age", "dob", "ssn"] as FieldKey[]).map((key) => (
                       <EditablePacketField
                         key={key}
+                        fieldKey={key}
                         field={fields[key]}
                         className={key === "ssn" ? "sm:col-span-2 lg:col-span-1" : undefined}
                         onChange={(value) => updateField(key, value)}
+                        onFocus={focusWorkspaceField}
                       />
                     ))}
                   </div>
@@ -2048,6 +2084,7 @@ export default function ReferralPacketCanvas({
                       key === "owner" ? (
                         <OwnerPacketField
                           key={key}
+                          fieldKey={key}
                           field={fields.owner}
                           members={members}
                           ownerPrincipalId={ownerPrincipalId}
@@ -2061,14 +2098,17 @@ export default function ReferralPacketCanvas({
                             }
                             applyOwnerChange(change);
                           }}
+                          onFocus={focusWorkspaceField}
                         />
                       ) : (
                         <EditablePacketField
                           key={key}
+                          fieldKey={key}
                           field={fields[key]}
                           className={key === "responsiblePerson" ? "sm:col-span-2 lg:col-span-1" : undefined}
                           options={key === "community" ? pipelineCommunities : key === "county" ? californiaCountyOptions : undefined}
                           onChange={(value) => updateField(key, value)}
+                          onFocus={focusWorkspaceField}
                         />
                       )
                     ))}
@@ -2118,7 +2158,7 @@ export default function ReferralPacketCanvas({
                 </ChartSection>
 
                 <ChartSection title="Referral summary" complete={countCompleteFields(fields, ["summary"])} total={1}>
-                  <div>
+                  <div data-workspace-field="summary" onFocusCapture={() => focusWorkspaceField("summary")}>
                     <StructuredNarrativeField
                       field={fields.summary}
                       kind="summary"
@@ -2134,10 +2174,12 @@ export default function ReferralPacketCanvas({
                 </ChartSection>
 
                 <ChartSection title="Medication profile" complete={countCompleteFields(fields, ["currentMedications"])} total={1}>
-                  <MedicationProfileField
-                    field={fields.currentMedications}
-                    onChange={(value) => updateField("currentMedications", value)}
-                  />
+                  <div data-workspace-field="currentMedications" onFocusCapture={() => focusWorkspaceField("currentMedications")}>
+                    <MedicationProfileField
+                      field={fields.currentMedications}
+                      onChange={(value) => updateField("currentMedications", value)}
+                    />
+                  </div>
                 </ChartSection>
               </div>
 
@@ -2178,10 +2220,14 @@ export default function ReferralPacketCanvas({
                   referralId={referralWorkspaceId}
                   trainingAssessmentMode={trainingAssessmentMode}
                   trainingAssessmentSection={trainingAssessmentSection}
+                  initialSection={routedWorkspaceLocation.view === "assessment" ? routedWorkspaceLocation.assessmentSection : undefined}
                   assignedAssessorId={loadedReferral?.ownerId}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onContinueToWorkflow={() => openPage("workflow")}
+                  onActiveSectionChange={(section) => {
+                    if (activePage === 2) onWorkspaceLocationChange?.({ view: "assessment", assessmentSection: section });
+                  }}
                   onAssessmentSaved={async (assessment) => {
                     if (assessment.status !== "complete") return;
                     const current = loadedReferralRef.current;
@@ -2244,10 +2290,29 @@ export default function ReferralPacketCanvas({
   );
 }
 
-function workspacePageForStage(stage: WorkspaceStageName): WorkspaceStage {
-  if (stage === "assessment") return 2;
-  if (stage === "chart") return 3;
+function workspacePageForLocation(location: PipelineWorkspaceLocation): WorkspaceView {
+  if (location.view === "assessment") return 2;
+  if (location.view === "chart") return 3;
+  if (location.view === "workflow" || location.view === "files" || location.view === "activity") return location.view;
   return 1;
+}
+
+function initialWorkspaceLocationOrStage(
+  location: PipelineWorkspaceLocation | undefined,
+  stage: WorkspaceStageName,
+): PipelineWorkspaceLocation {
+  return location ?? { view: stage };
+}
+
+function initialIntakeFocus(location: PipelineWorkspaceLocation) {
+  return location.view === "intake" ? location.intakeField : undefined;
+}
+
+function workspaceLocationForPage(page: WorkspaceView): PipelineWorkspaceLocation {
+  if (page === 2) return { view: "assessment" };
+  if (page === 3) return { view: "chart" };
+  if (page === "workflow" || page === "files" || page === "activity") return { view: page };
+  return { view: "intake" };
 }
 
 function workspaceStageName(stage: WorkspaceStage): WorkspaceStageName {
@@ -2256,27 +2321,28 @@ function workspaceStageName(stage: WorkspaceStage): WorkspaceStageName {
   return "intake";
 }
 
-function useWorkspaceStageRouting(
+function useWorkspaceLocationRouting(
   referralId: number | undefined,
   draftKey: ReferralPacketCanvasProps["newDraftKey"],
-  stage: WorkspaceStageName,
+  location: PipelineWorkspaceLocation,
   setActivePage: (page: WorkspaceView) => void,
 ) {
   const routedWorkspaceRef = useRef("");
+  const routeKey = workspaceRouteKey(referralId, draftKey, location);
+  const routedPage = workspacePageForLocation(location);
   useEffect(() => {
-    const routeKey = workspaceRouteKey(referralId, draftKey, stage);
     if (routedWorkspaceRef.current === routeKey) return;
     routedWorkspaceRef.current = routeKey;
-    setActivePage(workspacePageForStage(stage));
-  }, [draftKey, referralId, setActivePage, stage]);
+    setActivePage(routedPage);
+  }, [routeKey, routedPage, setActivePage]);
 }
 
 function workspaceRouteKey(
   referralId: number | undefined,
   draftKey: ReferralPacketCanvasProps["newDraftKey"],
-  stage: WorkspaceStageName,
+  location: PipelineWorkspaceLocation,
 ) {
-  return `${referralId ?? draftKey ?? "new"}:${stage}`;
+  return `${referralId ?? draftKey ?? "new"}:${location.view}:${location.assessmentSection ?? ""}:${location.intakeField ?? ""}`;
 }
 
 function getWorkspacePresentation(
@@ -2771,20 +2837,24 @@ function getEvidenceByType(documents: Record<string, string>) {
 }
 
 function OwnerPacketField({
+  fieldKey,
   field,
   members,
   ownerPrincipalId,
   onChange,
+  onFocus,
 }: {
+  fieldKey: FieldKey;
   field: PacketField;
   members: WorkspaceMember[];
   ownerPrincipalId: string;
   onChange: (principalId: string) => void;
+  onFocus: (key: FieldKey) => void;
 }) {
   const hasLegacyOwner = !ownerPrincipalId && !isUnassignedOwner(field.value);
   const hasCurrentOwnerOption = !ownerPrincipalId || members.some((member) => member.principal_id === ownerPrincipalId);
   return (
-    <div className="group relative min-h-[86px] border-b border-r border-[#d7ddd9] bg-white p-3 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73]">
+    <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className="group relative min-h-[86px] border-b border-r border-[#d7ddd9] bg-white p-3 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73]">
       <label className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">{field.label}</label>
       <select
         aria-label={field.label}
@@ -2832,18 +2902,22 @@ function OwnerChangeDialog({
 }
 
 function EditablePacketField({
+  fieldKey,
   field,
   options,
   className,
   onChange,
+  onFocus,
 }: {
+  fieldKey: FieldKey;
   field: PacketField;
   options?: readonly string[];
   className?: string;
   onChange: (value: string) => void;
+  onFocus: (key: FieldKey) => void;
 }) {
   return (
-    <div className={`group relative min-h-[86px] border-b border-r border-[#d7ddd9] bg-white p-3 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
+    <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className={`group relative min-h-[86px] border-b border-r border-[#d7ddd9] bg-white p-3 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-2">
         <label className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">{field.label}</label>
         {field.sourceFile ? <span className="text-[9px] font-black uppercase text-[#317f8f]">Imported</span> : null}

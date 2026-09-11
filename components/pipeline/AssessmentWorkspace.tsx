@@ -109,6 +109,7 @@ type AssessmentWorkspaceProps = {
   referralId?: number;
   trainingAssessmentMode?: TrainingAssessmentMode;
   trainingAssessmentSection?: AssessmentToolSection;
+  initialSection?: AssessmentToolSection;
   assignedAssessorId?: string;
   packetEvidenceVersion?: string;
   onSummaryChange?: (summary: {
@@ -122,6 +123,7 @@ type AssessmentWorkspaceProps = {
   }) => void;
   onAssessmentSaved?: (assessment: PipelineAssessmentRecord) => void | Promise<void>;
   onContinueToWorkflow?: () => void;
+  onActiveSectionChange?: (section: AssessmentToolSection) => void;
 };
 
 const sectionLabels = Object.fromEntries(
@@ -159,16 +161,18 @@ export default function AssessmentWorkspace({
   referralId,
   trainingAssessmentMode,
   trainingAssessmentSection,
+  initialSection,
   assignedAssessorId,
   packetEvidenceVersion,
   onSummaryChange,
   onAssessmentSaved,
   onContinueToWorkflow,
+  onActiveSectionChange,
 }: AssessmentWorkspaceProps) {
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<AssessmentToolData>(createEmptyAssessmentToolData);
-  const [activeSection, setActiveSection] = useState<AssessmentToolSection>("identity");
+  const [activeSection, setActiveSection] = useState<AssessmentToolSection>(initialSection ?? trainingAssessmentSection ?? "identity");
   const [isLoading, setIsLoading] = useState(Boolean(referralId));
   const [isBusy, setIsBusy] = useState(false);
   const [dirtySections, setDirtySections] = useState<Set<AssessmentToolSection>>(new Set());
@@ -198,6 +202,7 @@ export default function AssessmentWorkspace({
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const initializedAssessmentIdRef = useRef("");
   const focusedAssessmentIdRef = useRef("");
+  const onActiveSectionChangeRef = useRef(onActiveSectionChange);
   const packetSyncKeysRef = useRef(new Set<string>());
   const dirty = dirtySections.size > 0;
   const offlinePrincipal = assessmentOfflinePrincipal(trainingAssessmentMode, viewer);
@@ -241,8 +246,17 @@ export default function AssessmentWorkspace({
   };
 
   useEffect(() => {
-    if (trainingAssessmentSection) setActiveSection(trainingAssessmentSection);
-  }, [trainingAssessmentSection]);
+    const routedSection = initialSection ?? trainingAssessmentSection;
+    if (routedSection) setActiveSection(routedSection);
+  }, [initialSection, trainingAssessmentSection]);
+
+  useEffect(() => {
+    onActiveSectionChangeRef.current = onActiveSectionChange;
+  }, [onActiveSectionChange]);
+
+  useEffect(() => {
+    onActiveSectionChangeRef.current?.(activeSection);
+  }, [activeSection]);
 
   const upsertAssessment = useCallback((assessment: PipelineAssessmentRecord, select = false) => {
     setAssessments((current) => [assessment, ...current.filter((item) => item.assessment_id !== assessment.assessment_id)]);
@@ -309,9 +323,10 @@ export default function AssessmentWorkspace({
     setDraft(merged);
     const recoveredDirty = dirtyAssessmentSections(merged, currentData);
     setDirtySections(recoveredDirty);
+    setActiveSection((current) => initialSection ?? recovered.activeSection ?? current);
     setRemoteChange(conflicts.length > 0 ? { assessment, conflicts } : null);
     setMessage(conflicts.length > 0 ? "Recovered changes need conflict review" : "Recovered unsaved assessment changes");
-  }, [offlinePrincipal]);
+  }, [initialSection, offlinePrincipal]);
 
   const persistOfflineWorkingSet = useCallback(async (assessment: PipelineAssessmentRecord) => {
     if (!offlinePrincipal) return;
@@ -322,10 +337,12 @@ export default function AssessmentWorkspace({
     const workingDraft: PipelineAssessmentDraft = {
       schema: 1,
       assessmentId: assessment.assessment_id,
+      ...(referralId ? { referralId } : {}),
       savedAt: new Date().toISOString(),
       baseVersion: assessment.version,
       sectionVersions: normalizeAssessmentSectionVersions(assessment.section_versions),
       dirtySections: [...dirtySectionsRef.current],
+      activeSection,
       data: pickAssessmentToolData(draftRef.current),
       baseData: pickAssessmentToolData(baseDataRef.current),
     };
@@ -335,17 +352,19 @@ export default function AssessmentWorkspace({
       `${window.location.pathname}${window.location.search}`,
       { editable: true },
     );
-  }, [canEditClinical, offlinePrincipal]);
+  }, [activeSection, canEditClinical, offlinePrincipal, referralId]);
 
   const persistRecoveryDraft = useCallback(async (assessment: PipelineAssessmentRecord) => {
     if (dirtySectionsRef.current.size === 0) return;
     const recovery: PipelineAssessmentDraft = {
       schema: 1,
       assessmentId: assessment.assessment_id,
+      ...(referralId ? { referralId } : {}),
       savedAt: new Date().toISOString(),
       baseVersion: assessment.version,
       sectionVersions: normalizeAssessmentSectionVersions(assessment.section_versions),
       dirtySections: [...dirtySectionsRef.current],
+      activeSection,
       data: pickAssessmentToolData(draftRef.current),
       baseData: pickAssessmentToolData(baseDataRef.current),
     };
@@ -373,7 +392,7 @@ export default function AssessmentWorkspace({
         }
       }
     }
-  }, [offlinePrincipal]);
+  }, [activeSection, offlinePrincipal, referralId]);
 
   const clearRecoveryDraft = useCallback(async (assessmentId: string) => {
     if (offlinePrincipal) {
@@ -526,10 +545,13 @@ export default function AssessmentWorkspace({
   useEffect(() => {
     if (!selected?.assessment_id || focusedAssessmentIdRef.current === selected.assessment_id) return;
     focusedAssessmentIdRef.current = selected.assessment_id;
+    if (selected.started_at && nextRequiredTarget && !initialSection) {
+      setActiveSection(nextRequiredTarget.section);
+    }
     setIsFocused(true);
     setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
     setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
-  }, [selected?.assessment_id, selected?.scheduled_start_at, selected?.signed_at, selected?.started_at]);
+  }, [initialSection, nextRequiredTarget, selected?.assessment_id, selected?.scheduled_start_at, selected?.signed_at, selected?.started_at]);
 
   useEffect(() => {
     if (!isFocused) return;

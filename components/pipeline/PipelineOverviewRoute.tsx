@@ -30,6 +30,12 @@ import {
   replacePipelineHistory,
   usePipelineLocationSearch,
 } from "@/lib/pipeline/client-navigation";
+import { recordLastPipelineWorkspace } from "@/lib/pipeline/work-continuity-client";
+import {
+  applyPipelineWorkspaceLocation,
+  pipelineWorkspaceLocationFromSearchParams,
+  type PipelineWorkspaceLocation,
+} from "@/lib/pipeline/work-continuity";
 
 async function loadDeferredWorkSurfaces() {
   const [profile, referral] = await Promise.all([
@@ -128,14 +134,13 @@ export default function PipelineOverviewRoute() {
     nextScreen: PipelineScreen,
     referral?: ReferralSelection,
     clientId?: string,
+    location?: PipelineWorkspaceLocation,
   ) => {
     if (nextScreen === "operations" && reportAccess !== true) return;
+    const workspaceLocation = defaultWorkspaceLocation(location);
     setSearchOpen(false);
     const params = new URLSearchParams(activeSearchParams.toString());
-    params.delete("work");
-    params.delete("trainingAssessment");
-    params.delete("assessmentSection");
-    params.delete("editHome");
+    clearDestinationParams(params);
     if (nextScreen === "referrals") {
       params.set("view", "referrals");
       params.delete("screen");
@@ -156,6 +161,7 @@ export default function PipelineOverviewRoute() {
     }
     if (nextScreen === "packet" && referral?.id) {
       params.set("referralId", String(referral.id));
+      applyPipelineWorkspaceLocation(params, workspaceLocation);
     } else {
       params.delete("referralId");
     }
@@ -165,21 +171,21 @@ export default function PipelineOverviewRoute() {
       params.delete("draftId");
     }
     pushPipelineHistory(params.size ? `/?${params.toString()}` : "/");
+    recordNavigatedWorkspace(nextScreen, referral, workspaceLocation);
     if (!(nextScreen === "packet" && referral && (!referral.name || !referral.community))) {
       recordNavigation(nextScreen, referral);
     }
     setReferralDetails(referral);
   };
 
-  const resumeReferralDraft = (draftKey: `new-${string}`) => {
+  const resumeReferralDraft = (draftKey: `new-${string}`, intakeField?: PipelineWorkspaceLocation["intakeField"]) => {
     setSearchOpen(false);
     const params = new URLSearchParams(activeSearchParams.toString());
+    clearDestinationParams(params);
     params.set("view", "referrals");
     params.set("screen", "packet");
     params.set("draftId", draftKey.slice(4));
-    params.delete("referralId");
-    params.delete("clientId");
-    params.delete("work");
+    applyPipelineWorkspaceLocation(params, { view: "intake", ...(intakeField ? { intakeField } : {}) });
     pushPipelineHistory(`/?${params.toString()}`);
     setReferralDetails(undefined);
   };
@@ -207,7 +213,7 @@ export default function PipelineOverviewRoute() {
     return (
       <PipelineWelcome
         canAccessReports={reportAccess === true}
-        onOpenPacket={(referral) => navigate("packet", referral)}
+        onOpenPacket={(referral, location) => navigate("packet", referral, undefined, location)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
         onOpenSearchDestination={(destination: PipelineSiteScreen) => navigate(destination)}
         onViewAllSearchResults={(query) => {
@@ -226,17 +232,24 @@ export default function PipelineOverviewRoute() {
 
   let page: ReactNode;
   if (screen === "packet") {
+    const trainingAssessmentMode = getTrainingAssessmentMode(activeSearchParams);
+    const isDemoWorkspace = activeSearchParams.get("demo") === "1" || Boolean(trainingAssessmentMode);
     const packetProps: ComponentProps<DeferredWorkSurfaces["ReferralPacketCanvas"]> = {
       referral: selectedReferral,
       newDraftKey: newReferralDraftKey,
-      initialWorkspaceStage: getInitialWorkspaceStage(activeSearchParams),
-      trainingAssessmentMode: getTrainingAssessmentMode(activeSearchParams),
+      initialWorkspaceLocation: pipelineWorkspaceLocationFromSearchParams(activeSearchParams),
+      trainingAssessmentMode,
       trainingAssessmentSection: getTrainingAssessmentSection(activeSearchParams),
-      onWorkspaceStageChange: (stage) => {
+      onWorkspaceLocationChange: (location) => {
         const params = new URLSearchParams(window.location.search);
-        if (stage === "intake") params.delete("workspaceStage");
-        else params.set("workspaceStage", stage);
+        applyPipelineWorkspaceLocation(params, location);
         replacePipelineHistory(`/?${params.toString()}`);
+        const referralId = selectedReferral?.id;
+        // Rehearsals use synthetic workspaces and must never become the operator's
+        // durable resume destination.
+        if (referralId && !isDemoWorkspace) {
+          recordLastPipelineWorkspace({ referralId, location, visitedAt: new Date().toISOString() });
+        }
       },
       onReferralSaved: (savedReferral) => {
         setReferralDetails(savedReferral);
@@ -245,7 +258,12 @@ export default function PipelineOverviewRoute() {
         params.set("screen", "packet");
         params.set("referralId", String(savedReferral.id));
         params.delete("draftId");
+        const location = pipelineWorkspaceLocationFromSearchParams(new URLSearchParams(window.location.search));
+        applyPipelineWorkspaceLocation(params, location);
         replacePipelineHistory(`/?${params.toString()}`);
+        if (!isDemoWorkspace) {
+          recordLastPipelineWorkspace({ referralId: savedReferral.id, location, visitedAt: new Date().toISOString() });
+        }
       },
       onReferralDeleted: () => navigate("referrals"),
       onOpenProfile: (clientId) => navigate("profile", undefined, clientId),
@@ -298,10 +316,36 @@ function searchParamsText(searchParams: { toString(): string } | null) {
   return searchParams ? searchParams.toString() : "";
 }
 
-function getInitialWorkspaceStage(params: URLSearchParams) {
-  const stage = params.get("workspaceStage");
-  if (stage === "assessment" || stage === "chart") return stage;
-  return "intake";
+function clearDestinationParams(params: URLSearchParams) {
+  for (const key of [
+    "work",
+    "trainingAssessment",
+    "assessmentSection",
+    "editHome",
+    "workspaceStage",
+    "workspaceView",
+    "workspaceField",
+    "referralId",
+    "draftId",
+    "clientId",
+  ]) params.delete(key);
+}
+
+function defaultWorkspaceLocation(location: PipelineWorkspaceLocation | undefined): PipelineWorkspaceLocation {
+  return location ?? { view: "intake" };
+}
+
+function recordNavigatedWorkspace(
+  screen: PipelineScreen,
+  referral: ReferralSelection | undefined,
+  location: PipelineWorkspaceLocation,
+) {
+  if (screen !== "packet" || !referral?.id) return;
+  recordLastPipelineWorkspace({
+    referralId: referral.id,
+    location,
+    visitedAt: new Date().toISOString(),
+  });
 }
 
 function getTrainingAssessmentMode(params: URLSearchParams): TrainingAssessmentMode | undefined {

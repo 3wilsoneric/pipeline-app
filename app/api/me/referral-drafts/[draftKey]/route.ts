@@ -13,6 +13,7 @@ import {
   parsePipelineReferralDraft,
   type PipelineReferralDraft,
 } from "@/lib/pipeline/user-workspace-state-types";
+import { requireMutableReferralAccess, requireReferralAccess } from "@/lib/pipeline/referral-access";
 
 export const runtime = "nodejs";
 const noStoreHeaders = { "Cache-Control": "private, no-store, max-age=0" };
@@ -28,6 +29,8 @@ export async function GET(
     if (readinessFailure) return readinessFailure;
     const key = await parseDraftKey(context);
     if (!key) return jsonError("draftKey is invalid.");
+    const accessFailure = await requireDraftReferralAccess(auth.user, key, false);
+    if (accessFailure) return accessFailure;
 
     const record = await getUserWorkspaceState<PipelineReferralDraft>(auth.user.id, "referral_draft", key);
     if (!record) return Response.json({ draft: null, version: 0 }, { headers: noStoreHeaders });
@@ -50,10 +53,12 @@ export async function PUT(
     if (readinessFailure) return readinessFailure;
     const key = await parseDraftKey(context);
     if (!key) return jsonError("draftKey is invalid.");
+    const accessFailure = await requireDraftReferralAccess(auth.user, key, true);
+    if (accessFailure) return accessFailure;
 
     const body = await readJsonBody<{ if_match?: unknown; draft?: unknown }>(request, 256 * 1024);
     if (!body.ok) return jsonError(body.message, body.status);
-    if (!Number.isSafeInteger(body.value?.if_match) || Number(body.value?.if_match) < 0) {
+    if (!isDraftVersion(body.value?.if_match)) {
       return jsonError("if_match must be a non-negative draft version.");
     }
     const draft = parsePipelineReferralDraft(body.value?.draft);
@@ -100,10 +105,12 @@ export async function DELETE(
     if (readinessFailure) return readinessFailure;
     const key = await parseDraftKey(context);
     if (!key) return jsonError("draftKey is invalid.");
+    const accessFailure = await requireDraftReferralAccess(auth.user, key, true);
+    if (accessFailure) return accessFailure;
 
     const body = await readJsonBody<{ if_match?: unknown }>(request);
     if (!body.ok) return jsonError(body.message, body.status);
-    if (!Number.isSafeInteger(body.value?.if_match) || Number(body.value?.if_match) < 0) {
+    if (!isDraftVersion(body.value?.if_match)) {
       return jsonError("if_match must be a non-negative draft version.");
     }
     const result = await deleteVersionedUserWorkspaceState(
@@ -132,6 +139,10 @@ function recordDraftMutation(operation: "save" | "delete", result: string) {
   recordPipelineMetric("pipeline.intake.draft_mutations", 1, "count", { operation, result });
 }
 
+function isDraftVersion(value: unknown) {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
 async function parseDraftKey(context: { params: Promise<{ draftKey: string }> }) {
   const { draftKey } = await context.params;
   return draftKey === "new"
@@ -148,4 +159,18 @@ function requireWorkspaceState() {
     { error: readiness.enabled ? readiness.message : "Not found." },
     { status: readiness.enabled ? 503 : 404, headers: noStoreHeaders },
   );
+}
+
+async function requireDraftReferralAccess(
+  user: Parameters<typeof requireReferralAccess>[0],
+  key: string,
+  mutable: boolean,
+) {
+  if (!/^[1-9]\d{0,15}$/.test(key)) return null;
+  const referralId = Number(key);
+  if (!Number.isSafeInteger(referralId)) return jsonError("draftKey is invalid.");
+  const access = mutable
+    ? await requireMutableReferralAccess(user, referralId)
+    : await requireReferralAccess(user, referralId);
+  return access.ok ? null : access.response;
 }

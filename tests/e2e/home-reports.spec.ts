@@ -5,6 +5,16 @@ const testAssessor = {
   name: "Annette Everhart",
 } as const;
 
+function emptyContinuity() {
+  return {
+    resume_items: [],
+    new_assignments: [],
+    assignment_tracking_started_at: null,
+    needs_assignment_tracking_initialization: false,
+    unavailable: false,
+  };
+}
+
 test.describe("role-scoped home and reports", () => {
   test("presents the operational briefing without dashboard clutter", async ({ page }) => {
     await page.goto("/");
@@ -64,20 +74,8 @@ test.describe("role-scoped home and reports", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
-  test("summarizes referrals assigned since the last visit and opens the existing workspace", async ({ page }) => {
-    await page.route("**/api/operations/activity?**", async (route) => {
-      const url = new URL(route.request().url());
-      expect(url.searchParams.get("scope")).toBe("assigned");
-      expect(url.searchParams.get("limit")).toBe("6");
-      expect(Date.parse(url.searchParams.get("since") ?? "")).not.toBeNaN();
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          generated_at: "2026-09-04T16:00:00.000Z",
-          scope: "assigned",
-          can_view_team: true,
-          items: [{
+  test("keeps new assignments visible until the user explicitly acknowledges them", async ({ page }) => {
+    const assignment = {
             event_id: "home-activity-1",
             action: "referral_assigned",
             actor_id: "coordinator-1",
@@ -94,9 +92,25 @@ test.describe("role-scoped home and reports", () => {
               workspace_status: "active",
             },
             attention: null,
-          }],
-        }),
-      });
+    };
+    await page.route("**/api/operations/home", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.continuity = {
+        resume_items: [],
+        new_assignments: [assignment],
+        assignment_tracking_started_at: "2026-09-04T12:00:00.000Z",
+        needs_assignment_tracking_initialization: false,
+        unavailable: false,
+      };
+      await route.fulfill({ response, json: payload });
+    });
+    let acknowledgment: unknown = null;
+    await page.route("**/api/me/work-continuity", async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      if (body.acknowledgeAssignmentIds) acknowledgment = body;
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ state: { schema: 1, acknowledgedAssignmentIds: [assignment.event_id] } }) });
     });
 
     await page.goto("/");
@@ -104,10 +118,11 @@ test.describe("role-scoped home and reports", () => {
     await expect(summary).toContainText("Home Activity Client");
     await expect(summary).toContainText("New assignments");
     await expect(summary.getByRole("button", { name: /Home Activity Client/ })).toContainText("Assigned");
-    await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("pipeline:last-activity-visit:")))).toBe(true);
+    expect(await page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("pipeline:last-activity-visit:")))).toBe(false);
 
     await summary.getByRole("button", { name: /Home Activity Client/ }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).toBe("424243");
+    await expect.poll(() => acknowledgment).toEqual({ acknowledgeAssignmentIds: [assignment.event_id] });
   });
 
   test("returns only current personal assignments from the assignment feed", async ({ page }) => {
@@ -198,6 +213,7 @@ test.describe("role-scoped home and reports", () => {
           upcoming: [],
           unscheduled: [],
           unscheduled_total: 0,
+          continuity: emptyContinuity(),
           unavailable_sections: [],
         }),
       });
@@ -207,7 +223,7 @@ test.describe("role-scoped home and reports", () => {
 
     await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening)/ })).toHaveCount(0);
     await expect(page.getByText("Your work", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Current work" })).toContainText("0 active referrals");
+    await expect(page.getByRole("region", { name: "Current work" })).toContainText("No assigned referrals require action");
     await expect(page.getByRole("dialog", { name: "Current work" })).toHaveCount(0);
     await page.getByRole("button", { name: "Open current work" }).click();
     await expect(page).toHaveURL(/work=current/);
@@ -240,6 +256,7 @@ test.describe("role-scoped home and reports", () => {
         age_hours: 2,
         completion_pct: 40,
         missing_document_count: 0,
+        location: { view: "assessment" },
       };
       await route.fulfill({
         status: 200,
@@ -268,6 +285,7 @@ test.describe("role-scoped home and reports", () => {
           upcoming: [],
           unscheduled: [],
           unscheduled_total: 0,
+          continuity: emptyContinuity(),
           unavailable_sections: [],
         }),
       });

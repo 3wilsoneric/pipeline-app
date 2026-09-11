@@ -424,6 +424,7 @@ function checkWorkflowGuardrails() {
   const workflow = readText("lib/pipeline/referral-workflow.ts");
   const pipelineSearch = readText("components/pipeline/PipelineSearchPanel.tsx");
   const pipelineWelcome = readText("components/pipeline/PipelineWelcome.tsx");
+  const operationsSnapshot = readText("lib/pipeline/operations-snapshot.ts");
 
   for (const expected of [
     "getReferralWorkflowBlockers",
@@ -448,7 +449,7 @@ function checkWorkflowGuardrails() {
     pipelineSearch.includes("formatClientIdentityTitle") &&
       pipelineSearch.includes("formatClientIdentityDetail") &&
       pipelineWelcome.includes("formatClientIdentityTitle") &&
-      pipelineWelcome.includes("activeReferralFlowStates"),
+      operationsSnapshot.includes("activeReferralFlowStates"),
     "Workspace search and Home should use shared client-identity and active-workflow guardrails",
   );
   assert(

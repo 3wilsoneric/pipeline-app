@@ -18,6 +18,7 @@ const personalStateWrites = new Set([
   "app/api/me/recents/route.ts#POST",
   "app/api/me/recents/route.ts#DELETE",
   "app/api/me/home-layout/route.ts#PUT",
+  "app/api/me/work-continuity/route.ts#PATCH",
   "app/api/training/progress/route.ts#PUT",
 ]);
 const ownerScopedMethods = new Set([

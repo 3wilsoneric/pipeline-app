@@ -3,6 +3,7 @@ import type { PipelineCommunity } from "@/lib/pipeline/community-config";
 import type { ReferralWorkflowStatus, RequirementStatus, RequirementType } from "@/lib/pipeline/referral-types";
 import type { AssessmentCompletionReport } from "@/lib/assessment/assessment-records";
 import type { ActiveReferralFlowState } from "@/lib/pipeline/referral-flow";
+import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type {
   WorkspaceAssessmentState,
   WorkspaceAssignmentState,
@@ -101,6 +102,7 @@ export type ReferralWorklistItem = {
   age_hours: number;
   completion_pct: number;
   missing_document_count: number;
+  location: PipelineWorkspaceLocation;
 };
 
 export type ReferralWorklistSnapshot = {
@@ -135,6 +137,7 @@ export type MyQueueItem = {
   next_action: string;
   urgency: MyQueueUrgency;
   due_at: string | null;
+  location: PipelineWorkspaceLocation;
 };
 
 export type MyQueueSnapshot = {

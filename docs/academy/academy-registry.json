@@ -2,9 +2,9 @@
   "schemaVersion": 2,
   "curriculumVersion": "2026.08.enterprise.1",
   "reviewedAt": "2026-09-11",
-  "reviewedCommit": "d5eca2371a6771013d26341d23d95770f6aaee05",
-  "sourceFingerprint": "338887fa4a380390c59e9ad2d1df07402c33d934a51fc438bcefdb25e9780154",
-  "atlasFingerprint": "9754f635b4af3af36db07208d0fd74b60f971a79195399fe723379433f28ff7d",
+  "reviewedCommit": "fe1f53bd32a3f5df944195ec9c4494b370c7243e",
+  "sourceFingerprint": "fc3df244bc6e98cb433d3aaf8ab4281cb07ad2856a7f8c8f2b2d52104dcc3741",
+  "atlasFingerprint": "9d0aae23fe8e21a69b45ac3eef3586cd011ad0f0de89792fd0660a8cb269bab9",
   "minimums": {
     "tracks": 10,
     "modules": 36,

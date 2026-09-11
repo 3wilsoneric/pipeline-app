@@ -38,6 +38,7 @@ const workspaceRosterRollback = await readFile("database/rollbacks/0028_workspac
 const historicalWorkspaceArchiveRollback = await readFile("database/rollbacks/0029_historical_workspace_archive.sql", "utf8");
 const assessmentReviewRevisionRollback = await readFile("database/rollbacks/0031_assessment_review_revisions.sql", "utf8");
 const extractionEvidenceBoundingBoxesRollback = await readFile("database/rollbacks/0032_extraction_evidence_bounding_boxes.sql", "utf8");
+const workflowContinuityRollback = await readFile("database/rollbacks/0033_workflow_continuity.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -125,6 +126,13 @@ try {
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referral_fields' and column_name='evidence_bbox') as referral_field_evidence_bbox,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='extraction_candidates' and column_name='evidence_bbox') as candidate_evidence_bbox,
       exists(select 1 from pipeline.schema_migrations where migration_id='0032_extraction_evidence_bounding_boxes') as extraction_evidence_bbox_history,
+      exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'user_workspace_state_state_kind_check'
+          and check_clause like '%workflow_continuity%'
+      ) as workflow_continuity_kind,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0033_workflow_continuity') as workflow_continuity_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -193,6 +201,8 @@ try {
       && before[0].referral_field_evidence_bbox
       && before[0].candidate_evidence_bbox
       && before[0].extraction_evidence_bbox_history
+      && before[0].workflow_continuity_kind
+      && before[0].workflow_continuity_history
       && before[0].canvas_content_snapshots
       && before[0].canvas_content_candidates
       && before[0].allo_canvas_content_history
@@ -206,6 +216,38 @@ try {
       && before[0].workspace_month_index
       && before[0].workspace_month_history
     ),
+  });
+  await connection`
+    insert into pipeline.user_workspace_state (
+      principal_id, state_kind, state_key, payload, expires_at
+    ) values (
+      'rollback-continuity-fixture', 'workflow_continuity', 'default',
+      ${connection.json({ schema: 1, acknowledgedAssignmentIds: [] })},
+      now() + interval '1 day'
+    )
+  `;
+  await connection.unsafe(workflowContinuityRollback);
+  const continuityDuring = await connection`
+    select not exists(
+        select 1 from information_schema.check_constraints
+        where constraint_schema = 'pipeline'
+          and constraint_name = 'user_workspace_state_state_kind_check'
+          and check_clause like '%workflow_continuity%'
+      ) as state_kind_removed,
+      not exists(
+        select 1 from pipeline.user_workspace_state
+        where principal_id = 'rollback-continuity-fixture' and state_kind = 'workflow_continuity'
+      ) as state_removed,
+      not exists(
+        select 1 from pipeline.schema_migrations where migration_id='0033_workflow_continuity'
+      ) as history_removed,
+      exists(
+        select 1 from pipeline.schema_migrations where migration_id='0032_extraction_evidence_bounding_boxes'
+      ) as prior_history_preserved
+  `;
+  checks.push({
+    name: "workflow continuity rollback removes only its state and preserves prior migration history",
+    ok: Object.values(continuityDuring[0]).every(Boolean),
   });
   await connection.unsafe(extractionEvidenceBoundingBoxesRollback);
   const extractionEvidenceDuring = await connection`

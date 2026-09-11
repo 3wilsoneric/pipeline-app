@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 
 import ReferralWorkflowTracker from "@/components/pipeline/ReferralWorkflowTracker";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
+import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type { Referral } from "@/lib/pipeline/referral-types";
 
 const VIEW_STATE_KEY = "pipeline.current-work-view.v1";
@@ -17,8 +18,9 @@ export default function CurrentWorkOverlay({
 }: {
   briefing: HomeBriefingSnapshot;
   onClose: () => void;
-  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
+  onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
 }) {
+  const title = briefing.scope === "team" ? "Team work" : "Assigned work";
   const portalReady = useSyncExternalStore(subscribeToBrowser, browserSnapshot, serverSnapshot);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -87,12 +89,12 @@ export default function CurrentWorkOverlay({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="current-work-title"
+        aria-label="Current work"
         className="mx-auto flex h-full w-full max-w-[1680px] flex-col overflow-hidden bg-white shadow-[0_18px_54px_rgba(17,17,17,0.18)] sm:border sm:border-[#cfd6d2]"
       >
         <header className="flex h-[64px] shrink-0 items-center justify-between gap-4 border-b border-[#dfe4e1] px-4 sm:h-[70px] sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-baseline gap-3">
-            <h1 id="current-work-title" className="truncate text-[20px] font-black text-[#111111] sm:text-[23px]">Current work</h1>
+            <h1 id="current-work-title" className="truncate text-[20px] font-black text-[#111111] sm:text-[23px]">{title}</h1>
             <span className="shrink-0 text-[12px] font-bold tabular-nums text-[#68706b]">
               {briefing.workflow.active_total.toLocaleString()} active
             </span>

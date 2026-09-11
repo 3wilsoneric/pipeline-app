@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 
 test.describe("Pipeline Demo Environment", () => {
-  test("creates and opens a real synthetic assessment rehearsal", async ({ page }) => {
+  test("opens a real synthetic assessment rehearsal", async ({ page }) => {
     const errors = watchBrowserErrors(page);
     const response = await page.goto("/training/demo");
     expect(response?.status()).toBe(200);
@@ -13,7 +13,11 @@ test.describe("Pipeline Demo Environment", () => {
     const scenario = page.getByRole("article").filter({
       has: page.getByRole("heading", { name: "Assessment interview" }),
     });
-    await scenario.getByRole("button", { name: /^(Start|New attempt)$/ }).click();
+    const newAttempt = scenario.getByRole("button", { name: /^(Start|New attempt)$/ });
+    await expect(newAttempt).toBeEnabled();
+    const existingAttempt = scenario.getByRole("button", { name: "Open latest" });
+    if (await existingAttempt.isVisible()) await existingAttempt.click();
+    else await newAttempt.click();
 
     await expect(page).toHaveURL(/screen=packet.*workspaceStage=assessment/);
     await expect(page.locator('[data-pipeline-demo-banner="true"]')).toBeVisible();
@@ -295,7 +299,9 @@ async function expectDemoSurfaceToFillBody(surface: Locator, center: Locator) {
 function watchBrowserErrors(page: import("@playwright/test").Page) {
   const errors: string[] = [];
   page.on("console", (message) => {
-    if (message.type() === "error" && !message.text().includes("/_next/webpack-hmr")) errors.push(message.text());
+    if (message.type() !== "error" || message.text().includes("/_next/webpack-hmr")) return;
+    const sourceUrl = message.location().url;
+    errors.push(sourceUrl ? `${message.text()} (${sourceUrl})` : message.text());
   });
   page.on("pageerror", (error) => errors.push(error.message));
   return errors;

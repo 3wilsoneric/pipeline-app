@@ -274,6 +274,7 @@ function buildMyQueueSnapshot(
         || "Review the referral and record the next step.",
       urgency,
       due_at: requirement?.due_at ?? referralWork.assignment_due_at,
+      location: queueWorkspaceLocation(referralWork, requirement),
     };
     return [{ item, ageHours: referralWork.age_hours }];
   }).sort((left, right) => {
@@ -831,7 +832,34 @@ function toReferralWorklistItem(
     missing_document_count: missingDocuments.length + Number(
       !hasInitialDocument(referral) && !hasManualIntakeAuthorization(referral),
     ),
+    location: worklistWorkspaceLocation(primaryCategory, referral),
   };
+}
+
+function queueWorkspaceLocation(
+  work: OperationsWorkItem,
+  requirement?: OperationsRequirementItem,
+): MyQueueItem["location"] {
+  if (requirement && isDocumentRequirementType(requirement.type)) return { view: "files" };
+  if (["scheduled", "assessment"].includes(work.flow_state)) return { view: "assessment" };
+  if (["ready_to_sign", "signed"].includes(work.assessment_state) || work.outcome_state === "pending" && work.flow_state === "complete_chart") {
+    return { view: "workflow" };
+  }
+  if (work.flow_state === "complete_chart") return { view: "chart" };
+  if (work.assignment_state === "unassigned") return { view: "workflow" };
+  return { view: "intake" };
+}
+
+function worklistWorkspaceLocation(
+  category: ReferralWorklistItem["primary_category"],
+  referral: Referral,
+): ReferralWorklistItem["location"] {
+  if (referral.packetStatus === "failed" || referral.packetFields?.some((field) => field.is_conflict)) return { view: "intake" };
+  if (category === "missing_documents") return { view: "files" };
+  if (category === "assessment_due") return { view: "assessment" };
+  if (category === "decision_needed" || category === "unassigned") return { view: "workflow" };
+  if (category === "follow_up") return { view: "chart" };
+  return { view: "intake" };
 }
 
 function compareReferralWorklistItems(left: ReferralWorklistItem, right: ReferralWorklistItem) {

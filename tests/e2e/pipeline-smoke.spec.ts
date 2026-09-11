@@ -2002,6 +2002,11 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByText("Save the referral before starting the assessment", { exact: true })).toBeVisible();
 
     await expect(page.getByRole("button", { name: "03 Decision" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Pipeline home" }).click();
+    await page.getByRole("button", { name: "Create new referral" }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("workspaceStage")).toBeNull();
+    await expect.poll(() => new URL(page.url()).searchParams.get("workspaceView")).toBeNull();
+    await expect(page.getByRole("button", { name: "01 Intake" })).toHaveAttribute("aria-current", "page");
   });
 
   test("schedules, completes, signs, and recalls an assessment", async ({ page }) => {
