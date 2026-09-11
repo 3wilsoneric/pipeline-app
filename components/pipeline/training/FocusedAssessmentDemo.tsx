@@ -31,6 +31,40 @@ function buildMedicationDemoAssessment(): PipelineAssessmentRecord {
   };
 }
 
+function canContinueMedicationStep(stepIndex: number, answers: PipelineAssessmentRecord, medicationText: string) {
+  switch (stepIndex) {
+    case 0:
+      return canContinueMedicationAdherence(answers);
+    case 1:
+      return Boolean(medicationText.trim() && answers.lai_vs_oral);
+    case 2:
+      return canContinueInjectionSupport(answers);
+    default:
+      return true;
+  }
+}
+
+function canContinueMedicationAdherence(answers: PipelineAssessmentRecord) {
+  if (answers.medication_adherence === "no") {
+    return Boolean(
+      answers.last_medication_refusal_date
+      && answers.medication_refused?.trim()
+      && answers.medication_refusals_30_days !== null,
+    );
+  }
+  if (answers.medication_adherence === "unable_to_assess") {
+    return Boolean(getAssessmentUnableReason(answers, "medication_adherence").trim());
+  }
+  return answers.medication_adherence === "yes";
+}
+
+function canContinueInjectionSupport(answers: PipelineAssessmentRecord) {
+  if (answers.im_injections === "unable_to_assess") {
+    return Boolean(getAssessmentUnableReason(answers, "im_injections").trim());
+  }
+  return answers.im_injections === "yes" || answers.im_injections === "no";
+}
+
 export default function FocusedAssessmentDemo() {
   const [answers, setAnswers] = useState(buildMedicationDemoAssessment);
   const [medicationText, setMedicationText] = useState(() => answers.medications_at_intake.join("\n"));
@@ -64,29 +98,7 @@ export default function FocusedAssessmentDemo() {
     }));
   };
 
-  const canContinue = (() => {
-    if (stepIndex === 0) {
-      if (answers.medication_adherence === "no") {
-        return Boolean(
-          answers.last_medication_refusal_date
-          && answers.medication_refused?.trim()
-          && answers.medication_refusals_30_days !== null,
-        );
-      }
-      if (answers.medication_adherence === "unable_to_assess") {
-        return Boolean(getAssessmentUnableReason(answers, "medication_adherence").trim());
-      }
-      return answers.medication_adherence === "yes";
-    }
-    if (stepIndex === 1) return Boolean(medicationText.trim() && answers.lai_vs_oral);
-    if (stepIndex === 2) {
-      if (answers.im_injections === "unable_to_assess") {
-        return Boolean(getAssessmentUnableReason(answers, "im_injections").trim());
-      }
-      return answers.im_injections === "yes" || answers.im_injections === "no";
-    }
-    return true;
-  })();
+  const canContinue = canContinueMedicationStep(stepIndex, answers, medicationText);
 
   const continueSection = () => {
     if (!canContinue) return;

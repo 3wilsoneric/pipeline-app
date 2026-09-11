@@ -158,6 +158,96 @@ const assessmentSectionGuideTargets: Readonly<Record<AssessmentToolSection, stri
 
 const assessmentSectionGuideTargetList = Object.values(assessmentSectionGuideTargets).join(" ");
 
+type AssessmentEscapeContext = {
+  assessmentView: "guided" | "chart";
+  showBeginDialog: boolean;
+  showScheduleDialog: boolean;
+  setAssessmentView: (view: "guided" | "chart") => void;
+  setShowBeginDialog: (show: boolean) => void;
+  setShowScheduleDialog: (show: boolean) => void;
+  setIsFocused: (focused: boolean) => void;
+};
+
+type AssessmentFocusState = {
+  section?: AssessmentToolSection;
+  view: "guided" | "chart";
+  showScheduleDialog: boolean;
+  showBeginDialog: boolean;
+};
+
+type AssessmentAutoFocusState = AssessmentFocusState & { assessmentId: string };
+
+type AssessmentAutoFocusSetters = {
+  setActiveSection: (section: AssessmentToolSection) => void;
+  setAssessmentView: (view: "guided" | "chart") => void;
+  setIsFocused: (focused: boolean) => void;
+  setShowScheduleDialog: (show: boolean) => void;
+  setShowBeginDialog: (show: boolean) => void;
+};
+
+function handleAssessmentEscape(event: KeyboardEvent, context: AssessmentEscapeContext) {
+  if (event.key !== "Escape") return;
+  if (context.showBeginDialog) context.setShowBeginDialog(false);
+  if (context.showScheduleDialog) context.setShowScheduleDialog(false);
+  if (context.assessmentView === "guided" && !context.showBeginDialog && !context.showScheduleDialog) {
+    context.setAssessmentView("chart");
+    return;
+  }
+  context.setIsFocused(false);
+}
+
+function resolveAssessmentAutoFocus(
+  assessment: PipelineAssessmentRecord | null,
+  focusedAssessmentId: string,
+  nextRequiredSection: AssessmentToolSection | undefined,
+  initialSection: AssessmentToolSection | undefined,
+  trainingAssessmentMode: TrainingAssessmentMode | undefined,
+): AssessmentAutoFocusState | null {
+  if (!assessment?.assessment_id || focusedAssessmentId === assessment.assessment_id) return null;
+  return {
+    assessmentId: assessment.assessment_id,
+    ...resolveAssessmentFocusState(assessment, nextRequiredSection, initialSection, trainingAssessmentMode),
+  };
+}
+
+function resolveAssessmentFocusState(
+  assessment: PipelineAssessmentRecord | null,
+  nextRequiredSection: AssessmentToolSection | undefined,
+  initialSection: AssessmentToolSection | undefined,
+  trainingAssessmentMode: TrainingAssessmentMode | undefined,
+): AssessmentFocusState {
+  return {
+    section: autoFocusSection(assessment, nextRequiredSection, initialSection),
+    view: assessmentInterviewView(assessment, trainingAssessmentMode),
+    showScheduleDialog: assessmentNeedsSchedule(assessment),
+    showBeginDialog: assessmentReadyToBegin(assessment),
+  };
+}
+
+function autoFocusSection(assessment: PipelineAssessmentRecord | null, nextRequiredSection: AssessmentToolSection | undefined, initialSection: AssessmentToolSection | undefined) {
+  return assessment?.started_at && nextRequiredSection && !initialSection ? nextRequiredSection : undefined;
+}
+
+function assessmentInterviewView(assessment: PipelineAssessmentRecord | null, trainingAssessmentMode: TrainingAssessmentMode | undefined) {
+  return assessment?.started_at && !assessment.signed_at && !trainingAssessmentMode ? "guided" : "chart";
+}
+
+function assessmentNeedsSchedule(assessment: PipelineAssessmentRecord | null) {
+  return Boolean(assessment && !assessment.scheduled_start_at && !assessment.started_at && !assessment.signed_at);
+}
+
+function assessmentReadyToBegin(assessment: PipelineAssessmentRecord | null) {
+  return Boolean(assessment?.scheduled_start_at && !assessment.started_at && !assessment.signed_at);
+}
+
+function applyAssessmentFocus(state: AssessmentFocusState, setters: AssessmentAutoFocusSetters) {
+  if (state.section) setters.setActiveSection(state.section);
+  setters.setAssessmentView(state.view);
+  setters.setIsFocused(true);
+  setters.setShowScheduleDialog(state.showScheduleDialog);
+  setters.setShowBeginDialog(state.showBeginDialog);
+}
+
 export default function AssessmentWorkspace({
   referralId,
   trainingAssessmentMode,
@@ -236,11 +326,10 @@ export default function AssessmentWorkspace({
   );
 
   const openFocusedAssessment = () => {
-    if (selected?.started_at && nextRequiredTarget) setActiveSection(nextRequiredTarget.section);
-    setAssessmentView(selected?.started_at && !selected.signed_at && !trainingAssessmentMode ? "guided" : "chart");
-    setIsFocused(true);
-    setShowScheduleDialog(Boolean(selected && !selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
-    setShowBeginDialog(Boolean(selected?.scheduled_start_at && !selected.started_at && !selected.signed_at));
+    applyAssessmentFocus(
+      resolveAssessmentFocusState(selected, nextRequiredTarget?.section, undefined, trainingAssessmentMode),
+      { setActiveSection, setAssessmentView, setIsFocused, setShowScheduleDialog, setShowBeginDialog },
+    );
   };
 
   const continueToWorkflow = () => {
@@ -546,30 +635,36 @@ export default function AssessmentWorkspace({
   }, [dirty, packetEvidenceVersion, referralId, selected, upsertAssessment]);
 
   useEffect(() => {
-    if (!selected?.assessment_id || focusedAssessmentIdRef.current === selected.assessment_id) return;
-    focusedAssessmentIdRef.current = selected.assessment_id;
-    if (selected.started_at && nextRequiredTarget && !initialSection) {
-      setActiveSection(nextRequiredTarget.section);
-    }
-    setAssessmentView(selected.started_at && !selected.signed_at && !trainingAssessmentMode ? "guided" : "chart");
-    setIsFocused(true);
-    setShowScheduleDialog(!selected.scheduled_start_at && !selected.started_at && !selected.signed_at);
-    setShowBeginDialog(Boolean(selected.scheduled_start_at && !selected.started_at && !selected.signed_at));
-  }, [initialSection, nextRequiredTarget, selected?.assessment_id, selected?.scheduled_start_at, selected?.signed_at, selected?.started_at, trainingAssessmentMode]);
+    const focus = resolveAssessmentAutoFocus(
+      selected,
+      focusedAssessmentIdRef.current,
+      nextRequiredTarget?.section,
+      initialSection,
+      trainingAssessmentMode,
+    );
+    if (!focus) return;
+    focusedAssessmentIdRef.current = focus.assessmentId;
+    applyAssessmentFocus(focus, {
+      setActiveSection,
+      setAssessmentView,
+      setIsFocused,
+      setShowScheduleDialog,
+      setShowBeginDialog,
+    });
+  }, [initialSection, nextRequiredTarget, selected, trainingAssessmentMode]);
 
   useEffect(() => {
     if (!isFocused) return;
     const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      if (showBeginDialog) setShowBeginDialog(false);
-      if (showScheduleDialog) setShowScheduleDialog(false);
-      if (assessmentView === "guided" && !showBeginDialog && !showScheduleDialog) {
-        setAssessmentView("chart");
-        return;
-      }
-      setIsFocused(false);
-    };
+    const closeOnEscape = (event: KeyboardEvent) => handleAssessmentEscape(event, {
+      assessmentView,
+      showBeginDialog,
+      showScheduleDialog,
+      setAssessmentView,
+      setShowBeginDialog,
+      setShowScheduleDialog,
+      setIsFocused,
+    });
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
     return () => {

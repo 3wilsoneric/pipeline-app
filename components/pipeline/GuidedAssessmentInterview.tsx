@@ -140,12 +140,7 @@ export default function GuidedAssessmentInterview({
         <div className="h-full bg-[#0f8b73] transition-[width] duration-200" style={{ width: `${coverage.percent}%` }} />
       </div>
 
-      {error || hasConflicts ? (
-        <div className={`flex shrink-0 items-center justify-between gap-4 px-4 py-2.5 text-[11px] font-semibold sm:px-6 lg:px-9 ${error ? "bg-[#fff1ee] text-[#9d382b]" : "bg-[#fff8e8] text-[#795016]"}`}>
-          <span>{error || "Another editor changed answers you were working on."}</span>
-          <button type="button" onClick={onExitToChart} className="shrink-0 font-black underline underline-offset-2">Review changes</button>
-        </div>
-      ) : null}
+      <GuidedAssessmentStatusBanner error={error} hasConflicts={hasConflicts} onExitToChart={onExitToChart} />
 
       <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:py-10">
         <div className="mx-auto w-full max-w-[650px] pb-5">
@@ -153,63 +148,116 @@ export default function GuidedAssessmentInterview({
             {section.label} <span className="text-[#a1a7a3]">·</span> {boundedIndex + 1} of {visibleScreens.length}
           </div>
           <h1 className="mt-2 max-w-[620px] text-[24px] font-black leading-[1.18] sm:text-[28px]">{title}</h1>
-          {visibleQuestions.length > 1 ? (
-            <p className="mt-2 max-w-[580px] text-[12px] leading-5 text-[#6c746f]">{section.description}</p>
-          ) : visibleQuestions[0]?.help ? (
-            <p className="mt-2 max-w-[580px] text-[12px] leading-5 text-[#6c746f]">{visibleQuestions[0].help}</p>
-          ) : null}
-
-          <div className={`mt-6 grid gap-5 ${visibleQuestions.length > 1 ? "sm:grid-cols-2" : ""}`}>
-            {visibleQuestions.map((question) => {
-              const definition = definitionByField.get(question.field);
-              if (!definition) return null;
-              const pendingProvenance = latestPendingProvenance(assessment, question.field);
-              return (
-                <GuidedAssessmentField
-                  key={question.field}
-                  question={question}
-                  definition={definition}
-                  value={data[question.field]}
-                  unableReason={getAssessmentUnableReason(data, question.field)}
-                  required={requiredFields.has(question.field)}
-                  primary={primaryQuestion}
-                  disabled={disabled || extractionOwnedFields.has(question.field)}
-                  reviewDisabled={reviewDisabled}
-                  pendingProvenance={pendingProvenance}
-                  onChange={(value) => onChange(question.field, value)}
-                  onReview={(action) => onReview(question.field, action)}
-                  onUnableReasonChange={(reason) => onChange(
-                    "unable_to_assess_reasons",
-                    setAssessmentUnableReason(data.unable_to_assess_reasons, question.field, reason),
-                  )}
-                />
-              );
-            })}
-          </div>
+          <GuidedAssessmentSupportingCopy sectionDescription={section.description} questions={visibleQuestions} />
+          <GuidedAssessmentFields
+            assessment={assessment}
+            data={data}
+            questions={visibleQuestions}
+            requiredFields={requiredFields}
+            primaryQuestion={primaryQuestion}
+            disabled={disabled}
+            reviewDisabled={reviewDisabled}
+            onChange={onChange}
+            onReview={onReview}
+          />
         </div>
       </main>
 
-      <footer className="flex min-h-[68px] shrink-0 items-center justify-between gap-3 border-t border-[#e0e4e1] bg-white px-4 py-3 sm:min-h-[76px] sm:px-7 lg:px-10">
-        <button
-          type="button"
-          onClick={() => setScreenIndex(Math.max(0, boundedIndex - 1))}
-          disabled={boundedIndex === 0}
-          className="flex h-11 min-w-[106px] items-center justify-center gap-2 border border-[#cfd5d1] px-4 text-[12px] font-black text-[#4a514d] transition-colors hover:border-[#0f8b73] hover:text-[#0f7664] disabled:invisible"
-        >
-          <ChevronLeft size={16} /> Back
-        </button>
-        <div className="hidden text-center text-[10px] font-semibold text-[#7c837f] sm:block">
-          {answeredHere} of {visibleQuestions.length} answered here <span aria-hidden="true">·</span> {coverage.captured} of {coverage.total} overall
-        </div>
-        <button
-          type="button"
-          onClick={() => isLastScreen ? onDone() : setScreenIndex(Math.min(visibleScreens.length - 1, boundedIndex + 1))}
-          className="flex h-11 min-w-[112px] items-center justify-center gap-2 bg-[#111311] px-5 text-[12px] font-black text-white transition-colors hover:bg-[#0f7664]"
-        >
-          {isLastScreen ? "Done" : "Next"} {isLastScreen ? <Check size={16} /> : <ChevronRight size={16} />}
-        </button>
-      </footer>
+      <GuidedAssessmentFooter
+        screenIndex={boundedIndex}
+        screenCount={visibleScreens.length}
+        answeredHere={answeredHere}
+        questionCount={visibleQuestions.length}
+        captured={coverage.captured}
+        total={coverage.total}
+        isLastScreen={isLastScreen}
+        setScreenIndex={setScreenIndex}
+        onDone={onDone}
+      />
     </section>
+  );
+}
+
+function GuidedAssessmentStatusBanner({ error, hasConflicts, onExitToChart }: Pick<GuidedAssessmentInterviewProps, "error" | "hasConflicts" | "onExitToChart">) {
+  if (!error && !hasConflicts) return null;
+  return (
+    <div className={`flex shrink-0 items-center justify-between gap-4 px-4 py-2.5 text-[11px] font-semibold sm:px-6 lg:px-9 ${error ? "bg-[#fff1ee] text-[#9d382b]" : "bg-[#fff8e8] text-[#795016]"}`}>
+      <span>{error || "Another editor changed answers you were working on."}</span>
+      <button type="button" onClick={onExitToChart} className="shrink-0 font-black underline underline-offset-2">Review changes</button>
+    </div>
+  );
+}
+
+function GuidedAssessmentSupportingCopy({ sectionDescription, questions }: { sectionDescription: string; questions: readonly AssessmentInterviewQuestion[] }) {
+  const copy = questions.length > 1 ? sectionDescription : questions[0]?.help;
+  return copy ? <p className="mt-2 max-w-[580px] text-[12px] leading-5 text-[#6c746f]">{copy}</p> : null;
+}
+
+function GuidedAssessmentFields({ assessment, data, questions, requiredFields, primaryQuestion, disabled, reviewDisabled, onChange, onReview }: {
+  assessment: PipelineAssessmentRecord;
+  data: AssessmentToolData;
+  questions: readonly AssessmentInterviewQuestion[];
+  requiredFields: ReadonlySet<AssessmentToolFieldKey>;
+  primaryQuestion: boolean;
+  disabled: boolean;
+  reviewDisabled: boolean;
+  onChange: GuidedAssessmentInterviewProps["onChange"];
+  onReview: GuidedAssessmentInterviewProps["onReview"];
+}) {
+  return (
+    <div className={`mt-6 grid gap-5 ${questions.length > 1 ? "sm:grid-cols-2" : ""}`}>
+      {questions.map((question) => {
+        const definition = definitionByField.get(question.field);
+        if (!definition) return null;
+        return (
+          <GuidedAssessmentField
+            key={question.field}
+            question={question}
+            definition={definition}
+            value={data[question.field]}
+            unableReason={getAssessmentUnableReason(data, question.field)}
+            required={requiredFields.has(question.field)}
+            primary={primaryQuestion}
+            disabled={disabled || extractionOwnedFields.has(question.field)}
+            reviewDisabled={reviewDisabled}
+            pendingProvenance={latestPendingProvenance(assessment, question.field)}
+            onChange={(value) => onChange(question.field, value)}
+            onReview={(action) => onReview(question.field, action)}
+            onUnableReasonChange={(reason) => onChange(
+              "unable_to_assess_reasons",
+              setAssessmentUnableReason(data.unable_to_assess_reasons, question.field, reason),
+            )}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function GuidedAssessmentFooter({ screenIndex, screenCount, answeredHere, questionCount, captured, total, isLastScreen, setScreenIndex, onDone }: {
+  screenIndex: number;
+  screenCount: number;
+  answeredHere: number;
+  questionCount: number;
+  captured: number;
+  total: number;
+  isLastScreen: boolean;
+  setScreenIndex: (index: number) => void;
+  onDone: () => void;
+}) {
+  const advance = () => isLastScreen ? onDone() : setScreenIndex(Math.min(screenCount - 1, screenIndex + 1));
+  return (
+    <footer className="flex min-h-[68px] shrink-0 items-center justify-between gap-3 border-t border-[#e0e4e1] bg-white px-4 py-3 sm:min-h-[76px] sm:px-7 lg:px-10">
+      <button type="button" onClick={() => setScreenIndex(Math.max(0, screenIndex - 1))} disabled={screenIndex === 0} className="flex h-11 min-w-[106px] items-center justify-center gap-2 border border-[#cfd5d1] px-4 text-[12px] font-black text-[#4a514d] transition-colors hover:border-[#0f8b73] hover:text-[#0f7664] disabled:invisible">
+        <ChevronLeft size={16} /> Back
+      </button>
+      <div className="hidden text-center text-[10px] font-semibold text-[#7c837f] sm:block">
+        {answeredHere} of {questionCount} answered here <span aria-hidden="true">·</span> {captured} of {total} overall
+      </div>
+      <button type="button" onClick={advance} className="flex h-11 min-w-[112px] items-center justify-center gap-2 bg-[#111311] px-5 text-[12px] font-black text-white transition-colors hover:bg-[#0f7664]">
+        {isLastScreen ? "Done" : "Next"} {isLastScreen ? <Check size={16} /> : <ChevronRight size={16} />}
+      </button>
+    </footer>
   );
 }
 
@@ -241,32 +289,11 @@ function GuidedAssessmentField({
   onUnableReasonChange: (reason: string) => void;
 }) {
   const id = `guided-assessment-${definition.key}`;
-  const fullWidth = question.span === "full" || primary || question.control === "multi_select";
-  const answered = hasAssessmentInterviewValue(value);
 
   return (
-    <div className={fullWidth ? "sm:col-span-2" : ""} data-assessment-field={definition.key}>
-      {!primary ? (
-        <div className="mb-2 flex items-start justify-between gap-3">
-          <label htmlFor={id} className="text-[12px] font-black leading-5 text-[#303531]">{questionPrompt(question)}</label>
-          <span className={`shrink-0 text-[9px] font-bold uppercase tracking-[0.06em] ${answered ? "text-[#0f7664]" : required ? "text-[#97621b]" : "text-[#a0a5a2]"}`}>
-            {answered ? "Answered" : required ? "Required" : "Optional"}
-          </span>
-        </div>
-      ) : <label htmlFor={id} className="sr-only">{definition.label}</label>}
-
-      {pendingProvenance ? (
-        <div className="mb-3 border-l-2 border-[#c98b31] bg-[#fff9ec] px-3 py-2.5 text-[10px] leading-4 text-[#74501b]">
-          <div>
-            Suggested from <strong>{pendingProvenance.source_file || "uploaded records"}</strong>
-            {Number.isFinite(pendingProvenance.confidence) ? ` · ${Math.round(pendingProvenance.confidence * 100)}% confidence` : ""}
-          </div>
-          <div className="mt-2 flex gap-2">
-            <button type="button" disabled={reviewDisabled} onClick={() => onReview("accept")} className="h-8 bg-[#0f8b73] px-3 font-black text-white disabled:opacity-45">Use</button>
-            <button type="button" disabled={reviewDisabled} onClick={() => onReview("reject")} className="h-8 border border-[#c9a978] bg-white px-3 font-black disabled:opacity-45">Reject</button>
-          </div>
-        </div>
-      ) : null}
+    <div className={guidedFieldSpanClass(question, primary)} data-assessment-field={definition.key}>
+      <GuidedFieldHeading id={id} question={question} definition={definition} value={value} required={required} primary={primary} />
+      <GuidedProvenanceReview provenance={pendingProvenance} reviewDisabled={reviewDisabled} onReview={onReview} />
 
       <GuidedAssessmentControl
         id={id}
@@ -279,22 +306,64 @@ function GuidedAssessmentField({
         onChange={onChange}
         onUnableReasonChange={onUnableReasonChange}
       />
-      {!primary && question.help ? <p className="mt-1.5 text-[10px] leading-4 text-[#777f7a]">{question.help}</p> : null}
+      <GuidedFieldHelp primary={primary} help={question.help} />
     </div>
   );
 }
 
-function GuidedAssessmentControl({
-  id,
-  question,
-  definition,
-  value,
-  unableReason,
-  prominent,
-  disabled,
-  onChange,
-  onUnableReasonChange,
-}: {
+function GuidedFieldHeading({ id, question, definition, value, required, primary }: {
+  id: string;
+  question: AssessmentInterviewQuestion;
+  definition: AssessmentToolFieldDefinition;
+  value: AssessmentToolData[AssessmentToolFieldKey];
+  required: boolean;
+  primary: boolean;
+}) {
+  if (primary) return <label htmlFor={id} className="sr-only">{definition.label}</label>;
+  const status = guidedFieldStatus(value, required);
+  return (
+    <div className="mb-2 flex items-start justify-between gap-3">
+      <label htmlFor={id} className="text-[12px] font-black leading-5 text-[#303531]">{questionPrompt(question)}</label>
+      <span className={`shrink-0 text-[9px] font-bold uppercase tracking-[0.06em] ${status.className}`}>{status.label}</span>
+    </div>
+  );
+}
+
+function GuidedProvenanceReview({ provenance, reviewDisabled, onReview }: {
+  provenance?: AssessmentFieldProvenance;
+  reviewDisabled: boolean;
+  onReview: (action: "accept" | "reject") => void;
+}) {
+  if (!provenance) return null;
+  return (
+    <div className="mb-3 border-l-2 border-[#c98b31] bg-[#fff9ec] px-3 py-2.5 text-[10px] leading-4 text-[#74501b]">
+      <div>
+        Suggested from <strong>{provenance.source_file || "uploaded records"}</strong>
+        {Number.isFinite(provenance.confidence) ? ` · ${Math.round(provenance.confidence * 100)}% confidence` : ""}
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button type="button" disabled={reviewDisabled} onClick={() => onReview("accept")} className="h-8 bg-[#0f8b73] px-3 font-black text-white disabled:opacity-45">Use</button>
+        <button type="button" disabled={reviewDisabled} onClick={() => onReview("reject")} className="h-8 border border-[#c9a978] bg-white px-3 font-black disabled:opacity-45">Reject</button>
+      </div>
+    </div>
+  );
+}
+
+function GuidedFieldHelp({ primary, help }: { primary: boolean; help?: string }) {
+  return !primary && help ? <p className="mt-1.5 text-[10px] leading-4 text-[#777f7a]">{help}</p> : null;
+}
+
+function guidedFieldSpanClass(question: AssessmentInterviewQuestion, primary: boolean) {
+  return question.span === "full" || primary || question.control === "multi_select" ? "sm:col-span-2" : "";
+}
+
+function guidedFieldStatus(value: AssessmentToolData[AssessmentToolFieldKey], required: boolean) {
+  if (hasAssessmentInterviewValue(value)) return { label: "Answered", className: "text-[#0f7664]" };
+  if (required) return { label: "Required", className: "text-[#97621b]" };
+  return { label: "Optional", className: "text-[#a0a5a2]" };
+}
+
+type GuidedAssessmentControlProps = {
   id: string;
   question: AssessmentInterviewQuestion;
   definition: AssessmentToolFieldDefinition;
@@ -304,90 +373,138 @@ function GuidedAssessmentControl({
   disabled: boolean;
   onChange: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
   onUnableReasonChange: (reason: string) => void;
-}) {
-  if (question.control === "yes_no") {
-    return (
-      <>
-        <OptionButtons
-          id={id}
-          label={definition.label}
-          options={question.options ?? []}
-          value={typeof value === "string" ? value : ""}
-          disabled={disabled}
-          prominent={prominent}
-          onChange={(next) => {
-            if (next !== "unable_to_assess" && value === "unable_to_assess") onUnableReasonChange("");
-            onChange(next);
-          }}
-        />
-        {value === "unable_to_assess" ? (
-          <div className="mt-3 border-l-2 border-[#c98b31] bg-[#fff9ec] px-3 py-3">
-            <label htmlFor={`${id}-reason`} className="text-[11px] font-black text-[#694716]">Why could this not be assessed?</label>
-            <textarea id={`${id}-reason`} value={unableReason} disabled={disabled} rows={3} maxLength={2000} onChange={(event) => onUnableReasonChange(event.target.value)} className="mt-2 w-full resize-y rounded-[6px] border border-[#d4bb90] bg-white px-3 py-2 text-[12px] leading-5 outline-none focus:border-[#9b691f] disabled:bg-[#f1f3f2]" />
-          </div>
-        ) : null}
-      </>
-    );
-  }
+};
 
-  if (question.control === "select") {
-    const options = withCurrentOption(question.options ?? [], value);
-    return <OptionButtons id={id} label={definition.label} options={options} value={typeof value === "string" ? value : ""} disabled={disabled} prominent={prominent} columns={options.length > 5 ? 2 : 1} onChange={(next) => onChange(next)} />;
+function GuidedAssessmentControl(props: GuidedAssessmentControlProps) {
+  switch (props.question.control) {
+    case "yes_no":
+      return <GuidedYesNoControl {...props} />;
+    case "select":
+      return <GuidedSelectControl {...props} />;
+    case "multi_select":
+      return <GuidedMultiSelectControl {...props} />;
+    case "rating":
+      return <GuidedRatingControl {...props} />;
+    case "textarea":
+      return <GuidedTextareaControl {...props} />;
+    default:
+      return <GuidedTextInputControl {...props} />;
   }
+}
 
-  if (question.control === "multi_select") {
-    const selected = Array.isArray(value) ? value : [];
-    const options = withCurrentOptions(question.options ?? [], selected);
-    return (
-      <div id={id} role="group" aria-label={definition.label} className="grid gap-2 sm:grid-cols-2">
-        {options.map((option) => {
-          const active = selected.includes(option.value);
-          return (
-            <label key={option.value} className={`flex min-h-12 items-center gap-3 rounded-[6px] border px-3 py-2.5 text-[12px] font-bold transition-colors ${active ? "border-[#0f8b73] bg-[#eef8f4] text-[#0f6f5e]" : "border-[#d8ddda] bg-white text-[#3f4541] hover:border-[#aab5af]"} ${disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}>
-              <input type="checkbox" checked={active} disabled={disabled} onChange={() => onChange(active ? selected.filter((item) => item !== option.value) : [...selected, option.value])} className="h-4 w-4 accent-[#0f8b73]" />
-              <span>{option.label}</span>
-            </label>
-          );
-        })}
-      </div>
-    );
+function GuidedYesNoControl({ id, question, definition, value, unableReason, prominent, disabled, onChange, onUnableReasonChange }: GuidedAssessmentControlProps) {
+  return (
+    <>
+      <OptionButtons
+        id={id}
+        label={definition.label}
+        options={question.options ?? []}
+        value={stringValue(value)}
+        disabled={disabled}
+        prominent={prominent}
+        onChange={(next) => applyGuidedYesNoChange(next, value, onChange, onUnableReasonChange)}
+      />
+      {value === "unable_to_assess" ? (
+        <div className="mt-3 border-l-2 border-[#c98b31] bg-[#fff9ec] px-3 py-3">
+          <label htmlFor={`${id}-reason`} className="text-[11px] font-black text-[#694716]">Why could this not be assessed?</label>
+          <textarea id={`${id}-reason`} value={unableReason} disabled={disabled} rows={3} maxLength={2000} onChange={(event) => onUnableReasonChange(event.target.value)} className="mt-2 w-full resize-y rounded-[6px] border border-[#d4bb90] bg-white px-3 py-2 text-[12px] leading-5 outline-none focus:border-[#9b691f] disabled:bg-[#f1f3f2]" />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function GuidedSelectControl({ id, question, definition, value, prominent, disabled, onChange }: GuidedAssessmentControlProps) {
+  const options = withCurrentOption(question.options ?? [], value);
+  return <OptionButtons id={id} label={definition.label} options={options} value={stringValue(value)} disabled={disabled} prominent={prominent} columns={options.length > 5 ? 2 : 1} onChange={onChange} />;
+}
+
+function GuidedMultiSelectControl({ id, question, definition, value, disabled, onChange }: GuidedAssessmentControlProps) {
+  const selected = Array.isArray(value) ? value : [];
+  const options = withCurrentOptions(question.options ?? [], selected);
+  return (
+    <div id={id} role="group" aria-label={definition.label} className="grid gap-2 sm:grid-cols-2">
+      {options.map((option) => {
+        const active = selected.includes(option.value);
+        return (
+          <label key={option.value} className={`flex min-h-12 items-center gap-3 rounded-[6px] border px-3 py-2.5 text-[12px] font-bold transition-colors ${active ? "border-[#0f8b73] bg-[#eef8f4] text-[#0f6f5e]" : "border-[#d8ddda] bg-white text-[#3f4541] hover:border-[#aab5af]"} ${disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}>
+            <input type="checkbox" checked={active} disabled={disabled} onChange={() => onChange(toggleSelectedOption(selected, option.value))} className="h-4 w-4 accent-[#0f8b73]" />
+            <span>{option.label}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+function GuidedRatingControl({ id, question, definition, value, disabled, onChange }: GuidedAssessmentControlProps) {
+  const minimum = question.min ?? 1;
+  const maximum = question.max ?? 5;
+  const ratings = Array.from({ length: maximum - minimum + 1 }, (_, index) => minimum + index);
+  return (
+    <div id={id} role="group" aria-label={`${definition.label}, ${minimum} through ${maximum}`} className="grid grid-cols-5 gap-2">
+      {ratings.map((rating) => <button key={rating} type="button" disabled={disabled} aria-pressed={value === rating} onClick={() => onChange(rating)} className={`h-12 rounded-[6px] border text-[13px] font-black ${value === rating ? "border-[#0f8b73] bg-[#eef8f4] text-[#0f6f5e]" : "border-[#d8ddda] bg-white text-[#525a55] hover:border-[#9eaaa4]"} disabled:opacity-55`}>{rating}</button>)}
+    </div>
+  );
+}
+
+function GuidedTextareaControl({ id, question, definition, value, prominent, disabled, onChange }: GuidedAssessmentControlProps) {
+  if (definition.value_type === "string_list") {
+    return <StringListTextarea id={id} value={Array.isArray(value) ? value : []} disabled={disabled} placeholder={question.placeholder ?? "One item per line"} onChange={onChange} />;
   }
+  return <textarea id={id} value={stringValue(value)} disabled={disabled} rows={prominent ? 6 : 4} maxLength={20_000} placeholder={question.placeholder ?? "Enter assessment detail"} onChange={(event) => onChange(event.target.value || null)} className="w-full resize-y rounded-[6px] border border-[#d4d9d6] bg-white px-4 py-3 text-[13px] leading-5 outline-none transition-colors placeholder:text-[#9da39f] hover:border-[#aab3ae] focus:border-[#0f8b73] disabled:bg-[#f1f3f2]" />;
+}
 
-  if (question.control === "rating") {
-    const minimum = question.min ?? 1;
-    const maximum = question.max ?? 5;
-    const ratings = Array.from({ length: maximum - minimum + 1 }, (_, index) => minimum + index);
-    return (
-      <div id={id} role="group" aria-label={`${definition.label}, ${minimum} through ${maximum}`} className="grid grid-cols-5 gap-2">
-        {ratings.map((rating) => <button key={rating} type="button" disabled={disabled} aria-pressed={value === rating} onClick={() => onChange(rating)} className={`h-12 rounded-[6px] border text-[13px] font-black ${value === rating ? "border-[#0f8b73] bg-[#eef8f4] text-[#0f6f5e]" : "border-[#d8ddda] bg-white text-[#525a55] hover:border-[#9eaaa4]"} disabled:opacity-55`}>{rating}</button>)}
-      </div>
-    );
-  }
-
-  if (question.control === "textarea") {
-    return definition.value_type === "string_list" ? (
-      <StringListTextarea id={id} value={Array.isArray(value) ? value : []} disabled={disabled} placeholder={question.placeholder ?? "One item per line"} onChange={onChange} />
-    ) : (
-      <textarea id={id} value={typeof value === "string" ? value : ""} disabled={disabled} rows={prominent ? 6 : 4} maxLength={20_000} placeholder={question.placeholder ?? "Enter assessment detail"} onChange={(event) => onChange(event.target.value || null)} className="w-full resize-y rounded-[6px] border border-[#d4d9d6] bg-white px-4 py-3 text-[13px] leading-5 outline-none transition-colors placeholder:text-[#9da39f] hover:border-[#aab3ae] focus:border-[#0f8b73] disabled:bg-[#f1f3f2]" />
-    );
-  }
-
-  const numeric = definition.value_type === "integer" || definition.value_type === "confidence";
-  const type = question.control === "date" ? "date" : question.control === "number" ? "number" : "text";
+function GuidedTextInputControl({ id, question, definition, value, disabled, onChange }: GuidedAssessmentControlProps) {
+  const numeric = isNumericDefinition(definition);
   return (
     <input
       id={id}
-      type={type}
+      type={guidedInputType(question.control)}
       value={fieldStringValue(value)}
       disabled={disabled}
       min={question.min ?? (numeric ? 0 : undefined)}
       max={question.max ?? (definition.value_type === "confidence" ? 1 : undefined)}
-      step={definition.value_type === "confidence" ? 0.01 : definition.value_type === "integer" ? 1 : undefined}
+      step={guidedInputStep(definition)}
       placeholder={question.placeholder}
-      onChange={(event) => onChange(numeric ? event.target.value === "" ? null : Number(event.target.value) : event.target.value || null)}
+      onChange={(event) => onChange(guidedInputValue(event.target.value, numeric))}
       className="h-12 w-full rounded-[6px] border border-[#d4d9d6] bg-white px-4 text-[13px] font-semibold outline-none transition-colors placeholder:font-normal placeholder:text-[#9da39f] hover:border-[#aab3ae] focus:border-[#0f8b73] disabled:bg-[#f1f3f2]"
     />
   );
+}
+
+function applyGuidedYesNoChange(next: string, current: AssessmentToolData[AssessmentToolFieldKey], onChange: GuidedAssessmentControlProps["onChange"], onUnableReasonChange: GuidedAssessmentControlProps["onUnableReasonChange"]) {
+  if (next !== "unable_to_assess" && current === "unable_to_assess") onUnableReasonChange("");
+  onChange(next);
+}
+
+function toggleSelectedOption(selected: readonly string[], option: string) {
+  return selected.includes(option) ? selected.filter((item) => item !== option) : [...selected, option];
+}
+
+function stringValue(value: AssessmentToolData[AssessmentToolFieldKey]) {
+  return typeof value === "string" ? value : "";
+}
+
+function isNumericDefinition(definition: AssessmentToolFieldDefinition) {
+  return definition.value_type === "integer" || definition.value_type === "confidence";
+}
+
+function guidedInputType(control: AssessmentInterviewQuestion["control"]) {
+  if (control === "date") return "date";
+  if (control === "number") return "number";
+  return "text";
+}
+
+function guidedInputStep(definition: AssessmentToolFieldDefinition) {
+  if (definition.value_type === "confidence") return 0.01;
+  if (definition.value_type === "integer") return 1;
+  return undefined;
+}
+
+function guidedInputValue(value: string, numeric: boolean) {
+  if (!value) return null;
+  return numeric ? Number(value) : value;
 }
 
 function OptionButtons({ id, label, options, value, disabled, prominent, columns = 1, onChange }: {
