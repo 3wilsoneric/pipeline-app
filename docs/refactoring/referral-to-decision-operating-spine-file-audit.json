@@ -7,6 +7,13 @@
   "reviewedAt": "2026-09-11T00:00:00Z",
   "files": [
     {
+      "path": ".github/workflows/ci.yml", "plannedNew": false, "dependencyDirection": "GitHub Actions checks out repository history before invoking repository-owned verification; product runtime never consumes this workflow.",
+      "purpose": "Make the verify job fetch the exact approved starting commit required by active TARS slice scope checks.", "callers": ["GitHub Actions"], "publicExports": [], "sideEffects": ["CI checkout depth"],
+      "failureBehavior": "If repository history or the recorded starting commit is unavailable, verify fails before browser, operational, PostgreSQL, merge, or deployment jobs can advance.", "tests": ["Pipeline CI verify"],
+      "staticPrompts": [{"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"Existing action and service URLs are version-pinned CI infrastructure; this change only requests complete Git history from the existing checkout action.","owner":"Eric","followUp":"Pipeline CI verify"}],
+      "decision": "keep", "decisionReason": "The active-slice quality gate compares against an exact historical commit and therefore requires history in its invoking CI job."
+    },
+    {
       "path": "package.json", "plannedNew": false, "dependencyDirection": "Repository commands invoke focused evidence only.",
       "purpose": "Register the focused contact-directory contract gate.", "callers": ["npm", "CI"], "publicExports": [], "sideEffects": [],
       "failureBehavior": "A failed focused contract exits non-zero.", "tests": ["check:contacts", "check:code-quality"], "decision": "keep", "decisionReason": "Use the existing command registry."

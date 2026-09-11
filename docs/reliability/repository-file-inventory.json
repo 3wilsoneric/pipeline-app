@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-11T21:01:19.181Z",
+  "generated_at": "2026-09-11T21:11:31.388Z",
   "audit_date": "2026-09-11",
-  "git_head": "e67db3fd5b470be4239ffbc216122203efbf3ff0",
+  "git_head": "0f69d88feb25ac1a11a19618305934e05a6c42d4",
   "files": [
     {
       "path": ".dockerignore",
@@ -108,11 +108,11 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "content_sha256": "4100277de505ca047ab700896f16727c486592caac69781d88a999853e1885af",
+      "content_sha256": "73ba5cfcfc4e3d792fd2b8707644a17e10be88d15fb28ff4a67d4cd9b6f59e67",
       "role": "CI or supply-chain configuration",
       "risk": "medium",
-      "bytes": 11158,
-      "lines": 271,
+      "bytes": 11197,
+      "lines": 273,
       "detected_concerns": [
         "Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete."
       ],
@@ -4180,7 +4180,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "619574baa417529f12ea47a3cdf2b6bd04f8baaa981a9d87406eb7491618f9bd",
+      "content_sha256": "e9e2f0eb7243d72ff852866215445120bc112556d4558907e7a971ac05ee2309",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -5114,11 +5114,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "e9cf13726a917919c8b39e59657041828388c8042e438db7501617f7e5cdfcdc",
+      "content_sha256": "0ed1e051d86dd149692dc2dc72ea80e3f842959f3df6b5c7042c7d01be3f4264",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 46900,
-      "lines": 925,
+      "bytes": 46936,
+      "lines": 926,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -5228,11 +5228,11 @@
     },
     {
       "path": "docs/refactoring/referral-to-decision-operating-spine-file-audit.json",
-      "content_sha256": "4c2e179f017fc811558890024090aaf893d918d0055ed44e8ced7a12de940e1c",
+      "content_sha256": "fdf405cc4eaa60f82c4269b016b9dc88d20a75fcfe43970f9aa6f9c690af73f8",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 51202,
-      "lines": 408,
+      "bytes": 52438,
+      "lines": 415,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5377,7 +5377,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "2c8d767a883bad4d4f715874465f026fe5a08eca4345f554f15c14635e145395",
+      "content_sha256": "de58e6cd020dacdfa2f04c2e95afb7c951feb9d090832ab5e59fe4c98e67c159",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 413697,
@@ -5405,7 +5405,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "6d10a98aede5233a948181e628457d2b225904119a06c04eae6c4ce52e83c8ab",
+      "content_sha256": "4c376c56d603be60ca2e93ba5c347dff3d858c90bd7d8fa9f0a86ee1c75a50b0",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 221419,
@@ -5486,7 +5486,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "b274ad016e802d4f300d9212a09480efe1740bdd624962f690f956eaac67254b",
+      "content_sha256": "0e760d8a9f0146274d06746448d191d971085167e1dd200925469051ff308719",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 588403,
@@ -5692,7 +5692,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "625d1792bb46db8ba5eb0f545e49fd68e411a3a7bf14df4d33945ca73312c892",
+      "content_sha256": "204680d255a30e980bdcba56984099004276faa16eebb0ffd37e2e1e4dd7aedc",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 304063,
