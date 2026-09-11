@@ -154,18 +154,21 @@ function lastWorkspaceResumeItems(
   state: PipelineWorkContinuityState,
   activeById: Map<number, ReferralWorklistItem>,
 ): HomeResumeItem[] {
-  const last = state.lastWorkspace;
-  const work = last ? activeById.get(last.referralId) : undefined;
-  if (!last || !work) return [];
-  return [{
-    id: `last-workspace:${last.referralId}`,
-    kind: "last_workspace",
-    ...resumeIdentity(work),
-    detail: resumeDetail(last.location),
-    updated_at: last.visitedAt,
-    referral_id: last.referralId,
-    location: last.location,
-  }];
+  const recent = state.recentWorkspaces?.length
+    ? state.recentWorkspaces
+    : state.lastWorkspace ? [state.lastWorkspace] : [];
+  return recent.flatMap((last) => {
+    const work = activeById.get(last.referralId);
+    return work ? [{
+      id: `last-workspace:${last.referralId}`,
+      kind: "last_workspace" as const,
+      ...resumeIdentity(work),
+      detail: resumeDetail(last.location),
+      updated_at: last.visitedAt,
+      referral_id: last.referralId,
+      location: last.location,
+    }] : [];
+  });
 }
 
 function unavailableContinuity(): HomeContinuitySnapshot {

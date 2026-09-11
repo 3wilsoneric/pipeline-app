@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-to-decision-operating-spine",
+  "startingCommit": "e67db3fd5b470be4239ffbc216122203efbf3ff0",
+  "generatedInventory": "docs/reliability/repository-file-inventory.json",
+  "humanOwner": "Eric",
+  "reviewedAt": "2026-09-11T00:00:00Z",
+  "files": [
+    {
+      "path": ".github/workflows/ci.yml", "plannedNew": false, "dependencyDirection": "GitHub Actions checks out repository history before invoking repository-owned verification; product runtime never consumes this workflow.",
+      "purpose": "Make the verify job fetch the exact approved starting commit and retain the registered pull-request branch identity required by active TARS slice scope checks.", "callers": ["GitHub Actions"], "publicExports": [], "sideEffects": ["CI checkout depth", "CI checkout ref", "guarded cloud-run marker"],
+      "failureBehavior": "If repository history, isolated cloud context, branch identity, or the recorded starting commit is unavailable, verify fails before browser, operational, PostgreSQL, merge, or deployment jobs can advance.", "tests": ["Pipeline CI verify"],
+      "staticPrompts": [{"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"Existing action and service URLs are version-pinned CI infrastructure; this change only requests complete Git history and the event's own branch ref from the existing checkout action.","owner":"Eric","followUp":"Pipeline CI verify"}],
+      "decision": "keep", "decisionReason": "The active-slice quality gate compares against an exact historical commit and therefore requires history in its invoking CI job."
+    },
+    {
+      "path": "package.json", "plannedNew": false, "dependencyDirection": "Repository commands invoke focused evidence only.",
+      "purpose": "Register the focused contact-directory contract gate.", "callers": ["npm", "CI"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "A failed focused contract exits non-zero.", "tests": ["check:contacts", "check:code-quality"], "decision": "keep", "decisionReason": "Use the existing command registry."
+    },
+    {
+      "path": "components/pipeline/ReferralPacketCanvas.tsx", "plannedNew": false, "dependencyDirection": "Coordinates existing Intake fields and delegates reusable contacts to a focused component.",
+      "purpose": "Add client contact fields and mount referral contact coordination inside Intake.", "callers": ["PipelineOverviewRoute"], "publicExports": ["ReferralPacketCanvas"], "sideEffects": ["existing referral requests", "browser draft storage"],
+      "failureBehavior": "Existing inline errors, retry, conflict recovery, and draft preservation remain.", "tests": ["check:assessor-workflow", "test:e2e"],
+      "staticPrompts": [
+        {"prompt":"Large module (3810 lines): split by behavior before adding more responsibilities.","disposition":"confirmed","reason":"The new contact responsibility is delegated to ReferralContactsCard; this coordinator only mounts it and adds the two already-canonical referral fields.","owner":"Eric","followUp":"Do not add contact network or persistence state here."},
+        {"prompt":"Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.","disposition":"expected","reason":"Existing autosave timers are unchanged and remain cleanup-bounded by the characterized canvas controller.","owner":"Eric","followUp":"test:e2e"},
+        {"prompt":"Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.","disposition":"expected","reason":"Existing user-scoped draft recovery remains; contact directory data is not added to browser persistence.","owner":"Eric","followUp":"test:critical-safety"},
+        {"prompt":"Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.","disposition":"expected","reason":"Existing best-effort background continuity behavior is outside the new contact mutation path and remains observable through current UI state.","owner":"Eric","followUp":"test:e2e"}
+      ],
+      "decision": "keep", "decisionReason": "Preserve the established Intake coordinator and extract the new contact behavior."
+    },
+    {
+      "path": "components/pipeline/ReferralContactsCard.tsx", "plannedNew": true, "dependencyDirection": "Client presentation calls authenticated contact routes; no store or database dependency.",
+      "purpose": "Search, create, attach, edit, and unlink reusable contacts in Intake.", "callers": ["ReferralPacketCanvas"], "publicExports": ["ReferralContactsCard"], "sideEffects": ["authenticated fetch requests"],
+      "failureBehavior": "Keeps the last confirmed list, shows bounded errors, and never fabricates success.", "tests": ["check:contacts", "test:e2e"],
+      "staticPrompts": [{"prompt":"Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.","disposition":"expected","reason":"The only timer debounces contact search and is cleared by the effect cleanup on every query change or unmount.","owner":"Eric","followUp":"test:e2e"}],
+      "decision": "keep", "decisionReason": "New behavior needs one focused UI owner outside the large canvas."
+    },
+    {
+      "path": "components/pipeline/PipelineCalendar.tsx", "plannedNew": false, "dependencyDirection": "Calendar coordinator emits an existing workspace location callback.",
+      "purpose": "Open scheduled assessments directly at Assessment while preserving scheduling coordination.", "callers": ["PipelineOverviewRoute"], "publicExports": ["PipelineCalendar"], "sideEffects": ["existing calendar requests", "existing timer"],
+      "failureBehavior": "Existing queue, retry, conflict, and refresh behavior remains.", "tests": ["check:assessor-workflow", "test:e2e"],
+      "staticPrompts": [{"prompt":"Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.","disposition":"expected","reason":"The established single visibility-aware refresh timer remains unchanged.","owner":"Eric","followUp":"test:e2e:operational:high"}],
+      "decision": "keep", "decisionReason": "Only enrich the existing callback with a destination."
+    },
+    {
+      "path": "components/pipeline/PipelineCalendarPresentation.tsx", "plannedNew": false, "dependencyDirection": "Pure calendar presentation receives callbacks from PipelineCalendar.",
+      "purpose": "Carry the open-workspace destination without owning navigation or scheduling policy.", "callers": ["PipelineCalendar"], "publicExports": ["PipelineCalendarPresentation"], "sideEffects": [],
+      "failureBehavior": "Presentation delegates all recoverable effects to the coordinator.", "tests": ["test:e2e"],
+      "staticPrompts": [{"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"The URL is an existing same-application route consumed by the calendar coordinator and is not changed by this slice.","owner":"Eric","followUp":"check:route-policy"}],
+      "decision": "keep", "decisionReason": "Preserve the extracted presentation boundary."
+    },
+    {
+      "path": "components/pipeline/PipelineOverviewRoute.tsx", "plannedNew": false, "dependencyDirection": "Top-level route owns workspace selection and records non-canonical continuity.",
+      "purpose": "Accept explicit Calendar destinations using the existing workspace navigation owner.", "callers": ["pipeline page"], "publicExports": ["PipelineOverviewRoute"], "sideEffects": ["browser history", "continuity request"],
+      "failureBehavior": "Navigation remains local and destination authorization occurs at resource load.", "tests": ["test:e2e"], "decision": "keep", "decisionReason": "Reuse the canonical workspace navigation owner."
+    },
+    {
+      "path": "components/pipeline/WorkspaceActivityFeed.tsx", "plannedNew": false, "dependencyDirection": "Activity presentation derives navigation only from server activity records.",
+      "purpose": "Map assignment activity to Intake rather than generic Workflow.", "callers": ["ReferralActivityPanel", "Home activity"], "publicExports": ["WorkspaceActivityFeed"], "sideEffects": [],
+      "failureBehavior": "Unknown activity retains the safe default workspace.", "tests": ["check:assessor-workflow", "test:e2e"], "decision": "keep", "decisionReason": "Fix the destination at its canonical activity mapper."
+    },
+    {
+      "path": "components/pipeline/training/PipelineDemoCenter.tsx", "plannedNew": false, "dependencyDirection": "Training presentation uses the same authenticated referral and assessment APIs as the real workflow.",
+      "purpose": "Treat an explicit New attempt as the existing confirmed-distinct synthetic retry and preserve scheduling under the contact gate.", "callers": ["training demo page"], "publicExports": ["PipelineDemoCenter"], "sideEffects": ["synthetic authenticated requests", "same-app navigation"],
+      "failureBehavior": "Non-duplicate failures remain visible; duplicate retry occurs only when the server permits confirmed-distinct creation.", "tests": ["test:e2e"], "decision": "keep", "decisionReason": "The demo must exercise real duplicate and scheduling contracts rather than bypass them."
+    },
+    {
+      "path": "lib/demo/demo-scenarios.ts", "plannedNew": false, "dependencyDirection": "Pure synthetic scenario builders have no persistence dependency.",
+      "purpose": "Give synthetic practice referrals explicit synthetic contact readiness.", "callers": ["PipelineDemoCenter"], "publicExports": ["buildPipelineDemoReferral"], "sideEffects": [],
+      "failureBehavior": "Demo values remain clearly synthetic and never become production client defaults.", "tests": ["test:e2e"], "decision": "keep", "decisionReason": "Keep training aligned with the real Intake contract."
+    },
+    {
+      "path": "lib/academy/academy-atlas.generated.json", "plannedNew": false, "dependencyDirection": "Generated engineering-learning inventory reads repository metadata and is never imported by the product runtime.",
+      "purpose": "Refresh the every-file Academy map after adding the contact and operating-spine sources.", "callers": ["Developer Academy"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Fingerprint drift blocks platform readiness.", "tests": ["academy:check", "check:platform:fast"],
+      "staticPrompts": [{"prompt":"Large module (11837 lines): split by behavior before adding more responsibilities.","disposition":"expected","reason":"This is the deterministic generated every-file Academy index, not an executable module; academy:atlas regenerates it from one entry per tracked source path.","owner":"Eric","followUp":"academy:atlas:check"}],
+      "decision": "keep", "decisionReason": "Keep the internal source map exact rather than certify a stale Academy."
+    },
+    {
+      "path": "docs/academy/academy-registry.json", "plannedNew": false, "dependencyDirection": "Academy readiness consumes reviewed fingerprints; production runtime does not.",
+      "purpose": "Record the reviewed source and generated-atlas fingerprints for this slice.", "callers": ["academy:check"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Mismatched fingerprints block platform readiness.", "tests": ["academy:check", "check:platform:fast"],
+      "decision": "keep", "decisionReason": "Bind the refreshed Academy inventory to the reviewed slice."
+    },
+    {
+      "path": "lib/pipeline/contact-types.ts", "plannedNew": true, "dependencyDirection": "Shared domain shapes have no route, UI, filesystem, or database dependency.",
+      "purpose": "Define bounded contact and referral-contact records, inputs, and roles.", "callers": ["contact-validation", "contact-store", "ReferralContactsCard"], "publicExports": ["ContactRecord", "ReferralContactRecord"], "sideEffects": [],
+      "failureBehavior": "Invalid values are rejected by validation owners.", "tests": ["check:contacts"], "decision": "keep", "decisionReason": "One shared contract prevents divergent route and UI shapes."
+    },
+    {
+      "path": "lib/pipeline/contact-validation.ts", "plannedNew": true, "dependencyDirection": "Pure validation depends only on contact domain types.",
+      "purpose": "Validate and normalize all untrusted contact commands.", "callers": ["contact routes"], "publicExports": ["parseContactCreate", "parseContactPatch", "parseReferralContactCommand"], "sideEffects": [],
+      "failureBehavior": "Returns bounded field-safe validation failures without raw values.", "tests": ["check:contacts"], "decision": "keep", "decisionReason": "Centralize trust-boundary rules."
+    },
+    {
+      "path": "lib/pipeline/contact-store.ts", "plannedNew": true, "dependencyDirection": "Domain persistence depends on the existing database and audit infrastructure; routes depend on this store.",
+      "purpose": "Own local and PostgreSQL contact persistence, links, versions, replay, and audit.", "callers": ["contact routes", "schedule readiness", "referral activity"], "publicExports": ["searchContacts", "listReferralContacts", "createContact", "updateContact", "attachReferralContact", "updateReferralContact", "unlinkReferralContact"], "sideEffects": ["filesystem", "PostgreSQL", "audit"],
+      "failureBehavior": "Rejects stale, invalid, unauthorized-call-site, or inconsistent commands without partial PostgreSQL effects.", "tests": ["check:contacts", "database:concurrency", "database:integrity"],
+      "staticPrompts": [{"prompt":"Uses SELECT *; verify response growth, schema coupling, and PHI minimization.","disposition":"expected","reason":"The select is confined to the bounded contacts table and mapped into the explicit ContactRow contract; referral links use an explicit joined projection and routes return at most 20 search rows.","owner":"Eric","followUp":"database:integrity"}],
+      "decision": "keep", "decisionReason": "Contacts need one canonical persistence owner with explicit adapters."
+    },
+    {
+      "path": "lib/pipeline/referral-types.ts", "plannedNew": false, "dependencyDirection": "Canonical referral types remain independent of contact persistence.",
+      "purpose": "Expose existing phone and email as canvas field keys.", "callers": ["referral validation", "referral canvas"], "publicExports": ["Referral", "ReferralCanvasFieldKey"], "sideEffects": [],
+      "failureBehavior": "Compile-time contracts prevent unsupported fields.", "tests": ["check:contacts", "check:assessor-workflow"], "decision": "keep", "decisionReason": "Phone and email already belong to the referral aggregate."
+    },
+    {
+      "path": "lib/pipeline/referral-validation.ts", "plannedNew": false, "dependencyDirection": "Referral trust-boundary validation remains the phone/email validation owner.",
+      "purpose": "Permit existing validated phone/email fields in canvas patches.", "callers": ["referral routes"], "publicExports": ["parseReferralPatch"], "sideEffects": [],
+      "failureBehavior": "Invalid or oversized contact fields fail before persistence.", "tests": ["check:contacts", "check:api"], "decision": "keep", "decisionReason": "Reuse existing canonical limits and validation."
+    },
+    {
+      "path": "lib/pipeline/referral-canvas-persistence.ts", "plannedNew": false, "dependencyDirection": "Canvas mapping depends on referral types and remains free of network/database effects.",
+      "purpose": "Round-trip phone and email through create, patch, draft, and server hydration.", "callers": ["ReferralPacketCanvas"], "publicExports": ["persistedCanvasFieldKeys", "buildReferralCanvasCreateInput"], "sideEffects": [],
+      "failureBehavior": "Missing legacy draft values normalize to empty strings.", "tests": ["check:contacts", "test:e2e"], "decision": "keep", "decisionReason": "Extend the existing field mapping rather than add parallel state."
+    },
+    {
+      "path": "lib/pipeline/referral-canvas-extraction.ts", "plannedNew": false, "dependencyDirection": "Extraction suggestions map into existing canvas fields but do not become canonical contact records.",
+      "purpose": "Optionally map extracted phone/email suggestions to referral contact fields.", "callers": ["ReferralPacketCanvas"], "publicExports": ["buildExtractedReferralFieldSuggestions"], "sideEffects": [],
+      "failureBehavior": "Unmapped or ambiguous evidence stays a suggestion and cannot auto-create a contact.", "tests": ["check:contacts", "check:extraction"], "decision": "keep", "decisionReason": "Preserve provenance and human acceptance."
+    },
+    {
+      "path": "lib/pipeline/work-continuity.ts", "plannedNew": false, "dependencyDirection": "Pure user-preference schema contains workspace locations but no canonical domain state.",
+      "purpose": "Retain a bounded recent location per referral while preserving lastWorkspace compatibility.", "callers": ["work-continuity client/store", "home-continuity"], "publicExports": ["PipelineWorkContinuityState", "mergePipelineWorkContinuityState"], "sideEffects": [],
+      "failureBehavior": "Malformed or oversized entries are discarded by the parser.", "tests": ["check:assessor-workflow", "test:e2e"], "decision": "keep", "decisionReason": "Extend the canonical continuity schema without a second store."
+    },
+    {
+      "path": "lib/pipeline/home-continuity.ts", "plannedNew": false, "dependencyDirection": "Server home derivation consumes active referral truth and user-scoped continuity preference.",
+      "purpose": "Offer resumable items for multiple active referrals with their exact workspace locations.", "callers": ["Home server loader"], "publicExports": ["getHomeContinuity"], "sideEffects": ["reads only"],
+      "failureBehavior": "Missing or stale preference entries are ignored.", "tests": ["check:assessor-workflow", "test:e2e"], "decision": "keep", "decisionReason": "Reuse the current Home continuity owner."
+    },
+    {
+      "path": "lib/pipeline/user-workspace-state-types.ts", "plannedNew": false, "dependencyDirection": "The user-scoped draft parser consumes canonical referral field keys and remains independent of route, filesystem, and database adapters.",
+      "purpose": "Default newly introduced phone and email fields when recovering a schema-1 draft saved by the previous deployed application.", "callers": ["referral draft routes", "ReferralPacketCanvas"], "publicExports": ["parsePipelineReferralDraft"], "sideEffects": [],
+      "failureBehavior": "Only the three explicitly recognized later-added fields default empty; malformed, unknown, oversized, or incomplete legacy drafts still fail closed.", "tests": ["check:api", "check:collaboration-load"],
+      "decision": "keep", "decisionReason": "Preserve deployed schema-1 draft recovery at the canonical parser rather than teaching each caller a compatibility exception."
+    },
+    {
+      "path": "lib/pipeline/calendar-store.ts", "plannedNew": false, "dependencyDirection": "Calendar projection consumes canonical referrals, assessments, workflow, and derived contact readiness.",
+      "purpose": "Reflect contact readiness in preparation state without becoming the policy owner.", "callers": ["calendar route"], "publicExports": ["getPipelineCalendarSnapshot"], "sideEffects": ["reads only"],
+      "failureBehavior": "Unavailable optional readiness data yields an explicit blocker, not fabricated readiness.", "tests": ["check:assessor-workflow", "database:integrity"], "decision": "keep", "decisionReason": "Calendar remains the projection owner."
+    },
+    {
+      "path": "lib/pipeline/referral-activity.ts", "plannedNew": false, "dependencyDirection": "Activity aggregation reads canonical audit sources and emits a presentation-safe timeline.",
+      "purpose": "Include contact-link and contact-detail activity without duplicating audit truth.", "callers": ["referral activity route"], "publicExports": ["getReferralActivity"], "sideEffects": ["reads only"],
+      "failureBehavior": "Unavailable auxiliary activity cannot mutate the referral.", "tests": ["check:contacts", "test:e2e"], "decision": "keep", "decisionReason": "Extend the existing cross-aggregate timeline."
+    },
+    {
+      "path": "lib/database/pipeline-database.ts", "plannedNew": false, "dependencyDirection": "Database readiness validates additive schema before stores are available.",
+      "purpose": "Require the contact-directory migration in connected environments.", "callers": ["readiness", "contact-store"], "publicExports": ["getPipelineDatabaseReadiness", "checkPipelineDatabaseConnection"], "sideEffects": ["database connection"],
+      "failureBehavior": "A missing required migration keeps readiness false.", "tests": ["database:integrity", "database:assurance:integration"], "decision": "keep", "decisionReason": "Extend the existing canonical migration readiness owner."
+    },
+    {
+      "path": "app/api/contacts/route.ts", "plannedNew": true, "dependencyDirection": "Node route validates/authenticates then delegates to contact-store.",
+      "purpose": "Search contacts and create a reusable contact.", "callers": ["ReferralContactsCard"], "publicExports": ["GET", "POST"], "sideEffects": ["contact store"],
+      "failureBehavior": "Auth, validation, and store failures return bounded HTTP errors.", "tests": ["check:contacts", "check:route-policy"], "decision": "keep", "decisionReason": "Small resource route over the canonical store."
+    },
+    {
+      "path": "app/api/contacts/[contactId]/route.ts", "plannedNew": true, "dependencyDirection": "Node route validates/authenticates then delegates to contact-store.",
+      "purpose": "Update one reusable contact with optimistic versioning.", "callers": ["ReferralContactsCard"], "publicExports": ["PATCH"], "sideEffects": ["contact store"],
+      "failureBehavior": "Stale or unauthorized updates fail without partial effects.", "tests": ["check:contacts", "check:route-policy"], "decision": "keep", "decisionReason": "One explicit versioned resource endpoint."
+    },
+    {
+      "path": "app/api/referrals/[referralId]/contacts/route.ts", "plannedNew": true, "dependencyDirection": "Referral-scoped route applies existing resource access then delegates to contact-store.",
+      "purpose": "List and attach contacts for one referral.", "callers": ["ReferralContactsCard"], "publicExports": ["GET", "POST"], "sideEffects": ["contact store"],
+      "failureBehavior": "Wrong-resource or invalid links fail before mutation.", "tests": ["check:contacts", "check:route-policy"], "decision": "keep", "decisionReason": "Make referral resource authorization explicit."
+    },
+    {
+      "path": "app/api/referrals/[referralId]/contacts/[referralContactId]/route.ts", "plannedNew": true, "dependencyDirection": "Referral-scoped route applies existing resource access then delegates to contact-store.",
+      "purpose": "Update role/primary metadata or unlink one referral contact.", "callers": ["ReferralContactsCard"], "publicExports": ["PATCH", "DELETE"], "sideEffects": ["contact store"],
+      "failureBehavior": "Stale, wrong-referral, or unauthorized commands fail without partial effects.", "tests": ["check:contacts", "check:route-policy"], "decision": "keep", "decisionReason": "Keep link lifecycle distinct from contact lifecycle."
+    },
+    {
+      "path": "app/api/assessments/[assessmentId]/schedule/route.ts", "plannedNew": false, "dependencyDirection": "Route remains the schedule trust boundary and consumes derived readiness before assessment-store.",
+      "purpose": "Reject scheduling until assignment, Intake, and contact readiness are present.", "callers": ["AssessmentWorkspace", "PipelineCalendar"], "publicExports": ["POST"], "sideEffects": ["assessment store"],
+      "failureBehavior": "Readiness failure returns 422 without writing schedule state.", "tests": ["check:contacts", "check:assessor-workflow", "database:concurrency"], "decision": "keep", "decisionReason": "Policy belongs at the existing server mutation boundary."
+    },
+    {
+      "path": "database/migrations/0034_contact_directory.sql", "plannedNew": true, "dependencyDirection": "Additive schema consumed only by contact-store.",
+      "purpose": "Create versioned contacts, explicit referral links, one-primary uniqueness, search indexes, and store revision.", "callers": ["database migrator"], "publicExports": [], "sideEffects": ["PostgreSQL schema"],
+      "failureBehavior": "Transactional migration aborts on any DDL failure.", "tests": ["database:integrity", "database:assurance:integration"], "decision": "keep", "decisionReason": "Durable multi-instance contact state requires additive schema."
+    },
+    {
+      "path": "database/rollbacks/0034_contact_directory.sql", "plannedNew": true, "dependencyDirection": "Rollback reverses only migration 0034 objects.",
+      "purpose": "Drop contact links, contacts, and their revision marker.", "callers": ["database rollback drill"], "publicExports": [], "sideEffects": ["PostgreSQL schema"],
+      "failureBehavior": "Transaction rollback preserves pre-existing schema on failure.", "tests": ["database:integrity", "database:assurance:integration"], "decision": "keep", "decisionReason": "Required recovery pair for the additive migration."
+    },
+    {
+      "path": "database/migration-checksums.json", "plannedNew": false, "dependencyDirection": "Database tooling verifies immutable migration and rollback bytes.",
+      "purpose": "Pin migration 0034 and rollback checksums.", "callers": ["database readiness"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Checksum drift blocks readiness.", "tests": ["database:integrity"], "decision": "keep", "decisionReason": "Use the existing migration integrity ledger."
+    },
+    {
+      "path": "scripts/contact-directory-contracts.mjs", "plannedNew": true, "dependencyDirection": "Test-only static and pure-domain contract; production code never imports it.",
+      "purpose": "Prove contact boundaries, no native actions, scheduling gate, and continuity mappings.", "callers": ["check:contacts"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Any missing invariant exits non-zero.", "tests": ["check:contacts"],
+      "staticPrompts": [{"prompt":"Contains destructive behavior; require dry-run, explicit scope, and recovery evidence.","disposition":"false_positive","reason":"This contract only reads source text; destructive words describe and verify unlink semantics and it performs no mutation.","owner":"Eric","followUp":"check:contacts"}],
+      "decision": "keep", "decisionReason": "Focused executable proof for the new product spine."
+    },
+    {
+      "path": "scripts/api-behavior-fixtures.mjs", "plannedNew": false, "dependencyDirection": "Test-only contract runner imports pure application boundaries; production never imports it.",
+      "purpose": "Keep create and recovery-draft fixtures complete after adding phone and email to the canonical canvas field set.", "callers": ["check:api", "check:platform:fast"], "publicExports": [], "sideEffects": ["isolated synthetic fixtures"],
+      "failureBehavior": "Any missing field mapping or invalid recovery shape fails the platform gate.", "tests": ["check:api", "check:platform:fast"],
+      "staticPrompts": [
+        {"prompt":"Large module (2106 lines): split by behavior before adding more responsibilities.","disposition":"expected","reason":"This change extends existing table-driven field inventories and adds one backward-compatibility assertion; it adds no new fixture responsibility or runtime control flow.","owner":"Eric","followUp":"check:api"},
+        {"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"Existing URLs are isolated synthetic same-app fixture values and are unrelated to the field-list update.","owner":"Eric","followUp":"check:api"}
+      ],
+      "decision": "keep", "decisionReason": "Repair the canonical cross-field contract instead of weakening platform readiness."
+    },
+    {
+      "path": "scripts/pipeline-performance-scorecard.mjs", "plannedNew": false, "dependencyDirection": "Performance evidence drives public surfaces but is never imported by production.",
+      "purpose": "Measure the current training presentation title as part of the existing journey scorecard.", "callers": ["certify:mcmaster:performance"], "publicExports": [], "sideEffects": ["loopback browser and API requests"],
+      "failureBehavior": "A missing current surface or exceeded budget fails certification.", "tests": ["check:performance", "certify:mcmaster:performance"],
+      "staticPrompts": [
+        {"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"The scorecard uses configured or isolated loopback targets and the changed value is an accessible heading, not an endpoint.","owner":"Eric","followUp":"certify:mcmaster:performance"},
+        {"prompt":"Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.","disposition":"expected","reason":"Playwright response-size metadata is optional across engines; unavailable metadata becomes a zero-byte sample while every latency, status, fixture, and journey assertion still runs and can fail certification.","owner":"Eric","followUp":"certify:mcmaster:performance"}
+      ],
+      "decision": "keep", "decisionReason": "Keep the performance journey aligned with the shipped presentation."
+    },
+    {
+      "path": "tests/e2e/referral-operating-spine.spec.ts", "plannedNew": true, "dependencyDirection": "Browser evidence drives public UI and APIs; production never imports tests.",
+      "purpose": "Exercise assignment, contacts, schedule, calendar entry, interruption, and resume journeys.", "callers": ["Playwright"], "publicExports": [], "sideEffects": ["synthetic test data"],
+      "failureBehavior": "Failed behavior or inaccessible UI fails the suite.", "tests": ["test:e2e", "test:e2e:operational:high"], "decision": "keep", "decisionReason": "The cross-surface spine needs browser-level evidence."
+    },
+    {
+      "path": "tests/e2e/desktop-readiness.spec.ts", "plannedNew": false, "dependencyDirection": "Desktop browser evidence drives public routes and encrypted offline storage; production never imports tests.",
+      "purpose": "Bring the existing offline-assessment journey through the same client-contact scheduling precondition as production.", "callers": ["test:e2e:desktop"], "publicExports": [], "sideEffects": ["isolated synthetic browser and API state"],
+      "failureBehavior": "The journey fails if scheduling, encrypted offline edits, or reconnect synchronization does not work end to end.", "tests": ["test:e2e:desktop"],
+      "staticPrompts": [{"prompt":"Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.","disposition":"expected","reason":"The existing test verifies encrypted, user-scoped, expiring offline assessment state; the change only adds a clearly synthetic phone value to the server-side referral fixture.","owner":"Eric","followUp":"test:e2e:desktop"}],
+      "decision": "keep", "decisionReason": "Exercise the real schedule boundary rather than bypass or weaken contact readiness."
+    },
+    {
+      "path": "tests/e2e/support/product-demo-scenario.ts", "plannedNew": false, "dependencyDirection": "Synthetic operational fixtures are test-only and never imported by production.",
+      "purpose": "Give the 100-user product-day rehearsal deterministic non-PHI contact readiness.", "callers": ["high-traffic-capacity.scaffold.spec.ts"], "publicExports": ["productDemoCaseInput"], "sideEffects": [],
+      "failureBehavior": "Missing synthetic fixture values fail the operational test before deployment.", "tests": ["test:e2e:operational:high"],
+      "decision": "keep", "decisionReason": "Exercise the real scheduling precondition instead of bypassing it."
+    },
+    {
+      "path": "docs/refactoring/owner-fast-lane.json", "plannedNew": false, "dependencyDirection": "Governance validators consume it; runtime code does not.",
+      "purpose": "Bind the owner's current fast-lane authorization and retained controls.", "callers": ["check:refactor-setup"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing retained controls block the slice.", "tests": ["check:refactor-setup"], "decision": "keep", "decisionReason": "Record explicit owner authority for this new slice without rewriting old slice evidence."
+    },
+    {
+      "path": "docs/refactoring/canonical-responsibilities.json", "plannedNew": false, "dependencyDirection": "Assurance validators consume canonical boundaries; runtime code does not.",
+      "purpose": "Register the operating-spine responsibility.", "callers": ["check:refactor-assurance"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing or parallel ownership blocks assurance.", "tests": ["check:refactor-assurance"], "decision": "keep", "decisionReason": "Extend the existing responsibility ledger."
+    },
+    {
+      "path": "docs/refactoring/architecture-comprehension-probes.json", "plannedNew": false, "dependencyDirection": "Assurance validators consume probes; runtime code does not.",
+      "purpose": "Register an end-to-end trace question for the spine.", "callers": ["check:refactor-assurance"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing trace evidence blocks completion.", "tests": ["check:refactor-assurance"], "decision": "keep", "decisionReason": "Extend the existing comprehension ledger."
+    },
+    {
+      "path": "docs/refactoring/proof-obligations.json", "plannedNew": false, "dependencyDirection": "Assurance validators consume proof claims; runtime code does not.",
+      "purpose": "Register contact atomicity and assessor continuity obligations.", "callers": ["check:refactor-assurance"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Unverified critical/high claims block completion.", "tests": ["check:refactor-assurance"], "decision": "keep", "decisionReason": "Extend the existing obligation ledger."
+    },
+    {
+      "path": "docs/refactoring/refactor-eval-scenarios.json", "plannedNew": false, "dependencyDirection": "Guidance evaluation consumes public scenario coverage; runtime code does not.",
+      "purpose": "Bind the new slice to the existing owner-fast-lane safety scenario.", "callers": ["check:refactor-guidance"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "An uncovered slice blocks the guidance gate.", "tests": ["check:refactor-guidance"], "decision": "keep", "decisionReason": "Reuse the existing public scenario without claiming a blind comparison."
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_TO_DECISION_OPERATING_SPINE_ARCHITECTURE_NARRATIVE.md", "plannedNew": true, "dependencyDirection": "Governance evidence describes runtime boundaries; runtime code does not depend on it.",
+      "purpose": "Record scope, owners, invariants, failure, recovery, and exclusions.", "callers": ["check:refactor-evidence"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing narrative blocks start readiness.", "tests": ["check:refactor-setup"], "decision": "keep", "decisionReason": "Required owner-approved architecture record."
+    },
+    {
+      "path": "docs/refactoring/referral-to-decision-operating-spine-file-audit.json", "plannedNew": true, "dependencyDirection": "Code-quality validator consumes exact scope; runtime code does not.",
+      "purpose": "Bound every permitted changed file and disposition static concerns.", "callers": ["check:code-quality"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Out-of-scope or undispositioned changes fail the gate.", "tests": ["check:code-quality"],
+      "staticPrompts": [{"prompt":"Uses SELECT *; verify response growth, schema coupling, and PHI minimization.","disposition":"false_positive","reason":"The phrase appears only inside required static-prompt evidence describing a bounded store query; this JSON performs no query and contains no PHI.","owner":"Eric","followUp":"check:code-quality"}],
+      "decision": "keep", "decisionReason": "Required exact-scope control."
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-to-decision-operating-spine-start-e67db3f.json", "plannedNew": true, "dependencyDirection": "Assurance evidence records starting observations; runtime code does not depend on it.",
+      "purpose": "Bind the exact-start behavior trace and successful setup gates.", "callers": ["check:refactor-evidence"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing exact-start trace blocks behavior-preservation evidence.", "tests": ["check:refactor-setup"], "decision": "keep", "decisionReason": "Required machine-traced start evidence."
+    },
+    {
+      "path": "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json", "plannedNew": false, "dependencyDirection": "The test-effectiveness gate consumes this reviewed manifest; production never imports it.",
+      "purpose": "Advance the assertion inventory for the three new browser assertions and the focused legacy-draft API case.", "callers": ["check:test-assertion-inventory"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Removed, reordered, duplicated, or silently weakened cases fail the test-effectiveness gate.", "tests": ["check:test-assertion-inventory", "certify:test-effectiveness"],
+      "decision": "keep", "decisionReason": "The manifest must describe the intentionally expanded exact suite instead of treating stronger coverage as drift."
+    },
+    {
+      "path": "lib/pipeline/calendar-types.ts", "plannedNew": false, "dependencyDirection": "Calendar domain types remain independent of UI and persistence.",
+      "purpose": "Represent contact-readiness as an Intake next action.", "callers": ["calendar-store", "PipelineCalendarPresentation"], "publicExports": ["PipelineCalendarQueueItem"], "sideEffects": [],
+      "failureBehavior": "Unknown next actions remain compile-time errors.", "tests": ["check:contacts", "test:e2e"], "decision": "keep", "decisionReason": "Extend the canonical calendar contract."
+    },
+    {
+      "path": "lib/pipeline/referral-activity-presentation.ts", "plannedNew": false, "dependencyDirection": "Presentation labels consume audit field names without persistence effects.",
+      "purpose": "Give contact activity human-readable labels.", "callers": ["WorkspaceActivityFeed"], "publicExports": ["fieldLabel"], "sideEffects": [],
+      "failureBehavior": "Unknown fields retain the existing fallback label.", "tests": ["check:contacts", "test:e2e"], "decision": "keep", "decisionReason": "Keep labels in the existing presentation owner."
+    },
+    {
+      "path": "playwright.config.ts", "plannedNew": false, "dependencyDirection": "Test configuration is not imported by production.",
+      "purpose": "Give browser tests an absolute isolated contact-store path.", "callers": ["Playwright"], "publicExports": [], "sideEffects": ["test environment only"],
+      "failureBehavior": "A missing isolated path fails tests without touching production data.", "tests": ["test:e2e"],
+      "staticPrompts": [{"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"The URL is the existing loopback-only Playwright default and remains overrideable by PIPELINE_E2E_BASE_URL and PORT.","owner":"Eric","followUp":"test:e2e"}],
+      "decision": "keep", "decisionReason": "Prevent server working-directory drift from sharing test contact state."
+    },
+    {
+      "path": "playwright.operational.config.ts", "plannedNew": false, "dependencyDirection": "Operational test configuration is not imported by production.",
+      "purpose": "Give high-assurance browser rehearsals a run-scoped contact-store path.", "callers": ["Playwright operational suite"], "publicExports": [], "sideEffects": ["test environment only"],
+      "failureBehavior": "A missing isolated path fails setup before any product journey runs.", "tests": ["test:e2e:operational:high"],
+      "staticPrompts": [{"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"The URL is the established loopback-only operational harness address and remains PORT-configurable.","owner":"Eric","followUp":"test:e2e:operational:high"}],
+      "decision": "keep", "decisionReason": "Keep contact state isolated in multi-user and collision rehearsals."
+    },
+    {
+      "path": "tests/e2e/global-setup.ts", "plannedNew": false, "dependencyDirection": "Test setup clears only configured synthetic stores.",
+      "purpose": "Remove isolated contact state before a browser run.", "callers": ["Playwright"], "publicExports": ["default"], "sideEffects": ["test file cleanup"],
+      "failureBehavior": "Cleanup is scoped to the configured test artifact.", "tests": ["test:e2e"], "decision": "keep", "decisionReason": "Keep browser runs deterministic."
+    },
+    {
+      "path": "tests/e2e/demo-environment.spec.ts", "plannedNew": false, "dependencyDirection": "Browser fixture validates the shipped training demo; production never imports it.",
+      "purpose": "Open a fresh editable practice attempt and assert the current presentation title.", "callers": ["Playwright"], "publicExports": [], "sideEffects": ["synthetic training state"],
+      "failureBehavior": "A stale or non-editable demo fails visibly.", "tests": ["test:e2e"],
+      "staticPrompts": [{"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"URLs are same-app routes or synthetic/intercepted fixtures used only inside the isolated browser test.","owner":"Eric","followUp":"test:e2e"}],
+      "decision": "keep", "decisionReason": "Remove pre-existing non-idempotent test state and stale copy without changing the product."
+    },
+    {
+      "path": "tests/e2e/operator-training.spec.ts", "plannedNew": false, "dependencyDirection": "Browser fixture validates Learning Center navigation; production never imports it.",
+      "purpose": "Assert the current presentation title reached from the Learning Center.", "callers": ["Playwright"], "publicExports": [], "sideEffects": ["synthetic training state"],
+      "failureBehavior": "Navigation or presentation regressions fail visibly.", "tests": ["test:e2e"],
+      "staticPrompts": [
+        {"prompt":"Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.","disposition":"expected","reason":"Existing storage interactions are test-only guided-tour state with synthetic identities; this slice changes no storage behavior.","owner":"Eric","followUp":"test:e2e"},
+        {"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"URLs are same-app routes or intercepted synthetic fixtures used only by Playwright.","owner":"Eric","followUp":"test:e2e"}
+      ],
+      "decision": "keep", "decisionReason": "Correct a stale pre-existing assertion only."
+    },
+    {
+      "path": "tests/e2e/pipeline-calendar.spec.ts", "plannedNew": false, "dependencyDirection": "Browser fixture validates public calendar presentation.",
+      "purpose": "Align the existing assertion with the truthful scheduling-queue label.", "callers": ["Playwright"], "publicExports": [], "sideEffects": ["synthetic requests"],
+      "failureBehavior": "Presentation regression fails the test.", "tests": ["test:e2e"],
+      "staticPrompts": [{"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"Hard-coded values are synthetic route fixtures intercepted by Playwright and never call external services.","owner":"Eric","followUp":"test:e2e"}],
+      "decision": "keep", "decisionReason": "Update characterized copy with the approved workflow."
+    },
+    {
+      "path": "tests/e2e/pipeline-smoke.spec.ts", "plannedNew": false, "dependencyDirection": "Browser fixture exercises public workflow surfaces and APIs; production never imports it.",
+      "purpose": "Give existing schedule journeys the approved Intake and contact preconditions and align the queue label.", "callers": ["Playwright"], "publicExports": [], "sideEffects": ["isolated synthetic test data"],
+      "failureBehavior": "A missing workflow precondition or lifecycle regression fails the suite.", "tests": ["test:e2e"],
+      "staticPrompts": [
+        {"prompt":"Large module (2663 lines): split by behavior before adding more responsibilities.","disposition":"expected","reason":"This is an existing cross-surface characterization suite; the slice changes only five fixture values and one label and adds its new journey in a separate focused spec.","owner":"Eric","followUp":"Keep new contact cases in referral-operating-spine.spec.ts."},
+        {"prompt":"Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.","disposition":"expected","reason":"Browser storage use is existing test setup and assertions against isolated synthetic data; this slice adds no storage use or real client content.","owner":"Eric","followUp":"test:critical-safety"},
+        {"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"URLs are synthetic Zoom or intercepted same-app test fixtures and never contact external services.","owner":"Eric","followUp":"test:e2e"}
+      ],
+      "decision": "keep", "decisionReason": "Preserve full-journey evidence under the stronger scheduling contract."
+    },
+    {
+      "path": "tests/e2e/visual-regression.spec.ts-snapshots/desktop-new-packet-linux.png", "plannedNew": false, "dependencyDirection": "Playwright consumes this Linux-only golden image; production never imports it.",
+      "purpose": "Record the reviewed desktop Intake composition after adding the approved Contact and coordination section.", "callers": ["test:e2e:visual"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Any later unapproved pixel drift fails the Linux visual gate.", "tests": ["test:e2e:visual"],
+      "decision": "keep", "decisionReason": "The intended Intake addition changed the desktop surface, and three independent CI captures produced the same replacement image."
+    },
+    {
+      "path": "scripts/api-route-policy-audit.mjs", "plannedNew": false, "dependencyDirection": "Static audit reads routes; runtime never imports it.",
+      "purpose": "Trace delegated route handlers that receive context arguments.", "callers": ["check:route-policy"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Unresolved or ungoverned methods fail closed.", "tests": ["check:route-policy"], "decision": "keep", "decisionReason": "Recognize the repository's existing delegated-handler form."
+    },
+    {
+      "path": "scripts/database-readiness.mjs", "plannedNew": false, "dependencyDirection": "Static readiness validates migration and rollback artifacts.",
+      "purpose": "Require migration 0034 and its recovery evidence.", "callers": ["database:integrity"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing contact schema or stale downstream checks fail non-zero.", "tests": ["database:integrity"],
+      "staticPrompts": [{"prompt":"Uses SELECT *; verify response growth, schema coupling, and PHI minimization.","disposition":"false_positive","reason":"The script reads source files and detects a bounded query string; it never executes SELECT or emits record data.","owner":"Eric","followUp":"check:database"}],
+      "decision": "keep", "decisionReason": "Advance the canonical database inventory."
+    },
+    {
+      "path": "scripts/database-rollback-drill.mjs", "plannedNew": false, "dependencyDirection": "Opt-in test script owns transactional schema recovery rehearsal.",
+      "purpose": "Prove contact objects roll back narrowly and transaction rollback restores them.", "callers": ["database:assurance:integration"], "publicExports": [], "sideEffects": ["test database transactional DDL"],
+      "failureBehavior": "Any mismatch rolls back the drill transaction and fails.", "tests": ["database:assurance:integration"],
+      "staticPrompts": [{"prompt":"Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.","disposition":"expected","reason":"Suppression is limited to defensive rollback and advisory-unlock cleanup after the primary failure; the drill still emits failure and exits non-zero.","owner":"Eric","followUp":"database:assurance:integration"}],
+      "decision": "keep", "decisionReason": "Migration 0034 needs executable recovery proof."
+    },
+    {
+      "path": "scripts/postgres-concurrency-certification.mjs", "plannedNew": false, "dependencyDirection": "Test-only contention runner targets an explicitly guarded test database.",
+      "purpose": "Prove one primary scheduling contact survives concurrent assignment.", "callers": ["database:concurrency"], "publicExports": [], "sideEffects": ["synthetic test database rows"],
+      "failureBehavior": "Unexpected winners, conflicts, or residue fail certification.", "tests": ["database:concurrency"],
+      "staticPrompts": [
+        {"prompt":"Contains destructive behavior; require dry-run, explicit scope, and recovery evidence.","disposition":"expected","reason":"The script refuses non-test database names unless explicitly acknowledged, creates run-scoped synthetic rows, and deletes only those rows in cleanup.","owner":"Eric","followUp":"database:concurrency"},
+        {"prompt":"Explicitly suppresses a rejected promise; verify this is genuinely optional and observable.","disposition":"expected","reason":"Only best-effort cleanup suppresses a secondary error after the primary result is already captured; failed checks and primary errors remain non-zero and visible.","owner":"Eric","followUp":"database:concurrency"}
+      ],
+      "decision": "keep", "decisionReason": "Exercise the high-risk contact invariant under contention."
+    },
+    {
+      "path": "scripts/postgres-integration-fixtures.mjs", "plannedNew": false, "dependencyDirection": "Test fixture uses public schema within a rollback-only transaction.",
+      "purpose": "Verify a reusable contact and primary referral link in the integrated graph.", "callers": ["database:assurance:integration"], "publicExports": [], "sideEffects": ["rolled-back synthetic rows"],
+      "failureBehavior": "Missing migration or wrong graph count fails and rolls back.", "tests": ["database:assurance:integration"],
+      "staticPrompts": [{"prompt":"Contains destructive behavior; require dry-run, explicit scope, and recovery evidence.","disposition":"expected","reason":"The fixture refuses accidental production reuse and executes all synthetic writes and retention deletes inside a sentinel-forced rollback transaction.","owner":"Eric","followUp":"database:assurance:integration"}],
+      "decision": "keep", "decisionReason": "Include contacts in the canonical integration graph."
+    },
+    {
+      "path": "scripts/postgres-live-smoke.mjs", "plannedNew": false, "dependencyDirection": "Operational smoke uses runtime grants and synthetic rollback-bound data.",
+      "purpose": "Verify migration 0034 and a primary contact link under live database permissions.", "callers": ["database:live-smoke"], "publicExports": [], "sideEffects": ["rolled-back synthetic rows"],
+      "failureBehavior": "Missing tables, grants, or transactional behavior fails.", "tests": ["database:live-smoke"], "decision": "keep", "decisionReason": "Advance live schema coverage to migration 34."
+    },
+    {
+      "path": "scripts/seed-production-reference-data.mjs", "plannedNew": false, "dependencyDirection": "Idempotent production seed creates reference rows only.",
+      "purpose": "Require migration 34 and seed the contacts revision marker.", "callers": ["production bootstrap"], "publicExports": [], "sideEffects": ["reference rows only"],
+      "failureBehavior": "Incomplete schema aborts without synthetic client data.", "tests": ["database:integrity"], "decision": "keep", "decisionReason": "Keep production bootstrap current."
+    },
+    {
+      "path": "docs/refactoring/refactor-slices.json", "plannedNew": false, "dependencyDirection": "TARS validators consume slice scope; runtime does not.",
+      "purpose": "Register exact worktree, invariants, allowed paths, and gates.", "callers": ["check:refactor-setup", "check:code-quality"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Scope drift blocks certification.", "tests": ["check:refactor-setup"], "decision": "keep", "decisionReason": "Canonical slice registry."
+    },
+    {
+      "path": "docs/refactoring/evidence-matrix.json", "plannedNew": false, "dependencyDirection": "TARS validators consume evidence state; runtime does not.",
+      "purpose": "Bind start, completion, and cutover evidence to the slice.", "callers": ["check:refactor-evidence"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Unsatisfied mandatory evidence blocks promotion.", "tests": ["check:refactor-assurance"],
+      "staticPrompts": [{"prompt":"Large module (1024 lines): split by behavior before adding more responsibilities.","disposition":"expected","reason":"This is the canonical append-only cross-slice evidence registry consumed as one schema; splitting it would create multiple authorities and is outside this product slice.","owner":"Eric","followUp":"check:refactor-evidence"}],
+      "decision": "keep", "decisionReason": "Canonical evidence ledger."
+    },
+    {
+      "path": "docs/refactoring/referral-to-decision-operating-spine-assurance-record.json", "plannedNew": true, "dependencyDirection": "Certification consumes exact-commit evidence; runtime does not.",
+      "purpose": "Record gate results, preservation claims, recovery, and residual risk.", "callers": ["check:refactor-assurance"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Incomplete or stale evidence blocks completion.", "tests": ["check:refactor-assurance"], "decision": "keep", "decisionReason": "Required completion record."
+    },
+    {
+      "path": "docs/reliability/complete-repository-audit-latest.md", "plannedNew": false, "dependencyDirection": "Generated repository evidence is not imported by runtime.",
+      "purpose": "Refresh the full repository audit after adding governed files.", "callers": ["audit:repository"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Stale inventory fails artifact checks.", "tests": ["check:artifacts"], "decision": "keep", "decisionReason": "Generated audit output."
+    },
+    {
+      "path": "docs/reliability/dependency-inventory.json", "plannedNew": false, "dependencyDirection": "Generated dependency evidence is not imported by runtime.",
+      "purpose": "Refresh dependency inventory without adding dependencies.", "callers": ["audit:repository"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Inventory drift fails artifact checks.", "tests": ["check:artifacts"], "decision": "keep", "decisionReason": "Generated audit output."
+    },
+    {
+      "path": "docs/reliability/repository-file-inventory.json", "plannedNew": false, "dependencyDirection": "Generated file evidence is not imported by runtime.",
+      "purpose": "Inventory the exact changed and new files.", "callers": ["audit:repository", "check:code-quality"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Missing files or stale metadata fail evidence checks.", "tests": ["check:artifacts"], "decision": "keep", "decisionReason": "Generated repository inventory."
+    }
+  ],
+  "reviewedBy": "TARS file-audit machine reviewer",
+  "approvedAt": "2026-09-11T00:00:00Z"
+}

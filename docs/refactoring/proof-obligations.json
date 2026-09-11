@@ -14,8 +14,10 @@
       "tracePaths": ["lib/pipeline/referral-store.ts", "lib/pipeline/referral-sections.ts"],
       "verificationGates": ["check:workflow-fuzz", "database:concurrency", "certify:seeded-defects"],
       "claimBoundary": "Declared referral section/version commands under the tested local and PostgreSQL configurations.",
-      "status": "planned",
-      "humanValidated": false
+      "status": "verified",
+      "humanValidated": false,
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-11T21:35:51Z"
     },
     {
       "id": "referral_retry_and_audit_atomicity",
@@ -26,8 +28,10 @@
       "tracePaths": ["lib/pipeline/referral-store.ts"],
       "verificationGates": ["check:api", "database:assurance:integration", "database:integrity", "certify:seeded-defects"],
       "claimBoundary": "Commands explicitly listed in the owner-approved retry table; local audit differences remain explicit.",
-      "status": "planned",
-      "humanValidated": false
+      "status": "verified",
+      "humanValidated": false,
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-11T21:35:51Z"
     },
     {
       "id": "assessment_signed_immutability",
@@ -315,6 +319,40 @@
       "humanValidated": false,
       "verifiedBy": "TARS owner-fast-lane machine verifier",
       "verifiedAt": "2026-09-10T13:59:00Z"
+    },
+    {
+      "id": "contact_directory_authorized_atomic_links",
+      "sliceId": "referral-to-decision-operating-spine",
+      "criticality": "critical",
+      "property": "Every contact mutation and referral-contact link mutation is resource-authorized, validates bounded input, rejects stale versions, preserves one primary scheduling contact per referral, records actor-attributed audit evidence, and cannot auto-merge identities by name.",
+      "assuranceMethods": ["mechanical", "integration", "concurrency", "operational_recovery"],
+      "tracePaths": [
+        "lib/pipeline/referral-types.ts",
+        "lib/pipeline/referral-validation.ts",
+        "lib/pipeline/referral-activity.ts"
+      ],
+      "verificationGates": ["check:contacts", "check:route-policy", "database:concurrency", "database:integrity"],
+      "claimBoundary": "The approved contact fields, contact roles, referral links, local-file adapter, PostgreSQL adapter, authenticated routes, and synthetic concurrency fixtures in this slice.",
+      "status": "planned",
+      "humanValidated": false
+    },
+    {
+      "id": "assessor_entry_schedule_and_resume_continuity",
+      "sliceId": "referral-to-decision-operating-spine",
+      "criticality": "high",
+      "property": "Assigned-work, scheduling, calendar, day-of, and recent-work entry points preserve the intended Intake or Assessment destination and assessment section while scheduling remains server-confirmed and resume state remains user-scoped non-canonical preference data.",
+      "assuranceMethods": ["mechanical", "integration", "property_based", "operational_recovery"],
+      "tracePaths": [
+        "components/pipeline/PipelineCalendar.tsx",
+        "components/pipeline/WorkspaceActivityFeed.tsx",
+        "lib/pipeline/work-continuity.ts",
+        "lib/pipeline/home-continuity.ts",
+        "app/api/assessments/[assessmentId]/schedule/route.ts"
+      ],
+      "verificationGates": ["check:assessor-workflow", "test:e2e", "test:e2e:operational:high", "test:critical-safety"],
+      "claimBoundary": "The supported Pipeline roles, workspace views, assessment sections, browser configurations, and synthetic local/PostgreSQL workflow fixtures exercised by this slice.",
+      "status": "planned",
+      "humanValidated": false
     }
   ]
 }

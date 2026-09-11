@@ -4,7 +4,8 @@ const port = process.env.PORT ?? "3197";
 const baseURL = `http://127.0.0.1:${port}`;
 const prebuiltOperational = process.env.PIPELINE_OPERATIONAL_PREBUILT === "true";
 const historicalRunRoot = process.env.PIPELINE_HISTORICAL_RUN_ROOT;
-const storeRoot = historicalRunRoot ? `${historicalRunRoot}/runtime` : `.data/playwright-operational/${port}`;
+const operationalRunId = process.env.PIPELINE_OPERATIONAL_RUN_ID ?? `${Date.now()}-${process.pid}`;
+const storeRoot = historicalRunRoot ? `${historicalRunRoot}/runtime` : `.data/playwright-operational/${port}/${operationalRunId}`;
 const allowedEmails = [
   "ops-admin@pipeline.local",
   "admissions@pipeline.local",
@@ -22,6 +23,7 @@ process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH ??= `${storeRoot}/resident-lin
 process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH ??= `${storeRoot}/documents`;
 process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH ??= `${storeRoot}/desktop-state.json`;
 process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH ??= `${storeRoot}/note-lab.json`;
+process.env.PIPELINE_E2E_CONTACT_STORE_PATH ??= `${storeRoot}/contacts.json`;
 
 export default defineConfig({
   testDir: "./tests/e2e/operational",
@@ -65,6 +67,7 @@ export default defineConfig({
       PIPELINE_ASSESSMENT_STORE_PATH: process.env.PIPELINE_E2E_ASSESSMENT_STORE_PATH,
       PIPELINE_RESIDENT_LINK_STORE_PATH: process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH,
       PIPELINE_NOTE_LAB_STORE_PATH: process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH,
+      PIPELINE_CONTACT_STORE_PATH: process.env.PIPELINE_E2E_CONTACT_STORE_PATH,
       PIPELINE_LOCAL_DOCUMENT_ROOT: process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH,
       PIPELINE_ENABLE_SYNTHETIC_PROFILES: "true",
       PIPELINE_WORKER_SHARED_SECRET: process.env.PIPELINE_WORKER_SHARED_SECRET ?? "operational-worker-secret",

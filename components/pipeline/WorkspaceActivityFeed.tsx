@@ -300,7 +300,8 @@ function openActivityItem(item: WorkspaceActivityItem, onOpenPacket: (referral: 
 function activityLocation(item: WorkspaceActivityItem): PipelineWorkspaceLocation {
   if (item.action.startsWith("assessment_")) return { view: "assessment" };
   if (item.action === "work_item_updated") return { view: "files" };
-  if (item.action.includes("decision") || item.action.includes("assigned") || item.action.includes("stage")) return { view: "workflow" };
+  if (["referral_assigned", "referral_reassigned", "referral_unassigned"].includes(item.action)) return { view: "intake" };
+  if (item.action.includes("decision") || item.action.includes("stage")) return { view: "workflow" };
   return { view: "intake" };
 }
 
@@ -311,6 +312,11 @@ function activityVerb(action: string) {
     referral_assigned: "assigned",
     referral_reassigned: "reassigned",
     referral_unassigned: "unassigned",
+    referral_contact_attached: "added a contact to",
+    referral_contact_updated: "updated a contact connection for",
+    referral_contact_details_updated: "updated contact details for",
+    referral_contact_unlinked: "removed a contact from",
+    referral_contact_primary_changed: "changed the scheduling contact for",
     referral_stage_changed: "changed the workflow stage for",
     manual_intake_authorized: "authorized manual intake for",
     assessment_created: "started an assessment for",

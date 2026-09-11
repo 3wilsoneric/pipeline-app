@@ -269,7 +269,7 @@ test.describe("Pipeline Learning Center", () => {
 
     await expect(page).toHaveURL(/\/training\/demo$/);
     await expect(page.getByRole("tab", { name: "Presentation" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to handoff" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to decision" })).toBeVisible();
   });
 
   test("opens modules as full-page learning workspaces", async ({ page }) => {

@@ -285,7 +285,7 @@ export default function PipelineOverviewRoute() {
       />
     ) : null;
   } else if (screen === "calendar") {
-    page = <PipelineCalendar onOpenPacket={(referral) => navigate("packet", referral)} />;
+    page = <PipelineCalendar onOpenPacket={(referral, location) => navigate("packet", referral, undefined, location)} />;
   } else if (screen === "trash") {
     page = <PipelineTrash />;
   } else if (screen === "profiles") {

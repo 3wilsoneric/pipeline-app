@@ -41,6 +41,7 @@
     "certify:assurance:live": "node scripts/platform-assurance-certification.mjs --profile=live",
     "check:admissions-zone": "node scripts/admissions-zone-contracts.mjs",
     "check:assessor-workflow": "node scripts/assessor-workflow-contracts.mjs",
+    "check:contacts": "node scripts/contact-directory-contracts.mjs",
     "check:assessment-store-characterization": "node scripts/assessment-store-characterization.mjs",
     "check:workflow-store-characterization": "node scripts/workflow-store-characterization.mjs",
     "check:intake-recovery": "node scripts/referral-intake-recovery-contracts.mjs",

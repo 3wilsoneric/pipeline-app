@@ -391,7 +391,7 @@ test.describe("desktop feature enabled", () => {
           note: "",
           createdAt: new Date().toISOString(),
           dob: "1980-01-01",
-          phone: "",
+          phone: "555-010-0199",
           email: "",
           payer: "",
           requirements: [],

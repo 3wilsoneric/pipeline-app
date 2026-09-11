@@ -22,6 +22,7 @@ import { normalizedOwnerAliases } from "@/lib/pipeline/referral-ownership";
 import { listReferrals } from "@/lib/pipeline/referral-store";
 import type { Referral, RequirementGate, RequirementStatus } from "@/lib/pipeline/referral-types";
 import { listAssignableWorkspaceAssessors } from "@/lib/pipeline/workspace-members";
+import { getContactSchedulingReadiness } from "@/lib/pipeline/contact-store";
 import {
   isRequirementGateActive,
   type WorkspaceOutcomeState,
@@ -84,6 +85,7 @@ type UnscheduledCalendarRow = {
   received_date: string;
   workflow_status: NonNullable<Referral["workflowStatus"]>;
   is_reassessment: boolean;
+  contact_ready: boolean;
   total_count: number | string;
 };
 
@@ -197,6 +199,14 @@ async function getPostgresAssessmentCalendar(
         r.owner_id, r.owner_name,
         coalesce(r.received_date, r.created_at::date)::text as received_date,
         r.workflow_status,
+        (btrim(coalesce(r.phone, '')) <> '' or btrim(coalesce(r.email, '')) <> '' or exists (
+          select 1
+          from pipeline.referral_contacts rc
+          join pipeline.contacts c on c.contact_id = rc.contact_id
+          where rc.referral_id = r.referral_id
+            and rc.primary_for_scheduling and c.active
+            and (btrim(c.phone) <> '' or btrim(c.email) <> '')
+        )) as contact_ready,
         (r.closed_at is not null
           and latest_assessment.created_at > coalesce(latest_decision.decided_at, r.closed_at)) as is_reassessment,
         count(*) over() as total_count
@@ -341,7 +351,7 @@ async function getPostgresAssessmentCalendar(
           ? row.is_reassessment
             ? "schedule"
             : row.workflow_status === "ready_to_schedule"
-              ? "schedule"
+              ? row.contact_ready ? "schedule" : "complete_contact"
               : "complete_intake"
           : "assign",
       };
@@ -431,10 +441,13 @@ async function getLocalAssessmentCalendar(
       .filter((event) => event.date >= range.from && event.date <= range.to),
   ]).sort(compareCalendarEvents);
   const queueLimit = Math.min(200, Math.max(1, options.queueLimit ?? 24));
-  const allUnscheduled = calendarReferrals.flatMap((referral) => {
+  const localPreparation = await Promise.all(calendarReferrals.map(async (referral) => {
     const item = assessmentPreparationItem(referral, latestAssessmentByReferral.get(referral.id) ?? null);
-    return item ? [item] : [];
-  })
+    if (!item || item.nextAction !== "schedule") return item;
+    const readiness = await getContactSchedulingReadiness(referral.id, referral);
+    return readiness.ready ? item : { ...item, nextAction: "complete_contact" as const };
+  }));
+  const allUnscheduled = localPreparation.flatMap((item) => item ? [item] : [])
     .filter((item) => matchesQueueOptions(item, user, options))
     .sort((left, right) => left.receivedDate.localeCompare(right.receivedDate) || left.clientName.localeCompare(right.clientName));
   return {

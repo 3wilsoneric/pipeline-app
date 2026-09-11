@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:0987912555a75a30",
-  "fingerprint": "0987912555a75a309705faa6ec16fba297601ad3c03e9abbca5bb8e76b1e3135",
+  "generatedAt": "source-fingerprint:f8c008b108b2f7dc",
+  "fingerprint": "f8c008b108b2f7dc6ed05d9d4ca61f712b0c9cedd04cf5f2e0d32dbe2c783451",
   "totals": {
-    "files": 963,
-    "lines": 307231,
-    "coveredFiles": 963
+    "files": 979,
+    "lines": 310850,
+    "coveredFiles": 979
   },
   "entries": [
     {
@@ -74,7 +74,7 @@
       "kind": "repository-file",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 271,
+      "lines": 276,
       "moduleIds": [
         "authorization-phi",
         "threat-supply-chain"
@@ -326,7 +326,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 92,
+      "lines": 136,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -510,6 +510,30 @@
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
+      ]
+    },
+    {
+      "path": "app/api/contacts/[contactId]/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 70,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
+      "path": "app/api/contacts/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 61,
+      "moduleIds": [
+        "route-handler-contract",
+        "validation-authorization"
       ]
     },
     {
@@ -1154,6 +1178,32 @@
       "runtime": "next-server",
       "risk": "high",
       "lines": 50,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
+      "path": "app/api/referrals/[referralId]/contacts/[referralContactId]/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 62,
+      "moduleIds": [
+        "create-referral",
+        "route-handler-contract",
+        "validation-authorization"
+      ]
+    },
+    {
+      "path": "app/api/referrals/[referralId]/contacts/route.ts",
+      "subsystem": "API routes",
+      "kind": "route-handler",
+      "runtime": "next-server",
+      "risk": "high",
+      "lines": 55,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -2047,7 +2097,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 416,
+      "lines": 417,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2059,7 +2109,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 385,
+      "lines": 390,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2222,6 +2272,18 @@
       ]
     },
     {
+      "path": "components/pipeline/ReferralContactsCard.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 510,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/ReferralDraftResumeList.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2275,7 +2337,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3786,
+      "lines": 3810,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2527,7 +2589,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 801,
+      "lines": 840,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2575,7 +2637,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 388,
+      "lines": 394,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2599,7 +2661,7 @@
       "kind": "configuration",
       "runtime": "postgres",
       "risk": "high",
-      "lines": 40,
+      "lines": 41,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -3002,6 +3064,18 @@
       ]
     },
     {
+      "path": "database/migrations/0034_contact_directory.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "migration",
+      "runtime": "postgres",
+      "risk": "critical",
+      "lines": 74,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
       "path": "database/rollbacks/0005_collaboration.sql",
       "subsystem": "PostgreSQL schema",
       "kind": "rollback",
@@ -3344,6 +3418,18 @@
       "runtime": "postgres",
       "risk": "standard",
       "lines": 19,
+      "moduleIds": [
+        "database-foundations",
+        "schema-migrations"
+      ]
+    },
+    {
+      "path": "database/rollbacks/0034_contact_directory.sql",
+      "subsystem": "PostgreSQL schema",
+      "kind": "rollback",
+      "runtime": "postgres",
+      "risk": "standard",
+      "lines": 6,
       "moduleIds": [
         "database-foundations",
         "schema-migrations"
@@ -4172,7 +4258,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 242,
+      "lines": 258,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4304,7 +4390,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 445,
+      "lines": 477,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4490,6 +4576,18 @@
         "create-referral",
         "route-handler-contract",
         "validation-authorization"
+      ]
+    },
+    {
+      "path": "docs/refactoring/characterization/referral-to-decision-operating-spine-start-e67db3f.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 22,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
       ]
     },
     {
@@ -4690,7 +4788,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 967,
+      "lines": 1024,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4774,7 +4872,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 32,
+      "lines": 29,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4810,7 +4908,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 321,
+      "lines": 359,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -4954,7 +5052,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 811,
+      "lines": 930,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5027,6 +5125,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 169,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/REFERRAL_TO_DECISION_OPERATING_SPINE_ARCHITECTURE_NARRATIVE.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 61,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5141,6 +5251,30 @@
         "create-referral",
         "route-handler-contract",
         "validation-authorization"
+      ]
+    },
+    {
+      "path": "docs/refactoring/referral-to-decision-operating-spine-assurance-record.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 194,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/refactoring/referral-to-decision-operating-spine-file-audit.json",
+      "subsystem": "Documentation",
+      "kind": "configuration",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 440,
+      "moduleIds": [
+        "test-assurance",
+        "vertical-change-capstone"
       ]
     },
     {
@@ -5437,7 +5571,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1889,
+      "lines": 1911,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5473,7 +5607,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7579,
+      "lines": 7591,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5557,7 +5691,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 11675,
+      "lines": 11861,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6349,7 +6483,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 120,
+      "lines": 126,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -7018,7 +7152,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 503,
+      "lines": 516,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -7217,6 +7351,42 @@
       ]
     },
     {
+      "path": "lib/pipeline/contact-store.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 681,
+      "moduleIds": [
+        "database-foundations",
+        "stores-transactions"
+      ]
+    },
+    {
+      "path": "lib/pipeline/contact-types.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 89,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
+      "path": "lib/pipeline/contact-validation.ts",
+      "subsystem": "Referral domain",
+      "kind": "typescript-module",
+      "runtime": "shared",
+      "risk": "standard",
+      "lines": 201,
+      "moduleIds": [
+        "system-map",
+        "types-and-boundaries"
+      ]
+    },
+    {
       "path": "lib/pipeline/document-requirement-reconciliation.ts",
       "subsystem": "Referral domain",
       "kind": "typescript-module",
@@ -7330,7 +7500,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 225,
+      "lines": 228,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7522,7 +7692,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 125,
+      "lines": 129,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7534,7 +7704,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 307,
+      "lines": 321,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7558,7 +7728,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 152,
+      "lines": 158,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7752,7 +7922,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 357,
+      "lines": 359,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -7934,7 +8104,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 315,
+      "lines": 316,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -7994,7 +8164,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 256,
+      "lines": 287,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8366,7 +8536,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 242,
+      "lines": 243,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -8378,7 +8548,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 115,
+      "lines": 120,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -8390,7 +8560,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 80,
+      "lines": 83,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -8954,7 +9124,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2099,
+      "lines": 2106,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -9441,6 +9611,18 @@
       ]
     },
     {
+      "path": "scripts/contact-directory-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 149,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/create-batch-manifest.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -9602,7 +9784,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 499,
+      "lines": 513,
       "moduleIds": [
         "database-foundations",
         "stores-transactions"
@@ -9626,7 +9808,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 930,
+      "lines": 954,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -10346,7 +10528,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 412,
+      "lines": 444,
       "moduleIds": [
         "concurrency-idempotency",
         "stores-transactions"
@@ -10358,7 +10540,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 223,
+      "lines": 245,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10382,7 +10564,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 230,
+      "lines": 256,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -11091,7 +11273,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 347,
+      "lines": 345,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11127,7 +11309,7 @@
       "kind": "typescript-module",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 20,
+      "lines": 21,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11368,7 +11550,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2661,
+      "lines": 2663,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11381,6 +11563,18 @@
       "runtime": "tooling",
       "risk": "standard",
       "lines": 39,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/referral-operating-spine.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 125,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

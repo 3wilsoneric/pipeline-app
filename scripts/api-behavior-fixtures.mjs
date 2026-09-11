@@ -753,6 +753,8 @@ const results = [
       responsiblePerson: "value-responsiblePerson",
       note: "value-summary",
       currentMedications: "value-currentMedications",
+      phone: "value-phone",
+      email: "value-email",
     };
     for (const [key, value] of Object.entries(expected)) {
       assert(patch[key] === value, `Canvas field mapping did not persist ${key}`);
@@ -1908,7 +1910,7 @@ function residentLinkValidationResults() {
 function workspaceStateValidationResults() {
   const fieldKeys = [
     "name", "gender", "age", "dob", "ssn", "owner", "referralReceived",
-    "admissionDate", "county", "referent", "responsiblePerson", "summary", "interview",
+    "admissionDate", "county", "referent", "responsiblePerson", "summary", "interview", "phone", "email",
   ];
   const validDraft = {
     schema: 1,
@@ -1926,6 +1928,9 @@ function workspaceStateValidationResults() {
       const parsed = workspaceStateTypes.parsePipelineReferralDraft(validDraft);
       assert(parsed?.fields.summary.value === "Synthetic recovery note", "Expected a valid recovery draft");
       assert(parsed?.fields.community.value === "San Pablo" && parsed?.fields.county.value === "", "Legacy drafts should migrate the old community slot without inventing a county");
+      const legacyFields = Object.fromEntries(Object.entries(validDraft.fields).filter(([key]) => key !== "phone" && key !== "email"));
+      const legacyParsed = workspaceStateTypes.parsePipelineReferralDraft({ ...validDraft, fields: legacyFields });
+      assert(legacyParsed?.fields.phone.value === "" && legacyParsed?.fields.email.value === "", "Saved drafts from before contact fields must remain recoverable");
       assert(workspaceStateTypes.parsePipelineReferralDraft({ ...validDraft, fields: { summary: { value: "Partial" } } }) === null, "Partial field maps must fail");
       assert(workspaceStateTypes.parsePipelineReferralDraft({ ...validDraft, dirtyKeys: ["invented"] }) === null, "Unknown dirty keys must fail");
       assert(workspaceStateTypes.parsePipelineReferralDraft({ ...validDraft, fields: { ...validDraft.fields, summary: { value: "x".repeat(40_001) } } }) === null, "Oversized draft fields must fail");
@@ -2032,6 +2037,8 @@ function emptyCanvasFields() {
     "responsiblePerson",
     "summary",
     "currentMedications",
+    "phone",
+    "email",
   ].map((key) => [key, { label: key, value: "" }]));
 }
 

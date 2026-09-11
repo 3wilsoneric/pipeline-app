@@ -41,7 +41,7 @@ export type PipelineUnscheduledAssessment = {
   owner: string;
   receivedDate: string;
   workflowStatus: ReferralWorkflowStatus;
-  nextAction: "assign" | "complete_intake" | "schedule";
+  nextAction: "assign" | "complete_intake" | "complete_contact" | "schedule";
 };
 
 export type PipelineCalendarResponse = {

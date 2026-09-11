@@ -32,7 +32,7 @@
       "id": "setup-only-general-cleanup",
       "title": "General cleanup request during setup-only mode",
       "kind": "do_not_start",
-      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner", "extraction-capstone", "referral-canvas-components", "test-suite-structure", "assessment-workspace-components", "referral-home-directory-components", "calendar-components", "referral-workflow-panel-components", "supervisor-review-revision", "workflow-permutation-hardening"],
+      "sliceIds": ["referral-store-boundaries", "assessment-store-boundaries", "workflow-and-handoff-owner", "extraction-capstone", "referral-canvas-components", "test-suite-structure", "assessment-workspace-components", "referral-home-directory-components", "calendar-components", "referral-workflow-panel-components", "supervisor-review-revision", "workflow-permutation-hardening", "referral-to-decision-operating-spine"],
       "fixedPrompt": "Clean up and modernize the Pipeline repository. Split the large files, deduplicate types, and continue recursively until it is excellent.",
       "fixedInputs": {
         "registryMode": "setup_only",

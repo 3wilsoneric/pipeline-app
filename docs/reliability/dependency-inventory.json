@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-11T15:01:11.186Z",
+  "generated_at": "2026-09-11T21:56:55.651Z",
   "audit_date": "2026-09-11",
-  "git_head": "c74bc7db2194558e1691f0bcf3b5d692026bcf65",
+  "git_head": "0a86cf40a1cf0878d87ee9760ea096653bf8bef5",
   "direct": [
     {
       "name": "@azure/identity",
@@ -156,6 +156,7 @@
         "tests/e2e/pipeline-home.spec.ts",
         "tests/e2e/pipeline-smoke.spec.ts",
         "tests/e2e/production-readiness.spec.ts",
+        "tests/e2e/referral-operating-spine.spec.ts",
         "tests/e2e/responsive-accessibility.spec.ts",
         "tests/e2e/responsive-navigation.spec.ts",
         "tests/e2e/staff-profile.spec.ts",
@@ -385,6 +386,7 @@
         "components/pipeline/PipelineTrash.tsx",
         "components/pipeline/PipelineWelcome.tsx",
         "components/pipeline/ReferralClientActivationPanel.tsx",
+        "components/pipeline/ReferralContactsCard.tsx",
         "components/pipeline/ReferralDraftResumeList.tsx",
         "components/pipeline/ReferralFilePreviewDialog.tsx",
         "components/pipeline/ReferralHome.tsx",
@@ -408,7 +410,6 @@
         "components/pipeline/note-lab/AssessmentPracticeWorkspace.tsx",
         "components/pipeline/training/DemoEnvironmentBanner.tsx",
         "components/pipeline/training/FullWorkflowWalkthroughPreview.tsx",
-        "components/pipeline/training/MeetClientHandoffDemo.tsx",
         "components/pipeline/training/OperatorCertification.tsx",
         "components/pipeline/training/OperatorCurriculumView.tsx",
         "components/pipeline/training/OperatorDemoEntry.tsx",
@@ -419,6 +420,7 @@
         "components/pipeline/training/OperatorProductMap.tsx",
         "components/pipeline/training/PipelineDemoCenter.tsx",
         "components/pipeline/training/PipelineGuidedCoach.tsx",
+        "components/pipeline/training/SubmissionAcceptanceDemo.tsx",
         "docs/COMPLETE_REPOSITORY_AUDIT_2026-08-22.md",
         "package-lock.json",
         "package.json",
@@ -471,6 +473,7 @@
         "components/pipeline/HomeModuleDashboard.tsx",
         "components/pipeline/OperationsDashboard.tsx",
         "components/pipeline/PipelineCalendar.tsx",
+        "components/pipeline/PipelineCalendarPresentation.tsx",
         "components/pipeline/PipelineDeveloperAcademy.tsx",
         "components/pipeline/PipelineHeader.tsx",
         "components/pipeline/PipelineLogoMark.tsx",
@@ -551,6 +554,7 @@
         "docs/refactoring/refactor-eval-scenarios.json",
         "docs/refactoring/referral-store-file-audit-agent-prework.json",
         "docs/refactoring/referral-store-file-audit.json",
+        "docs/refactoring/referral-to-decision-operating-spine-file-audit.json",
         "docs/refactoring/workflow-and-handoff-file-audit.json",
         "docs/training/README.md",
         "eslint.config.mjs",
@@ -586,6 +590,7 @@
         "lib/pipeline/client-workspace-contracts.ts",
         "lib/pipeline/client-workspace-store.ts",
         "lib/pipeline/clinical-backlog-reconciliation.ts",
+        "lib/pipeline/contact-store.ts",
         "lib/pipeline/meet-client-delivery-audit.ts",
         "lib/pipeline/operations-reporting.ts",
         "lib/pipeline/operations-snapshot.ts",
@@ -779,6 +784,7 @@
         "docs/refactoring/extraction-capstone-file-audit.json",
         "docs/refactoring/refactor-eval-scenarios.json",
         "docs/refactoring/refactor-slices.json",
+        "docs/refactoring/referral-to-decision-operating-spine-file-audit.json",
         "docs/refactoring/supervisor-review-revision-assurance-record.json",
         "docs/refactoring/supervisor-review-revision-file-audit.json",
         "docs/refactoring/workflow-and-handoff-file-audit.json",
@@ -804,6 +810,7 @@
         "lib/persistence/store-adapter.ts",
         "lib/pipeline/client-file-import-store.ts",
         "lib/pipeline/client-workspace-store.ts",
+        "lib/pipeline/contact-store.ts",
         "lib/pipeline/editing-presence.ts",
         "lib/pipeline/historical-profile-store.ts",
         "lib/pipeline/referral-activity.ts",
@@ -924,6 +931,7 @@
         "components/pipeline/PipelineWelcome.tsx",
         "components/pipeline/ReferralActivityPanel.tsx",
         "components/pipeline/ReferralClientActivationPanel.tsx",
+        "components/pipeline/ReferralContactsCard.tsx",
         "components/pipeline/ReferralDraftResumeList.tsx",
         "components/pipeline/ReferralFilePreviewDialog.tsx",
         "components/pipeline/ReferralHome.tsx",
@@ -950,7 +958,6 @@
         "components/pipeline/pipeline-shell-context.tsx",
         "components/pipeline/training/DemoEnvironmentBanner.tsx",
         "components/pipeline/training/FullWorkflowWalkthroughPreview.tsx",
-        "components/pipeline/training/MeetClientHandoffDemo.tsx",
         "components/pipeline/training/OperatorCertification.tsx",
         "components/pipeline/training/OperatorCurriculumView.tsx",
         "components/pipeline/training/OperatorDemoEntry.tsx",
@@ -961,6 +968,7 @@
         "components/pipeline/training/OperatorProductMap.tsx",
         "components/pipeline/training/PipelineDemoCenter.tsx",
         "components/pipeline/training/PipelineGuidedCoach.tsx",
+        "components/pipeline/training/SubmissionAcceptanceDemo.tsx",
         "database/rollbacks/0028_workspace_roster.sql",
         "docs/COMPLETE_REPOSITORY_AUDIT_2026-08-22.md",
         "docs/CONSTRAINTS.md",
@@ -1085,6 +1093,7 @@
         "lib/pipeline/client-history-store.ts",
         "lib/pipeline/client-workspace-store.ts",
         "lib/pipeline/clinical-backlog-reconciliation.ts",
+        "lib/pipeline/contact-store.ts",
         "lib/pipeline/document-requirement-reconciliation.ts",
         "lib/pipeline/editing-presence.ts",
         "lib/pipeline/historical-profile-store.ts",
@@ -7571,8 +7580,11 @@
     }
   ],
   "installed": {
-    "resolvedPackages": 528,
-    "dependencyEdges": 1094,
-    "problems": []
+    "resolvedPackages": 520,
+    "dependencyEdges": 1063,
+    "problems": [
+      "extraneous: @emnapi/runtime@1.11.3 /Users/eric/pipeline-refactor-referral-to-decision-spine/node_modules/@emnapi/runtime",
+      "extraneous: @img/sharp-wasm32@0.35.4 /Users/eric/pipeline-refactor-referral-to-decision-spine/node_modules/@img/sharp-wasm32"
+    ]
   }
 }

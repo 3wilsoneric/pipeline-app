@@ -113,7 +113,7 @@ export function buildPipelineDemoReferral(
     responsiblePerson: "Synthetic county coordinator",
     currentMedications: "Synthetic medication context supplied at intake; medication name, dose, route, and schedule require assessor verification.",
     requirements: [],
-    phone: "",
+    phone: "555-010-0200",
     email: "",
     payer: "",
   };

@@ -37,9 +37,16 @@ try {
   const migrations = await sql`
     select migration_id
     from pipeline.schema_migrations
-    where migration_id in ('0001_pipeline_core', '0002_workflow_engine', '0003_operational_hardening', '0004_document_processing', '0005_collaboration', '0006_user_workspace_state', '0007_canonical_client_assessments', '0008_client_workspaces', '0009_assessment_collaboration', '0010_provisional_workspace_members', '0011_historical_material_workspaces', '0012_referral_trash', '0013_search_performance', '0014_workspace_county', '0015_assessor_workflow', '0016_zoom_assessment_method', '0017_referral_received_month', '0018_academy_progress', '0019_operator_training_progress', '0020_allo_canvas_content', '0021_note_practice_lab', '0022_note_lab_pattern_selections', '0023_note_lab_field_reviews', '0024_workspace_month_provenance', '0025_home_dashboard_layout', '0026_imported_workspace_lifecycle', '0027_staff_profiles', '0028_workspace_roster', '0029_historical_workspace_archive', '0030_annette_everhart_display_name', '0031_assessment_review_revisions', '0032_extraction_evidence_bounding_boxes', '0033_workflow_continuity')
+    where migration_id in ('0001_pipeline_core', '0002_workflow_engine', '0003_operational_hardening', '0004_document_processing', '0005_collaboration', '0006_user_workspace_state', '0007_canonical_client_assessments', '0008_client_workspaces', '0009_assessment_collaboration', '0010_provisional_workspace_members', '0011_historical_material_workspaces', '0012_referral_trash', '0013_search_performance', '0014_workspace_county', '0015_assessor_workflow', '0016_zoom_assessment_method', '0017_referral_received_month', '0018_academy_progress', '0019_operator_training_progress', '0020_allo_canvas_content', '0021_note_practice_lab', '0022_note_lab_pattern_selections', '0023_note_lab_field_reviews', '0024_workspace_month_provenance', '0025_home_dashboard_layout', '0026_imported_workspace_lifecycle', '0027_staff_profiles', '0028_workspace_roster', '0029_historical_workspace_archive', '0030_annette_everhart_display_name', '0031_assessment_review_revisions', '0032_extraction_evidence_bounding_boxes', '0033_workflow_continuity', '0034_contact_directory')
   `;
-  checks.push({ name: "required migrations are applied", ok: migrations.length === 33 });
+  checks.push({ name: "required migrations are applied", ok: migrations.length === 34 });
+
+  const contactDirectory = await sql`
+    select to_regclass('pipeline.contacts') is not null as contacts,
+      to_regclass('pipeline.referral_contacts') is not null as referral_contacts,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0034_contact_directory') as history
+  `;
+  checks.push({ name: "contact directory tables are live", ok: Object.values(contactDirectory[0]).every(Boolean) });
 
   const continuityConstraint = await sql`
     select exists(
@@ -80,6 +87,24 @@ try {
           'smoke', 'Pipeline smoke', 'smoke', 'Pipeline smoke'
         )
         returning referral_id
+      `;
+      const contacts = await tx`
+        insert into pipeline.contacts (
+          first_name, last_name, phone, search_text,
+          created_by, created_by_name, updated_by, updated_by_name
+        ) values (
+          'Pipeline', 'Smoke Contact', '5550000000', 'pipeline smoke contact 5550000000',
+          'smoke', 'Pipeline smoke', 'smoke', 'Pipeline smoke'
+        ) returning contact_id
+      `;
+      await tx`
+        insert into pipeline.referral_contacts (
+          referral_id, contact_id, role, primary_for_scheduling,
+          created_by, created_by_name, updated_by, updated_by_name
+        ) values (
+          ${referrals[0].referral_id}, ${contacts[0].contact_id}::uuid, 'scheduling_contact', true,
+          'smoke', 'Pipeline smoke', 'smoke', 'Pipeline smoke'
+        )
       `;
       const documents = await tx`
         insert into pipeline.documents (
@@ -179,10 +204,11 @@ try {
           ,(select count(*) from pipeline.documents where document_id = ${documents[0].document_id}::uuid and preview_status = 'ready' and malware_scan_status = 'clean') as documents,
           (select count(*) from pipeline.user_workspace_state where principal_id = ${`smoke-user-${suffix}`}) as workspace_state,
           (select count(*) from pipeline.client_update_outbox where assessment_id = ${assessmentId}) as client_update_outbox
+          ,(select count(*) from pipeline.referral_contacts where referral_id = ${referrals[0].referral_id} and primary_for_scheduling) as primary_contacts
       `;
       checks.push({
         name: "runtime role can transact across workflow records",
-        ok: ["assessments", "provenance", "unmapped", "audits", "work_items", "decisions", "documents", "workspace_state", "client_update_outbox"].every((key) => Number(stored[0][key]) === 1),
+        ok: ["assessments", "provenance", "unmapped", "audits", "work_items", "decisions", "documents", "workspace_state", "client_update_outbox", "primary_contacts"].every((key) => Number(stored[0][key]) === 1),
       });
 
       await tx`
