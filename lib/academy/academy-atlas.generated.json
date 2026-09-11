@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:6274ea643d58716c",
-  "fingerprint": "6274ea643d58716c656e1cec2945c6695bf7a99eff002485ac335d72329b5c77",
+  "generatedAt": "source-fingerprint:9754f635b4af3af3",
+  "fingerprint": "9754f635b4af3af36db07208d0fd74b60f971a79195399fe723379433f28ff7d",
   "totals": {
     "files": 955,
-    "lines": 305808,
+    "lines": 305834,
     "coveredFiles": 955
   },
   "entries": [
@@ -2527,7 +2527,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 678,
+      "lines": 679,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5389,7 +5389,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 1879,
+      "lines": 1881,
       "moduleIds": [
         "test-assurance",
         "vertical-change-capstone"
@@ -5425,7 +5425,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 7575,
+      "lines": 7574,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -5509,7 +5509,7 @@
       "kind": "configuration",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 11562,
+      "lines": 11586,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"

@@ -113,8 +113,9 @@ export default function PipelineGuidedCoach() {
     openGuideRoute(first.steps[0].route);
   }
 
-  function advance() {
+  function advance(expectedStepId?: string) {
     if (!tutorial || !step) return;
+    if (expectedStepId && step.id !== expectedStepId) return;
     const lastStep = state.stepIndex === tutorial.steps.length - 1;
     const now = new Date().toISOString();
     if (lastStep) {
@@ -169,7 +170,7 @@ export default function PipelineGuidedCoach() {
     else if (event.type === "start") startTutorial(event.tutorialId, event.stepIndex);
     else startTutorialSequence(event.tutorialIds);
   });
-  const advanceFromTarget = useEffectEvent(() => advance());
+  const advanceFromTarget = useEffectEvent((expectedStepId: string) => advance(expectedStepId));
 
   useEffect(() => {
     let cancelled = false;
@@ -268,12 +269,12 @@ function findPreviousGuideStep(state: OperatorGuideState, tutorial: OperatorGuid
   return previousTutorial?.steps.at(-1);
 }
 
-function rebindGuideInteraction(current: TargetInteraction, candidate: HTMLElement | null, step: OperatorGuideStep, onAdvance: () => void): TargetInteraction {
+function rebindGuideInteraction(current: TargetInteraction, candidate: HTMLElement | null, step: OperatorGuideStep, onAdvance: (expectedStepId: string) => void): TargetInteraction {
   if (candidate === current.element) return current;
   detachGuideInteraction(current);
   const event = candidate ? guideAdvanceEvent(step, candidate) : null;
   if (!candidate || !event) return { element: candidate, handler: null, event };
-  const handler = () => window.setTimeout(onAdvance, 0);
+  const handler = () => window.setTimeout(() => onAdvance(step.id), 0);
   candidate.addEventListener(event, handler);
   return { element: candidate, handler, event };
 }

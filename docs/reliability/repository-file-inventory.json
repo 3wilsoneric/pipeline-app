@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-11T06:27:08.535Z",
+  "generated_at": "2026-09-11T10:55:31.054Z",
   "audit_date": "2026-09-11",
-  "git_head": "7c6986ced5f02355f58115f43f870b87965b4b46",
+  "git_head": "d5eca2371a6771013d26341d23d95770f6aaee05",
   "files": [
     {
       "path": ".dockerignore",
@@ -2512,11 +2512,11 @@
     },
     {
       "path": "components/pipeline/training/PipelineGuidedCoach.tsx",
-      "content_sha256": "d0ba9cf2ef9c646ff30fa4fc8b201d3522e0eb020e036deec5c80e8760c7f98d",
+      "content_sha256": "ca34c1bd1e1aab8c8e66bac07c69fe1663bbbae539dde17c5cb74ee63f7a31bb",
       "role": "Pipeline user interface",
       "risk": "medium",
-      "bytes": 37267,
-      "lines": 678,
+      "bytes": 37425,
+      "lines": 679,
       "detected_concerns": [
         "Uses timers in UI/runtime code; verify cleanup, visibility behavior, backoff, and no duplicate pollers.",
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.",
@@ -4058,7 +4058,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "eb4e32a19cac343c818d0b7b8c4861c194e4c80b56735fdb5663391aa97cca69",
+      "content_sha256": "ddf0da6d56aaddb1cab6b4aa4afd25ed0c401c6fb4af3996fb1a64a73ac5438b",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -5207,11 +5207,11 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "d8732c61334d02d75da5575081f1ef41fd5d2257d6bfa3614b3e438c9df825d4",
+      "content_sha256": "d7fb693799745c5f48135a6edd31a206688cabfd039f0c56eef1ba8bceec5f25",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 405172,
-      "lines": 1879,
+      "bytes": 405473,
+      "lines": 1881,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -5235,11 +5235,11 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "7040d20d1bc13c56062f6dd66e7096b11dba61d1cf8947a29fc0575de3728993",
+      "content_sha256": "db65da919537a647b9b98e99c9f590cc047835c6690b53ecb7053041bbe7adc3",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 220558,
-      "lines": 7575,
+      "bytes": 220383,
+      "lines": 7574,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -5316,11 +5316,11 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "6b2eeaea4ad40bf0e1f129d4d365150661f8483f98cb822135937d21f3626c19",
+      "content_sha256": "f6b21acba4de2fffefcc4dc86feb30bbdd2ad1036f7a41e5a5381365bb1b6687",
       "role": "Generated audit evidence",
       "risk": "medium",
-      "bytes": 573784,
-      "lines": 11562,
+      "bytes": 574937,
+      "lines": 11586,
       "detected_concerns": [],
       "review_focus": "Do not edit manually; regenerate and verify that inventory counts match the current worktree.",
       "verification": "regenerate with npm run audit:repository"
@@ -5382,7 +5382,7 @@
     },
     {
       "path": "docs/training/training-registry.json",
-      "content_sha256": "6e49aa59d13becf739eae52c55b2eb2dade0eca14080f174ae3c6578cb9207bd",
+      "content_sha256": "5d4ab28c3673fe235d5f1c9f67900ec2e35cd7a3df66d2cd337b8360af134be4",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 657,
@@ -5522,7 +5522,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "5302b1b96bd787ad51fa7f581f3a92546c874d7feec66f2ed23e3c7a8090a9ca",
+      "content_sha256": "ba2a7875e3b61a697fa8f3d5bf3db4df62e2a31bad8cbbb834e4cd72d377c923",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 296580,
