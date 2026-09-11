@@ -225,6 +225,13 @@
       "failureBehavior": "Failed behavior or inaccessible UI fails the suite.", "tests": ["test:e2e", "test:e2e:operational:high"], "decision": "keep", "decisionReason": "The cross-surface spine needs browser-level evidence."
     },
     {
+      "path": "tests/e2e/desktop-readiness.spec.ts", "plannedNew": false, "dependencyDirection": "Desktop browser evidence drives public routes and encrypted offline storage; production never imports tests.",
+      "purpose": "Bring the existing offline-assessment journey through the same client-contact scheduling precondition as production.", "callers": ["test:e2e:desktop"], "publicExports": [], "sideEffects": ["isolated synthetic browser and API state"],
+      "failureBehavior": "The journey fails if scheduling, encrypted offline edits, or reconnect synchronization does not work end to end.", "tests": ["test:e2e:desktop"],
+      "staticPrompts": [{"prompt":"Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup.","disposition":"expected","reason":"The existing test verifies encrypted, user-scoped, expiring offline assessment state; the change only adds a clearly synthetic phone value to the server-side referral fixture.","owner":"Eric","followUp":"test:e2e:desktop"}],
+      "decision": "keep", "decisionReason": "Exercise the real schedule boundary rather than bypass or weaken contact readiness."
+    },
+    {
       "path": "tests/e2e/support/product-demo-scenario.ts", "plannedNew": false, "dependencyDirection": "Synthetic operational fixtures are test-only and never imported by production.",
       "purpose": "Give the 100-user product-day rehearsal deterministic non-PHI contact readiness.", "callers": ["high-traffic-capacity.scaffold.spec.ts"], "publicExports": ["productDemoCaseInput"], "sideEffects": [],
       "failureBehavior": "Missing synthetic fixture values fail the operational test before deployment.", "tests": ["test:e2e:operational:high"],

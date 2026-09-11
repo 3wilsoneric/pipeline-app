@@ -867,6 +867,7 @@
         "playwright.config.ts",
         "playwright.operational.config.ts",
         "tests/e2e/global-setup.ts",
+        "tests/e2e/desktop-readiness.spec.ts",
         "tests/e2e/demo-environment.spec.ts",
         "tests/e2e/operator-training.spec.ts",
         "tests/e2e/pipeline-calendar.spec.ts",

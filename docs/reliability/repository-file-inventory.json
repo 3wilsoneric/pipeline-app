@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-11T21:22:38.469Z",
+  "generated_at": "2026-09-11T21:32:34.839Z",
   "audit_date": "2026-09-11",
-  "git_head": "6aa4458db72ae866a8ce2954edbaf05001542004",
+  "git_head": "dd43fece0c231bfe959645f37b19524a81c3d82e",
   "files": [
     {
       "path": ".dockerignore",
@@ -4180,7 +4180,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "3b1d5bd121b5499ec67161893906b7da2b391cf08aef59a8d1cfed3e88829c2e",
+      "content_sha256": "8540fc808a8ca70b302bf5840b2ff5e477c0614c4cc7d1482bb1c7396247e597",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -5114,11 +5114,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "60f5d8505e55107896f5f333020a4b9b456417f2d9426aec5eced03e920ac711",
+      "content_sha256": "c783f6e89436c0fa5e0b2111dd4a57e5cf9dc01d645f286233bafd3d40653822",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 46990,
-      "lines": 927,
+      "bytes": 47037,
+      "lines": 928,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -5228,11 +5228,11 @@
     },
     {
       "path": "docs/refactoring/referral-to-decision-operating-spine-file-audit.json",
-      "content_sha256": "1531384ed2df5c28589a3c8d1128e85cb2676eda65eefe289ec742111a3e608c",
+      "content_sha256": "02f07fe806bfd2ee0fa59d4d601330070d30a4637934b31c191a95a28ac436fd",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 53591,
-      "lines": 421,
+      "bytes": 54756,
+      "lines": 428,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5377,7 +5377,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "5e85c6f6dbbbaef32f68339db8b838c533e0657f6c46b4d8f8f6e48ee186f430",
+      "content_sha256": "79d47b07d4033784e2846282aeec4d412bfdc464714a170c3f3ed9c9d436abbb",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 413697,
@@ -5405,7 +5405,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "f2e2c5097eed31ae21783f51a016c8da2dfc063c41b8cc187142b13eea086541",
+      "content_sha256": "1796f6fd6b447b36fc3fe2301fd32b4ce947765182bfeb12c5db0c396e016c59",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 221419,
@@ -5486,7 +5486,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "a5966e32d2cbe94bcfc92eae7fc40baa575d3f526be74de2254c85fcdb20c638",
+      "content_sha256": "bbef97835d910f05cad8a4e2f20da4617fa4212b491a385074a61e7de4f09b4d",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 588403,
@@ -5692,7 +5692,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "48bb087874702dd02123ff0fa2e2f456b10233d591d332139140f12e126b4b03",
+      "content_sha256": "c46be616b47781f25d2f4f16da8fc532a3bf6a4a3dc3b09c0528aac7089ac1a8",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 304063,
@@ -11134,10 +11134,10 @@
     },
     {
       "path": "tests/e2e/desktop-readiness.spec.ts",
-      "content_sha256": "3ae867707d9a2d11bf3fad50bd979cca08153435a825d6d2b5221b5d8edd2434",
+      "content_sha256": "23c9e2785babe87cae28b813462562071a3fa62e91a023a7f37f1e309b348223",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 28288,
+      "bytes": 28300,
       "lines": 614,
       "detected_concerns": [
         "Uses browser storage; verify no PHI/tokens, user scoping, expiry, and cross-session cleanup."
