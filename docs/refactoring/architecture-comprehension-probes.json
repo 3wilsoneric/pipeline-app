@@ -236,6 +236,22 @@
       ],
       "verificationGates": ["check:workflow-store-characterization", "check:workflow-fuzz", "database:concurrency", "test:e2e:operational:high"],
       "humanValidated": false
+    },
+    {
+      "id": "assessor_operating_spine_contact_schedule_resume",
+      "sliceIds": ["referral-to-decision-operating-spine"],
+      "responsibilityId": "referral_to_decision_operating_spine",
+      "question": "Trace an assigned referral from Home into Intake, attach or create a reusable scheduling contact, prove schedule readiness at the server boundary, schedule and reopen the assessment from Calendar, stop in a named assessment section, work another referral, and resume both without contact identity, audit, authorization, or canonical workflow state moving into the browser.",
+      "codePaths": [
+        "components/pipeline/ReferralPacketCanvas.tsx",
+        "components/pipeline/PipelineCalendar.tsx",
+        "components/pipeline/WorkspaceActivityFeed.tsx",
+        "lib/pipeline/work-continuity.ts",
+        "lib/pipeline/home-continuity.ts",
+        "app/api/assessments/[assessmentId]/schedule/route.ts"
+      ],
+      "verificationGates": ["check:contacts", "check:assessor-workflow", "test:e2e", "test:e2e:operational:high"],
+      "humanValidated": false
     }
   ]
 }

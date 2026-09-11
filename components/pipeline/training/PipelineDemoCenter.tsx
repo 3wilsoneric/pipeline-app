@@ -19,7 +19,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import type { PipelineDemoEnvironment } from "@/lib/demo/demo-environment";
 import {
   buildPipelineDemoReferral,
@@ -318,14 +318,7 @@ export default function PipelineDemoCenter({
       const memberResult = await fetchPipelineJson<{ members: DemoAssessor[] }>("/api/members?scope=assessors");
       const assessor = memberResult.members.find((member) => member.principal_id === actor.id) ?? memberResult.members[0];
       if (!assessor) throw new Error("No active assessor is available for this practice case.");
-      const referralResult = await fetchPipelineJson<{ referral: Referral }>("/api/referrals", {
-        method: "POST",
-        body: JSON.stringify({
-          referral: buildPipelineDemoReferral(scenario, assessor.display_name),
-          assignee_id: assessor.principal_id,
-          client_mutation_id: demoMutationId(`referral-${scenario.id}`),
-        }),
-      });
+      const referralResult = await createDemoScenarioReferral(scenario, assessor, referrals);
       const assessmentResult = await fetchPipelineJson<{ assessment: PipelineAssessmentRecord }>(
         `/api/referrals/${referralResult.referral.id}/assessments`,
         {
@@ -428,6 +421,52 @@ export default function PipelineDemoCenter({
       </div>
     </main>
   );
+}
+
+function createDemoReferral(command: Record<string, unknown>) {
+  return fetchPipelineJson<{ referral: Referral }>("/api/referrals", {
+    method: "POST",
+    body: JSON.stringify(command),
+  });
+}
+
+async function createDemoScenarioReferral(
+  scenario: PipelineDemoScenario,
+  assessor: DemoAssessor,
+  referrals: DemoReferralSummary[],
+) {
+  const knownDuplicateReferralIds = referrals
+    .filter((referral) => referral.tags?.includes(scenario.id))
+    .map((referral) => referral.id)
+    .slice(0, 20);
+  const referralCommand = {
+    referral: buildPipelineDemoReferral(scenario, assessor.display_name),
+    assignee_id: assessor.principal_id,
+    client_mutation_id: demoMutationId(`referral-${scenario.id}`),
+    ...(knownDuplicateReferralIds.length > 0
+      ? { duplicate_confirmation: { referral_ids: knownDuplicateReferralIds } }
+      : {}),
+  };
+  try {
+    return await createDemoReferral(referralCommand);
+  } catch (error) {
+    const confirmationIds = duplicateConfirmationIds(error);
+    if (!confirmationIds) throw error;
+    return createDemoReferral({
+      ...referralCommand,
+      duplicate_confirmation: { referral_ids: confirmationIds },
+    });
+  }
+}
+
+function duplicateConfirmationIds(error: unknown) {
+  if (!(error instanceof PipelineApiError) || error.status !== 409) return null;
+  const payload = error.payload;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const duplicate = payload as { suspected_duplicate?: unknown; can_confirm_distinct_person?: unknown; confirmation_referral_ids?: unknown };
+  if (duplicate.suspected_duplicate !== true || duplicate.can_confirm_distinct_person !== true) return null;
+  if (!Array.isArray(duplicate.confirmation_referral_ids) || duplicate.confirmation_referral_ids.some((id) => !Number.isSafeInteger(id) || Number(id) <= 0)) return null;
+  return duplicate.confirmation_referral_ids as number[];
 }
 
 function PresentationDeck({

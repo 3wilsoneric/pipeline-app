@@ -170,7 +170,7 @@ export function productDemoCaseInput(item: ProductDemoCase) {
       ? "Synthetic medication context available for assessment rehearsal."
       : "",
     dob: "1970-01-01",
-    phone: "",
+    phone: `555-010-${String(item.sequence).padStart(4, "0")}`,
     email: "",
     payer: "",
   };

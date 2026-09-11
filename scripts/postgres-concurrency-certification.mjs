@@ -23,6 +23,7 @@ try {
   await requireCurrentSchema();
   await verifyAtomicRollback();
   ({ personId, referralId } = await createRunGraph());
+  await verifyContactPrimaryRace();
   await verifyOptimisticWriterRace();
   await verifyMutationIdempotencyRace();
   await verifyCommittedRetryExactlyOnce();
@@ -58,9 +59,9 @@ async function requireCurrentSchema() {
   const rows = await sql`
     select count(*)::integer as count
     from pipeline.schema_migrations
-    where migration_id between '0001_pipeline_core' and '0033_workflow_continuity'
+    where migration_id between '0001_pipeline_core' and '0034_contact_directory'
   `;
-  check("latest migration set is available", Number(rows[0].count) === 33, { migrations: Number(rows[0].count) });
+  check("latest migration set is available", Number(rows[0].count) === 34, { migrations: Number(rows[0].count) });
 }
 
 async function verifyAtomicRollback() {
@@ -127,6 +128,36 @@ async function verifyOptimisticWriterRace() {
     winners,
     final_version: Number(finalRows[0].version),
   });
+}
+
+async function verifyContactPrimaryRace() {
+  const contacts = await Promise.all(Array.from({ length: actorCount }, (_, index) => sql`
+    insert into pipeline.contacts (
+      first_name, last_name, phone, search_text,
+      created_by, created_by_name, updated_by, updated_by_name
+    ) values (
+      'Synthetic', ${`Contact ${index}`}, ${`555000${String(index).padStart(4, "0")}`}, ${`synthetic contact ${index}`},
+      ${scope}, 'Database assurance', ${scope}, 'Database assurance'
+    ) returning contact_id
+  `));
+  const outcomes = await Promise.allSettled(contacts.map((rows, index) => sql`
+    insert into pipeline.referral_contacts (
+      referral_id, contact_id, role, primary_for_scheduling,
+      created_by, created_by_name, updated_by, updated_by_name
+    ) values (
+      ${referralId}, ${rows[0].contact_id}::uuid, 'scheduling_contact', true,
+      ${scope}, ${`Synthetic contender ${index}`}, ${scope}, ${`Synthetic contender ${index}`}
+    )
+  `));
+  const winners = outcomes.filter((item) => item.status === "fulfilled").length;
+  const uniqueConflicts = outcomes.filter((item) => item.status === "rejected" && databaseErrorCode(item.reason) === "23505").length;
+  const durable = await sql`
+    select count(*)::integer as count from pipeline.referral_contacts
+    where referral_id = ${referralId} and primary_for_scheduling
+  `;
+  check("one primary scheduling contact survives a concurrent assignment race",
+    winners === 1 && uniqueConflicts === actorCount - 1 && Number(durable[0].count) === 1,
+    { contenders: actorCount, winners, unique_conflicts: uniqueConflicts, durable: Number(durable[0].count) });
 }
 
 async function verifyMutationIdempotencyRace() {
@@ -356,6 +387,7 @@ async function cleanup() {
     await tx`delete from pipeline.client_update_outbox where idempotency_key = ${outboxKey}`;
     await tx`delete from pipeline.idempotency_keys where scope = ${scope}`;
     if (referralId !== null) await tx`delete from pipeline.referrals where referral_id = ${referralId}`;
+    await tx`delete from pipeline.contacts where created_by = ${scope}`;
     if (personId !== null) await tx`delete from pipeline.people where person_id = ${personId}::uuid`;
   });
 }

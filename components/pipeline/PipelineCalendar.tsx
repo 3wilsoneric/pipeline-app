@@ -43,8 +43,9 @@ import type {
 import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent, PipelineCalendarResponse } from "@/lib/pipeline/calendar-types";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 
-export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void }) {
+export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void }) {
   const [view, setView] = useState<CalendarView>("week");
   const [anchor, setAnchor] = useState(todayKey);
   const [community, setCommunity] = useState("");
@@ -184,8 +185,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   const conflicts = findScheduleConflicts(visibleEvents);
   const scheduledCount = visibleEvents.filter((event) => event.kind === "assessment").length;
 
-  const openWorkspace = (identity: { referralId: number; clientName: string; community: string }) => {
-    onOpenPacket({ id: identity.referralId, name: calendarClientName(identity.clientName, identity.community), community: identity.community as Referral["community"] });
+  const openWorkspace = (identity: { referralId: number; clientName: string; community: string }, location: PipelineWorkspaceLocation = { view: "intake" }) => {
+    onOpenPacket({ id: identity.referralId, name: calendarClientName(identity.clientName, identity.community), community: identity.community as Referral["community"] }, location);
   };
 
   const beginScheduling = (target: ScheduleTarget) => {
@@ -365,7 +366,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
         scope={scope}
         onCloseSelection={() => setSelected(null)}
         onCloseSchedule={closeSchedule}
-        onOpenWorkspace={() => selected && openWorkspace(selectionIdentity(selected))}
+        onOpenWorkspace={() => selected && openWorkspace(selectionIdentity(selected), selected.type === "event" && selected.event.kind === "assessment" ? { view: "assessment" } : { view: "intake" })}
         onScheduleSelection={() => selected && beginScheduling(scheduleTargetFromSelection(selected))}
         onStatus={(status) => selected?.type === "event" && updateAppointmentStatus(selected.event, status)}
         onStart={setScheduleStart}

@@ -109,6 +109,7 @@ import {
   type ReferralSaveSnapshot,
 } from "@/components/pipeline/referral-canvas-save-state";
 import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
+import ReferralContactsCard from "@/components/pipeline/ReferralContactsCard";
 
 const ReferralWorkflowPanel = dynamic(
   () => import("@/components/pipeline/ReferralWorkflowPanel"),
@@ -242,6 +243,8 @@ const initialFields: Record<FieldKey, PacketField> = {
     value: "",
     placeholder: "",
   },
+  phone: { label: "Client phone:", value: "", placeholder: "Phone number" },
+  email: { label: "Client email:", value: "", placeholder: "Email address" },
   summary: {
     label: "Summary",
     value: "",
@@ -267,6 +270,8 @@ const visibleChartFieldKeys: readonly FieldKey[] = [
   "county",
   "referent",
   "responsiblePerson",
+  "phone",
+  "email",
   "summary",
   "currentMedications",
 ];
@@ -2155,6 +2160,25 @@ export default function ReferralPacketCanvas({
                       </div>
                     </div>
                   </div>
+                </ChartSection>
+
+                <ChartSection title="Contact and coordination" complete={countCompleteFields(fields, ["phone", "email"])} total={2}>
+                  <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2">
+                    {(["phone", "email"] as FieldKey[]).map((key) => (
+                      <EditablePacketField
+                        key={key}
+                        fieldKey={key}
+                        field={fields[key]}
+                        onChange={(value) => updateField(key, value)}
+                        onFocus={focusWorkspaceField}
+                      />
+                    ))}
+                  </div>
+                  <ReferralContactsCard
+                    referralId={editableReferralId ?? undefined}
+                    clientPhone={fields.phone.value}
+                    clientEmail={fields.email.value}
+                  />
                 </ChartSection>
 
                 <ChartSection title="Referral summary" complete={countCompleteFields(fields, ["summary"])} total={1}>

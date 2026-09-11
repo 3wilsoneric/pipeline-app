@@ -18,9 +18,9 @@ try {
     await sql.begin(async (tx) => {
       const migrations = await tx`
         select migration_id from pipeline.schema_migrations
-        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration','0010_provisional_workspace_members','0011_historical_material_workspaces','0012_referral_trash','0013_search_performance','0014_workspace_county','0015_assessor_workflow','0016_zoom_assessment_method','0017_referral_received_month','0018_academy_progress','0019_operator_training_progress','0020_allo_canvas_content','0021_note_practice_lab','0022_note_lab_pattern_selections','0023_note_lab_field_reviews','0024_workspace_month_provenance','0025_home_dashboard_layout','0026_imported_workspace_lifecycle','0027_staff_profiles','0028_workspace_roster','0029_historical_workspace_archive','0030_annette_everhart_display_name','0031_assessment_review_revisions','0032_extraction_evidence_bounding_boxes','0033_workflow_continuity')
+        where migration_id in ('0001_pipeline_core','0002_workflow_engine','0003_operational_hardening','0004_document_processing','0005_collaboration','0006_user_workspace_state','0007_canonical_client_assessments','0008_client_workspaces','0009_assessment_collaboration','0010_provisional_workspace_members','0011_historical_material_workspaces','0012_referral_trash','0013_search_performance','0014_workspace_county','0015_assessor_workflow','0016_zoom_assessment_method','0017_referral_received_month','0018_academy_progress','0019_operator_training_progress','0020_allo_canvas_content','0021_note_practice_lab','0022_note_lab_pattern_selections','0023_note_lab_field_reviews','0024_workspace_month_provenance','0025_home_dashboard_layout','0026_imported_workspace_lifecycle','0027_staff_profiles','0028_workspace_roster','0029_historical_workspace_archive','0030_annette_everhart_display_name','0031_assessment_review_revisions','0032_extraction_evidence_bounding_boxes','0033_workflow_continuity','0034_contact_directory')
       `;
-      checks.push({ name: "all migrations applied", ok: migrations.length === 33 });
+      checks.push({ name: "all migrations applied", ok: migrations.length === 34 });
       await tx`
         insert into pipeline.user_workspace_state (
           principal_id, state_kind, state_key, payload, expires_at
@@ -75,6 +75,26 @@ try {
         )
       `;
       await tx.unsafe(fixture);
+      const fixtureContacts = await tx`
+        insert into pipeline.contacts (
+          first_name, last_name, organization, phone, search_text,
+          created_by, created_by_name, updated_by, updated_by_name
+        ) values (
+          'Synthetic', 'Scheduling Contact', 'Fixture Organization', '5550000000',
+          'synthetic scheduling contact fixture organization 5550000000',
+          'fixture-user', 'Synthetic Fixture User', 'fixture-user', 'Synthetic Fixture User'
+        ) returning contact_id
+      `;
+      await tx`
+        insert into pipeline.referral_contacts (
+          referral_id, contact_id, role, primary_for_scheduling,
+          created_by, created_by_name, updated_by, updated_by_name
+        )
+        select r.referral_id, ${fixtureContacts[0].contact_id}::uuid, 'scheduling_contact', true,
+          'fixture-user', 'Synthetic Fixture User', 'fixture-user', 'Synthetic Fixture User'
+        from pipeline.referrals r join pipeline.people p on p.person_id = r.person_id
+        where p.external_client_id = 'pipeline-integration-fixture'
+      `;
       await tx`
         insert into pipeline.user_workspace_state (
           principal_id, state_kind, state_key, payload, expires_at
@@ -158,6 +178,7 @@ try {
           ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user' and state_kind = 'home_dashboard_layout') as home_dashboard_layouts
           ,(select count(*) from pipeline.workspace_members where principal_id = 'fixture-user' and active and identity_status = 'entra_linked') as workspace_members
           ,(select count(*) from pipeline.workspace_members where principal_id = 'provisional:fixture:assessor' and active and identity_status = 'provisional' and email is null and last_seen_at is null) as provisional_members
+          ,(select count(*) from pipeline.referral_contacts rc join pipeline.referrals r on r.referral_id = rc.referral_id join pipeline.people p on p.person_id = r.person_id where p.external_client_id = 'pipeline-integration-fixture' and rc.primary_for_scheduling) as primary_contacts
       `;
       checks.push({
         name: "synthetic graph is queryable",
@@ -212,6 +233,7 @@ function syntheticGraphIsQueryable(row) {
     home_dashboard_layouts: 1,
     workspace_members: 1,
     provisional_members: 1,
+    primary_contacts: 1,
   };
   return Object.entries(expectedCounts).every(([key, expected]) => Number(row[key]) === expected);
 }

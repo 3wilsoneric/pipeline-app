@@ -132,7 +132,7 @@ export function CalendarHeader(props: CalendarHeaderProps) {
           <span role="status" aria-live="polite" className="hidden text-[11px] text-[#747b77] lg:inline">{status}</span>
           <button type="button" onClick={props.onOpenQueue} className="flex h-9 items-center gap-2 border border-[#bfc7c3] bg-white px-3 text-[11px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]">
             <ClipboardList size={15} />
-            <span>Ready to schedule</span>
+            <span>Scheduling queue</span>
             <span className="tabular-nums text-[#167f6b]">{props.queueCount.toLocaleString()}</span>
           </button>
           <IconButton label="Refresh calendar" onClick={props.onRefresh}><RefreshCw size={14} className={props.refreshing ? "animate-spin" : ""} /></IconButton>
@@ -190,7 +190,7 @@ export function SchedulingQueue({ items, total, hasMore, search, loading, onSear
     <div className="fixed inset-0 z-[100] bg-[#18201d]/30" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
       <aside role="dialog" aria-modal="true" aria-label="Scheduling queue" className="absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-[#d8dedb] px-5 py-5 sm:px-6">
-          <div><h2 className="flex items-center gap-2 text-[22px] font-extrabold text-[#202522]"><ClipboardList size={18} className="text-[#167f6b]" /> Ready to schedule</h2><p className="mt-1 text-[11px] text-[#737a76]">{total.toLocaleString()} referral{total === 1 ? "" : "s"} ready for an appointment</p></div>
+          <div><h2 className="flex items-center gap-2 text-[22px] font-extrabold text-[#202522]"><ClipboardList size={18} className="text-[#167f6b]" /> Scheduling queue</h2><p className="mt-1 text-[11px] text-[#737a76]">{total.toLocaleString()} referral{total === 1 ? "" : "s"} moving toward an appointment</p></div>
           <IconButton label="Close scheduling queue" onClick={onClose}><X size={16} /></IconButton>
         </header>
         <label className="mx-5 mt-4 flex h-10 items-center gap-2 border-b border-[#aeb7b2] sm:mx-6">
@@ -201,13 +201,18 @@ export function SchedulingQueue({ items, total, hasMore, search, loading, onSear
         </label>
         <div className="flex-1 overflow-y-auto px-5 py-3 sm:px-6">
           {items.length === 0 ? <div className="py-16 text-center"><CalendarClock size={21} className="mx-auto text-[#89918d]" /><div className="mt-3 text-[13px] font-extrabold text-[#343a36]">{search ? "No ready referrals match that search." : "No referrals are waiting to be scheduled."}</div></div> : (
-            <ol>{items.map((item) => <li key={item.referralId} className="border-b border-[#e1e5e3] py-4 last:border-b-0"><div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onOpenWorkspace(item)} className="min-w-0 text-left"><span className="block truncate text-[15px] font-extrabold text-[#252a27] hover:text-[#116b5a]">{calendarClientName(item.clientName, item.community)}</span><span className="mt-1 block truncate text-[12px] text-[#69706c]">{item.community} · {item.owner}</span></button><span className="shrink-0 text-[10px] font-bold text-[#7b827e]">{ageLabel(item.receivedDate)}</span></div><div className="mt-3 flex items-center justify-between gap-3"><span className="text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#176f5e]">{workflowLabels[item.workflowStatus]}</span><button type="button" onClick={() => onSchedule(item)} className="h-8 bg-[#167f6b] px-3 text-[10px] font-extrabold text-white hover:bg-[#116b5a]">Schedule</button></div></li>)}</ol>
+            <ol>{items.map((item) => <li key={item.referralId} className="border-b border-[#e1e5e3] py-4 last:border-b-0"><div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onOpenWorkspace(item)} className="min-w-0 text-left"><span className="block truncate text-[15px] font-extrabold text-[#252a27] hover:text-[#116b5a]">{calendarClientName(item.clientName, item.community)}</span><span className="mt-1 block truncate text-[12px] text-[#69706c]">{item.community} · {item.owner}</span></button><span className="shrink-0 text-[10px] font-bold text-[#7b827e]">{ageLabel(item.receivedDate)}</span></div><div className="mt-3 flex items-center justify-between gap-3"><span className="text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#176f5e]">{preparationLabel(item)}</span><button type="button" onClick={() => item.nextAction === "schedule" ? onSchedule(item) : onOpenWorkspace(item)} className="h-8 bg-[#167f6b] px-3 text-[10px] font-extrabold text-white hover:bg-[#116b5a]">{item.nextAction === "schedule" ? "Schedule" : "Open intake"}</button></div></li>)}</ol>
           )}
         </div>
         {hasMore ? <div className="border-t border-[#d8dedb] p-4 sm:px-6"><button type="button" onClick={onLoadMore} disabled={loading} className="h-9 w-full border border-[#bfc7c3] text-[11px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a] disabled:opacity-50">{loading ? "Loading..." : "Load more"}</button></div> : null}
       </aside>
     </div>
   );
+}
+
+function preparationLabel(item: PipelineUnscheduledAssessment) {
+  if (item.nextAction === "complete_contact") return "Contact needed";
+  return workflowLabels[item.workflowStatus];
 }
 
 export function CalendarPortal({ children }: { children: ReactNode }) {

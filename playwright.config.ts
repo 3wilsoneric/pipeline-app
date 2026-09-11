@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { resolve } from "node:path";
 
 const port = process.env.PORT ?? "3000";
 const baseURL = `http://127.0.0.1:${port}`;
@@ -14,6 +15,8 @@ const desktopStateStorePath = process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH
   ?? `.data/playwright/desktop-state-${port}.json`;
 const noteLabStorePath = process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH
   ?? `.data/playwright/note-lab-${port}.json`;
+const contactStorePath = resolve(process.env.PIPELINE_E2E_CONTACT_STORE_PATH
+  ?? `.data/playwright/contacts-${port}.json`);
 const crossBrowser = process.env.PIPELINE_CROSS_BROWSER === "true";
 const desktopE2E = process.env.PIPELINE_DESKTOP_E2E === "true";
 const prebuiltE2E = process.env.PIPELINE_E2E_PREBUILT === "true";
@@ -26,6 +29,7 @@ process.env.PIPELINE_E2E_RESIDENT_LINK_STORE_PATH = residentLinkStorePath;
 process.env.PIPELINE_E2E_DOCUMENT_STORE_PATH = documentStorePath;
 process.env.PIPELINE_E2E_DESKTOP_STATE_STORE_PATH = desktopStateStorePath;
 process.env.PIPELINE_E2E_NOTE_LAB_STORE_PATH = noteLabStorePath;
+process.env.PIPELINE_E2E_CONTACT_STORE_PATH = contactStorePath;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -77,6 +81,7 @@ export default defineConfig({
       PIPELINE_NOTE_LAB_ENABLED: "true",
       PIPELINE_ALLOW_LOCAL_NOTE_LAB_STORE: "true",
       PIPELINE_NOTE_LAB_STORE_PATH: noteLabStorePath,
+      PIPELINE_CONTACT_STORE_PATH: contactStorePath,
       PIPELINE_WORKER_SHARED_SECRET: "playwright-worker-secret",
       PIPELINE_CLINICAL_DATA_MODE: "alamo_api",
       PIPELINE_ALAMO_AUTH_MODE: "delegated",

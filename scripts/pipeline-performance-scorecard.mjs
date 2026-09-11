@@ -377,7 +377,7 @@ await measureJourney("referrals_to_learning_center", "navigation", async () => {
 });
 await measureJourney("learning_workflow_open", "navigation", async () => {
   await activate(page.getByRole("link", { name: "Open Pipeline walkthrough presentation", exact: true }));
-  await page.getByRole("heading", { name: "One referral stays connected from packet to handoff", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("heading", { name: "One referral stays connected from packet to decision", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("learning_workflow_step", "interaction", async () => {
   await page.getByRole("navigation", { name: "Presentation slides", exact: true }).getByRole("combobox", { name: "Jump to slide", exact: true }).selectOption("2");

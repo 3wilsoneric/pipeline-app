@@ -723,7 +723,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("button", { name: "Focus search" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Create new referral" })).toBeVisible();
 
-    await page.getByRole("button", { name: /Ready to schedule\s+1/ }).click();
+    await page.getByRole("button", { name: /Scheduling queue\s+1/ }).click();
     const queueDialog = page.getByRole("dialog", { name: "Scheduling queue" });
     await expect(queueDialog).toContainText("Ready Client");
     await queueDialog.getByRole("button", { name: "Schedule", exact: true }).click();
@@ -773,13 +773,14 @@ test.describe("Referral home and packet canvas", () => {
             source: "Calendar conflict test",
             priority: "standard",
             tags: ["calendar-conflict-test"],
-            documentName: "",
-            documentStatus: "Missing",
+            documentName: "calendar-conflict-packet.pdf",
+            documentStatus: "Reviewed",
+            packetStatus: "reviewed",
             owner: testAssessor.name,
             note: "",
             createdAt: new Date().toISOString(),
-            dob: "",
-            phone: "",
+            dob: "1990-01-01",
+            phone: "5550001212",
             email: "",
             payer: "",
             requirements: [],
@@ -2015,6 +2016,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: "Create new referral" }).click();
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("textbox", { name: "DOB", exact: true }).fill("06/12/1984");
+    await page.getByRole("textbox", { name: "Client phone:", exact: true }).fill("5550003434");
     await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
     await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
     await page.getByRole("textbox", { name: "Referent:", exact: true }).fill("San Pablo intake team");
@@ -2207,7 +2209,7 @@ test.describe("Referral home and packet canvas", () => {
           note: "",
           createdAt: now,
           dob: "1980-01-01",
-          phone: "",
+          phone: "5550005656",
           email: "",
           payer: "",
           requirements: [],
@@ -2479,7 +2481,7 @@ test.describe("Referral home and packet canvas", () => {
           note: "",
           createdAt: now,
           dob: "1980-01-01",
-          phone: "",
+          phone: "5550007878",
           email: "",
           payer: "",
           requirements: [],

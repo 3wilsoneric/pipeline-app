@@ -194,7 +194,7 @@ function hasExportModifier(node) {
 
 function resolvedFunctionText(statement, source, declarations) {
   let text = statement.getText(source);
-  const delegate = text.match(/return\s+(\w+)\(request\)/)?.[1];
+  const delegate = text.match(/return\s+(\w+)\(\s*request\b/)?.[1];
   const declaration = delegate ? declarations.get(delegate) : null;
   if (declaration) text += `\n${declaration.getText(source)}`;
   return text;

@@ -16,9 +16,7 @@ test.describe("Pipeline Demo Environment", () => {
     });
     const newAttempt = scenario.getByRole("button", { name: /^(Start|New attempt)$/ });
     await expect(newAttempt).toBeEnabled();
-    const existingAttempt = scenario.getByRole("button", { name: "Open latest" });
-    if (await existingAttempt.isVisible()) await existingAttempt.click();
-    else await newAttempt.click();
+    await newAttempt.click();
 
     await expect(page).toHaveURL(/screen=packet.*workspaceStage=assessment/);
     await expect(page.locator('[data-pipeline-demo-banner="true"]')).toBeVisible();
@@ -215,7 +213,7 @@ test.describe("Pipeline Demo Environment", () => {
   test("keeps the presentation and practice cases usable on a narrow screen", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/training/demo");
-    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to handoff" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to decision" })).toBeVisible();
     await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("2");
     await expect(page.getByRole("img", { name: /Intake screen with the referral packet area highlighted/ })).toBeVisible();
     await closePresentation(page);

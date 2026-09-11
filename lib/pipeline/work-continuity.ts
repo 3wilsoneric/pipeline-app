@@ -21,6 +21,7 @@ export type PipelineLastWorkspace = {
 export type PipelineWorkContinuityState = {
   schema: 1;
   lastWorkspace?: PipelineLastWorkspace;
+  recentWorkspaces?: PipelineLastWorkspace[];
   assignmentTrackingStartedAt?: string;
   assignmentAcknowledgedThrough?: string;
   acknowledgedAssignmentIds: string[];
@@ -69,12 +70,14 @@ export function mergePipelineWorkContinuityState(
   patch: PipelineWorkContinuityPatch,
 ): PipelineWorkContinuityState {
   const lastWorkspace = newerLastWorkspace(current.lastWorkspace, patch.lastWorkspace);
+  const recentWorkspaces = mergeRecentWorkspaces(current.recentWorkspaces, patch.lastWorkspace);
   const acknowledgedAssignmentIds = patch.acknowledgeAssignmentIds?.length
     ? [...new Set([...patch.acknowledgeAssignmentIds, ...current.acknowledgedAssignmentIds])].slice(0, 1_000)
     : current.acknowledgedAssignmentIds;
   return {
     schema: 1,
     ...(lastWorkspace ? { lastWorkspace } : {}),
+    ...(recentWorkspaces.length ? { recentWorkspaces } : {}),
     ...(current.assignmentTrackingStartedAt || patch.initializeAssignmentTrackingAt
       ? {
           assignmentTrackingStartedAt: earliestTimestamp(
@@ -167,10 +170,11 @@ function parseContinuityStateFields(candidate: Record<string, unknown>): Omit<Pi
   const acknowledgedAssignmentIds = parseAssignmentIds(candidate.acknowledgedAssignmentIds, 1_000);
   if (!acknowledgedAssignmentIds) return null;
   const last = parseOptionalLastWorkspaceField(candidate.lastWorkspace);
+  const recent = parseOptionalRecentWorkspacesField(candidate.recentWorkspaces);
   const tracking = parseOptionalTimestampField("assignmentTrackingStartedAt", candidate.assignmentTrackingStartedAt);
   const acknowledgedThrough = parseOptionalTimestampField("assignmentAcknowledgedThrough", candidate.assignmentAcknowledgedThrough);
-  if (!last || !tracking || !acknowledgedThrough) return null;
-  return { acknowledgedAssignmentIds, ...last, ...tracking, ...acknowledgedThrough };
+  if (!last || !recent || !tracking || !acknowledgedThrough) return null;
+  return { acknowledgedAssignmentIds, ...last, ...recent, ...tracking, ...acknowledgedThrough };
 }
 
 function parseContinuityPatchFields(candidate: Record<string, unknown>): PipelineWorkContinuityPatch | null {
@@ -186,6 +190,19 @@ function parseOptionalLastWorkspaceField(value: unknown): Pick<PipelineWorkConti
   if (value === undefined) return {};
   const lastWorkspace = parseLastWorkspace(value);
   return lastWorkspace ? { lastWorkspace } : null;
+}
+
+function parseOptionalRecentWorkspacesField(value: unknown): Pick<PipelineWorkContinuityState, "recentWorkspaces"> | null {
+  if (value === undefined) return {};
+  if (!Array.isArray(value) || value.length > 50) return null;
+  const parsed = value.map(parseLastWorkspace);
+  if (parsed.some((item) => !item)) return null;
+  const unique = new Map<number, PipelineLastWorkspace>();
+  for (const item of parsed as PipelineLastWorkspace[]) {
+    const current = unique.get(item.referralId);
+    unique.set(item.referralId, newerLastWorkspace(current, item) as PipelineLastWorkspace);
+  }
+  return { recentWorkspaces: [...unique.values()].sort(newestWorkspaceFirst).slice(0, 50) };
 }
 
 function parseOptionalTimestampField<Key extends "assignmentTrackingStartedAt" | "assignmentAcknowledgedThrough" | "initializeAssignmentTrackingAt" | "acknowledgeAssignmentsThrough">(
@@ -232,6 +249,20 @@ function newerLastWorkspace(
   if (!incoming) return current;
   if (!current) return incoming;
   return Date.parse(incoming.visitedAt) >= Date.parse(current.visitedAt) ? incoming : current;
+}
+
+function mergeRecentWorkspaces(
+  current: PipelineLastWorkspace[] | undefined,
+  incoming: PipelineLastWorkspace | undefined,
+) {
+  const unique = new Map<number, PipelineLastWorkspace>();
+  for (const item of current ?? []) unique.set(item.referralId, item);
+  if (incoming) unique.set(incoming.referralId, newerLastWorkspace(unique.get(incoming.referralId), incoming) as PipelineLastWorkspace);
+  return [...unique.values()].sort(newestWorkspaceFirst).slice(0, 50);
+}
+
+function newestWorkspaceFirst(left: PipelineLastWorkspace, right: PipelineLastWorkspace) {
+  return Date.parse(right.visitedAt) - Date.parse(left.visitedAt) || right.referralId - left.referralId;
 }
 
 function earliestTimestamp(current: string | undefined, incoming: string | undefined) {

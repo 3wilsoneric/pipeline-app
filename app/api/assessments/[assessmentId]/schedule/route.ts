@@ -14,7 +14,10 @@ import { pipelineAuditActor } from "@/lib/auth/assessor-session-policy";
 import { requireSameOriginMutation } from "@/lib/auth/request-security";
 import { jsonError, readJsonBody } from "@/lib/extraction/contracts";
 import { withApiLogging } from "@/lib/observability/api-logging";
+import { getContactSchedulingReadiness, requireContactStore } from "@/lib/pipeline/contact-store";
 import { requireMutableReferralAccess } from "@/lib/pipeline/referral-access";
+import type { Referral } from "@/lib/pipeline/referral-types";
+import { hasInitialDocument, hasManualIntakeAuthorization, profileIsReady } from "@/lib/pipeline/workflow-status";
 
 export const runtime = "nodejs";
 
@@ -39,13 +42,54 @@ export async function POST(request: Request, context: { params: Promise<{ assess
     if (!body.ok) return jsonError(body.message, body.status);
     const command = validateAssessmentScheduleCommand(body.value);
     if (!command.ok) return jsonError(command.message, command.status);
-    return saveAssessmentSchedule(
+    return scheduleAssessmentIfReady(
       assessmentId,
       command.value,
+      access.referral,
+      assessment.assessor_id,
       pipelineAuditActor(auth.user),
       isAssessmentSupervisor(auth.user),
     );
   });
+}
+
+async function scheduleAssessmentIfReady(
+  assessmentId: string,
+  command: AssessmentScheduleCommand,
+  referral: Referral,
+  assessorId: string | null | undefined,
+  actor: { id: string; name: string },
+  canOverride: boolean,
+) {
+  const readinessFailure = await assessmentSchedulingReadinessFailure(command, referral, assessorId);
+  return readinessFailure ?? saveAssessmentSchedule(assessmentId, command, actor, canOverride);
+}
+
+async function assessmentSchedulingReadinessFailure(
+  command: AssessmentScheduleCommand,
+  referral: Referral,
+  assessorId: string | null | undefined,
+) {
+  if (!["scheduled", "rescheduled"].includes(command.schedule.status)) return null;
+  const contacts = requireContactStore();
+  if (!contacts.ok) return contacts.response;
+  const blockers = await schedulingBlockers(referral, assessorId);
+  return blockers.length
+    ? Response.json({ error: blockers.join(" "), code: "assessment_not_ready_to_schedule", blockers }, { status: 422 })
+    : null;
+}
+
+async function schedulingBlockers(
+  referral: Referral,
+  assessorId: string | null | undefined,
+) {
+  const blockers: string[] = [];
+  if (!assessorId) blockers.push("Assign an assessor before scheduling.");
+  if (!hasInitialDocument(referral) && !hasManualIntakeAuthorization(referral)) blockers.push("Review an intake packet or authorize manual intake.");
+  if (!profileIsReady(referral)) blockers.push("Complete the client name, date of birth, community, and referral source.");
+  const contact = await getContactSchedulingReadiness(referral.id, referral);
+  blockers.push(...contact.blockers);
+  return blockers;
 }
 
 async function saveAssessmentSchedule(

@@ -46,6 +46,12 @@ const REQUIRED_PIPELINE_MIGRATIONS = [
   "0026_imported_workspace_lifecycle",
   "0027_staff_profiles",
   "0028_workspace_roster",
+  "0029_historical_workspace_archive",
+  "0030_annette_everhart_display_name",
+  "0031_assessment_review_revisions",
+  "0032_extraction_evidence_bounding_boxes",
+  "0033_workflow_continuity",
+  "0034_contact_directory",
 ] as const;
 
 export function getPipelineDatabaseMode(): PipelineDatabaseMode {

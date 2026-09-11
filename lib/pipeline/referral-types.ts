@@ -54,6 +54,8 @@ export const referralCanvasFieldKeys = [
   "county",
   "referent",
   "responsiblePerson",
+  "phone",
+  "email",
   "summary",
   "currentMedications",
 ] as const;

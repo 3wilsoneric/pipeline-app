@@ -39,6 +39,7 @@ const historicalWorkspaceArchiveRollback = await readFile("database/rollbacks/00
 const assessmentReviewRevisionRollback = await readFile("database/rollbacks/0031_assessment_review_revisions.sql", "utf8");
 const extractionEvidenceBoundingBoxesRollback = await readFile("database/rollbacks/0032_extraction_evidence_bounding_boxes.sql", "utf8");
 const workflowContinuityRollback = await readFile("database/rollbacks/0033_workflow_continuity.sql", "utf8");
+const contactDirectoryRollback = await readFile("database/rollbacks/0034_contact_directory.sql", "utf8");
 const sql = postgres(databaseUrl, {
   ssl: process.env.PIPELINE_DATABASE_SSL_MODE === "disable" ? false : process.env.PIPELINE_DATABASE_SSL_MODE === "verify-full" ? "verify-full" : "require",
   max: 1,
@@ -133,6 +134,9 @@ try {
           and check_clause like '%workflow_continuity%'
       ) as workflow_continuity_kind,
       exists(select 1 from pipeline.schema_migrations where migration_id='0033_workflow_continuity') as workflow_continuity_history,
+      to_regclass('pipeline.contacts') is not null as contacts,
+      to_regclass('pipeline.referral_contacts') is not null as referral_contacts,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0034_contact_directory') as contact_directory_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -203,6 +207,9 @@ try {
       && before[0].extraction_evidence_bbox_history
       && before[0].workflow_continuity_kind
       && before[0].workflow_continuity_history
+      && before[0].contacts
+      && before[0].referral_contacts
+      && before[0].contact_directory_history
       && before[0].canvas_content_snapshots
       && before[0].canvas_content_candidates
       && before[0].allo_canvas_content_history
@@ -216,6 +223,17 @@ try {
       && before[0].workspace_month_index
       && before[0].workspace_month_history
     ),
+  });
+  await connection.unsafe(contactDirectoryRollback);
+  const contactDirectoryDuring = await connection`
+    select to_regclass('pipeline.contacts') is null as contacts_removed,
+      to_regclass('pipeline.referral_contacts') is null as referral_contacts_removed,
+      not exists(select 1 from pipeline.schema_migrations where migration_id='0034_contact_directory') as history_removed,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0033_workflow_continuity') as prior_history_preserved
+  `;
+  checks.push({
+    name: "contact directory rollback removes only contact objects and preserves prior migration history",
+    ok: Object.values(contactDirectoryDuring[0]).every(Boolean),
   });
   await connection`
     insert into pipeline.user_workspace_state (
@@ -827,6 +845,9 @@ try {
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='referral_fields' and column_name='evidence_bbox') as referral_field_evidence_bbox,
       exists(select 1 from information_schema.columns where table_schema='pipeline' and table_name='extraction_candidates' and column_name='evidence_bbox') as candidate_evidence_bbox,
       exists(select 1 from pipeline.schema_migrations where migration_id='0032_extraction_evidence_bounding_boxes') as extraction_evidence_bbox_history,
+      to_regclass('pipeline.contacts') is not null as contacts,
+      to_regclass('pipeline.referral_contacts') is not null as referral_contacts,
+      exists(select 1 from pipeline.schema_migrations where migration_id='0034_contact_directory') as contact_directory_history,
       to_regclass('pipeline.canvas_content_snapshots') is not null as canvas_content_snapshots,
       to_regclass('pipeline.canvas_content_field_candidates') is not null as canvas_content_candidates,
       exists(select 1 from pipeline.schema_migrations where migration_id='0020_allo_canvas_content') as allo_canvas_content_history,
@@ -897,6 +918,9 @@ try {
       && after[0].referral_field_evidence_bbox
       && after[0].candidate_evidence_bbox
       && after[0].extraction_evidence_bbox_history
+      && after[0].contacts
+      && after[0].referral_contacts
+      && after[0].contact_directory_history
       && after[0].canvas_content_snapshots
       && after[0].canvas_content_candidates
       && after[0].allo_canvas_content_history

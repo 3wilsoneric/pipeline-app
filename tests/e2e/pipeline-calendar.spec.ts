@@ -74,7 +74,7 @@ test.describe("Pipeline calendar characterization", () => {
     await expect(page.getByRole("dialog", { name: "Calendar item" })).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("");
 
-    await page.getByRole("button", { name: /Ready to schedule\s+30/ }).click();
+    await page.getByRole("button", { name: /Scheduling queue\s+30/ }).click();
     const queue = page.getByRole("dialog", { name: "Scheduling queue" });
     await expect(queue).toBeVisible();
     await page.mouse.click(10, 10);
@@ -136,7 +136,7 @@ test.describe("Pipeline calendar characterization", () => {
     });
 
     await page.goto("/?screen=calendar");
-    await page.getByRole("button", { name: /Ready to schedule\s+30/ }).click();
+    await page.getByRole("button", { name: /Scheduling queue\s+30/ }).click();
     const queue = page.getByRole("dialog", { name: "Scheduling queue" });
     await expect(queue.getByRole("button", { name: /Ready Xu/ })).toBeVisible();
     await queue.getByRole("button", { name: "Load more" }).click();

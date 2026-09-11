@@ -1,13 +1,10 @@
 {
   "schemaVersion": 1,
-  "status": "complete",
+  "status": "active",
   "owner": "Eric",
-  "authorizedAt": "2026-09-07T14:37:17Z",
+  "authorizedAt": "2026-09-11T00:00:00Z",
   "source": "Codex conversation",
-  "directive": "Replace TARS’s mandatory independent-review and guidance-evaluation start gates with an owner-authorized fast lane. Keep all machine tests, rollback protection, and behavior-preservation requirements.",
-  "completedAt": "2026-09-10T00:00:00Z",
-  "completionCommit": "669fc45b82e7834a5a1f7b930cbad7090f27be46",
-  "completionEvidence": "docs/reliability/enterprise-readiness-evidence-2026-09-10.md",
+  "directive": "Owner authorizes TARS to create and implement the Referral-to-Decision Operating Spine in the fast lane: reusable searchable contacts without native communication actions, Intake-first assignment, scheduling readiness, calendar day-of routing, and durable multi-workspace resume. Keep all machine tests, rollback protection, behavior preservation, data integrity, audit, authorization, and no-unresolved-critical-or-high requirements.",
   "startPolicy": {
     "independentHumanReviewRequired": false,
     "blindGuidanceComparisonRequired": false,

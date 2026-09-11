@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-to-decision-operating-spine",
+  "startingCommit": "e67db3fd5b470be4239ffbc216122203efbf3ff0",
+  "capturedAt": "2026-09-11T00:00:00Z",
+  "worktree": "/Users/eric/pipeline-refactor-referral-to-decision-spine",
+  "commands": [
+    { "command": "npm run audit:repository", "outcome": "passed", "evidence": "1016 files inventoried; dependency graph recorded" },
+    { "command": "npm run check:refactor-guidance", "outcome": "passed", "evidence": "fixtures and owner-fast-lane guidance checks passed" },
+    { "command": "npm run check:refactor-setup", "outcome": "passed", "evidence": "closed 12-slice program was structurally and evidentially valid before this additive slice" }
+  ],
+  "observedBehavior": [
+    "Referral phone and email exist in the referral record but the referral canvas create path writes empty values and exposes no dedicated contact section.",
+    "No reusable contact or referral-contact persistence owner exists.",
+    "Assignment activity resolves to the workflow workspace rather than Intake.",
+    "Calendar open-workspace callbacks do not carry a destination and therefore reopen scheduled assessments at Intake.",
+    "Work continuity stores one lastWorkspace value, so visiting a second referral replaces the first resume destination.",
+    "Assessment section routing, autosave, offline recovery, signing, supervisor review, and decision flows already exist and are preservation boundaries."
+  ],
+  "phi": "No production row values were read or recorded in this characterization artifact."
+}

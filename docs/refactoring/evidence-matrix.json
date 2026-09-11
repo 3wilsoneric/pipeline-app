@@ -55,7 +55,7 @@
       "phase": "before_start",
       "status": "not_applicable",
       "approvedBy": "Eric",
-      "approvedAt": "2026-09-07T14:37:17Z",
+      "approvedAt": "2026-09-11T00:00:00Z",
       "files": [".github/CODEOWNERS", "docs/refactoring/OWNERSHIP_AND_BRANCH_PROTECTION.md"],
       "note": "Eric explicitly selected owner_fast_lane on 2026-09-07, so a second independent repository approver and code-owner approval are advisory rather than start gates. CODEOWNERS still routes responsibility to @3wilsoneric. Pull requests, commit-attached machine checks, exact scope, rollback ownership, and the ban on bypassing failed retained gates remain mandatory."
     },
@@ -99,7 +99,7 @@
       "phase": "before_start",
       "status": "not_applicable",
       "approvedBy": "Eric",
-      "approvedAt": "2026-09-07T14:37:17Z",
+      "approvedAt": "2026-09-11T00:00:00Z",
       "gates": ["check:refactor-guidance"],
       "files": [
         "docs/refactoring/REFACTOR_GUIDANCE_EVALUATION_PROTOCOL.md",
@@ -109,7 +109,7 @@
         "docs/refactoring/refactor-correction-ledger.json"
       ],
       "adoptionRecord": null,
-      "note": "Eric explicitly selected owner_fast_lane on 2026-09-07, making blind matched comparison, private holdouts, and an adopted guidance record advisory rather than start gates. No adoption is claimed. The public harness, structural validation, anti-pattern catalog, and correction ledger remain executable, while every application machine test and behavior-preservation gate remains mandatory."
+      "note": "Eric explicitly renewed owner_fast_lane for the Referral-to-Decision Operating Spine on 2026-09-11, making blind matched comparison, private holdouts, and an adopted guidance record advisory rather than start gates. No adoption is claimed. The public harness, structural validation, anti-pattern catalog, and correction ledger remain executable, while every application machine test and behavior-preservation gate remains mandatory."
     }
   ],
   "slices": [
@@ -959,6 +959,63 @@
           "gates": ["check:refactor-assurance"],
           "files": ["docs/refactoring/workflow-permutation-hardening-assurance-record.json"],
           "note": "The final exact candidate must bind all evidence, exercised commit-level revert recovery, and zero unresolved critical/high findings."
+        }
+      ]
+    },
+    {
+      "id": "referral-to-decision-operating-spine",
+      "budgetProfile": "workflow_control_plane",
+      "items": [
+        {
+          "id": "operating_spine_exact_start",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["audit:repository", "check:refactor-guidance", "check:refactor-setup"],
+          "files": [
+            "docs/refactoring/REFERRAL_TO_DECISION_OPERATING_SPINE_ARCHITECTURE_NARRATIVE.md",
+            "docs/refactoring/characterization/referral-to-decision-operating-spine-start-e67db3f.json"
+          ],
+          "note": "The exact current commit was audited in the dedicated worktree before implementation. The trace records the existing disconnected contact, scheduling, calendar-entry, assignment-entry, and single-workspace-resume behavior that this slice is approved to change."
+        },
+        {
+          "id": "owner_approved_spine_boundary",
+          "phase": "before_start",
+          "status": "satisfied",
+          "gates": ["check:refactor-assurance"],
+          "files": [
+            "docs/refactoring/owner-fast-lane.json",
+            "docs/refactoring/referral-to-decision-operating-spine-file-audit.json",
+            "docs/refactoring/referral-to-decision-operating-spine-assurance-record.json"
+          ],
+          "note": "Eric explicitly authorized this bounded product spine in owner_fast_lane. No Entra, outbound communication, paid integration, automatic contact merge, or broad redesign is included."
+        },
+        {
+          "id": "contact_transaction_and_authorization_evidence",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["check:contacts", "check:route-policy", "database:assurance:integration", "database:concurrency", "database:integrity"],
+          "note": "The candidate must prove authorized and optimistic contact creation, update, attachment, primary-contact uniqueness, unlink, audit coupling, local/PostgreSQL parity, and duplicate-safe search behavior."
+        },
+        {
+          "id": "assessor_continuity_browser_evidence",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["check:assessor-workflow", "test:e2e", "test:e2e:operational:high"],
+          "note": "The candidate must prove assignment-to-Intake, contact readiness, schedule-to-calendar, day-of Assessment entry, section-level resume, correction/resubmission continuity, and preservation of existing workflow journeys."
+        },
+        {
+          "id": "operating_spine_regression_performance_and_recovery",
+          "phase": "before_complete",
+          "status": "partial",
+          "gates": ["test:critical-safety", "check:performance", "check:artifacts", "check:refactor-assurance"],
+          "note": "All required safety, performance, artifact, exact-commit assurance, and exercised recovery evidence must pass before completion."
+        },
+        {
+          "id": "contact_directory_schema_cutover",
+          "phase": "before_cutover",
+          "status": "partial",
+          "gates": ["database:integrity", "database:assurance:integration"],
+          "note": "The additive contact tables and indexes must migrate and roll back cleanly before deployment. No existing referral or assessment data is rewritten."
         }
       ]
     }

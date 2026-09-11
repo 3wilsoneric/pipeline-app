@@ -15,6 +15,7 @@ import {
   listLocalReferralAuditEvents,
 } from "@/lib/pipeline/referral-store";
 import type { Referral, ReferralOwner } from "@/lib/pipeline/referral-types";
+import { listLocalContactAuditEvents } from "@/lib/pipeline/contact-store";
 
 export type ReferralActivityActor = {
   id: string | null;
@@ -126,6 +127,18 @@ async function loadActivityEvents(
   }
 
   const referralEvents = (await listLocalReferralAuditEvents(referral.id)).map(mapActivityRow);
+  const contactEvents = (await listLocalContactAuditEvents(referral.id)).map((event) => ({
+    event_id: event.eventId,
+    action: event.action,
+    actor_id: event.actor.id,
+    actor_name: event.actor.name,
+    changed_fields: event.changedFields,
+    changes: buildReferralActivityChanges(event.changedFields, null, null),
+    reason: null,
+    from_version: event.fromVersion,
+    to_version: event.toVersion,
+    created_at: event.createdAt,
+  }));
   const events: ReferralActivityEvent[] = assessments.flatMap((assessment) =>
     assessment.audit_events.map((event) => ({
       event_id: event.event_id,
@@ -156,6 +169,7 @@ async function loadActivityEvents(
       created_at: referral.createdAt,
     });
   }
+  events.push(...contactEvents);
   if (referral.admissionDecision) {
     events.push({
       event_id: `decision-${referral.admissionDecision.decisionId}-${referral.admissionDecision.version}`,

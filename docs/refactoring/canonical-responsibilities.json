@@ -439,6 +439,38 @@
       ],
       "verificationGates": ["check:workflow-store-characterization", "check:workflow-fuzz", "test:e2e:operational:high", "database:concurrency"],
       "humanValidated": false
+    },
+    {
+      "id": "referral_to_decision_operating_spine",
+      "title": "Assessor contact, scheduling, entry-point, and resume continuity",
+      "sliceIds": ["referral-to-decision-operating-spine"],
+      "ownershipKind": "cross_aggregate_workflow_and_navigation_boundary",
+      "canonicalOwnerPaths": [
+        "components/pipeline/ReferralPacketCanvas.tsx",
+        "lib/pipeline/work-continuity.ts",
+        "app/api/assessments/[assessmentId]/schedule/route.ts"
+      ],
+      "allowedRepresentations": [
+        "canonical reusable contact and explicit referral-contact link",
+        "derived scheduling readiness",
+        "server-confirmed assessment schedule",
+        "user-scoped recent workspace location",
+        "navigation-only workspace target"
+      ],
+      "invariants": [
+        "Contacts are linked explicitly and never matched, merged, or authorized by display name.",
+        "Scheduling policy is enforced at the server mutation boundary and the browser only presents its result.",
+        "Resume state is a non-canonical user preference and cannot mutate referral, assessment, or workflow truth.",
+        "Entry points preserve the product's existing workspace surfaces and permissions."
+      ],
+      "forbiddenParallelOwners": [
+        "UI-only contact records that bypass the store",
+        "Client-side scheduling readiness accepted as policy",
+        "Browser resume state treated as canonical workflow stage",
+        "Automatic identity or authorization derived from contact names"
+      ],
+      "verificationGates": ["check:contacts", "check:assessor-workflow", "check:route-policy", "test:e2e:operational:high"],
+      "humanValidated": false
     }
   ]
 }

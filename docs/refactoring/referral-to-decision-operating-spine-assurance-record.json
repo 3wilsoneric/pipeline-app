@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "referral-to-decision-operating-spine",
+  "status": "baseline_approved",
+  "startingCommit": "e67db3fd5b470be4239ffbc216122203efbf3ff0",
+  "candidateCommit": null,
+  "humanOwner": "Eric",
+  "approvalMode": "owner_fast_lane",
+  "ownerAuthorization": {
+    "record": "docs/refactoring/owner-fast-lane.json",
+    "authorizedBy": "Eric",
+    "authorizedAt": "2026-09-11T00:00:00Z"
+  },
+  "independentHumanReviewer": null,
+  "approvedObligationIds": [
+    "contact_directory_authorized_atomic_links",
+    "assessor_entry_schedule_and_resume_continuity"
+  ],
+  "preChangeMachineTrace": [
+    "docs/refactoring/characterization/referral-to-decision-operating-spine-start-e67db3f.json",
+    "npm run audit:repository",
+    "npm run check:refactor-guidance",
+    "npm run check:refactor-setup"
+  ],
+  "behaviorPreservation": {
+    "required": true,
+    "invariants": [
+      "Existing referral intake, assignment, files, assessment editing, signing, supervisor review, decision, admission, EHR handoff, trash, and restore behavior remains available.",
+      "Contacts are reusable records linked explicitly to referrals; names are searchable labels and never automatic identity, duplicate, merge, or authorization keys.",
+      "Contact and referral-contact mutations remain authorized, optimistic, audited, and transactionally coherent in PostgreSQL with intended local-mode parity.",
+      "Scheduling requires an assigned owner, intake readiness, and a reachable client or primary scheduling contact, while unscheduled assessment drafts remain available for preparation.",
+      "Assignment, calendar, and resume entry points preserve the assessor's intended workspace and assessment section without creating canonical workflow state in the browser."
+    ],
+    "evidence": [
+      "docs/refactoring/characterization/referral-to-decision-operating-spine-start-e67db3f.json",
+      "Existing assessor workflow, critical safety, operational browser, database, and recovery suites remain required gates."
+    ]
+  },
+  "iterations": [],
+  "proofResults": [],
+  "gateResults": [],
+  "adversarialPasses": [],
+  "rollbackAndRecovery": null,
+  "residualRisks": [],
+  "convergence": null
+}

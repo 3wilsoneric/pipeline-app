@@ -753,6 +753,8 @@ const results = [
       responsiblePerson: "value-responsiblePerson",
       note: "value-summary",
       currentMedications: "value-currentMedications",
+      phone: "value-phone",
+      email: "value-email",
     };
     for (const [key, value] of Object.entries(expected)) {
       assert(patch[key] === value, `Canvas field mapping did not persist ${key}`);
@@ -1908,7 +1910,7 @@ function residentLinkValidationResults() {
 function workspaceStateValidationResults() {
   const fieldKeys = [
     "name", "gender", "age", "dob", "ssn", "owner", "referralReceived",
-    "admissionDate", "county", "referent", "responsiblePerson", "summary", "interview",
+    "admissionDate", "county", "referent", "responsiblePerson", "summary", "interview", "phone", "email",
   ];
   const validDraft = {
     schema: 1,
@@ -2032,6 +2034,8 @@ function emptyCanvasFields() {
     "responsiblePerson",
     "summary",
     "currentMedications",
+    "phone",
+    "email",
   ].map((key) => [key, { label: key, value: "" }]));
 }
 
