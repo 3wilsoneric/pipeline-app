@@ -153,6 +153,7 @@ try {
           (select count(*) from pipeline.document_preview_pages p join pipeline.documents d on d.document_id = p.document_id where d.blob_key = 'fixture/integration/synthetic-fixture.pdf') as pages,
           (select count(*) from pipeline.editing_presence where actor_id = 'fixture-user') as presence
           ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user') as workspace_state
+          ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user' and state_kind = 'workflow_continuity') as workflow_continuity
           ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user' and state_kind = 'assessment_draft') as assessment_drafts
           ,(select count(*) from pipeline.user_workspace_state where principal_id = 'fixture-user' and state_kind = 'home_dashboard_layout') as home_dashboard_layouts
           ,(select count(*) from pipeline.workspace_members where principal_id = 'fixture-user' and active and identity_status = 'entra_linked') as workspace_members
@@ -205,7 +206,8 @@ function syntheticGraphIsQueryable(row) {
     presence: 1,
     historical_documents: 1,
     unmatched_imports: 1,
-    workspace_state: 3,
+    workspace_state: 4,
+    workflow_continuity: 1,
     assessment_drafts: 1,
     home_dashboard_layouts: 1,
     workspace_members: 1,

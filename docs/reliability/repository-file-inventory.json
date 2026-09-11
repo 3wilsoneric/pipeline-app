@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-11T14:48:36.208Z",
+  "generated_at": "2026-09-11T14:55:01.425Z",
   "audit_date": "2026-09-11",
-  "git_head": "fe1f53bd32a3f5df944195ec9c4494b370c7243e",
+  "git_head": "f6c887c0beb1e133ae1a450d54b62f5f4633f172",
   "files": [
     {
       "path": ".dockerignore",
@@ -5278,7 +5278,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "c146c19b6174e7d842142ff722c6b3016fe21276a7e0131b708ed18f0c495fb1",
+      "content_sha256": "71461cde90a4f4c79e9f03aa17a2ba506ac07d948045efdbf9cc69660d8b6f75",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 220630,
@@ -5359,7 +5359,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "961cbd161c24c3c4cd051d74e276249a3b59208a075915470a58ea63de8dd3bc",
+      "content_sha256": "076a11709d6ef5962096555061d84f20a11e2defaf8894e7092372f932c68917",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 579301,
@@ -10208,11 +10208,11 @@
     },
     {
       "path": "scripts/postgres-integration-fixtures.mjs",
-      "content_sha256": "96bd44a0b3259bbc684143e2a7f353e122fb8b7caf017413253e752d8afa339f",
+      "content_sha256": "f1daab50cd62c2acb9c77b524d16d0dce9a411768efb801e4f23e625205fbc49",
       "role": "Operator, verification, or data script",
       "risk": "low",
-      "bytes": 12005,
-      "lines": 221,
+      "bytes": 12195,
+      "lines": 223,
       "detected_concerns": [
         "Contains destructive behavior; require dry-run, explicit scope, and recovery evidence."
       ],
