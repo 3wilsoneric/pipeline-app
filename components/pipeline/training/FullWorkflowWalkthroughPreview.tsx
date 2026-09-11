@@ -107,7 +107,7 @@ const concepts: readonly WorkflowConcept[] = [
     points: [
       { title: "Review the source", detail: "Open the workspace, signed assessment, chart, and supporting files as one connected record." },
       { title: "Resolve exceptions", detail: "Return incomplete or conflicting information to the accountable assessor with a clear reason." },
-      { title: "Handoff deliberately", detail: "Meet the Client and packet delivery remain human-reviewed, minimum-necessary actions." },
+      { title: "Submit, then decide", detail: "The assessor submits the signed recommendation; the supervisor reviews and records acceptance or decline." },
     ],
   },
 ];

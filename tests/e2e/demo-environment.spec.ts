@@ -5,7 +5,7 @@ test.describe("Pipeline Demo Environment", () => {
     const errors = watchBrowserErrors(page);
     const response = await page.goto("/training/demo");
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to handoff" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to decision" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Pipeline training" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Open guide launcher" })).toHaveCount(0);
     await closePresentation(page);
@@ -39,7 +39,7 @@ test.describe("Pipeline Demo Environment", () => {
 
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
     const slideSelect = slideNavigation.getByRole("combobox", { name: "Jump to slide" });
-    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to handoff" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to decision" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Taylor Rivera referral journey" })).toContainText("remain connected");
     await slideSelect.selectOption("1");
     await expect(page.getByRole("region", { name: "Home calendar and workspace sequence" })).toContainText("One connected record");
@@ -59,8 +59,8 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.getByRole("region", { name: "Weak and source-backed note comparison" })).toContainText("Source-attributed");
 
     await page.keyboard.press("End");
-    await expect(page.getByRole("heading", { name: "Accepted referrals continue into the receiving-team handoff" })).toBeVisible();
-    await expect(page.getByRole("img", { name: /Meet the Client email preview/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Submit the recommendation, then the supervisor decides" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Assessment signature and decision sequence" })).toContainText("Admission decision");
     await page.getByRole("button", { name: "Begin walkthrough" }).click();
 
     await expect(page).toHaveURL(/view=referrals.*screen=packet.*draftId=.*demoScenario=new-intake/);
@@ -78,7 +78,7 @@ test.describe("Pipeline Demo Environment", () => {
     });
 
     await page.goto("/training/demo");
-    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to handoff" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "One referral stays connected from packet to decision" })).toBeVisible();
     expect(referralRequests).toEqual([]);
 
     await closePresentation(page);
@@ -222,7 +222,7 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.locator('[data-demo-surface="practice"]')).toBeVisible();
     const center = page.locator('[data-demo-center="true"]');
     expect(await center.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    for (const tab of ["Presentation", "Practice cases", "Meet the Client"]) {
+    for (const tab of ["Presentation", "Practice cases", "Submittal & acceptance"]) {
       await expect(page.getByRole("tab", { name: tab })).toBeInViewport();
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -235,7 +235,7 @@ test.describe("Pipeline Demo Environment", () => {
     await expectPresentationToFillViewport(page.locator('[data-demo-surface="presentation"]'), page);
     await closePresentation(page);
 
-    for (const tab of ["Practice cases", "Meet the Client"]) {
+    for (const tab of ["Practice cases", "Submittal & acceptance"]) {
       await page.getByRole("tab", { name: tab }).click();
       await expect(page.getByRole("tab", { name: tab })).toHaveAttribute("aria-selected", "true");
       expect(await center.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -246,7 +246,7 @@ test.describe("Pipeline Demo Environment", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
-  test("previews a Resident Care Director handoff without sending data", async ({ page }) => {
+  test("rehearses assessor submittal and supervisor acceptance without changing data", async ({ page }) => {
     const requests: string[] = [];
     page.on("request", (request) => {
       if (request.method() !== "GET") requests.push(`${request.method()} ${request.url()}`);
@@ -254,20 +254,17 @@ test.describe("Pipeline Demo Environment", () => {
 
     await page.goto("/training/demo");
     await closePresentation(page);
-    const meetClientTab = page.getByRole("tab", { name: "Meet the Client" });
-    await expect(meetClientTab).toBeVisible();
+    const decisionTab = page.getByRole("tab", { name: "Submittal & acceptance" });
+    await expect(decisionTab).toBeVisible();
     await page.waitForLoadState("networkidle");
-    await meetClientTab.click();
-    await expect(meetClientTab).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator('[data-meet-client-demo="true"]')).toBeVisible();
-    const emailPreview = page.getByRole("article", { name: "Meet the Client email preview" });
-    await expect(emailPreview.getByRole("heading", { name: "Meet the Client", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "New message" })).toBeVisible();
-    await expect(page.getByText("Referral Face Sheet.pdf")).toBeVisible();
-
-    await expect(emailPreview).toBeVisible();
-    await page.getByRole("button", { name: "Simulate delivery" }).click();
-    await expect(page.getByText("Demo delivery complete")).toBeVisible();
+    await decisionTab.click();
+    await expect(decisionTab).toHaveAttribute("aria-selected", "true");
+    const rehearsal = page.locator('[data-submittal-acceptance-demo="true"]');
+    await expect(rehearsal).toBeVisible();
+    await rehearsal.getByRole("button", { name: "Submit for supervisor review" }).click();
+    await expect(rehearsal.getByText("Awaiting supervisor review", { exact: true })).toBeVisible();
+    await rehearsal.getByRole("button", { name: "Record accepted decision" }).click();
+    await expect(rehearsal.getByRole("button", { name: "Accepted decision recorded" })).toBeVisible();
     expect(requests).toEqual([]);
   });
 });

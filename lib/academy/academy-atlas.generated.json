@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:9c1f924d2995dbf1",
-  "fingerprint": "9c1f924d2995dbf15d812e18bb97473580dbf8f7edfb86be310fb80633b35ece",
+  "generatedAt": "source-fingerprint:0987912555a75a30",
+  "fingerprint": "0987912555a75a309705faa6ec16fba297601ad3c03e9abbca5bb8e76b1e3135",
   "totals": {
     "files": 963,
-    "lines": 307310,
+    "lines": 307231,
     "coveredFiles": 963
   },
   "entries": [
@@ -2426,18 +2426,6 @@
       ]
     },
     {
-      "path": "components/pipeline/training/MeetClientHandoffDemo.tsx",
-      "subsystem": "Pipeline UI",
-      "kind": "react-component",
-      "runtime": "browser",
-      "risk": "standard",
-      "lines": 143,
-      "moduleIds": [
-        "frontend-resilience",
-        "next-react-runtime"
-      ]
-    },
-    {
       "path": "components/pipeline/training/OperatorCertification.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
@@ -2539,7 +2527,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 822,
+      "lines": 801,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2552,6 +2540,18 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 687,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/training/SubmissionAcceptanceDemo.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 88,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -11091,7 +11091,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 350,
+      "lines": 347,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

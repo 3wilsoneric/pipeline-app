@@ -36,8 +36,8 @@ import { stageOperatorGuideForNavigation } from "@/lib/training/operator-guided-
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 
-const MeetClientHandoffDemo = dynamic(() => import("@/components/pipeline/training/MeetClientHandoffDemo"), {
-  loading: () => <div className="flex min-h-[260px] items-center justify-center text-[11px] font-bold text-[#68736f]">Loading handoff preview...</div>,
+const SubmissionAcceptanceDemo = dynamic(() => import("@/components/pipeline/training/SubmissionAcceptanceDemo"), {
+  loading: () => <div className="flex min-h-[260px] items-center justify-center text-[11px] font-bold text-[#68736f]">Loading workflow rehearsal...</div>,
 });
 
 type DemoActor = {
@@ -61,7 +61,7 @@ type PresentationSlide = {
   title: string;
   summary: string;
   points: readonly string[];
-  graphic?: "case-spine" | "ownership" | "workday" | "source-stack" | "assessment-map" | "note-comparison" | "decision-path" | "handoff";
+  graphic?: "case-spine" | "ownership" | "workday" | "source-stack" | "assessment-map" | "note-comparison" | "decision-path";
   screenshots?: readonly PresentationScreenshot[];
   sections?: readonly string[];
   rule?: string;
@@ -89,8 +89,8 @@ const presentationSlides: readonly PresentationSlide[] = [
     number: 1,
     navLabel: "Map",
     location: "The whole referral",
-    title: "One referral stays connected from packet to handoff",
-    summary: "Pipeline keeps the documents, intake, appointment, assessment, recommendation, decision, and receiving-team handoff in one traceable referral record.",
+    title: "One referral stays connected from packet to decision",
+    summary: "Pipeline keeps the documents, intake, appointment, assessment, recommendation, submittal, and supervisor decision in one traceable referral record.",
     points: [
       "The workspace is the referral record.",
       "The client profile carries the person's history across referrals.",
@@ -242,26 +242,21 @@ const presentationSlides: readonly PresentationSlide[] = [
       caption: "Review is selected in the left rail; saved status and Sign assessment remain visible in the top bar.",
     }],
     rule: "Assessment: completed and signed by the assessor. Admission decision: recorded by an authorized administrator.",
-    nextLabel: "See the handoff",
+    nextLabel: "Submit for review",
   },
   {
-    id: "accepted-handoff",
+    id: "submittal-acceptance",
     number: 9,
-    navLabel: "Handoff",
-    location: "Workspace → Chart → Meet the Client",
-    title: "Accepted referrals continue into the receiving-team handoff",
-    summary: "Verified intake and signed assessment information can populate Chart and Meet the Client. Authorized staff review the summary, recipient, and approved attachments before sending.",
+    navLabel: "Decision",
+    location: "Workspace → Workflow",
+    title: "Submit the recommendation, then the supervisor decides",
+    summary: "The assessor submits the locked assessment revision and clinical recommendation. The supervisor reviews that exact submittal, resolves decision requirements, and records acceptance or decline.",
     points: [
-      "Chart remains connected to the signed assessment that produced it.",
-      "Meet the Client is a concise receiving-team view, not a second assessment.",
-      "The send action stays a deliberate human checkpoint.",
+      "Submit for supervisor review freezes the signed assessment revision under review.",
+      "The supervisor can accept, decline, or request changes without editing the assessor's work.",
+      "Acceptance is an explicit recorded decision; it is not created by changing a stage label.",
     ],
-    screenshots: [{
-      src: "/training/presentation/meet-client-handoff.png",
-      alt: "Synthetic Pipeline Meet the Client email preview with the receiving-team summary visible.",
-      label: "Meet the Client",
-      caption: "The receiving summary is reviewed with the destination and approved admission materials before delivery.",
-    }],
+    graphic: "decision-path",
     nextLabel: "Begin walkthrough",
   },
 ] as const;
@@ -395,7 +390,7 @@ export default function PipelineDemoCenter({
           <div className="flex min-w-0 items-end gap-1 overflow-x-auto px-2 pt-1.5 sm:px-3" role="tablist" aria-label="Demo Center sections">
             <DemoTab active={view === "presentation"} label="Presentation" onClick={() => selectView("presentation")} />
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => selectView("lab")} />
-            <DemoTab active={view === "handoff"} label="Meet the Client" onClick={() => selectView("handoff")} />
+            <DemoTab active={view === "handoff"} label="Submittal & acceptance" onClick={() => selectView("handoff")} />
           </div>
         </header>
 
@@ -427,7 +422,7 @@ export default function PipelineDemoCenter({
               onOpen={openExisting}
             />
           ) : (
-            <MeetClientHandoffDemo preparedBy={actor.name} />
+            <SubmissionAcceptanceDemo preparedBy={actor.name} />
           )}
         </div>
       </div>
@@ -554,7 +549,6 @@ function PresentationVisual({ slide }: { slide: PresentationSlide }) {
   if (slide.graphic === "assessment-map") return <AssessmentMapVisual />;
   if (slide.graphic === "note-comparison") return <NoteComparisonVisual />;
   if (slide.graphic === "decision-path") return <DecisionPathVisual />;
-  if (slide.graphic === "handoff") return <HandoffVisual />;
   return null;
 }
 
@@ -600,7 +594,7 @@ function CaseSpineVisual() {
     { label: "Referral packet", detail: "What arrived", icon: FileText },
     { label: "Assessment", detail: "What you verified", icon: ClipboardCheck },
     { label: "Recommendation", detail: "What you concluded", icon: FileCheck2 },
-    { label: "Care handoff", detail: "What the next team needs", icon: ShieldCheck },
+    { label: "Supervisor decision", detail: "Accepted or declined", icon: ShieldCheck },
   ] as const;
   return (
     <section aria-label="Taylor Rivera referral journey" className="min-w-0 overflow-hidden border border-white/20 bg-[#0f3029] shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
@@ -617,7 +611,7 @@ function CaseSpineVisual() {
           </li>
         ))}
       </ol>
-      <div className="flex items-center gap-3 border-t border-white/15 px-5 py-4 text-[12px] font-bold text-white sm:px-6"><Check size={16} className="text-[#8be0c5]" aria-hidden="true" />The packet, assessment, recommendation, and handoff remain connected.</div>
+      <div className="flex items-center gap-3 border-t border-white/15 px-5 py-4 text-[12px] font-bold text-white sm:px-6"><Check size={16} className="text-[#8be0c5]" aria-hidden="true" />The packet, assessment, recommendation, and decision remain connected.</div>
     </section>
   );
 }
@@ -742,21 +736,6 @@ function DecisionPathVisual() {
       <div className="grid gap-px border-t border-[#d9e1dd] bg-[#d9e1dd] sm:grid-cols-2"><div className="bg-[#eaf5f1] px-5 py-4 text-[11px] font-black text-[#315047]">Your work ends with a signed assessment and submitted recommendation.</div><div className="bg-[#f8faf9] px-5 py-4 text-[11px] font-black text-[#5b6661]">New facts after signature belong in a source-attributed addendum.</div></div>
     </section>
   );
-}
-
-function HandoffVisual() {
-  const facts = [["Medication", "Two missed evening doses · verify regimen"], ["Daily living", "Independent mobility · bathing support"], ["Support", "Quiet setting helps during escalation"]] as const;
-  return (
-    <section aria-label="Assessment to care handoff lineage" className="grid min-w-0 gap-4 xl:grid-cols-[0.9fr_auto_1.1fr] xl:items-center">
-      <div className="border border-[#cbd5d1] bg-white p-5 shadow-[0_18px_50px_rgba(28,50,42,0.08)]"><div className="flex items-center gap-3"><FileCheck2 size={20} className="text-[#0c705f]" aria-hidden="true" /><div><div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#0c705f]">Signed assessment</div><div className="mt-1 text-[15px] font-black text-[#27352f]">Taylor Rivera</div></div></div><ul className="mt-5 space-y-3">{facts.map(([label, fact]) => <li key={label} className="border-t border-[#e0e5e2] pt-3"><div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#7a8580]">{label}</div><div className="mt-1 text-[11px] font-semibold leading-5 text-[#44514b]">{fact}</div></li>)}</ul></div>
-      <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#0f8b73] text-white xl:flex"><ArrowRight size={17} aria-hidden="true" /></div>
-      <div className="overflow-hidden border border-[#9fc3b7] bg-[#153d34] text-white shadow-[0_24px_70px_rgba(21,61,52,0.18)]"><div className="border-b border-white/15 px-5 py-4"><div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#8bd5bd]">Meet the Client</div><div className="mt-1 text-[19px] font-semibold">Receiving-team summary</div></div><div className="grid gap-px bg-white/10 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3"><HandoffCard label="Medication" value="Verification needed" /><HandoffCard label="Care needs" value="Bathing support" /><HandoffCard label="Helpful context" value="Quiet setting" /></div><div className="flex items-center gap-3 border-t border-white/15 px-5 py-4 text-[11px] font-bold text-[#d4e3de]"><ShieldCheck size={15} className="text-[#8bd5bd]" aria-hidden="true" />Receiving staff review before sending.</div></div>
-    </section>
-  );
-}
-
-function HandoffCard({ label, value }: { label: string; value: string }) {
-  return <div className="bg-[#153d34] p-4"><div className="text-[8px] font-black uppercase tracking-[0.09em] text-[#8bd5bd]">{label}</div><div className="mt-2 text-[11px] font-bold leading-5 text-white">{value}</div></div>;
 }
 
 function ScenarioLab({ referrals, loading, launchingId, canWrite, onLaunch, onOpen }: { referrals: DemoReferralSummary[]; loading: boolean; launchingId: PipelineDemoScenarioId | null; canWrite: boolean; onLaunch: (scenario: PipelineDemoScenario) => void; onOpen: (referral: DemoReferralSummary) => void }) {
