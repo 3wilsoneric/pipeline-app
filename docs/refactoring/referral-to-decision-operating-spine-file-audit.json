@@ -280,6 +280,12 @@
       "failureBehavior": "Missing exact-start trace blocks behavior-preservation evidence.", "tests": ["check:refactor-setup"], "decision": "keep", "decisionReason": "Required machine-traced start evidence."
     },
     {
+      "path": "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json", "plannedNew": false, "dependencyDirection": "The test-effectiveness gate consumes this reviewed manifest; production never imports it.",
+      "purpose": "Advance the assertion inventory for the three new browser assertions and the focused legacy-draft API case.", "callers": ["check:test-assertion-inventory"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Removed, reordered, duplicated, or silently weakened cases fail the test-effectiveness gate.", "tests": ["check:test-assertion-inventory", "certify:test-effectiveness"],
+      "decision": "keep", "decisionReason": "The manifest must describe the intentionally expanded exact suite instead of treating stronger coverage as drift."
+    },
+    {
       "path": "lib/pipeline/calendar-types.ts", "plannedNew": false, "dependencyDirection": "Calendar domain types remain independent of UI and persistence.",
       "purpose": "Represent contact-readiness as an Intake next action.", "callers": ["calendar-store", "PipelineCalendarPresentation"], "publicExports": ["PipelineCalendarQueueItem"], "sideEffects": [],
       "failureBehavior": "Unknown next actions remain compile-time errors.", "tests": ["check:contacts", "test:e2e"], "decision": "keep", "decisionReason": "Extend the canonical calendar contract."
@@ -342,6 +348,12 @@
         {"prompt":"Contains a hard-coded URL; verify environment portability, allowlisting, and that no endpoint is obsolete.","disposition":"expected","reason":"URLs are synthetic Zoom or intercepted same-app test fixtures and never contact external services.","owner":"Eric","followUp":"test:e2e"}
       ],
       "decision": "keep", "decisionReason": "Preserve full-journey evidence under the stronger scheduling contract."
+    },
+    {
+      "path": "tests/e2e/visual-regression.spec.ts-snapshots/desktop-new-packet-linux.png", "plannedNew": false, "dependencyDirection": "Playwright consumes this Linux-only golden image; production never imports it.",
+      "purpose": "Record the reviewed desktop Intake composition after adding the approved Contact and coordination section.", "callers": ["test:e2e:visual"], "publicExports": [], "sideEffects": [],
+      "failureBehavior": "Any later unapproved pixel drift fails the Linux visual gate.", "tests": ["test:e2e:visual"],
+      "decision": "keep", "decisionReason": "The intended Intake addition changed the desktop surface, and three independent CI captures produced the same replacement image."
     },
     {
       "path": "scripts/api-route-policy-audit.mjs", "plannedNew": false, "dependencyDirection": "Static audit reads routes; runtime never imports it.",

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-11T21:42:47.029Z",
+  "generated_at": "2026-09-11T21:56:55.651Z",
   "audit_date": "2026-09-11",
-  "git_head": "1ef4d03f116df0c029f0394d5adbbcc561e35f46",
+  "git_head": "0a86cf40a1cf0878d87ee9760ea096653bf8bef5",
   "files": [
     {
       "path": ".dockerignore",
@@ -4180,7 +4180,7 @@
     },
     {
       "path": "docs/academy/academy-registry.json",
-      "content_sha256": "d44833d13b6fcf22ae0c1a2fe35c0da38f58304c4234c38270a497860a94d00a",
+      "content_sha256": "cf47dd94eb19d62ed1730551c0ccd29d7101fd3da2acb3ebca77490c1528af99",
       "role": "Documentation or runbook",
       "risk": "low",
       "bytes": 1061,
@@ -5114,11 +5114,11 @@
     },
     {
       "path": "docs/refactoring/refactor-slices.json",
-      "content_sha256": "4805c84d6c36859570f9077aa25f9d8cd0d28963a857edec745300ee9982577a",
+      "content_sha256": "7ce007d8933c3b399073de710f1672452ab7f22f487893b40cf4f4fd82df6c6d",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 47034,
-      "lines": 928,
+      "bytes": 47209,
+      "lines": 930,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
@@ -5217,22 +5217,22 @@
     },
     {
       "path": "docs/refactoring/referral-to-decision-operating-spine-assurance-record.json",
-      "content_sha256": "86c4c67e2fa8e0a3718036366e60289d06fdadcbdc77e7ddb56d11b78d97c284",
+      "content_sha256": "35cee059fdb0455dfbd3c579c055e208fe2ca4481e1ab9d87ff4b0bb5b173a28",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 16483,
-      "lines": 191,
+      "bytes": 16863,
+      "lines": 194,
       "detected_concerns": [],
       "review_focus": "Check stale commands, obsolete architecture, contradictory sources of truth, missing owners, unsafe examples, and unverified recovery instructions.",
       "verification": "link/config drift review against executable source"
     },
     {
       "path": "docs/refactoring/referral-to-decision-operating-spine-file-audit.json",
-      "content_sha256": "02f07fe806bfd2ee0fa59d4d601330070d30a4637934b31c191a95a28ac436fd",
+      "content_sha256": "90750acb21ef9623082a7e584636ddb7acf1dc4a95217d900945a0e1d135864a",
       "role": "Documentation or runbook",
       "risk": "low",
-      "bytes": 54756,
-      "lines": 428,
+      "bytes": 56297,
+      "lines": 440,
       "detected_concerns": [
         "Uses SELECT *; verify response growth, schema coupling, and PHI minimization."
       ],
@@ -5377,7 +5377,7 @@
     },
     {
       "path": "docs/reliability/complete-repository-audit-latest.md",
-      "content_sha256": "440da6f5fe36ddf2ecba2c692adce3c41353d5824288b31b1a84b3f4a2339521",
+      "content_sha256": "7f6c2bbc18a9c739f1b9a35af13d4e1b1721e1f68e7f02ba37333184924d3994",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 413699,
@@ -5405,7 +5405,7 @@
     },
     {
       "path": "docs/reliability/dependency-inventory.json",
-      "content_sha256": "1cc42ce316e2599e1051fc1b9664433ab2ddeda25d5e17f376c7ab75e13bcf9b",
+      "content_sha256": "aa1e6bebd27bb7cb5024c5d86c5ce8eb60dc3d7e1d93b4a16504c03de3744219",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 221419,
@@ -5486,7 +5486,7 @@
     },
     {
       "path": "docs/reliability/repository-file-inventory.json",
-      "content_sha256": "0fefbd1f4541f171b54270c91a36a82924fb3df40637af7be6828970a373f058",
+      "content_sha256": "da15e4f403745dc3dd2c4d27d431d5f7b3db62aba6385c20331f8af024343397",
       "role": "Generated audit evidence",
       "risk": "medium",
       "bytes": 588405,
@@ -5692,7 +5692,7 @@
     },
     {
       "path": "lib/academy/academy-atlas.generated.json",
-      "content_sha256": "03dedde4f9e5b2467b3517c87e7b5945925afb61270db70ddcae3e3ee87d187e",
+      "content_sha256": "76103a8cfa542cd1d6805bf6c01940d3c32bbeb8dbb886a6f74ce88fc884ab91",
       "role": "Shared server/domain library",
       "risk": "medium",
       "bytes": 304064,
@@ -11553,10 +11553,10 @@
     },
     {
       "path": "tests/e2e/visual-regression.spec.ts-snapshots/desktop-new-packet-linux.png",
-      "content_sha256": "01877a81fa5ef36bca649408f7737c90abd91070ab091cbba15ade0d08a90f52",
+      "content_sha256": "a1355c025e13fba24cef7f560566c23e3ca933017f912d8a67609420a35b1557",
       "role": "Browser journey test or snapshot",
       "risk": "low",
-      "bytes": 74348,
+      "bytes": 76842,
       "lines": null,
       "detected_concerns": [],
       "review_focus": "Check deterministic isolation, meaningful assertions, authenticated roles, mobile/desktop parity, concurrency, recovery, and skipped-path justification.",

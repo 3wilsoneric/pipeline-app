@@ -84,7 +84,9 @@
         ".github/workflows/ci.yml",
         "lib/pipeline/user-workspace-state-types.ts",
         "scripts/api-behavior-fixtures.mjs",
-        "tests/e2e/desktop-readiness.spec.ts"
+        "tests/e2e/desktop-readiness.spec.ts",
+        "docs/refactoring/characterization/test-suite-assertion-inventory-e5d0584.json",
+        "tests/e2e/visual-regression.spec.ts-snapshots/desktop-new-packet-linux.png"
       ],
       "preChangeCharacterization": [
         "A shallow detached CI checkout could not verify the approved starting commit and registered refactor branch.",
@@ -92,7 +94,8 @@
       ],
       "focusedEvidence": [
         "CI verify passed with full history and guarded cloud branch identity.",
-        "The API compatibility assertion and exact-candidate desktop suite passed; PostgreSQL migration, integration, rollback, seed, contention, and ten-user load also passed."
+        "The API compatibility assertion and exact-candidate desktop suite passed; PostgreSQL migration, integration, rollback, seed, contention, and ten-user load also passed.",
+        "Three independent Linux CI captures produced the same intended desktop Intake image after the Contact and coordination section was added; that reviewed image replaced the stale golden baseline."
       ],
       "baselineDelta": {
         "before": "CI could not evaluate active-slice history, old drafts could disappear from recovery, and one valid desktop workflow fixture was stale.",
