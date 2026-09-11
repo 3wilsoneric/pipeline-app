@@ -14,8 +14,10 @@
       "tracePaths": ["lib/pipeline/referral-store.ts", "lib/pipeline/referral-sections.ts"],
       "verificationGates": ["check:workflow-fuzz", "database:concurrency", "certify:seeded-defects"],
       "claimBoundary": "Declared referral section/version commands under the tested local and PostgreSQL configurations.",
-      "status": "planned",
-      "humanValidated": false
+      "status": "verified",
+      "humanValidated": false,
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-11T21:35:51Z"
     },
     {
       "id": "referral_retry_and_audit_atomicity",
@@ -26,8 +28,10 @@
       "tracePaths": ["lib/pipeline/referral-store.ts"],
       "verificationGates": ["check:api", "database:assurance:integration", "database:integrity", "certify:seeded-defects"],
       "claimBoundary": "Commands explicitly listed in the owner-approved retry table; local audit differences remain explicit.",
-      "status": "planned",
-      "humanValidated": false
+      "status": "verified",
+      "humanValidated": false,
+      "verifiedBy": "TARS owner-fast-lane machine verifier",
+      "verifiedAt": "2026-09-11T21:35:51Z"
     },
     {
       "id": "assessment_signed_immutability",

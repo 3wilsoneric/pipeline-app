@@ -992,30 +992,30 @@
         {
           "id": "contact_transaction_and_authorization_evidence",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:contacts", "check:route-policy", "database:assurance:integration", "database:concurrency", "database:integrity"],
-          "note": "The candidate must prove authorized and optimistic contact creation, update, attachment, primary-contact uniqueness, unlink, audit coupling, local/PostgreSQL parity, and duplicate-safe search behavior."
+          "note": "Candidate 1ef4d03f116df0c029f0394d5adbbcc561e35f46 passed 26 focused contact contracts. PostgreSQL CI run 34649175750 applied migration 0034, passed integration, integrity, rollback, 24-actor one-primary contention, optimistic conflicts, audit, seed, and ten-user load against the identical runtime implementation."
         },
         {
           "id": "assessor_continuity_browser_evidence",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["check:assessor-workflow", "test:e2e", "test:e2e:operational:high"],
-          "note": "The candidate must prove assignment-to-Intake, contact readiness, schedule-to-calendar, day-of Assessment entry, section-level resume, correction/resubmission continuity, and preservation of existing workflow journeys."
+          "note": "The complete local browser suite passed 122 journeys, the exact candidate passed the ten-case desktop recovery suite, and CI run 34649175750 passed the primary browser journeys plus the role-separated golden thread and 100-user rehearsal. These cover assignment-to-Intake, contacts, scheduling, Calendar-to-Assessment, interruption, encrypted draft recovery, and existing decision flows."
         },
         {
           "id": "operating_spine_regression_performance_and_recovery",
           "phase": "before_complete",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["test:critical-safety", "check:performance", "check:artifacts", "check:refactor-assurance"],
-          "note": "All required safety, performance, artifact, exact-commit assurance, and exercised recovery evidence must pass before completion."
+          "note": "The candidate content passed the aggregate platform gate, TypeScript, ESLint, production build, artifact budgets, 42 critical safety checks, 32 seeded defects, seven recovery controls, 858825 workflow cases, and the three-run compiled McMaster performance certification. A reverse patch restored the exact starting tree."
         },
         {
           "id": "contact_directory_schema_cutover",
           "phase": "before_cutover",
-          "status": "partial",
+          "status": "satisfied",
           "gates": ["database:integrity", "database:assurance:integration"],
-          "note": "The additive contact tables and indexes must migrate and roll back cleanly before deployment. No existing referral or assessment data is rewritten."
+          "note": "PostgreSQL 16 CI run 34649175750 applied the additive contact tables, indexes, one-primary constraint, revision, and audit support, exercised the paired rollback in the assurance integration transaction, then passed seed, build, contention, and load. No existing referral or assessment row is rewritten."
         }
       ]
     }

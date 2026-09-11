@@ -810,7 +810,7 @@
     {
       "id": "referral-to-decision-operating-spine",
       "priority": 13,
-      "status": "in_progress",
+      "status": "complete",
       "owner": "Eric",
       "paths": [
         "components/pipeline/ReferralPacketCanvas.tsx",
