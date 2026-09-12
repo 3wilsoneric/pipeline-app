@@ -18,6 +18,8 @@ import type { PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineSiteScreen } from "@/lib/pipeline/site-search";
+import { prefetchPipelineWorkspace, cancelPipelineWarmup } from "@/lib/pipeline/client-navigation";
+import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
 
 export default function PipelineWelcome({
   onOpenPacket,
@@ -31,6 +33,7 @@ export default function PipelineWelcome({
   editHome = false,
   onFinishEditingHome,
   canAccessReports = false,
+  initialBriefing,
 }: {
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   onOpenProfile: (residentKey: string) => void;
@@ -43,13 +46,23 @@ export default function PipelineWelcome({
   editHome?: boolean;
   onFinishEditingHome?: () => void;
   canAccessReports?: boolean;
+  initialBriefing?: HomeBriefingSnapshot | null;
 }) {
-  const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(null);
+  const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(initialBriefing ?? null);
   const [error, setError] = useState("");
   const refreshController = useRef<AbortController | null>(null);
   const pendingRefresh = useRef<Promise<void> | null>(null);
   const acknowledgmentRevision = useRef(0);
   const { searchOpen, setSearchOpen } = usePipelineShell();
+
+  // Prepare one likely next workspace, not every referral/chart. Intent reads
+  // still use the unchanged short TTL and protected shared cache. New briefing
+  // publications may replace the queued target; leaving Home cancels the queue.
+  const nextWorkspaceId = nextBriefingWorkspaceId(briefing);
+  useEffect(() => {
+    if (nextWorkspaceId) prefetchPipelineWorkspace(nextWorkspaceId);
+    return cancelPipelineWarmup;
+  }, [nextWorkspaceId]);
 
   const loadBriefing = useCallback(async () => {
     if (pendingRefresh.current) return pendingRefresh.current;
@@ -127,7 +140,7 @@ export default function PipelineWelcome({
 
   return (
     <>
-      <main data-guide-target="home-workspace" className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
+      <main data-guide-target="home-workspace" data-performance-ready={pipelineSurfaceReady("home", !briefing, error)} className="h-full overflow-y-auto bg-white text-[#202320] outline-none">
         <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-2 sm:px-6 lg:px-8">
           <section aria-label="Search Pipeline" className="w-full bg-white px-1">
             <PipelineSearchPanel
@@ -412,6 +425,13 @@ function unscheduledActionLabel(action: PipelineUnscheduledAssessment["nextActio
 
 function clientDisplayName(name: string, community?: string) {
   return formatClientIdentityTitle({ name, community });
+}
+
+function nextBriefingWorkspaceId(briefing: HomeBriefingSnapshot | null) {
+  if (!briefing) return undefined;
+  return briefing.continuity.resume_items.find((item) => item.referral_id)?.referral_id
+    ?? briefing.upcoming[0]?.referralId
+    ?? briefing.continuity.new_assignments[0]?.workspace.referral_id;
 }
 
 function urgencyLabel(value: HomeBriefingSnapshot["current_work"]["items"][number]["urgency"]) {

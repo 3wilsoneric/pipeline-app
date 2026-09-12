@@ -100,6 +100,7 @@
     "check:performance:live-reads": "node scripts/pipeline-live-read-performance.mjs",
     "check:performance:directories": "node scripts/pipeline-directory-startup-performance.mjs",
     "check:directory-prewarm": "node scripts/directory-prewarm-contracts.mjs",
+    "check:instant-navigation": "node scripts/instant-navigation-contracts.mjs",
     "check:mcmaster:matrix": "node scripts/mcmaster-certification-matrix.mjs",
     "check:mcmaster:contracts": "node scripts/mcmaster-performance-contracts.mjs && node scripts/live-loading-contracts.mjs",
     "check:mcmaster": "npm run check:mcmaster:matrix && npm run check:mcmaster:contracts",

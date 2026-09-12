@@ -7,6 +7,11 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Private server entry and bounded instant navigation",
+    command: "node",
+    args: ["scripts/instant-navigation-contracts.mjs"],
+  },
+  {
     name: "Directory login and source-startup prewarming",
     command: "node",
     args: ["scripts/directory-prewarm-contracts.mjs"],

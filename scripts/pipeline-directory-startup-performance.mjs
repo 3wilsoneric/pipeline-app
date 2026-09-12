@@ -19,7 +19,7 @@ try {
       await context.addCookies([{ ...session, url: base.origin, httpOnly: true, secure: true, sameSite: "Lax" }]);
       await context.route("**/api/**", (route) => {
         const request = route.request();
-        const bookkeeping = /^\/api\/(?:me\/(?:recents|presence|work-continuity)|referrals\/\d+\/presence)$/.test(new URL(request.url()).pathname);
+        const bookkeeping = /^\/api\/(?:me\/(?:recents|presence|work-continuity|performance)|referrals\/\d+\/presence)$/.test(new URL(request.url()).pathname);
         return ["GET", "HEAD", "OPTIONS"].includes(request.method()) || bookkeeping ? route.continue() : route.abort("blockedbyclient");
       });
       const page = await context.newPage();
@@ -59,6 +59,10 @@ try {
       await page.goto(base.href);
       await page.getByRole("region", { name: "Current work", exact: true }).waitFor();
       const homeMs = Math.round(performance.now() - start);
+      const coldEntry = await page.evaluate(() => {
+        const nav = performance.getEntriesByType("navigation")[0];
+        return { document_ttfb_ms: Math.round(nav.responseStart - nav.requestStart), dom_content_loaded_ms: Math.round(nav.domContentLoadedEventEnd) };
+      });
       // One second of ordinary Home dwell; same delay in before/after trials.
       await page.waitForTimeout(1_000);
       const clientsReadyBeforeClick = await page.evaluate(() => window.__pipelineDirectoryTiming.complete_at !== null);
@@ -82,12 +86,25 @@ try {
       await page.waitForFunction(() => window.__pipelineDirectoryTiming.complete_at !== null);
       const roster = await page.evaluate(() => window.__pipelineDirectoryTiming);
       if (roster.total > 100) await page.getByText(new RegExp(`^Showing \\d+ of ${roster.total}$`)).waitFor();
-      result.samples.push({ trial, home_ms: homeMs, workspace_first_row_ms: workspaceMs, clients_first_card_ms: clientsMs,
+      result.samples.push({ trial, ...coldEntry, home_ms: homeMs, workspace_first_row_ms: workspaceMs, clients_first_card_ms: clientsMs,
         complete_roster_from_start_ms: roster.complete_at - startedAt, roster_total: roster.total, roster_pages: roster.pages,
         clients_ready_before_click: clientsReadyBeforeClick, workspace_reads_on_click: workspaceReads - workspaceReadsBefore,
         client_reads_on_click: clientReads - clientReadsBefore });
     } finally { await context.close(); }
   }
+  const serverContext = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1440, height: 900 } });
+  try {
+    await serverContext.addCookies([{ ...session, url: base.origin, httpOnly: true, secure: true, sameSite: "Lax" }]);
+    const page = await serverContext.newPage();
+    const started = performance.now();
+    const response = await page.goto(base.href, { waitUntil: "domcontentloaded" });
+    result.server_entry = {
+      meaningful_home_without_javascript: await page.locator('main[data-performance-ready="home"]').count() === 1,
+      private_no_store: /private/.test(response.headers()["cache-control"] ?? "") && /no-store/.test(response.headers()["cache-control"] ?? ""),
+      home_html_ms: Math.round(performance.now() - started),
+    };
+    if (process.argv.includes("--require-server-entry") && (!result.server_entry.meaningful_home_without_javascript || !result.server_entry.private_no_store)) throw new Error("Private useful server entry is missing.");
+  } finally { await serverContext.close(); }
 } catch (error) { result.failure = error.name; }
 finally { await browser.close(); console.log(JSON.stringify(result, null, 2)); }
 if (result.failure || result.api_errors.length || result.samples.length !== 3) process.exitCode = 1;

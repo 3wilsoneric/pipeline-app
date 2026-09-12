@@ -138,7 +138,7 @@ type ReferralHomeDirectoryProps = {
 
 export function ReferralHomeDirectory(props: ReferralHomeDirectoryProps) {
   return (
-    <main data-guide-target="workspace-directory" aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
+    <main data-guide-target="workspace-directory" data-performance-ready={!props.workspaceLoading && !props.loadError ? "referrals" : undefined} aria-label="Referral workspaces" className="h-full overflow-y-auto bg-white text-[#111111]">
       <div className="w-full px-4 pb-8 pt-0 sm:px-5 md:px-6 lg:px-8 xl:px-10">
         <h1 className="sr-only">Referral workspaces</h1>
         <ReferralDraftResumeList onResume={props.onResumeDraft} className="mb-3 mt-3" />

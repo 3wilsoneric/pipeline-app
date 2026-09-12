@@ -1,4 +1,5 @@
 "use client";
+import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
 
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useSearchParams } from "next/navigation";
@@ -176,7 +177,7 @@ function OperationsDashboardView({
 }) {
   return (
     <main aria-label="Reports" className="h-full overflow-y-auto bg-white text-[#171917]">
-      <div data-testid="operations-workspace" data-guide-target="operations-workspace" className="mx-auto w-full max-w-[1500px] px-4 pb-12 pt-2 sm:px-6 lg:px-8">
+      <div data-testid="operations-workspace" data-guide-target="operations-workspace" data-performance-ready={pipelineSurfaceReady("operations", loading, error)} className="mx-auto w-full max-w-[1500px] px-4 pb-12 pt-2 sm:px-6 lg:px-8">
         <div className="flex items-center py-3">
           <div role="group" aria-label="Reports view" className="inline-flex rounded-md bg-[#eef1ef] p-1">
             <ViewToggle selected={view === "reports"} onClick={() => onSelectView("reports")}>Reports</ViewToggle>

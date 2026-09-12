@@ -1,18 +1,25 @@
 import { Suspense } from "react";
 
 import PipelineOverviewRoute from "@/components/pipeline/PipelineOverviewRoute";
+import { getPipelineServerEntryUser } from "@/lib/auth/server-entry";
+import { getHomeBriefing } from "@/lib/pipeline/home-briefing";
 
 export default async function HomePage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // Reading the request-time query lets useSearchParams participate in the
-  // initial server render. No application data is fetched at this boundary.
-  await searchParams;
+  const params = await searchParams;
+  const user = await getPipelineServerEntryUser();
+  // Only Home needs its briefing. Use the exact API projection/effective user,
+  // not a second query model or cached authorization decision. An outage keeps
+  // the existing client retry/error path rather than failing the whole page.
+  const initialBriefing = user && !params.screen && params.view !== "referrals"
+    ? await getHomeBriefing(user).catch(() => null)
+    : null;
   return (
     <Suspense fallback={null}>
-      <PipelineOverviewRoute />
+      <PipelineOverviewRoute initialBriefing={initialBriefing} />
     </Suspense>
   );
 }

@@ -2,13 +2,10 @@
 
 import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 
 import ClientProfileDirectory, { preloadCurrentClientDirectory } from "@/components/pipeline/ClientProfileDirectory";
-import OperationsDashboard from "@/components/pipeline/OperationsDashboard";
-import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
-import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
-import ReferralHome from "@/components/pipeline/ReferralHome";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import { buildReferralParams } from "@/components/pipeline/referral-home-directory-model";
@@ -16,6 +13,7 @@ import {
   recordRecentDestination,
 } from "@/lib/pipeline/recent-destinations";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
 import {
   formatClientIdentityDetail,
   formatClientIdentityTitle,
@@ -54,19 +52,30 @@ type DeferredWorkSurfaces = Awaited<ReturnType<typeof loadDeferredWorkSurfaces>>
 type PipelineScreen = "home" | "referrals" | "packet" | "calendar" | "profiles" | "profile" | "operations" | "trash";
 type ReferralSelection = { id: number; name?: string; gender?: string; community?: Referral["community"] };
 
-function useDeferredWorkSurfaces() {
+const OperationsDashboard = dynamic(() => import("@/components/pipeline/OperationsDashboard"), { loading: DeferredScreenLoading });
+const PipelineCalendar = dynamic(() => import("@/components/pipeline/PipelineCalendar"), { loading: DeferredScreenLoading });
+const PipelineTrash = dynamic(() => import("@/components/pipeline/PipelineTrash"), { loading: DeferredScreenLoading });
+const ReferralHome = dynamic(() => import("@/components/pipeline/ReferralHome"), { loading: DeferredScreenLoading });
+
+function useDeferredWorkSurfaces(screen: PipelineScreen) {
   const [surfaces, setSurfaces] = useState<DeferredWorkSurfaces | null>(null);
   useEffect(() => {
     let cancelled = false;
-    // Keep the first paint lean, then warm the two largest work surfaces so the
-    // first operator navigation can render them synchronously.
-    void loadDeferredWorkSurfaces().then((loaded) => {
+    const load = () => void loadDeferredWorkSurfaces().then((loaded) => {
       if (!cancelled) setSurfaces(loaded);
     });
+    // Deep links load immediately. Home's authenticated content/reads get the
+    // first turn before the large work surfaces are prepared for navigation.
+    const idle = screen === "home" && "requestIdleCallback" in window
+      ? window.requestIdleCallback(load, { timeout: 750 })
+      : undefined;
+    const timer = idle === undefined ? window.setTimeout(load, 0) : undefined;
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
+      if (idle !== undefined) window.cancelIdleCallback(idle);
     };
-  }, []);
+  }, [screen]);
   return surfaces;
 }
 
@@ -96,7 +105,7 @@ function referralWorkspaceKey(referral: ReferralSelection | undefined, created: 
   return created?.id === referral.id ? created.key : `referral-${referral.id}`;
 }
 
-export default function PipelineOverviewRoute() {
+export default function PipelineOverviewRoute({ initialBriefing }: { initialBriefing?: HomeBriefingSnapshot | null }) {
   const { searchTerm, setSearchTerm, setSearchOpen } = usePipelineShell();
   const searchParams = useSearchParams();
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
@@ -112,7 +121,8 @@ export default function PipelineOverviewRoute() {
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
   const [reportAccess, setReportAccess] = useState<boolean | null>(null);
-  const deferredWorkSurfaces = useDeferredWorkSurfaces();
+  const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
+  const deferredWorkSurfaces = useDeferredWorkSurfaces(screen);
   const selectedReferral = routeReferral && referralDetails?.id === routeReferral.id
     ? referralDetails
     : routeReferral;
@@ -154,6 +164,7 @@ export default function PipelineOverviewRoute() {
   ) => {
     if (nextScreen === "operations" && reportAccess !== true) return;
     const workspaceLocation = defaultWorkspaceLocation(location);
+    setEntryBriefing(null);
     setSearchOpen(false);
     const params = new URLSearchParams(activeSearchParams.toString());
     clearDestinationParams(params);
@@ -228,6 +239,7 @@ export default function PipelineOverviewRoute() {
   if (screen === "home") {
     return (
       <PipelineWelcome
+        initialBriefing={entryBriefing}
         canAccessReports={reportAccess === true}
         onOpenPacket={(referral, location) => navigate("packet", referral, undefined, location)}
         onOpenProfile={(clientId) => navigate("profile", undefined, clientId)}
