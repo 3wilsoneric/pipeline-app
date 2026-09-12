@@ -1,10 +1,17 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
+
 test.describe("Stable visual surfaces", () => {
   test.skip(process.env.PIPELINE_VISUAL_REGRESSION !== "true", "Visual baselines run in the isolated visual gate.");
 
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
+    await page.route("**/api/profiles/directory**", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(clientDirectoryFixture),
+    }));
     await page.route("**/api/operations/home", async (route) => {
       const response = await route.fetch();
       const payload = await response.json();
@@ -40,14 +47,8 @@ test.describe("Stable visual surfaces", () => {
     await openStable(page, "/");
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByRole("main", { name: "Client profiles" })).toBeVisible();
-    await expect(page.getByTestId("profiles-workspace").getByRole("status")).toContainText(
-      "Live census information is temporarily unavailable",
-    );
-    const dataAsOf = page.getByTestId("profiles-workspace").locator("div", { hasText: /^Data through/ });
-    await expect(dataAsOf).toHaveCount(1);
-    await dataAsOf.locator("strong").evaluate((node) => {
-      node.textContent = "Sep 4, 2026";
-    });
+    await expect(page.getByRole("region", { name: "Client list" })).toContainText("Avery Example");
+    await expect(page.getByTestId("profiles-workspace").getByRole("alert")).toHaveCount(0);
     await settleStable(page);
     await expect(page).toHaveScreenshot("desktop-profiles.png", screenshotOptions());
   });
