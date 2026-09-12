@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:dbf3e04b8ce32686",
-  "fingerprint": "dbf3e04b8ce32686abd4d86a59ee09b7071c4b0b04ac42bfcc10c69cf0a80fb2",
+  "generatedAt": "source-fingerprint:a17422c3fd1c14af",
+  "fingerprint": "a17422c3fd1c14afa6c923f10c0c99b83bc7e42f39d0db4a54726f74c82f5d28",
   "totals": {
     "files": 1005,
-    "lines": 316669,
+    "lines": 316672,
     "coveredFiles": 1005
   },
   "entries": [
@@ -2205,7 +2205,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 500,
+      "lines": 503,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
