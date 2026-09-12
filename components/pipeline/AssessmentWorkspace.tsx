@@ -1164,7 +1164,7 @@ export default function AssessmentWorkspace({
           void queueSectionSave(section);
         }
       }
-    }, 1_200);
+    }, 400);
     return () => window.clearTimeout(timer);
   }, [dirtySections, draft, queueSectionSave]);
 

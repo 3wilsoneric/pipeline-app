@@ -224,7 +224,35 @@ await measureJourney("client_filter", "filter", async () => {
 });
 await measureJourney("open_client_profile", "navigation", async () => {
   await activate(page.getByRole("button", { name: /Open profile for / }).first());
-  await page.getByTestId("profile-workspace").waitFor({ state: "visible" });
+  // The workspace wrapper exists during loading: count actual chart content,
+  // not a skeleton, and wait through the frame that paints that content.
+  await page.getByTestId("client-identity-title").waitFor({ state: "visible" });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+});
+await measureJourney("source_thumbnail_decoded", "asset", async () => {
+  const thumbnail = page.locator('img[alt^="First-page thumbnail for "]').first();
+  await thumbnail.scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => {
+    const image = document.querySelector('img[alt^="First-page thumbnail for "]');
+    return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0;
+  });
+});
+await measureJourney("source_pdf_complete_body", "asset", async () => {
+  const link = page.locator('a[href*="/source-documents/"][href$="/preview"]').first();
+  const target = new URL(await link.getAttribute("href"), page.url()).href;
+  const responseReady = context.waitForEvent("response", { predicate: (response) => response.url() === target });
+  const popupReady = page.waitForEvent("popup");
+  await link.click();
+  const fileResponse = await responseReady;
+  const popup = await popupReady;
+  try {
+    const failure = await fileResponse.finished();
+    if (failure || !fileResponse.ok() || !fileResponse.headers()["content-type"]?.includes("application/pdf")) {
+      throw new Error("The source PDF did not complete successfully.");
+    }
+  } finally {
+    await popup.close();
+  }
 });
 await measureJourney("profile_to_clients", "navigation", async () => {
   await activate(page.getByRole("button", { name: "Open client profiles", exact: true }));
@@ -432,6 +460,7 @@ const result = {
 };
 
 const navigationJourneys = result.warm_journeys.filter((journey) => journey.kind === "navigation");
+const assetJourneys = result.warm_journeys.filter((journey) => journey.kind === "asset");
 const localizedJourneys = result.warm_journeys.filter((journey) => ["filter", "queue", "tab", "input"].includes(journey.kind));
 const overlayJourneys = result.warm_journeys.filter((journey) => ["overlay", "export"].includes(journey.kind));
 const guideJourneys = result.warm_journeys.filter((journey) => journey.kind === "guide");
@@ -444,6 +473,7 @@ result.checks = {
   cls: result.cold.cls <= limits.cls,
   transfer: result.cold.transferred_bytes <= limits.transferred_bytes,
   warm_navigation: navigationJourneys.length > 0 && navigationJourneys.every((journey) => journey.duration_ms <= limits.warm_navigation_ms),
+  source_files: assetJourneys.length >= 2 && assetJourneys.every((journey) => journey.duration_ms <= limits.heavy_api_p95_ms),
   localized_interactions: localizedJourneys.length > 0 && localizedJourneys.every((journey) => journey.duration_ms <= limits.filter_tab_queue_ms),
   overlay_interactions: overlayJourneys.length > 0 && overlayJourneys.every((journey) => journey.duration_ms <= limits.overlay_interaction_ms),
   guide_interactions: guideJourneys.length >= 9 && guideJourneys.every((journey) => journey.duration_ms <= limits.guide_interaction_ms),
@@ -605,6 +635,37 @@ async function installSanitizedClinicalFixtures(page) {
     headers: fixtureHeaders,
     body: JSON.stringify(profile),
   }));
+  // Do not answer binary paths with the profile JSON fixture: that used to
+  // conceal broken thumbnails and never exercise a completed source PDF.
+  const thumbnail = readFileSync(path.join(process.cwd(), "public/training/presentation/intake-review.png"));
+  const content = "BT /F1 12 Tf 50 700 Td (Sanitized performance packet) Tj ET\n";
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = objects.map((object, index) => {
+    const offset = Buffer.byteLength(pdf);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    return offset;
+  });
+  const xref = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets.map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  // Context routing also catches the initial request of the newly opened tab.
+  const sourceAssetRoute = /\/source-documents\/[^/]+\/(thumbnail|preview)$/;
+  const fulfillSourceAsset = (route) => route.fulfill({
+    status: 200,
+    headers: { ...fixtureHeaders, "content-type": route.request().url().endsWith("/thumbnail") ? "image/png" : "application/pdf" },
+    body: route.request().url().endsWith("/thumbnail") ? thumbnail : Buffer.from(pdf),
+  });
+  await page.route(sourceAssetRoute, fulfillSourceAsset);
+  await page.context().route(sourceAssetRoute, fulfillSourceAsset);
+  profile.client.source_documents = profile.client.source_documents.map((document) => ({ ...document, page_count: 1 }));
   // Register the specific directory route last because Playwright resolves
   // matching routes in reverse registration order.
   await page.route(/\/api\/profiles\/directory(?:\?|$)/, (route) => route.fulfill({

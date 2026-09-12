@@ -28,6 +28,7 @@ import {
 import { fetchCurrentPipelineUser, fetchPipelineJson, readPipelineJsonCache, getPipelineClientCacheGeneration } from "@/lib/auth/authenticated-fetch";
 import { readCachedPipelineSessionUser } from "@/lib/auth/browser-session";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
+import { cancelPipelineWarmup, prefetchPipelineProfile } from "@/lib/pipeline/client-navigation";
 
 type DirectoryClient = ClientWorkspaceDirectoryItem;
 
@@ -56,7 +57,6 @@ type DirectoryCacheEntry = ClientDirectoryPayload & {
 };
 
 const directoryCache = new Map<string, DirectoryCacheEntry>();
-let profilePrefetchPending = false;
 
 export default function ClientProfileDirectory({
   onOpenProfile,
@@ -460,8 +460,10 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       type="button"
       aria-label={`Open profile for ${identityTitle}`}
       onClick={onOpen}
-      onPointerEnter={() => prefetchClientProfile(client.profile_key ?? client.canonical_client_id)}
-      onFocus={() => prefetchClientProfile(client.profile_key ?? client.canonical_client_id)}
+      onPointerEnter={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
+      onFocus={() => prefetchPipelineProfile(client.profile_key ?? client.canonical_client_id)}
+      onPointerLeave={cancelPipelineWarmup}
+      onBlur={cancelPipelineWarmup}
       className="group w-full min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >
       <span aria-hidden="true" className="block min-h-[156px] border-b border-[#dfe5e2] bg-[#f4f8f6] p-4">
@@ -492,14 +494,6 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       </span>
     </button>
   );
-}
-
-function prefetchClientProfile(clientId: string) {
-  // Rapid scrolling or tabbing must not queue a chart request for every card.
-  if (profilePrefetchPending) return;
-  profilePrefetchPending = true;
-  void fetchPipelineJson(`/api/profiles/${encodeURIComponent(clientId)}`, {}, { cacheTtlMs: 60_000 })
-    .catch(() => undefined).finally(() => { profilePrefetchPending = false; });
 }
 
 function ChartPreviewCell({ label, value }: { label: string; value: string | null }) {

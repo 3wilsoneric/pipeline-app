@@ -11,6 +11,21 @@ export const PIPELINE_NAVIGATION_EVENT = "pipeline:navigation";
 export const workspaceCanvasCacheTtlMs = 3_000;
 let workspaceWarmupTimer: ReturnType<typeof setTimeout> | undefined;
 const warmingWorkspaces = new Set<number>();
+const warmingProfiles = new Set<string>();
+
+export function cancelPipelineWarmup() {
+  clearTimeout(workspaceWarmupTimer);
+}
+
+export function prefetchPipelineProfile(profileKey: string) {
+  cancelPipelineWarmup();
+  workspaceWarmupTimer = setTimeout(() => {
+    if (warmingProfiles.size > 0) return;
+    warmingProfiles.add(profileKey);
+    void fetchPipelineJson(`/api/profiles/${encodeURIComponent(profileKey)}`, {}, { cacheTtlMs: 60_000 })
+      .catch(() => undefined).finally(() => warmingProfiles.delete(profileKey));
+  }, 120);
+}
 
 export function prefetchPipelineWorkspace(referral: Referral) {
   clearTimeout(workspaceWarmupTimer);

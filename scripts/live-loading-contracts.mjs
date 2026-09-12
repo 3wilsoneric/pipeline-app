@@ -22,7 +22,7 @@ function load(file, stubs, extra = {}) {
     module: loaded, exports: loaded.exports,
     require: (id) => id === "server-only" ? {} : stubs[id] ?? require(id),
     Headers, Request, Response, URL, URLSearchParams, TextEncoder, TextDecoder,
-    AbortController, DOMException, Date: Clock, setTimeout, clearTimeout, console,
+    AbortController, AbortSignal, DOMException, Date: Clock, setTimeout, clearTimeout, console,
     ...extra,
   }, { filename: file });
   return loaded.exports;
@@ -138,6 +138,24 @@ navigation.prefetchPipelineWorkspace({ id: 44 }); runWarmup();
 assert.equal(warmedPaths.at(-1), "/api/referrals/44/canvas");
 finishWarmups.at(-1)({});
 checks.push("workspace intent ignores drive-bys, deduplicates and caps concurrent warmups, without writes or file downloads");
+
+const beforeProfiles = warmedPaths.length;
+navigation.prefetchPipelineProfile("drive-by");
+navigation.cancelPipelineWarmup();
+runWarmup();
+assert.equal(warmedPaths.length, beforeProfiles);
+navigation.prefetchPipelineProfile("earlier");
+navigation.prefetchPipelineProfile("client:chosen");
+runWarmup();
+assert.equal(warmedPaths.at(-1), "/api/profiles/client%3Achosen");
+navigation.prefetchPipelineProfile("another"); runWarmup();
+assert.equal(warmedPaths.length, beforeProfiles + 1);
+finishWarmups.at(-1)({});
+await new Promise((resolve) => setTimeout(resolve, 0));
+navigation.prefetchPipelineProfile("another"); runWarmup();
+assert.equal(warmedPaths.at(-1), "/api/profiles/another");
+finishWarmups.at(-1)({});
+checks.push("client-card warmups wait for intent, cancel drive-bys, retain opaque keys and cap concurrent profile reads");
 
 const fixture = JSON.parse(readFileSync("scripts/fixtures/alamo-pipeline-clinical.sanitized.json", "utf8"));
 const contracts = loadTypeScriptModule(root, "lib/clinical/clinical-contracts.ts");
@@ -258,5 +276,42 @@ const rows = [{ id: 42, name: "Synthetic Person" }];
 assert.equal(await identity.applyReviewedClinicalIdentity(operator, "operator-a", rows), rows);
 assert.equal(warmed, 1);
 checks.push("workspace lists return recorded identity without waiting for the full upstream roster");
+
+let binaryFetch;
+const assets = load("lib/clinical/clinical-data.ts", {
+  "./clinical-contracts": contracts,
+  "./demo-clinical-data": { demoClinicalSnapshotExists: () => false },
+}, { process: { env: clinicalEnv }, fetch: (...args) => binaryFetch(...args) });
+let assetSignal;
+let assetStarted;
+const started = new Promise((resolve) => { assetStarted = resolve; });
+binaryFetch = (url, init) => new Promise((resolve, reject) => {
+  assert.ok(url.endsWith("/clients/client%3Aone/documents/doc%3Aone/thumbnail"));
+  assert.equal(init.cache, "no-store");
+  assetSignal = init.signal;
+  assetSignal.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError")), { once: true });
+  assetStarted();
+});
+const assetController = new AbortController();
+const cancelledAsset = assets.getClinicalClientDocumentAsset(new Request("https://pipeline.invalid", {
+  signal: assetController.signal,
+}), "client:one", "doc:one", "thumbnail");
+const cancellation = assert.rejects(cancelledAsset, (error) => error.code === "client_document_timeout");
+await started;
+assetController.abort();
+await cancellation;
+assert.equal(assetSignal.aborted, true);
+binaryFetch = async () => new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/png" } });
+const image = await assets.getClinicalClientDocumentAsset(operator, "client:one", "doc:one", "thumbnail");
+assert.equal((await image.arrayBuffer()).byteLength, 3);
+assert.match(image.headers.get("cache-control"), /private, no-store/);
+assert.equal(image.headers.get("x-content-type-options"), "nosniff");
+binaryFetch = async () => new Response("not an image", { headers: { "content-type": "application/json" } });
+await assert.rejects(assets.getClinicalClientDocumentAsset(operator, "client:one", "doc:one", "thumbnail"),
+  (error) => error.code === "client_document_type_invalid");
+binaryFetch = async () => new Response("small", { headers: { "content-type": "image/png", "content-length": "99999999" } });
+await assert.rejects(assets.getClinicalClientDocumentAsset(operator, "client:one", "doc:one", "thumbnail"),
+  (error) => error.code === "client_document_too_large");
+checks.push("leaving a chart aborts unshared binary work; healthy files remain private and invalid/oversized files fail closed");
 
 console.log(JSON.stringify({ ok: true, checks }, null, 2));

@@ -524,6 +524,11 @@ async function requestClinicalAsset(
 ) {
   const accept = variant === "thumbnail" ? "image/png,image/jpeg,image/webp" : "application/pdf,image/*";
   const context = await createClinicalRequestContext(endpoint, request);
+  // Binary reads are not shared cache fills. Leaving the chart can cancel
+  // this work without aborting another reader's protected JSON warmup.
+  const signal = request
+    ? AbortSignal.any([context.controller.signal, request.signal])
+    : context.controller.signal;
 
   try {
     const response = await fetch(context.url, {
@@ -533,7 +538,7 @@ async function requestClinicalAsset(
         Authorization: context.authorization,
       },
       cache: "no-store",
-      signal: context.controller.signal,
+      signal,
     });
     if (!response.ok) {
       const payload = await readBoundedJson(response, 64 * 1024);
