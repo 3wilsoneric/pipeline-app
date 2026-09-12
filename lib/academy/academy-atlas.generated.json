@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:4e65ba692d52b94a",
-  "fingerprint": "4e65ba692d52b94a712c9b3bf5724500ace8d0172feeedd0e49d74215dad233d",
+  "generatedAt": "source-fingerprint:0e6ce572e8ceab2b",
+  "fingerprint": "0e6ce572e8ceab2bdac5917b0f475a1c91caac982c2960b413c822a3ec7ffa91",
   "totals": {
     "files": 985,
-    "lines": 312649,
+    "lines": 312697,
     "coveredFiles": 985
   },
   "entries": [
@@ -1989,7 +1989,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 652,
+      "lines": 656,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2625,7 +2625,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 877,
+      "lines": 896,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -11345,7 +11345,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 492,
+      "lines": 517,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

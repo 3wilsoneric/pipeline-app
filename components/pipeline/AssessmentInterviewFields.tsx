@@ -182,13 +182,13 @@ export function PracticeAssessmentReview({ review }: { review: ReturnType<typeof
   );
 }
 
-function AssessmentFieldWritingGuidePanel({ field }: { field: AssessmentToolFieldKey }) {
+export function AssessmentFieldWritingGuidePanel({ field, initiallyOpen }: { field: AssessmentToolFieldKey; initiallyOpen?: boolean }) {
   const specification = getAssessmentFieldWritingSpec(field);
   if (!specification) return null;
 
   return (
-    <details className="mt-2 border border-[#d9dfdb] bg-[#f8faf9]">
-      <summary data-guide-target="assessment-answer-help" className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 marker:hidden">
+    <details open={initiallyOpen} className="mt-2 border border-[#d9dfdb] bg-[#f8faf9]">
+      <summary data-guide-target="assessment-answer-help" aria-label={`Language Lab for ${specification.label}`} className="flex min-h-9 cursor-pointer list-none flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 marker:hidden">
         <span className="flex items-center gap-2 text-[10px] font-black text-[#315e50]"><Sparkles size={12} /> Language Lab</span>
         <span className="text-[9px] font-semibold text-[#7b837e]">{specification.formatLabel} · {specification.lengthGuidance}</span>
       </summary>
