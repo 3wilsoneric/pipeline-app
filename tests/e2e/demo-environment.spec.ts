@@ -105,6 +105,7 @@ test.describe("Pipeline Demo Environment", () => {
   });
 
   test("lets an admin open workflow stages without creating a record", async ({ page }) => {
+    test.setTimeout(60_000);
     const writes: string[] = [];
     page.on("request", (request) => {
       if (request.method() !== "GET") writes.push(`${request.method()} ${request.url()}`);
@@ -122,9 +123,34 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(tester.getByRole("button", { name: "Open review" })).toBeVisible();
     await expect(tester.getByRole("button", { name: "Open decision" })).toBeVisible();
 
+    await tester.getByRole("button", { name: "Open assessment" }).click();
+    await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=identity/);
+    const interview = page.getByRole("dialog", { name: "Assessment interview" });
+    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
+    await expect(interview).toHaveAttribute("data-total-questions", "151");
+    while (Number(await interview.getAttribute("data-screen-index")) > 0) {
+      await interview.getByRole("button", { name: "Back", exact: true }).click();
+    }
+    await interview.getByRole("textbox", { name: "Resident number" }).fill("TESTER-GUIDED-001");
+    await interview.getByRole("button", { name: "Exit guided interview" }).click();
+    await expect(interview).toHaveAttribute("data-assessment-view", "chart");
+    await expect(interview.getByRole("textbox", { name: "Resident number" })).toHaveValue("TESTER-GUIDED-001");
+    await interview.getByRole("button", { name: "Guided interview", exact: true }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await interview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const screenCount = Number(await interview.getAttribute("data-visible-screens"));
+    for (let index = 0; index < screenCount; index += 1) {
+      const next = interview.getByRole("button", { name: "Next", exact: true });
+      if (await next.count() === 0) break;
+      await next.click();
+    }
+    await interview.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(interview).toHaveAttribute("data-assessment-view", "chart");
+    await expect(interview.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
+
+    await page.goto("/training/demo?view=tester");
     await tester.getByRole("button", { name: "Open review" }).click();
     await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=provenance_qc/);
-    const interview = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(interview).toBeVisible();
     await expect(interview.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
     expect(writes).toEqual([]);

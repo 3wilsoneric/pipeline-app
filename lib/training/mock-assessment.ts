@@ -2,7 +2,7 @@ import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-recor
 import { createEmptyAssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
 import { defaultAssessmentSectionVersions } from "@/lib/assessment/assessment-sections";
 
-export type TrainingAssessmentMode = "schedule" | "interview";
+export type TrainingAssessmentMode = "schedule" | "interview" | "guided";
 
 const trainingActor = {
   id: "pipeline-training-assessor",
@@ -13,7 +13,7 @@ export function buildTrainingAssessment(mode: TrainingAssessmentMode): PipelineA
   const now = new Date();
   const scheduledStart = new Date(now.getTime() + 24 * 60 * 60 * 1_000);
   scheduledStart.setMinutes(0, 0, 0);
-  const startedAt = mode === "interview" ? now.toISOString() : null;
+  const startedAt = mode !== "schedule" ? now.toISOString() : null;
   const data = {
     ...createEmptyAssessmentToolData(),
     resident_number: "TRAINING-001",
@@ -129,11 +129,11 @@ export function buildTrainingAssessment(mode: TrainingAssessmentMode): PipelineA
     updated_by: trainingActor,
     audit_events: [],
     section_versions: defaultAssessmentSectionVersions(),
-    scheduled_start_at: mode === "interview" ? scheduledStart.toISOString() : null,
-    scheduled_duration_minutes: mode === "interview" ? 60 : null,
-    scheduled_method: mode === "interview" ? "in_person" : null,
-    scheduled_location: mode === "interview" ? "Training interview room" : null,
-    schedule_status: mode === "interview" ? "scheduled" : "unscheduled",
+    scheduled_start_at: startedAt ? scheduledStart.toISOString() : null,
+    scheduled_duration_minutes: startedAt ? 60 : null,
+    scheduled_method: startedAt ? "in_person" : null,
+    scheduled_location: startedAt ? "Training interview room" : null,
+    schedule_status: startedAt ? "scheduled" : "unscheduled",
     started_at: startedAt,
     signed_at: null,
     signed_by: null,
