@@ -18,7 +18,8 @@ import { canAccessOperationsReports } from "@/lib/pipeline/report-access";
 import { dispatchOperatorGuide } from "@/lib/training/operator-guided-tour-state";
 
 export default function PipelineHeader() {
-  const [user, setUser] = useState<PipelineCurrentUser | null>(null);
+  const auth = usePipelineAuth();
+  const [user, setUser] = useState<PipelineCurrentUser | null>(auth.initialUser);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const pathname = normalizePathname(usePathname());
@@ -26,7 +27,6 @@ export default function PipelineHeader() {
   const searchParams = useSearchParams();
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
   const activeSearchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
-  const auth = usePipelineAuth();
   const { homeMode, searchOpen, setSearchOpen, setHomeMode } = usePipelineShell();
   const activeNav = searchOpen ? null : getActiveNavTarget(activeSearchParams, pathname);
   const canAccessReports = canAccessOperationsReports(user?.roles ?? []);

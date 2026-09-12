@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:80a8edaeb5508548",
-  "fingerprint": "80a8edaeb5508548085315b2b20dbf13c9b8128fee5694eefae7ef7634c03967",
+  "generatedAt": "source-fingerprint:0830bffb59f66033",
+  "fingerprint": "0830bffb59f66033c5d2d2bea3d3df765ec468ba4d8cad7b3f08b8471c124a46",
   "totals": {
     "files": 1005,
-    "lines": 316670,
+    "lines": 316745,
     "coveredFiles": 1005
   },
   "entries": [
@@ -1713,7 +1713,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 336,
+      "lines": 343,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -2205,7 +2205,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 501,
+      "lines": 510,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -4126,7 +4126,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 27,
+      "lines": 28,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -10444,7 +10444,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 292,
+      "lines": 350,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

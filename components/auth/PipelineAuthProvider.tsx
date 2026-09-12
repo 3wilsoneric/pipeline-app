@@ -47,6 +47,7 @@ type PipelineAuthContextValue = {
   configured: boolean;
   status: AuthStatus;
   account: AccountInfo | null;
+  initialUser: PipelineSessionUser | null;
   error: string | null;
   signIn: (nextPath?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -57,6 +58,7 @@ const disabledContext: PipelineAuthContextValue = {
   configured: false,
   status: "disabled",
   account: null,
+  initialUser: null,
   error: null,
   signIn: async () => undefined,
   signOut: async () => undefined,
@@ -273,6 +275,7 @@ function PipelineAuthBootstrap({ children, initialUser }: { children: React.Reac
     configured: true,
     status,
     account,
+    initialUser: serverEntryAuthUser(initialUser, status),
     error,
     signIn: async (nextPath = "/") => {
       const safePath = normalizePostLoginPath(nextPath);
@@ -294,7 +297,7 @@ function PipelineAuthBootstrap({ children, initialUser }: { children: React.Reac
       await fetch(toPipelinePath("/api/auth/session"), { method: "DELETE", credentials: "same-origin" }).catch(() => undefined);
       await instance.logoutRedirect({ postLogoutRedirectUri: `${window.location.origin}${toPipelinePath("/sign-in")}` });
     },
-  }), [account, error, instance, status]);
+  }), [account, error, initialUser, instance, status]);
 
   return (
     <PipelineAuthContext.Provider value={contextValue}>
@@ -305,6 +308,10 @@ function PipelineAuthBootstrap({ children, initialUser }: { children: React.Reac
 
 function serverEntryAuthStatus(initialUser?: PipelineSessionUser | null): AuthStatus {
   return initialUser && !hasMicrosoftRedirectResponse() ? "signed_in" : "initializing";
+}
+
+function serverEntryAuthUser(initialUser: PipelineSessionUser | null | undefined, status: AuthStatus) {
+  return status === "signed_in" ? initialUser ?? null : null;
 }
 
 function hasMicrosoftRedirectResponse() {
