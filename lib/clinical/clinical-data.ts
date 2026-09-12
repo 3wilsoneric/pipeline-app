@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 
 import {
   parseClinicalCensusResponse,
@@ -103,6 +104,7 @@ const authModes: readonly ClinicalAuthMode[] = ["client_credentials", "delegated
 
 let tokenCache: { key: string; token: string; expiresAt: number } | null = null;
 let tokenPromise: Promise<string> | null = null;
+const clinicalReadCache = new Map<string, { expiresAt: number; payload?: unknown; promise?: Promise<unknown> }>();
 
 export function getClinicalDataMode(): ClinicalDataMode {
   const configured = process.env.PIPELINE_CLINICAL_DATA_MODE?.trim() as ClinicalDataMode | undefined;
@@ -396,6 +398,67 @@ async function requestClinicalEndpoint<T>(
   options: { acceptedStatuses?: number[] } = {},
 ): Promise<T> {
   const context = await createClinicalRequestContext(endpoint, request);
+
+  // Cache only validated read projections, never health, evidence, or files.
+  // Bind entries to both upstream authority and the complete operator session,
+  // including God mode. Nothing is persisted or shared through HTTP caches.
+  const ttl = clinicalReadTtl(endpoint);
+  const key = ttl ? clinicalReadKey(context, request) : null;
+  if (key && request?.headers.get("x-pipeline-refresh") === "1") clinicalReadCache.delete(key);
+  try {
+    const cached = key ? clinicalReadCache.get(key) : undefined;
+    if (cached?.payload !== undefined && cached.expiresAt > Date.now()) return cached.payload as T;
+    if (cached?.promise) return await cached.promise as T;
+    const promise = fetchClinicalEndpoint(context, parse, options);
+    if (!key) return await promise;
+    // At capacity, perform the authorized read without retaining another entry.
+    if (!reserveClinicalReadEntry(key)) return await promise;
+    return await retainClinicalRead(key, promise, ttl);
+  } finally {
+    clearTimeout(context.timeout);
+  }
+}
+
+function clinicalReadTtl(endpoint: string) {
+  if (endpoint.startsWith("/clients?")) return 60_000;
+  return /^\/(?:clients|residents)\/[^/?]+$/.test(endpoint) ? 15_000 : 0;
+}
+
+function clinicalReadKey(context: Awaited<ReturnType<typeof createClinicalRequestContext>>, request: Request | undefined) {
+  return createHash("sha256").update(JSON.stringify([
+    context.url, context.authorization, request?.headers.get("authorization"), request?.headers.get("cookie"),
+  ])).digest("hex");
+}
+
+function reserveClinicalReadEntry(key: string) {
+  for (const [candidate, entry] of clinicalReadCache) {
+    if (!entry.promise && entry.expiresAt <= Date.now()) clinicalReadCache.delete(candidate);
+  }
+  if (clinicalReadCache.size >= 64) {
+    const oldest = [...clinicalReadCache].find(([, entry]) => !entry.promise)?.[0];
+    if (oldest) clinicalReadCache.delete(oldest);
+  }
+  return clinicalReadCache.size < 64 || clinicalReadCache.has(key);
+}
+
+async function retainClinicalRead<T>(key: string, promise: Promise<T>, ttl: number) {
+  const entry = { expiresAt: 0, promise };
+  clinicalReadCache.set(key, entry);
+  try {
+    const payload = await promise;
+    if (clinicalReadCache.get(key) === entry) clinicalReadCache.set(key, { expiresAt: Date.now() + ttl, payload });
+    return payload;
+  } catch (error) {
+    if (clinicalReadCache.get(key) === entry) clinicalReadCache.delete(key);
+    throw error;
+  }
+}
+
+async function fetchClinicalEndpoint<T>(
+  context: Awaited<ReturnType<typeof createClinicalRequestContext>>,
+  parse: (value: unknown) => T,
+  options: { acceptedStatuses?: number[] },
+): Promise<T> {
 
   try {
     const response = await fetch(context.url, {

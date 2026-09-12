@@ -25,7 +25,8 @@ import {
   resolveClientCommunity,
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
-import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchCurrentPipelineUser, fetchPipelineJson, readPipelineJsonCache, getPipelineClientCacheGeneration } from "@/lib/auth/authenticated-fetch";
+import { readCachedPipelineSessionUser } from "@/lib/auth/browser-session";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
 
 type DirectoryClient = ClientWorkspaceDirectoryItem;
@@ -46,11 +47,12 @@ type CommunityOption = { id: string; name: string };
 const PAGE_SIZE = 200;
 const DISPLAY_INCREMENT = 100;
 const MAX_DIRECTORY_PAGES = 50;
-const DIRECTORY_CACHE_TTL_MS = 30_000;
-const MAX_DIRECTORY_CACHE_ENTRIES = 2;
+const DIRECTORY_CACHE_TTL_MS = 120_000;
+const MAX_DIRECTORY_CACHE_ENTRIES = 8;
 
 type DirectoryCacheEntry = ClientDirectoryPayload & {
   cached_at: number;
+  generation: number;
 };
 
 const directoryCache = new Map<string, DirectoryCacheEntry>();
@@ -60,18 +62,19 @@ export default function ClientProfileDirectory({
 }: {
   onOpenProfile: (residentKey: string) => void;
 }) {
-  const [clients, setClients] = useState<DirectoryClient[]>([]);
+  const [initialDirectory] = useState(readInitialDirectory);
+  const [clients, setClients] = useState<DirectoryClient[]>(() => initialDirectory?.clients ?? []);
   const [query, setQuery] = useState("");
-  const [total, setTotal] = useState(0);
-  const [dataAsOf, setDataAsOf] = useState("");
-  const [freshness, setFreshness] = useState<ClinicalFreshness | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [total, setTotal] = useState(() => initialDirectory?.total ?? 0);
+  const [dataAsOf, setDataAsOf] = useState(() => initialDirectory?.data_as_of ?? "");
+  const [freshness, setFreshness] = useState<ClinicalFreshness | null>(() => initialDirectory?.freshness ?? null);
+  const [isLoading, setIsLoading] = useState(!initialDirectory);
   const [isCompletingRoster, setIsCompletingRoster] = useState(false);
   const [, setDirectoryComplete] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(DISPLAY_INCREMENT);
-  const [knownCommunities, setKnownCommunities] = useState<CommunityOption[]>([]);
+  const [knownCommunities, setKnownCommunities] = useState<CommunityOption[]>(() => collectCommunities(initialDirectory?.clients ?? []));
   const [communityFilter, setCommunityFilter] = useState("");
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
   const [profileDataFilter, setProfileDataFilter] = useState<ProfileDataFilter>("any");
@@ -81,10 +84,11 @@ export default function ClientProfileDirectory({
 
   useEffect(() => {
     const controller = new AbortController();
+    const generation = getPipelineClientCacheGeneration();
     const normalizedQuery = query.trim();
     const timeout = window.setTimeout(() => {
       let loadedFirstPage = false;
-      setIsLoading(true);
+      setIsLoading(needsDirectoryLoading(loadedQuery.current, normalizedQuery, initialDirectory));
       setIsCompletingRoster(false);
       setDirectoryComplete(false);
       setError("");
@@ -107,7 +111,7 @@ export default function ClientProfileDirectory({
             return;
           }
 
-          let payload = await fetchClientPage(normalizedQuery, null, controller.signal);
+          let payload = await fetchClientPage(normalizedQuery, null, controller.signal, bypassCache);
           if (controller.signal.aborted) return;
           loadedFirstPage = true;
           const directoryTotal = Number.isInteger(payload.total) ? payload.total : payload.clients.length;
@@ -132,7 +136,7 @@ export default function ClientProfileDirectory({
               throw new Error("The client directory exceeded its safe pagination limit.");
             }
             seenCursors.add(cursor);
-            payload = await fetchClientPage(normalizedQuery, cursor, controller.signal);
+            payload = await fetchClientPage(normalizedQuery, cursor, controller.signal, bypassCache);
             if (controller.signal.aborted) return;
             merged = mergeClients(merged, payload.clients ?? []);
             cursor = payload.next_cursor ?? null;
@@ -153,7 +157,7 @@ export default function ClientProfileDirectory({
             next_cursor: null,
             data_as_of: directoryDataAsOf,
             freshness: directoryFreshness,
-          });
+          }, generation);
         } catch (loadError) {
           if (controller.signal.aborted) return;
           setDirectoryComplete(false);
@@ -176,13 +180,13 @@ export default function ClientProfileDirectory({
           }
         }
       })();
-    }, normalizedQuery ? 180 : 0);
+    }, normalizedQuery ? 40 : 0);
 
     return () => {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [query, reloadKey]);
+  }, [query, reloadKey, initialDirectory]);
 
   const applyDirectoryPayload = (payload: ClientDirectoryPayload) => {
     setClients(payload.clients);
@@ -378,7 +382,7 @@ function directoryCacheKey(userId: string | undefined, query: string) {
 function readDirectoryCache(key: string) {
   const now = Date.now();
   for (const [candidateKey, entry] of directoryCache) {
-    if (now - entry.cached_at > DIRECTORY_CACHE_TTL_MS) directoryCache.delete(candidateKey);
+    if (entry.generation !== getPipelineClientCacheGeneration() || now - entry.cached_at > DIRECTORY_CACHE_TTL_MS) directoryCache.delete(candidateKey);
   }
   const entry = directoryCache.get(key);
   if (!entry) return null;
@@ -387,9 +391,21 @@ function readDirectoryCache(key: string) {
   return entry;
 }
 
-function writeDirectoryCache(key: string, payload: ClientDirectoryPayload) {
+function readInitialDirectory() {
+  const user = readCachedPipelineSessionUser();
+  if (!user) return undefined;
+  return readDirectoryCache(directoryCacheKey(user.id ?? user.email, ""))
+    ?? readPipelineJsonCache<ClientDirectoryPayload>("/api/profiles/directory?limit=200");
+}
+
+function needsDirectoryLoading(previousQuery: string, query: string, initial: ClientDirectoryPayload | null | undefined) {
+  return previousQuery !== query || !initial;
+}
+
+function writeDirectoryCache(key: string, payload: ClientDirectoryPayload, generation: number) {
+  if (generation !== getPipelineClientCacheGeneration()) return;
   directoryCache.delete(key);
-  directoryCache.set(key, { ...payload, cached_at: Date.now() });
+  directoryCache.set(key, { ...payload, cached_at: Date.now(), generation: getPipelineClientCacheGeneration() });
   while (directoryCache.size > MAX_DIRECTORY_CACHE_ENTRIES) {
     const oldest = directoryCache.keys().next().value;
     if (typeof oldest !== "string") break;
@@ -443,6 +459,8 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       type="button"
       aria-label={`Open profile for ${identityTitle}`}
       onClick={onOpen}
+      onPointerEnter={() => prefetchClientProfile(client.canonical_client_id)}
+      onFocus={() => prefetchClientProfile(client.canonical_client_id)}
       className="group w-full min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >
       <span aria-hidden="true" className="block min-h-[156px] border-b border-[#dfe5e2] bg-[#f4f8f6] p-4">
@@ -475,6 +493,10 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
   );
 }
 
+function prefetchClientProfile(clientId: string) {
+  void fetchPipelineJson(`/api/profiles/${encodeURIComponent(clientId)}`, {}, { cacheTtlMs: 60_000 }).catch(() => undefined);
+}
+
 function ChartPreviewCell({ label, value }: { label: string; value: string | null }) {
   return (
     <span className="min-w-0 bg-white px-3 py-2.5">
@@ -496,14 +518,15 @@ function RosterSkeleton() {
   );
 }
 
-async function fetchClientPage(query: string, cursor: string | null, signal: AbortSignal) {
+async function fetchClientPage(query: string, cursor: string | null, signal: AbortSignal, refresh = false) {
   const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
   if (query) params.set("q", query);
   if (cursor) params.set("cursor", cursor);
   return fetchPipelineJson<ClientDirectoryPayload>(`/api/profiles/directory?${params}`, {
     cache: "no-store",
     signal,
-  }, { cacheTtlMs: 30_000 });
+    ...(refresh ? { headers: { "x-pipeline-refresh": "1" } } : {}),
+  }, { cacheTtlMs: refresh ? 0 : 60_000 });
 }
 
 function collectCommunities(clients: DirectoryClient[]) {

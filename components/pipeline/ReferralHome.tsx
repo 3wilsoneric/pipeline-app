@@ -15,7 +15,7 @@ import {
   referralFilterMonth,
 } from "@/components/pipeline/referral-home-directory-model";
 import type { ReferralFilter, WorkspaceLayout, WorkspaceSection } from "@/components/pipeline/referral-home-directory-model";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, readPipelineJsonCache } from "@/lib/auth/authenticated-fetch";
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
 import {
   formatClientIdentityDetail,
@@ -31,7 +31,25 @@ import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
 import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
 
 const workspaceLayoutStorageKey = "pipeline:workspace-layout";
-const workspaceSearchSettleMs = 180;
+const workspaceSearchSettleMs = 40;
+
+function shouldShowDirectoryLoading(silent: boolean, previousRequest: string) {
+  return !silent && Boolean(previousRequest);
+}
+
+function directoryCacheTtl(silent: boolean) {
+  return silent ? 0 : 30_000;
+}
+
+type ReferralDirectoryPayload = {
+  referrals?: Referral[];
+  total?: number;
+  revision?: number;
+  next_cursor?: string;
+  progress?: Record<number, ReferralProgress>;
+  facets?: ReferralFacets;
+  file_total?: number;
+};
 
 const emptyFacets: ReferralFacets = {
   communities: [],
@@ -58,17 +76,20 @@ export default function ReferralHome({
   onResumeDraft: (draftKey: `new-${string}`) => void;
   canViewTeam?: boolean;
 }) {
+  const [initialDirectory] = useState(() => readPipelineJsonCache<ReferralDirectoryPayload>(
+    `/api/referrals/directory?${buildReferralParams({ kind: "all" }, searchTerm)}`,
+  ));
   const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>("workspaces");
   const [workspaceLayout, setWorkspaceLayout] = useState<WorkspaceLayout>("list");
-  const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [progressByReferral, setProgressByReferral] = useState<Record<number, ReferralProgress>>({});
-  const [referralTotal, setReferralTotal] = useState(0);
-  const [referralNextCursor, setReferralNextCursor] = useState<string>();
+  const [referrals, setReferrals] = useState<Referral[]>(initialDirectory?.referrals ?? []);
+  const [progressByReferral, setProgressByReferral] = useState<Record<number, ReferralProgress>>(initialDirectory?.progress ?? {});
+  const [referralTotal, setReferralTotal] = useState(initialDirectory?.total ?? 0);
+  const [referralNextCursor, setReferralNextCursor] = useState<string | undefined>(initialDirectory?.next_cursor);
   const [referralPage, setReferralPage] = useState(0);
   const [referralCursors, setReferralCursors] = useState<string[]>([""]);
-  const [facets, setFacets] = useState<ReferralFacets>(emptyFacets);
+  const [facets, setFacets] = useState<ReferralFacets>(initialDirectory?.facets ?? emptyFacets);
   const [files, setFiles] = useState<ReferralFile[] | null>(null);
-  const [allFileTotal, setAllFileTotal] = useState(0);
+  const [allFileTotal, setAllFileTotal] = useState(initialDirectory?.file_total ?? 0);
   const [fileTotal, setFileTotal] = useState(0);
   const [fileNextCursor, setFileNextCursor] = useState<string>();
   const [filePage, setFilePage] = useState(0);
@@ -85,8 +106,8 @@ export default function ReferralHome({
   const [filter, setFilter] = useState<ReferralFilter>({ kind: "all" });
   const summaryQuery = useRef<string | null>(null);
   const successfulReferralRequest = useRef("");
-  const referralRevision = useRef<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const referralRevision = useRef<number | null>(initialDirectory?.revision ?? null);
+  const [isLoading, setIsLoading] = useState(!initialDirectory);
   const [loadError, setLoadError] = useState("");
   const [previewFile, setPreviewFile] = useState<ReferralFile | null>(null);
   const [browseOpen, setBrowseOpen] = useState(false);
@@ -114,7 +135,7 @@ export default function ReferralHome({
       setIsLoading(false);
       return;
     }
-    if (!silent) setIsLoading(true);
+    if (shouldShowDirectoryLoading(silent, successfulReferralRequest.current)) setIsLoading(true);
     setLoadError("");
     let requestKey = "";
     try {
@@ -123,18 +144,10 @@ export default function ReferralHome({
       const normalizedSearch = requestSearchTerm.trim();
       const summaryKey = `all:${normalizedSearch}`;
       const includeSummary = referralPage === 0 && summaryQuery.current !== summaryKey;
-      const payload = await fetchPipelineJson<{
-        referrals?: Referral[];
-        total?: number;
-        revision?: number;
-        next_cursor?: string;
-        progress?: Record<number, ReferralProgress>;
-        facets?: ReferralFacets;
-        file_total?: number;
-      }>(
+      const payload = await fetchPipelineJson<ReferralDirectoryPayload>(
         `${includeSummary ? "/api/referrals/directory" : "/api/referrals"}?${params.toString()}`,
         { cache: "no-store", signal },
-        { cacheTtlMs: 3_000 },
+        { cacheTtlMs: directoryCacheTtl(silent) },
       );
       setReferrals(Array.isArray(payload.referrals) ? payload.referrals : []);
       setProgressByReferral(payload.progress ?? {});
@@ -190,6 +203,7 @@ export default function ReferralHome({
       }
     };
     const refreshOnFocus = () => void checkForChanges();
+    void checkForChanges();
     const interval = window.setInterval(checkForChanges, 10_000);
     window.addEventListener("focus", refreshOnFocus);
     return () => {

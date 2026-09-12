@@ -38,18 +38,15 @@ export async function GET(request: Request) {
     }
 
     try {
-      const clinical = await getClinicalClients(request, {
-        query,
-        community,
-        limit,
-        cursor: cursor?.phase === "clinical" ? cursor.cursor : undefined,
-      });
-      const pipeline = await listPipelineClientWorkspaces(auth.user, {
-        query,
-        community,
-        limit: 1,
-        excludeConfirmed: true,
-      });
+      const [clinical, pipeline] = await Promise.all([
+        getClinicalClients(request, {
+          query, community, limit,
+          cursor: cursor?.phase === "clinical" ? cursor.cursor : undefined,
+        }),
+        listPipelineClientWorkspaces(auth.user, {
+          query, community, limit: 1, excludeConfirmed: true,
+        }),
+      ]);
       const summaries = await getClinicalClientWorkspaceSummaries(
         auth.user,
         clinical.clients.map((client) => ({

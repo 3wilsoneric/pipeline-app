@@ -10,7 +10,8 @@ import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
 import ReferralHome from "@/components/pipeline/ReferralHome";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
-import { fetchCurrentPipelineUser } from "@/lib/auth/authenticated-fetch";
+import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { buildReferralParams } from "@/components/pipeline/referral-home-directory-model";
 import {
   recordRecentDestination,
 } from "@/lib/pipeline/recent-destinations";
@@ -113,7 +114,13 @@ export default function PipelineOverviewRoute() {
     let cancelled = false;
     fetchCurrentPipelineUser()
       .then(({ user }) => {
-        if (!cancelled) setReportAccess(canAccessOperationsReports(user.roles));
+        if (cancelled) return;
+        setReportAccess(canAccessOperationsReports(user.roles));
+        // Warm only the first visible directory pages, after authentication.
+        // GET-only reads use the same cache as navigation; no charts or files
+        // are downloaded in bulk and no background user session is created.
+        void fetchPipelineJson(`/api/referrals/directory?${buildReferralParams({ kind: "all" }, "")}`, {}, { cacheTtlMs: 30_000 }).catch(() => undefined);
+        void fetchPipelineJson("/api/profiles/directory?limit=200", {}, { cacheTtlMs: 60_000 }).catch(() => undefined);
       })
       .catch(() => {
         if (!cancelled) setReportAccess(false);
