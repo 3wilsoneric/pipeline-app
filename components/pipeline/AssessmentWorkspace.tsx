@@ -1038,7 +1038,7 @@ export default function AssessmentWorkspace({
           scheduled_start_at: start.toISOString(),
           scheduled_duration_minutes: Number(scheduleDuration),
           scheduled_method: scheduleMethod,
-          scheduled_location: nullableTrimmedText(scheduleLocation),
+          scheduled_location: scheduleMethod === "record_review" ? null : nullableTrimmedText(scheduleLocation),
           schedule_status: nextAssessmentScheduleStatus(current.schedule_status),
         });
         upsertAssessment(updated, true);
@@ -1060,7 +1060,7 @@ export default function AssessmentWorkspace({
               start_at: start.toISOString(),
               duration_minutes: Number(scheduleDuration),
               method: scheduleMethod,
-              location: scheduleLocation.trim(),
+              location: scheduleMethod === "record_review" ? "" : scheduleLocation.trim(),
             },
           }),
         },

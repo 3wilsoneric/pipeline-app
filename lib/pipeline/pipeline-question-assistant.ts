@@ -154,7 +154,7 @@ const intents: SearchableIntent[] = [
     title: "Schedule an assessment",
     prompt: "How do I schedule an assessment?",
     answer: "After intake is complete and one assessor is assigned, open Assessment and schedule the interview. The appointment stays attached to the referral and appears on the assigned assessor's calendar.",
-    steps: ["Open the assigned referral workspace.", "Open Assessment and choose Schedule.", "Set the date, time, duration, method, and location or link."],
+    steps: ["Open the assigned referral workspace.", "Open Assessment and choose Schedule.", "Set the date, time, duration, and method. Add the assessment address, phone number, or Zoom meeting link for that method."],
     action: { type: "search", label: "Show work ready to schedule", mode: "ready_to_schedule" },
     phrases: ["schedule an assessment", "schedule assessment", "schedule the interview", "book the interview", "set interview time", "after assignment", "ready to schedule"],
     keywords: ["schedule", "scheduled", "assessment", "interview", "appointment", "date", "time"],

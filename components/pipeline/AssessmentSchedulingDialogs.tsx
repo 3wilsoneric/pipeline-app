@@ -4,6 +4,13 @@ import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-recor
 
 type AssessmentScheduleMethod = "in_person" | "phone" | "zoom" | "record_review";
 
+const scheduleDetailFields = {
+  in_person: { label: "Assessment address", placeholder: "Street address, facility, and room", type: "text" },
+  phone: { label: "Phone number to call", placeholder: "Phone number and extension, if needed", type: "tel" },
+  zoom: { label: "Zoom meeting link", placeholder: "https://zoom.us/j/…", type: "url" },
+  record_review: null,
+} as const;
+
 export function AssessmentSchedulingDialogs({
   assessment,
   showScheduleDialog,
@@ -66,6 +73,7 @@ function ScheduleAssessmentDialog({ assessment, isBusy, error, scheduleStart, sc
   onClose: () => void;
   onSave: () => void;
 }) {
+  const detailField = scheduleDetailFields[scheduleMethod];
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 p-0 sm:p-5">
           <section role="dialog" aria-modal="true" aria-label="Schedule assessment" className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-[0_24px_80px_rgba(17,17,17,0.24)] sm:h-auto sm:max-w-[640px]">
@@ -86,7 +94,7 @@ function ScheduleAssessmentDialog({ assessment, isBusy, error, scheduleStart, sc
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Method</span><span className="relative mt-1 block"><select data-guide-target="assessment-schedule-method" aria-label="Assessment method" value={scheduleMethod} onChange={(event) => onScheduleMethodChange(event.target.value as AssessmentScheduleMethod)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="in_person">In person</option><option value="zoom">Zoom</option><option value="phone">Phone</option><option value="record_review">Record review</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Location or link</span><input aria-label="Assessment location or link" value={scheduleLocation} maxLength={500} onChange={(event) => onScheduleLocationChange(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
+                {detailField ? <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">{detailField.label}</span><input aria-label={detailField.label} type={detailField.type} placeholder={detailField.placeholder} value={scheduleLocation} maxLength={500} onChange={(event) => onScheduleLocationChange(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label> : null}
               </div>
               {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
             </div>
@@ -108,6 +116,7 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
   onClose: () => void;
   onBegin: () => void;
 }) {
+  const detailField = assessment.scheduled_method ? scheduleDetailFields[assessment.scheduled_method] : null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 p-4">
           <section role="dialog" aria-modal="true" aria-label="Begin assessment" className="w-full max-w-[500px] bg-white shadow-[0_24px_80px_rgba(17,17,17,0.24)]">
@@ -120,7 +129,7 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
               <dl className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
                 <BeginAssessmentDetail label="Scheduled" value={assessment.scheduled_start_at ? new Date(assessment.scheduled_start_at).toLocaleString() : "Not scheduled"} />
                 <BeginAssessmentDetail label="Method" value={formatScheduleMethod(assessment.scheduled_method)} />
-                {assessment.scheduled_location ? <BeginAssessmentDetail label="Location" value={assessment.scheduled_location} /> : null}
+                {assessment.scheduled_location && detailField ? <BeginAssessmentDetail label={detailField.label} value={assessment.scheduled_location} /> : null}
               </dl>
               {error ? <div role="alert" className="mt-4 text-[11px] font-semibold text-[#a63d2f]">{error}</div> : null}
             </div>

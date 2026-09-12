@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:32feaa544bce1d9b",
-  "fingerprint": "32feaa544bce1d9be71c742784198d54ebc0586a3596fff1b79ccfa6422363b5",
+  "generatedAt": "source-fingerprint:4e65ba692d52b94a",
+  "fingerprint": "4e65ba692d52b94a712c9b3bf5724500ace8d0172feeedd0e49d74215dad233d",
   "totals": {
     "files": 985,
-    "lines": 312640,
+    "lines": 312649,
     "coveredFiles": 985
   },
   "entries": [
@@ -1845,7 +1845,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 152,
+      "lines": 161,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
