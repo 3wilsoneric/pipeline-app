@@ -1788,13 +1788,13 @@ export default function ReferralPacketCanvas({
         className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6"
       >
         <div className="sticky top-0 z-20 mb-1 bg-white/95 backdrop-blur-sm">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#d9d9d9] lg:grid-cols-[minmax(120px,1fr)_minmax(0,2fr)_auto]">
-            <h1 data-testid="workspace-identity-title" className="min-w-0 truncate py-3 text-[14px] font-bold text-[#111111]" title={workspaceTitle}>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#d9d9d9] lg:flex lg:gap-3">
+            <h1 data-testid="workspace-identity-title" className="min-w-0 max-w-[10rem] shrink-0 truncate py-3 text-[14px] font-bold text-[#111111] sm:max-w-[18rem] lg:max-w-[26rem]" title={workspaceTitle}>
               {workspaceTitle}
             </h1>
             <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={openPage} />
 
-            <div className="col-start-2 row-start-1 flex items-center gap-1 lg:col-start-3">
+            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:ml-auto">
               {loadedReferral && editingControlsVisible ? (
                 <button
                   type="button"
