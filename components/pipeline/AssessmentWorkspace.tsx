@@ -112,6 +112,7 @@ type AssessmentWorkspaceProps = {
   trainingAssessmentSection?: AssessmentToolSection;
   initialSection?: AssessmentToolSection;
   assignedAssessorId?: string;
+  startScheduling?: boolean;
   packetEvidenceVersion?: string;
   onSummaryChange?: (summary: {
     captured: number;
@@ -254,6 +255,7 @@ export default function AssessmentWorkspace({
   trainingAssessmentSection,
   initialSection,
   assignedAssessorId,
+  startScheduling = false,
   packetEvidenceVersion,
   onSummaryChange,
   onAssessmentSaved,
@@ -294,6 +296,7 @@ export default function AssessmentWorkspace({
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const initializedAssessmentIdRef = useRef("");
   const focusedAssessmentIdRef = useRef("");
+  const schedulingRequestedRef = useRef(false);
   const onActiveSectionChangeRef = useRef(onActiveSectionChange);
   const packetSyncKeysRef = useRef(new Set<string>());
   const dirty = dirtySections.size > 0;
@@ -685,7 +688,7 @@ export default function AssessmentWorkspace({
     });
   }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.scheduled_start_at, selected?.signed_at, selected?.started_at, selected?.status]);
 
-  const createAssessmentDraft = async () => {
+  const createAssessmentDraft = useCallback(async () => {
     if (!referralId) return;
     setIsBusy(true);
     setError("");
@@ -711,7 +714,13 @@ export default function AssessmentWorkspace({
     } finally {
       setIsBusy(false);
     }
-  };
+  }, [referralId, upsertAssessment]);
+
+  useEffect(() => {
+    if (!startScheduling || isLoading || selected || !canCreateAssignedAssessment || schedulingRequestedRef.current) return;
+    schedulingRequestedRef.current = true;
+    void createAssessmentDraft();
+  }, [canCreateAssignedAssessment, createAssessmentDraft, isLoading, selected, startScheduling]);
 
   const beginAssessment = async () => {
     const current = selectedRef.current;
@@ -1246,7 +1255,7 @@ export default function AssessmentWorkspace({
   if (assessmentRequiresSavedReferral(referralId, trainingAssessmentMode)) {
     return (
       <AssessmentEmpty
-        title="Save the referral before starting the assessment"
+        title="Create the referral before scheduling an assessment"
         detail="The assessment needs a referral ID so its history, files, and edits stay attached to one intake episode."
       />
     );
@@ -1598,7 +1607,7 @@ function assessmentCompletionTarget(
   return definition ? { field, label: rule.label, section: definition.section } : null;
 }
 
-function assessmentOpenLabel(assessment: PipelineAssessmentRecord) {
+export function assessmentOpenLabel(assessment: Pick<PipelineAssessmentRecord, "signed_at" | "started_at" | "scheduled_start_at">) {
   if (assessment.signed_at) return "Review assessment";
   if (assessment.started_at) return "Resume assessment";
   if (assessment.scheduled_start_at) return "Begin assessment";

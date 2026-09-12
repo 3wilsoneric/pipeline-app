@@ -17,7 +17,7 @@ test.describe("Referral-to-decision operating spine", () => {
     const members = (await memberResponse.json() as { members: Array<{ principal_id: string }> }).members;
     expect(members.length).toBeGreaterThan(0);
     await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption(members[0].principal_id);
-    await page.getByRole("button", { name: "Create workspace", exact: true }).click();
+    await page.getByRole("button", { name: "Create referral", exact: true }).click();
 
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
     const referralId = Number(new URL(page.url()).searchParams.get("referralId"));

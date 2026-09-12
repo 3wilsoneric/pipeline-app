@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f6a6482ec1024d46",
-  "fingerprint": "f6a6482ec1024d4685337cd8746a43854eb105b823be3ae95bef8e87270a82b2",
+  "generatedAt": "source-fingerprint:a0d55c9e6ac18433",
+  "fingerprint": "a0d55c9e6ac18433f024e48f15893057345c91dfd945d643359c2f283cfcd87e",
   "totals": {
     "files": 987,
-    "lines": 313450,
+    "lines": 313520,
     "coveredFiles": 987
   },
   "entries": [
@@ -1857,7 +1857,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1791,
+      "lines": 1800,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2361,7 +2361,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3840,
+      "lines": 3800,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -10876,7 +10876,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 125,
+      "lines": 133,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
@@ -11381,7 +11381,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 616,
+      "lines": 615,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11646,7 +11646,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2667,
+      "lines": 2761,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
