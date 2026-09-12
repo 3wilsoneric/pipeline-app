@@ -101,6 +101,7 @@ export type ReferralCreateOptions = {
 export type ReferralQueueView = "my_work" | "unassigned" | "packet_review" | "assessment" | "decision";
 
 export type ReferralListOptions = {
+  scope?: "mine" | "team";
   query?: string;
   limit?: number;
   cursor?: string;
@@ -151,6 +152,7 @@ export type ReferralListResult = {
 };
 
 export type ReferralFileListOptions = {
+  scope?: "mine" | "team";
   query?: string;
   limit?: number;
   cursor?: string;

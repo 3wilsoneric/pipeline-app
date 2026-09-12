@@ -14,6 +14,7 @@ const queues: ReferralQueueView[] = ["my_work", "unassigned", "packet_review", "
 const workspaceStatuses = ["active", "archived", "all"] as const;
 
 type ReferralQueryValues = {
+  scope?: string;
   query: string;
   cursor?: string;
   stage?: string;
@@ -43,6 +44,7 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
   return {
     ok: true,
     value: {
+      scope: values.scope as ReferralListOptions["scope"],
       query: values.query,
       limit: values.limit,
       cursor: values.cursor,
@@ -64,6 +66,7 @@ export function parseReferralListQuery(searchParams: URLSearchParams): QueryResu
 function readReferralQueryValues(searchParams: URLSearchParams): ReferralQueryValues {
   const rawLimit = trimmedParameter(searchParams, "limit");
   return {
+    scope: readReferralWorkspaceScope(searchParams),
     query: searchParams.get("q")?.trim() ?? "",
     cursor: trimmedParameter(searchParams, "cursor") || undefined,
     stage: trimmedParameter(searchParams, "stage") || undefined,
@@ -83,6 +86,7 @@ function readReferralQueryValues(searchParams: URLSearchParams): ReferralQueryVa
 
 function validateReferralQueryValues(values: ReferralQueryValues): string | undefined {
   const rules: QueryValidationRule[] = [
+    { invalid: !isOptionalReferralWorkspaceScope(values.scope), message: "scope must be mine or team." },
     { invalid: values.query.length > 200, message: "q must be 200 characters or fewer." },
     { invalid: !isReferralSort(values.sort), message: "sort is invalid." },
     {
@@ -117,6 +121,18 @@ function validateReferralQueryValues(values: ReferralQueryValues): string | unde
     { invalid: Boolean(values.queue && !queues.includes(values.queue as ReferralQueueView)), message: "queue is invalid." },
   ];
   return rules.find((rule) => rule.invalid)?.message;
+}
+
+export function isReferralWorkspaceScope(value: string): value is "mine" | "team" {
+  return value === "mine" || value === "team";
+}
+
+export function readReferralWorkspaceScope(searchParams: URLSearchParams) {
+  return trimmedParameter(searchParams, "scope") || undefined;
+}
+
+export function isOptionalReferralWorkspaceScope(value: string | undefined) {
+  return value === undefined || isReferralWorkspaceScope(value);
 }
 
 function trimmedParameter(searchParams: URLSearchParams, key: string): string {

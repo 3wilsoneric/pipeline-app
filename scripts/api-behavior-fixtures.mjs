@@ -41,6 +41,27 @@ const homeDashboardLayout = loadTypeScriptModule(root, "lib/pipeline/home-dashbo
 const workContinuity = loadTypeScriptModule(root, "lib/pipeline/work-continuity.ts");
 
 const results = [
+  run("personal workspace scope uses effective identity and preserves supervisor team access", () => {
+    const user = { id: "assessor-stable-id", name: "Fixture Assessor", email: "fixture@pipeline.local", roles: ["admin"] };
+    const mine = referralAccess.scopeReferralListOptions(user, { scope: "mine", assignedOwnerId: "forged-user" });
+    assert(mine.assignedOwnerId === user.id, "Personal scope must use the effective authenticated principal");
+    assert(mine.assignedOwnerNames.includes("fixture assessor"), "Imported name-only owners retain their canonical legacy alias");
+    assert(referralAccess.scopeReferralListOptions(user, { scope: "team" }).assignedOwnerId === undefined, "Supervisors retain authorized team access");
+    for (const roles of [["reviewer"], ["viewer"]]) {
+      assert(referralAccess.scopeReferralListOptions({ ...user, roles }, { scope: "team" }).assignedOwnerId === user.id, "A requested Team view must not widen a non-supervisor's list");
+    }
+    const coOwned = { ownerId: "assigned-assessor", owners: [{ id: user.id, name: user.name, responsibilities: ["creator", "assigning_supervisor"] }] };
+    assert(referralOwnership.isReferralOwner(coOwned, user), "Creator and assigning-supervisor co-ownership remains part of Mine");
+    assert(!referralOwnership.isReferralOwner({ ownerId: "different-id", owner: user.name }, user), "An explicit different owner id must not match a shared name");
+  }),
+  run("workspace scope survives query parsing, filters and pagination", () => {
+    for (const scope of ["mine", "team"]) {
+      const query = referralQuery.parseReferralListQuery(new URLSearchParams({ scope, workspace: "all", q: "Fixture", sort: "updated_desc", limit: "1" }));
+      assertValid(query);
+      assert(query.value.scope === scope && query.value.sort === "updated_desc", "Scope and newest-first ordering must survive together");
+    }
+    assertInvalid(referralQuery.parseReferralListQuery(new URLSearchParams({ scope: "someone-else" })), "scope must be mine or team.");
+  }),
   run("work continuity validates, merges, and canonicalizes exact workspace destinations", () => {
     const location = workContinuity.parsePipelineWorkspaceLocation({ view: "assessment", assessmentSection: "medication" });
     assert(location?.assessmentSection === "medication", "A known assessment section must be retained");

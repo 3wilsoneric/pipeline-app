@@ -20,6 +20,53 @@ test.describe("workflow interaction and durable feedback", () => {
   test.skip(process.env.PIPELINE_OPERATIONAL_E2E !== "true", "Use the isolated operational configuration.");
   test.setTimeout(60_000);
 
+  test("defaults to personal workspaces with newest-first scoped counts, pages and team switching", async ({ browser, baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const coordinator = await actorApiContext("assessmentCoordinator", url);
+    const assessor = await actorApiContext("assessorA", url);
+    const other = await actorApiContext("assessorB", url);
+    const { page, context } = await actorPage(browser, "assessmentCoordinator", url);
+    const tag = uniqueName().split(" ")[1];
+    try {
+      await assessor.get("/api/auth/me");
+      await other.get("/api/auth/me");
+      const older = await createReferral(coordinator, `${tag} Alpha`, pipelineActors.assessorA.id);
+      const newer = await createReferral(coordinator, `${tag} Beta`, pipelineActors.assessorA.id);
+      const foreign = await createReferral(other, `${tag} Gamma`, pipelineActors.assessorB.id);
+      const query = new URLSearchParams({ scope: "mine", workspace: "all", sort: "updated_desc", q: tag, limit: "1" });
+      for (const api of [coordinator, assessor]) {
+        const response = await api.get(`/api/referrals/directory?${query}`);
+        expect(response.ok()).toBe(true);
+        const first = await response.json();
+        expect(first.total).toBe(2);
+        expect(first.referrals.map((item: Referral) => item.id)).toEqual([newer.id]);
+        expect(first.facets.months.reduce((sum: number, month: { count: number }) => sum + month.count, 0)).toBe(2);
+        const second = await (await api.get(`/api/referrals?${query}&cursor=${encodeURIComponent(first.next_cursor)}`)).json();
+        expect(second.referrals.map((item: Referral) => item.id)).toEqual([older.id]);
+        expect(second.next_cursor).toBeUndefined();
+      }
+      const deniedExpansion = await (await other.get(`/api/referrals/directory?scope=team&workspace=all&q=${tag}`)).json();
+      expect(deniedExpansion.referrals.map((item: Referral) => item.id)).toEqual([foreign.id]);
+      await page.goto("/?view=referrals");
+      await expect(page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "Mine", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await page.getByRole("searchbox", { name: "Search my workspaces" }).fill(tag);
+      const rows = page.getByRole("region", { name: "Referral worklist" }).getByRole("button");
+      await expect(rows).toHaveCount(2);
+      await expect(rows.first()).toHaveAttribute("aria-label", `Open ${newer.name} referral workspace`);
+      await page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "Team", exact: true }).click();
+      await expect(rows).toHaveCount(3);
+      await expect(rows.first()).toHaveAttribute("aria-label", `Open ${foreign.name} referral workspace`);
+      await page.getByRole("group", { name: "Workspace scope" }).getByRole("button", { name: "Mine", exact: true }).click();
+      await expect(rows).toHaveCount(2);
+      await expect(rows.first()).toHaveAttribute("aria-label", `Open ${newer.name} referral workspace`);
+    } finally {
+      await context.close();
+      await coordinator.dispose();
+      await assessor.dispose();
+      await other.dispose();
+    }
+  });
+
   test("refreshes existing Home immediately and keeps assignments beyond the preview unseen", async ({ browser, baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const coordinator = await actorApiContext("assessmentCoordinator", url);
@@ -248,7 +295,7 @@ test.describe("workflow interaction and durable feedback", () => {
       await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
       await chart.getByRole("button", { name: "Close assessment", exact: true }).click();
       await page.getByRole("button", { name: "Open referrals", exact: true }).click();
-      await page.getByRole("searchbox", { name: "Search all workspaces" }).fill(referral.name);
+      await page.getByRole("searchbox", { name: "Search my workspaces" }).fill(referral.name);
       await page.getByRole("button", { name: new RegExp(referral.name) }).first().click();
       await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
       await expect(guided).toBeVisible();

@@ -1,9 +1,11 @@
 import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
+import type { ReferralListOptions } from "@/lib/pipeline/referral-store";
 import { isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
 
 export type WorkspaceSection = "workspaces" | "activity";
 export type WorkspaceLayout = "list" | "gallery";
+export type WorkspaceScope = NonNullable<ReferralListOptions["scope"]>;
 
 export type ReferralFilter =
   | { kind: "all" }
@@ -137,8 +139,8 @@ export function calendarMonthBounds(month: string) {
   return { from: `${month}-01`, to: last.toISOString().slice(0, 10) };
 }
 
-export function buildReferralParams(filter: ReferralFilter, searchTerm: string, cursor?: string) {
-  const params = new URLSearchParams({ limit: String(workspacePageSize), sort: "updated_desc" });
+export function buildReferralParams(filter: ReferralFilter, searchTerm: string, cursor?: string, scope: WorkspaceScope = "mine") {
+  const params = new URLSearchParams({ limit: String(workspacePageSize), sort: "updated_desc", scope });
   const query = searchTerm.trim();
   if (query) {
     params.set("q", query);

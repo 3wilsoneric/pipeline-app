@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f5bb40e083b26a18",
-  "fingerprint": "f5bb40e083b26a18156308da7140f008ee3ae7cb6eb6a0c8fe9181941e692f64",
+  "generatedAt": "source-fingerprint:c074293064346d53",
+  "fingerprint": "c074293064346d5394c454d4e963ef77ecf7e33dc2d6b36118a5fa64e1171c43",
   "totals": {
     "files": 1005,
-    "lines": 316992,
+    "lines": 317116,
     "coveredFiles": 1005
   },
   "entries": [
@@ -619,7 +619,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 79,
+      "lines": 83,
       "moduleIds": [
         "extraction-worker",
         "provenance-review",
@@ -1429,7 +1429,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 59,
+      "lines": 60,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -2289,7 +2289,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 168,
+      "lines": 170,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2373,7 +2373,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 507,
+      "lines": 520,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2385,7 +2385,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 495,
+      "lines": 511,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -7872,7 +7872,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 130,
+      "lines": 132,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -8029,7 +8029,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 129,
+      "lines": 145,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -8101,7 +8101,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 3236,
+      "lines": 3238,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -9316,7 +9316,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2110,
+      "lines": 2131,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11778,7 +11778,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 525,
+      "lines": 572,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
