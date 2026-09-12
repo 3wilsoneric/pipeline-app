@@ -1315,19 +1315,18 @@ export default function AssessmentWorkspace({
 
   return createPortal(
     <section role="dialog" aria-modal="true" aria-label="Assessment interview" data-assessment-view="chart" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
-      <header className="relative flex min-h-16 shrink-0 items-center gap-3 border-b border-[#d9dfdb] bg-white px-3 py-2 sm:px-5">
-        <button type="button" onClick={() => { setShowScheduleDialog(false); setShowBeginDialog(false); setIsFocused(false); }} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#d6ddd9] text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><X size={18} /></button>
-        <div className="min-w-[170px] flex-1">
+      <header className="relative flex min-h-16 shrink-0 items-center gap-3 border-b border-[#d9dfdb] bg-white px-4 py-2 sm:px-6 lg:px-9">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate text-[17px] font-black">{formatClientIdentityTitle({ name: draft.resident_name || "Client", community: draft.community })} assessment</h2>
             <StatusLabel status={selected.status} />
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[#737373]">
+          <div className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#737373]">
             <span>{formatDate(selected.assessment_date)}</span><span aria-hidden="true">·</span><span>{selected.assessor || "Unassigned"}</span>
             {canSupervise && selected.assessor_id !== viewer?.id ? <span className="sr-only">Supervisor access</span> : null}
           </div>
         </div>
-        <span data-guide-target="assessment-save-status" aria-live="polite" className={`max-w-[120px] shrink-0 truncate text-right text-[10px] sm:max-w-[220px] ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
+        <span data-guide-target="assessment-save-status" aria-live="polite" className={`sr-only max-w-[220px] shrink-0 truncate text-right text-[10px] sm:not-sr-only ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
         {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? (
           <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button>
         ) : null}
@@ -1342,6 +1341,7 @@ export default function AssessmentWorkspace({
         ) : selected.started_at && canEditClinical ? (
           <button type="button" data-guide-target="assessment-sign" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-10 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button>
         ) : null}
+        <button type="button" onClick={() => { setShowScheduleDialog(false); setShowBeginDialog(false); setIsFocused(false); }} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"><X size={20} /></button>
       </header>
 
       <TrainingAssessmentBanner mode={trainingAssessmentMode} />

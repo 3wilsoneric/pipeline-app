@@ -135,6 +135,10 @@ test.describe("Pipeline Demo Environment", () => {
     await interview.getByRole("button", { name: "Exit guided interview" }).click();
     await expect(interview).toHaveAttribute("data-assessment-view", "chart");
     await expect(interview.getByRole("textbox", { name: "Resident number" })).toHaveValue("TESTER-GUIDED-001");
+    const closeAssessment = interview.getByRole("button", { name: "Close assessment", exact: true });
+    await expect(closeAssessment).toHaveCSS("border-top-width", "0px");
+    await expect(closeAssessment.locator("svg")).toHaveAttribute("width", "20");
+    expect((await closeAssessment.boundingBox())?.x).toBeGreaterThan(page.viewportSize()!.width - 90);
     await interview.getByRole("button", { name: "Guided interview", exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await interview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -147,6 +151,8 @@ test.describe("Pipeline Demo Environment", () => {
     await interview.getByRole("button", { name: "Done", exact: true }).click();
     await expect(interview).toHaveAttribute("data-assessment-view", "chart");
     await expect(interview.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
+    await expect(closeAssessment).toBeInViewport();
+    expect((await closeAssessment.boundingBox())?.x).toBeGreaterThan(300);
 
     await page.goto("/training/demo?view=tester");
     await tester.getByRole("button", { name: "Open review" }).click();

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:c7e70495136c594d",
-  "fingerprint": "c7e70495136c594d1ef8808a29475e15d79fd2d037609b589ceb85638b589648",
+  "generatedAt": "source-fingerprint:32feaa544bce1d9b",
+  "fingerprint": "32feaa544bce1d9be71c742784198d54ebc0586a3596fff1b79ccfa6422363b5",
   "totals": {
     "files": 985,
-    "lines": 312634,
+    "lines": 312640,
     "coveredFiles": 985
   },
   "entries": [
@@ -11345,7 +11345,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 486,
+      "lines": 492,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
