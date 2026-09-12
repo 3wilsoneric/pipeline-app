@@ -23,7 +23,8 @@ const profileJourney = scorecard.slice(scorecard.indexOf('measureJourney("open_c
 assert.match(profileJourney, /getByTestId\("client-identity-title"\)/, "Chart timing must wait for loaded identity, not its loading wrapper.");
 assert.doesNotMatch(profileJourney, /getByTestId\("profile-workspace"\)/, "The wrapper must never certify a chart as ready.");
 assert.match(scorecard, /image\.complete && image\.naturalWidth > 0/, "Source thumbnails must decode successfully.");
-assert.match(scorecard, /await fileResponse\.finished\(\)/, "Opening a popup must not certify a completed PDF transfer.");
+assert.match(scorecard, /await response\.arrayBuffer\(\)/, "Opening a popup must not certify a completed PDF transfer.");
+assert.match(scorecard, /AbortSignal\.timeout\(10_000\)/, "A hung source read must be bounded, never an unlimited harness wait.");
 assert.match(scorecard, /source_files: assetJourneys\.length >= 2/, "Both binary source-file journeys must meet their existing heavy-read budget.");
 assert.match(scorecard, /heavy_api: apiSummary\.heavy\.requests > 0/, "At least one heavy API must be measured.");
 assert.match(scorecard, /fixture_mode: useSanitizedFixtures \? "sanitized_test_only"/, "Test fixtures must be explicit in scorecard output.");

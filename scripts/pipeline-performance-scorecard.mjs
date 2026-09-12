@@ -246,10 +246,18 @@ await measureJourney("source_pdf_complete_body", "asset", async () => {
   const fileResponse = await responseReady;
   const popup = await popupReady;
   try {
-    const failure = await fileResponse.finished();
-    if (failure || !fileResponse.ok() || !fileResponse.headers()["content-type"]?.includes("application/pdf")) {
+    if (!fileResponse.ok() || !fileResponse.headers()["content-type"]?.includes("application/pdf")) {
       throw new Error("The source PDF did not complete successfully.");
     }
+    // Chromium's native PDF viewer can leave its navigation request open.
+    // Require a complete real browser fetch of the clicked URL, not just its
+    // popup/headers. This certifies bytes, not native viewer rendering.
+    await page.evaluate(async (url) => {
+      const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+      if (!response.ok || !response.headers.get("content-type")?.includes("application/pdf")) throw new Error("PDF read failed.");
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("PDF bytes were invalid.");
+    }, target);
   } finally {
     await popup.close();
   }
