@@ -55,6 +55,12 @@ let sessionProbeGeneration = 0;
 
 const sessionProbeCacheMs = 60_000;
 
+export function readCachedPipelineSessionUser() {
+  return sessionProbeCache && sessionProbeCache.expiresAt > Date.now()
+    ? sessionProbeCache.probe.user
+    : null;
+}
+
 export async function establishPipelineServerSession(
   account: AccountInfo,
   forceRefresh = false,

@@ -9,7 +9,7 @@ import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, readPipelineJsonCache } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
 import type { PipelineHomeModuleId } from "@/lib/pipeline/home-dashboard-layout";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
@@ -44,7 +44,7 @@ export default function PipelineWelcome({
   onFinishEditingHome?: () => void;
   canAccessReports?: boolean;
 }) {
-  const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(null);
+  const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(() => readPipelineJsonCache<HomeBriefingSnapshot>("/api/operations/home") ?? null);
   const [error, setError] = useState("");
   const { searchOpen, setSearchOpen } = usePipelineShell();
 

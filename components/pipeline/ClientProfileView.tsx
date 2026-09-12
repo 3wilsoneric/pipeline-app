@@ -16,7 +16,7 @@ import {
   hasReadableClinicalValue,
   humanizeClinicalField,
 } from "@/lib/clinical/clinical-value-presentation";
-import { fetchPipelineJson, PipelineApiError } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson, readPipelineJsonCache, PipelineApiError } from "@/lib/auth/authenticated-fetch";
 import type { ClientHistoryProjection } from "@/lib/pipeline/client-history-contracts";
 import {
   buildClientEpisodeSummaries,
@@ -65,8 +65,10 @@ function ClientProfileLoader({
   onBack: () => void;
   onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
 }) {
-  const [profile, setProfile] = useState<UnifiedClientProfileResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<UnifiedClientProfileResponse | null>(() =>
+    readPipelineJsonCache<UnifiedClientProfileResponse>(`/api/profiles/${encodeURIComponent(residentKey)}`) ?? null,
+  );
+  const [isLoading, setIsLoading] = useState(!profile);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -75,8 +77,8 @@ function ClientProfileLoader({
 
     fetchPipelineJson<UnifiedClientProfileResponse>(
       `/api/profiles/${encodeURIComponent(residentKey)}`,
-      { cache: "no-store", signal: controller.signal },
-      { cacheTtlMs: 15_000 },
+      { cache: "no-store", signal: controller.signal, ...(reloadKey ? { headers: { "x-pipeline-refresh": "1" } } : {}) },
+      { cacheTtlMs: reloadKey ? 0 : 60_000 },
     )
       .then((payload) => {
         const identity = profileIdentity(payload);

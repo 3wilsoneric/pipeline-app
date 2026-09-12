@@ -25,6 +25,33 @@ type PipelineFetchOptions = {
 };
 
 const jsonResponseCache = new Map<string, { expiresAt: number; payload: unknown }>();
+const pendingJsonRequests = new Map<string, Promise<unknown>>();
+let cacheGeneration = 0;
+
+export function getPipelineClientCacheGeneration() {
+  return cacheGeneration;
+}
+
+export function readPipelineJsonCache<T>(input: string): T | undefined {
+  const cached = jsonResponseCache.get(input);
+  if (!cached || cached.expiresAt <= Date.now()) return undefined;
+  return cached.payload as T;
+}
+
+function invalidatePipelineDataCache() {
+  cacheGeneration += 1;
+  jsonResponseCache.clear();
+  pendingJsonRequests.clear();
+}
+
+function isNavigationBookkeeping(input: string) {
+  const pathname = input.split("?")[0];
+  return /^\/api\/(?:me\/(?:recents|presence|work-continuity)|referrals\/\d+\/presence)$/.test(pathname);
+}
+
+function invalidatesPipelineData(input: string, init: RequestInit) {
+  return (init.method ?? "GET").toUpperCase() !== "GET" && !isNavigationBookkeeping(input);
+}
 
 export type PipelineCurrentUser = PipelineSessionUser;
 
@@ -46,6 +73,7 @@ export async function fetchPipelineJson<T>(
   options: PipelineFetchOptions = {},
 ) {
   const method = (init.method ?? "GET").toUpperCase();
+  const generation = cacheGeneration;
   const cacheKey = method === "GET" && options.cacheTtlMs ? input : null;
   if (init.signal?.aborted) throw new PipelineApiError("Request cancelled.", 499);
   if (cacheKey) {
@@ -53,54 +81,79 @@ export async function fetchPipelineJson<T>(
     if (cached && cached.expiresAt > Date.now()) return cached.payload as T;
     if (cached) jsonResponseCache.delete(cacheKey);
   }
+  const pending = cacheKey ? pendingJsonRequests.get(cacheKey) : undefined;
+  if (pending) return await joinPipelineRead(pending as Promise<T>, init.signal);
+  // A prefetched GET belongs to the cache, not the first component to mount.
+  // Unmounting one consumer cancels its wait without cancelling another reader.
+  const request = requestPipelineJson<T>(input, cacheKey ? { ...init, signal: undefined } : init, options, cacheKey, generation);
+  if (cacheKey) {
+    pendingJsonRequests.set(cacheKey, request);
+    const cleanup = () => {
+      if (pendingJsonRequests.get(cacheKey) === request) pendingJsonRequests.delete(cacheKey);
+    };
+    void request.then(cleanup, cleanup);
+  }
+  return await joinPipelineRead(request, init.signal);
+}
+
+function joinPipelineRead<T>(request: Promise<T>, signal?: AbortSignal | null): Promise<T> {
+  if (!signal) return request;
+  if (signal.aborted) return Promise.reject(new PipelineApiError("Request cancelled.", 499));
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(new PipelineApiError("Request cancelled.", 499));
+    signal.addEventListener("abort", abort, { once: true });
+    void request.then((value) => {
+      signal.removeEventListener("abort", abort);
+      resolve(value);
+    }, (error) => {
+      signal.removeEventListener("abort", abort);
+      reject(error);
+    });
+  });
+}
+
+async function requestPipelineJson<T>(
+  input: string,
+  init: RequestInit,
+  options: PipelineFetchOptions,
+  cacheKey: string | null,
+  generation: number,
+) {
+  const method = (init.method ?? "GET").toUpperCase();
   const attempts = method === "GET" ? 2 : 1;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    let response: Response;
+    let response: Response | undefined;
     try {
       response = await fetchPipelineApi(input, init, options);
+      const text = await readBoundedResponseText(response, options.maxResponseBytes ?? defaultMaxResponseBytes);
+      const payload = parseJson(text);
+      if (response.ok) {
+        retainPipelineRead(cacheKey, generation, payload, options.cacheTtlMs);
+        return payload as T;
+      }
+      if (response.status === 401) void beginReauthentication();
+      throw new PipelineApiError(
+        getErrorMessage(payload, response.status), response.status,
+        response.headers.get("x-request-id") ?? getPayloadRequestId(payload), payload,
+      );
     } catch (error) {
-      if (attempt + 1 < attempts && isRetryableRequestError(error) && !init.signal?.aborted) {
-        await waitForRetry(undefined, attempt);
-        continue;
-      }
-      throw error;
-    }
-    const text = await readBoundedResponseText(response, options.maxResponseBytes ?? defaultMaxResponseBytes);
-    let payload: unknown;
-    try {
-      payload = parseJson(text);
-    } catch (error) {
-      if (attempt + 1 < attempts && isTransientStatus(response.status) && !init.signal?.aborted) {
-        await waitForRetry(response, attempt);
-        continue;
-      }
-      throw error;
-    }
-
-    if (response.ok) {
-      if (cacheKey) {
-        jsonResponseCache.set(cacheKey, {
-          expiresAt: Date.now() + (options.cacheTtlMs ?? 0),
-          payload,
-        });
-        trimJsonResponseCache();
-      }
-      return payload as T;
-    }
-    if (response.status === 401) void beginReauthentication();
-    if (attempt + 1 < attempts && isTransientStatus(response.status) && !init.signal?.aborted) {
+      if (!shouldRetryPipelineRead(attempt, attempts, init.signal, response, error)) throw error;
       await waitForRetry(response, attempt);
-      continue;
     }
-    throw new PipelineApiError(
-      getErrorMessage(payload, response.status),
-      response.status,
-      response.headers.get("x-request-id") ?? getPayloadRequestId(payload),
-      payload,
-    );
   }
   throw new PipelineApiError("Pipeline could not complete that request.");
+}
+
+function shouldRetryPipelineRead(attempt: number, attempts: number, signal: AbortSignal | null | undefined, response: Response | undefined, error: unknown) {
+  return attempt + 1 < attempts && !signal?.aborted
+    && (response ? isTransientStatus(response.status) : isRetryableRequestError(error));
+}
+
+function retainPipelineRead(key: string | null, generation: number, payload: unknown, ttl = 0) {
+  if (!key || generation !== cacheGeneration) return;
+  jsonResponseCache.set(key, { expiresAt: Date.now() + ttl, payload });
+  trimJsonResponseCache();
 }
 
 export function fetchCurrentPipelineUser() {
@@ -116,7 +169,7 @@ export function fetchCurrentPipelineUser() {
 
 export function clearPipelineClientSessionCache() {
   clearPipelineBrowserSessionCache();
-  jsonResponseCache.clear();
+  invalidatePipelineDataCache();
 }
 
 export async function fetchPipelineApi(
@@ -155,8 +208,8 @@ export async function fetchPipelineApi(
         response = await request(renewedHeaders);
       }
     }
-    if (response.ok && (init.method ?? "GET").toUpperCase() !== "GET") {
-      jsonResponseCache.clear();
+    if (response.ok && invalidatesPipelineData(input, init)) {
+      invalidatePipelineDataCache();
     }
     return response;
   } catch (error) {

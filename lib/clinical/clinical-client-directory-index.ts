@@ -28,6 +28,11 @@ const globalForDirectoryIndex = globalThis as typeof globalThis & {
 const cache = globalForDirectoryIndex.__pipelineClinicalDirectoryIndexes
   ?? (globalForDirectoryIndex.__pipelineClinicalDirectoryIndexes = new Map());
 
+export function getCachedClinicalClientDirectoryIndex(accessKey: string) {
+  const entry = cache.get(accessKey.trim().toLowerCase() || "default");
+  return entry?.index && entry.expiresAt > Date.now() ? entry.index : null;
+}
+
 export async function getClinicalClientDirectoryIndex(request: Request, accessKey: string) {
   const key = accessKey.trim().toLowerCase() || "default";
   const now = Date.now();

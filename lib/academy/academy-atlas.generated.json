@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:b116d107b76eeb06",
-  "fingerprint": "b116d107b76eeb065536d433fa3f36770c44e05dced553b32479cd3f81a8cfaa",
+  "generatedAt": "source-fingerprint:a5a0ffc6f8b1c92e",
+  "fingerprint": "a5a0ffc6f8b1c92e15f53c7a06a27d3acaf94dddd98e2835d87e06d972b419e9",
   "totals": {
-    "files": 984,
-    "lines": 312787,
-    "coveredFiles": 984
+    "files": 985,
+    "lines": 313108,
+    "coveredFiles": 985
   },
   "entries": [
     {
@@ -1074,7 +1074,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 177,
+      "lines": 174,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -1917,7 +1917,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 601,
+      "lines": 624,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1929,7 +1929,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1268,
+      "lines": 1270,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2193,7 +2193,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 450,
+      "lines": 457,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2337,7 +2337,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 497,
+      "lines": 511,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -6363,7 +6363,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 276,
+      "lines": 329,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -6375,7 +6375,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 161,
+      "lines": 167,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -6483,7 +6483,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 105,
+      "lines": 110,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -6507,7 +6507,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 832,
+      "lines": 906,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -7788,7 +7788,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 36,
+      "lines": 42,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10328,6 +10328,18 @@
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "scripts/live-loading-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 134,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
       ]
     },
     {
