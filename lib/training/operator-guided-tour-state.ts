@@ -253,9 +253,9 @@ export function stageOperatorGuideForNavigation(tutorialId: string, stepId?: str
   const requestedStep = stepId ? tutorial.steps.findIndex((step) => step.id === stepId) : 0;
   const stepIndex = requestedStep >= 0 ? requestedStep : 0;
   try {
-    const current = normalizeOperatorGuideState(JSON.parse(window.localStorage.getItem(OPERATOR_GUIDE_STORAGE_KEY) ?? "null"));
+    const current = emptyOperatorGuideState();
     const next = reduceOperatorGuideState(current, { type: "start", tutorialId, stepIndex });
-    window.localStorage.setItem(OPERATOR_GUIDE_STORAGE_KEY, JSON.stringify(next));
+    window.sessionStorage.setItem(OPERATOR_GUIDE_STORAGE_KEY, JSON.stringify(next));
     window.sessionStorage.setItem(OPERATOR_GUIDE_NAVIGATION_RESUME_KEY, "true");
     return true;
   } catch {

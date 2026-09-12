@@ -206,6 +206,86 @@ test.describe("workflow interaction and durable feedback", () => {
     }
   });
 
+  test("saves the last answer before a quick close and resumes from stage cards and the directory", async ({ browser, baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const api = await actorApiContext("assessorA", url);
+    const { page, context } = await actorPage(browser, "assessorA", url);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    try {
+      const referral = await createReferral(api, uniqueName(), pipelineActors.assessorA.id);
+      const assessmentId = await startAssessment(api, referral.id);
+      await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
+      const guided = page.locator('[data-guided-assessment="true"]');
+      await expect(guided).toBeVisible();
+      await guided.getByRole("button", { name: "Exit guided interview" }).click();
+      const chart = page.locator('[data-assessment-view="chart"]');
+      const answer = "Synthetic final answer, entered immediately before closing.";
+      let saving = false;
+      await page.route(`**/api/assessments/${assessmentId}`, async (route) => {
+        if (route.request().method() === "PATCH") {
+          saving = true;
+          await gate;
+        }
+        await route.continue();
+      });
+      await chart.getByRole("textbox", { name: /Prior 5150/ }).fill(answer);
+      await chart.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await expect.poll(() => saving).toBe(true);
+      await expect(chart).toBeVisible();
+      await expect(chart.getByRole("button", { name: "Close assessment", exact: true })).toBeDisabled();
+      await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).not.toBeEditable();
+      release();
+      await expect(chart).toHaveCount(0);
+      await page.getByRole("button", { name: "Pipeline home", exact: true }).click();
+      expect((await (await api.get(`/api/assessments/${assessmentId}`)).json()).assessment.prior_5150_5250_holds).toBe(answer);
+      await page.getByRole("button", { name: "Open current work", exact: true }).click();
+      const board = page.getByRole("region", { name: "Current work board" });
+      await board.getByRole("button", { name: `Open ${referral.name}`, exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
+      await expect(guided).toBeVisible();
+      await guided.getByRole("button", { name: "Exit guided interview" }).click();
+      await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue(answer);
+      await chart.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await page.getByRole("button", { name: "Open referrals", exact: true }).click();
+      await page.getByRole("searchbox", { name: "Search all workspaces" }).fill(referral.name);
+      await page.getByRole("button", { name: new RegExp(referral.name) }).first().click();
+      await expect(page).toHaveURL(new RegExp(`referralId=${referral.id}.*assessmentSection=prior_history`));
+      await expect(guided).toBeVisible();
+    } finally {
+      release();
+      await context.close();
+      await api.dispose();
+    }
+  });
+
+  test("keeps an assessment open when saving on exit fails", async ({ browser, baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    const api = await actorApiContext("assessorA", url);
+    const { page, context } = await actorPage(browser, "assessorA", url);
+    try {
+      const referral = await createReferral(api, uniqueName(), pipelineActors.assessorA.id);
+      const assessmentId = await startAssessment(api, referral.id);
+      await page.goto(`${workspacePath(referral.id)}&workspaceStage=assessment&assessmentSection=prior_history`);
+      await page.getByRole("button", { name: "Exit guided interview" }).click();
+      const chart = page.locator('[data-assessment-view="chart"]');
+      await page.route(`**/api/assessments/${assessmentId}`, (route) => route.request().method() === "PATCH"
+        ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic save unavailable" }) })
+        : route.continue());
+      await chart.getByRole("textbox", { name: /Prior 5150/ }).fill("Synthetic unsaved answer must remain visible.");
+      await chart.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await expect(chart).toBeVisible();
+      await expect(chart.getByRole("alert")).toContainText("Synthetic save unavailable");
+      await expect(chart.getByRole("textbox", { name: /Prior 5150/ })).toHaveValue("Synthetic unsaved answer must remain visible.");
+      await page.unroute(`**/api/assessments/${assessmentId}`);
+      await chart.getByRole("button", { name: "Close assessment", exact: true }).click();
+      await expect(chart).toHaveCount(0);
+    } finally {
+      await context.close();
+      await api.dispose();
+    }
+  });
+
   test("uses Pacific Time from a different browser timezone and exposes assessment saves on a narrow screen", async ({ browser, baseURL }, testInfo) => {
     const url = requireOperationalBaseURL(baseURL);
     const api = await actorApiContext("assessorA", url);
@@ -388,6 +468,31 @@ async function createReferral(api: APIRequestContext, name: string, assigneeId: 
   } });
   expect(created.status()).toBe(201);
   return (await created.json()).referral;
+}
+
+async function startAssessment(api: APIRequestContext, referralId: number) {
+  const referral = (await (await api.get(`/api/referrals/${referralId}`)).json()).referral;
+  const intake = await api.patch(`/api/referrals/${referralId}`, { data: {
+    if_match: referral.version, if_match_sections: referral.sectionVersions,
+    patch: { phone: "555-0101", email: "synthetic@example.invalid" },
+  } });
+  expect(intake.status()).toBe(200);
+  const created = await api.post(`/api/referrals/${referralId}/assessments`, { data: {
+    client_mutation_id: operationalMutationId("exit-assessment"), data: { current_location: "Synthetic placement" },
+  } });
+  expect(created.status()).toBe(201);
+  let assessment = (await created.json()).assessment;
+  const scheduled = await api.post(`/api/assessments/${assessment.assessment_id}/schedule`, { data: {
+    if_match: assessment.version, client_mutation_id: operationalMutationId("exit-schedule"),
+    schedule: { start_at: new Date(Date.UTC(2026, 9, 1 + referralId, 17, 30)).toISOString(), duration_minutes: 60, method: "record_review", status: "scheduled" },
+  } });
+  expect(scheduled.status(), await scheduled.text()).toBe(200);
+  assessment = (await scheduled.json()).assessment;
+  const started = await api.post(`/api/assessments/${assessment.assessment_id}/start`, { data: {
+    if_match: assessment.version, client_mutation_id: operationalMutationId("exit-start"),
+  } });
+  expect(started.status()).toBe(200);
+  return assessment.assessment_id as string;
 }
 
 function workspacePath(id: number) { return `/?view=referrals&screen=packet&referralId=${id}`; }

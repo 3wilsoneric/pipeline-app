@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
 import { AssessmentFieldWritingGuidePanel } from "@/components/pipeline/AssessmentInterviewFields";
@@ -32,6 +32,8 @@ type GuidedAssessmentInterviewProps = {
   assessment: PipelineAssessmentRecord;
   data: AssessmentToolData;
   activeSection: AssessmentToolSection;
+  sectionGuideTarget: string;
+  startAtSectionBeginning: boolean;
   requiredFields: ReadonlySet<AssessmentToolFieldKey>;
   disabled: boolean;
   reviewDisabled: boolean;
@@ -62,6 +64,8 @@ export default function GuidedAssessmentInterview({
   assessment,
   data,
   activeSection,
+  sectionGuideTarget,
+  startAtSectionBeginning,
   requiredFields,
   disabled,
   reviewDisabled,
@@ -79,7 +83,7 @@ export default function GuidedAssessmentInterview({
     () => guidedAssessmentScreens.filter((screen) => screen.questions.some((question) => isAssessmentQuestionVisible(question, data))),
     [data],
   );
-  const [activeScreenId, setActiveScreenId] = useState(() => visibleScreens[initialScreenIndex(visibleScreens, activeSection, data)]?.id);
+  const [activeScreenId, setActiveScreenId] = useState(() => visibleScreens[initialScreenIndex(visibleScreens, activeSection, data, startAtSectionBeginning)]?.id);
   const currentIndex = visibleScreens.findIndex((candidate) => candidate.id === activeScreenId);
   const originalIndex = guidedAssessmentScreens.findIndex((candidate) => candidate.id === activeScreenId);
   const nextVisibleIndex = visibleScreens.findIndex((candidate) => guidedAssessmentScreens.indexOf(candidate) >= originalIndex);
@@ -90,6 +94,16 @@ export default function GuidedAssessmentInterview({
   const coverage = getAssessmentInterviewCoverage(data);
   const answeredHere = visibleQuestions.filter((question) => hasAssessmentInterviewValue(data[question.field])).length;
   const isLastScreen = boundedIndex >= visibleScreens.length - 1;
+
+  const followRoutedSection = useEffectEvent((sectionKey: AssessmentToolSection) => {
+    if (screen?.section !== sectionKey) {
+      setActiveScreenId(visibleScreens[initialScreenIndex(visibleScreens, sectionKey, data, startAtSectionBeginning)]?.id);
+    }
+  });
+
+  useEffect(() => {
+    followRoutedSection(activeSection);
+  }, [activeSection]);
 
   useEffect(() => {
     if (screen) onSectionChange(screen.section);
@@ -132,6 +146,7 @@ export default function GuidedAssessmentInterview({
           <button
             type="button"
             onClick={onExitToChart}
+            data-guide-target="assessment-guided-exit"
             aria-label="Exit guided interview"
             title="View full assessment"
             className="flex h-10 w-10 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"
@@ -146,7 +161,7 @@ export default function GuidedAssessmentInterview({
 
       <GuidedAssessmentStatusBanner error={error} hasConflicts={hasConflicts} onExitToChart={onExitToChart} />
 
-      <main key={screen.id} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:py-10">
+      <main key={screen.id} data-guide-target={sectionGuideTarget} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:py-10">
         <div className="mx-auto w-full max-w-[650px] pb-5">
           <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f7664]">
             {section.label} <span className="text-[#a1a7a3]">·</span> {boundedIndex + 1} of {visibleScreens.length}
@@ -459,7 +474,7 @@ function GuidedTextareaControl({ id, question, definition, value, prominent, dis
   if (definition.value_type === "string_list") {
     return <StringListTextarea id={id} value={Array.isArray(value) ? value : []} disabled={disabled} placeholder={question.placeholder ?? "One item per line"} onChange={onChange} />;
   }
-  return <textarea id={id} value={stringValue(value)} disabled={disabled} rows={prominent ? 6 : 4} maxLength={20_000} placeholder={question.placeholder ?? "Enter assessment detail"} onChange={(event) => onChange(event.target.value || null)} className="w-full resize-y rounded-[6px] border border-[#d4d9d6] bg-white px-4 py-3 text-[13px] leading-5 outline-none transition-colors placeholder:text-[#9da39f] hover:border-[#aab3ae] focus:border-[#0f8b73] disabled:bg-[#f1f3f2]" />;
+  return <textarea data-guide-target="assessment-answer" id={id} value={stringValue(value)} disabled={disabled} rows={prominent ? 6 : 4} maxLength={20_000} placeholder={question.placeholder ?? "Enter assessment detail"} onChange={(event) => onChange(event.target.value || null)} className="w-full resize-y rounded-[6px] border border-[#d4d9d6] bg-white px-4 py-3 text-[13px] leading-5 outline-none transition-colors placeholder:text-[#9da39f] hover:border-[#aab3ae] focus:border-[#0f8b73] disabled:bg-[#f1f3f2]" />;
 }
 
 function GuidedTextInputControl({ id, question, definition, value, disabled, onChange }: GuidedAssessmentControlProps) {
@@ -610,12 +625,13 @@ function guidedQuestionWeight(question: AssessmentInterviewQuestion) {
   return 1;
 }
 
-function initialScreenIndex(screens: readonly GuidedAssessmentScreen[], section: AssessmentToolSection, data: AssessmentToolData) {
+function initialScreenIndex(screens: readonly GuidedAssessmentScreen[], section: AssessmentToolSection, data: AssessmentToolData, startAtSectionBeginning: boolean) {
+  const firstInSection = screens.findIndex((screen) => screen.section === section);
+  if (startAtSectionBeginning && firstInSection >= 0) return firstInSection;
   const unansweredInSection = screens.findIndex((screen) => screen.section === section && screen.questions.some((question) => (
     isAssessmentQuestionVisible(question, data) && !hasAssessmentInterviewValue(data[question.field])
   )));
   if (unansweredInSection >= 0) return unansweredInSection;
-  const firstInSection = screens.findIndex((screen) => screen.section === section);
   if (firstInSection >= 0) return firstInSection;
   const firstUnanswered = screens.findIndex((screen) => screen.questions.some((question) => !hasAssessmentInterviewValue(data[question.field])));
   return Math.max(firstUnanswered, 0);

@@ -1,6 +1,7 @@
 "use client";
 
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { parsePipelineWorkContinuityState, type PipelineWorkspaceLocation } from "@/lib/pipeline/work-continuity";
 import type {
   PipelineLastWorkspace,
   PipelineWorkContinuityPatch,
@@ -11,6 +12,16 @@ let updateQueue = Promise.resolve<unknown>(undefined);
 
 export function recordLastPipelineWorkspace(lastWorkspace: PipelineLastWorkspace) {
   void queuePatch({ lastWorkspace }).catch(() => undefined);
+}
+
+export async function loadPipelineWorkspaceResumeLocation(referralId: number): Promise<PipelineWorkspaceLocation | undefined> {
+  await updateQueue.catch(() => undefined);
+  const payload = await fetchPipelineJson<{ state: PipelineWorkContinuityState }>("/api/me/work-continuity", { cache: "no-store" });
+  const state = parsePipelineWorkContinuityState(payload.state);
+  const recent = [state?.lastWorkspace, ...(state?.recentWorkspaces ?? [])]
+    .filter((workspace) => workspace?.referralId === referralId)
+    .sort((left, right) => Date.parse(right!.visitedAt) - Date.parse(left!.visitedAt));
+  return recent[0]?.location;
 }
 
 export function initializePipelineAssignmentTracking(timestamp: string) {

@@ -54,7 +54,7 @@ test.describe("Pipeline Learning Center", () => {
     }
     await page.getByRole("navigation", { name: "Finish an assessment chapters" }).getByRole("button", { name: /^01 Section 1 of 12/ }).click();
     await page.getByRole("button", { name: "Open guided tooltip for Client & referral" }).click();
-    await expect(page).toHaveURL(/trainingAssessment=interview/);
+    await expect(page).toHaveURL(/trainingAssessment=guided/);
     await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible();
     const coach = page.getByRole("dialog", { name: /Finish an assessment guided tutorial/ });
     await expect(coach).toBeVisible();
@@ -128,10 +128,12 @@ test.describe("Pipeline Learning Center", () => {
     await page.getByRole("button", { name: "Start guided walkthrough: Finish an assessment" }).click();
 
     const coach = page.getByRole("dialog", { name: "Finish an assessment guided tutorial" });
-    await expect(page).toHaveURL(/trainingAssessment=interview/);
+    await expect(page).toHaveURL(/trainingAssessment=guided/);
     const assessment = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(assessment).toBeVisible();
-    await expect(assessment.getByText("Taylor Rivera assessment", { exact: true })).toBeVisible();
+    await expect(assessment).toHaveAttribute("data-guided-assessment", "true");
+    await expect(assessment).toHaveAttribute("data-screen-index", "0");
+    await expect(assessment.getByText("Taylor Rivera", { exact: true })).toBeVisible();
     await expect(coach.getByRole("heading", { name: "Client & referral" })).toBeVisible();
     await expect(page.getByTestId("guide-spotlight-outline")).toBeVisible();
   });
@@ -224,7 +226,44 @@ test.describe("Pipeline Learning Center", () => {
     await expect.poll(() => errors).toEqual([]);
   });
 
-  test("persists and resumes a paused walkthrough", async ({ page }) => {
+  test("clears quick-help checks on leaving and does not restore them after closing the browser", async ({ page, browser }) => {
+    await mockTrainingProgress(page);
+    await page.goto(trainingUrl);
+    await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
+    const tile = page.getByRole("button", { name: "Open Find a referral", exact: true });
+    await page.evaluate(() => {
+      window.localStorage.setItem("pipeline-guided-coach:v4", JSON.stringify({
+        version: 4, mode: "library", completedTutorialIds: ["find-workspace"], stepIndex: 0,
+      }));
+    });
+    await expect.poll(async () => {
+      await page.evaluate(() => window.dispatchEvent(new CustomEvent("pipeline:guided-tutorial-completed", { detail: { tutorialId: "find-workspace" } })));
+      return tile.textContent();
+    }).toContain("Done");
+    await page.goto(homeUrl);
+    await page.goto(trainingUrl);
+    await expect(tile).not.toContainText("Done");
+
+    const stored = await page.context().storageState();
+    await page.context().close();
+    const reopened = await browser.newContext({ storageState: stored });
+    try {
+      const fresh = await reopened.newPage();
+      await mockTrainingProgress(fresh);
+      await fresh.goto(new URL(trainingUrl, test.info().project.use.baseURL).toString());
+      await expect(fresh.locator('[data-training-hydrated="true"]')).toBeVisible();
+      await expect(fresh.getByRole("button", { name: "Open Find a referral", exact: true })).not.toContainText("Done");
+      await fresh.getByRole("button", { name: "Open guided tutorials" }).click();
+      const library = fresh.getByRole("dialog", { name: "Guided tutorial library" });
+      await expect(library).toBeVisible();
+      await expect(library.getByRole("button", { name: /Continue where you stopped/ })).toHaveCount(0);
+      await expect(library).not.toContainText("Done");
+    } finally {
+      await reopened.close();
+    }
+  });
+
+  test("clears a paused walkthrough on reload", async ({ page }) => {
     await mockTrainingProgress(page);
     await page.goto(trainingUrl);
     await expect(page.locator('[data-training-hydrated="true"]')).toBeVisible();
@@ -236,8 +275,7 @@ test.describe("Pipeline Learning Center", () => {
     await page.reload();
     await page.getByRole("button", { name: "Open guided tutorials" }).click();
     await expect(page.getByRole("dialog", { name: "Guided tutorial library" })).toBeVisible();
-    await page.getByRole("button", { name: /Continue where you stopped/ }).click();
-    await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Continue where you stopped/ })).toHaveCount(0);
   });
 
   test("keeps an unfinished walkthrough closed on an ordinary return", async ({ page }) => {
@@ -252,7 +290,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("dialog", { name: /guided tutorial/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Open guided tutorials" }).click();
     await expect(page.getByRole("dialog", { name: "Guided tutorial library" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Continue where you stopped/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Continue where you stopped/ })).toHaveCount(0);
   });
 
   test("is discoverable from the signed-in profile menu", async ({ page }) => {

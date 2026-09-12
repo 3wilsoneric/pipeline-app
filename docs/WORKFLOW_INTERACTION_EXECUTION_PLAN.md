@@ -524,7 +524,7 @@ Engineering:
 - Update authored targets/routes only after the real product path is stable; verify guide placement, focus, scroll, resize, and missing-target recovery.
 - Preserve deterministic observation and human checkpoints. Guides do not inspect field values, manufacture completion, sign, decide, export, or send for the operator.
 - Align role terms, Calendar descriptions, presentation counts, schema-derived sections, and actual permissions. Source code/policies outrank stale documentation.
-- Persist progress per user with existing revision rules; practice remains synthetic and writes require an explicitly isolated demo store.
+- Keep formal training records per user with existing revision rules. Quick-help checks are page-local, and a new practice launch starts a fresh synthetic case. Writes require an explicitly isolated demo store.
 - Use current test owners and the command surface already in the repository. Promote missing high-value scenarios into focused repeatable tests; no new test platform is needed.
 
 Owners: `PipelineOperatorAcademy`, `OperatorGuidedTours`, `PipelineDemoCenter`,
@@ -579,3 +579,14 @@ Apply this across packages, not as a separate speculative infrastructure rebuild
 - Keep a small actionable supervisor surface. Add a signal only when a named supervisor needs it to make a specific decision and its source definition is testable.
 - Keep current accepted document categories configurable through their existing owner. Change required packet content only after supervisors approve the list.
 - Keep Notes Lab untouched during this pass. Any question, example, or access change requires a separate explicit request and its own regression boundary.
+
+## September 12 Recovery And Tutorial Pass
+
+- Quick-help completion is page-local. Explicit guide navigation uses tab-session storage; an ordinary return or browser restart does not resume old checks. Formal training evidence is not deleted.
+- Process Tester and presentation practice launches use fresh synthetic draft IDs. The assessment guide opens the existing 151-question HIMS-style interview, follows all twelve real sections, and exits to the existing full form. Notes Lab questions, examples, and restricted access are unchanged.
+- Assessment close waits for recovery journaling and section saves. Inputs are read-only during close; a failed save keeps the assessment open. Unmount also requests a dirty-section flush. These properties do not guarantee persistence after a browser force-quit, device power loss, or unavailable browser storage.
+- Generic workspace opens resolve the current user's saved location through the existing work-continuity API. Superseded navigation cannot change the new screen. Explicit Calendar actions retain their task destination. The existing recent-workspace history is bounded to fifty records; revisit that owner if users need location recovery for older entries beyond this bound.
+- The mixed pre-assessment board column is labeled "Intake & scheduling". Reports distinguish missing documents, incomplete intake, and scheduling readiness; existing scheduling validation remains authoritative.
+- Evidence: 30 Chromium Learning Center/Demo checks and 10 operational workflow checks passed against production builds with synthetic/local-file records. TypeScript, focused ESLint, training route/readiness contracts, and assessor workflow contracts passed. No fresh real Microsoft assessor login, production PostgreSQL/Blob assurance, or deployment was performed.
+- Repository complexity checking still reports changed-function growth in Overview navigation and guide navigation/completion, plus the historical hotspot ratchet. No baseline, ceiling, or approved disposition was loosened. This pass is not a release certification.
+- Rollback: revert this bounded branch's product changes and regenerate the training/Academy source maps. There are no schema changes, migrations, or formal training-record deletions.

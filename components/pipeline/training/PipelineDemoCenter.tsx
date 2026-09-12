@@ -392,7 +392,7 @@ export default function PipelineDemoCenter({
     const section = stage === "review" ? "provenance_qc" : "identity";
     const mode = stage === "schedule" ? "schedule" : stage === "assessment" ? "guided" : "interview";
     const assessmentSection = mode !== "schedule" ? `&assessmentSection=${section}` : "";
-    window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=${mode}${assessmentSection}&demo=1`));
+    window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&workspaceStage=assessment&trainingAssessment=${mode}${assessmentSection}&demo=1`));
   };
 
   return (
@@ -870,11 +870,11 @@ function navigateWithoutDemoRecord(scenario: PipelineDemoScenario, guide?: DemoG
   if (!guide) return false;
 
   stageOperatorGuideForNavigation(guide.tutorialId, guide.stepId);
-  const trainingAssessment = scenario.assessmentState === "unscheduled" ? "schedule" : "interview";
+  const trainingAssessment = scenario.assessmentState === "unscheduled" ? "schedule" : "guided";
   const tutorialStep = getOperatorGuidedTutorial(guide.tutorialId)?.steps.find((step) => step.id === guide.stepId);
   const guidedSection = tutorialStep ? new URL(tutorialStep.route, window.location.origin).searchParams.get("assessmentSection") : null;
-  const assessmentSection = trainingAssessment === "interview" ? `&assessmentSection=${guidedSection ?? "identity"}` : "";
-  window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=${trainingAssessment}${assessmentSection}&demo=1`));
+  const assessmentSection = trainingAssessment === "guided" ? `&assessmentSection=${guidedSection ?? "identity"}` : "";
+  window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&workspaceStage=assessment&trainingAssessment=${trainingAssessment}${assessmentSection}&demo=1`));
   return true;
 }
 

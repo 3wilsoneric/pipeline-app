@@ -7,16 +7,13 @@ import OperatorDemoEntry from "@/components/pipeline/training/OperatorDemoEntry"
 import OperatorGuidedTours from "@/components/pipeline/training/OperatorGuidedTours";
 import {
   emptyOperatorProgress,
-  mergeOperatorProgress,
   normalizeOperatorProgress,
   type OperatorProgressRecord,
-  type OperatorTrainingProgress,
 } from "@/lib/training/operator-training-progress-contract";
 
 export default function PipelineOperatorAcademy({
   assignedRoles,
   demoUrl,
-  progressStorageKey,
   initialProgress,
 }: {
   assignedRoles: readonly string[];
@@ -24,14 +21,12 @@ export default function PipelineOperatorAcademy({
   progressStorageKey: string;
   initialProgress: OperatorProgressRecord;
 }) {
-  const [progress, setProgress] = useState(() => normalizeOperatorProgress(initialProgress.progress, assignedRoles));
+  const [progress, setProgress] = useState(() => emptyOperatorProgress(normalizeOperatorProgress(initialProgress.progress, assignedRoles).role));
   const [moduleOpen, setModuleOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    const serverProgress = normalizeOperatorProgress(initialProgress.progress, assignedRoles);
-    const storedProgress = readLocalProgress(progressStorageKey, assignedRoles);
-    const next = mergeOperatorProgress(serverProgress, storedProgress, assignedRoles);
+    const next = emptyOperatorProgress(normalizeOperatorProgress(initialProgress.progress, assignedRoles).role);
     queueMicrotask(() => {
       if (cancelled) return;
       setProgress(next);
@@ -39,7 +34,7 @@ export default function PipelineOperatorAcademy({
     return () => {
       cancelled = true;
     };
-  }, [assignedRoles, initialProgress, progressStorageKey]);
+  }, [assignedRoles, initialProgress]);
 
   useEffect(() => {
     const recordCompletion = (event: Event) => {
@@ -91,15 +86,4 @@ export default function PipelineOperatorAcademy({
       </div>
     </main>
   );
-}
-
-function readLocalProgress(key: string, roles: readonly string[]): OperatorTrainingProgress {
-  const empty = emptyOperatorProgress(normalizeOperatorProgress({}, roles).role);
-  if (typeof window === "undefined") return empty;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? normalizeOperatorProgress(JSON.parse(raw), roles) : empty;
-  } catch {
-    return empty;
-  }
 }

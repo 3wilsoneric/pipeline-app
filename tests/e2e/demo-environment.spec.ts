@@ -163,10 +163,13 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(tester.getByRole("button", { name: "Open decision" })).toBeVisible();
 
     await tester.getByRole("button", { name: "Open assessment" }).click();
+    const firstPracticeId = new URL(page.url()).searchParams.get("draftId");
+    expect(firstPracticeId).toBeTruthy();
     await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=identity/);
     const interview = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(interview).toHaveAttribute("data-guided-assessment", "true");
     await expect(interview).toHaveAttribute("data-total-questions", "151");
+    await expect(interview).toHaveAttribute("data-screen-index", "0");
     while (Number(await interview.getAttribute("data-screen-index")) > 0) {
       await interview.getByRole("button", { name: "Back", exact: true }).click();
     }
@@ -193,6 +196,11 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(closeAssessment).toBeInViewport();
     expect((await closeAssessment.boundingBox())?.x).toBeGreaterThan(300);
 
+    await page.goto("/training/demo?view=tester");
+    await tester.getByRole("button", { name: "Open assessment" }).click();
+    expect(new URL(page.url()).searchParams.get("draftId")).not.toBe(firstPracticeId);
+    await expect(interview).toHaveAttribute("data-screen-index", "0");
+    await expect(interview.getByRole("textbox", { name: "Resident number" })).toHaveValue("TRAINING-001");
     await page.goto("/training/demo?view=tester");
     await tester.getByRole("button", { name: "Open review" }).click();
     await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=provenance_qc/);
@@ -308,19 +316,28 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(example.getByText("Example format", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Try Language Lab in the assessment" }).click();
 
-    await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=prior_history/);
+    await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=prior_history/);
     const coach = page.getByRole("dialog", { name: "Finish an assessment guided tutorial" });
     const interview = page.getByRole("dialog", { name: "Assessment interview" });
     await expect(coach.getByRole("heading", { name: "Enter an answer" })).toBeVisible();
+    for (let index = 0; index < 8 && await interview.locator('[data-guide-target~="assessment-answer"]:visible').count() === 0; index += 1) {
+      await interview.getByRole("button", { name: "Next", exact: true }).click();
+    }
     await interview.locator('[data-guide-target~="assessment-answer"]:visible').first().fill("Client reports one crisis visit last month; packet review is pending.");
     await expect(coach.getByRole("heading", { name: "Open Language Lab" })).toBeVisible();
     await interview.locator('[data-guide-target~="assessment-answer-help"]:visible').first().click();
     await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
+    await coach.getByRole("button", { name: "Pause tutorial" }).click();
+    await interview.getByRole("button", { name: "Exit guided interview" }).click();
     const chartLab = interview.locator("details").filter({ has: page.getByLabel("Language Lab for Prior placements", { exact: true }) });
+    await chartLab.locator("summary").click();
     await expect(chartLab).toHaveText(expectedGuide, { useInnerText: true });
 
     await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=guided&assessmentSection=prior_history&demo=1");
     await expect(interview).toHaveAttribute("data-guided-assessment", "true");
+    for (let index = 0; index < 12 && await interview.getByRole("textbox", { name: "Prior placements", exact: true }).count() === 0; index += 1) {
+      await interview.getByRole("button", { name: "Next", exact: true }).click();
+    }
     const guidedLab = interview.locator("details").filter({ has: page.getByLabel("Language Lab for Prior placements", { exact: true }) });
     await guidedLab.locator("summary").click();
     await expect(guidedLab).toHaveText(expectedGuide, { useInnerText: true });
@@ -346,28 +363,24 @@ test.describe("Pipeline Demo Environment", () => {
     await page.getByRole("navigation", { name: "Presentation slides" }).getByRole("combobox", { name: "Jump to slide" }).selectOption("5");
     await page.getByRole("button", { name: "Start the assessment walkthrough" }).click();
 
-    await expect(page).toHaveURL(/screen=packet.*workspaceStage=assessment.*trainingAssessment=interview/);
+    await expect(page).toHaveURL(/screen=packet.*workspaceStage=assessment.*trainingAssessment=guided/);
     const coach = page.getByRole("dialog", { name: "Finish an assessment guided tutorial" });
     await expect(coach).toBeVisible();
     await expect(coach.getByRole("button", { name: "Open page" })).toHaveCount(0);
     await expect(coach.getByText("Do this", { exact: true })).toHaveCount(0);
     await expect(coach.getByText("Done when", { exact: true })).toHaveCount(0);
     await expect(coach.getByText("Why this matters", { exact: true })).toHaveCount(0);
-    await expect(coach.getByText("Review this section, then select it to continue.", { exact: true })).toBeVisible();
+    await expect(coach.getByText("Review these questions, then continue. Use Next for more questions in this section.", { exact: true })).toBeVisible();
     const interview = page.getByRole("dialog", { name: "Assessment interview" });
-    const sectionNavigation = interview.getByRole("navigation", { name: "Assessment sections" });
-    await expect(sectionNavigation).toBeVisible();
-    for (const section of ["Client & referral", "Placement", "History", "Clinical", "Function", "Medication", "Substance use", "Behavior & safety", "Physical health", "Legal", "Support & goals", "Review"]) {
-      await expect(interview.getByRole("button", { name: new RegExp(`^${escapeRegExp(section)} \\d+/\\d+$`) })).toBeVisible();
-    }
+    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
+    await expect(interview).toHaveAttribute("data-total-questions", "151");
 
     const confirmSection = async (section: string, routeSection: string) => {
       await expect(page).toHaveURL(new RegExp(`assessmentSection=${routeSection}`));
       await expect(coach.getByRole("heading", { name: section, exact: true })).toBeVisible();
-      await expect(interview.getByRole("heading", { name: section, exact: true })).toBeVisible();
-      const sectionButton = sectionNavigation.getByRole("button", { name: new RegExp(`^${escapeRegExp(section)} \\d+/\\d+$`) });
-      await expect(sectionButton).toHaveAttribute("aria-current", "step");
-      await sectionButton.click();
+      await expect(interview).toHaveAttribute("data-screen-section", routeSection);
+      await expect(interview.locator("main[data-guide-target]")).toBeVisible();
+      await coach.getByRole("button", { name: "Continue", exact: true }).click();
     };
 
     await confirmSection("Client & referral", "identity");
@@ -375,6 +388,9 @@ test.describe("Pipeline Demo Environment", () => {
     await confirmSection("History", "prior_history");
 
     await expect(coach.getByRole("heading", { name: "Enter an answer" })).toBeVisible();
+    for (let index = 0; index < 8 && await interview.locator('[data-guide-target~="assessment-answer"]:visible').count() === 0; index += 1) {
+      await interview.getByRole("button", { name: "Next", exact: true }).click();
+    }
     await interview.locator('[data-guide-target~="assessment-answer"]:visible').first().fill("Synthetic history reviewed with the client.");
     await expect(coach.getByRole("heading", { name: "Open Language Lab" })).toBeVisible();
     await interview.locator('[data-guide-target~="assessment-answer-help"]:visible').first().click();
@@ -391,6 +407,10 @@ test.describe("Pipeline Demo Environment", () => {
     await confirmSection("Support & goals", "social_support");
     await confirmSection("Review", "provenance_qc");
     await expect(coach.getByRole("heading", { name: "Check saved" })).toBeVisible();
+    await coach.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(coach.getByRole("heading", { name: "Review the full assessment" })).toBeVisible();
+    await interview.getByRole("button", { name: "Exit guided interview" }).click();
+    await expect(interview).toHaveAttribute("data-assessment-view", "chart");
     await expect.poll(() => errors).toEqual([]);
   });
 
@@ -413,11 +433,11 @@ test.describe("Pipeline Demo Environment", () => {
     await schedule.getByLabel("Zoom meeting link").fill("https://example.invalid/pipeline-training");
     await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
 
-    await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=identity/);
+    await expect(page).toHaveURL(/trainingAssessment=guided.*assessmentSection=identity/);
     await expect(page.getByRole("dialog", { name: "Begin assessment" })).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: "Assessment interview" })).toBeVisible();
     await expect(coach.getByRole("heading", { name: "Open the assessment" })).toBeVisible();
-    await expect(coach).toContainText("Select the highlighted control.");
+    await expect(page.getByRole("dialog", { name: "Assessment interview" })).toHaveAttribute("data-guided-assessment", "true");
     await expect.poll(() => errors).toEqual([]);
   });
 
@@ -513,10 +533,6 @@ function watchBrowserErrors(page: import("@playwright/test").Page) {
   });
   page.on("pageerror", (error) => errors.push(error.message));
   return errors;
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function futureLocalDateTime() {

@@ -4,7 +4,7 @@ import { getWorkspaceState, type WorkspaceFocus } from "./workspace-state";
 import { resolveReferralWorkflowStatus } from "./workflow-status";
 
 export const activeReferralFlowStates = [
-  { key: "ready_to_schedule", label: "Ready to schedule", emptyLabel: "No referrals are ready to schedule" },
+  { key: "ready_to_schedule", label: "Intake & scheduling", emptyLabel: "No intake or scheduling work" },
   { key: "scheduled", label: "Scheduled", emptyLabel: "No assessments are scheduled" },
   { key: "assessment", label: "Assessment", emptyLabel: "No assessments are in progress" },
   { key: "complete_chart", label: "Follow-up", emptyLabel: "No follow-up work" },
