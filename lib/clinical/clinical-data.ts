@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 import {
   parseClinicalCensusResponse,
@@ -105,6 +105,7 @@ const authModes: readonly ClinicalAuthMode[] = ["client_credentials", "delegated
 let tokenCache: { key: string; token: string; expiresAt: number } | null = null;
 let tokenPromise: Promise<string> | null = null;
 const clinicalReadCache = new Map<string, { expiresAt: number; payload?: unknown; promise?: Promise<unknown> }>();
+const clinicalReadCacheKey = randomBytes(32);
 
 export function getClinicalDataMode(): ClinicalDataMode {
   const configured = process.env.PIPELINE_CLINICAL_DATA_MODE?.trim() as ClinicalDataMode | undefined;
@@ -425,7 +426,7 @@ function clinicalReadTtl(endpoint: string) {
 }
 
 function clinicalReadKey(context: Awaited<ReturnType<typeof createClinicalRequestContext>>, request: Request | undefined) {
-  return createHash("sha256").update(JSON.stringify([
+  return createHmac("sha256", clinicalReadCacheKey).update(JSON.stringify([
     context.url, context.authorization, request?.headers.get("authorization"), request?.headers.get("cookie"),
   ])).digest("hex");
 }

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:f7d197d62c9046e9",
-  "fingerprint": "f7d197d62c9046e9a9674c89ae41ddd618f96b8bb3e730247273347505c8ac83",
+  "generatedAt": "source-fingerprint:a90dc10f2abffcd2",
+  "fingerprint": "a90dc10f2abffcd2e8af2f1f216b92f58d719774ea85aacc32be6eb1c767f886",
   "totals": {
     "files": 985,
-    "lines": 313092,
+    "lines": 313093,
     "coveredFiles": 985
   },
   "entries": [
@@ -6507,7 +6507,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 895,
+      "lines": 896,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
