@@ -29,6 +29,7 @@ import {
 import { fetchCurrentPipelineUser, fetchPipelineJson, readPipelineJsonCache, getPipelineClientCacheGeneration } from "@/lib/auth/authenticated-fetch";
 import { readCachedPipelineSessionUser } from "@/lib/auth/browser-session";
 import PipelineArcadeLoader from "@/components/pipeline/PipelineArcadeLoader";
+import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { cancelPipelineWarmup, prefetchPipelineProfile } from "@/lib/pipeline/client-navigation";
 
 type DirectoryClient = ClientWorkspaceDirectoryItem;
@@ -42,7 +43,6 @@ type ClientDirectoryPayload = {
 };
 
 type AdmissionFilter = "any" | "last_30_days" | "last_3_months" | "last_6_months" | "last_12_months" | "older_than_12_months" | "missing";
-type ProfileDataFilter = "any" | "missing_any" | "missing_unit" | "missing_admit_date" | "complete";
 type SortOption = "name" | "community" | "recent_admission" | "pipeline_activity";
 type CommunityOption = { id: string; name: string };
 
@@ -80,7 +80,6 @@ export default function ClientProfileDirectory({
   const [knownCommunities, setKnownCommunities] = useState<CommunityOption[]>(() => collectCommunities(initialDirectory?.clients ?? []));
   const [communityFilter, setCommunityFilter] = useState("");
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
-  const [profileDataFilter, setProfileDataFilter] = useState<ProfileDataFilter>("any");
   const [sort, setSort] = useState<SortOption>("name");
   const loadedQuery = useRef("");
   const forceReload = useRef(false);
@@ -173,7 +172,6 @@ export default function ClientProfileDirectory({
     .filter((client) => {
       if (communityFilter && !client.community_names.includes(communityFilter)) return false;
       if (admissionFilter !== "any" && !matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf)) return false;
-      if (profileDataFilter !== "any" && !matchesProfileDataFilter(client, profileDataFilter)) return false;
       return true;
     })
     .sort((left, right) => compareDirectoryClients(left, right, sort)), [
@@ -181,13 +179,10 @@ export default function ClientProfileDirectory({
       clients,
       communityFilter,
       dataAsOf,
-      profileDataFilter,
       sort,
     ]);
   const visibleClients = filteredClients.slice(0, displayLimit);
-  const hasDirectoryFilters = Boolean(communityFilter)
-    || admissionFilter !== "any"
-    || profileDataFilter !== "any";
+  const hasDirectoryFilters = Boolean(communityFilter) || admissionFilter !== "any";
   const hasAppliedFilters = hasDirectoryFilters || Boolean(query.trim());
   const countLabel = isLoading && clients.length === 0
     ? "Loading clients..."
@@ -205,7 +200,6 @@ export default function ClientProfileDirectory({
   const clearFilters = () => {
     setCommunityFilter("");
     setAdmissionFilter("any");
-    setProfileDataFilter("any");
     setSort("name");
     setDisplayLimit(DISPLAY_INCREMENT);
   };
@@ -239,7 +233,7 @@ export default function ClientProfileDirectory({
             </label>
 
             <div className="flex min-h-10 items-center justify-between gap-3 lg:justify-end">
-              <div aria-live="polite" className="text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}</div>
+              <div aria-live="polite" className="relative text-[12px] font-semibold tabular-nums text-[#5f6864]">{countLabel}<FeedbackCue value={`${communityFilter}:${admissionFilter}:${sort}:${displayLimit}`} /></div>
               {dataAsOf ? <div className="hidden border-l border-[#d8ddda] pl-3 text-[11px] text-[#69716c] sm:block">Data through <strong className="font-bold text-[#343c38]">{formatDate(dataAsOf)}</strong></div> : null}
               <button
                 type="button"
@@ -259,8 +253,8 @@ export default function ClientProfileDirectory({
 
         </section>
 
-        <section aria-label="Client filters" className="grid grid-cols-2 gap-2 border-b border-[#e1e5e3] py-3 lg:grid-cols-[1.15fr_1fr_1fr_0.9fr_auto]">
-          <DirectorySelect label="Community" icon={<MapPin size={14} />}>
+        <section aria-label="Client filters" className="grid grid-cols-2 gap-2 border-b border-[#e1e5e3] py-3 lg:grid-cols-[1.15fr_1fr_0.9fr_auto]">
+          <DirectorySelect label="Community" active={Boolean(communityFilter)} icon={<MapPin size={14} />}>
             <select
               aria-label="Filter profiles by community"
               value={communityFilter}
@@ -273,7 +267,7 @@ export default function ClientProfileDirectory({
               {knownCommunities.map((community) => <option key={community.id} value={community.id}>{presentClientCommunity(community.name)}</option>)}
             </select>
           </DirectorySelect>
-          <DirectorySelect label="Admitted" icon={<CalendarDays size={14} />}>
+          <DirectorySelect label="Admitted" active={admissionFilter !== "any"} icon={<CalendarDays size={14} />}>
             <select aria-label="Filter profiles by admission date" value={admissionFilter} onChange={(event) => { setAdmissionFilter(event.target.value as AdmissionFilter); setDisplayLimit(DISPLAY_INCREMENT); }}>
               <option value="any">Any date</option>
               <option value="last_30_days">Last 30 days</option>
@@ -284,16 +278,7 @@ export default function ClientProfileDirectory({
               <option value="missing">Date unavailable</option>
             </select>
           </DirectorySelect>
-          <DirectorySelect label="Stay information" icon={<CircleAlert size={14} />}>
-            <select aria-label="Filter profiles by profile data" value={profileDataFilter} onChange={(event) => { setProfileDataFilter(event.target.value as ProfileDataFilter); setDisplayLimit(DISPLAY_INCREMENT); }}>
-              <option value="any">Any status</option>
-              <option value="missing_any">Missing information</option>
-              <option value="missing_unit">Unit unavailable</option>
-              <option value="missing_admit_date">Date unavailable</option>
-              <option value="complete">Complete</option>
-            </select>
-          </DirectorySelect>
-          <DirectorySelect label="Sort" icon={<ArrowUpDown size={14} />}>
+          <DirectorySelect label="Sort" active={sort !== "name"} icon={<ArrowUpDown size={14} />}>
             <select aria-label="Sort clients" value={sort} onChange={(event) => { setSort(event.target.value as SortOption); setDisplayLimit(DISPLAY_INCREMENT); }}>
               <option value="name">Name A-Z</option>
               <option value="community">Community</option>
@@ -339,7 +324,7 @@ export default function ClientProfileDirectory({
 
         {visibleClients.length < filteredClients.length ? (
           <div className="flex items-center justify-between py-5">
-            <span className="text-[11px] text-[#717a76]">Showing {visibleClients.length} of {filteredClients.length}</span>
+            <span className="relative text-[11px] text-[#717a76]">Showing {visibleClients.length} of {filteredClients.length}<FeedbackCue value={displayLimit} /></span>
             <button type="button" onClick={() => setDisplayLimit((current) => current + DISPLAY_INCREMENT)} className="flex h-10 items-center gap-2 border border-[#afb9b5] px-4 text-[11px] font-black text-[#37403c] hover:border-[#0f8b73] hover:text-[#0f8b73]"><ChevronDown size={14} /> Show more</button>
           </div>
         ) : null}
@@ -441,15 +426,17 @@ async function fetchCompleteClientDirectory(
 
 function DirectorySelect({
   label,
+  active,
   icon,
   children,
 }: {
   label: string;
+  active: boolean;
   icon: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <label className="relative flex h-[50px] min-w-0 items-center border border-[#c9d0cd] bg-white text-[#27302c] focus-within:border-[#0f8b73] focus-within:ring-1 focus-within:ring-[#0f8b73]">
+    <label data-filter-active={active} className="relative flex h-[50px] min-w-0 items-center border border-[#c9d0cd] bg-white text-[#27302c] data-[filter-active=true]:border-[#0f8b73] data-[filter-active=true]:bg-[#f4faf7] focus-within:border-[#0f8b73] focus-within:ring-1 focus-within:ring-[#0f8b73]">
       <span className="pointer-events-none absolute left-3 top-2 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.06em] text-[#66706b]">{icon}{label}</span>
       <span className="min-w-0 flex-1 [&>select]:h-full [&>select]:w-full [&>select]:appearance-none [&>select]:bg-transparent [&>select]:pb-1 [&>select]:pl-3 [&>select]:pr-9 [&>select]:pt-5 [&>select]:text-[12px] [&>select]:font-bold [&>select]:outline-none">{children}</span>
       <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 mt-1 -translate-y-1/2 text-[#66706b]" />
@@ -580,16 +567,6 @@ function matchesAdmissionFilter(admitDate: string | null, filter: AdmissionFilte
   const monthCount = filter === "last_3_months" ? 3 : filter === "last_6_months" ? 6 : 12;
   const threshold = monthsBefore(dataAsOf, monthCount);
   return filter === "older_than_12_months" ? admitDate < threshold : admitDate >= threshold;
-}
-
-function matchesProfileDataFilter(client: DirectoryClient, filter: ProfileDataFilter) {
-  if (!client.current_resident) return false;
-  const missingUnit = client.current_resident && !client.unit?.trim();
-  const missingAdmitDate = client.current_resident && !client.admit_date;
-  if (filter === "missing_unit") return missingUnit;
-  if (filter === "missing_admit_date") return missingAdmitDate;
-  if (filter === "complete") return !missingUnit && !missingAdmitDate;
-  return missingUnit || missingAdmitDate;
 }
 
 function compareDirectoryClients(left: DirectoryClient, right: DirectoryClient, sort: SortOption) {

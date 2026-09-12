@@ -590,3 +590,54 @@ Apply this across packages, not as a separate speculative infrastructure rebuild
 - Evidence: 30 Chromium Learning Center/Demo checks and 10 operational workflow checks passed against production builds with synthetic/local-file records. TypeScript, focused ESLint, training route/readiness contracts, and assessor workflow contracts passed. No fresh real Microsoft assessor login, production PostgreSQL/Blob assurance, or deployment was performed.
 - Repository complexity checking still reports changed-function growth in Overview navigation and guide navigation/completion, plus the historical hotspot ratchet. No baseline, ceiling, or approved disposition was loosened. This pass is not a release certification.
 - Rollback: revert this bounded branch's product changes and regenerate the training/Academy source maps. There are no schema changes, migrations, or formal training-record deletions.
+
+## September 12 Lightweight Feedback Pass
+
+Eric approved implementation and one coordinated deployment with the other active
+task. The isolated `codex/interaction-feedback` branch starts from `f1ce31be` and
+includes the other task's removal of the unused Clients profile-data filter.
+The Refactor task owns final integration and deployment; these checks do not by
+themselves establish that this candidate is live.
+
+- Client filters keep a quiet selected border and acknowledge changes beside the
+  result count, including changes that return the same count. Show more acknowledges
+  the displayed count, not every new card. No list-wide animation was added.
+- A single decorative `FeedbackCue` uses native animation after an existing value
+  changes. Confirmed workspace saves, stored uploads, saved owners, calendar results,
+  reports, and restored workspaces use existing states. Pending/failed operations
+  do not receive a success cue. New assignments retain the existing acknowledgment
+  rules, with a small New label.
+- Button presses, workspace tab underlines, profile/calendar panels, document/help
+  disclosure, and conditional assessment fields use short CSS effects. Progress
+  uses a transform rather than animating width. Reduced motion disables these
+  additions. No timers, network requests, motion dependency, or extra persistent
+  state were added for animation; native effects are cancelled on change/unmount.
+- Assessment close says Saving last changes while the existing durable flush runs.
+  Reports retain their actual generation time and disable export while updating.
+  A failed report/calendar refresh cannot flash a fresh success acknowledgment.
+- No clinical question, Notes Lab content/access rule, route, assignment scope,
+  database adapter, migration, API contract, or navigation warmup changed.
+
+Bounded evidence:
+
+- 38 distinct browser checks passed: six filter/calendar/report checks, fifteen
+  operator-training checks, six desktop/mobile accessibility checks, and eleven
+  operational workflow checks. Existing stale filter assertions were updated to
+  match the deliberately removed control. Production Next builds passed.
+- Feedback tests exercised 21 filter changes with 4x Chromium CPU slowdown. Native
+  cue creation was 0.6-0.7 ms p95 across repeated runs, with a 0.8 ms maximum. There
+  were zero additional directory requests. These are cue-creation costs, not
+  guarantees about total page rendering, network latency, or every device.
+- Same-count filter changes, retained focus, reduced motion, and 1440/834/390
+  layouts are executable in `tests/e2e/interaction-feedback.spec.ts`. Calendar and
+  report checks cover successful/failed updates and export gating. Workflow checks
+  retain real synthetic save/close, upload, assignment, and recovery paths.
+- Complexity checking passed without changing its baseline, ceilings, or approved
+  dispositions. TypeScript and focused ESLint passed during implementation;
+  final integration must repeat the repository's applicable release checks.
+
+Deliberate ceiling: static client rows and bounded individual controls only. The
+120-320 ms visual duration never delays an action or holds a result. Revisit the
+shared cue only if the focused 5 ms p95 creation budget fails on a supported target,
+or a new use would animate many records at once. Rollback is the bounded feedback
+commit plus regenerated source fingerprints, with no data migration or cleanup.

@@ -194,7 +194,68 @@ textarea {
   height: 8px;
 }
 
+.pipeline-feedback-cue {
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: var(--pipeline-green);
+  opacity: 0;
+  transform-origin: left;
+  pointer-events: none;
+}
+
+@keyframes pipeline-control-enter {
+  from { opacity: 0.65; translate: var(--pipeline-enter-x, 0) var(--pipeline-enter-y, 3px); }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :where(.pipeline-interactions, [data-assessment-view], [data-guided-assessment]) :where(button:not(:disabled):not([aria-disabled="true"]):not([draggable="true"]), summary):active {
+    translate: 0 1px;
+  }
+
+  .pipeline-control-enter,
+  [data-feedback-reveal="true"] {
+    animation: pipeline-control-enter 140ms ease-out;
+  }
+
+  .pipeline-panel-enter {
+    --pipeline-enter-x: 6px;
+    --pipeline-enter-y: 0;
+    animation: pipeline-control-enter 160ms ease-out;
+  }
+
+  .pipeline-popover-enter {
+    --pipeline-enter-y: -3px;
+    animation: pipeline-control-enter 120ms ease-out;
+  }
+
+  .pipeline-details-feedback[open] > :not(summary) {
+    animation: pipeline-control-enter 120ms ease-out;
+  }
+
+  .pipeline-tab-feedback::after {
+    transition: transform 140ms ease-out;
+  }
+}
+
+.pipeline-tab-feedback { position: relative; }
+.pipeline-tab-feedback::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -2px;
+  height: 2px;
+  background: var(--pipeline-green);
+  transform: scaleX(0);
+  transform-origin: center;
+  pointer-events: none;
+}
+.pipeline-tab-feedback[aria-current="page"]::after { transform: scaleX(1); }
+
 @media (prefers-reduced-motion: reduce) {
+  :where(.pipeline-interactions, [data-assessment-view], [data-guided-assessment]) :where(.transition-transform, .transition-\[width\], .transition-\[width\,background-color\]) {
+    transition: none;
+  }
   .pipeline-route-enter,
   .pipeline-search-enter,
   .pipeline-nav-dock-enter,

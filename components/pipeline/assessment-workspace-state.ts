@@ -200,7 +200,7 @@ export function assessmentSaveStatus({
 }
 
 function trainingAssessmentSaveStatus(dirty: boolean, message: string) {
-  if (dirty) return "Saving practice changes...";
+  if (dirty) return message === "Saving last changes..." ? message : "Saving practice changes...";
   return message || "Practice changes saved locally";
 }
 
@@ -214,6 +214,6 @@ function liveAssessmentSaveStatus(
   if (pendingOfflineSaves > 0) {
     return `${pendingOfflineSaves} change${pendingOfflineSaves === 1 ? "" : "s"} waiting to sync`;
   }
-  if (dirty) return "Saving changes...";
+  if (dirty) return message === "Saving last changes..." ? message : "Saving changes...";
   return message || "All changes saved";
 }

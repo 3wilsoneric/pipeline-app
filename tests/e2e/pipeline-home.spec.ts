@@ -537,7 +537,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByRole("button", { name: "Connect a referral" })).toHaveCount(0);
   });
 
-  test("stacks client community, admission-date, and profile-data filters", async ({ page }) => {
+  test("stacks client community and admission-date filters", async ({ page }) => {
     const directory = clientDirectoryFixture as {
       clients: Array<Record<string, unknown>>;
       [key: string]: unknown;
@@ -608,7 +608,7 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
     await expect(page.getByText("Taylor Chen", { exact: true })).toHaveCount(0);
 
-    await page.getByLabel("Filter profiles by profile data").selectOption("complete");
+    await expect(page.getByLabel("Filter profiles by profile data")).toHaveCount(0);
     await expect(page.getByText("Riley Perez", { exact: true })).toBeVisible();
 
     await page.getByLabel("Filter profiles by admission date").selectOption("any");

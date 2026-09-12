@@ -976,8 +976,10 @@ export default function AssessmentWorkspace({
     if (closingRef.current) return;
     closingRef.current = true;
     setIsBusy(true);
+    setMessage("Saving last changes...");
     try {
       await saveBeforeExit();
+      setMessage("");
       setShowScheduleDialog(false);
       setShowBeginDialog(false);
       setIsFocused(false);

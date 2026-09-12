@@ -18,6 +18,7 @@ import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presen
 import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/client-navigation";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import SupervisorCommandCenter from "@/components/pipeline/SupervisorCommandCenter";
+import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
 type ReportsView = "reports" | "exceptions";
 
@@ -91,7 +92,7 @@ export default function OperationsDashboard({
   };
 
   const exportReport = async () => {
-    if (!response || filtersChanged) return;
+    if (!response || filtersChanged || loading) return;
     setExporting(true);
     setError("");
     try {
@@ -241,7 +242,7 @@ function ReportsPanel({
     <>
       <ReportControls filters={filters} response={response} selectedDefinition={selectedDefinition} loading={loading} exporting={exporting} filtersChanged={filtersChanged} onSelectReport={onSelectReport} onSetFilters={onSetFilters} onReload={onReload} onExport={onExport} />
       {error ? <div role="alert" className="mt-4 flex items-center justify-between gap-4 border-l-[3px] border-[#a9473d] bg-[#fff6f4] px-4 py-3 text-[12px] text-[#723d35]"><span>{error}</span><button type="button" onClick={onReload} className="font-semibold underline underline-offset-2">Retry</button></div> : null}
-      <ReportResults response={response} selectedDefinition={selectedDefinition} loading={loading} onOpenPacket={onOpenPacket} />
+      <ReportResults response={response} selectedDefinition={selectedDefinition} loading={loading} error={error} onOpenPacket={onOpenPacket} />
     </>
   );
 }
@@ -265,27 +266,42 @@ function ReportControls({ filters, response, selectedDefinition, loading, export
       {selectedDefinition?.filters.includes("community") ? <Control label="Community"><select aria-label="Report community" value={filters.community} onChange={(event) => onSetFilters((current) => ({ ...current, community: event.target.value }))} className={`${selectClass} min-w-[190px]`}><option value="">All communities</option>{(response?.facets.communities ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}</select></Control> : null}
       {selectedDefinition?.filters.includes("owner") ? <Control label="Owner"><select aria-label="Report owner" value={filters.owner} onChange={(event) => onSetFilters((current) => ({ ...current, owner: event.target.value }))} className={`${selectClass} min-w-[180px]`}><option value="">All owners</option>{(response?.facets.owners ?? []).map((item) => <option key={item.value} value={item.value}>{item.value}</option>)}</select></Control> : null}
       <button type="button" onClick={onReload} disabled={loading || !filtersChanged} className="h-9 border border-[#171917] bg-[#171917] px-4 text-[11px] font-semibold text-white hover:bg-[#343734] disabled:cursor-not-allowed disabled:opacity-40">{loading ? "Loading" : "Apply"}</button>
-      <button type="button" data-guide-target="operations-report-export" onClick={onExport} disabled={!response || filtersChanged || exporting} className="flex h-9 items-center justify-center gap-2 border border-[#b9c6c1] bg-white px-4 text-[11px] font-semibold text-[#176f60] hover:border-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-45"><Download size={14} /> {exporting ? "Exporting" : "Export CSV"}</button>
+      <button type="button" data-guide-target="operations-report-export" onClick={onExport} disabled={!response || filtersChanged || exporting || loading} className="flex h-9 items-center justify-center gap-2 border border-[#b9c6c1] bg-white px-4 text-[11px] font-semibold text-[#176f60] hover:border-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-45"><Download size={14} /> {exporting ? "Exporting" : "Export CSV"}</button>
     </section>
   );
 }
 
-function ReportResults({ response, selectedDefinition, loading, onOpenPacket }: {
+function ReportResults({ response, selectedDefinition, loading, error, onOpenPacket }: {
   response: OperationsReportResponse | null;
   selectedDefinition: OperationsReportResponse["report"]["definition"] | null;
   loading: boolean;
+  error: string;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">) => void;
 }) {
   return (
     <article aria-label={`${selectedDefinition?.label ?? "Selected"} report`} className="min-w-0">
       {response ? <MetricGrid metrics={response.report.metrics} /> : null}
       <section data-guide-target="operations-report-results" className="mt-5" aria-label="Report results">
-        <div className="flex justify-end"><span className="text-[10px] font-semibold text-[#727a75]">{response ? `${response.report.row_count.toLocaleString()} total${response.report.truncated ? " · first 500 shown" : ""}` : "Loading"}</span></div>
+        <ReportResultStatus response={response} loading={loading} error={error} />
         {loading && !response ? <ReportSkeleton /> : null}
         {response && response.report.rows.length === 0 && !loading ? <div className="border-b border-[#d9d9d9] py-12 text-center text-[12px] text-[#727a75]">No recorded data matches this scope.</div> : null}
         {response && response.report.rows.length > 0 ? <ReportTable columns={response.report.columns} rows={response.report.rows} onOpenPacket={onOpenPacket} refreshing={loading} /> : null}
       </section>
     </article>
+  );
+}
+
+function ReportResultStatus({ response, loading, error }: {
+  response: OperationsReportResponse | null;
+  loading: boolean;
+  error: string;
+}) {
+  return (
+    <div className="flex justify-end"><span role="status" className="relative text-[10px] font-semibold text-[#727a75]">
+      {loading ? "Updating report..." : response ? `${response.report.row_count.toLocaleString()} total${response.report.truncated ? " · first 500 shown" : ""}` : "Loading"}
+      {response && !loading ? <time title="Report generated at" dateTime={response.report.generated_at}> · {new Date(response.report.generated_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time> : null}
+      <FeedbackCue value={response?.report.generated_at ?? ""} enabled={!loading && !error && Boolean(response)} />
+    </span></div>
   );
 }
 

@@ -35,7 +35,7 @@ export function AssessmentField(props: AssessmentFieldProps) {
   const readOnly = disabled || extractionOwnedFields.has(definition.key);
 
   return (
-    <div className={question.span === "full" ? "md:col-span-2" : ""}>
+    <div data-feedback-reveal={Boolean(question.showWhen)} className={question.span === "full" ? "md:col-span-2" : ""}>
       <AssessmentFieldHeader id={id} definition={definition} value={value} required={required} pending={pending} />
       <PendingAssessmentSuggestion {...props} />
       <AssessmentFieldControl {...props} id={id} readOnly={readOnly} />
@@ -187,7 +187,7 @@ export function AssessmentFieldWritingGuidePanel({ field, initiallyOpen }: { fie
   if (!specification) return null;
 
   return (
-    <details open={initiallyOpen} className="mt-2 border border-[#d9dfdb] bg-[#f8faf9]">
+    <details open={initiallyOpen} className="pipeline-details-feedback mt-2 border border-[#d9dfdb] bg-[#f8faf9]">
       <summary data-guide-target="assessment-answer-help" aria-label={`Language Lab for ${specification.label}`} className="flex min-h-9 cursor-pointer list-none flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 marker:hidden">
         <span className="flex items-center gap-2 text-[10px] font-black text-[#315e50]"><Sparkles size={12} /> Language Lab</span>
         <span className="text-[9px] font-semibold text-[#7b837e]">{specification.formatLabel} · {specification.lengthGuidance}</span>
