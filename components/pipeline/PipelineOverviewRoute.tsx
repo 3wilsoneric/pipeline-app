@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 
 import ClientProfileDirectory, { preloadCurrentClientDirectory } from "@/components/pipeline/ClientProfileDirectory";
 import OperationsDashboard from "@/components/pipeline/OperationsDashboard";
 import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
+import PipelineTrash from "@/components/pipeline/PipelineTrash";
+import ReferralHome from "@/components/pipeline/ReferralHome";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
@@ -54,11 +55,8 @@ type DeferredWorkSurfaces = Awaited<ReturnType<typeof loadDeferredWorkSurfaces>>
 type PipelineScreen = "home" | "referrals" | "packet" | "calendar" | "profiles" | "profile" | "operations" | "trash";
 type ReferralSelection = { id: number; name?: string; gender?: string; community?: Referral["community"] };
 
-// Primary navigation stays immediately available: React's first lazy mount
-// delayed Calendar and Reports by ~830 ms in the real-browser budget run.
-// Keep only infrequent secondary screens lazy; heavy charts still warm at idle.
-const PipelineTrash = dynamic(() => import("@/components/pipeline/PipelineTrash"), { loading: DeferredScreenLoading });
-const ReferralHome = dynamic(() => import("@/components/pipeline/ReferralHome"), { loading: DeferredScreenLoading });
+// Preserve immediate navigation: first lazy mounting delayed Calendar/Reports
+// ~830 ms in CI and Workspaces ~350 ms live. Heavy charts still warm at idle.
 
 function useDeferredWorkSurfaces(screen: PipelineScreen) {
   const [surfaces, setSurfaces] = useState<DeferredWorkSurfaces | null>(null);
