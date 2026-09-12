@@ -1193,7 +1193,7 @@ export default function ReferralPacketCanvas({
     if (!workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket)) return;
     const timer = window.setTimeout(() => {
       autosaveReferral();
-    }, 1_500);
+    }, 400);
     return () => window.clearTimeout(timer);
   }, [conserved, dirtyKeys, documents, fields, initialPacket, isSaving, loadedReferral, pendingDocuments, remoteChange?.conflicts.length, saveError, tagsInput, trainingIntakeMode, uploadingDocumentIds.size]);
 

@@ -39,6 +39,8 @@ export function loadTypeScriptModule(root, filePath, globals = {}) {
     return loadTypeScriptModule(root, relative(root, target), sandboxGlobals);
   };
   const sandbox = {
+    AbortController,
+    AbortSignal,
     atob,
     Buffer,
     console,

@@ -19,6 +19,13 @@ assert.match(scorecard, /first-contentful-paint[\s\S]+> 0[\s\S]+__pipelinePerfor
 assert.match(scorecard, /polling: "raf", timeout: 2_000/, "Paint observation must use a bounded rendering-frame wait.");
 assert.match(scorecard, /await locator\.click\(\)/, "Performance journeys must use trusted browser interactions.");
 assert.match(scorecard, /api_errors: apiSummary\.errors === 0/, "Observed API errors must fail certification.");
+const profileJourney = scorecard.slice(scorecard.indexOf('measureJourney("open_client_profile"'), scorecard.indexOf('measureJourney("source_thumbnail_decoded"'));
+assert.match(profileJourney, /getByTestId\("client-identity-title"\)/, "Chart timing must wait for loaded identity, not its loading wrapper.");
+assert.doesNotMatch(profileJourney, /getByTestId\("profile-workspace"\)/, "The wrapper must never certify a chart as ready.");
+assert.match(scorecard, /image\.complete && image\.naturalWidth > 0/, "Source thumbnails must decode successfully.");
+assert.match(scorecard, /await response\.arrayBuffer\(\)/, "Opening a popup must not certify a completed PDF transfer.");
+assert.match(scorecard, /AbortSignal\.timeout\(10_000\)/, "A hung source read must be bounded, never an unlimited harness wait.");
+assert.match(scorecard, /source_files: assetJourneys\.length >= 2/, "Both binary source-file journeys must meet their existing heavy-read budget.");
 assert.match(scorecard, /heavy_api: apiSummary\.heavy\.requests > 0/, "At least one heavy API must be measured.");
 assert.match(scorecard, /fixture_mode: useSanitizedFixtures \? "sanitized_test_only"/, "Test fixtures must be explicit in scorecard output.");
 assert.match(scorecard, /isLocalTarget && process\.env\.PIPELINE_PERF_FIXTURES/, "Sanitized fixtures must remain local-only.");

@@ -97,6 +97,7 @@
     "check:metrics": "node scripts/operational-metrics-readiness.mjs",
     "check:metrics:fixtures": "node scripts/operational-metric-fixtures.mjs",
     "check:performance": "node scripts/pipeline-performance-scorecard.mjs",
+    "check:performance:live-reads": "node scripts/pipeline-live-read-performance.mjs",
     "check:mcmaster:matrix": "node scripts/mcmaster-certification-matrix.mjs",
     "check:mcmaster:contracts": "node scripts/mcmaster-performance-contracts.mjs && node scripts/live-loading-contracts.mjs",
     "check:mcmaster": "npm run check:mcmaster:matrix && npm run check:mcmaster:contracts",

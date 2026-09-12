@@ -21,22 +21,32 @@ export default function PipelineTrash() {
   const [restoringId, setRestoringId] = useState<number>();
   const restoreMutationIds = useRef(new Map<number, string>());
 
-  const load = useCallback(async (search = query) => {
+  const load = useCallback(async (search: string, signal: AbortSignal) => {
     setLoading(true);
     setError("");
     try {
-      const payload = await fetchPipelineJson<{ referrals?: Referral[] }>(`/api/trash/referrals?q=${encodeURIComponent(search)}`, { cache: "no-store" });
+      const payload = await fetchPipelineJson<{ referrals?: Referral[] }>(`/api/trash/referrals?q=${encodeURIComponent(search)}`, { cache: "no-store", signal });
+      if (signal.aborted) return;
       setReferrals(payload.referrals ?? []);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Trash could not be loaded.");
+      if (!signal.aborted) setError(reason instanceof Error ? reason.message : "Trash could not be loaded.");
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  }, [query]);
+  }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void load(query), 200);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    // Opening the ledger needs no typing debounce. Keep search coalesced and
+    // discard responses belonging to an old query or an unmounted ledger.
+    const timer = query.trim()
+      ? window.setTimeout(() => void load(query, controller.signal), 200)
+      : undefined;
+    if (!query.trim()) void load(query, controller.signal);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [query, load]);
 
   const restore = async (referral: Referral) => {

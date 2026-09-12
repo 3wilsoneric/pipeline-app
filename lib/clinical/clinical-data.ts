@@ -524,6 +524,9 @@ async function requestClinicalAsset(
 ) {
   const accept = variant === "thumbnail" ? "image/png,image/jpeg,image/webp" : "application/pdf,image/*";
   const context = await createClinicalRequestContext(endpoint, request);
+  // Binary reads are not shared cache fills. Leaving the chart can cancel
+  // this work without aborting another reader's protected JSON warmup.
+  const signal = context.binarySignal;
 
   try {
     const response = await fetch(context.url, {
@@ -533,7 +536,7 @@ async function requestClinicalAsset(
         Authorization: context.authorization,
       },
       cache: "no-store",
-      signal: context.controller.signal,
+      signal,
     });
     if (!response.ok) {
       const payload = await readBoundedJson(response, 64 * 1024);
@@ -600,6 +603,7 @@ async function createClinicalRequestContext(endpoint: string, request: Request |
   return {
     authorization,
     controller,
+    binarySignal: request ? AbortSignal.any([controller.signal, request.signal]) : controller.signal,
     timeout,
     url: `${getAlamoBaseUrl()}${CLINICAL_API_PREFIX}${endpoint}`,
   };
