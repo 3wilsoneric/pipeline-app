@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
@@ -688,7 +688,7 @@ export default function AssessmentWorkspace({
     });
   }, [coverage.captured, coverage.total, onSummaryChange, selected?.assessment_id, selected?.scheduled_start_at, selected?.signed_at, selected?.started_at, selected?.status]);
 
-  const createAssessmentDraft = useCallback(async () => {
+  const createAssessmentDraft = async () => {
     if (!referralId) return;
     setIsBusy(true);
     setError("");
@@ -714,13 +714,17 @@ export default function AssessmentWorkspace({
     } finally {
       setIsBusy(false);
     }
-  }, [referralId, upsertAssessment]);
+  };
+
+  const scheduleFromIntake = useEffectEvent(() => {
+    void createAssessmentDraft();
+  });
 
   useEffect(() => {
     if (!startScheduling || isLoading || selected || !canCreateAssignedAssessment || schedulingRequestedRef.current) return;
     schedulingRequestedRef.current = true;
-    void createAssessmentDraft();
-  }, [canCreateAssignedAssessment, createAssessmentDraft, isLoading, selected, startScheduling]);
+    scheduleFromIntake();
+  }, [canCreateAssignedAssessment, isLoading, selected, startScheduling]);
 
   const beginAssessment = async () => {
     const current = selectedRef.current;

@@ -99,6 +99,10 @@ check("cleared packet selections settle while replacement packets remain pending
     && canvasSaveState.reconcileSavedDirtyKeys(new Set(["initialPacket"]), clearedPacketSnapshot, {
       ...savedDraftValues, initialPacket: { name: "replacement.pdf", size: 1, lastModified: 1 },
     }, true).has("initialPacket"));
+check("draft save status distinguishes queued files from durable uploads",
+  canvasSaveState.referralDraftSaveStatus("Draft saved", false, 1) === "Draft saved · 1 file queued"
+    && canvasSaveState.referralDraftSaveStatus("Draft saved", false, 2) === "Draft saved · 2 files queued"
+    && canvasSaveState.referralDraftSaveStatus("Workspace loaded", true, 0) === "All changes saved");
 check("extraction cannot replace locally dirty fields",
   canvas.includes("!dirtyKeys.has(key)")
     && canvas.includes("mergeExtractedFields(")
@@ -108,7 +112,8 @@ check("unfinished private drafts are resumable without creating a second queue",
     && overview.includes("resumeReferralDraft")
     && overview.includes("params.set(\"draftId\", draftKey.slice(4))"));
 check("unfinished intake remains private until its owner explicitly creates a workspace",
-  canvas.includes('const label = hasReferral ? "Retry saving" : "Create referral"')
+  canvas.includes('label: "Create referral"')
+    && canvas.includes('label: "Retry saving"')
     && !canvas.includes("materializationAttemptRef")
     && !canvas.includes("shouldPauseDraftMaterialization"));
 check("automatic retries are limited to idempotent upload boundaries",
