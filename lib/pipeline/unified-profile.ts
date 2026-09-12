@@ -74,8 +74,7 @@ type PipelineProjectionStage =
   | "load_suggestions"
   | "load_canonical_documents"
   | "load_referrals"
-  | "load_assessments"
-  | "load_documents"
+  | "load_assessments_and_documents"
   | "assemble_projection";
 
 export async function getUnifiedClientProfile(
@@ -173,17 +172,14 @@ export async function getUnifiedClientProfile(
     const link = connection.confirmed_link;
     projectionStage = "load_referrals";
     const referrals = await loadLinkedReferrals(link, user);
-    projectionStage = "load_assessments";
-    const assessments = await loadLinkedAssessments(
-      link,
-      referrals,
-      clinical.client.canonical_client_id,
-      user,
-    );
-    projectionStage = "load_documents";
+    projectionStage = "load_assessments_and_documents";
+    const [assessments, linkedDocuments] = await Promise.all([
+      loadLinkedAssessments(link, referrals, clinical.client.canonical_client_id, user),
+      loadLinkedDocuments(link, referrals),
+    ]);
     const documents = dedupeDocuments([
       ...canonicalDocuments,
-      ...await loadLinkedDocuments(link, referrals),
+      ...linkedDocuments,
     ]);
     projectionStage = "assemble_projection";
 
@@ -249,10 +245,13 @@ async function getPipelineOnlyClientProfile(
   if (!getReferralStoreReadiness().ready) {
     throw new UnifiedProfileError(503, "pipeline_store_unavailable", "Pipeline client workspaces are temporarily unavailable.");
   }
-  const referrals = (await listReferralsByClient(normalizedClientId))
+  const [clientReferrals, documents] = await Promise.all([
+    listReferralsByClient(normalizedClientId),
+    listReferralFilesByClient(normalizedClientId),
+  ]);
+  const referrals = clientReferrals
     .filter((referral) => !user || canAccessReferral(user, referral))
     .sort(compareReferrals);
-  const documents = await listReferralFilesByClient(normalizedClientId);
   if (user && isAssessorUser(user) && referrals.length === 0) {
     throw new UnifiedProfileError(404, "pipeline_client_not_found", "This client profile could not be loaded.");
   }

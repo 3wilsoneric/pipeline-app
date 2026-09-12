@@ -45,6 +45,16 @@ for (const endpoint of ["/api/me/recents", "/api/me/work-continuity", "/api/refe
   assert.equal(browser.readPipelineJsonCache(path).version, 1);
 }
 checks.push("recents, resume locations and presence preserve loaded chart data");
+for (const method of ["PUT", "DELETE"]) {
+  respond = async () => Response.json({ version: 1 });
+  await browser.fetchPipelineJson("/api/me/referral-drafts", {}, { cacheTtlMs: 60_000 });
+  await browser.fetchPipelineJson("/api/me/referral-drafts/42", {}, { cacheTtlMs: 60_000 });
+  await browser.fetchPipelineJson("/api/me/referral-drafts/42", { method });
+  assert.equal(browser.readPipelineJsonCache(path).version, 1);
+  assert.equal(browser.readPipelineJsonCache("/api/me/referral-drafts"), undefined);
+  assert.equal(browser.readPipelineJsonCache("/api/me/referral-drafts/42"), undefined);
+}
+checks.push("private recovery saves and deletes evict draft reads, not saved charts or directories");
 await browser.fetchPipelineJson("/api/referrals/42", { method: "PATCH" });
 assert.equal(browser.readPipelineJsonCache(path), undefined);
 checks.push("real data edits still invalidate cached projections");
@@ -91,6 +101,44 @@ await staleRead;
 assert.equal(browser.readPipelineJsonCache(path).version, 22);
 checks.push("an earlier pending read cannot overwrite a completed explicit refresh");
 
+let timerId = 0;
+const timers = new Map();
+const warmedPaths = [];
+const finishWarmups = [];
+const navigation = load("lib/pipeline/client-navigation.ts", {
+  react: {},
+  "@/lib/pipeline/base-path": {},
+  "@/lib/pipeline/workspace-presentation": { isImportedWorkspace: (referral) => referral.workspaceOrigin === "allo" },
+  "@/lib/auth/authenticated-fetch": {
+    fetchPipelineJson: (url, init, options) => {
+      assert.equal(init.method ?? "GET", "GET");
+      assert.ok(options.cacheTtlMs > 0 && options.cacheTtlMs <= 60_000);
+      warmedPaths.push(url);
+      return new Promise((resolve) => finishWarmups.push(resolve));
+    },
+  },
+}, {
+  setTimeout: (fn, delay) => { assert.equal(delay, 120); timers.set(++timerId, fn); return timerId; },
+  clearTimeout: (id) => timers.delete(id),
+});
+const runWarmup = () => { const callbacks = [...timers.values()]; timers.clear(); callbacks.forEach((fn) => fn()); };
+navigation.prefetchPipelineWorkspace({ id: 41, clientId: "ignored" });
+navigation.prefetchPipelineWorkspace({ id: 42, clientId: "fixture", workspaceOrigin: "allo" });
+assert.equal(timers.size, 1);
+runWarmup();
+assert.deepEqual(warmedPaths, ["/api/referrals/42/canvas", "/api/profiles/pipeline%3Afixture", "/api/referrals/42/historical-profile"]);
+navigation.prefetchPipelineWorkspace({ id: 42 }); runWarmup();
+assert.equal(warmedPaths.length, 3);
+navigation.prefetchPipelineWorkspace({ id: 43 }); runWarmup();
+navigation.prefetchPipelineWorkspace({ id: 44 }); runWarmup();
+assert.equal(warmedPaths.length, 4);
+finishWarmups.forEach((resolve) => resolve({}));
+await new Promise((resolve) => setTimeout(resolve, 0));
+navigation.prefetchPipelineWorkspace({ id: 44 }); runWarmup();
+assert.equal(warmedPaths.at(-1), "/api/referrals/44/canvas");
+finishWarmups.at(-1)({});
+checks.push("workspace intent ignores drive-bys, deduplicates and caps concurrent warmups, without writes or file downloads");
+
 const fixture = JSON.parse(readFileSync("scripts/fixtures/alamo-pipeline-clinical.sanitized.json", "utf8"));
 const contracts = loadTypeScriptModule(root, "lib/clinical/clinical-contracts.ts");
 let clinicalCalls = 0;
@@ -131,6 +179,72 @@ clinicalEnv.PIPELINE_ALAMO_API_TOKEN = "synthetic-rotated-token";
 await clinical.getClinicalClients(broken, { limit: 200 });
 assert.equal(clinicalCalls, 8);
 checks.push("rotating upstream authority invalidates prior clinical projections");
+
+payload = fixture.roster;
+const beforeRoster = clinicalCalls;
+await Promise.all([clinical.getClinicalRoster(operator, { limit: 200 }), clinical.getClinicalRoster(operator, { limit: 200 })]);
+await clinical.getClinicalRoster(operator, { limit: 200 });
+assert.equal(clinicalCalls, beforeRoster + 1);
+await clinical.getClinicalRoster(new Request(operator, { headers: { cookie: "session=operator-a", "x-pipeline-refresh": "1" } }), { limit: 200 });
+assert.equal(clinicalCalls, beforeRoster + 2);
+await clinical.getClinicalRoster(new Request("https://pipeline.invalid", { headers: { cookie: "session=operator-b" } }), { limit: 200 });
+await clinical.getClinicalRoster(new Request("https://pipeline.invalid", { headers: { cookie: "session=operator-a; delegation=assessor" } }), { limit: 200 });
+assert.equal(clinicalCalls, beforeRoster + 4);
+now += 60_001;
+await clinical.getClinicalRoster(operator, { limit: 200 });
+assert.equal(clinicalCalls, beforeRoster + 5);
+payload = { invalid: true };
+await assert.rejects(clinical.getClinicalRoster(new Request(operator, { headers: { cookie: "session=operator-a", "x-pipeline-refresh": "1" } }), { limit: 200 }));
+await assert.rejects(clinical.getClinicalRoster(operator, { limit: 200 }));
+assert.equal(clinicalCalls, beforeRoster + 7);
+checks.push("current census pages deduplicate, expire, refresh, isolate God mode and never reuse invalid source data");
+
+payload = fixture.resident;
+await clinical.getClinicalResident(operator, "337:R-100");
+payload = structuredClone(fixture.resident);
+payload.resident.date_of_birth = "1999-12-31";
+for (const method of ["POST", "PATCH"]) {
+  const resident = await clinical.getClinicalResident(new Request(operator, { method }), "337:R-100");
+  assert.equal(resident.resident.date_of_birth, "1999-12-31");
+}
+payload = { invalid: true };
+await assert.rejects(clinical.getClinicalResident(new Request(operator, { method: "PATCH" }), "337:R-100"));
+checks.push("mutation identity validation stays fresh and rejects bad evidence despite warmed display caches");
+
+let releaseReferrals, releaseDocuments;
+let referralsStarted = false, documentsStarted = false;
+let visible = true;
+const unified = load("lib/pipeline/unified-profile.ts", {
+  "@/lib/assessment/assessment-store": { getAssessmentStoreReadiness: () => ({ ready: false }) },
+  "@/lib/assessment/assessment-tool-schema": {},
+  "@/lib/clinical/clinical-data": {},
+  "@/lib/observability/api-logging": {},
+  "@/lib/observability/pipeline-metrics": {},
+  "./client-history-store": {},
+  "./community-config": {},
+  "./referral-clinical-reconciliation": {},
+  "./resident-link-store": {},
+  "./client-identity-presentation.mjs": { normalizeClientName: (name) => name, resolveClientGender: () => null },
+  "./referral-access": { isAssessorUser: () => true, canAccessReferral: () => visible },
+  "./referral-store": {
+    getReferralStoreReadiness: () => ({ ready: true }),
+    listReferralsByClient: () => { referralsStarted = true; return new Promise((resolve) => { releaseReferrals = resolve; }); },
+    listReferralFilesByClient: () => { documentsStarted = true; return new Promise((resolve) => { releaseDocuments = resolve; }); },
+  },
+});
+const profileRead = unified.getUnifiedClientProfile(operator, "pipeline:fixture", undefined, { id: "fixture-owner" });
+assert.ok(referralsStarted && documentsStarted);
+const referral = { id: 42, name: "Fixture Person", community: "Fixture", createdAt: "2026-09-12T00:00:00Z", stage: "Intake", workspaceStatus: "historical", requirements: [] };
+releaseReferrals([referral]);
+releaseDocuments([{ id: "allowed", referralId: 42 }, { id: "hidden", referralId: 43 }]);
+const profile = await profileRead;
+assert.equal(profile.pipeline.documents.length, 1);
+assert.equal(profile.pipeline.documents[0].id, "allowed");
+visible = false;
+const rejectedProfile = unified.getUnifiedClientProfile(operator, "pipeline:fixture", undefined, { id: "different-owner" });
+releaseReferrals([referral]); releaseDocuments([{ id: "allowed", referralId: 42 }]);
+await assert.rejects(rejectedProfile, (error) => error.status === 404);
+checks.push("parallel chart reads start together while assessor ownership and document visibility remain enforced");
 
 let warmed = 0;
 const identity = load("lib/pipeline/referral-clinical-identity.ts", {

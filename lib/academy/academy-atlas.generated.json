@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:55a76137fd5c5d24",
-  "fingerprint": "55a76137fd5c5d240a7dadbe7f4df24d6ec05ed7796e4736587e53f2139acbc6",
+  "generatedAt": "source-fingerprint:9a8dbb12b5b6ddcf",
+  "fingerprint": "9a8dbb12b5b6ddcf9a9e2f6e036aa16af43c7ef29f92261ec0f333762655f44e",
   "totals": {
-    "files": 988,
-    "lines": 313845,
-    "coveredFiles": 988
+    "files": 989,
+    "lines": 314054,
+    "coveredFiles": 989
   },
   "entries": [
     {
@@ -2373,7 +2373,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3813,
+      "lines": 3814,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2433,7 +2433,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 228,
+      "lines": 233,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2445,7 +2445,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 112,
+      "lines": 115,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -4091,6 +4091,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 40,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/LIVE_WORKFLOW_PERFORMANCE_2026-09-12.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 47,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6375,7 +6387,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 331,
+      "lines": 342,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -6519,7 +6531,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 906,
+      "lines": 908,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -7332,7 +7344,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 42,
+      "lines": 68,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -8128,7 +8140,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 816,
+      "lines": 815,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -10144,7 +10156,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 210,
+      "lines": 211,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10372,7 +10384,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 149,
+      "lines": 263,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
