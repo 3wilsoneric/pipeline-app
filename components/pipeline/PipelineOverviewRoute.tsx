@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 
-import ClientProfileDirectory from "@/components/pipeline/ClientProfileDirectory";
+import ClientProfileDirectory, { preloadCurrentClientDirectory } from "@/components/pipeline/ClientProfileDirectory";
 import OperationsDashboard from "@/components/pipeline/OperationsDashboard";
 import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
@@ -119,21 +119,23 @@ export default function PipelineOverviewRoute() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     fetchCurrentPipelineUser()
       .then(({ user }) => {
         if (cancelled) return;
         setReportAccess(canAccessOperationsReports(user.roles));
-        // Warm only the first visible directory pages, after authentication.
+        // Warm the first workspace page and complete current census after authentication.
         // GET-only reads use the same cache as navigation; no charts or files
         // are downloaded in bulk and no background user session is created.
         void fetchPipelineJson(`/api/referrals/directory?${buildReferralParams({ kind: "all" }, "")}`, {}, { cacheTtlMs: 30_000 }).catch(() => undefined);
-        void fetchPipelineJson("/api/profiles/directory?limit=200&scope=current", {}, { cacheTtlMs: 60_000 }).catch(() => undefined);
+        void preloadCurrentClientDirectory(controller.signal).catch(() => undefined);
       })
       .catch(() => {
         if (!cancelled) setReportAccess(false);
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 

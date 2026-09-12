@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:bc1cc1af277f9bce",
-  "fingerprint": "bc1cc1af277f9bcec63c7bfdccab16a36dbf8c623327de577979b063413436f8",
+  "generatedAt": "source-fingerprint:18943d03035a4378",
+  "fingerprint": "18943d03035a43785e8320ce0065200f4f7b96cda3b863ae4bb1fe4b08d44fe1",
   "totals": {
-    "files": 994,
-    "lines": 315674,
-    "coveredFiles": 994
+    "files": 998,
+    "lines": 316005,
+    "coveredFiles": 998
   },
   "entries": [
     {
@@ -1917,7 +1917,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 623,
+      "lines": 647,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2193,7 +2193,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 475,
+      "lines": 477,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -3971,6 +3971,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 232,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/DIRECTORY_STARTUP_PREWARM_2026-09-12.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 65,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6063,7 +6075,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 20,
+      "lines": 23,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -6556,6 +6568,18 @@
       "runtime": "next-server",
       "risk": "critical",
       "lines": 912,
+      "moduleIds": [
+        "clinical-adapter-profiles",
+        "identity-matching-reconciliation"
+      ]
+    },
+    {
+      "path": "lib/clinical/clinical-startup-warmup.ts",
+      "subsystem": "Clinical integration",
+      "kind": "typescript-module",
+      "runtime": "next-server",
+      "risk": "critical",
+      "lines": 21,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -8632,7 +8656,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 246,
+      "lines": 248,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -9983,6 +10007,18 @@
       ]
     },
     {
+      "path": "scripts/directory-prewarm-contracts.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 113,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/extraction-corpus-readiness.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -10583,6 +10619,18 @@
       ]
     },
     {
+      "path": "scripts/pipeline-directory-startup-performance.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 94,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/pipeline-extraction-worker-contracts.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -10672,7 +10720,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 315,
+      "lines": 320,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11718,7 +11766,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 848,
+      "lines": 850,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

@@ -617,53 +617,55 @@ test.describe("Pipeline home", () => {
     await expect(page.getByText("Taylor Chen", { exact: true })).toBeVisible();
   });
 
-  test("keeps the governed directory status while Pipeline workspace pages finish loading", async ({ page }) => {
+  test("preloads the complete governed current census before Clients opens", async ({ page }) => {
     const directory = clientDirectoryFixture as unknown as {
       clients: Array<Record<string, unknown>>;
       [key: string]: unknown;
     };
     const clinicalClient = directory.clients[0];
-    const pipelineClient = {
+    const nextCensusClient = {
       ...clinicalClient,
-      canonical_client_id: "pipeline:workspace-pagination-check",
+      canonical_client_id: "census-pagination-check",
+      profile_key: "resident:census-pagination-check",
       display_name: "Morgan Lee",
-      workspace_origin: "pipeline",
-      pipeline_client_id: "workspace-pagination-check",
+      workspace_origin: "alamo_platform",
+      current_resident: true,
+      pipeline_client_id: null,
       referral_count: 1,
       document_count: 1,
     };
 
+    let pagesLoaded = 0;
     await page.route("**/api/profiles/directory**", async (route) => {
-      const cursor = new URL(route.request().url()).searchParams.get("cursor");
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get("scope")).toBe("current");
+      const cursor = url.searchParams.get("cursor");
+      pagesLoaded += 1;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(cursor ? {
           ...directory,
-          clients: [pipelineClient],
-          total: 1,
+          clients: [nextCensusClient],
+          total: 2,
           next_cursor: null,
-          freshness: {
-            status: "unknown",
-            age_hours: null,
-            max_age_hours: 24,
-            warning: "The Alamo client directory is unavailable; Pipeline-only client workspaces remain available.",
-          },
         } : {
           ...directory,
           clients: [clinicalClient],
           total: 2,
-          next_cursor: "pipeline-page",
+          next_cursor: "census-page",
         }),
       });
     });
 
     await page.goto("/");
     await page.waitForLoadState("networkidle");
+    expect(pagesLoaded).toBe(2);
     await page.getByRole("button", { name: "Open client profiles" }).click();
     await expect(page.getByText("Morgan Lee", { exact: true })).toBeVisible();
     await expect(page.getByText("The Alamo client directory is unavailable", { exact: false })).toHaveCount(0);
     await expect(page.getByText("2 clients", { exact: true })).toBeVisible();
+    expect(pagesLoaded).toBe(2);
   });
 
   test("requires explicit human review before joining a referral to an admitted resident", async ({ page }) => {
