@@ -199,7 +199,7 @@ async function getPostgresAssessmentCalendar(
         r.owner_id, r.owner_name,
         coalesce(r.received_date, r.created_at::date)::text as received_date,
         r.workflow_status,
-        (btrim(coalesce(r.phone, '')) <> '' or btrim(coalesce(r.email, '')) <> '' or exists (
+        (btrim(coalesce(r.data->>'phone', '')) <> '' or btrim(coalesce(r.data->>'email', '')) <> '' or exists (
           select 1
           from pipeline.referral_contacts rc
           join pipeline.contacts c on c.contact_id = rc.contact_id
