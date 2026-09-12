@@ -224,6 +224,11 @@ The desktop profile subsequently passed all nine enabled cases after scoping
 its draft/upload status assertions to the same indicator; its disabled-feature
 case is intentionally skipped in that profile. The optional operator packet
 smoke uses the same scoped assertion but was not run with real source material.
+The next CI candidate passed its primary browser and isolated Notes Lab access
+profiles. Its matrix then stopped on an outdated two-entry directory-cache
+marker: the existing cache was already eight entries. That requirement now
+checks the current bound, user key, generation invalidation, and eviction loop;
+the cache implementation and measured performance limits are unchanged.
 
 That run also detected a real identity-confirmation defect: mutation validation
 could reuse a 15-second clinical display projection. The existing clinical TTL
