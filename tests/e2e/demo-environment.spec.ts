@@ -104,6 +104,49 @@ test.describe("Pipeline Demo Environment", () => {
     await expect.poll(() => errors).toEqual([]);
   });
 
+  test("lets an admin open workflow stages without creating a record", async ({ page }) => {
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() !== "GET") writes.push(`${request.method()} ${request.url()}`);
+    });
+
+    const response = await page.goto("/training/demo?view=tester");
+    expect(response?.status()).toBe(200);
+    const testerTab = page.getByRole("tab", { name: "Process tester" });
+    await expect(testerTab).toHaveAttribute("aria-selected", "true");
+    const tester = page.locator('[data-process-tester="true"]');
+    await expect(tester.getByRole("heading", { name: "Process tester" })).toBeVisible();
+    await expect(tester.getByRole("button", { name: "Open intake" })).toBeVisible();
+    await expect(tester.getByRole("button", { name: "Open scheduling" })).toBeVisible();
+    await expect(tester.getByRole("button", { name: "Open assessment" })).toBeVisible();
+    await expect(tester.getByRole("button", { name: "Open review" })).toBeVisible();
+    await expect(tester.getByRole("button", { name: "Open decision" })).toBeVisible();
+
+    await tester.getByRole("button", { name: "Open review" }).click();
+    await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=provenance_qc/);
+    const interview = page.getByRole("dialog", { name: "Assessment interview" });
+    await expect(interview).toBeVisible();
+    await expect(interview.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
+    expect(writes).toEqual([]);
+  });
+
+  test("keeps referral intake practice out of production storage", async ({ page }) => {
+    const workflowWrites: string[] = [];
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (request.method() !== "GET" && (/^\/api\/referrals(?:\/|$)/.test(url.pathname) || url.pathname.startsWith("/api/me/referral-drafts/"))) {
+        workflowWrites.push(`${request.method()} ${url.pathname}`);
+      }
+    });
+
+    await page.goto(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&trainingIntake=1&demo=1`);
+    await page.locator('[data-workspace-field="name"] input').fill("Synthetic Intake Test");
+    await page.getByRole("button", { name: "Save practice" }).click();
+    await expect(page.getByText("Practice changes saved in this tab")).toBeVisible();
+    await page.waitForTimeout(500);
+    expect(workflowWrites).toEqual([]);
+  });
+
   test("moves directly from the presentation into the real walkthrough", async ({ page }) => {
     await page.goto("/training/demo");
 
@@ -292,7 +335,7 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.locator('[data-demo-surface="practice"]')).toBeVisible();
     const center = page.locator('[data-demo-center="true"]');
     expect(await center.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    for (const tab of ["Presentation", "Practice cases", "Submittal & acceptance"]) {
+    for (const tab of ["Presentation", "Practice cases", "Submittal & acceptance", "Process tester"]) {
       await expect(page.getByRole("tab", { name: tab })).toBeInViewport();
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

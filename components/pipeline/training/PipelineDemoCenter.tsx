@@ -36,6 +36,7 @@ import { getOperatorGuidedTutorial } from "@/lib/training/operator-guided-tutori
 import { stageOperatorGuideForNavigation } from "@/lib/training/operator-guided-tour-state";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import PipelineProcessTester, { type ProcessTesterStage } from "@/components/pipeline/training/PipelineProcessTester";
 
 const SubmissionAcceptanceDemo = dynamic(() => import("@/components/pipeline/training/SubmissionAcceptanceDemo"), {
   loading: () => <div className="flex min-h-[260px] items-center justify-center text-[11px] font-bold text-[#68736f]">Loading workflow rehearsal...</div>,
@@ -50,7 +51,7 @@ type DemoActor = {
 
 type DemoReferralSummary = Pick<Referral, "id" | "name" | "community" | "tags" | "createdAt">;
 type DemoAssessor = { principal_id: string; display_name: string };
-type DemoView = "presentation" | "lab" | "handoff";
+type DemoView = "presentation" | "lab" | "handoff" | "tester";
 type DemoWorkspaceStage = "intake" | "assessment";
 type DemoGuide = { tutorialId: string; stepId: string };
 
@@ -266,13 +267,16 @@ export default function PipelineDemoCenter({
   actor,
   environment,
   initialPresentationSlide,
+  initialView,
 }: {
   actor: DemoActor;
   environment: PipelineDemoEnvironment;
   initialPresentationSlide?: string;
+  initialView?: DemoView;
 }) {
   const scrollContainerRef = useRef<HTMLElement>(null);
-  const [view, setView] = useState<DemoView>("presentation");
+  const canUseProcessTester = actor.roles.includes("admin");
+  const [view, setView] = useState<DemoView>(() => initialView === "tester" && canUseProcessTester ? "tester" : "presentation");
   const [referrals, setReferrals] = useState<DemoReferralSummary[]>([]);
   const [loadingCases, setLoadingCases] = useState(true);
   const [launchingId, setLaunchingId] = useState<PipelineDemoScenarioId | null>(null);
@@ -377,6 +381,22 @@ export default function PipelineDemoCenter({
     window.location.assign(demoReferralRoute(referral.id, workspaceStage));
   };
 
+  const openProcessTesterStage = (stage: ProcessTesterStage) => {
+    activatePipelineDemoSession();
+    if (stage === "decision") {
+      selectView("handoff");
+      return;
+    }
+    if (stage === "intake") {
+      window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&trainingIntake=1&demo=1`));
+      return;
+    }
+    const section = stage === "review" ? "provenance_qc" : "identity";
+    const mode = stage === "schedule" ? "schedule" : "interview";
+    const assessmentSection = mode === "interview" ? `&assessmentSection=${section}` : "";
+    window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=${mode}${assessmentSection}&demo=1`));
+  };
+
   return (
     <main ref={scrollContainerRef} data-demo-center="true" className="h-full min-h-0 overflow-hidden bg-white text-[#171a18]">
       <div className="flex h-full min-h-0 w-full flex-col">
@@ -385,6 +405,7 @@ export default function PipelineDemoCenter({
             <DemoTab active={view === "presentation"} label="Presentation" onClick={() => selectView("presentation")} />
             <DemoTab active={view === "lab"} label="Practice cases" onClick={() => selectView("lab")} />
             <DemoTab active={view === "handoff"} label="Submittal & acceptance" onClick={() => selectView("handoff")} />
+            {canUseProcessTester ? <DemoTab active={view === "tester"} label="Process tester" onClick={() => selectView("tester")} /> : null}
           </div>
         </header>
 
@@ -415,6 +436,8 @@ export default function PipelineDemoCenter({
               onLaunch={(scenario) => void launchScenario(scenario)}
               onOpen={openExisting}
             />
+          ) : view === "tester" ? (
+            <PipelineProcessTester onOpenStage={openProcessTesterStage} />
           ) : (
             <SubmissionAcceptanceDemo preparedBy={actor.name} />
           )}
@@ -827,7 +850,7 @@ function demoReferralRoute(referralId: number, workspaceStage: DemoWorkspaceStag
 function navigateWithoutDemoRecord(scenario: PipelineDemoScenario, guide?: DemoGuide) {
   if (scenario.launch === "new_referral") {
     if (guide) stageOperatorGuideForNavigation(guide.tutorialId, guide.stepId);
-    window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&demoScenario=${scenario.id}`));
+    window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&trainingIntake=1&demoScenario=${scenario.id}&demo=1`));
     return true;
   }
   if (!guide) return false;

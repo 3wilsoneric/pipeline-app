@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CircleHelp, GraduationCap, LogOut, Settings, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, CircleHelp, GraduationCap, LogOut, Settings, TestTube2, Trash2, UserRound } from "lucide-react";
 
 import { ActiveAssessorSessionPill, AssessorSessionMenuAction } from "@/components/pipeline/AssessorSessionControl";
 import PipelineActionNav, { type PipelineNavTarget } from "@/components/pipeline/PipelineActionNav";
@@ -35,6 +35,10 @@ export default function PipelineHeader() {
   useEffect(() => {
     router.prefetch(toPipelinePath("/training"));
   }, [router]);
+
+  useEffect(() => {
+    if (user?.roles.includes("admin")) router.prefetch(toPipelinePath("/training/demo?view=tester"));
+  }, [router, user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -217,6 +221,7 @@ export default function PipelineHeader() {
             </div>
             <ProfileSettingsLink active={pathname === "/settings"} onSelect={() => setIsProfileMenuOpen(false)} />
             <ProfileLearningLink active={pathname === "/training"} onSelect={() => setIsProfileMenuOpen(false)} />
+            {user?.roles.includes("admin") ? <ProfileProcessTesterLink onSelect={() => setIsProfileMenuOpen(false)} /> : null}
             <AssessorSessionMenuAction user={user} closeProfileMenu={() => setIsProfileMenuOpen(false)} />
             {user?.roles.some((role) => ["admin", "assessment_coordinator", "reviewer"].includes(role)) ? (
               <button
@@ -319,6 +324,10 @@ function ProfileSettingsLink({ active, onSelect }: { active: boolean; onSelect: 
 
 function ProfileLearningLink({ active, onSelect }: { active: boolean; onSelect: () => void }) {
   return <Link href="/training" prefetch={true} aria-label="Learning Center Pipeline walkthrough and quick help" aria-current={active ? "page" : undefined} onClick={onSelect} className={`group grid min-h-[64px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-t border-[#e5e5e5] border-l-[3px] px-4 py-3 text-left outline-none transition-colors focus-visible:bg-[#edf7f3] ${active ? "border-l-[#0f8b73] bg-[#edf7f3]" : "border-l-transparent hover:border-l-[#0f8b73] hover:bg-[#f7faf9]"}`}><GraduationCap size={18} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black text-[#111111]">Learning Center</span><span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Walkthrough and quick help</span></span><ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></Link>;
+}
+
+function ProfileProcessTesterLink({ onSelect }: { onSelect: () => void }) {
+  return <Link href="/training/demo?view=tester" prefetch={true} aria-label="Process tester Open any workflow stage with synthetic data" onClick={onSelect} className="group grid min-h-[64px] grid-cols-[28px_minmax(0,1fr)_16px] items-center gap-3 border-t border-l-[3px] border-t-[#e5e5e5] border-l-transparent px-4 py-3 text-left outline-none transition-colors hover:border-l-[#0f8b73] hover:bg-[#f7faf9] focus-visible:bg-[#edf7f3]"><TestTube2 size={18} strokeWidth={1.8} className="text-[#0f8b73]" aria-hidden="true" /><span className="min-w-0"><span className="block text-[12px] font-black text-[#111111]">Process tester</span><span className="mt-0.5 block text-[10px] leading-4 text-[#737373]">Open any stage with synthetic data</span></span><ArrowRight size={15} className="text-[#0f8b73] transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></Link>;
 }
 
 function navigatePipelineDestination(
