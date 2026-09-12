@@ -10,6 +10,7 @@ import type {
 } from "@/lib/assessment/assessment-summary";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import ReadableChartText from "@/components/pipeline/ReadableChartText";
 
 type ChartView = "complete" | "meet-client";
 
@@ -37,7 +38,7 @@ type ChartPayload = {
   };
 };
 
-export default function AssessmentChartWorkspace({ referralId }: { referralId?: number }) {
+export default function AssessmentChartWorkspace({ referralId, embedded = false }: { referralId?: number; embedded?: boolean }) {
   const [payload, setPayload] = useState<ChartPayload | null>(null);
   const [view, setView] = useState<ChartView>("complete");
   const [loading, setLoading] = useState(Boolean(referralId));
@@ -96,7 +97,7 @@ export default function AssessmentChartWorkspace({ referralId }: { referralId?: 
     }
   };
 
-  const unavailable = chartUnavailableState(referralId, loading, payload, error, load);
+  const unavailable = chartUnavailableState(referralId, loading, payload, error, load, embedded);
   if (unavailable) return unavailable;
   const readyPayload = payload!;
   const report = readyPayload.report!;
@@ -117,7 +118,7 @@ export default function AssessmentChartWorkspace({ referralId }: { referralId?: 
 
       <div className="mt-5">
         {view === "complete" ? (
-          <CompleteAssessmentChart report={report} />
+          <AssessmentRecord report={report} embedded={embedded} />
         ) : (
           <MeetClientChart
             summary={report.meetClient}
@@ -141,12 +142,19 @@ function chartUnavailableState(
   payload: ChartPayload | null,
   error: string,
   load: () => Promise<void>,
+  embedded: boolean,
 ) {
   if (!referralId) return <EmptyState text="Save the referral before opening its assessment records." />;
   if (loading && !payload) return <div className="flex min-h-56 items-center justify-center gap-2 text-[12px] text-[#66706b]"><LoaderCircle size={16} className="animate-spin" /> Loading assessment records...</div>;
   if (!payload) return <EmptyState text={error || "The assessment records are unavailable."} onRetry={() => void load()} />;
-  if (!payload.report) return <EmptyState text="Complete and sign the assessment to generate the client charts." onRetry={() => void load()} />;
+  if (!payload.report) return embedded ? <></> : <EmptyState text="Complete and sign the assessment to generate the client charts." onRetry={() => void load()} />;
   return null;
+}
+
+function AssessmentRecord({ report, embedded }: { report: AssessmentSummaryReport; embedded: boolean }) {
+  const record = <CompleteAssessmentChart report={report} />;
+  if (!embedded) return record;
+  return <details><summary className="cursor-pointer text-[12px] font-bold text-[#0f8b73]">Signed assessment record</summary><div className="mt-4">{record}</div></details>;
 }
 
 function ChartStatusMessage({ error, message }: { error: string; message: string }) {
@@ -207,7 +215,7 @@ function ChartSection({ title, items }: { title: string; items: AssessmentSummar
         {items.map((item) => (
           <div key={`${title}:${item.label}`} className="min-w-0">
             <dt className="text-[8px] font-black uppercase tracking-[0.06em] text-[#737d78]">{item.label}</dt>
-            <dd className="mt-1 whitespace-pre-line text-[11px] leading-5 text-[#222a26]">{item.value}</dd>
+            <dd className="mt-1 whitespace-pre-line text-[11px] leading-5 text-[#222a26]"><ReadableChartText value={item.value} /></dd>
           </div>
         ))}
       </dl>
