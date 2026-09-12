@@ -385,7 +385,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(activePacket).toHaveCSS("gap", "10px");
     await expect(activePacket.locator("svg")).toBeVisible();
     const steps = page.getByRole("navigation", { name: "Workspace stages" });
-    const savePacket = page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ });
+    const savePacket = page.getByRole("button", { name: /^Create referral$/ });
     const [stepsBox, saveBox] = await Promise.all([steps.boundingBox(), savePacket.boundingBox()]);
     expect(stepsBox).not.toBeNull();
     expect(saveBox).not.toBeNull();
@@ -417,6 +417,89 @@ test.describe("Referral home and packet canvas", () => {
     expect(queue.items.every((item) => Number.isInteger(item.referral_id))).toBeTruthy();
   });
 
+  test("keeps draft creation explicit and fits intake actions across viewport sizes", async ({ page }, testInfo) => {
+    const name = `Intake ${uniqueAlphabeticNameToken()}`;
+    await page.getByRole("button", { name: "Create new referral" }).click();
+    await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
+    await page.getByRole("textbox", { name: "DOB", exact: true }).fill("06/12/1984");
+    await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
+    await page.getByRole("textbox", { name: "Referent:", exact: true }).fill("Synthetic intake team");
+    await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption(testAssessor.id);
+    await expect(page.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Schedule assessment", exact: true })).toHaveCount(0);
+    await page.waitForTimeout(2_000);
+    expect(new URL(page.url()).searchParams.get("referralId")).toBeNull();
+
+    for (const width of [320, 390, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const action = page.getByRole("button", { name: "Create referral", exact: true });
+      await expect(action).toBeVisible();
+      const bounds = await action.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      const conserved = page.getByRole("group", { name: "Conserved", exact: true });
+      const controlBounds = await conserved.boundingBox();
+      for (const option of ["yes", "no"]) {
+        const optionBounds = await conserved.getByRole("button", { name: option, exact: true }).boundingBox();
+        expect(optionBounds).not.toBeNull();
+        expect(optionBounds!.x).toBeGreaterThanOrEqual(controlBounds!.x);
+        expect(optionBounds!.x + optionBounds!.width).toBeLessThanOrEqual(controlBounds!.x + controlBounds!.width);
+      }
+      await page.screenshot({ path: testInfo.outputPath(`intake-draft-${width}.png`), fullPage: true });
+    }
+    await page.getByRole("button", { name: "Create referral", exact: true }).click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
+    await expect(page.getByTestId("workspace-save-status")).toContainText("Saved");
+    await expect(page.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
+    await page.getByRole("complementary", { name: "Intake progress" }).getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Schedule assessment", exact: true })).toBeVisible();
+  });
+
+  test("retries failed intake autosaves without losing edits made during saving", async ({ page }) => {
+    const name = `Autosave ${uniqueAlphabeticNameToken()}`;
+    await page.getByRole("button", { name: "Create new referral" }).click();
+    await page.getByRole("textbox", { name: "NAME", exact: true }).fill(name);
+    await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
+    await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
+    await page.getByRole("button", { name: "Create referral", exact: true }).click();
+    await expect(page.getByTestId("workspace-save-status")).toContainText("Saved");
+    const referralId = new URL(page.url()).searchParams.get("referralId");
+    let attempts = 0;
+    let releaseSave!: () => void;
+    const saveGate = new Promise<void>((resolve) => { releaseSave = resolve; });
+    await page.route(`**/api/referrals/${referralId}`, async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      attempts += 1;
+      if (attempts === 1) return route.fulfill({ status: 503, json: { error: "Synthetic save unavailable" } });
+      if (attempts === 2) await saveGate;
+      await route.continue();
+    });
+    const editedName = `${uniqueAlphabeticNameToken()} Revised`;
+    const latestName = `${uniqueAlphabeticNameToken()} Latest`;
+    await page.getByRole("textbox", { name: "NAME", exact: true }).fill(editedName);
+    await expect(page.getByTestId("workspace-save-status").getByRole("alert")).toContainText("Synthetic save unavailable");
+    await page.waitForTimeout(2_000);
+    expect(attempts).toBe(1);
+    await page.getByRole("button", { name: "Retry saving", exact: true }).click();
+    await expect.poll(() => attempts).toBe(2);
+    try {
+      await expect(page.getByTestId("workspace-save-status")).toContainText("Saving changes");
+      await page.getByRole("textbox", { name: "NAME", exact: true }).fill(latestName);
+    } finally {
+      releaseSave();
+    }
+    await expect.poll(async () => {
+      const response = await page.request.get(`/api/referrals/${referralId}`);
+      return ((await response.json()) as { referral: { name: string } }).referral.name;
+    }).toBe(latestName);
+    await expect(page.getByTestId("workspace-save-status")).toContainText("Saved");
+    await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "NAME", exact: true })).toHaveValue(latestName);
+  });
+
   test("creates a durable shell before its initial document and recalls the saved referral chart", async ({ page }) => {
     const clientName = `Referral ${uniqueAlphabeticNameToken()}`;
     await page.getByRole("button", { name: "Create new referral" }).click();
@@ -434,7 +517,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(page.getByRole("region", { name: "Initial referral packet" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Identity chart section" })).toBeVisible();
     await expect(documentChecklist.getByRole("button", { name: /drop document or browse$/ })).toHaveCount(8);
-    await expect(page.getByRole("complementary", { name: "Chart completion" })).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Intake progress" })).toBeVisible();
     const documentChecklistBox = await documentChecklist.boundingBox();
     const identityBox = await page.getByRole("region", { name: "Identity chart section" }).boundingBox();
     expect(documentChecklistBox).not.toBeNull();
@@ -447,9 +530,11 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
     await page.getByRole("textbox", { name: "Referent:", exact: true }).fill("San Pablo intake team");
     await page.getByRole("combobox", { name: "Owner (@name):" }).selectOption(testAssessor.id);
-    await page.getByRole("button", { name: "Create workspace", exact: true }).click();
+    await page.getByRole("button", { name: "Create referral", exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
-    await expect(page.getByRole("button", { name: "Save workspace", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create referral", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Save workspace", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("complementary", { name: "Intake progress" }).getByRole("button", { name: "Schedule assessment" })).toBeVisible();
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
     await page.getByRole("textbox", { name: "Summary: Reason for referral", exact: true }).fill("Referral chart created from the initial document.");
     await page.getByRole("button", { name: "Close editor", exact: true }).click();
@@ -463,8 +548,6 @@ test.describe("Referral home and packet canvas", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from(`required-face-sheet-${randomUUID()}`),
     });
-    await page.getByRole("button", { name: "Save workspace", exact: true }).click();
-
     await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible();
 
     const response = await page.request.get(`/api/referrals/${referralId}`);
@@ -556,7 +639,7 @@ test.describe("Referral home and packet canvas", () => {
 
     await page.getByRole("button", { name: "Create new referral" }).click();
     const packetSteps = page.getByRole("navigation", { name: "Workspace stages" });
-    const savePacket = page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ });
+    const savePacket = page.getByRole("button", { name: /^Create referral$/ });
     const firstPacketPage = page.getByRole("region", { name: "Intake", exact: true });
     const [stepsBox, saveBox, firstPageBox] = await Promise.all([
       packetSteps.boundingBox(),
@@ -1367,13 +1450,22 @@ test.describe("Referral home and packet canvas", () => {
       await secondPage.getByRole("button", { name: `Open ${currentName} referral workspace` }).click();
       const localName = `${suffix} Local`;
       const remoteName = `${suffix} Remote`;
+      let releaseLocal!: () => void;
+      const localSaveGate = new Promise<void>((resolve) => { releaseLocal = resolve; });
+      await page.route(`**/api/referrals/${base.id}`, async (route) => {
+        if (route.request().method() === "PATCH") await localSaveGate;
+        await route.continue();
+      });
       await page.getByRole("textbox", { name: "NAME", exact: true }).fill(localName);
       await secondPage.getByRole("textbox", { name: "NAME", exact: true }).fill(remoteName);
-      await secondPage.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
-      await expect.poll(async () => {
-        const response = await page.request.get(`/api/referrals/${base.id}`);
-        return ((await response.json()) as { referral: { name: string } }).referral.name;
-      }).toBe(remoteName);
+      try {
+        await expect.poll(async () => {
+          const response = await page.request.get(`/api/referrals/${base.id}`);
+          return ((await response.json()) as { referral: { name: string } }).referral.name;
+        }).toBe(remoteName);
+      } finally {
+        releaseLocal();
+      }
 
       const remoteChanges = page.getByRole("region", { name: "Remote changes" });
       await expect(remoteChanges).toBeVisible({ timeout: 8_000 });
@@ -1442,7 +1534,7 @@ test.describe("Referral home and packet canvas", () => {
       const response = await page.request.get(`/api/referrals/${created.referral.id}`);
       return ((await response.json()) as { referral: { note?: string } }).referral.note;
     }, { timeout: 8_000 }).toContain("## Additional context\nRecovered synthetic summary draft.");
-    await expect(page.getByText(/Autosaved/).first()).toBeVisible();
+    await expect(page.getByTestId("workspace-save-status")).toContainText("Saved");
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Edit summary", exact: true }).click();
@@ -1596,7 +1688,7 @@ test.describe("Referral home and packet canvas", () => {
     });
 
     await expect(page.getByText("face-sheet.pdf", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
+    await page.getByRole("button", { name: /^Create referral$/ }).click();
     await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open client profile", exact: true })).toHaveCount(0);
     const extractionReview = page.getByRole("region", { name: "Extraction review" });
@@ -1854,7 +1946,7 @@ test.describe("Referral home and packet canvas", () => {
       mimeType: "image/png",
       buffer: canvas.toBuffer("image/png"),
     });
-    await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
+    await page.getByRole("button", { name: /^Create referral$/ }).click();
 
     await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible({ timeout: 120_000 });
     const extractionReview = page.getByRole("region", { name: "Extraction review" });
@@ -1910,7 +2002,7 @@ test.describe("Referral home and packet canvas", () => {
       mimeType: "application/pdf",
       buffer: packetBytes,
     });
-    await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
+    await page.getByRole("button", { name: /^Create referral$/ }).click();
     await expect(page.getByRole("region", { name: "Document checklist" }).getByText("Packet added", { exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Extraction review" })).toBeVisible();
 
@@ -1924,7 +2016,7 @@ test.describe("Referral home and packet canvas", () => {
       mimeType: "application/pdf",
       buffer: packetBytes,
     });
-    await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
+    await page.getByRole("button", { name: /^Create referral$/ }).click();
     await expect(page.getByText("This exact packet is already attached to a referral. Open the existing referral instead.", { exact: true })).toBeVisible();
 
     const duplicateResponse = await page.request.get(`/api/referrals?q=${encodeURIComponent(secondClient)}`);
@@ -1967,7 +2059,7 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill(clientName);
     await page.getByRole("combobox", { name: "Community:" }).selectOption("San Pablo");
     await page.getByRole("combobox", { name: "County:" }).selectOption("Contra Costa County");
-    await page.getByRole("button", { name: /^(Create workspace|Save workspace)$/ }).click();
+    await page.getByRole("button", { name: /^Create referral$/ }).click();
 
     const review = page.getByRole("alertdialog", { name: "Possible duplicate referral" });
     await expect(review).toBeVisible();
@@ -2026,7 +2118,9 @@ test.describe("Referral home and packet canvas", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from(`assessment-referral-${randomUUID()}`),
     });
-    await page.getByRole("button", { name: /^(Save and continue to assessment|Schedule assessment)$/ }).click();
+    await page.getByRole("button", { name: "Create referral", exact: true }).click();
+    await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded");
+    await page.getByRole("button", { name: "02 Assessment", exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId")).not.toBeNull();
     const referralId = new URL(page.url()).searchParams.get("referralId");
     expect(referralId).toBeTruthy();
@@ -2046,7 +2140,7 @@ test.describe("Referral home and packet canvas", () => {
       .getByRole("group", { name: "Upload initial referral document" })).toContainText("assessment-referral.pdf", { timeout: 15_000 });
     const packetReview = page.getByRole("region", { name: "Extraction review" });
     await expect(packetReview).toBeVisible();
-    await page.getByRole("button", { name: "Schedule assessment", exact: true }).click();
+    await page.getByRole("button", { name: "02 Assessment", exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("workspaceStage")).toBe("assessment");
     await expect(page.getByRole("button", { name: "02 Assessment" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("button", { name: "Schedule assessment" })).toBeVisible();
@@ -2074,7 +2168,7 @@ test.describe("Referral home and packet canvas", () => {
     await expect(assessmentInterview.getByText(testAssessor.name, { exact: true })).toBeVisible();
     const scheduleDialog = page.getByRole("dialog", { name: "Schedule assessment" });
     await scheduleDialog.getByLabel("Assessment date and time").fill("2026-08-26T09:00");
-    await scheduleDialog.getByLabel("Assessment location or link").fill("San Pablo interview room");
+    await scheduleDialog.getByLabel("Assessment address").fill("San Pablo interview room");
     await scheduleDialog.getByRole("button", { name: "Schedule assessment", exact: true }).click();
     const beginDialog = page.getByRole("dialog", { name: "Begin assessment" });
     await expect(beginDialog).toBeVisible();
@@ -2098,10 +2192,10 @@ test.describe("Referral home and packet canvas", () => {
     await page.getByRole("button", { name: /^Function/ }).click();
     const languageBarrier = page.getByRole("group", { name: "Language barrier", exact: true });
     await languageBarrier.getByRole("button", { name: "Yes", exact: true }).click();
-    await expect(page.getByLabel(/Language support needed/)).toBeVisible();
-    await page.getByLabel(/Language support needed/).fill("Interpreter requested");
+    await expect(page.getByLabel(/^Language support needed/)).toBeVisible();
+    await page.getByLabel(/^Language support needed/).fill("Interpreter requested");
     await languageBarrier.getByRole("button", { name: "No", exact: true }).click();
-    await expect(page.getByLabel(/Language support needed/)).toHaveCount(0);
+    await expect(page.getByLabel(/^Language support needed/)).toHaveCount(0);
     await languageBarrier.getByRole("button", { name: "Unable to assess", exact: true }).click();
     const unableReason = page.getByLabel("Why could this not be assessed? *", { exact: true });
     await expect(unableReason).toBeVisible();
@@ -2109,8 +2203,8 @@ test.describe("Referral home and packet canvas", () => {
     await unableReason.fill("The client could not participate and no collateral source was available.");
     await expect(page.getByText("An explanation is required before this assessment can be signed.", { exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: /^Client & referral/ }).click();
-    await page.getByLabel(/Resident number/).fill(`EM-${randomUUID().slice(0, 8)}`);
-    await page.getByLabel(/Date of birth/).fill("1984-06-12");
+    await page.getByLabel(/^Resident number/).fill(`EM-${randomUUID().slice(0, 8)}`);
+    await page.getByLabel(/^Date of birth/).fill("1984-06-12");
     await expect(page.getByText("All changes saved", { exact: true })).toBeVisible({ timeout: 8_000 });
     await page.getByRole("button", { name: "Close assessment", exact: true }).click();
     await expect(page.getByRole("button", { name: "Resume assessment", exact: true })).toBeVisible();

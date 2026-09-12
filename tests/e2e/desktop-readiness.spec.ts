@@ -194,14 +194,14 @@ test.describe("desktop feature enabled", () => {
     expect(draftId).toMatch(/^[0-9a-f-]{36}$/i);
     const draftEndpoint = `/api/me/referral-drafts/new-${draftId}`;
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Casey Hartwell");
-    await expect(page.getByText("Recovery draft saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Draft saved", { exact: true })).toBeVisible({ timeout: 15_000 });
     const autosaved = await page.request.get(draftEndpoint);
     expect(await autosaved.json()).toMatchObject({
       draft: { fields: { name: { value: "Casey Hartwell" } } },
     });
     await page.waitForTimeout(1_500);
     expect(new URL(page.url()).searchParams.get("referralId")).toBeNull();
-    await page.getByRole("button", { name: "Create workspace", exact: true }).click();
+    await page.getByRole("button", { name: "Create referral", exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId"), { timeout: 15_000 }).not.toBeNull();
     const referralId = Number(new URL(page.url()).searchParams.get("referralId"));
     expect(referralId).toBeGreaterThan(0);
@@ -218,7 +218,6 @@ test.describe("desktop feature enabled", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from(`desktop-recovery-face-sheet-${Date.now()}`),
     });
-    await page.getByRole("button", { name: "Save workspace" }).click();
     await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible({ timeout: 20_000 });
     await expect.poll(async () => {
       const response = await page.request.get(draftEndpoint);
@@ -342,8 +341,8 @@ test.describe("desktop feature enabled", () => {
     ]);
 
     await Promise.all([
-      page.getByRole("button", { name: "Create workspace", exact: true }).click(),
-      otherPage.getByRole("button", { name: "Create workspace", exact: true }).click(),
+      page.getByRole("button", { name: "Create referral", exact: true }).click(),
+      otherPage.getByRole("button", { name: "Create referral", exact: true }).click(),
     ]);
     await expect.poll(() => new URL(page.url()).searchParams.get("referralId"), { timeout: 20_000 }).not.toBeNull();
     await expect.poll(() => new URL(otherPage.url()).searchParams.get("referralId"), { timeout: 20_000 }).not.toBeNull();

@@ -58,7 +58,7 @@ export function reconcileSavedDirtyKeys(
   const remaining = new Set(activeDirtyKeys);
   for (const key of saved.dirtyKeys) {
     if (key === "initialPacket") {
-      if (saved.initialPacket && current.initialPacket === null) remaining.delete(key);
+      if (current.initialPacket === null) remaining.delete(key);
       continue;
     }
     if (key === "documents") {

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import dynamic from "next/dynamic";
 import {
+  ArrowRight,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -11,7 +12,8 @@ import {
   FileText,
   FolderOpen,
   History,
-  Save,
+  Plus,
+  RefreshCw,
   Trash2,
   UploadCloud,
   X,
@@ -24,7 +26,7 @@ import {
   isInternalWorkspaceTag,
 } from "@/lib/pipeline/workspace-presentation";
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
-import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
+import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 import ImportedWorkspaceProfile from "@/components/pipeline/HistoricalReferralProfile";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
@@ -103,7 +105,6 @@ import {
   canvasDraftStorageKey,
   captureReferralSaveSnapshot,
   currentDraftValues,
-  draftKeySignature,
   mergePendingDocumentNames,
   normalizeTags,
   reconcileSavedDirtyKeys,
@@ -358,11 +359,12 @@ export default function ReferralPacketCanvas({
     total: 52,
     status: "not_started",
   });
-  const [savedAt, setSavedAt] = useState(referral?.id ? "Loading workspace..." : "Add documents, then complete intake");
+  const [savedAt, setSavedAt] = useState(referral?.id ? "Loading referral..." : "Draft");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
   const serverDraftsEnabled = usesServerReferralDrafts() && !trainingIntakeMode;
   const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(serverDraftsEnabled);
   const [isSaving, setIsSaving] = useState(false);
+  const [schedulingReferralId, setSchedulingReferralId] = useState<number | null>(null);
   const [reviewBusyFieldKey, setReviewBusyFieldKey] = useState<string>();
   const [isBulkReviewing, setIsBulkReviewing] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -550,21 +552,21 @@ export default function ReferralPacketCanvas({
     if (serverDraftsEnabled) {
       void saveServerReferralDraft(reference, draft)
         .then(() => {
-          if (reportStatus && draftRevisionRef.current === revision) setSavedAt("Recovery draft saved");
+          if (reportStatus && !loadedReferralRef.current && draftRevisionRef.current === revision) setSavedAt("Draft saved");
         })
         .catch((error) => {
           if (reportStatus && draftRevisionRef.current === revision) {
             const message = error instanceof Error ? error.message : "Could not save the recovery draft.";
-            setSaveError(`${message} Save the referral before leaving this page.`);
+            setSaveError(`${message} Your changes are still open in this tab.`);
           }
         });
       return;
     }
     try {
       window.sessionStorage.setItem(canvasDraftStorageKey(reference), JSON.stringify(draft));
-      if (reportStatus && draftRevisionRef.current === revision) setSavedAt("Recovery draft saved");
+      if (reportStatus && !loadedReferralRef.current && draftRevisionRef.current === revision) setSavedAt("Draft saved in this tab");
     } catch {
-      if (reportStatus) setSaveError("This browser could not keep a refresh-recovery draft. Save before leaving this page.");
+      if (reportStatus) setSaveError("This browser could not keep a recovery draft. Your changes are still open in this tab.");
     }
   };
   persistRecoveryDraftRef.current = () => persistRecoveryDraft(false);
@@ -691,7 +693,7 @@ export default function ReferralPacketCanvas({
         void loadServerReferralDraft(newDraftKey).then((draft) => {
           if (cancelled) return;
           const recovered = draft ? restoreDraftTracking(applyRecoveryDraft(draft, setters)) : null;
-          setSavedAt(recovered ? "Recovered unsaved changes" : "Add documents, then complete intake");
+          setSavedAt(recovered ? "Recovered unsaved changes" : "Draft");
         }).catch(() => {
           if (!cancelled) setSaveError("Could not check for a recovery draft.");
         }).finally(() => {
@@ -700,7 +702,7 @@ export default function ReferralPacketCanvas({
       } else {
         setDraftRecoveryLoading(false);
         const recovered = restoreDraftTracking(restoreSessionDraft(newDraftKey, setters));
-        setSavedAt(recovered ? "Recovered unsaved changes" : "Add documents, then complete intake");
+        setSavedAt(recovered ? "Recovered unsaved changes" : "Draft");
       }
       return () => {
         cancelled = true;
@@ -971,6 +973,7 @@ export default function ReferralPacketCanvas({
   }, [activePage, editableReferralId]);
 
   const updateField = (key: FieldKey, value: string) => {
+    setSaveError("");
     setDuplicateReview((current) => duplicateIdentityFields.has(key) ? null : current);
     setSavedAt("Unsaved changes");
     markDirty(key);
@@ -1103,6 +1106,7 @@ export default function ReferralPacketCanvas({
   };
 
   const openPage = (page: WorkspaceView) => {
+    if (page !== 2) setSchedulingReferralId(null);
     setActivePage(page);
     if (typeof page === "number") onWorkspaceStageChange?.(workspaceStageName(page));
     onWorkspaceLocationChange?.(workspaceLocationForPage(page));
@@ -1175,69 +1179,19 @@ export default function ReferralPacketCanvas({
     return payload.referral;
   };
 
+  const autosaveReferral = useEffectEvent(() => {
+    if (isSavingRef.current || !loadedReferralRef.current) return;
+    void saveDraft();
+  });
+
   useEffect(() => {
-    const current = loadedReferral;
-    if (!current || isSaving || remoteChange?.conflicts.length) return;
-    const keys = new Set([...dirtyKeys].filter((key) => (
-      key !== "initialPacket" && !(key === "documents" && Object.keys(pendingDocuments).length > 0)
-    )));
-    if (keys.size === 0) return;
-    const signatures = new Map([...keys].map((key) => [key, draftKeySignature(key, {
-      fields,
-      conserved,
-      tagsInput,
-      documents,
-      initialPacket,
-    })]));
-    const timer = window.setTimeout(async () => {
-      isSavingRef.current = true;
-      setIsSaving(true);
-      setSaveError("");
-      setSavedAt("Autosaving...");
-      try {
-        const saved = await persistExistingChanges(current, keys);
-        const remainingDirtyKeys = new Set(dirtyKeysRef.current);
-        for (const key of keys) {
-          const signature = draftKeySignature(key, {
-            fields: fieldsRef.current,
-            conserved: conservedRef.current,
-            tagsInput: tagsInputRef.current,
-            documents: documentsRef.current,
-            initialPacket: initialPacketRef.current,
-          });
-          if (signature === signatures.get(key)) remainingDirtyKeys.delete(key);
-        }
-        dirtyKeysRef.current = remainingDirtyKeys;
-        setDirtyKeys(remainingDirtyKeys);
-        if (remainingDirtyKeys.size === 0) {
-          draftBaseVersionRef.current = undefined;
-          draftBaseValuesRef.current = {};
-        } else {
-          draftBaseVersionRef.current = saved.version;
-          draftBaseValuesRef.current = Object.fromEntries(
-            [...remainingDirtyKeys].map((key) => [key, referralBaseDraftValue(saved, key)]),
-          );
-        }
-        if (remainingDirtyKeys.size === 0) {
-          void clearSessionDraft(saved.id);
-          setSavedAt(`Autosaved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
-        } else {
-          setSavedAt("Autosaved; newer changes remain");
-        }
-        setRemoteChange(null);
-      } catch (error) {
-        if (error instanceof PipelineApiError && error.status === 409) {
-          const latest = getConflictReferral(error.payload);
-          if (latest) receiveRemoteReferral(latest, latest.updatedBy?.name, true);
-        }
-        setSaveError(error instanceof Error ? error.message : "Autosave failed. Your recovery draft is still in this tab.");
-      } finally {
-        isSavingRef.current = false;
-        setIsSaving(false);
-      }
+    if (!loadedReferral || trainingIntakeMode || isSaving || saveError || uploadingDocumentIds.size > 0 || remoteChange?.conflicts.length) return;
+    if (!workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket)) return;
+    const timer = window.setTimeout(() => {
+      autosaveReferral();
     }, 1_500);
     return () => window.clearTimeout(timer);
-  }, [conserved, dirtyKeys, documents, fields, initialPacket, isSaving, loadedReferral, pendingDocuments, remoteChange?.conflicts.length, tagsInput]);
+  }, [conserved, dirtyKeys, documents, fields, initialPacket, isSaving, loadedReferral, pendingDocuments, remoteChange?.conflicts.length, saveError, tagsInput, trainingIntakeMode, uploadingDocumentIds.size]);
 
   const persistReferralSave = async (
     snapshot: ReferralSaveSnapshot,
@@ -1392,6 +1346,7 @@ export default function ReferralPacketCanvas({
   };
 
   const saveDraft = async (confirmedDistinctReferralIds: number[] = []): Promise<Referral | null> => {
+    if (isSavingRef.current) return null;
     setSaveError("");
     const blockedMessage = referralSaveBlockedMessage(uploadingDocumentIds.size, Boolean(remoteChange?.conflicts.length));
     if (blockedMessage) {
@@ -1400,6 +1355,7 @@ export default function ReferralPacketCanvas({
     }
     setIsSaving(true);
     isSavingRef.current = true;
+    setSavedAt(loadedReferralRef.current ? "Saving changes..." : "Creating referral...");
     const snapshot = captureReferralSaveSnapshot(
       dirtyKeysRef.current,
       currentDraftValues(fieldsRef.current, conservedRef.current, tagsInputRef.current, documentsRef.current, initialPacketRef.current),
@@ -1441,7 +1397,7 @@ export default function ReferralPacketCanvas({
         recoveryDraftReferenceRef.current = savedReferral.id;
         onReferralSaved?.({ id: savedReferral.id, name: savedReferral.name, community: savedReferral.community });
         void clearSessionDraft(newDraftKey);
-        setSavedAt(snapshot.initialPacket ? "Workspace created; uploading packet..." : "Workspace created");
+        setSavedAt(snapshot.initialPacket ? "Referral created; uploading packet..." : "Referral created");
       }
       savedReferral = await uploadAndLinkInitialPacket(savedReferral, snapshot, documentHash);
       for (const [requirementId, file] of Object.entries(snapshot.pendingDocuments)) {
@@ -1482,13 +1438,16 @@ export default function ReferralPacketCanvas({
       window.location.assign(toPipelinePath("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule&demo=1"));
       return;
     }
+    if (!loadedReferralRef.current || isSavingRef.current) return;
     const hasPendingChanges = dirtyKeysRef.current.size > 0
       || Object.keys(pendingDocumentsRef.current).length > 0
       || Boolean(initialPacketRef.current);
-    if (!loadedReferralRef.current || hasPendingChanges) {
+    if (hasPendingChanges) {
       const savedReferral = await saveWorkspaceDraft();
       if (!savedReferral) return;
     }
+    if (workspaceHasPendingChanges(dirtyKeysRef.current, pendingDocumentsRef.current, initialPacketRef.current)) return;
+    setSchedulingReferralId(loadedReferralRef.current.id);
     openPage(2);
   };
 
@@ -1499,7 +1458,7 @@ export default function ReferralPacketCanvas({
     allowManualOverride = true,
   ) => {
     if (!loadedReferral?.packetId || !loadedReferral.packetFields) {
-      setSaveError("Save and finish extracting the packet before reviewing its values.");
+      setSaveError("Wait for the packet to finish uploading and extracting before reviewing its values.");
       return;
     }
 
@@ -1786,7 +1745,11 @@ export default function ReferralPacketCanvas({
     : "";
   const hasPendingWorkspaceChanges = workspaceHasPendingChanges(dirtyKeys, pendingDocuments, initialPacket);
   const referralWorkspaceId = activeReferralId(loadedReferral, referral);
-  const assessmentNeedsSave = workspaceNeedsInitialSave(loadedReferral, hasPendingWorkspaceChanges);
+  const hasReferral = hasReferralRecord(loadedReferral, referral?.id);
+  const queuedFileCount = Object.keys(pendingDocuments).length + Number(Boolean(initialPacket));
+  const saveStatus = !hasReferral && queuedFileCount > 0
+    ? `${savedAt} · ${queuedFileCount.toLocaleString()} file${queuedFileCount === 1 ? "" : "s"} queued`
+    : savedAt === "Workspace loaded" ? "All changes saved" : savedAt;
 
   const moveWorkspaceToTrash = async () => {
     const current = loadedReferralRef.current;
@@ -1826,13 +1789,13 @@ export default function ReferralPacketCanvas({
         className="mx-auto w-full max-w-[1480px] px-2 pb-10 pt-0 sm:px-4 lg:px-6"
       >
         <div className="sticky top-0 z-20 mb-1 bg-white/95 backdrop-blur-sm">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 border-b border-[#d9d9d9] lg:flex lg:gap-3">
-            <h1 data-testid="workspace-identity-title" className="max-w-[10rem] shrink-0 truncate text-[12px] font-black text-[#111111] sm:max-w-[18rem] lg:max-w-[26rem]" title={workspaceTitle}>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b border-[#d9d9d9] lg:grid-cols-[minmax(120px,1fr)_minmax(0,2fr)_auto]">
+            <h1 data-testid="workspace-identity-title" className="min-w-0 truncate py-3 text-[14px] font-bold text-[#111111]" title={workspaceTitle}>
               {workspaceTitle}
             </h1>
             <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={openPage} />
 
-            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:border-l lg:border-[#d9d9d9] lg:pl-2">
+            <div className="col-start-2 row-start-1 flex items-center gap-1 lg:col-start-3">
               {loadedReferral && editingControlsVisible ? (
                 <button
                   type="button"
@@ -1882,17 +1845,13 @@ export default function ReferralPacketCanvas({
               </button>
               {editingControlsVisible ? (
                 <>
-                  <div className="max-w-[9rem] text-right sm:max-w-[14rem] xl:max-w-[20rem]" aria-live="polite">
-                    <div className="truncate text-[10px] font-normal text-[#737373] sm:text-[11px]">{savedAt === "Workspace loaded" ? "All changes saved" : savedAt}</div>
-                    {saveError ? <div className="mt-0.5 text-[11px] font-semibold text-[#a4473c]">{saveError}</div> : null}
-                  </div>
                   <WorkspaceSaveControl
                     saving={isSaving}
-                    hasReferral={hasReferralRecord(loadedReferral, referral?.id)}
+                    hasReferral={hasReferral}
                     hasChanges={hasPendingWorkspaceChanges}
                     blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
                     onSave={saveWorkspaceDraft}
-                    training={trainingIntakeMode}
+                    retry={Boolean(saveError)}
                   />
                 </>
               ) : null}
@@ -1904,7 +1863,7 @@ export default function ReferralPacketCanvas({
                   disabled={isSaving || isDeleting}
                   onClick={() => {
                     if (dirtyKeysRef.current.size > 0) {
-                      setSaveError("Save your changes before moving this workspace to trash.");
+                      setSaveError("Wait for your changes to save before moving this workspace to trash.");
                       return;
                     }
                     setDeleteDialogOpen(true);
@@ -1916,6 +1875,11 @@ export default function ReferralPacketCanvas({
               ) : null}
             </div>
           </div>
+          {editingControlsVisible ? (
+            <div data-testid="workspace-save-status" className="flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1 py-1 text-[11px] font-medium" aria-live="polite">
+              {saveError ? <span role="alert" className="min-w-0 break-words text-[#a4473c]">{saveError}</span> : <span className="text-[#68716c]">{saveStatus}</span>}
+            </div>
+          ) : null}
         </div>
 
         {recoveredDraftAt ? (
@@ -2061,16 +2025,16 @@ export default function ReferralPacketCanvas({
                 onEdit={(field, value) => reviewExtractedField(field, "edit", value)}
               />
             ) : null}
-            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_260px] xl:grid-cols-[minmax(0,1fr)_280px]">
               <div className="min-w-0 space-y-5">
                 <ChartSection title="Identity" complete={countCompleteFields(fields, ["name", "gender", "age", "dob", "ssn"])} total={5}>
-                  <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 xl:grid-cols-6">
                     {(["name", "gender", "age", "dob", "ssn"] as FieldKey[]).map((key) => (
                       <EditablePacketField
                         key={key}
                         fieldKey={key}
                         field={fields[key]}
-                        className={key === "ssn" ? "sm:col-span-2 lg:col-span-1" : undefined}
+                        className={key === "name" ? "xl:col-span-2" : key === "ssn" ? "sm:col-span-2 xl:col-span-1" : undefined}
                         onChange={(value) => updateField(key, value)}
                         onFocus={focusWorkspaceField}
                       />
@@ -2128,17 +2092,19 @@ export default function ReferralPacketCanvas({
                       />
                       <div className="mt-1 text-[10px] text-[#737373]">Comma-separated; searchable everywhere.</div>
                     </div>
-                    <div className="flex min-h-[86px] items-center justify-between gap-3 border-b border-r border-[#d7ddd9] bg-white p-3">
-                      <div>
+                    <div className="flex min-h-[86px] flex-wrap items-center justify-between gap-3 border-b border-r border-[#d7ddd9] bg-white p-3">
+                      <div className="min-w-0">
                         <div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">Conserved</div>
                         <div className="mt-1 text-[10px] text-[#737373]">Record the current legal status.</div>
                       </div>
-                      <div className="flex overflow-hidden border border-[#c9ceca] bg-white">
+                      <div role="group" aria-label="Conserved" className="flex shrink-0 overflow-hidden border border-[#c9ceca] bg-white">
                         {(["yes", "no"] as const).map((value) => (
                           <button
                             key={value}
                             type="button"
+                            aria-pressed={conserved === value}
                             onClick={() => {
+                              setSaveError("");
                               setConserved(value);
                               markDirty("conserved");
                               setSavedAt("Unsaved changes");
@@ -2182,12 +2148,12 @@ export default function ReferralPacketCanvas({
                       field={fields.summary}
                       kind="summary"
                       onChange={(value) => updateField("summary", value)}
-                      saveStatus={savedAt}
+                      saveStatus={saveStatus}
                       saveError={saveError}
                       saving={isSaving}
                       hasUnsavedChanges={hasPendingWorkspaceChanges}
-                      saveActionLabel={trainingIntakeMode ? "Save practice" : hasReferralRecord(loadedReferral, referral?.id) ? "Save now" : "Create workspace"}
-                      onSave={() => void saveWorkspaceDraft()}
+                      saveActionLabel="Retry saving"
+                      onSave={hasReferral && saveError ? () => void saveWorkspaceDraft() : undefined}
                     />
                   </div>
                 </ChartSection>
@@ -2202,14 +2168,14 @@ export default function ReferralPacketCanvas({
                 </ChartSection>
               </div>
 
-              <aside aria-label="Chart completion" className="space-y-4 xl:sticky xl:top-[54px]">
+              <aside aria-label="Intake progress" className="space-y-4 lg:sticky lg:top-[86px]">
                 <ChartCompletionRail
                   fieldCount={fieldCount}
                   fieldTotal={visibleChartFieldKeys.length}
                   assessmentSummary={assessmentSummary}
                   continuing={isSaving}
                   blocked={uploadingDocumentIds.size > 0 || Boolean(remoteChange?.conflicts.length)}
-                  needsSave={assessmentNeedsSave}
+                  hasReferral={Boolean(loadedReferral) || trainingIntakeMode}
                   onContinue={() => void continueToAssessment()}
                 />
               </aside>
@@ -2241,6 +2207,7 @@ export default function ReferralPacketCanvas({
                   trainingAssessmentSection={trainingAssessmentSection}
                   initialSection={routedWorkspaceLocation.view === "assessment" ? routedWorkspaceLocation.assessmentSection : undefined}
                   assignedAssessorId={loadedReferral?.ownerId}
+                  startScheduling={schedulingReferralId === referralWorkspaceId}
                   packetEvidenceVersion={packetEvidenceVersion}
                   onSummaryChange={setAssessmentSummary}
                   onContinueToWorkflow={() => openPage("workflow")}
@@ -2399,11 +2366,11 @@ function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
       <select data-guide-target="assessment-stage chart-stage" aria-label="Workspace stage"
         value={typeof activePage === "number" ? activePage : 1}
         onChange={(event) => onOpen(Number(event.target.value) as WorkspaceStage)}
-        className="h-10 w-full border-0 border-b-2 border-b-[#0f8b73] border-t border-t-[#eeeeee] bg-white px-2 text-[12px] font-black text-[#111111] outline-none">
+        className="h-10 w-full border-0 border-b-2 border-b-[#0f8b73] bg-white px-2 text-[12px] font-bold text-[#111111] outline-none">
         {steps.map(({ page, label }) => <option key={page} value={page}>{`0${page} ${label}`}</option>)}
       </select>
-    </label> : <button type="button" onClick={() => onOpen(1)} aria-current={activePage === 1 ? "page" : undefined} className="col-span-2 row-start-2 border-t border-[#eeeeee] py-2 text-left text-[12px] font-bold text-[#0c705f] lg:hidden">Chart</button>}
-    <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className="hidden min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3 lg:flex">
+    </label> : <button type="button" onClick={() => onOpen(1)} aria-current={activePage === 1 ? "page" : undefined} className="col-span-2 row-start-2 py-2 text-left text-[12px] font-bold text-[#0c705f] lg:hidden">Chart</button>}
+    <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className="hidden min-w-0 gap-1 overflow-x-auto lg:flex">
       {steps.map((step) => <WorkspaceStageButton key={step.page} {...step} numbered={numbered} selected={activePage === step.page} onOpen={onOpen} />)}
     </nav>
   </>;
@@ -2426,34 +2393,31 @@ function WorkspaceSaveControl({
   hasChanges,
   blocked,
   onSave,
-  training = false,
+  retry,
 }: {
   saving: boolean;
   hasReferral: boolean;
   hasChanges: boolean;
   blocked: boolean;
   onSave: () => void;
-  training?: boolean;
+  retry: boolean;
 }) {
+  if (hasReferral && !retry) return null;
+  const label = hasReferral ? "Retry saving" : "Create referral";
   return (
     <button
       type="button"
-      data-guide-target="create-workspace"
+      data-guide-target={hasReferral ? undefined : "create-workspace"}
+      aria-label={label}
       onClick={onSave}
       disabled={saving || blocked || !hasChanges}
-      className="flex h-9 items-center gap-2 bg-[#0b6f5d] px-3 text-[11px] font-bold text-white transition-colors hover:bg-[#075a4b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
+      className="flex h-10 shrink-0 items-center gap-2 bg-[#0b6f5d] px-3 text-[12px] font-bold text-white transition-colors hover:bg-[#075a4b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
     >
-      <Save size={15} />
-      <span className="hidden sm:inline">{training ? "Save practice" : workspaceSaveLabel(saving, hasReferral, true)}</span>
-      <span className="sm:hidden">{training ? "Save" : workspaceSaveLabel(saving, hasReferral, false)}</span>
+      {hasReferral ? <RefreshCw size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}
+      <span className="hidden sm:inline">{saving ? hasReferral ? "Saving..." : "Creating..." : label}</span>
+      <span className="sm:hidden">{saving ? "Working..." : hasReferral ? "Retry" : "Create"}</span>
     </button>
   );
-}
-
-function workspaceSaveLabel(saving: boolean, hasReferral: boolean, expanded: boolean) {
-  if (saving) return expanded ? "Saving..." : "Saving";
-  if (hasReferral) return expanded ? "Save workspace" : "Save";
-  return expanded ? "Create workspace" : "Create";
 }
 
 function hasReferralRecord(referral: Referral | null, referralId: number | undefined) {
@@ -2607,7 +2571,7 @@ function ChartSection({
 }) {
   return (
     <section data-guide-target={chartGuideTarget(title)} aria-label={`${title} chart section`}>
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-t border-[#cfd6d2] pt-3">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 pt-3">
         <h2 className="text-[14px] font-black text-[#111111]">{title}</h2>
         <span className={`text-[11px] font-black ${complete === total ? "text-[#0f8b73]" : "text-[#737373]"}`}>
           {complete} / {total}
@@ -2631,7 +2595,7 @@ function ChartCompletionRail({
   assessmentSummary,
   continuing,
   blocked,
-  needsSave,
+  hasReferral,
   onContinue,
 }: {
   fieldCount: number;
@@ -2647,42 +2611,42 @@ function ChartCompletionRail({
   };
   continuing: boolean;
   blocked: boolean;
-  needsSave: boolean;
+  hasReferral: boolean;
   onContinue: () => void;
 }) {
   const percent = fieldTotal === 0 ? 0 : Math.round((fieldCount / fieldTotal) * 100);
+  const action = assessmentOpenLabel({
+    signed_at: assessmentSummary.signedAt ?? null,
+    started_at: assessmentSummary.startedAt ?? null,
+    scheduled_start_at: assessmentSummary.scheduledStartAt ?? null,
+  });
+  const status = assessmentSummary.signedAt ? "Signed" : assessmentSummary.startedAt ? "In progress" : assessmentSummary.scheduledStartAt ? "Scheduled" : "Not scheduled";
 
   return (
-    <section aria-label="Chart completion" className="border-t border-[#cfd6d2] pt-4">
+    <section aria-label="Intake completion" className="pt-3">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-[13px] font-black text-[#111111]">Chart completion</h2>
-        <span className="text-[22px] font-black text-[#111111]">{percent}%</span>
+        <h2 className="text-[14px] font-bold text-[#111111]">Intake</h2>
+        <span className="text-[13px] font-bold tabular-nums text-[#5c6660]">{percent}%</span>
       </div>
-      <div className="mt-3 h-1.5 overflow-hidden bg-[#e5e9e6]">
+      <div role="progressbar" aria-label="Intake details captured" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} className="mt-3 h-1.5 overflow-hidden bg-[#e5e9e6]">
         <div className="h-full bg-[#0f8b73] transition-[width] duration-300" style={{ width: `${percent}%` }} />
       </div>
-      <dl className="mt-4 divide-y divide-[#e3e5e3]">
-        <ChartStatusRow label="Chart fields" value={`${fieldCount} / ${fieldTotal}`} />
+      <dl className="mt-3 space-y-1">
+        <ChartStatusRow label="Details captured" value={`${fieldCount.toLocaleString()} / ${fieldTotal.toLocaleString()}`} />
         <ChartStatusRow
           label="Assessment"
-          value={assessmentSummary.assessmentId ? assessmentSummary.status.replaceAll("_", " ") : "Not started"}
-          attention={assessmentSummary.status !== "complete"}
+          value={status}
+          attention={!assessmentSummary.signedAt}
         />
       </dl>
-      <button
+      {hasReferral ? <button
         type="button"
         onClick={onContinue}
         disabled={continuing || blocked}
-        className="mt-4 flex h-10 w-full items-center justify-center bg-[#111111] px-4 text-[11px] font-black text-white transition-colors hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d2d2d2]"
+        className="mt-4 flex min-h-11 w-full items-center justify-between gap-3 bg-[#111111] px-4 py-3 text-left text-[13px] font-bold leading-5 text-white transition-colors hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d2d2d2]"
       >
-        {continuing
-          ? "Saving intake..."
-          : needsSave
-            ? "Save and continue to assessment"
-            : assessmentSummary.assessmentId
-              ? "Continue assessment"
-              : "Schedule assessment"}
-      </button>
+        <span>{action}</span><ArrowRight size={16} className="shrink-0" aria-hidden="true" />
+      </button> : null}
     </section>
   );
 }
@@ -2691,7 +2655,7 @@ function ChartStatusRow({ label, value, attention = false }: { label: string; va
   return (
     <div className="flex items-center justify-between gap-3 py-2.5">
       <dt className="text-[11px] text-[#595959]">{label}</dt>
-      <dd className={`text-[11px] font-black capitalize ${attention ? "text-[#9a6411]" : "text-[#0f8b73]"}`}>{value}</dd>
+      <dd className={`text-[11px] font-bold ${attention ? "text-[#9a6411]" : "text-[#0f8b73]"}`}>{value}</dd>
     </div>
   );
 }
@@ -3712,10 +3676,6 @@ function workspaceHasPendingChanges(
 
 function activeReferralId(loadedReferral: Referral | null, referral: { id: number } | undefined) {
   return loadedReferral?.id ?? referral?.id;
-}
-
-function workspaceNeedsInitialSave(loadedReferral: Referral | null, hasPendingChanges: boolean) {
-  return !loadedReferral || hasPendingChanges;
 }
 
 function presenceSection(page: WorkspaceView): ReferralSection {
