@@ -11,13 +11,13 @@ function load(file, stubs = {}, extra = {}) {
   const output = ts.transpileModule(readFileSync(file, "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
-  const module = { exports: {} };
+  const loadedModule = { exports: {} };
   vm.runInNewContext(output, {
-    module, exports: module.exports, require: (id) => id === "server-only" ? {} : stubs[id] ?? require(id),
+    module: loadedModule, exports: loadedModule.exports, require: (id) => id === "server-only" ? {} : stubs[id] ?? require(id),
     Request, Response, Headers, URL, URLSearchParams, TextEncoder, TextDecoder, AbortController, AbortSignal,
     DOMException, setTimeout, clearTimeout, console, process, ...extra,
   }, { filename: file });
-  return module.exports;
+  return loadedModule.exports;
 }
 
 const schema = load("lib/observability/browser-performance-contract.ts");
