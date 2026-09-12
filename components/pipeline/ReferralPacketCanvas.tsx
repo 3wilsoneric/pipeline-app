@@ -805,7 +805,7 @@ export default function ReferralPacketCanvas({
     return () => {
       cancelled = true;
     };
-  }, [newDraftKey, referral?.id, trainingIntakeMode]);
+  }, [newDraftKey, referral?.id, serverDraftsEnabled]);
 
   useEffect(() => {
     const extractedFields = loadedReferral?.packetFields;
