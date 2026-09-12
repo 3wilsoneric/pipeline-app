@@ -106,6 +106,7 @@ let tokenCache: { key: string; token: string; expiresAt: number } | null = null;
 let tokenPromise: Promise<string> | null = null;
 const clinicalReadCache = new Map<string, { expiresAt: number; payload?: unknown; promise?: Promise<unknown> }>();
 const clinicalReadCacheKey = randomBytes(32);
+let clinicalReadAuthorization: string | null = null;
 
 export function getClinicalDataMode(): ClinicalDataMode {
   const configured = process.env.PIPELINE_CLINICAL_DATA_MODE?.trim() as ClinicalDataMode | undefined;
@@ -404,7 +405,8 @@ async function requestClinicalEndpoint<T>(
   // Bind entries to both upstream authority and the complete operator session,
   // including God mode. Nothing is persisted or shared through HTTP caches.
   const ttl = clinicalReadTtl(endpoint);
-  const key = ttl ? clinicalReadKey(context, request) : null;
+  synchronizeClinicalReadAuthority(context.authorization);
+  const key = ttl ? clinicalReadKey(context.url, request) : null;
   if (key && request?.headers.get("x-pipeline-refresh") === "1") clinicalReadCache.delete(key);
   try {
     const cached = key ? clinicalReadCache.get(key) : undefined;
@@ -425,9 +427,17 @@ function clinicalReadTtl(endpoint: string) {
   return /^\/(?:clients|residents)\/[^/?]+$/.test(endpoint) ? 15_000 : 0;
 }
 
-function clinicalReadKey(context: Awaited<ReturnType<typeof createClinicalRequestContext>>, request: Request | undefined) {
+function synchronizeClinicalReadAuthority(authorization: string) {
+  // Keep service credentials out of digests. A credential change flushes reads.
+  // Alternating delegated tokens safely forgo reuse; revisit grouping if that mode is adopted for concurrent operators.
+  if (clinicalReadAuthorization === authorization) return;
+  clinicalReadCache.clear();
+  clinicalReadAuthorization = authorization;
+}
+
+function clinicalReadKey(url: string, request: Request | undefined) {
   return createHmac("sha256", clinicalReadCacheKey).update(JSON.stringify([
-    context.url, context.authorization, request?.headers.get("authorization"), request?.headers.get("cookie"),
+    url, request?.headers.get("authorization"), request?.headers.get("cookie"),
   ])).digest("hex");
 }
 

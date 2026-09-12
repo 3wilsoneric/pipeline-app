@@ -80,11 +80,12 @@ const fixture = JSON.parse(readFileSync("scripts/fixtures/alamo-pipeline-clinica
 const contracts = loadTypeScriptModule(root, "lib/clinical/clinical-contracts.ts");
 let clinicalCalls = 0;
 let payload = fixture.clients;
+const clinicalEnv = { NODE_ENV: "test", PIPELINE_CLINICAL_DATA_MODE: "alamo_api", PIPELINE_ALAMO_API_BASE_URL: "https://alamo.invalid", PIPELINE_ALAMO_AUTH_MODE: "bearer", PIPELINE_ALAMO_API_TOKEN: "synthetic-token" };
 const clinical = load("lib/clinical/clinical-data.ts", {
   "./clinical-contracts": contracts,
   "./demo-clinical-data": { demoClinicalSnapshotExists: () => false },
 }, {
-  process: { env: { NODE_ENV: "test", PIPELINE_CLINICAL_DATA_MODE: "alamo_api", PIPELINE_ALAMO_API_BASE_URL: "https://alamo.invalid", PIPELINE_ALAMO_AUTH_MODE: "bearer", PIPELINE_ALAMO_API_TOKEN: "synthetic-token" } },
+  process: { env: clinicalEnv },
   fetch: async () => { clinicalCalls += 1; return Response.json(payload); },
 });
 const operator = new Request("https://pipeline.invalid", { headers: { cookie: "session=operator-a" } });
@@ -111,6 +112,10 @@ payload = fixture.clients;
 await clinical.getClinicalClients(broken, { limit: 200 });
 assert.equal(clinicalCalls, 7);
 checks.push("invalid upstream payloads are rejected and never cached");
+clinicalEnv.PIPELINE_ALAMO_API_TOKEN = "synthetic-rotated-token";
+await clinical.getClinicalClients(broken, { limit: 200 });
+assert.equal(clinicalCalls, 8);
+checks.push("rotating upstream authority invalidates prior clinical projections");
 
 let warmed = 0;
 const identity = load("lib/pipeline/referral-clinical-identity.ts", {
