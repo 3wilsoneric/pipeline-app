@@ -360,7 +360,8 @@ export default function ReferralPacketCanvas({
   });
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading workspace..." : "Add documents, then complete intake");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
-  const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(usesServerReferralDrafts() && !trainingIntakeMode);
+  const serverDraftsEnabled = usesServerReferralDrafts() && !trainingIntakeMode;
+  const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(serverDraftsEnabled);
   const [isSaving, setIsSaving] = useState(false);
   const [reviewBusyFieldKey, setReviewBusyFieldKey] = useState<string>();
   const [isBulkReviewing, setIsBulkReviewing] = useState(false);
@@ -546,7 +547,7 @@ export default function ReferralPacketCanvas({
     if (!draft) return;
     const revision = draftRevisionRef.current;
     const reference = recoveryDraftReferenceRef.current;
-    if (usesServerReferralDrafts() && !trainingIntakeMode) {
+    if (serverDraftsEnabled) {
       void saveServerReferralDraft(reference, draft)
         .then(() => {
           if (reportStatus && draftRevisionRef.current === revision) setSavedAt("Recovery draft saved");
@@ -685,7 +686,7 @@ export default function ReferralPacketCanvas({
         setRecoveredDraftAt,
         setRecoveredPacketName,
       };
-      if (usesServerReferralDrafts() && !trainingIntakeMode) {
+      if (serverDraftsEnabled) {
         setDraftRecoveryLoading(true);
         void loadServerReferralDraft(newDraftKey).then((draft) => {
           if (cancelled) return;
@@ -708,7 +709,7 @@ export default function ReferralPacketCanvas({
     if (loadedReferralRef.current?.id === referral.id) return;
 
     let cancelled = false;
-    if (usesServerReferralDrafts() && !trainingIntakeMode) setDraftRecoveryLoading(true);
+    if (serverDraftsEnabled) setDraftRecoveryLoading(true);
     fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" }).then((canvasPayload) => {
       if (cancelled) return;
       const savedRecord = canvasPayload.referral ?? null;
@@ -775,7 +776,7 @@ export default function ReferralPacketCanvas({
           }
           if (recovered) setSavedAt("Recovered unsaved changes");
         };
-        if (usesServerReferralDrafts() && !trainingIntakeMode) {
+        if (serverDraftsEnabled) {
           setDraftRecoveryLoading(true);
           void loadServerReferralDraft(record.id)
             .then((draft) => {
@@ -1392,10 +1393,6 @@ export default function ReferralPacketCanvas({
 
   const saveDraft = async (confirmedDistinctReferralIds: number[] = []): Promise<Referral | null> => {
     setSaveError("");
-    if (trainingIntakeMode) {
-      setSavedAt("Practice changes saved in this tab");
-      return null;
-    }
     const blockedMessage = referralSaveBlockedMessage(uploadingDocumentIds.size, Boolean(remoteChange?.conflicts.length));
     if (blockedMessage) {
       setSaveError(blockedMessage);
@@ -1473,6 +1470,13 @@ export default function ReferralPacketCanvas({
     }
   };
 
+  const saveWorkspaceDraft = async (confirmedDistinctReferralIds: number[] = []): Promise<Referral | null> => {
+    if (!trainingIntakeMode) return saveDraft(confirmedDistinctReferralIds);
+    setSaveError("");
+    setSavedAt("Practice changes saved in this tab");
+    return null;
+  };
+
   const continueToAssessment = async () => {
     if (trainingIntakeMode) {
       window.location.assign(toPipelinePath("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule&demo=1"));
@@ -1482,7 +1486,7 @@ export default function ReferralPacketCanvas({
       || Object.keys(pendingDocumentsRef.current).length > 0
       || Boolean(initialPacketRef.current);
     if (!loadedReferralRef.current || hasPendingChanges) {
-      const savedReferral = await saveDraft();
+      const savedReferral = await saveWorkspaceDraft();
       if (!savedReferral) return;
     }
     openPage(2);
@@ -1826,38 +1830,7 @@ export default function ReferralPacketCanvas({
             <h1 data-testid="workspace-identity-title" className="max-w-[10rem] shrink-0 truncate text-[12px] font-black text-[#111111] sm:max-w-[18rem] lg:max-w-[26rem]" title={workspaceTitle}>
               {workspaceTitle}
             </h1>
-            {workspaceSteps.length > 1 ? <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">
-              <span className="sr-only">Workspace stage</span>
-              <select
-                data-guide-target="assessment-stage chart-stage"
-                aria-label="Workspace stage"
-                value={typeof displayedPage === "number" ? displayedPage : 1}
-                onChange={(event) => openPage(Number(event.target.value) as WorkspaceStage)}
-                className="h-10 w-full border-0 border-b-2 border-b-[#0f8b73] border-t border-t-[#eeeeee] bg-white px-2 text-[12px] font-black text-[#111111] outline-none"
-              >
-                {workspaceSteps.map(({ page, label }) => <option key={page} value={page}>{`0${page} ${label}`}</option>)}
-              </select>
-            </label> : null}
-            <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className="hidden min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3 lg:flex">
-              {workspaceSteps.map(({ page, label }) => (
-                <button
-                  key={page}
-                  type="button"
-                  data-guide-target={page === 2 ? "assessment-stage" : page === 3 || workspaceSteps.length === 1 ? "chart-stage" : undefined}
-                  onClick={() => openPage(page)}
-                  aria-current={displayedPage === page ? "page" : undefined}
-                  className={`flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-[11px] font-black transition-colors ${
-                    displayedPage === page
-                      ? "border-[#0f8b73] text-[#111111]"
-                      : "border-transparent text-[#737373] hover:text-[#0f8b73]"
-                  }`}
-                >
-                  {workspaceSteps.length > 1 ? <span className={`text-[9px] ${displayedPage === page ? "text-[#0c705f]" : "text-[#595959]"}`}>0{page}</span> : null}
-                  <span className="whitespace-nowrap">{label}</span>
-                </button>
-              ))}
-            </nav>
-            {workspaceSteps.length === 1 ? <button type="button" onClick={() => openPage(1)} aria-current={displayedPage === 1 ? "page" : undefined} className="col-span-2 row-start-2 border-t border-[#eeeeee] py-2 text-left text-[12px] font-bold text-[#0c705f] lg:hidden">Chart</button> : null}
+            <WorkspaceStageNavigation steps={workspaceSteps} activePage={displayedPage} onOpen={openPage} />
 
             <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:border-l lg:border-[#d9d9d9] lg:pl-2">
               {loadedReferral && editingControlsVisible ? (
@@ -1918,7 +1891,7 @@ export default function ReferralPacketCanvas({
                     hasReferral={hasReferralRecord(loadedReferral, referral?.id)}
                     hasChanges={hasPendingWorkspaceChanges}
                     blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
-                    onSave={saveDraft}
+                    onSave={saveWorkspaceDraft}
                     training={trainingIntakeMode}
                   />
                 </>
@@ -1949,7 +1922,7 @@ export default function ReferralPacketCanvas({
           <section aria-label="Recovered draft" className="mb-3 flex flex-wrap items-center justify-between gap-3 border-l-2 border-[#0f8b73] bg-[#effaf5] px-4 py-3" aria-live="polite">
             <div>
               <div className="text-[12px] font-black text-[#174f43]">
-                {usesServerReferralDrafts() && !trainingIntakeMode ? "Recovered changes from your account." : "Recovered changes from this browser tab."}
+                {serverDraftsEnabled ? "Recovered changes from your account." : "Recovered changes from this browser tab."}
               </div>
               <div className="mt-1 text-[11px] text-[#3c665d]">
                 {recoveredPacketName
@@ -2214,7 +2187,7 @@ export default function ReferralPacketCanvas({
                       saving={isSaving}
                       hasUnsavedChanges={hasPendingWorkspaceChanges}
                       saveActionLabel={trainingIntakeMode ? "Save practice" : hasReferralRecord(loadedReferral, referral?.id) ? "Save now" : "Create workspace"}
-                      onSave={() => void saveDraft()}
+                      onSave={() => void saveWorkspaceDraft()}
                     />
                   </div>
                 </ChartSection>
@@ -2326,7 +2299,7 @@ export default function ReferralPacketCanvas({
         }}
         onConfirmDistinctPerson={(referralIds) => {
           setDuplicateReview(null);
-          void saveDraft(referralIds);
+          void saveWorkspaceDraft(referralIds);
         }}
         onClose={() => {
           if (!isSaving) setDuplicateReview(null);
@@ -2412,6 +2385,39 @@ function getWorkspacePresentation(
       ? `${attachmentCount} linked`
       : `${attachmentCount} of ${attachments.length} attached`,
   };
+}
+
+function WorkspaceStageNavigation({ steps, activePage, onOpen }: {
+  steps: ReadonlyArray<{ page: WorkspaceStage; label: string }>;
+  activePage: WorkspaceView;
+  onOpen: (page: WorkspaceView) => void;
+}) {
+  const numbered = steps.length > 1;
+  return <>
+    {numbered ? <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">
+      <span className="sr-only">Workspace stage</span>
+      <select data-guide-target="assessment-stage chart-stage" aria-label="Workspace stage"
+        value={typeof activePage === "number" ? activePage : 1}
+        onChange={(event) => onOpen(Number(event.target.value) as WorkspaceStage)}
+        className="h-10 w-full border-0 border-b-2 border-b-[#0f8b73] border-t border-t-[#eeeeee] bg-white px-2 text-[12px] font-black text-[#111111] outline-none">
+        {steps.map(({ page, label }) => <option key={page} value={page}>{`0${page} ${label}`}</option>)}
+      </select>
+    </label> : <button type="button" onClick={() => onOpen(1)} aria-current={activePage === 1 ? "page" : undefined} className="col-span-2 row-start-2 border-t border-[#eeeeee] py-2 text-left text-[12px] font-bold text-[#0c705f] lg:hidden">Chart</button>}
+    <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className="hidden min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3 lg:flex">
+      {steps.map((step) => <WorkspaceStageButton key={step.page} {...step} numbered={numbered} selected={activePage === step.page} onOpen={onOpen} />)}
+    </nav>
+  </>;
+}
+
+function WorkspaceStageButton({ page, label, numbered, selected, onOpen }: {
+  page: WorkspaceStage; label: string; numbered: boolean; selected: boolean; onOpen: (page: WorkspaceView) => void;
+}) {
+  return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : page === 3 || !numbered ? "chart-stage" : undefined}
+    onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined}
+    className={`flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-[11px] font-black transition-colors ${selected ? "border-[#0f8b73] text-[#111111]" : "border-transparent text-[#737373] hover:text-[#0f8b73]"}`}>
+    {numbered ? <span className={`text-[9px] ${selected ? "text-[#0c705f]" : "text-[#595959]"}`}>0{page}</span> : null}
+    <span className="whitespace-nowrap">{label}</span>
+  </button>;
 }
 
 function WorkspaceSaveControl({

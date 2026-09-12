@@ -463,11 +463,8 @@ async function getLocalAssessmentCompletionReport(
     duration_count: number;
   }>();
   const latestSignedByRevision = new Map<string, PipelineAssessmentRecord>();
-  for (const assessment of state.assessments) {
+  for (const assessment of await localReportAssessments()) {
     if (!assessment.signed_at) continue;
-    const referral = await loadLocalAssessmentReferral(assessment.referral_id);
-    if (!referral || referral.workspaceStatus === "historical"
-      || referral.workspaceOrigin === "allo" || referral.workspaceOrigin === "import") continue;
     const root = assessment.revision_root_id ?? assessment.assessment_id;
     const current = latestSignedByRevision.get(root);
     if (!current || (assessment.revision_number ?? 1) > (current.revision_number ?? 1)) {
@@ -503,6 +500,16 @@ async function getLocalAssessmentCompletionReport(
     completed_assessments: row.completed_assessments,
     average_duration_minutes: row.average_duration_minutes,
   })));
+}
+
+async function localReportAssessments() {
+  const { isClientChartWorkspace } = await import("@/lib/pipeline/workspace-presentation");
+  const visible: PipelineAssessmentRecord[] = [];
+  for (const assessment of state.assessments) {
+    const referral = await loadLocalAssessmentReferral(assessment.referral_id);
+    if (referral && !isClientChartWorkspace(referral)) visible.push(assessment);
+  }
+  return visible;
 }
 
 async function getLocalAssessment(assessmentId: string) {
