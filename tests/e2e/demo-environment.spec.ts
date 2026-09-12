@@ -201,7 +201,7 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(page.getByRole("tab", { name: "Calendar" })).toBeVisible();
 
     await slideSelect.selectOption("6");
-    await expect(page.getByRole("region", { name: "Weak and source-backed note comparison" })).toContainText("Source-attributed");
+    await expect(page.getByRole("region", { name: "Assessment Language Lab example" })).toContainText("Use this order");
 
     await page.keyboard.press("End");
     await expect(page.getByRole("heading", { name: "Submit the recommendation, then the supervisor decides" })).toBeVisible();
@@ -246,12 +246,27 @@ test.describe("Pipeline Demo Environment", () => {
     await expectDemoSurfaceToFillBody(practice, center);
   });
 
-  test("opens Language Lab inside the real assessment", async ({ page }) => {
+  test("matches Language Lab across the presentation and both assessment views", async ({ page }) => {
+    const workflowWrites: string[] = [];
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (request.method() !== "GET" && /^\/api\/(?:referrals|assessments)(?:\/|$)/.test(url.pathname)) {
+        workflowWrites.push(`${request.method()} ${url.pathname}`);
+      }
+    });
     await mockTrainingProgress(page);
     await page.goto("/training/demo");
 
     const slideNavigation = page.getByRole("navigation", { name: "Presentation slides" });
     await slideNavigation.getByRole("combobox", { name: "Jump to slide" }).selectOption("6");
+    const example = page.getByRole("region", { name: "Assessment Language Lab example" });
+    await expect(example.getByRole("textbox", { name: "Prior placements", exact: true })).toBeEditable();
+    await expect(example.getByText("Use this order", { exact: true })).toBeVisible();
+    const expectedGuide = await example.locator("details").innerText();
+    await example.getByRole("textbox", { name: "Prior placements", exact: true }).fill("Synthetic placement history only.");
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await example.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await expect(example.getByText("Example format", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Try Language Lab in the assessment" }).click();
 
     await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=prior_history/);
@@ -262,6 +277,16 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(coach.getByRole("heading", { name: "Open Language Lab" })).toBeVisible();
     await interview.locator('[data-guide-target~="assessment-answer-help"]:visible').first().click();
     await expect(interview.getByText("Use this order", { exact: true }).first()).toBeVisible();
+    const chartLab = interview.locator("details").filter({ has: page.getByLabel("Language Lab for Prior placements", { exact: true }) });
+    await expect(chartLab).toHaveText(expectedGuide, { useInnerText: true });
+
+    await page.goto("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=guided&assessmentSection=prior_history&demo=1");
+    await expect(interview).toHaveAttribute("data-guided-assessment", "true");
+    const guidedLab = interview.locator("details").filter({ has: page.getByLabel("Language Lab for Prior placements", { exact: true }) });
+    await guidedLab.locator("summary").click();
+    await expect(guidedLab).toHaveText(expectedGuide, { useInnerText: true });
+    expect(await guidedLab.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(workflowWrites).toEqual([]);
   });
 
   test("starts an intake guide from the workspace slide", async ({ page }) => {

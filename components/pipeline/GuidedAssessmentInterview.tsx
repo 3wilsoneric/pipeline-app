@@ -4,6 +4,7 @@ import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
+import { AssessmentFieldWritingGuidePanel } from "@/components/pipeline/AssessmentInterviewFields";
 import { extractionOwnedFields, latestPendingProvenance } from "@/components/pipeline/assessment-workspace-state";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import {
@@ -261,7 +262,7 @@ function GuidedAssessmentFooter({ screenIndex, screenCount, answeredHere, questi
   );
 }
 
-function GuidedAssessmentField({
+export function GuidedAssessmentField({
   question,
   definition,
   value,
@@ -274,6 +275,7 @@ function GuidedAssessmentField({
   onChange,
   onReview,
   onUnableReasonChange,
+  writingGuideInitiallyOpen,
 }: {
   question: AssessmentInterviewQuestion;
   definition: AssessmentToolFieldDefinition;
@@ -287,6 +289,7 @@ function GuidedAssessmentField({
   onChange: (value: AssessmentToolData[AssessmentToolFieldKey]) => void;
   onReview: (action: "accept" | "reject") => void;
   onUnableReasonChange: (reason: string) => void;
+  writingGuideInitiallyOpen?: boolean;
 }) {
   const id = `guided-assessment-${definition.key}`;
 
@@ -307,6 +310,7 @@ function GuidedAssessmentField({
         onUnableReasonChange={onUnableReasonChange}
       />
       <GuidedFieldHelp primary={primary} help={question.help} />
+      {question.control === "textarea" ? <AssessmentFieldWritingGuidePanel field={definition.key} initiallyOpen={writingGuideInitiallyOpen} /> : null}
     </div>
   );
 }

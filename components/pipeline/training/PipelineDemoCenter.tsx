@@ -36,6 +36,9 @@ import { getOperatorGuidedTutorial } from "@/lib/training/operator-guided-tutori
 import { stageOperatorGuideForNavigation } from "@/lib/training/operator-guided-tour-state";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
+import { assessmentInterviewQuestions } from "@/lib/assessment/assessment-interview-schema";
+import { assessmentToolFieldDefinitions, type AssessmentToolData } from "@/lib/assessment/assessment-tool-schema";
+import { GuidedAssessmentField } from "@/components/pipeline/GuidedAssessmentInterview";
 import PipelineProcessTester, { type ProcessTesterStage } from "@/components/pipeline/training/PipelineProcessTester";
 
 const SubmissionAcceptanceDemo = dynamic(() => import("@/components/pipeline/training/SubmissionAcceptanceDemo"), {
@@ -63,7 +66,7 @@ type PresentationSlide = {
   title: string;
   summary: string;
   points: readonly string[];
-  graphic?: "case-spine" | "ownership" | "workday" | "source-stack" | "assessment-map" | "note-comparison" | "decision-path";
+  graphic?: "case-spine" | "ownership" | "workday" | "source-stack" | "assessment-map" | "language-lab" | "decision-path";
   screenshots?: readonly PresentationScreenshot[];
   sections?: readonly string[];
   rule?: string;
@@ -213,15 +216,15 @@ const presentationSlides: readonly PresentationSlide[] = [
     id: "document-interview",
     number: 7,
     navLabel: "Document",
-    location: "Assessment → section field → Language Lab",
-    title: "Document the source, timeframe, and finding",
-    summary: "Narrative fields belong in the section where the information was established. Language Lab gives field-specific structure and examples without inventing the answer.",
+    location: "Assessment → History → Prior placements → Language Lab",
+    title: "Write the placement history clearly",
+    summary: "Use the Prior placements field in History. Open Language Lab beneath the answer for the same writing order, checklist, and example used in the assessment.",
     points: [
-      "Keep client report, collateral information, records, and direct observation distinguishable.",
-      "Conditional follow-ups appear only when a preceding answer makes them relevant.",
-      "Autosave protects the draft so an unfinished assessment can be resumed.",
+      "Name the setting, timeframe, reason it ended, source, and what helped.",
+      "Use the example as a format, not as facts about your client.",
+      "Language Lab stays beneath the same answer in the guided interview and full assessment.",
     ],
-    graphic: "note-comparison",
+    graphic: "language-lab",
     nextLabel: "Review and sign",
     guide: { label: "Try Language Lab in the assessment", scenarioId: "assessment-interview", tutorialId: "complete-assessment", stepId: "assessment-answer", workspaceStage: "assessment" },
   },
@@ -555,7 +558,7 @@ function presentationSlideIndexForKey(event: KeyboardEvent, slideIndex: number) 
 }
 
 function PresentationHeader({ slide, slideIndex, onSelect, onClose }: { slide: PresentationSlide; slideIndex: number; onSelect: (index: number) => void; onClose: () => void }) {
-  return <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8"><div className="min-w-0 flex-1"><div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">AHS · Pipeline</div><div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor orientation</div></div><div className="hidden min-w-0 flex-1 text-center lg:block"><div className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#6a756f]">{slide.location}</div></div><nav aria-label="Presentation slides" className="flex shrink-0 items-center gap-2"><label htmlFor="presentation-slide" className="sr-only">Jump to slide</label><select id="presentation-slide" value={slideIndex} onChange={(event) => onSelect(Number(event.target.value))} className="h-10 max-w-[150px] border border-[#cbd5d1] bg-white px-3 text-[11px] font-bold text-[#34403b] outline-none focus:border-[#0f8b73] sm:max-w-[230px]">{presentationSlides.map((item, index) => <option key={item.id} value={index}>{item.number}. {item.navLabel}</option>)}</select><button type="button" onClick={onClose} className="flex h-10 items-center border border-[#cbd5d1] px-3 text-[11px] font-black text-[#59645f] hover:border-[#0f8b73] hover:text-[#0f705f]">Close presentation</button></nav></header>;
+  return <header className="flex min-h-16 shrink-0 items-center gap-4 border-b border-[#d8dfdc] bg-white px-4 py-2 sm:px-6 lg:px-8"><div className="hidden min-w-0 flex-1 sm:block"><div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#0f7c68]">AHS · Pipeline</div><div className="mt-0.5 truncate text-[13px] font-black text-[#24302b]">Assessor orientation</div></div><div className="hidden min-w-0 flex-1 text-center lg:block"><div className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-[#6a756f]">{slide.location}</div></div><nav aria-label="Presentation slides" className="ml-auto flex shrink-0 items-center gap-2"><label htmlFor="presentation-slide" className="sr-only">Jump to slide</label><select id="presentation-slide" value={slideIndex} onChange={(event) => onSelect(Number(event.target.value))} className="h-10 max-w-[150px] border border-[#cbd5d1] bg-white px-3 text-[11px] font-bold text-[#34403b] outline-none focus:border-[#0f8b73] sm:max-w-[230px]">{presentationSlides.map((item, index) => <option key={item.id} value={index}>{item.number}. {item.navLabel}</option>)}</select><button type="button" onClick={onClose} className="flex h-10 items-center border border-[#cbd5d1] px-3 text-[11px] font-black text-[#59645f] hover:border-[#0f8b73] hover:text-[#0f705f]">Close presentation</button></nav></header>;
 }
 
 function PresentationSlideBody({ slide, onStartGuide }: { slide: PresentationSlide; onStartGuide: (guide: NonNullable<PresentationSlide["guide"]>) => void }) {
@@ -610,7 +613,7 @@ function PresentationVisual({ slide }: { slide: PresentationSlide }) {
   if (slide.graphic === "workday") return <WorkdayVisual />;
   if (slide.graphic === "source-stack") return <SourceStackVisual />;
   if (slide.graphic === "assessment-map") return <AssessmentMapVisual />;
-  if (slide.graphic === "note-comparison") return <NoteComparisonVisual />;
+  if (slide.graphic === "language-lab") return <LanguageLabVisual />;
   if (slide.graphic === "decision-path") return <DecisionPathVisual />;
   return null;
 }
@@ -773,17 +776,33 @@ function AssessmentMapVisual() {
   );
 }
 
-function NoteComparisonVisual() {
+function LanguageLabVisual() {
+  const question = assessmentInterviewQuestions.find((item) => item.field === "prior_placements")!;
+  const definition = assessmentToolFieldDefinitions.find((item) => item.key === question.field)!;
+  const [value, setValue] = useState<AssessmentToolData["prior_placements"]>(null);
+
   return (
-    <section aria-label="Weak and source-backed note comparison" className="grid min-w-0 gap-3 xl:grid-cols-2">
-      <article className="border border-[#dbc9c5] bg-[#fffafa] p-5 sm:p-6"><div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#91574e]">Too vague</span><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f5e7e4] text-[13px] font-black text-[#9b5146]">×</span></div><blockquote className="mt-8 text-[21px] font-semibold leading-8 tracking-[-0.02em] text-[#4d3834]">“Client is medication noncompliant.”</blockquote><p className="mt-8 border-t border-[#eadbd8] pt-4 text-[11px] font-semibold leading-5 text-[#795f5a]">No source. No time frame. No verified regimen. No next action.</p></article>
-      <article className="border border-[#9fc3b7] bg-[#eaf5f1] p-5 shadow-[0_20px_55px_rgba(26,83,65,0.12)] sm:p-6"><div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0c705f]">Source-attributed</span><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#0c705f]"><Check size={14} aria-hidden="true" /></span></div><blockquote className="mt-6 text-[16px] font-semibold leading-7 text-[#24443a]">“Taylor reports missing two evening doses this week. The current medication record is unavailable. Verify the regimen with the pharmacy or referring team.”</blockquote><div className="mt-6 flex flex-wrap gap-2"><EvidenceTag>Source</EvidenceTag><EvidenceTag>Status</EvidenceTag><EvidenceTag>Next action</EvidenceTag></div></article>
+    <section aria-label="Assessment Language Lab example" className="min-w-0 border border-[#d8dfdb] bg-white p-5 sm:p-6">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-[#6a756e]">
+        <span className="uppercase text-[#0f7664]">Assessment · History</span>
+        <span>Synthetic example · not saved</span>
+      </div>
+      <GuidedAssessmentField
+        question={question}
+        definition={definition}
+        value={value}
+        unableReason=""
+        required={definition.required_for_completion}
+        primary={false}
+        disabled={false}
+        reviewDisabled
+        onChange={(next) => setValue(typeof next === "string" ? next : null)}
+        onReview={() => undefined}
+        onUnableReasonChange={() => undefined}
+        writingGuideInitiallyOpen
+      />
     </section>
   );
-}
-
-function EvidenceTag({ children }: { children: React.ReactNode }) {
-  return <span className="border border-[#9fc3b7] bg-white px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#0c705f]">{children}</span>;
 }
 
 function DecisionPathVisual() {
