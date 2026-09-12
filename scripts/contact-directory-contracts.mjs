@@ -112,6 +112,10 @@ check("scheduling rejects incomplete Intake and unreachable contact state before
 check("calendar projection labels contact blockers and routes them back to Intake",
   calendar.includes('"complete_contact"')
   && calendar.includes("primary_for_scheduling")
+  && calendar.includes("r.data->>'phone'")
+  && calendar.includes("r.data->>'email'")
+  && !calendar.includes("r.phone")
+  && !calendar.includes("r.email")
   && calendarPresentation.includes('return "Contact needed"')
   && calendarPresentation.includes('"Open intake"'));
 check("contact changes join the existing referral activity timeline",
