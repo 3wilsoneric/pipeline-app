@@ -1,4 +1,5 @@
 "use client";
+import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -285,7 +286,7 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
   };
 
   return (
-    <main data-guide-target="calendar-workspace" aria-busy={loading} className="h-full overflow-y-auto bg-white px-3 pb-8 sm:px-5 lg:px-7">
+    <main data-guide-target="calendar-workspace" data-performance-ready={pipelineSurfaceReady("calendar", loading, error)} aria-busy={loading} className="h-full overflow-y-auto bg-white px-3 pb-8 sm:px-5 lg:px-7">
       <div className="mx-auto w-full max-w-[1540px]">
         <CalendarHeader
           view={view}

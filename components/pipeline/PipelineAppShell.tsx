@@ -6,6 +6,7 @@ import PipelineHeader from "@/components/pipeline/PipelineHeader";
 import DemoEnvironmentBanner from "@/components/pipeline/training/DemoEnvironmentBanner";
 import PipelineGuidedCoach from "@/components/pipeline/training/PipelineGuidedCoach";
 import { PipelineShellProvider } from "@/components/pipeline/pipeline-shell-context";
+import PipelinePerformanceObserver from "@/components/pipeline/PipelinePerformanceObserver";
 
 export default function PipelineAppShell({
   children,
@@ -27,6 +28,7 @@ export default function PipelineAppShell({
         </Suspense>
         <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
         <PipelineGuidedCoach />
+        <PipelinePerformanceObserver />
       </div>
     </PipelineShellProvider>
   );

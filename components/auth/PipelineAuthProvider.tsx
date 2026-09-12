@@ -31,6 +31,7 @@ import {
   establishPipelineServerSession,
   probePipelineServerSession,
   restorePipelineAccountSilently,
+  type PipelineSessionUser,
 } from "@/lib/auth/browser-session";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { isPipelineDesktopEnabled } from "@/lib/desktop/desktop-config";
@@ -63,7 +64,7 @@ const disabledContext: PipelineAuthContextValue = {
 
 const PipelineAuthContext = createContext<PipelineAuthContextValue>(disabledContext);
 
-export default function PipelineAuthProvider({ children }: { children: React.ReactNode }) {
+export default function PipelineAuthProvider({ children, initialUser }: { children: React.ReactNode; initialUser?: PipelineSessionUser | null }) {
   if (!pipelineAuthRequired) {
     return <PipelineAuthContext.Provider value={disabledContext}>{children}</PipelineAuthContext.Provider>;
   }
@@ -80,14 +81,14 @@ export default function PipelineAuthProvider({ children }: { children: React.Rea
 
   return (
     <MsalProvider instance={msalInstance}>
-      <PipelineAuthBootstrap>{children}</PipelineAuthBootstrap>
+      <PipelineAuthBootstrap initialUser={initialUser}>{children}</PipelineAuthBootstrap>
     </MsalProvider>
   );
 }
 
-function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
+function PipelineAuthBootstrap({ children, initialUser }: { children: React.ReactNode; initialUser?: PipelineSessionUser | null }) {
   const { accounts, instance } = useMsal();
-  const [status, setStatus] = useState<AuthStatus>("initializing");
+  const [status, setStatus] = useState<AuthStatus>(initialUser ? "signed_in" : "initializing");
   const [account, setAccount] = useState<AccountInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,7 +96,7 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     async function bootstrap() {
-      setStatus("initializing");
+      setStatus(serverEntryAuthStatus(initialUser));
       try {
         const msalReady = initializeMsal();
         const serverSessionRequest = probePipelineServerSession();
@@ -198,7 +199,7 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [instance]);
+  }, [initialUser, instance]);
 
   useEffect(() => {
     if (status !== "signed_out" || accounts.length === 0) return;
@@ -300,6 +301,10 @@ function PipelineAuthBootstrap({ children }: { children: React.ReactNode }) {
       {status === "initializing" ? <AuthenticationProgress /> : children}
     </PipelineAuthContext.Provider>
   );
+}
+
+function serverEntryAuthStatus(initialUser?: PipelineSessionUser | null): AuthStatus {
+  return initialUser && !hasMicrosoftRedirectResponse() ? "signed_in" : "initializing";
 }
 
 function hasMicrosoftRedirectResponse() {

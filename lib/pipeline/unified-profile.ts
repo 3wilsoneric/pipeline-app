@@ -92,10 +92,10 @@ export async function getUnifiedClientProfile(
   }
   const clinical = await getClinicalClient(request, canonicalClientId);
   const resident = await loadCurrentResident(request, clinical.client);
-  const history = resident
-    ? await getClientHistoryForResident(resident.resident_number, resident.date_of_birth)
-    : unavailableHistoricalProjection();
+  // Both reads require the resolved resident but do not depend on one another.
+  // Start link resolution while the unchanged history projection is prepared.
   const residentLinkReadiness = getResidentLinkStoreReadiness();
+  const [history, initialLinks] = await loadProfileHistoryAndLinks(clinical.client, resident, residentLinkReadiness.ready);
   if (!residentLinkReadiness.ready) {
     return {
       ...clinical,
@@ -111,7 +111,7 @@ export async function getUnifiedClientProfile(
 
   let projectionStage: PipelineProjectionStage = "load_links";
   try {
-    const linkResults = await loadClientLinks(clinical.client, resident);
+    const linkResults = unwrapProfileLinks(initialLinks);
     projectionStage = "filter_links";
     const links = await filterLinksForUser(linkResults, user);
     const confirmed = links.filter((link) => link.status === "confirmed");
@@ -220,6 +220,18 @@ export async function getUnifiedClientProfile(
       ),
     };
   }
+}
+
+async function loadProfileHistoryAndLinks(client: ClinicalClientDetail, resident: ClinicalResident | null, linksReady: boolean) {
+  return Promise.all([
+    resident ? getClientHistoryForResident(resident.resident_number, resident.date_of_birth) : unavailableHistoricalProjection(),
+    linksReady ? loadClientLinks(client, resident).then((value) => ({ value }), (error: unknown) => ({ error })) : { value: [] },
+  ] as const);
+}
+
+function unwrapProfileLinks(result: { value: PipelineResidentLink[] } | { error: unknown }) {
+  if ("error" in result) throw result.error;
+  return result.value;
 }
 
 function safeProjectionErrorCode(error: unknown) {

@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+const atlas = JSON.parse(readFileSync("lib/academy/academy-atlas.generated.json", "utf8"));
 
 const academyUrl = process.env.PIPELINE_E2E_ACADEMY_URL ?? "/academy";
 
@@ -81,7 +84,7 @@ test.describe("Private Developer Academy", () => {
     await page.getByRole("tab", { name: "Mastery" }).click();
     await expect(page.getByRole("heading", { name: "Mastery console" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Competency gates" })).toBeVisible();
-    await expect(page.getByText(/\d+ of \d+ maintained files/)).toBeVisible();
+    await expect(page.getByText(`${atlas.totals.coveredFiles.toLocaleString()} of ${atlas.totals.files.toLocaleString()} maintained files`, { exact: true })).toBeVisible();
     await expect.poll(() => errors).toEqual([]);
   });
 

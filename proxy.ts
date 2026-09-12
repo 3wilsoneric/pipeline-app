@@ -21,11 +21,11 @@ export async function proxy(request: NextRequest) {
 
   if (applicationPathname.startsWith("/api/internal/")) {
     const denied = requireInternalWorkerAtProxy(request);
-    return withSecurityHeaders(denied ?? NextResponse.next(), request);
+    return withSecurityHeaders(denied ?? continueRequest(request), request);
   }
 
   if (!isProtectedPath(applicationPathname)) {
-    return withSecurityHeaders(NextResponse.next(), request);
+    return withSecurityHeaders(continueRequest(request), request);
   }
 
   const auth = await requireAuthenticatedUser(request);
@@ -44,13 +44,13 @@ export async function proxy(request: NextRequest) {
 
   if (isNoteLabPath(applicationPathname)) {
     const response = canAccessNoteLab(auth.user)
-      ? NextResponse.next()
+      ? continueRequest(request)
       : NextResponse.json({ error: "Forbidden" }, { status: 403 });
     return withSecurityHeaders(response, request);
   }
 
   if (isSharedIdentityPath(applicationPathname)) {
-    return withSecurityHeaders(NextResponse.next(), request);
+    return withSecurityHeaders(continueRequest(request), request);
   }
 
   if (!canAccessPipeline(auth.user)) {
@@ -67,7 +67,17 @@ export async function proxy(request: NextRequest) {
     return withSecurityHeaders(NextResponse.redirect(noteLabUrl), request);
   }
 
-  return withSecurityHeaders(NextResponse.next(), request);
+  return withSecurityHeaders(continueRequest(request, !applicationPathname.startsWith("/api/")), request);
+}
+
+function continueRequest(request: NextRequest, serverEntry = false) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete("x-pipeline-server-entry");
+  const params = request.nextUrl.searchParams;
+  // Microsoft callbacks keep the existing browser redirect/session exchange.
+  const redirectResponse = params.has("state") && (params.has("code") || params.has("error") || params.has("error_description"));
+  if (serverEntry && !redirectResponse) requestHeaders.set("x-pipeline-server-entry", "1");
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 function isNoteLabPath(pathname: string) {
@@ -105,6 +115,8 @@ function constantTimeStringEqual(left: string, right: string) {
 }
 
 function withSecurityHeaders(response: Response, request: NextRequest) {
+  const pathname = fromPipelinePath(request.nextUrl.pathname);
+  if (!pathname.startsWith("/api/") && isProtectedPath(pathname)) response.headers.set("Cache-Control", "private, no-store, max-age=0");
   response.headers.set("X-Content-Type-Options", "nosniff");
   const sameOriginPacketPreview = /^\/api\/referrals\/\d+\/packet$/.test(
     fromPipelinePath(request.nextUrl.pathname),

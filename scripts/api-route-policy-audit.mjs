@@ -41,6 +41,8 @@ const authenticatedPipelineSelfMethods = new Set([
 ]);
 const governedReadMutations = new Set([
   "app/api/operations/reports/route.ts#POST",
+  // Data-free, strictly enumerated browser timings; no clinical mutation.
+  "app/api/me/performance/route.ts#POST",
 ]);
 const roleRestrictedReads = new Map([
   ["app/api/operations/supervisor-queue/route.ts#GET", ["admin", "assessment_coordinator"]],
@@ -131,8 +133,11 @@ for (const absoluteFile of routeFiles) {
     if (isMutation && authenticatedPipelineSelfMethods.has(key)) {
       check(`${key} mutates only the signed-in staff member`, body.includes("auth.user"));
     }
-    if (governedReadMutations.has(key)) {
+    if (key === "app/api/operations/reports/route.ts#POST") {
       check(`${key} enforces report access and audits the export`, body.includes("getOperationsReport(auth.user") && body.includes("ReportAccessError") && body.includes("recordOperationsReportExport("));
+    }
+    if (key === "app/api/me/performance/route.ts#POST") {
+      check(`${key} accepts only bounded data-free timing samples`, body.includes("parseBrowserPerformanceSamples(body.value)") && body.includes("recordPipelineMetric(") && !body.includes("auth.user.id"));
     }
     if (key === "app/api/note-lab/session/route.ts#POST") {
       check(`${key} writes only principal-scoped reviewer state`, body.includes("submitNoteLabReview(auth.user.id"));

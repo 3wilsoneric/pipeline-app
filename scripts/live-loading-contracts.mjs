@@ -106,6 +106,7 @@ const timers = new Map();
 const warmedPaths = [];
 const finishWarmups = [];
 const navigation = load("lib/pipeline/client-navigation.ts", {
+  "@/lib/observability/browser-performance": { beginPipelineNavigation() {} },
   react: {},
   "@/lib/pipeline/base-path": {},
   "@/lib/pipeline/workspace-presentation": { isImportedWorkspace: (referral) => referral.workspaceOrigin === "allo" },

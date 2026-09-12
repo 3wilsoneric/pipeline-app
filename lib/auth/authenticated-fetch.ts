@@ -28,6 +28,11 @@ type PipelineFetchOptions = {
 const jsonResponseCache = new Map<string, { expiresAt: number; payload: unknown }>();
 const pendingJsonRequests = new Map<string, Promise<unknown>>();
 let cacheGeneration = 0;
+const readCacheCounts = { hit: 0, join: 0, miss: 0 };
+
+export function getPipelineReadCacheCounts() {
+  return { ...readCacheCounts };
+}
 
 export function getPipelineClientCacheGeneration() {
   return cacheGeneration;
@@ -90,11 +95,18 @@ export async function fetchPipelineJson<T>(
   if (init.signal?.aborted) throw new PipelineApiError("Request cancelled.", 499);
   if (cacheKey && !options.bypassCache) {
     const cached = jsonResponseCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) return cached.payload as T;
+    if (cached && cached.expiresAt > Date.now()) {
+      readCacheCounts.hit += 1;
+      return cached.payload as T;
+    }
     if (cached) jsonResponseCache.delete(cacheKey);
   }
   const pending = cacheKey && !options.bypassCache ? pendingJsonRequests.get(cacheKey) : undefined;
-  if (pending) return await joinPipelineRead(pending as Promise<T>, init.signal);
+  if (pending) {
+    readCacheCounts.join += 1;
+    return await joinPipelineRead(pending as Promise<T>, init.signal);
+  }
+  if (method === "GET") readCacheCounts.miss += 1;
   // A prefetched GET belongs to the cache, not the first component to mount.
   // Unmounting one consumer cancels its wait without cancelling another reader.
   const request = requestPipelineJson<T>(input, cacheKey ? { ...init, signal: undefined } : init, options);

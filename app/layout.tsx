@@ -4,6 +4,7 @@ import PipelineAuthProvider from "@/components/auth/PipelineAuthProvider";
 import DesktopRuntime from "@/components/desktop/DesktopRuntime";
 import { isPipelineDesktopEnabled } from "@/lib/desktop/desktop-config";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
+import { getPipelineServerEntryUser } from "@/lib/auth/server-entry";
 import "./globals.css";
 
 const pipelineSans = localFont({
@@ -34,15 +35,16 @@ export const metadata: Metadata = {
   manifest: isPipelineDesktopEnabled() ? toPipelinePath("/desktop-manifest.webmanifest") : undefined,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialUser = await getPipelineServerEntryUser();
   return (
     <html lang="en" className={`${pipelineSans.variable} h-full antialiased`}>
       <body className="min-h-full">
-        <PipelineAuthProvider>
+        <PipelineAuthProvider initialUser={initialUser}>
           <DesktopRuntime />
           {children}
         </PipelineAuthProvider>

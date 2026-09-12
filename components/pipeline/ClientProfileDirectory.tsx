@@ -1,4 +1,5 @@
 "use client";
+import { pipelineSurfaceReady } from "@/lib/observability/browser-performance-contract";
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -210,7 +211,7 @@ export default function ClientProfileDirectory({
   };
 
   return (
-    <main data-guide-target="client-directory" aria-label="Client profiles" className="h-full overflow-y-auto bg-white text-[#111111]">
+    <main data-guide-target="client-directory" data-performance-ready={pipelineSurfaceReady("profiles", isLoading, error)} aria-label="Client profiles" className="h-full overflow-y-auto bg-white text-[#111111]">
       <div data-testid="profiles-workspace" className="mx-auto w-full max-w-[1240px] px-4 pb-10 pt-4 sm:px-6 lg:px-8">
         <section aria-label="Find clients" className="pb-1">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
