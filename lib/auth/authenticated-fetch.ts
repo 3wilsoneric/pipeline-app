@@ -22,6 +22,7 @@ type PipelineFetchOptions = {
   timeoutMs?: number;
   maxResponseBytes?: number;
   cacheTtlMs?: number;
+  bypassCache?: boolean;
 };
 
 const jsonResponseCache = new Map<string, { expiresAt: number; payload: unknown }>();
@@ -76,22 +77,26 @@ export async function fetchPipelineJson<T>(
   const generation = cacheGeneration;
   const cacheKey = method === "GET" && options.cacheTtlMs ? input : null;
   if (init.signal?.aborted) throw new PipelineApiError("Request cancelled.", 499);
-  if (cacheKey) {
+  if (cacheKey && !options.bypassCache) {
     const cached = jsonResponseCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.payload as T;
     if (cached) jsonResponseCache.delete(cacheKey);
   }
-  const pending = cacheKey ? pendingJsonRequests.get(cacheKey) : undefined;
+  const pending = cacheKey && !options.bypassCache ? pendingJsonRequests.get(cacheKey) : undefined;
   if (pending) return await joinPipelineRead(pending as Promise<T>, init.signal);
   // A prefetched GET belongs to the cache, not the first component to mount.
   // Unmounting one consumer cancels its wait without cancelling another reader.
-  const request = requestPipelineJson<T>(input, cacheKey ? { ...init, signal: undefined } : init, options, cacheKey, generation);
+  const request = requestPipelineJson<T>(input, cacheKey ? { ...init, signal: undefined } : init, options);
   if (cacheKey) {
+    jsonResponseCache.delete(cacheKey);
     pendingJsonRequests.set(cacheKey, request);
     const cleanup = () => {
       if (pendingJsonRequests.get(cacheKey) === request) pendingJsonRequests.delete(cacheKey);
     };
-    void request.then(cleanup, cleanup);
+    void request.then((payload) => {
+      if (pendingJsonRequests.get(cacheKey) === request) retainPipelineRead(cacheKey, generation, payload, options.cacheTtlMs);
+      cleanup();
+    }, cleanup);
   }
   return await joinPipelineRead(request, init.signal);
 }
@@ -116,8 +121,6 @@ async function requestPipelineJson<T>(
   input: string,
   init: RequestInit,
   options: PipelineFetchOptions,
-  cacheKey: string | null,
-  generation: number,
 ) {
   const method = (init.method ?? "GET").toUpperCase();
   const attempts = method === "GET" ? 2 : 1;
@@ -129,7 +132,6 @@ async function requestPipelineJson<T>(
       const text = await readBoundedResponseText(response, options.maxResponseBytes ?? defaultMaxResponseBytes);
       const payload = parseJson(text);
       if (response.ok) {
-        retainPipelineRead(cacheKey, generation, payload, options.cacheTtlMs);
         return payload as T;
       }
       if (response.status === 401) void beginReauthentication();

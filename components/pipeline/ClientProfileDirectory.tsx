@@ -526,7 +526,7 @@ async function fetchClientPage(query: string, cursor: string | null, signal: Abo
     cache: "no-store",
     signal,
     ...(refresh ? { headers: { "x-pipeline-refresh": "1" } } : {}),
-  }, { cacheTtlMs: refresh ? 0 : 60_000 });
+  }, { cacheTtlMs: 60_000, bypassCache: refresh });
 }
 
 function collectCommunities(clients: DirectoryClient[]) {
