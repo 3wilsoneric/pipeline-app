@@ -194,6 +194,14 @@ local refactor-setup command separately encounters a pre-existing missing Git
 worktree; this is not a completed refactor certification or authority to prune
 another task's worktree. CI must certify the release candidate in its clean checkout.
 
+The first full operational CI run passed 22 cases but exposed an outdated UI
+expectation: the default report counts completed-assessment staff rows, not every
+referral. The rehearsal now explicitly selects the visible Assessment calendar
+report and checks its scheduled assessments. Exact 100-referral, community,
+month, workflow, and dashboard reconciliation remains intact. The corrected
+100-user product-day test passed locally against the rebuilt candidate. Academy
+source indexes were refreshed after reviewing these bounded source changes.
+
 Initial failures were retained as diagnostic evidence during iteration: invalid
 synthetic PDF/name fixtures, stale tutorial selectors, missing synthetic roster
 and desktop-state setup, and faint resumed-intake metadata. Fixes address the

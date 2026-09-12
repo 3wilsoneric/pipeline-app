@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:07f700582a279cd7",
-  "fingerprint": "07f700582a279cd7e866f43fba9665e3fb494da7c225a1b265f2ec649f4df8c8",
+  "generatedAt": "source-fingerprint:3394398d66f98e1e",
+  "fingerprint": "3394398d66f98e1e69239b917ef94eafb5f92f47764bfb00504eb21b137a4c5f",
   "totals": {
     "files": 991,
-    "lines": 315049,
+    "lines": 315065,
     "coveredFiles": 991
   },
   "entries": [
@@ -5919,7 +5919,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 504,
+      "lines": 512,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -11537,7 +11537,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 567,
+      "lines": 575,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
