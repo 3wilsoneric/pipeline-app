@@ -7,6 +7,11 @@ const skipBuild = args.has("--skip-build");
 
 const checks = [
   {
+    name: "Directory login and source-startup prewarming",
+    command: "node",
+    args: ["scripts/directory-prewarm-contracts.mjs"],
+  },
+  {
     name: "Tracked repository hygiene",
     command: "node",
     args: ["scripts/code-hygiene-audit.mjs"],

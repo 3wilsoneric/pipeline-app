@@ -16,4 +16,7 @@ export async function register() {
       checked_at: new Date().toISOString(),
     }),
   );
+
+  const { warmClinicalSourceAtStartup } = await import("./lib/clinical/clinical-startup-warmup");
+  await warmClinicalSourceAtStartup();
 }

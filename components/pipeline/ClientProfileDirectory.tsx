@@ -57,6 +57,7 @@ type DirectoryCacheEntry = ClientDirectoryPayload & {
 };
 
 const directoryCache = new Map<string, DirectoryCacheEntry>();
+let directoryRefreshVersion = 0;
 
 export default function ClientProfileDirectory({
   onOpenProfile,
@@ -99,10 +100,14 @@ export default function ClientProfileDirectory({
       void (async () => {
         try {
           const identity = await fetchCurrentPipelineUser();
-          if (controller.signal.aborted) return;
+          assertDirectoryContext(controller.signal, generation);
           const cacheKey = directoryCacheKey(identity.user?.id ?? identity.user?.email, normalizedQuery);
           const bypassCache = forceReload.current;
           forceReload.current = false;
+          if (bypassCache) {
+            directoryRefreshVersion += 1;
+            directoryCache.delete(cacheKey);
+          }
           const cached = bypassCache ? null : readDirectoryCache(cacheKey);
           if (cached) {
             applyDirectoryPayload(cached);
@@ -112,53 +117,19 @@ export default function ClientProfileDirectory({
             return;
           }
 
-          let payload = await fetchClientPage(normalizedQuery, null, controller.signal, bypassCache);
-          if (controller.signal.aborted) return;
-          loadedFirstPage = true;
-          const directoryTotal = Number.isInteger(payload.total) ? payload.total : payload.clients.length;
-          const directoryDataAsOf = payload.data_as_of ?? "";
-          const directoryFreshness = payload.freshness;
-          let merged = mergeClients([], payload.clients ?? []);
-          let cursor = payload.next_cursor ?? null;
-          const seenCursors = new Set<string>();
-          let pageCount = 1;
-
-          setClients(merged);
-          setTotal(directoryTotal);
-          setDataAsOf(directoryDataAsOf);
-          setFreshness(directoryFreshness);
-          setIsLoading(false);
-          setIsCompletingRoster(Boolean(cursor));
-          loadedQuery.current = normalizedQuery;
-          if (!normalizedQuery) setKnownCommunities(collectCommunities(merged));
-
-          while (cursor) {
-            if (seenCursors.has(cursor) || pageCount >= MAX_DIRECTORY_PAGES) {
-              throw new Error("The client directory exceeded its safe pagination limit.");
-            }
-            seenCursors.add(cursor);
-            payload = await fetchClientPage(normalizedQuery, cursor, controller.signal, bypassCache);
-            if (controller.signal.aborted) return;
-            merged = mergeClients(merged, payload.clients ?? []);
-            cursor = payload.next_cursor ?? null;
-            pageCount += 1;
-            setClients(merged);
-            if (!normalizedQuery) setKnownCommunities(collectCommunities(merged));
-          }
-
-          if (merged.length < directoryTotal) {
-            setError("The client directory stopped before every client was loaded. Refresh before searching or filtering the full roster.");
-            return;
-          }
-
+          const payload = await fetchCompleteClientDirectory(normalizedQuery, controller.signal, bypassCache, generation, (partial) => {
+            loadedFirstPage = true;
+            setClients(partial.clients);
+            setTotal(partial.total);
+            setDataAsOf(partial.data_as_of);
+            setFreshness(partial.freshness);
+            if (!normalizedQuery) setKnownCommunities(collectCommunities(partial.clients));
+            setIsLoading(false);
+            setIsCompletingRoster(Boolean(partial.next_cursor));
+            loadedQuery.current = normalizedQuery;
+          });
           setDirectoryComplete(true);
-          writeDirectoryCache(cacheKey, {
-            clients: merged,
-            total: directoryTotal,
-            next_cursor: null,
-            data_as_of: directoryDataAsOf,
-            freshness: directoryFreshness,
-          }, generation);
+          writeDirectoryCache(cacheKey, payload, generation);
         } catch (loadError) {
           if (controller.signal.aborted) return;
           setDirectoryComplete(false);
@@ -412,6 +383,59 @@ function writeDirectoryCache(key: string, payload: ClientDirectoryPayload, gener
     if (typeof oldest !== "string") break;
     directoryCache.delete(oldest);
   }
+}
+
+// Login and the visible directory use the same page walker and protected GET
+// cache. Opening Clients during preload joins those reads instead of restarting.
+export async function preloadCurrentClientDirectory(signal: AbortSignal) {
+  const generation = getPipelineClientCacheGeneration();
+  const { user } = await fetchCurrentPipelineUser();
+  assertDirectoryContext(signal, generation);
+  const key = directoryCacheKey(user.id ?? user.email, "");
+  if (readDirectoryCache(key)) return;
+  const payload = await fetchCompleteClientDirectory("", signal, false, generation);
+  writeDirectoryCache(key, payload, generation);
+}
+
+function assertDirectoryContext(signal: AbortSignal, generation: number, refreshVersion = directoryRefreshVersion) {
+  signal.throwIfAborted();
+  if (generation !== getPipelineClientCacheGeneration() || refreshVersion !== directoryRefreshVersion) {
+    throw new DOMException("Directory access context changed.", "AbortError");
+  }
+}
+
+async function fetchCompleteClientDirectory(
+  query: string,
+  signal: AbortSignal,
+  refresh: boolean,
+  generation: number,
+  onPage?: (payload: ClientDirectoryPayload) => void,
+): Promise<ClientDirectoryPayload> {
+  const refreshVersion = directoryRefreshVersion;
+  let cursor: string | null = null;
+  let first: ClientDirectoryPayload | undefined;
+  let clients: DirectoryClient[] = [];
+  const seenCursors = new Set<string>();
+  for (let page = 0; page < MAX_DIRECTORY_PAGES; page += 1) {
+    assertDirectoryContext(signal, generation, refreshVersion);
+    const payload = await fetchClientPage(query, cursor, signal, refresh);
+    assertDirectoryContext(signal, generation, refreshVersion);
+    first ??= payload;
+    if (payload.total !== first.total || payload.data_as_of !== first.data_as_of) {
+      throw new Error("The census changed while loading. Refresh the client directory.");
+    }
+    clients = mergeClients(clients, payload.clients ?? []);
+    cursor = payload.next_cursor ?? null;
+    const merged = { ...first, clients, next_cursor: cursor };
+    onPage?.(merged);
+    if (!cursor) {
+      if (clients.length < first.total) throw new Error("The client directory stopped before every client was loaded. Refresh before searching or filtering the full roster.");
+      return merged;
+    }
+    if (seenCursors.has(cursor)) break;
+    seenCursors.add(cursor);
+  }
+  throw new Error("The client directory exceeded its safe pagination limit.");
 }
 
 function DirectorySelect({
