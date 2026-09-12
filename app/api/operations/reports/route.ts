@@ -83,7 +83,7 @@ function requireReportAssessmentStore(filters: OperationsReportFilters) {
 function parseFilters(input: Record<string, unknown>):
   | { ok: true; filters: OperationsReportFilters }
   | { ok: false; error: string } {
-  const reportId = input.report_id ?? "workspace_inventory";
+  const reportId = input.report_id ?? "assessment_completion";
   const month = input.month ?? currentOperationalMonth();
   const community = input.community ?? "";
   const owner = input.owner ?? "";

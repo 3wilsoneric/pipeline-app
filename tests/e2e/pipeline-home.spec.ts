@@ -833,7 +833,7 @@ test.describe("Pipeline home", () => {
     await page.getByRole("button", { name: "Open reports" }).click();
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Reports", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("workspace_inventory");
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("assessment_completion");
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
     await expect(page.getByText("Work queue", { exact: true })).toHaveCount(0);

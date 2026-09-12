@@ -234,7 +234,7 @@ export default function PipelineOverviewRoute() {
   if (screen === "packet") {
     const trainingAssessmentMode = getTrainingAssessmentMode(activeSearchParams);
     const trainingIntakeMode = activeSearchParams.get("trainingIntake") === "1";
-    const isDemoWorkspace = activeSearchParams.get("demo") === "1" || Boolean(trainingAssessmentMode) || trainingIntakeMode;
+    const isDemoWorkspace = [activeSearchParams.get("demo") === "1", Boolean(trainingAssessmentMode), trainingIntakeMode].some(Boolean);
     const packetProps: ComponentProps<DeferredWorkSurfaces["ReferralPacketCanvas"]> = {
       referral: selectedReferral,
       newDraftKey: newReferralDraftKey,
