@@ -122,6 +122,17 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
   const [reportAccess, setReportAccess] = useState<boolean | null>(null);
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
+  // Header links and browser history also leave Home without calling navigate.
+  // The server seed is only for entry, never for a later return to Home.
+  useEffect(() => {
+    const discardEntry = () => setEntryBriefing(null);
+    window.addEventListener("pipeline:navigation", discardEntry);
+    window.addEventListener("popstate", discardEntry);
+    return () => {
+      window.removeEventListener("pipeline:navigation", discardEntry);
+      window.removeEventListener("popstate", discardEntry);
+    };
+  }, [setEntryBriefing]);
   const deferredWorkSurfaces = useDeferredWorkSurfaces(screen);
   const selectedReferral = routeReferral && referralDetails?.id === routeReferral.id
     ? referralDetails

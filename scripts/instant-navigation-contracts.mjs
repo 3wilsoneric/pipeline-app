@@ -139,6 +139,41 @@ eligibleUser = null; assert.equal(await homeSeed({}), null);
 eligibleUser = { id: "effective-assessor" }; briefingFails = true;
 assert.equal(await homeSeed({}), null, "source outages retain the normal client retry path");
 
+const entrySeed = { fixture: "private-entry-only" };
+const effectCalls = [];
+const seededStates = [];
+const seededSetters = [];
+const updates = [];
+const rootNavigationEvents = new Map();
+const rootStubs = {
+  react: { useState: (initial) => {
+    const value = typeof initial === "function" ? initial() : initial;
+    const index = seededStates.push(value) - 1;
+    const setter = (next) => updates.push({ index, next });
+    seededSetters.push(setter);
+    return [value, setter];
+  }, useMemo: (read) => read(), useEffect: (run, deps) => effectCalls.push({ run, deps }) },
+  "next/dynamic": () => () => null,
+  "next/navigation": { useSearchParams: () => new URLSearchParams("view=referrals") },
+  "@/components/pipeline/pipeline-shell-context": { usePipelineShell: () => ({ searchTerm: "", setSearchTerm() {}, setSearchOpen() {} }) },
+  "@/lib/pipeline/client-navigation": { usePipelineLocationSearch: () => "view=referrals" },
+};
+const Overview = load("components/pipeline/PipelineOverviewRoute.tsx", {}, {
+  require: (id) => rootStubs[id] ?? (id.startsWith("@/") ? {} : require(id)),
+  window: { addEventListener: (name, run) => rootNavigationEvents.set(name, run), removeEventListener: (name) => rootNavigationEvents.delete(name) },
+}).default;
+Overview({ initialBriefing: entrySeed });
+const entrySetter = seededSetters[seededStates.indexOf(entrySeed)];
+const entrySubscription = effectCalls.find(({ deps }) => deps?.length === 1 && deps[0] === entrySetter);
+const stopEntrySubscription = entrySubscription.run();
+rootNavigationEvents.get("pipeline:navigation")();
+assert.ok(updates.some(({ index, next }) => seededStates[index] === entrySeed && next === null), "header/history departures must discard the SSR seed, not briefly restore old assignments or drafts on return");
+updates.length = 0;
+rootNavigationEvents.get("popstate")();
+assert.ok(updates.some(({ index, next }) => seededStates[index] === entrySeed && next === null));
+stopEntrySubscription();
+assert.equal(rootNavigationEvents.size, 0);
+
 let respond = async () => Response.json({ fixture: true });
 const browserCache = load("lib/auth/authenticated-fetch.ts", {
   "@/lib/auth/entra-client": { pipelineAuthRequired: false },
