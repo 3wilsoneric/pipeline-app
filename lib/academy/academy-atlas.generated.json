@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:be49b30f59d8fa5e",
-  "fingerprint": "be49b30f59d8fa5e3118cdd2d65fcc31185070ce9222dc7e8dc2124bdbb150eb",
+  "generatedAt": "source-fingerprint:bc1cc1af277f9bce",
+  "fingerprint": "bc1cc1af277f9bcec63c7bfdccab16a36dbf8c623327de577979b063413436f8",
   "totals": {
     "files": 994,
-    "lines": 315672,
+    "lines": 315674,
     "coveredFiles": 994
   },
   "entries": [
@@ -11237,7 +11237,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 78,
+      "lines": 80,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
