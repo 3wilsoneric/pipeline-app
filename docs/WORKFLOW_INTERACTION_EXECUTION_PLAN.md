@@ -220,6 +220,10 @@ use `aria-pressed`, not the retired black background class. The rebuilt primary
 run passed 131 cases, with 17 feature/profile-conditional skips; its final stale
 packet assertion was corrected and that entire case separately passed. CI still
 must run the desktop, access-isolation, cross-browser, and Linux visual profiles.
+The desktop profile subsequently passed all nine enabled cases after scoping
+its draft/upload status assertions to the same indicator; its disabled-feature
+case is intentionally skipped in that profile. The optional operator packet
+smoke uses the same scoped assertion but was not run with real source material.
 
 That run also detected a real identity-confirmation defect: mutation validation
 could reuse a 15-second clinical display projection. The existing clinical TTL
