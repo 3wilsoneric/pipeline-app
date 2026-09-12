@@ -11,6 +11,7 @@ import {
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { prefetchPipelineWorkspace } from "@/lib/pipeline/client-navigation";
 import { getWorkspaceCounty, isClientChartWorkspace, isRecordedWorkspaceCommunity, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
 
 export default function ReferralWorklist({
@@ -69,6 +70,8 @@ export default function ReferralWorklist({
               type="button"
               data-guide-target="workspace-results"
               onClick={() => onOpenPacket(referral)}
+              onPointerEnter={() => prefetchPipelineWorkspace(referral)}
+              onFocus={() => prefetchPipelineWorkspace(referral)}
               aria-label={`Open ${identityTitle} referral workspace`}
               className="grid w-full grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
             >
@@ -134,6 +137,8 @@ function CompactReferralRow({
       type="button"
       data-guide-target="workspace-results"
       onClick={onOpen}
+      onPointerEnter={() => prefetchPipelineWorkspace(referral)}
+      onFocus={() => prefetchPipelineWorkspace(referral)}
       aria-label={`Open ${identityTitle} referral workspace`}
       className="block w-full px-3 py-4 text-left transition-colors hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73] sm:px-4"
     >

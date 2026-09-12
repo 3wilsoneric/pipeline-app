@@ -93,9 +93,9 @@ export async function getHistoricalProfile(referral: Referral): Promise<Historic
 }
 
 async function postgresProfileData(referral: Referral): Promise<HistoricalProfileData> {
-  const candidates = await postgresCandidates(referral);
-  const capturedSources = await postgresCapturedSources(referral);
-  const [documents, files] = await Promise.all([
+  const [candidates, capturedSources, documents, files] = await Promise.all([
+    postgresCandidates(referral),
+    postgresCapturedSources(referral),
     postgresDocuments(referral.id),
     listReferralFiles({ referralId: referral.id, limit: 200 }),
   ]);

@@ -404,7 +404,7 @@ async function requestClinicalEndpoint<T>(
   // Cache only validated read projections, never health, evidence, or files.
   // Bind entries to both upstream authority and the complete operator session,
   // including God mode. Nothing is persisted or shared through HTTP caches.
-  const ttl = clinicalReadTtl(endpoint);
+  const ttl = clinicalReadTtl(endpoint, request?.method);
   synchronizeClinicalReadAuthority(context.authorization);
   const key = ttl ? clinicalReadKey(context.url, request) : null;
   if (key && request?.headers.get("x-pipeline-refresh") === "1") clinicalReadCache.delete(key);
@@ -422,8 +422,10 @@ async function requestClinicalEndpoint<T>(
   }
 }
 
-function clinicalReadTtl(endpoint: string) {
-  if (endpoint.startsWith("/clients?")) return 60_000;
+function clinicalReadTtl(endpoint: string, method = "GET") {
+  // Display reuse must never replace fresh evidence during a mutation.
+  if (!["GET", "HEAD"].includes(method)) return 0;
+  if (endpoint.startsWith("/clients?") || endpoint.startsWith("/roster?")) return 60_000;
   return /^\/(?:clients|residents)\/[^/?]+$/.test(endpoint) ? 15_000 : 0;
 }
 

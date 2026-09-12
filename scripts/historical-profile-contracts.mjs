@@ -181,11 +181,12 @@ check("historical workspace mutation is blocked at both API and storage boundari
 check("historical workspaces cannot receive new files",
   referralAccess.includes("Historical workspaces are read-only and cannot receive new files.")
     && uploadRoutes.every((source) => /requireMutable(?:Referral|Packet)Access/.test(source)));
-check("historical workspaces expose one read-only Profile surface",
+check("historical workspaces expose one read-only client Chart surface",
   importedWorkspaceStepsStart >= 0
-    && importedWorkspaceSteps.includes("{ page: 1, label: \"Profile\" }")
+    && importedWorkspaceSteps.includes("{ page: 1, label: \"Chart\" }")
     && !importedWorkspaceSteps.includes("Assessment")
-    && !importedWorkspaceSteps.includes("Chart")
+    && !importedWorkspaceSteps.includes("Intake")
+    && canvas.includes("<TransferredWorkspaceChart")
     && canvas.includes("historicalReadOnly"));
 check("historical workspaces hide mutation controls while preserving read-only files",
   canvas.includes("<WorkspaceSaveControl")

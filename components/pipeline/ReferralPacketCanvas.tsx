@@ -78,6 +78,7 @@ import {
 } from "@/lib/extraction/contracts";
 import type { TrainingAssessmentMode } from "@/lib/training/mock-assessment";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
+import { workspaceCanvasCacheTtlMs } from "@/lib/pipeline/client-navigation";
 import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import {
   createMutationId,
@@ -484,7 +485,7 @@ export default function ReferralPacketCanvas({
 
   useEffect(() => {
     let cancelled = false;
-    fetchPipelineJson<{ members: WorkspaceMember[]; current_principal_id: string }>("/api/members?scope=assessors", { cache: "no-store" })
+    fetchPipelineJson<{ members: WorkspaceMember[]; current_principal_id: string }>("/api/members?scope=assessors", { cache: "no-store" }, { cacheTtlMs: 30_000 })
       .then((payload) => {
         if (cancelled) return;
         setMembers(payload.members);
@@ -713,7 +714,7 @@ export default function ReferralPacketCanvas({
 
     let cancelled = false;
     if (serverDraftsEnabled) setDraftRecoveryLoading(true);
-    fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" }).then((canvasPayload) => {
+    fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" }, { cacheTtlMs: workspaceCanvasCacheTtlMs }).then((canvasPayload) => {
       if (cancelled) return;
       const savedRecord = canvasPayload.referral ?? null;
       const record = savedRecord;
