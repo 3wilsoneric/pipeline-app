@@ -49,7 +49,7 @@ test.describe("Responsive and accessible application shell", () => {
     await expect(loadingRoster.locator(".pipeline-directory-loader__segment")).toHaveCount(8);
     await expect(page.getByLabel("Filter profiles by community")).toBeVisible();
     await expect(page.getByLabel("Filter profiles by admission date")).toBeVisible();
-    await expect(page.getByLabel("Filter profiles by profile data")).toBeVisible();
+    await expect(page.getByLabel("Filter profiles by profile data")).toHaveCount(0);
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
   });

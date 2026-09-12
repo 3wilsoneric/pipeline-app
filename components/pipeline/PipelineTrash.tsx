@@ -7,6 +7,7 @@ import { RotateCcw, Search, Trash2 } from "lucide-react";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { createMutationId } from "@/lib/pipeline/referral-packet-upload";
+import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import {
   formatClientIdentityDetail,
   formatClientIdentityTitle,
@@ -20,6 +21,7 @@ export default function PipelineTrash() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [restoringId, setRestoringId] = useState<number>();
+  const [restoredName, setRestoredName] = useState("");
   const restoreMutationIds = useRef(new Map<number, string>());
 
   const load = useCallback(async (search: string, signal: AbortSignal) => {
@@ -52,6 +54,7 @@ export default function PipelineTrash() {
 
   const restore = async (referral: Referral) => {
     setRestoringId(referral.id);
+    setRestoredName("");
     setError("");
     const mutationId = restoreMutationIds.current.get(referral.id) ?? createMutationId();
     restoreMutationIds.current.set(referral.id, mutationId);
@@ -62,6 +65,7 @@ export default function PipelineTrash() {
         body: JSON.stringify({ if_match: referral.version, client_mutation_id: mutationId }),
       });
       restoreMutationIds.current.delete(referral.id);
+      setRestoredName(formatClientIdentityTitle(referral));
       setReferrals((current) => current.filter((item) => item.id !== referral.id));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The workspace could not be restored.");
@@ -78,7 +82,7 @@ export default function PipelineTrash() {
             <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#737373]" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search trash" placeholder="Search deleted workspaces..." className="h-11 w-full border border-[#c9ceca] bg-white pl-10 pr-3 text-[13px] text-[#111111] outline-none focus:border-[#0f8b73]" />
           </div>
-          <span role="status" aria-live="polite" className="shrink-0 text-right text-[11px] text-[#737373]">{loading ? "Loading trash..." : `${referrals.length} in trash`}</span>
+          <span role="status" aria-live="polite" className="relative min-w-0 break-words text-right text-[11px] text-[#737373] sm:max-w-[45%]">{restoredName ? `${restoredName} restored to Workspaces · ` : ""}{loading ? "Loading trash..." : `${referrals.length} in trash`}<FeedbackCue value={restoredName} enabled={Boolean(restoredName)} /></span>
         </div>
         <div className="mt-3 border-l-2 border-[#a16a16] bg-[#fff8ed] px-4 py-3 text-[11px] text-[#6f4b13]">Workspaces remain restorable for 30 days, then their records and files are permanently removed.</div>
         {error ? <div role="alert" className="mt-3 border-l-2 border-[#a9473d] bg-[#fff3f1] px-4 py-3 text-[11px] text-[#7c3229]">{error}</div> : null}

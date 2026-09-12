@@ -212,7 +212,7 @@ export default function PipelineHeader() {
             aria-label="Profile settings"
             data-profile-menu="true"
             hidden={!isProfileMenuOpen}
-            className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[calc(100vh-88px)] w-[min(320px,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-md border border-[#cfd6d2] bg-white shadow-[0_12px_30px_rgba(17,17,17,0.14)]"
+            className="pipeline-popover-enter absolute right-0 top-[calc(100%+8px)] z-50 max-h-[calc(100vh-88px)] w-[min(320px,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-md border border-[#cfd6d2] bg-white shadow-[0_12px_30px_rgba(17,17,17,0.14)]"
           >
             <div className="border-b border-[#e2e6e3] px-5 py-4">
               <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f8b73]">Profile settings</div>

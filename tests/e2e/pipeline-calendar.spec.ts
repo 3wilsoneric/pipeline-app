@@ -11,7 +11,7 @@ type CalendarRequest = {
 };
 
 test.describe("Pipeline calendar characterization", () => {
-  test("preserves views, filters, conflict display, cached recovery, and overlay dismissal", async ({ page }) => {
+  test("preserves views, filters, conflict display, cached recovery, and overlay dismissal", async ({ page }, testInfo) => {
     await page.clock.setFixedTime(new Date("2026-09-09T12:00:00.000Z"));
     const requests: CalendarRequest[] = [];
     let failNextRequest = false;
@@ -65,6 +65,7 @@ test.describe("Pipeline calendar characterization", () => {
     failNextRequest = true;
     await page.getByRole("button", { name: "Refresh calendar" }).click();
     await expect(page.getByText("Calendar fixture unavailable.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Calendar updated" })).toHaveCount(0);
     await expect(page.locator('button[title^="Scheduled Client - Assessment scheduled"]').first()).toBeVisible();
 
     await page.locator('button[title^="Scheduled Client - Assessment scheduled"]').first().click();
@@ -80,9 +81,18 @@ test.describe("Pipeline calendar characterization", () => {
     await page.mouse.click(10, 10);
     await expect(queue).toHaveCount(0);
 
-    await page.setViewportSize({ width: 430, height: 932 });
-    await expect(page.getByRole("button", { name: "agenda", exact: true })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
+    for (const width of [834, 390]) {
+      await page.setViewportSize({ width, height: 932 });
+      await expect(page.getByRole("button", { name: "agenda", exact: true })).toBeVisible();
+      for (const name of ["agenda", "Refresh calendar", "Scheduling queue 30"]) {
+        const control = await page.getByRole("button", { name, exact: true }).boundingBox();
+        expect(control).not.toBeNull();
+        expect(control!.x).toBeGreaterThanOrEqual(0);
+        expect(control!.x + control!.width).toBeLessThanOrEqual(width);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBeTruthy();
+      await page.screenshot({ path: testInfo.outputPath(`calendar-${width}.png`), fullPage: true });
+    }
   });
 
   test("preserves queue paging, assessment creation, collision override, and no-show mutation", async ({ page }) => {

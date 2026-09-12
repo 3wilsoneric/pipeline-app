@@ -347,7 +347,23 @@ test.describe("role-scoped home and reports", () => {
     await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("assessment_completion");
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
 
-    await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_schedule");
+    await expect(page.getByRole("button", { name: "Export CSV" })).toBeEnabled();
+    let releaseReport!: () => void;
+    const reportGate = new Promise<void>((resolve) => { releaseReport = resolve; });
+    await page.route("**/api/operations/reports**", async (route) => {
+      await reportGate;
+      await route.continue();
+    });
+    try {
+      await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_schedule");
+      await expect(page.getByRole("status").filter({ hasText: "Updating report..." })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Export CSV" })).toBeDisabled();
+    } finally {
+      releaseReport();
+    }
+    await expect(page.getByRole("button", { name: "Export CSV" })).toBeEnabled();
+    await expect(page.getByRole("region", { name: "Report results" }).locator("time")).toBeVisible();
+    await page.unroute("**/api/operations/reports**");
     await expect(page.getByLabel("Report month")).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Report community" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Report owner" })).toBeVisible();
@@ -361,6 +377,21 @@ test.describe("role-scoped home and reports", () => {
     await page.getByRole("button", { name: "Export CSV" }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/^pipeline-assessment_completion-\d{4}-\d{2}\.csv$/);
+    const results = page.getByRole("region", { name: "Report results" });
+    const generatedAt = await results.locator("time").getAttribute("datetime");
+    await page.route("**/api/operations/reports**", (route) => route.fulfill({
+      status: 500, json: { error: "Report unavailable." },
+    }));
+    await page.getByLabel("Report month").fill("2020-01");
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Report unavailable." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Export CSV" })).toBeDisabled();
+    await expect(results.locator("time")).toHaveAttribute("datetime", generatedAt!);
+    const animations = await results.locator(".pipeline-feedback-cue").evaluate(async (element) => {
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return element.getAnimations().length;
+    });
+    expect(animations).toBe(0);
   });
 
   test("turns canonical supervisor exceptions into direct recovery work", async ({ page }) => {

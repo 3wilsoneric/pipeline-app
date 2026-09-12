@@ -1,4 +1,5 @@
 "use client";
+import FeedbackCue from "@/components/pipeline/FeedbackCue";
 
 import { useEffect, useEffectEvent, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import dynamic from "next/dynamic";
@@ -2063,6 +2064,7 @@ export default function ReferralPacketCanvas({
                           field={fields.owner}
                           members={members}
                           ownerPrincipalId={ownerPrincipalId}
+                          confirmedOwnerId={loadedReferral?.ownerId ?? ""}
                           onChange={(principalId) => {
                             const member = members.find((candidate) => candidate.principal_id === principalId);
                             const change = { principalId, displayName: member?.display_name ?? "Unassigned" };
@@ -2394,7 +2396,7 @@ function WorkspaceStageButton({ page, label, numbered, selected, onOpen }: {
 }) {
   return <button type="button" data-guide-target={page === 2 ? "assessment-stage" : page === 3 || !numbered ? "chart-stage" : undefined}
     onClick={() => onOpen(page)} aria-current={selected ? "page" : undefined}
-    className={`flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-[11px] font-black transition-colors ${selected ? "border-[#0f8b73] text-[#111111]" : "border-transparent text-[#737373] hover:text-[#0f8b73]"}`}>
+    className={`pipeline-tab-feedback flex h-11 shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 text-[11px] font-black transition-colors ${selected ? "text-[#111111]" : "text-[#737373] hover:text-[#0f8b73]"}`}>
     {numbered ? <span className={`text-[9px] ${selected ? "text-[#0c705f]" : "text-[#595959]"}`}>0{page}</span> : null}
     <span className="whitespace-nowrap">{label}</span>
   </button>;
@@ -2406,8 +2408,9 @@ function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, ha
 }) {
   const created = createdWorkspaceId !== null && createdWorkspaceId === referralId;
   const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0 && /^(Saved |All changes saved|Packet uploaded)/.test(status);
-  return <div data-testid="workspace-save-status" className="flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1 py-1 text-[11px] font-medium" aria-live="polite">
-    {created ? <span className="inline-flex items-center gap-1.5 rounded-sm bg-[#eaf5ef] px-2 py-1 font-bold text-[#0c705f]"><CheckCircle2 size={13} aria-hidden="true" />Workspace created</span> : null}
+  return <div data-testid="workspace-save-status" className="relative flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1 py-1 text-[11px] font-medium" aria-live="polite">
+    <FeedbackCue value={status} enabled={confirmed && !error} />
+    {created ? <span className="pipeline-control-enter inline-flex items-center gap-1.5 rounded-sm bg-[#eaf5ef] px-2 py-1 font-bold text-[#0c705f]"><CheckCircle2 size={13} aria-hidden="true" />Workspace created</span> : null}
     {error ? <span role="alert" className="min-w-0 break-words text-[#a4473c]">{error}</span> : <span className={`inline-flex items-center gap-1.5 ${confirmed ? "text-[#0c705f]" : "text-[#68716c]"}`}>{confirmed && !created ? <CheckCircle2 size={13} aria-hidden="true" /> : null}{status}</span>}
   </div>;
 }
@@ -2542,7 +2545,7 @@ function IntakeDocumentChecklist({
     <section aria-label="Document checklist" className="mb-6">
       <details
         data-testid="document-checklist-panel"
-        className="group bg-white"
+        className="pipeline-details-feedback group bg-white"
       >
         <summary
           data-testid="document-checklist-toggle"
@@ -2663,7 +2666,7 @@ function ChartCompletionRail({
         <span className="text-[13px] font-bold tabular-nums text-[#5c6660]">{percent}%</span>
       </div>
       <div role="progressbar" aria-label="Intake details captured" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} className="h-1.5 overflow-hidden bg-[#e5e9e6] md:col-start-1">
-        <div className="h-full bg-[#0f8b73] transition-[width] duration-300" style={{ width: `${percent}%` }} />
+        <div className="h-full origin-left bg-[#0f8b73] transition-transform duration-150 motion-reduce:transition-none" style={{ transform: `scaleX(${percent / 100})` }} />
       </div>
       <dl className="flex flex-wrap gap-x-8 md:col-start-1">
         <ChartStatusRow label="Details captured" value={`${fieldCount.toLocaleString()} / ${fieldTotal.toLocaleString()}`} />
@@ -2893,6 +2896,7 @@ function OwnerPacketField({
   field,
   members,
   ownerPrincipalId,
+  confirmedOwnerId,
   onChange,
   onFocus,
 }: {
@@ -2900,6 +2904,7 @@ function OwnerPacketField({
   field: PacketField;
   members: WorkspaceMember[];
   ownerPrincipalId: string;
+  confirmedOwnerId: string;
   onChange: (principalId: string) => void;
   onFocus: (key: FieldKey) => void;
 }) {
@@ -2907,6 +2912,7 @@ function OwnerPacketField({
   const hasCurrentOwnerOption = !ownerPrincipalId || members.some((member) => member.principal_id === ownerPrincipalId);
   return (
     <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className="group relative min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73]">
+      <FeedbackCue value={confirmedOwnerId} />
       <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{field.label}</label>
       <select
         aria-label={field.label}
@@ -3121,7 +3127,8 @@ function DocumentDropRow({
             ? <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[#0f8b73]" />
             : <Circle size={15} className="mt-0.5 shrink-0 text-[#a59b55]" />}
           <div className={`${isChecklist ? "min-h-8 text-[11px] leading-4" : "text-[13px]"} font-black text-[#303638]`}>{requirement.label}</div>
-          <span className={`ml-auto shrink-0 text-[9px] font-black uppercase tracking-[0.08em] ${uploading || queued ? "text-[#8a6a16]" : fileName ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
+          <span className={`relative ml-auto shrink-0 text-[9px] font-black uppercase tracking-[0.08em] ${uploading || queued ? "text-[#8a6a16]" : fileName ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
+            <FeedbackCue value={status} enabled={status === "Received"} />
             {status}
           </span>
         </div>

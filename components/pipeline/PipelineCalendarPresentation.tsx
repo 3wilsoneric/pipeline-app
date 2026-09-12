@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
@@ -92,6 +93,7 @@ export type CalendarHeaderProps = {
   hasFilters: boolean;
   loading: boolean;
   refreshing: boolean;
+  busy: boolean;
   message: string;
   queueCount: number;
   scheduledCount: number;
@@ -125,12 +127,11 @@ export function CalendarHeader(props: CalendarHeaderProps) {
         <div className="flex min-w-0 items-center gap-1.5">
           <IconButton label="Previous calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, -1))}><ChevronLeft size={17} /></IconButton>
           <IconButton label="Next calendar range" onClick={() => props.onAnchor(shiftAnchor(props.view, props.anchor, 1))}><ChevronRight size={17} /></IconButton>
-          <h1 className="ml-1 truncate text-[19px] font-extrabold text-[#202522] sm:text-[22px]">{rangeLabel(props.view, props.range)}</h1>
+          <h1 className="relative ml-1 truncate text-[19px] font-extrabold text-[#202522] sm:text-[22px]">{rangeLabel(props.view, props.range)}<FeedbackCue value={`${props.view}:${props.anchor}`} /></h1>
           <button type="button" onClick={() => props.onAnchor(todayKey())} className="ml-1 h-9 border border-[#bfc7c3] px-3 text-[12px] font-bold text-[#3f4743] hover:border-[#167f6b] hover:text-[#116b5a]">Today</button>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span role="status" aria-live="polite" className="hidden text-[11px] text-[#747b77] lg:inline">{status}</span>
-          <button type="button" onClick={props.onOpenQueue} className="flex h-9 items-center gap-2 border border-[#bfc7c3] bg-white px-3 text-[11px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <button type="button" onClick={props.onOpenQueue} className="flex h-9 shrink-0 items-center gap-2 whitespace-nowrap border border-[#bfc7c3] bg-white px-3 text-[11px] font-extrabold text-[#343a36] hover:border-[#167f6b] hover:text-[#116b5a]">
             <ClipboardList size={15} />
             <span>Scheduling queue</span>
             <span className="tabular-nums text-[#167f6b]">{props.queueCount.toLocaleString()}</span>
@@ -141,10 +142,11 @@ export function CalendarHeader(props: CalendarHeaderProps) {
         </div>
       </div>
       <CalendarFilters {...props} onClear={clearFilters} onToggleMine={toggleMine} />
-      <div className="mt-2 flex items-center gap-4 text-[11px] font-bold text-[#747b77]">
-        <span><strong className="text-[#2c332f]">{props.scheduledCount.toLocaleString()}</strong> scheduled</span>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-bold text-[#747b77]">
+        <span className="relative"><strong className="text-[#2c332f]">{props.scheduledCount.toLocaleString()}</strong> scheduled<FeedbackCue value={`${props.community}:${props.owner}:${props.kind}:${props.mySchedule}`} /></span>
         {props.overdueCount > 0 ? <span className="text-[#9c3d32]"><strong>{props.overdueCount.toLocaleString()}</strong> overdue</span> : null}
         <span className="hidden sm:inline">Pacific Time</span>
+        <span role="status" aria-live="polite" className="relative ml-auto min-w-0 text-right font-normal">{status}<FeedbackCue value={props.message} enabled={Boolean(props.message) && !props.busy && !props.loading && !props.refreshing} /></span>
       </div>
     </header>
   );
@@ -188,7 +190,7 @@ export function SchedulingQueue({ items, total, hasMore, search, loading, onSear
 }) {
   return (
     <div className="fixed inset-0 z-[100] bg-[#18201d]/30" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-      <aside role="dialog" aria-modal="true" aria-label="Scheduling queue" className="absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col bg-white shadow-2xl">
+      <aside role="dialog" aria-modal="true" aria-label="Scheduling queue" className="pipeline-panel-enter absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-[#d8dedb] px-5 py-5 sm:px-6">
           <div><h2 className="flex items-center gap-2 text-[22px] font-extrabold text-[#202522]"><ClipboardList size={18} className="text-[#167f6b]" /> Scheduling queue</h2><p className="mt-1 text-[11px] text-[#737a76]">{total.toLocaleString()} referral{total === 1 ? "" : "s"} moving toward an appointment</p></div>
           <IconButton label="Close scheduling queue" onClick={onClose}><X size={16} /></IconButton>
@@ -320,7 +322,7 @@ function CalendarDrawer({ selection, busy, scope, onClose, onOpenWorkspace, onSc
   const model = calendarDrawerModel(selection, scope);
   return (
     <div className="fixed inset-0 z-[100] bg-[#18201d]/30" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-      <aside role="dialog" aria-modal="true" aria-label="Calendar item" className="absolute inset-y-0 right-0 flex w-full max-w-[430px] flex-col border-l border-[#cfd5d2] bg-white shadow-2xl">
+      <aside role="dialog" aria-modal="true" aria-label="Calendar item" className="pipeline-panel-enter absolute inset-y-0 right-0 flex w-full max-w-[430px] flex-col border-l border-[#cfd5d2] bg-white shadow-2xl">
         <div className="flex items-start justify-between border-b border-[#d8dedb] p-5">
           <div className="min-w-0"><span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#167f6b]">{model.kicker}</span><h2 className="mt-1.5 truncate text-[20px] font-extrabold tracking-[-0.025em] text-[#202522]">{model.clientName}</h2></div>
           <IconButton label="Close calendar item" onClick={onClose}><X size={16} /></IconButton>

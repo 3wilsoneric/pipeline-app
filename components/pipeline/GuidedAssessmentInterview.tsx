@@ -4,6 +4,7 @@ import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 
 import PipelineLogoMark from "@/components/pipeline/PipelineLogoMark";
+import FeedbackCue from "@/components/pipeline/FeedbackCue";
 import { AssessmentFieldWritingGuidePanel } from "@/components/pipeline/AssessmentInterviewFields";
 import { extractionOwnedFields, latestPendingProvenance } from "@/components/pipeline/assessment-workspace-state";
 import type { PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
@@ -270,8 +271,9 @@ function GuidedAssessmentFooter({ screenIndex, screenCount, answeredHere, questi
       <button type="button" onClick={() => setScreenIndex(Math.max(0, screenIndex - 1))} disabled={screenIndex === 0} className="flex h-11 min-w-[106px] items-center justify-center gap-2 border border-[#cfd5d1] px-4 text-[12px] font-black text-[#4a514d] transition-colors hover:border-[#0f8b73] hover:text-[#0f7664] disabled:invisible">
         <ChevronLeft size={16} /> Back
       </button>
-      <div className="hidden text-center text-[10px] font-semibold text-[#7c837f] sm:block">
+      <div className="relative hidden text-center text-[10px] font-semibold text-[#7c837f] sm:block">
         {answeredHere} of {questionCount} answered here <span aria-hidden="true">·</span> {captured} of {total} overall
+        <FeedbackCue value={captured} />
       </div>
       <button type="button" onClick={advance} className="flex h-11 min-w-[112px] items-center justify-center gap-2 bg-[#111311] px-5 text-[12px] font-black text-white transition-colors hover:bg-[#0f7664]">
         {isLastScreen ? "Done" : "Next"} {isLastScreen ? <Check size={16} /> : <ChevronRight size={16} />}
@@ -312,7 +314,7 @@ export function GuidedAssessmentField({
   const id = `guided-assessment-${definition.key}`;
 
   return (
-    <div className={guidedFieldSpanClass(question, primary)} data-assessment-field={definition.key}>
+    <div data-feedback-reveal={Boolean(question.showWhen)} className={guidedFieldSpanClass(question, primary)} data-assessment-field={definition.key}>
       <GuidedFieldHeading id={id} question={question} definition={definition} value={value} required={required} primary={primary} />
       <GuidedProvenanceReview provenance={pendingProvenance} reviewDisabled={reviewDisabled} onReview={onReview} />
 

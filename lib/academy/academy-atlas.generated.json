@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ffcffae94b85570a",
-  "fingerprint": "ffcffae94b85570a2976bc8787667eff077cb836342be060365728b795092447",
+  "generatedAt": "source-fingerprint:2abfe6c5b5e8dd05",
+  "fingerprint": "2abfe6c5b5e8dd052218b8dc2702faf655e450f136dc0552ea40493f54c98c81",
   "totals": {
-    "files": 1005,
-    "lines": 317090,
-    "coveredFiles": 1005
+    "files": 1007,
+    "lines": 317405,
+    "coveredFiles": 1007
   },
   "entries": [
     {
@@ -1629,7 +1629,7 @@
       "kind": "repository-file",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 216,
+      "lines": 277,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1869,7 +1869,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1846,
+      "lines": 1848,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -1929,7 +1929,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 622,
+      "lines": 625,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -1996,12 +1996,24 @@
       ]
     },
     {
+      "path": "components/pipeline/FeedbackCue.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 23,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
       "path": "components/pipeline/GuidedAssessmentInterview.tsx",
       "subsystem": "Pipeline UI",
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 678,
+      "lines": 680,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2049,7 +2061,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 434,
+      "lines": 450,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2133,7 +2145,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 418,
+      "lines": 419,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2145,7 +2157,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 390,
+      "lines": 392,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2241,7 +2253,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 117,
+      "lines": 121,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2397,7 +2409,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3834,
+      "lines": 3841,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -5991,7 +6003,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 593,
+      "lines": 644,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -11621,7 +11633,19 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 486,
+      "lines": 517,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
+      "path": "tests/e2e/interaction-feedback.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 102,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11838,7 +11862,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 338,
+      "lines": 348,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

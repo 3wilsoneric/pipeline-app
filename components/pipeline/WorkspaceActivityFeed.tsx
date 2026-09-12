@@ -177,7 +177,7 @@ export function SinceLastVisitAssignments({
                 <span className="block truncate text-[14px] font-bold text-[#202723]">{item.workspace.client_name}</span>
                 <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{item.workspace.community}</span>
               </span>
-              <span className="flex shrink-0 items-center gap-2 text-[10px] font-bold text-[#176f60]">Assigned {relativeTime(item.created_at)}<ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" /></span>
+              <span className="flex shrink-0 items-center gap-2 text-[10px] font-bold text-[#176f60]"><span className="rounded-sm border border-[#b7d6ca] bg-white px-1.5 py-0.5">New</span>Assigned {relativeTime(item.created_at)}<ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" /></span>
             </button>
           ))}
         </div>

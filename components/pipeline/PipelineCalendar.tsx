@@ -303,7 +303,8 @@ export default function PipelineCalendar({ onOpenPacket }: { onOpenPacket: (refe
           hasFilters={hasFilters}
           loading={loading}
           refreshing={refreshing}
-          message={mutationState.message}
+          busy={mutationState.busy}
+          message={error ? "" : mutationState.message}
           queueCount={snapshot?.unscheduledTotal ?? unscheduled.length}
           scheduledCount={scheduledCount}
           overdueCount={overdue.length}
