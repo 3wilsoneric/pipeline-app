@@ -42,7 +42,6 @@ type ClientDirectoryPayload = {
 };
 
 type AdmissionFilter = "any" | "last_30_days" | "last_3_months" | "last_6_months" | "last_12_months" | "older_than_12_months" | "missing";
-type ProfileDataFilter = "any" | "missing_any" | "missing_unit" | "missing_admit_date" | "complete";
 type SortOption = "name" | "community" | "recent_admission" | "pipeline_activity";
 type CommunityOption = { id: string; name: string };
 
@@ -80,7 +79,6 @@ export default function ClientProfileDirectory({
   const [knownCommunities, setKnownCommunities] = useState<CommunityOption[]>(() => collectCommunities(initialDirectory?.clients ?? []));
   const [communityFilter, setCommunityFilter] = useState("");
   const [admissionFilter, setAdmissionFilter] = useState<AdmissionFilter>("any");
-  const [profileDataFilter, setProfileDataFilter] = useState<ProfileDataFilter>("any");
   const [sort, setSort] = useState<SortOption>("name");
   const loadedQuery = useRef("");
   const forceReload = useRef(false);
@@ -173,7 +171,6 @@ export default function ClientProfileDirectory({
     .filter((client) => {
       if (communityFilter && !client.community_names.includes(communityFilter)) return false;
       if (admissionFilter !== "any" && !matchesAdmissionFilter(client.admit_date, admissionFilter, dataAsOf)) return false;
-      if (profileDataFilter !== "any" && !matchesProfileDataFilter(client, profileDataFilter)) return false;
       return true;
     })
     .sort((left, right) => compareDirectoryClients(left, right, sort)), [
@@ -181,13 +178,10 @@ export default function ClientProfileDirectory({
       clients,
       communityFilter,
       dataAsOf,
-      profileDataFilter,
       sort,
     ]);
   const visibleClients = filteredClients.slice(0, displayLimit);
-  const hasDirectoryFilters = Boolean(communityFilter)
-    || admissionFilter !== "any"
-    || profileDataFilter !== "any";
+  const hasDirectoryFilters = Boolean(communityFilter) || admissionFilter !== "any";
   const hasAppliedFilters = hasDirectoryFilters || Boolean(query.trim());
   const countLabel = isLoading && clients.length === 0
     ? "Loading clients..."
@@ -205,7 +199,6 @@ export default function ClientProfileDirectory({
   const clearFilters = () => {
     setCommunityFilter("");
     setAdmissionFilter("any");
-    setProfileDataFilter("any");
     setSort("name");
     setDisplayLimit(DISPLAY_INCREMENT);
   };
@@ -259,7 +252,7 @@ export default function ClientProfileDirectory({
 
         </section>
 
-        <section aria-label="Client filters" className="grid grid-cols-2 gap-2 border-b border-[#e1e5e3] py-3 lg:grid-cols-[1.15fr_1fr_1fr_0.9fr_auto]">
+        <section aria-label="Client filters" className="grid grid-cols-2 gap-2 border-b border-[#e1e5e3] py-3 lg:grid-cols-[1.15fr_1fr_0.9fr_auto]">
           <DirectorySelect label="Community" icon={<MapPin size={14} />}>
             <select
               aria-label="Filter profiles by community"
@@ -282,15 +275,6 @@ export default function ClientProfileDirectory({
               <option value="last_12_months">Last 12 months</option>
               <option value="older_than_12_months">More than 12 months ago</option>
               <option value="missing">Date unavailable</option>
-            </select>
-          </DirectorySelect>
-          <DirectorySelect label="Stay information" icon={<CircleAlert size={14} />}>
-            <select aria-label="Filter profiles by profile data" value={profileDataFilter} onChange={(event) => { setProfileDataFilter(event.target.value as ProfileDataFilter); setDisplayLimit(DISPLAY_INCREMENT); }}>
-              <option value="any">Any status</option>
-              <option value="missing_any">Missing information</option>
-              <option value="missing_unit">Unit unavailable</option>
-              <option value="missing_admit_date">Date unavailable</option>
-              <option value="complete">Complete</option>
             </select>
           </DirectorySelect>
           <DirectorySelect label="Sort" icon={<ArrowUpDown size={14} />}>
@@ -580,16 +564,6 @@ function matchesAdmissionFilter(admitDate: string | null, filter: AdmissionFilte
   const monthCount = filter === "last_3_months" ? 3 : filter === "last_6_months" ? 6 : 12;
   const threshold = monthsBefore(dataAsOf, monthCount);
   return filter === "older_than_12_months" ? admitDate < threshold : admitDate >= threshold;
-}
-
-function matchesProfileDataFilter(client: DirectoryClient, filter: ProfileDataFilter) {
-  if (!client.current_resident) return false;
-  const missingUnit = client.current_resident && !client.unit?.trim();
-  const missingAdmitDate = client.current_resident && !client.admit_date;
-  if (filter === "missing_unit") return missingUnit;
-  if (filter === "missing_admit_date") return missingAdmitDate;
-  if (filter === "complete") return !missingUnit && !missingAdmitDate;
-  return missingUnit || missingAdmitDate;
 }
 
 function compareDirectoryClients(left: DirectoryClient, right: DirectoryClient, sort: SortOption) {
