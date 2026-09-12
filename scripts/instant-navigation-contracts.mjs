@@ -12,7 +12,8 @@ function load(file, stubs = {}, extra = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
   const loadedModule = { exports: {} };
-  vm.runInNewContext(output, {
+  const expose = (extra.expose ?? []).map((name) => `exports[${JSON.stringify(name)}] = ${name};`).join("\n");
+  vm.runInNewContext(`${output}\n${expose}`, {
     module: loadedModule, exports: loadedModule.exports, require: (id) => id === "server-only" ? {} : stubs[id] ?? require(id),
     Request, Response, Headers, URL, URLSearchParams, TextEncoder, TextDecoder, AbortController, AbortSignal,
     DOMException, setTimeout, clearTimeout, console, process, ...extra,
@@ -112,16 +113,38 @@ assert.equal((await proxy.proxy(proxyRequest("/"))).status, 307);
 auth = { ok: false, response: new Response(null, { status: 401 }) };
 assert.equal((await proxy.proxy(proxyRequest("/"))).status, 307);
 
-const Provider = load("components/auth/PipelineAuthProvider.tsx", {
+const providerModule = load("components/auth/PipelineAuthProvider.tsx", {
   "@azure/msal-react": { MsalProvider: ({ children }) => children, useMsal: () => ({ accounts: [], instance: {} }) },
   "@/components/auth/AuthenticationProgress": () => React.createElement("p", null, "Authenticating"),
   "@/lib/auth/entra-client": { pipelineAuthRequired: true, isEntraClientConfigured: true },
   "@/lib/auth/post-login-path": {}, "@/lib/auth/authenticated-fetch": {}, "@/lib/auth/browser-session": {},
   "@/lib/pipeline/base-path": {}, "@/lib/desktop/desktop-config": {}, "@/lib/offline/offline-assessment-store": {},
-}).default;
+});
+const Provider = providerModule.default;
 const visible = React.createElement("main", null, "Useful work before JavaScript");
 assert.match(renderToStaticMarkup(React.createElement(Provider, { initialUser: { id: "validated" } }, visible)), /Useful work before JavaScript/);
 assert.equal(renderToStaticMarkup(React.createElement(Provider, {}, visible)), "<p>Authenticating</p>");
+
+const Header = load("components/pipeline/PipelineHeader.tsx", {
+  "next/link": ({ children, ...props }) => { delete props.prefetch; return React.createElement("a", props, children); },
+  "next/navigation": { usePathname: () => "/", useSearchParams: () => new URLSearchParams(), useRouter: () => ({ prefetch() {} }) },
+  "@/components/pipeline/AssessorSessionControl": { ActiveAssessorSessionPill: () => null, AssessorSessionMenuAction: () => null },
+  "@/components/pipeline/PipelineActionNav": ({ showReports }) => React.createElement("span", { "data-report-access": String(showReports) }),
+  "@/components/pipeline/PipelineLogoMark": () => null,
+  "@/components/pipeline/pipeline-shell-context": { usePipelineShell: () => ({ homeMode: "welcome", searchOpen: false }) },
+  "@/lib/auth/authenticated-fetch": {}, "@/lib/auth/entra-client": {},
+  "@/components/auth/PipelineAuthProvider": { usePipelineAuth: providerModule.usePipelineAuth },
+  "@/lib/pipeline/client-navigation": { usePipelineLocationSearch: () => "" },
+  "@/lib/pipeline/base-path": {},
+  "@/lib/pipeline/report-access": { canAccessOperationsReports: (roles) => roles.includes("admin") },
+  "@/lib/training/operator-guided-tour-state": {},
+}).default;
+for (const roles of [["viewer"], ["admin"]]) {
+  const initialUser = { id: "effective-fixture", email: "fixture@pipeline.invalid", name: "Assessor Fixture", roles, accessScope: "pipeline" };
+  const markup = renderToStaticMarkup(React.createElement(Provider, { initialUser }, React.createElement(Header)));
+  assert.match(markup, /Open profile menu for Assessor Fixture/, "server-first entry must render the effective operator, never the owner's fallback name");
+  assert.ok(markup.includes(`data-report-access="${roles.includes("admin")}"`), "seeded navigation must retain effective-role restrictions");
+}
 
 let briefingReads = 0;
 let eligibleUser = { id: "effective-assessor" };
@@ -145,6 +168,9 @@ const seededStates = [];
 const seededSetters = [];
 const updates = [];
 const rootNavigationEvents = new Map();
+let startupUser = null;
+let finishUserRead;
+const startupReads = [];
 const rootStubs = {
   react: { useState: (initial) => {
     const value = typeof initial === "function" ? initial() : initial;
@@ -157,6 +183,14 @@ const rootStubs = {
   "next/navigation": { useSearchParams: () => new URLSearchParams("view=referrals") },
   "@/components/pipeline/pipeline-shell-context": { usePipelineShell: () => ({ searchTerm: "", setSearchTerm() {}, setSearchOpen() {} }) },
   "@/lib/pipeline/client-navigation": { usePipelineLocationSearch: () => "view=referrals" },
+  "@/components/auth/PipelineAuthProvider": { usePipelineAuth: () => ({ initialUser: startupUser }) },
+  "@/lib/auth/authenticated-fetch": {
+    fetchCurrentPipelineUser: () => new Promise((resolve) => { finishUserRead = resolve; }),
+    fetchPipelineJson: async (path) => { startupReads.push(path); },
+  },
+  "@/components/pipeline/ClientProfileDirectory": { default: () => null, preloadCurrentClientDirectory: async () => { startupReads.push("current-clients"); } },
+  "@/components/pipeline/referral-home-directory-model": { buildReferralParams: () => "kind=all" },
+  "@/lib/pipeline/report-access": { canAccessOperationsReports: (roles) => roles.includes("admin") },
 };
 const Overview = load("components/pipeline/PipelineOverviewRoute.tsx", {}, {
   require: (id) => rootStubs[id] ?? (id.startsWith("@/") ? {} : require(id)),
@@ -173,6 +207,30 @@ rootNavigationEvents.get("popstate")();
 assert.ok(updates.some(({ index, next }) => seededStates[index] === entrySeed && next === null));
 stopEntrySubscription();
 assert.equal(rootNavigationEvents.size, 0);
+
+for (const seeded of [true, false]) {
+  effectCalls.length = 0; startupReads.length = 0;
+  startupUser = seeded ? { id: "effective-fixture", roles: ["admin"] } : null;
+  Overview({ initialBriefing: entrySeed });
+  const startupEffect = effectCalls.find(({ deps }) => deps?.length === 1 && deps[0] === startupUser);
+  const stopStartup = startupEffect.run();
+  assert.equal(startupReads.length, seeded ? 2 : 0, "only a server-validated user may begin directory GETs before the live user read finishes");
+  finishUserRead({ user: { roles: ["viewer"] } });
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(startupReads.length, 2, "live user refresh must not duplicate already-started seed warmups");
+  stopStartup();
+}
+const completedSurfaces = { ClientProfileView: () => null, ReferralPacketCanvas: () => null };
+const surfaceEffects = [];
+const preparedHook = load("components/pipeline/PipelineOverviewRoute.tsx", {}, {
+  expose: ["useDeferredWorkSurfaces"],
+  require: (id) => id === "react" ? { useState: () => [completedSurfaces, () => assert.fail("completed chart preparation must not rerender every navigation")], useEffect: (run, deps) => surfaceEffects.push({ run, deps }) } : id.startsWith("@/") ? {} : require(id),
+  window: {},
+}).useDeferredWorkSurfaces;
+for (const screen of ["home", "referrals", "calendar", "profiles"]) {
+  assert.equal(preparedHook(screen), completedSurfaces);
+  assert.equal(surfaceEffects.at(-1).run(), undefined, "prepared surfaces must schedule no imports, timers or state publication on subsequent navigation");
+}
 
 let respond = async () => Response.json({ fixture: true });
 const browserCache = load("lib/auth/authenticated-fetch.ts", {

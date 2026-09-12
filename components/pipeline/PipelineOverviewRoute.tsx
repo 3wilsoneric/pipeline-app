@@ -9,6 +9,7 @@ import PipelineCalendar from "@/components/pipeline/PipelineCalendar";
 import PipelineTrash from "@/components/pipeline/PipelineTrash";
 import ReferralHome from "@/components/pipeline/ReferralHome";
 import PipelineWelcome from "@/components/pipeline/PipelineWelcome";
+import { usePipelineAuth } from "@/components/auth/PipelineAuthProvider";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
 import { fetchCurrentPipelineUser, fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import { buildReferralParams } from "@/components/pipeline/referral-home-directory-model";
@@ -61,6 +62,7 @@ type ReferralSelection = { id: number; name?: string; gender?: string; community
 function useDeferredWorkSurfaces(screen: PipelineScreen) {
   const [surfaces, setSurfaces] = useState<DeferredWorkSurfaces | null>(null);
   useEffect(() => {
+    if (surfaces) return;
     let cancelled = false;
     const load = () => void loadDeferredWorkSurfaces().then((loaded) => {
       if (!cancelled) setSurfaces(loaded);
@@ -76,7 +78,7 @@ function useDeferredWorkSurfaces(screen: PipelineScreen) {
       window.clearTimeout(timer);
       if (idle !== undefined) window.cancelIdleCallback(idle);
     };
-  }, [screen]);
+  }, [screen, surfaces]);
   return surfaces;
 }
 
@@ -107,6 +109,7 @@ function referralWorkspaceKey(referral: ReferralSelection | undefined, created: 
 }
 
 export default function PipelineOverviewRoute({ initialBriefing }: { initialBriefing?: HomeBriefingSnapshot | null }) {
+  const { initialUser } = usePipelineAuth();
   const { searchTerm, setSearchTerm, setSearchOpen } = usePipelineShell();
   const searchParams = useSearchParams();
   const locationSearch = usePipelineLocationSearch(searchParamsText(searchParams));
@@ -121,7 +124,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     : undefined;
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
-  const [reportAccess, setReportAccess] = useState<boolean | null>(null);
+  const [reportAccess, setReportAccess] = useState<boolean | null>(() => initialUser ? canAccessOperationsReports(initialUser.roles) : null);
   const [entryBriefing, setEntryBriefing] = useState(initialBriefing ?? null);
   // Header links and browser history also leave Home without calling navigate.
   // The server seed is only for entry, never for a later return to Home.
@@ -142,6 +145,13 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
+    const warmDirectories = () => {
+      void fetchPipelineJson(`/api/referrals/directory?${buildReferralParams({ kind: "all" }, "")}`, {}, { cacheTtlMs: 30_000 }).catch(() => undefined);
+      void preloadCurrentClientDirectory(controller.signal).catch(() => undefined);
+    };
+    // Reuse the request-validated effective user, not a local/MSAL guess.
+    // Each GET still validates its live session; role/session refresh remains.
+    if (initialUser) warmDirectories();
     fetchCurrentPipelineUser()
       .then(({ user }) => {
         if (cancelled) return;
@@ -149,8 +159,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
         // Warm the first workspace page and complete current census after authentication.
         // GET-only reads use the same cache as navigation; no charts or files
         // are downloaded in bulk and no background user session is created.
-        void fetchPipelineJson(`/api/referrals/directory?${buildReferralParams({ kind: "all" }, "")}`, {}, { cacheTtlMs: 30_000 }).catch(() => undefined);
-        void preloadCurrentClientDirectory(controller.signal).catch(() => undefined);
+        if (!initialUser) warmDirectories();
       })
       .catch(() => {
         if (!cancelled) setReportAccess(false);
@@ -159,7 +168,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
       cancelled = true;
       controller.abort();
     };
-  }, []);
+  }, [initialUser]);
 
   useEffect(() => {
     if (screen !== "operations" || reportAccess !== false) return;
