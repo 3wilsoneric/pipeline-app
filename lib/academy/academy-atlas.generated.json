@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:e706ca9c44f3af84",
-  "fingerprint": "e706ca9c44f3af84391c4d03769d55da212c582bb334dac50a7a1ae0c62c0946",
+  "generatedAt": "source-fingerprint:bd8016b7086a51e5",
+  "fingerprint": "bd8016b7086a51e564d670670803367691d4781c43e73b474817004121bacac6",
   "totals": {
     "files": 991,
-    "lines": 315112,
+    "lines": 315119,
     "coveredFiles": 991
   },
   "entries": [
@@ -5919,7 +5919,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 549,
+      "lines": 556,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"

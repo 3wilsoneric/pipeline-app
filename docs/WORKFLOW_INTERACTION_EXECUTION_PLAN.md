@@ -229,6 +229,13 @@ profiles. Its matrix then stopped on an outdated two-entry directory-cache
 marker: the existing cache was already eight entries. That requirement now
 checks the current bound, user key, generation invalidation, and eviction loop;
 the cache implementation and measured performance limits are unchanged.
+The performance click path also selected retired report options. It now measures
+the visible Assessor workload and Assessment calendar reports, including Apply
+and CSV export. Three local scored runs completed with zero API errors; one
+passed all checks and two exceeded navigation/interaction limits (worst 192.2 ms
+navigation and 249.3 ms localized interaction). These are failed local timing
+samples, not a performance certification. Limits remain unchanged; retain the
+Linux CI measurements before deciding release readiness.
 
 That run also detected a real identity-confirmation defect: mutation validation
 could reuse a 15-second clinical display projection. The existing clinical TTL
