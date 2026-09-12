@@ -30,7 +30,6 @@ import {
   type PipelineDemoScenario,
   type PipelineDemoScenarioId,
 } from "@/lib/demo/demo-scenarios";
-import { activatePipelineDemoSession } from "@/lib/demo/demo-session";
 import { toPipelinePath } from "@/lib/pipeline/base-path";
 import { getOperatorGuidedTutorial } from "@/lib/training/operator-guided-tutorials";
 import { stageOperatorGuideForNavigation } from "@/lib/training/operator-guided-tour-state";
@@ -296,7 +295,6 @@ export default function PipelineDemoCenter({
     if (view !== "lab" || casesLoadedRef.current) return;
     casesLoadedRef.current = true;
     setLoadingCases(true);
-    activatePipelineDemoSession();
     void loadDemoReferrals().then((items) => {
       startTransition(() => {
         setReferrals(items);
@@ -313,7 +311,6 @@ export default function PipelineDemoCenter({
     guide?: DemoGuide,
     workspaceStage: DemoWorkspaceStage = "assessment",
   ) => {
-    activatePipelineDemoSession();
     setError("");
     if (navigateWithoutDemoRecord(scenario, guide)) return;
     if (!canWrite) {
@@ -378,14 +375,12 @@ export default function PipelineDemoCenter({
   };
 
   const openExisting = (referral: DemoReferralSummary) => {
-    activatePipelineDemoSession();
     const scenario = pipelineDemoScenarios.find((item) => referral.tags?.includes(item.id));
     const workspaceStage = scenario?.launch === "new_referral" ? "intake" : "assessment";
     window.location.assign(demoReferralRoute(referral.id, workspaceStage));
   };
 
   const openProcessTesterStage = (stage: ProcessTesterStage) => {
-    activatePipelineDemoSession();
     if (stage === "decision") {
       selectView("handoff");
       return;

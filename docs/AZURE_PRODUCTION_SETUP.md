@@ -207,6 +207,15 @@ Then configure it:
 9. Entra -> `Enterprise applications` -> `Alamo Pipeline` -> `Users and groups`
    -> assign each approved group to one role.
 
+Reports is restricted to `Pipeline.Admin` and `Pipeline.AssessmentCoordinator`
+at navigation, direct screen entry, report reads, and CSV exports. Assessors
+(`Pipeline.Reviewer`) and viewers do not have Reports access. The approved
+production assignments are Eric Wilson as Admin, and Andrew Dominici and
+Sandeep Singh as Assessment Coordinator (supervisor), confirmed September 11,
+2026. Their existing standalone Note Lab assignments remain intact. Role
+assignment changes take effect in a newly issued Entra sign-in token; an
+existing encrypted Pipeline session retains its issued roles until renewed.
+
 Do not create a browser client secret. Pipeline uses Authorization Code + PKCE
 for humans. The separate Alamo service client secret goes only to Key Vault.
 

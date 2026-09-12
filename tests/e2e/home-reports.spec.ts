@@ -16,6 +16,33 @@ function emptyContinuity() {
 }
 
 test.describe("role-scoped home and reports", () => {
+  for (const role of ["reviewer", "viewer", "assessment_coordinator", "admin"]) {
+    test(`restricts Reports navigation and direct entry for ${role}`, async ({ page }) => {
+      await page.route("**/api/auth/me", async (route) => {
+        const response = await route.fetch();
+        const payload = await response.json();
+        payload.user.roles = [role];
+        await route.fulfill({ response, json: payload });
+      });
+      let reportRequests = 0;
+      page.on("request", (request) => {
+        if (new URL(request.url()).pathname === "/api/operations/reports") reportRequests += 1;
+      });
+      await page.goto("/?screen=operations");
+      const allowed = role === "admin" || role === "assessment_coordinator";
+      if (allowed) {
+        await expect(page.getByRole("button", { name: "Open reports", exact: true })).toBeVisible();
+        await expect(page.getByLabel("Report", { exact: true })).toBeVisible();
+        expect(reportRequests).toBeGreaterThan(0);
+      } else {
+        await expect(page).not.toHaveURL(/screen=operations/);
+        await expect(page.getByRole("button", { name: "Open reports", exact: true })).toHaveCount(0);
+        await expect(page.getByLabel("Report", { exact: true })).toHaveCount(0);
+        expect(reportRequests).toBe(0);
+      }
+    });
+  }
+
   test("presents the operational briefing without dashboard clutter", async ({ page }) => {
     await page.goto("/");
 

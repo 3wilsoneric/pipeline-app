@@ -1,6 +1,35 @@
 import { expect, test, type Locator } from "@playwright/test";
 
 test.describe("Pipeline Demo Environment", () => {
+  test("keeps practice scoped when leaving the Learning Center", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.addInitScript(() => sessionStorage.setItem("pipeline-demo-session", "active"));
+    await mockTrainingProgress(page);
+    const banner = page.locator('[data-pipeline-demo-banner="true"]');
+
+    await page.goto("/training");
+    await expect(page.locator('[data-pipeline-ready="guided-coach"]')).toBeAttached();
+    await expect(banner).toHaveCount(0);
+    await page.goto("/training/demo?view=tester");
+    await expect(banner).toHaveCount(0);
+    await page.getByRole("button", { name: "Open review" }).click();
+    const interview = page.getByRole("dialog", { name: "Assessment interview" });
+    await expect(interview).toBeVisible();
+    await expect(banner).toContainText("Practice workspace");
+    await interview.getByRole("button", { name: "Close assessment", exact: true }).click();
+    await page.getByRole("button", { name: "Open referrals", exact: true }).click();
+    await expect(page).toHaveURL(/view=referrals/);
+    await expect(banner).toHaveCount(0);
+    await expect(page).not.toHaveURL(/demo=|trainingAssessment=|trainingIntake=/);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(banner).toHaveCount(0);
+    await page.getByRole("button", { name: "Open reports", exact: true }).click();
+    await expect(page).toHaveURL(/screen=operations/);
+    await expect(banner).toHaveCount(0);
+    await page.goBack();
+    await expect(banner).toHaveCount(0);
+  });
+
   test("runs a complete hybrid medication section", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     const response = await page.goto("/training/assessment-preview");

@@ -35,6 +35,30 @@ test.describe("operational account and role boundaries", () => {
     }
   });
 
+  test("enforces supervisor-only report reads and CSV exports", async ({ baseURL }) => {
+    const url = requireOperationalBaseURL(baseURL);
+    for (const actorKey of ["admin", "assessmentCoordinator", "assessorA", "viewer", "outsider"] as const) {
+      const context = await actorApiContext(actorKey, url);
+      try {
+        const filters = { report_id: "active_referrals", month: "2026-09" };
+        const read = await context.get(`/api/operations/reports?${new URLSearchParams(filters)}`);
+        const exported = await context.post("/api/operations/reports", { data: filters });
+        const expected = actorKey === "admin" || actorKey === "assessmentCoordinator" ? 200 : 403;
+        expect(read.status(), `${actorKey} report read`).toBe(expected);
+        expect(exported.status(), `${actorKey} report export`).toBe(expected);
+      } finally {
+        await context.dispose();
+      }
+    }
+    const anonymous = await request.newContext({ baseURL: url });
+    try {
+      expect((await anonymous.get("/api/operations/reports")).status()).toBe(401);
+      expect((await anonymous.post("/api/operations/reports", { data: {} })).status()).toBe(401);
+    } finally {
+      await anonymous.dispose();
+    }
+  });
+
   test("blocks viewer, outsider, and reviewer access at mutation decision seams", async ({ baseURL }) => {
     const url = requireOperationalBaseURL(baseURL);
     const viewer = await actorApiContext("viewer", url);

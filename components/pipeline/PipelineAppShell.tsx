@@ -19,7 +19,9 @@ export default function PipelineAppShell({
   return (
     <PipelineShellProvider value={{ searchTerm, setSearchTerm, searchOpen, setSearchOpen, homeMode, setHomeMode }}>
       <div className="flex h-screen flex-col overflow-hidden bg-white text-[#111111]">
-        <DemoEnvironmentBanner />
+        <Suspense fallback={null}>
+          <DemoEnvironmentBanner />
+        </Suspense>
         <Suspense fallback={<div aria-hidden="true" className="h-[68px] shrink-0 bg-white sm:h-[74px] xl:h-[82px]" />}>
           <PipelineHeader />
         </Suspense>

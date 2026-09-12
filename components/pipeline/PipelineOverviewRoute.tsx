@@ -321,6 +321,7 @@ function searchParamsText(searchParams: { toString(): string } | null) {
 function clearDestinationParams(params: URLSearchParams) {
   for (const key of [
     "work",
+    "demo",
     "trainingAssessment",
     "trainingIntake",
     "assessmentSection",
