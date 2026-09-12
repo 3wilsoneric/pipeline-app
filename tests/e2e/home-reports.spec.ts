@@ -312,7 +312,7 @@ test.describe("role-scoped home and reports", () => {
 
     await expect(page.getByRole("main", { name: "Reports" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Reports", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("workspace_inventory");
+    await expect(page.getByRole("combobox", { name: "Report", exact: true })).toHaveValue("assessment_completion");
     await expect(page.getByRole("region", { name: "Report results" })).toBeVisible();
 
     await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_schedule");

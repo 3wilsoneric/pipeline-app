@@ -17,7 +17,6 @@ import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presen
 import { pushPipelineHistory, usePipelineLocationSearch } from "@/lib/pipeline/client-navigation";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import SupervisorCommandCenter from "@/components/pipeline/SupervisorCommandCenter";
-import WorkAssessmentGraph from "@/components/pipeline/WorkAssessmentGraph";
 
 type ReportsView = "reports" | "exceptions";
 
@@ -189,7 +188,6 @@ function OperationsDashboardView({
           <SupervisorCommandCenter onOpenPacket={onOpenPacket} onOpenProfile={onOpenProfile} onOpenProfiles={onOpenProfiles} />
         ) : (
           <>
-            <WorkAssessmentGraph onOpenPacket={onOpenPacket} />
             <ReportsPanel
               filters={filters}
               response={response}
@@ -393,7 +391,7 @@ function defaultFilters(): OperationsReportFilters {
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   return {
-    report_id: "workspace_inventory",
+    report_id: "assessment_completion",
     month,
     community: "",
     owner: "",

@@ -9,7 +9,7 @@ export type WorkspaceAdmissionOutcome = {
   explanation: string;
 };
 
-const hiddenWorkspaceTags = new Set(["historical"]);
+const hiddenWorkspaceTags = new Set(["historical", "pilot", "needs-assessment"]);
 
 const internalWorkspaceTags = new Set([
   "allo-import",
@@ -158,6 +158,16 @@ export function getWorkspaceAdmissionOutcome(referral: Referral): WorkspaceAdmis
 
 export function isImportedWorkspace(referral: Pick<Referral, "workspaceOrigin">) {
   return referral.workspaceOrigin === "allo" || referral.workspaceOrigin === "import";
+}
+
+export function isClientChartWorkspace(referral: Pick<Referral, "workspaceOrigin" | "workspaceStatus">) {
+  return isImportedWorkspace(referral) || referral.workspaceStatus === "historical";
+}
+
+export function workspaceFileCount(referral: Referral) {
+  if (isImportedWorkspace(referral)) return referral.sourceMaterialCount ?? 0;
+  const attachments = new Set(referral.requirements?.flatMap((item) => item.evidenceDocumentId ? [item.evidenceDocumentId] : []) ?? []);
+  return attachments.size + (referral.documentName ? 1 : 0) + (referral.assessmentDocumentName ? 1 : 0);
 }
 
 export function getWorkspaceWorkflowLabel(referral: Referral) {

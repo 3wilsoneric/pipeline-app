@@ -27,6 +27,7 @@ import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview
 import AssessmentWorkspace from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 import ImportedWorkspaceProfile from "@/components/pipeline/HistoricalReferralProfile";
+import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
 import type { AssessmentListResponse } from "@/lib/assessment/assessment-records";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
 import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
@@ -194,7 +195,7 @@ const packetSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
 ] as const;
 
 const importedWorkspaceSteps: ReadonlyArray<{ page: WorkspaceStage; label: string }> = [
-  { page: 1, label: "Profile" },
+  { page: 1, label: "Chart" },
 ] as const;
 
 function mutableReferralId(loadedReferral: Referral | null, routeReferralId?: number) {
@@ -206,6 +207,7 @@ function visibleWorkspacePage(
   activePage: WorkspaceView,
   steps: ReadonlyArray<{ page: WorkspaceStage; label: string }>,
 ): WorkspaceView {
+  if (steps.length === 1 && activePage === "workflow") return 1;
   if (typeof activePage !== "number" || steps.some((step) => step.page === activePage)) return activePage;
   return steps[0]?.page ?? 1;
 }
@@ -1813,7 +1815,7 @@ export default function ReferralPacketCanvas({
             <h1 data-testid="workspace-identity-title" className="max-w-[10rem] shrink-0 truncate text-[12px] font-black text-[#111111] sm:max-w-[18rem] lg:max-w-[26rem]" title={workspaceTitle}>
               {workspaceTitle}
             </h1>
-            <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">
+            {workspaceSteps.length > 1 ? <label data-guide-target="workspace-stage-nav" className="col-span-2 row-start-2 min-w-0 lg:hidden">
               <span className="sr-only">Workspace stage</span>
               <select
                 data-guide-target="assessment-stage chart-stage"
@@ -1824,13 +1826,13 @@ export default function ReferralPacketCanvas({
               >
                 {workspaceSteps.map(({ page, label }) => <option key={page} value={page}>{`0${page} ${label}`}</option>)}
               </select>
-            </label>
+            </label> : null}
             <nav data-guide-target="workspace-stage-nav" aria-label="Workspace stages" className="hidden min-w-0 flex-1 gap-2 overflow-x-auto sm:gap-3 lg:flex">
               {workspaceSteps.map(({ page, label }) => (
                 <button
                   key={page}
                   type="button"
-                  data-guide-target={page === 2 ? "assessment-stage" : page === 3 ? "chart-stage" : undefined}
+                  data-guide-target={page === 2 ? "assessment-stage" : page === 3 || workspaceSteps.length === 1 ? "chart-stage" : undefined}
                   onClick={() => openPage(page)}
                   aria-current={displayedPage === page ? "page" : undefined}
                   className={`flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-[11px] font-black transition-colors ${
@@ -1839,11 +1841,12 @@ export default function ReferralPacketCanvas({
                       : "border-transparent text-[#737373] hover:text-[#0f8b73]"
                   }`}
                 >
-                  <span className={`text-[9px] ${displayedPage === page ? "text-[#0c705f]" : "text-[#595959]"}`}>0{page}</span>
+                  {workspaceSteps.length > 1 ? <span className={`text-[9px] ${displayedPage === page ? "text-[#0c705f]" : "text-[#595959]"}`}>0{page}</span> : null}
                   <span className="whitespace-nowrap">{label}</span>
                 </button>
               ))}
             </nav>
+            {workspaceSteps.length === 1 ? <button type="button" onClick={() => openPage(1)} aria-current={displayedPage === 1 ? "page" : undefined} className="col-span-2 row-start-2 border-t border-[#eeeeee] py-2 text-left text-[12px] font-bold text-[#0c705f] lg:hidden">Chart</button> : null}
 
             <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 lg:border-l lg:border-[#d9d9d9] lg:pl-2">
               {loadedReferral && editingControlsVisible ? (
@@ -2028,8 +2031,15 @@ export default function ReferralPacketCanvas({
 
         <div key={displayedPage} className="pipeline-step-enter">
           {displayedPage === 1 && usesSourceProfile && loadedReferral ? (
-            <PacketPage id="source-profile" title="Profile">
+            <PacketPage id="source-profile" title="Chart">
               <ImportedWorkspaceProfile key={loadedReferral.id} referral={loadedReferral} />
+            </PacketPage>
+          ) : displayedPage === 1 && historicalReadOnly && loadedReferral ? (
+            <PacketPage id="transferred-chart" title="Chart">
+              <TransferredWorkspaceChart key={loadedReferral.id} referralId={loadedReferral.id} fields={[
+                ...Object.values(fields),
+                { label: "Conserved", value: conserved },
+              ]} />
             </PacketPage>
           ) : displayedPage === 1 ? (
           <PacketPage id="packet-page-1" title="Intake">
@@ -2379,7 +2389,7 @@ function getWorkspacePresentation(
   return {
     readOnly,
     usesSourceProfile,
-    steps: usesSourceProfile ? importedWorkspaceSteps : packetSteps,
+    steps: usesSourceProfile || readOnly ? importedWorkspaceSteps : packetSteps,
     filesLabel: "Files",
     admissionTitle: usesSourceProfile ? "Admission documents" : "Required for admission",
     admissionDetail: usesSourceProfile

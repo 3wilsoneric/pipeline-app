@@ -258,7 +258,7 @@ function ReferralFilterToolbar(props: ReferralHomeDirectoryProps) {
         <ChevronDown size={15} className={`text-[#737373] transition-transform ${props.filtersOpen ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
       {props.filtersOpen ? <div id="referral-filter-controls" className="grid grid-cols-1 gap-2 px-2 pb-3 sm:hidden"><ReferralFilterControls {...props} /></div> : null}
-      <div className="hidden gap-2 px-2 py-2 sm:grid sm:grid-cols-2 lg:grid-cols-4"><ReferralFilterControls {...props} /></div>
+      <div className="hidden gap-2 px-2 py-2 sm:grid sm:grid-cols-3"><ReferralFilterControls {...props} /></div>
     </div>
   );
 }
@@ -277,9 +277,6 @@ function ReferralFilterControls(props: ReferralHomeDirectoryProps) {
       <select aria-label="Filter by owner" value={props.filter.kind === "owner" ? props.filter.value : ""} onChange={(event) => props.onFilterChange(event.target.value ? { kind: "owner", value: event.target.value } : { kind: "all" })} className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]">
         <option value="">All owners</option>
         {props.ownerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
-      </select>
-      <select aria-label="Filter by priority" value={props.filter.kind === "priority" ? props.filter.value : ""} onChange={(event) => props.onFilterChange(event.target.value ? { kind: "priority", value: event.target.value as Referral["priority"] } : { kind: "all" })} className="h-10 min-w-0 border border-[#d9d9d9] bg-white px-2 text-[12px] font-black text-[#303638] outline-none focus:border-[#0f8b73]">
-        <option value="">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="standard">Standard</option>
       </select>
     </>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, FileText } from "lucide-react";
 
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
@@ -11,7 +11,7 @@ import {
   resolveClientGender,
 } from "@/lib/pipeline/client-identity-presentation.mjs";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { getWorkspaceCounty, isRecordedWorkspaceCommunity } from "@/lib/pipeline/workspace-presentation";
+import { getWorkspaceCounty, isClientChartWorkspace, isRecordedWorkspaceCommunity, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
 
 export default function ReferralWorklist({
   referrals,
@@ -57,9 +57,9 @@ export default function ReferralWorklist({
         <div className="min-w-[820px]">
         <div className="grid grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_36px] items-center border-y border-[#d9d9d9] bg-[#fafafa] px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#666666]">
           <span>Client</span>
-          <span>Data capture</span>
+          <span>Contents</span>
           <span>Owner</span>
-          <span>Updated</span>
+          <span>Date</span>
           <span className="sr-only">Open</span>
         </div>
         <div className="divide-y divide-[#e2e2e2]">
@@ -73,19 +73,20 @@ export default function ReferralWorklist({
               className="grid w-full grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
             >
               <span className="flex min-w-0 items-start gap-3 pr-4">
-                <WorkspaceChartThumbnail referral={referral} progress={progress} />
+                <WorkspaceChartThumbnail />
                 <span className="min-w-0 pt-0.5">
                   <span className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
                   {workspaceIdentityDetail(referral, county) ? (
                     <span className="mt-1 block truncate text-[9px] text-[#737373]">{workspaceIdentityDetail(referral, county)}</span>
                   ) : null}
-                  {referral.priority !== "standard" ? (
+                  {!isClientChartWorkspace(referral) && referral.priority !== "standard" ? (
                     <span className="mt-1 block text-[9px] font-semibold text-[#8c392f]">{referral.priority} priority</span>
                   ) : null}
                 </span>
               </span>
 
               <span className="pr-5">
+                {isClientChartWorkspace(referral) ? <span className="text-[11px] text-[#737373]">{workspaceFileCount(referral)} files</span> : <>
                 <span className="flex items-center justify-between gap-2 text-[10px]">
                   <span className="font-black text-[#111111]">{progress.overall.percent}%</span>
                   <span className="text-[#737373]">{progress.overall.complete}/{progress.overall.total}</span>
@@ -96,10 +97,11 @@ export default function ReferralWorklist({
                 {extractedTotal > 0 ? (
                   <span className="mt-1 block text-[9px] text-[#737373]">{extractedReviewed}/{extractedTotal} extracted values reviewed</span>
                 ) : null}
+                </>}
               </span>
 
               <span className="truncate text-[11px] font-semibold text-[#404040]">{normalizeOwnerName(referral.owner)}</span>
-              <span className="text-[11px] text-[#737373]">{ageLabel(referral.updatedAt ?? referral.createdAt)}</span>
+              <span className="text-[11px] text-[#737373]">{workspaceDateLabel(referral)}</span>
               <span className="flex h-8 w-8 items-center justify-center text-[#0f8b73]"><ArrowRight size={15} /></span>
             </button>
           ))}
@@ -137,7 +139,7 @@ function CompactReferralRow({
     >
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="flex min-w-0 items-start gap-3">
-          <WorkspaceChartThumbnail referral={referral} progress={progress} />
+          <WorkspaceChartThumbnail />
           <span className="min-w-0 pt-0.5">
             <span className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
             {workspaceIdentityDetail(referral, county) ? (
@@ -151,7 +153,7 @@ function CompactReferralRow({
       </span>
 
       <span className="mt-3 block">
-        <span>
+        {isClientChartWorkspace(referral) ? <span className="text-[11px] text-[#737373]">{workspaceFileCount(referral)} files</span> : <span>
           <span className="flex items-center justify-between gap-3 text-[10px]">
             <span className="font-black text-[#111111]">Data capture</span>
             <span className="text-[#737373]">{progress.overall.percent}% · {progress.overall.complete}/{progress.overall.total}</span>
@@ -162,44 +164,32 @@ function CompactReferralRow({
           {extractedTotal > 0 ? (
             <span className="mt-1 block text-[9px] text-[#737373]">{extractedReviewed}/{extractedTotal} extracted values reviewed</span>
           ) : null}
-        </span>
+        </span>}
       </span>
 
       <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#ececec] pt-2.5 text-[10px]">
         <span className="truncate font-semibold text-[#404040]">{normalizeOwnerName(referral.owner)}</span>
-        <span className="shrink-0 text-[#737373]">{ageLabel(referral.updatedAt ?? referral.createdAt)}</span>
+        <span className="shrink-0 text-[#737373]">{workspaceDateLabel(referral)}</span>
       </span>
     </button>
   );
 }
 
-function WorkspaceChartThumbnail({ referral, progress }: { referral: Referral; progress: ReferralProgress }) {
-  const seed = Math.abs(referral.id) % 13;
-  const firstLine = 15 + seed;
-  const secondLine = 10 + ((seed * 3) % 17);
-  const accent = referral.priority === "urgent" || referral.priority === "high" ? "#c85b4d" : "#0f8b73";
-  const progressWidth = Math.max(3, Math.round(progress.overall.percent * 0.32));
-
+function WorkspaceChartThumbnail() {
   return (
     <span
       aria-hidden="true"
       data-testid="workspace-chart-thumbnail"
       className="flex h-12 w-[58px] shrink-0 items-center justify-center overflow-hidden border border-[#cad4cf] bg-[#edf4f1] shadow-[0_2px_5px_rgba(29,52,43,0.08)]"
     >
-      <svg viewBox="0 0 58 48" className="h-full w-full" focusable="false">
-        <rect x="7" y="4" width="44" height="40" fill="#ffffff" stroke="#c7d3ce" />
-        <rect x="7" y="4" width="44" height="6" fill={accent} />
-        <rect x="11" y="14" width="8" height="8" fill="#dcebe5" />
-        <rect x="22" y="14" width={firstLine} height="2" fill="#90a29a" />
-        <rect x="22" y="19" width={secondLine} height="2" fill="#d0dad6" />
-        <rect x="11" y="27" width="32" height="2" fill="#d5dfdb" />
-        <rect x="11" y="32" width="26" height="2" fill="#d5dfdb" />
-        <rect x="11" y="38" width="32" height="3" fill="#e1e8e5" />
-        <rect x="11" y="38" width={progressWidth} height="3" fill={accent} />
-        <path d="M45 4h6v6z" fill="#e8efec" />
-      </svg>
+      <FileText size={22} className="text-[#0c705f]" />
     </span>
   );
+}
+
+function workspaceDateLabel(referral: Referral) {
+  if (isClientChartWorkspace(referral)) return referral.workspaceMonth ?? "—";
+  return ageLabel(referral.updatedAt ?? referral.createdAt);
 }
 
 function workspaceIdentityDetail(referral: Referral, county = "") {

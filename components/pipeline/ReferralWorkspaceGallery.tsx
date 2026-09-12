@@ -6,7 +6,7 @@ import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presen
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import type { Referral } from "@/lib/pipeline/referral-types";
-import { getWorkspaceCounty, isImportedWorkspace } from "@/lib/pipeline/workspace-presentation";
+import { getWorkspaceCounty, isClientChartWorkspace, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
 
 export default function ReferralWorkspaceGallery({
   referrals,
@@ -46,6 +46,7 @@ function WorkspaceCard({
   const extracted = referral.packetFields?.length ?? 0;
   const percent = progress?.overall.percent ?? 0;
   const owner = normalizeOwnerName(referral.owner);
+  const chartOnly = isClientChartWorkspace(referral);
 
   return (
     <button
@@ -55,7 +56,7 @@ function WorkspaceCard({
       aria-label={`Open ${identityTitle} referral workspace`}
       className="group min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >
-      <span aria-hidden="true" className="relative block min-h-[132px] overflow-hidden border-b border-[#dfe5e2] bg-[#f4f8f6] px-4 py-4">
+      {chartOnly ? <span className="flex items-center gap-3 border-b border-[#dfe5e2] bg-[#f4f8f6] px-4 py-5 text-[12px] text-[#59635f]"><FileText size={24} aria-hidden="true" />{workspaceFileCount(referral)} files</span> : <span aria-hidden="true" className="relative block min-h-[132px] overflow-hidden border-b border-[#dfe5e2] bg-[#f4f8f6] px-4 py-4">
         <span className="flex items-end justify-between gap-4">
           <span>
             <strong className="block text-[24px] font-black leading-none tabular-nums text-[#17211d]">{percent}%</strong>
@@ -76,7 +77,7 @@ function WorkspaceCard({
             </span>
           ))}
         </span>
-      </span>
+      </span>}
 
       <span className="block px-4 py-3.5">
         <span className="flex items-start justify-between gap-3">
@@ -91,17 +92,11 @@ function WorkspaceCard({
         <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#e7ebe8] pt-2.5 text-[10px] text-[#68716c]">
           <span className="flex min-w-0 items-center gap-1.5"><UserRound size={12} className="shrink-0" /><span className="truncate font-bold text-[#3f4843]">{owner}</span></span>
           <span className="flex shrink-0 items-center gap-1.5"><FileText size={12} />{workspaceFileCount(referral)} files</span>
-          <time className="shrink-0" dateTime={referral.updatedAt ?? referral.createdAt}>{ageLabel(referral.updatedAt ?? referral.createdAt)}</time>
+          {chartOnly ? <span>{referral.workspaceMonth ?? ""}</span> : <time className="shrink-0" dateTime={referral.updatedAt ?? referral.createdAt}>{ageLabel(referral.updatedAt ?? referral.createdAt)}</time>}
         </span>
       </span>
     </button>
   );
-}
-
-function workspaceFileCount(referral: Referral) {
-  if (isImportedWorkspace(referral)) return referral.sourceMaterialCount ?? 0;
-  const attachmentCount = referral.requirements?.filter((requirement) => requirement.evidenceDocumentId).length ?? 0;
-  return attachmentCount + (referral.documentName ? 1 : 0) + (referral.assessmentDocumentName ? 1 : 0);
 }
 
 function ageLabel(value: string) {

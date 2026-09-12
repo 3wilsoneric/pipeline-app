@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:a5aeb2f7f6706446",
-  "fingerprint": "a5aeb2f7f670644686bcbb92cb2e373a39266e1692352a4a035e3448e899d7aa",
+  "generatedAt": "source-fingerprint:c16af67af0dc5f50",
+  "fingerprint": "c16af67af0dc5f50fda60171fdea502d39f6684dfeca8df0d3283cb10bc7dd29",
   "totals": {
-    "files": 982,
-    "lines": 312193,
-    "coveredFiles": 982
+    "files": 984,
+    "lines": 312389,
+    "coveredFiles": 984
   },
   "entries": [
     {
@@ -2037,7 +2037,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 435,
+      "lines": 433,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2349,7 +2349,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 498,
+      "lines": 495,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2361,7 +2361,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3810,
+      "lines": 3820,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2421,7 +2421,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 222,
+      "lines": 212,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2433,7 +2433,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 115,
+      "lines": 110,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2650,6 +2650,18 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 88,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/TransferredWorkspaceChart.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 77,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -6255,7 +6267,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "critical",
-      "lines": 2347,
+      "lines": 2354,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -7656,7 +7668,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 775,
+      "lines": 771,
       "moduleIds": [
         "query-performance-retention",
         "read-models-search-operations"
@@ -8320,7 +8332,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 259,
+      "lines": 269,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -9191,6 +9203,18 @@
       ]
     },
     {
+      "path": "scripts/archive-launch-transfers.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 113,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/assessment-practice-contracts.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -9232,7 +9256,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 579,
+      "lines": 582,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

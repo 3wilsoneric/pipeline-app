@@ -67,7 +67,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   },
   {
     id: "assessor_workload",
-    label: "Team workload",
+    label: "Assessor workload",
     description: "Current assignments, overdue targets, assessment work, and oldest workspace by assessor.",
     cadence: "Current",
     audience: "Supervisors",
@@ -92,7 +92,7 @@ const reportCatalog: OperationsReportDefinition[] = [
   {
     id: "assessment_completion",
     label: "Completed assessments",
-    description: "Signed assessments and average completion time by staff member.",
+    description: "Signed assessments by staff member. Elapsed time includes pauses between starting and signing; it is not interview duration.",
     cadence: "Monthly",
     audience: "Supervisors",
     filters: ["month"],
@@ -124,19 +124,16 @@ const reportCatalog: OperationsReportDefinition[] = [
   },
 ];
 
-const visibleReportIds = new Set<OperationsReportId>([
-  "workspace_inventory",
-  "document_coverage",
-  "assessment_schedule",
+const visibleReportIds: OperationsReportId[] = [
   "assessment_completion",
   "assessor_workload",
-]);
+  "assessment_schedule",
+  "decisions",
+];
 
 export function getOperationsReportCatalog(user: PipelineUser) {
   if (!canAccessOperationsReports(user.roles)) return [];
-  return reportCatalog.filter((definition) => (
-    visibleReportIds.has(definition.id)
-  ));
+  return visibleReportIds.flatMap((id) => reportCatalog.filter((definition) => definition.id === id));
 }
 
 export async function getOperationsReport(
@@ -282,7 +279,7 @@ async function loadReportReferrals(
 }
 
 function workspaceScopeForReport(reportId: OperationsReportId): "active" | "all" {
-  return ["workspace_inventory", "document_coverage", "intake_review", "decisions", "ehr_handoff"].includes(reportId)
+  return ["workspace_inventory", "document_coverage", "intake_review", "ehr_handoff"].includes(reportId)
     ? "all"
     : "active";
 }
@@ -613,7 +610,6 @@ function reportMetrics(reportId: OperationsReportId, rows: OperationsReportRow[]
   if (reportId === "assessment_completion") return [
     metric("Signed assessments", sum("signed"), "Assessments signed in the selected month."),
     metric("Staff members", rows.length, "Staff with at least one signed assessment."),
-    metric("Average time", `${average(rows.map((row) => numericValue(row.values.average_minutes)))} min`, "Unweighted average of the displayed staff averages."),
   ];
   if (reportId === "decisions") return [
     metric("Recorded decisions", rows.length, "Decisions explicitly recorded in the selected month."),

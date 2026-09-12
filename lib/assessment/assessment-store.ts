@@ -465,6 +465,9 @@ async function getLocalAssessmentCompletionReport(
   const latestSignedByRevision = new Map<string, PipelineAssessmentRecord>();
   for (const assessment of state.assessments) {
     if (!assessment.signed_at) continue;
+    const referral = await loadLocalAssessmentReferral(assessment.referral_id);
+    if (!referral || referral.workspaceStatus === "historical"
+      || referral.workspaceOrigin === "allo" || referral.workspaceOrigin === "import") continue;
     const root = assessment.revision_root_id ?? assessment.assessment_id;
     const current = latestSignedByRevision.get(root);
     if (!current || (assessment.revision_number ?? 1) > (current.revision_number ?? 1)) {
@@ -953,11 +956,15 @@ async function getPostgresAssessmentCompletionReport(
   const sql = getPipelineSql();
   const rows = await sql<AssessmentCompletionCountRow[]>`
     with latest_signed as (
-      select distinct on (revision_root_id)
-        signed_by, signed_by_name, assessor_name, signed_at, started_at
-      from pipeline.assessments
-      where signed_at is not null
-      order by revision_root_id, revision_number desc, signed_at desc, assessment_id desc
+      select distinct on (a.revision_root_id)
+        a.signed_by, a.signed_by_name, a.assessor_name, a.signed_at, a.started_at
+      from pipeline.assessments a
+      join pipeline.referrals r on r.referral_id = a.referral_id
+      where a.signed_at is not null
+        and r.workspace_origin = 'pipeline'
+        and r.workspace_status <> 'historical'
+        and r.deleted_at is null
+      order by a.revision_root_id, a.revision_number desc, a.signed_at desc, a.assessment_id desc
     )
     select signed_by as assessor_id,
       coalesce(nullif(btrim(signed_by_name), ''), nullif(btrim(assessor_name), ''), 'Unassigned') as assessor_name,
