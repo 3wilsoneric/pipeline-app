@@ -423,9 +423,9 @@ async function requestClinicalEndpoint<T>(
 }
 
 function clinicalReadTtl(endpoint: string, method = "GET") {
-  // Mutations must revalidate upstream evidence, not a cached display projection.
+  // Display reuse must never replace fresh evidence during a mutation.
   if (!["GET", "HEAD"].includes(method)) return 0;
-  if (endpoint.startsWith("/clients?")) return 60_000;
+  if (endpoint.startsWith("/clients?") || endpoint.startsWith("/roster?")) return 60_000;
   return /^\/(?:clients|residents)\/[^/?]+$/.test(endpoint) ? 15_000 : 0;
 }
 

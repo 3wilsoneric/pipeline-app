@@ -6,6 +6,7 @@ import { formatClientIdentityTitle } from "@/lib/pipeline/client-identity-presen
 import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import type { Referral } from "@/lib/pipeline/referral-types";
+import { prefetchPipelineWorkspace } from "@/lib/pipeline/client-navigation";
 import { getWorkspaceCounty, isClientChartWorkspace, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 import { WorkspaceChartThumbnail } from "@/components/pipeline/ReferralWorklist";
@@ -55,6 +56,8 @@ function WorkspaceCard({
       type="button"
       data-guide-target="workspace-results"
       onClick={onOpen}
+      onPointerEnter={() => prefetchPipelineWorkspace(referral)}
+      onFocus={() => prefetchPipelineWorkspace(referral)}
       aria-label={`Open ${identityTitle} referral workspace`}
       className="group min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >

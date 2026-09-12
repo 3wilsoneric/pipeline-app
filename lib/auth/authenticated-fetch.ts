@@ -51,7 +51,18 @@ function isNavigationBookkeeping(input: string) {
 }
 
 function invalidatesPipelineData(input: string, init: RequestInit) {
-  return (init.method ?? "GET").toUpperCase() !== "GET" && !isNavigationBookkeeping(input);
+  const method = (init.method ?? "GET").toUpperCase();
+  // Recovery drafts change only private workspace state, not saved referrals.
+  // Evict their own reads without throwing away every warm list and chart.
+  if (["PUT", "DELETE"].includes(method) && /^\/api\/me\/referral-drafts\/[^/?]+$/.test(input)) {
+    for (const key of [...jsonResponseCache.keys(), ...pendingJsonRequests.keys()]) {
+      if (!/^\/api\/me\/referral-drafts(?:\/|\?|$)/.test(key)) continue;
+      jsonResponseCache.delete(key);
+      pendingJsonRequests.delete(key);
+    }
+    return false;
+  }
+  return method !== "GET" && !isNavigationBookkeeping(input);
 }
 
 export type PipelineCurrentUser = PipelineSessionUser;
