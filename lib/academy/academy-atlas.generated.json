@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:55a76137fd5c5d24",
-  "fingerprint": "55a76137fd5c5d240a7dadbe7f4df24d6ec05ed7796e4736587e53f2139acbc6",
+  "generatedAt": "source-fingerprint:07f700582a279cd7",
+  "fingerprint": "07f700582a279cd7e866f43fba9665e3fb494da7c225a1b265f2ec649f4df8c8",
   "totals": {
-    "files": 988,
-    "lines": 313845,
-    "coveredFiles": 988
+    "files": 991,
+    "lines": 315049,
+    "coveredFiles": 991
   },
   "entries": [
     {
@@ -1278,7 +1278,7 @@
       "kind": "route-handler",
       "runtime": "next-server",
       "risk": "high",
-      "lines": 287,
+      "lines": 302,
       "moduleIds": [
         "create-referral",
         "route-handler-contract",
@@ -1821,7 +1821,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 344,
+      "lines": 354,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -1857,7 +1857,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1804,
+      "lines": 1799,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -1989,7 +1989,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 656,
+      "lines": 662,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2061,7 +2061,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 381,
+      "lines": 382,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2193,7 +2193,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 457,
+      "lines": 475,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2229,7 +2229,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 399,
+      "lines": 424,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2373,7 +2373,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3813,
+      "lines": 3833,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2709,7 +2709,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 394,
+      "lines": 401,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -5907,7 +5907,19 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 170,
+      "lines": 177,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/WORKFLOW_INTERACTION_EXECUTION_PLAN.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 504,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -7128,7 +7140,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "critical",
-      "lines": 457,
+      "lines": 483,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -8596,7 +8608,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 243,
+      "lines": 245,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -8620,7 +8632,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 83,
+      "lines": 88,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -10427,6 +10439,18 @@
       ]
     },
     {
+      "path": "scripts/meet-client-delivery-fixtures.test.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 136,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "scripts/normalize-client-names.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
@@ -11581,6 +11605,18 @@
       ]
     },
     {
+      "path": "tests/e2e/operational/workflow-interaction.spec.ts",
+      "subsystem": "Browser tests",
+      "kind": "browser-test",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 420,
+      "moduleIds": [
+        "operations-recovery-release",
+        "test-assurance"
+      ]
+    },
+    {
       "path": "tests/e2e/operational/workflow-store-characterization.spec.ts",
       "subsystem": "Browser tests",
       "kind": "browser-test",
@@ -11610,7 +11646,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 420,
+      "lines": 427,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
