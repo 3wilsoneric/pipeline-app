@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:1e08d9b61a2017f7",
-  "fingerprint": "1e08d9b61a2017f7e3d2f94eb9a73102aff7091ef36f9b49056ce9abff17a00c",
+  "generatedAt": "source-fingerprint:ef8b67a796a78848",
+  "fingerprint": "ef8b67a796a7884808e4ed653acc866ed92d1ffbb75b64df864ade400f87ff91",
   "totals": {
     "files": 1005,
-    "lines": 316597,
+    "lines": 316623,
     "coveredFiles": 1005
   },
   "entries": [
@@ -7224,7 +7224,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 101,
+      "lines": 112,
       "moduleIds": [
         "system-map",
         "types-and-boundaries"
@@ -10444,7 +10444,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 245,
+      "lines": 257,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11537,7 +11537,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 113,
+      "lines": 116,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

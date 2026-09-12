@@ -12,10 +12,15 @@ function surfaceFor(path: string): BrowserPerformanceSurface {
   const url = new URL(path, window.location.origin);
   if (fromPipelinePath(url.pathname) !== "/") return "other";
   const params = url.searchParams;
+  if (isPracticeSurface(params)) return "other";
   const screen = params.get("screen");
   if (screen === "profile" && params.get("clientId")) return "profile";
   if (screen && ["packet", "profiles", "calendar", "operations", "trash"].includes(screen)) return screen as BrowserPerformanceSurface;
   return params.get("view") === "referrals" ? "referrals" : "home";
+}
+
+function isPracticeSurface(params: URLSearchParams) {
+  return params.get("demo") === "1" || params.has("trainingAssessment") || params.get("trainingIntake") === "1";
 }
 
 export function beginPipelineNavigation(path: string) {
@@ -36,6 +41,7 @@ export function observePipelineBrowserPerformance() {
   let frame = 0;
   const observers: PerformanceObserver[] = [];
   const add = (sample: BrowserPerformanceSample) => {
+    if (sample.surface === "other") return;
     // Leave capacity for readiness and interval cache counts on busy devices.
     const limit = sample.metric === "long_task" ? 12 : 20;
     if (samples.length < limit && documentBatches < 5 && Number.isFinite(sample.value)) samples.push({ ...sample, value: Math.min(60_000, Math.max(0, Math.round(sample.value))) });
@@ -69,8 +75,13 @@ export function observePipelineBrowserPerformance() {
   const flush = () => {
     if (documentBatches >= 5) return;
     const current = getPipelineReadCacheCounts();
+    if (span.surface === "other") {
+      samples = [];
+      counts = current;
+      return;
+    }
     for (const kind of ["hit", "join", "miss"] as const) {
-      if (current[kind] > counts[kind]) add({ metric: `cache_${kind}`, surface: "other", value: current[kind] - counts[kind], result: "ready" });
+      if (current[kind] > counts[kind] && samples.length < 20) samples.push({ metric: `cache_${kind}`, surface: "other", value: Math.min(60_000, current[kind] - counts[kind]), result: "ready" });
     }
     counts = current;
     if (awaiting && performance.now() - span.startedAt >= 30_000) {

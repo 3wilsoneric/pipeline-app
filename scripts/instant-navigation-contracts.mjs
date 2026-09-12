@@ -212,9 +212,10 @@ const telemetryWindow = {
   addEventListener: (name, run) => events.set(name, run), removeEventListener: (name) => events.delete(name),
   setInterval: (run) => { interval = run; return 1; }, clearInterval() {},
 };
-class TimingObserver { constructor(run) { this.run = run; } observe() {} disconnect() {} }
+const timingCallbacks = [];
+class TimingObserver { constructor(run) { timingCallbacks.push(run); } observe() {} disconnect() {} }
 class DomObserver { observe() {} disconnect() {} }
-const telemetry = load("lib/observability/browser-performance.ts", {
+const createTelemetry = () => load("lib/observability/browser-performance.ts", {
   "@/lib/auth/authenticated-fetch": { getPipelineReadCacheCounts: () => ({ ...cacheCounts }) },
   "@/lib/pipeline/base-path": { fromPipelinePath: (path) => path, toPipelinePath: (path) => path },
   "./browser-performance-contract": schema,
@@ -225,6 +226,7 @@ const telemetry = load("lib/observability/browser-performance.ts", {
   requestAnimationFrame: (run) => { frames.set(++nextFrame, run); return nextFrame; }, cancelAnimationFrame: (id) => frames.delete(id),
   fetch: async (_path, options) => { sent.push(JSON.parse(options.body)); throw new Error("analytics-network-failure"); },
 });
+const telemetry = createTelemetry();
 const paint = () => { const runs = [...frames.values()]; frames.clear(); runs.forEach((run) => run()); };
 const stopTelemetry = telemetry.observePipelineBrowserPerformance();
 paint(); cacheCounts.hit = 2; cacheCounts.miss = 1; interval();
@@ -240,5 +242,15 @@ for (let i = 0; i < 8; i += 1) {
 assert.equal(sent.length, 5, "telemetry must be capped per document, even after more navigations");
 stopTelemetry();
 assert.equal(events.size, 0);
+for (const path of ["/training/demo?view=tester", "/?screen=packet&demo=1", "/?screen=packet&trainingAssessment=guided", "/?screen=packet&trainingIntake=1"]) {
+  telemetryWindow.location.href = new URL(path, telemetryWindow.location.origin).href;
+  readySurface = "packet";
+  const quietTelemetry = createTelemetry();
+  const stop = quietTelemetry.observePipelineBrowserPerformance();
+  timingCallbacks.slice(-2).forEach((run) => run({ getEntries: () => [{ startTime: 200, duration: 60, name: "must-not-log" }] }));
+  paint(); cacheCounts.hit += 1; interval(); events.get("pagehide")();
+  assert.equal(sent.length, 5, "unsupported and read-only practice surfaces must make zero analytics writes");
+  stop();
+}
 
 console.log(JSON.stringify({ ok: true, scope: "private SSR/proxy isolation, effective identity, pre-JS auth gate, shared Home projection/outages, strict PHI-free telemetry, mutation freshness, parallel profile failure parity and constrained prefetch" }));
