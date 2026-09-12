@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:0e4206b227529acc",
-  "fingerprint": "0e4206b227529acc9df0b9126de04eb35a18abd73afa9c16ec257f3e97ca8c98",
+  "generatedAt": "source-fingerprint:f5bb40e083b26a18",
+  "fingerprint": "f5bb40e083b26a18156308da7140f008ee3ae7cb6eb6a0c8fe9181941e692f64",
   "totals": {
     "files": 1005,
-    "lines": 316987,
+    "lines": 316992,
     "coveredFiles": 1005
   },
   "entries": [
@@ -2205,7 +2205,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 509,
+      "lines": 503,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2673,7 +2673,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 688,
+      "lines": 695,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -10684,7 +10684,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 90,
+      "lines": 94,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

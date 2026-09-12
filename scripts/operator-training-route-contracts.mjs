@@ -69,20 +69,24 @@ function fullWalkthroughMovesAcrossModules() {
   if (sequence.length < 2) return false;
   let state = guideState.emptyOperatorGuideState();
   state = guideState.reduceOperatorGuideState(state, { type: "start-sequence", tutorialIds: sequence.map((tutorial) => tutorial.id) }, "2026-01-01T00:00:00.000Z");
-  const startsFirst = state.activeTutorialId === sequence[0].id && state.sequenceIndex === 0;
+  const startsFirst = sequencePositionMatches(state, sequence[0].id, 0);
   state = guideState.reduceOperatorGuideState(state, { type: "finish" }, "2026-01-01T00:01:00.000Z");
-  const movesForward = state.activeTutorialId === sequence[1].id && state.sequenceIndex === 1 && state.stepIndex === 0;
+  const movesForward = sequencePositionMatches(state, sequence[1].id, 1) && state.stepIndex === 0;
   state = guideState.reduceOperatorGuideState(state, { type: "previous" });
-  const movesBack = state.activeTutorialId === sequence[0].id && state.sequenceIndex === 0 && state.stepIndex === sequence[0].steps.length - 1;
+  const movesBack = sequencePositionMatches(state, sequence[0].id, 0) && state.stepIndex === sequence[0].steps.length - 1;
   state = guideState.reduceOperatorGuideState(state, { type: "finish" }, "2026-01-01T00:02:00.000Z");
   state = guideState.reduceOperatorGuideState(state, { type: "finish" }, "2026-01-01T00:03:00.000Z");
   const sequenceFinished = state.activeTutorialId === null && state.sequenceTutorialIds.length === 0;
   return startsFirst && movesForward && movesBack && sequenceFinished && sequence.every((tutorial) => state.completedTutorialIds.includes(tutorial.id));
 }
 
+function sequencePositionMatches(state, tutorialId, index) {
+  return state.activeTutorialId === tutorialId && state.sequenceIndex === index;
+}
+
 function learningCenterPresentsQuickHelp() {
   const tours = readFileSync("components/pipeline/training/OperatorGuidedTours.tsx", "utf8");
-  const shellContract = shell.includes("OperatorDemoEntry") && shell.includes("OperatorGuidedTours") && shell.includes("Learning Center") && shell.includes("emptyOperatorProgress") && !shell.includes("readLocalProgress");
+  const shellContract = ["OperatorDemoEntry", "OperatorGuidedTours", "Learning Center", "emptyOperatorProgress"].every((text) => shell.includes(text)) && !shell.includes("readLocalProgress");
   const presentationContract = demoEntry.includes('data-learning-presentation-entry="true"') && demoEntry.includes('aria-label="Open Pipeline walkthrough presentation"');
   const tourContract = tours.includes('aria-label="Quick help"') && tours.includes("taskPriority") && tours.includes("ExpandedTask") && tours.includes("operatorGuideChapters") && tours.includes("Practice chapter") && tours.includes("Show me");
   return shellContract && presentationContract && tourContract;

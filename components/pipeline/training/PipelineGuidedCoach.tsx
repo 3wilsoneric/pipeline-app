@@ -113,22 +113,7 @@ export default function PipelineGuidedCoach() {
     const lastStep = state.stepIndex === tutorial.steps.length - 1;
     const now = new Date().toISOString();
     if (lastStep) {
-      const nextTutorial = getOperatorGuidedTutorial(state.sequenceTutorialIds[state.sequenceIndex + 1]);
-      const completed: OperatorTutorialResult = {
-        status: "completed",
-        currentStep: state.stepIndex,
-        startedAt: state.startedAt ?? now,
-        updatedAt: now,
-        completedAt: now,
-      };
-      commit({ type: "finish" });
-      if (step.target === "assessment-guided-exit" && !nextTutorial) commit({ type: "close" });
-      queueProgressSync(tutorial.id, completed);
-      window.dispatchEvent(new CustomEvent("pipeline:guided-tutorial-completed", { detail: { tutorialId: tutorial.id } }));
-      if (nextTutorial) {
-        queueProgressSync(nextTutorial.id, { status: "started", currentStep: 0, startedAt: now, updatedAt: now });
-        window.setTimeout(() => openGuideRoute(nextTutorial.steps[0].route), 0);
-      }
+      finishTutorial(tutorial, step, now);
       return;
     }
     const nextIndex = state.stepIndex + 1;
@@ -141,6 +126,25 @@ export default function PipelineGuidedCoach() {
       updatedAt: now,
     });
     window.setTimeout(() => openGuideRoute(nextStep.route), 0);
+  }
+
+  function finishTutorial(tutorial: OperatorGuidedTutorial, step: OperatorGuideStep, now: string) {
+    const nextTutorial = getOperatorGuidedTutorial(state.sequenceTutorialIds[state.sequenceIndex + 1]);
+    const completed: OperatorTutorialResult = {
+      status: "completed",
+      currentStep: state.stepIndex,
+      startedAt: state.startedAt ?? now,
+      updatedAt: now,
+      completedAt: now,
+    };
+    commit({ type: "finish" });
+    if (step.target === "assessment-guided-exit" && !nextTutorial) commit({ type: "close" });
+    queueProgressSync(tutorial.id, completed);
+    window.dispatchEvent(new CustomEvent("pipeline:guided-tutorial-completed", { detail: { tutorialId: tutorial.id } }));
+    if (nextTutorial) {
+      queueProgressSync(nextTutorial.id, { status: "started", currentStep: 0, startedAt: now, updatedAt: now });
+      window.setTimeout(() => openGuideRoute(nextTutorial.steps[0].route), 0);
+    }
   }
 
   function goBack() {
@@ -530,11 +534,7 @@ function currentGuideLocationKey() {
 function openGuideRoute(route: string, freshPractice = false) {
   if (guideRouteMatches(route) && !freshPractice) return;
   const destination = new URL(route, window.location.origin);
-  if (destination.searchParams.has("trainingAssessment") || destination.searchParams.has("trainingIntake")) {
-    const current = new URLSearchParams(window.location.search);
-    const draftId = !freshPractice && (current.has("trainingAssessment") || current.has("trainingIntake")) ? current.get("draftId") : null;
-    destination.searchParams.set("draftId", draftId ?? crypto.randomUUID());
-  }
+  preparePracticeDestination(destination, freshPractice);
   const currentPath = fromPipelinePath(window.location.pathname);
   if (currentPath === "/" && destination.pathname === "/") {
     pushPipelineHistory(`${destination.pathname}${destination.search}`);
@@ -542,6 +542,13 @@ function openGuideRoute(route: string, freshPractice = false) {
   }
   markGuideNavigationForResume();
   window.location.assign(toPipelinePath(`${destination.pathname}${destination.search}`));
+}
+
+function preparePracticeDestination(destination: URL, freshPractice: boolean) {
+  if (!destination.searchParams.has("trainingAssessment") && !destination.searchParams.has("trainingIntake")) return;
+  const current = new URLSearchParams(window.location.search);
+  const draftId = !freshPractice && (current.has("trainingAssessment") || current.has("trainingIntake")) ? current.get("draftId") : null;
+  destination.searchParams.set("draftId", draftId ?? crypto.randomUUID());
 }
 
 function markGuideNavigationForResume() {

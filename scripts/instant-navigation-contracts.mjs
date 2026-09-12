@@ -178,7 +178,7 @@ const rootStubs = {
     const setter = (next) => updates.push({ index, next });
     seededSetters.push(setter);
     return [value, setter];
-  }, useMemo: (read) => read(), useEffect: (run, deps) => effectCalls.push({ run, deps }) },
+  }, useRef: (initial) => ({ current: initial }), useMemo: (read) => read(), useEffect: (run, deps) => effectCalls.push({ run, deps }) },
   "next/dynamic": () => () => null,
   "next/navigation": { useSearchParams: () => new URLSearchParams("view=referrals") },
   "@/components/pipeline/pipeline-shell-context": { usePipelineShell: () => ({ searchTerm: "", setSearchTerm() {}, setSearchOpen() {} }) },

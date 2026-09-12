@@ -99,6 +99,34 @@ function referralWorkspaceKey(referral: ReferralSelection | undefined, created: 
   return created?.id === referral.id ? created.key : `referral-${referral.id}`;
 }
 
+function selectedWorkspaceReferral(route: ReferralSelection | undefined, details: ReferralSelection | undefined) {
+  return route && details?.id === route.id ? details : route;
+}
+
+function workspaceDestinationParams(search: string, screen: PipelineScreen, referral: ReferralSelection | undefined, clientId: string | undefined, location: PipelineWorkspaceLocation) {
+  const params = new URLSearchParams(search);
+  clearDestinationParams(params);
+  params.delete("view");
+  params.delete("screen");
+  if (screen === "referrals" || screen === "packet") params.set("view", "referrals");
+  if (["packet", "profile", "profiles", "operations", "calendar", "trash"].includes(screen)) params.set("screen", screen);
+  if (screen === "profile" && clientId) params.set("clientId", clientId);
+  if (screen === "packet") {
+    if (referral?.id) {
+      params.set("referralId", String(referral.id));
+      applyPipelineWorkspaceLocation(params, location);
+    } else {
+      params.set("draftId", crypto.randomUUID());
+    }
+  }
+  return params;
+}
+
+function recordCompleteNavigation(screen: PipelineScreen, referral: ReferralSelection | undefined) {
+  if (screen === "packet" && referral && (!referral.name || !referral.community)) return;
+  recordNavigation(screen, referral);
+}
+
 export default function PipelineOverviewRoute({ initialBriefing }: { initialBriefing?: HomeBriefingSnapshot | null }) {
   const { initialUser } = usePipelineAuth();
   const { searchTerm, setSearchTerm, setSearchOpen } = usePipelineShell();
@@ -129,9 +157,7 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     };
   }, [setEntryBriefing]);
   const deferredWorkSurfaces = useDeferredWorkSurfaces(screen);
-  const selectedReferral = routeReferral && referralDetails?.id === routeReferral.id
-    ? referralDetails
-    : routeReferral;
+  const selectedReferral = selectedWorkspaceReferral(routeReferral, referralDetails);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,42 +212,10 @@ export default function PipelineOverviewRoute({ initialBriefing }: { initialBrie
     const workspaceLocation = defaultWorkspaceLocation(savedLocation ?? location);
     setEntryBriefing(null);
     setSearchOpen(false);
-    const params = new URLSearchParams(activeSearchParams.toString());
-    clearDestinationParams(params);
-    if (nextScreen === "referrals") {
-      params.set("view", "referrals");
-      params.delete("screen");
-    } else if (nextScreen === "packet") {
-      params.set("view", "referrals");
-      params.set("screen", "packet");
-    } else if (["profile", "profiles", "operations", "calendar", "trash"].includes(nextScreen)) {
-      params.delete("view");
-      params.set("screen", nextScreen);
-    } else {
-      params.delete("view");
-      params.delete("screen");
-    }
-    if (nextScreen === "profile" && clientId) {
-      params.set("clientId", clientId);
-    } else {
-      params.delete("clientId");
-    }
-    if (nextScreen === "packet" && referral?.id) {
-      params.set("referralId", String(referral.id));
-      applyPipelineWorkspaceLocation(params, workspaceLocation);
-    } else {
-      params.delete("referralId");
-    }
-    if (nextScreen === "packet" && !referral?.id) {
-      params.set("draftId", crypto.randomUUID());
-    } else {
-      params.delete("draftId");
-    }
+    const params = workspaceDestinationParams(activeSearchParams.toString(), nextScreen, referral, clientId, workspaceLocation);
     pushPipelineHistory(params.size ? `/?${params.toString()}` : "/");
     recordNavigatedWorkspace(nextScreen, referral, workspaceLocation);
-    if (!(nextScreen === "packet" && referral && (!referral.name || !referral.community))) {
-      recordNavigation(nextScreen, referral);
-    }
+    recordCompleteNavigation(nextScreen, referral);
     setReferralDetails(referral);
   };
 
