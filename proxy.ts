@@ -75,7 +75,7 @@ function continueRequest(request: NextRequest, serverEntry = false) {
   requestHeaders.delete("x-pipeline-server-entry");
   const params = request.nextUrl.searchParams;
   // Microsoft callbacks keep the existing browser redirect/session exchange.
-  const redirectResponse = params.has("state") && (params.has("code") || params.has("error"));
+  const redirectResponse = params.has("state") && (params.has("code") || params.has("error") || params.has("error_description"));
   if (serverEntry && !redirectResponse) requestHeaders.set("x-pipeline-server-entry", "1");
   return NextResponse.next({ request: { headers: requestHeaders } });
 }

@@ -103,7 +103,7 @@ function proxyRequest(path) {
 const pageResponse = await proxy.proxy(proxyRequest("/"));
 assert.equal(forwarded.get("x-pipeline-server-entry"), "1");
 assert.equal(pageResponse.headers.get("cache-control"), "private, no-store, max-age=0");
-for (const path of ["/sign-in", "/api/auth/me", "/api/profiles/fixture", "/note-lab/practice", "/?state=s&code=c"]) {
+for (const path of ["/sign-in", "/api/auth/me", "/api/profiles/fixture", "/note-lab/practice", "/?state=s&code=c", "/?state=s&error_description=e"]) {
   await proxy.proxy(proxyRequest(path));
   assert.equal(forwarded.has("x-pipeline-server-entry"), false, `SSR seed must not bypass the existing ${path} flow`);
 }
