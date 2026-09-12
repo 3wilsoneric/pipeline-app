@@ -4,10 +4,12 @@ export default function ClientMedicalChart({
   chart,
   dataAsOf,
   sourceLabel,
+  careTitle = "Care and support",
 }: {
   chart: ClientMedicalChartModel;
   dataAsOf: string;
   sourceLabel: string;
+  careTitle?: string;
 }) {
   return (
     <article aria-label="Client medical chart" className="overflow-hidden border border-[#aebbb5] bg-white">
@@ -24,17 +26,17 @@ export default function ClientMedicalChart({
         {chart.identity.map((fact) => <ChartCell key={fact.label} fact={fact} />)}
       </ChartGrid>
 
-      <ChartBand title="Clinical priorities">
+      {chart.priorities.length > 0 ? <ChartBand title="Clinical priorities">
         <ChartGrid ariaLabel="Clinical priorities" columns="priorities">
           {chart.priorities.map((fact) => <ChartCell key={fact.label} fact={fact} multiline />)}
         </ChartGrid>
-      </ChartBand>
+      </ChartBand> : null}
 
-      <ChartBand title="Care and support">
+      {chart.care.length > 0 ? <ChartBand title={careTitle}>
         <ChartGrid ariaLabel="Care and support" columns="care">
           {chart.care.map((fact) => <ChartCell key={fact.label} fact={fact} />)}
         </ChartGrid>
-      </ChartBand>
+      </ChartBand> : null}
 
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[#bfcac5] bg-[#f7faf8] px-5 py-3.5 text-[10px] leading-4 text-[#5f6b66] sm:px-7">
         <span>Missing means the field was not documented in the available record.</span>

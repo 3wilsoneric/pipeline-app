@@ -4,9 +4,12 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 import { loadTypeScriptModule } from "./ts-module-loader.mjs";
+import * as React from "react";
+import * as jsxRuntime from "react/jsx-runtime";
+import { renderToStaticMarkup } from "react-dom/server";
 
 function load(file, stubs) {
-  const output = ts.transpileModule(readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
+  const output = ts.transpileModule(readFileSync(file, "utf8"), { fileName: file, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   const loaded = { exports: {} };
   vm.runInNewContext(output, { module: loaded, exports: loaded.exports, require: (id) => stubs[id] ?? {}, Buffer, URL, URLSearchParams, Request, Response, Date, console, Map, Set }, { filename: file });
   return loaded.exports;
@@ -69,4 +72,40 @@ assert.equal(model.priorities[0].value, "Platform diagnosis");
 const signed = chart.buildClientMedicalChart(identity, resident, [], [draft, { ...draft, status: "complete", signed_at: "2026-09-12T10:00:00Z" }]);
 assert.equal(signed.assessmentDate, "2026-09-12");
 checks.push("drafts neither claim an assessment occurred nor override platform clinical data; signed encounters remain visible");
+const medicalChart = load("components/pipeline/ClientMedicalChart.tsx", { "react/jsx-runtime": jsxRuntime });
+let stateIndex = 0;
+const transferredChart = load("components/pipeline/TransferredWorkspaceChart.tsx", {
+  "react/jsx-runtime": jsxRuntime,
+  react: { useEffect() {}, useState(initial) { return [stateIndex++ === 3 ? [{ id: "fixture-file", referralId: 71, previewUrl: "/api/files/fixture/preview" }] : initial, () => {}]; } },
+  "@/components/pipeline/ClientMedicalChart": medicalChart,
+  "@/components/pipeline/ClientProfileView": { ClientDocumentGallery: ({ documents }) => React.createElement("a", { href: documents[0].previewUrl }, "Open chart file") },
+  "@/lib/pipeline/structured-narrative": loadTypeScriptModule(process.cwd(), "lib/pipeline/structured-narrative.ts"),
+});
+const fields = [
+  { label: "NAME", value: "Fixture Person" }, { label: "DOB", value: "01/02/1990" },
+  { label: "Owner (@name):", value: "Original owner" }, { label: "County:", value: "Source county" },
+  { label: "Client phone:", value: "Source contact" }, { label: "AGE", value: "" },
+  { label: "Summary", value: "Preserved introduction\n\n## Reason for referral\nRecorded reason\n\n## Current presentation\n<script>untrusted source text</script>" },
+];
+const transferredModel = transferredChart.buildTransferredClientChart(fields);
+assert.equal(transferredModel.assessmentDate, null);
+assert.equal(transferredModel.priorities.length, 0);
+assert.equal(transferredModel.identity.length, 2);
+assert.equal(transferredModel.care.find((fact) => fact.label === "Owner").value, "Original owner");
+const html = renderToStaticMarkup(React.createElement(transferredChart.default, {
+  referral: { id: 71, clientId: "fixture", createdAt: "2026-08-20T00:00:00Z" }, fields,
+}));
+assert.match(html, /Client medical chart/i);
+assert.match(html, /lg:grid-cols-6/);
+assert.match(html, /Referral information/);
+assert.match(html, /Original owner/);
+assert.match(html, /Preserved introduction/);
+assert.match(html, /Recorded reason/);
+assert.match(html, /&lt;script&gt;untrusted source text&lt;\/script&gt;/);
+assert.doesNotMatch(html, /## Reason for referral|## Current presentation|Latest assessment|Clinical priorities/);
+assert(html.indexOf("Open chart file") < html.indexOf("Referral summary"));
+const canvasSource = readFileSync("components/pipeline/ReferralPacketCanvas.tsx", "utf8");
+assert.match(canvasSource, /lg:flex lg:gap-3/);
+assert.doesNotMatch(canvasSource, /lg:grid-cols-\[minmax\(120px,1fr\)_minmax\(0,2fr\)_auto\]/);
+checks.push("transferred charts use the established compact chart, openable files precede readable notes, original facts remain intact, and desktop stages sit beside the name");
 console.log(JSON.stringify({ ok: true, checks }, null, 2));
