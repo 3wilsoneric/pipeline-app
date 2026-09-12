@@ -392,8 +392,8 @@ export default function PipelineDemoCenter({
       return;
     }
     const section = stage === "review" ? "provenance_qc" : "identity";
-    const mode = stage === "schedule" ? "schedule" : "interview";
-    const assessmentSection = mode === "interview" ? `&assessmentSection=${section}` : "";
+    const mode = stage === "schedule" ? "schedule" : stage === "assessment" ? "guided" : "interview";
+    const assessmentSection = mode !== "schedule" ? `&assessmentSection=${section}` : "";
     window.location.assign(toPipelinePath(`/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=${mode}${assessmentSection}&demo=1`));
   };
 
