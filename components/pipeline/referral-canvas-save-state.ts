@@ -76,6 +76,13 @@ export function referralSaveStatus(remainingChanges: number, uploadedInitialPack
   return `Saved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 }
 
+export function referralDraftSaveStatus(savedAt: string, hasReferral: boolean, queuedFileCount: number) {
+  if (!hasReferral && queuedFileCount > 0) {
+    return `${savedAt} · ${queuedFileCount.toLocaleString()} file${queuedFileCount === 1 ? "" : "s"} queued`;
+  }
+  return savedAt === "Workspace loaded" ? "All changes saved" : savedAt;
+}
+
 export function draftKeySignature(key: ReferralCanvasDirtyKey, input: DraftValueSnapshot) {
   if (isPersistedCanvasFieldKey(key)) {
     return JSON.stringify([input.fields[key].value, input.fields[key].sourceFile ?? ""]);

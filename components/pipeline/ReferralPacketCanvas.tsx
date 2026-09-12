@@ -108,6 +108,7 @@ import {
   mergePendingDocumentNames,
   normalizeTags,
   reconcileSavedDirtyKeys,
+  referralDraftSaveStatus,
   referralSaveStatus,
   type ReferralSaveSnapshot,
 } from "@/components/pipeline/referral-canvas-save-state";
@@ -1180,8 +1181,8 @@ export default function ReferralPacketCanvas({
   };
 
   const autosaveReferral = useEffectEvent(() => {
-    if (isSavingRef.current || !loadedReferralRef.current) return;
-    void saveDraft();
+    if (!loadedReferralRef.current) return;
+    void saveWorkspaceDraft();
   });
 
   useEffect(() => {
@@ -1346,7 +1347,6 @@ export default function ReferralPacketCanvas({
   };
 
   const saveDraft = async (confirmedDistinctReferralIds: number[] = []): Promise<Referral | null> => {
-    if (isSavingRef.current) return null;
     setSaveError("");
     const blockedMessage = referralSaveBlockedMessage(uploadingDocumentIds.size, Boolean(remoteChange?.conflicts.length));
     if (blockedMessage) {
@@ -1355,7 +1355,6 @@ export default function ReferralPacketCanvas({
     }
     setIsSaving(true);
     isSavingRef.current = true;
-    setSavedAt(loadedReferralRef.current ? "Saving changes..." : "Creating referral...");
     const snapshot = captureReferralSaveSnapshot(
       dirtyKeysRef.current,
       currentDraftValues(fieldsRef.current, conservedRef.current, tagsInputRef.current, documentsRef.current, initialPacketRef.current),
@@ -1427,6 +1426,8 @@ export default function ReferralPacketCanvas({
   };
 
   const saveWorkspaceDraft = async (confirmedDistinctReferralIds: number[] = []): Promise<Referral | null> => {
+    if (isSavingRef.current) return null;
+    setSavedAt(loadedReferralRef.current ? "Saving changes..." : "Creating referral...");
     if (!trainingIntakeMode) return saveDraft(confirmedDistinctReferralIds);
     setSaveError("");
     setSavedAt("Practice changes saved in this tab");
@@ -1747,9 +1748,7 @@ export default function ReferralPacketCanvas({
   const referralWorkspaceId = activeReferralId(loadedReferral, referral);
   const hasReferral = hasReferralRecord(loadedReferral, referral?.id);
   const queuedFileCount = Object.keys(pendingDocuments).length + Number(Boolean(initialPacket));
-  const saveStatus = !hasReferral && queuedFileCount > 0
-    ? `${savedAt} · ${queuedFileCount.toLocaleString()} file${queuedFileCount === 1 ? "" : "s"} queued`
-    : savedAt === "Workspace loaded" ? "All changes saved" : savedAt;
+  const saveStatus = referralDraftSaveStatus(savedAt, hasReferral, queuedFileCount);
 
   const moveWorkspaceToTrash = async () => {
     const current = loadedReferralRef.current;
@@ -1876,9 +1875,7 @@ export default function ReferralPacketCanvas({
             </div>
           </div>
           {editingControlsVisible ? (
-            <div data-testid="workspace-save-status" className="flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1 py-1 text-[11px] font-medium" aria-live="polite">
-              {saveError ? <span role="alert" className="min-w-0 break-words text-[#a4473c]">{saveError}</span> : <span className="text-[#68716c]">{saveStatus}</span>}
-            </div>
+            <WorkspaceSaveStatus status={saveStatus} error={saveError} />
           ) : null}
         </div>
 
@@ -2387,6 +2384,12 @@ function WorkspaceStageButton({ page, label, numbered, selected, onOpen }: {
   </button>;
 }
 
+function WorkspaceSaveStatus({ status, error }: { status: string; error: string }) {
+  return <div data-testid="workspace-save-status" className="flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1 py-1 text-[11px] font-medium" aria-live="polite">
+    {error ? <span role="alert" className="min-w-0 break-words text-[#a4473c]">{error}</span> : <span className="text-[#68716c]">{status}</span>}
+  </div>;
+}
+
 function WorkspaceSaveControl({
   saving,
   hasReferral,
@@ -2402,22 +2405,36 @@ function WorkspaceSaveControl({
   onSave: () => void;
   retry: boolean;
 }) {
-  if (hasReferral && !retry) return null;
-  const label = hasReferral ? "Retry saving" : "Create referral";
+  const control = workspaceSaveControlState(saving, hasReferral, hasChanges, blocked, retry);
+  if (!control.visible) return null;
+  const Icon = hasReferral ? RefreshCw : Plus;
   return (
     <button
       type="button"
-      data-guide-target={hasReferral ? undefined : "create-workspace"}
-      aria-label={label}
+      data-guide-target={control.target}
+      aria-label={control.label}
       onClick={onSave}
-      disabled={saving || blocked || !hasChanges}
+      disabled={control.disabled}
       className="flex h-10 shrink-0 items-center gap-2 bg-[#0b6f5d] px-3 text-[12px] font-bold text-white transition-colors hover:bg-[#075a4b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
     >
-      {hasReferral ? <RefreshCw size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}
-      <span className="hidden sm:inline">{saving ? hasReferral ? "Saving..." : "Creating..." : label}</span>
-      <span className="sm:hidden">{saving ? "Working..." : hasReferral ? "Retry" : "Create"}</span>
+      <Icon size={15} aria-hidden="true" />
+      <span className="hidden sm:inline">{control.expandedLabel}</span>
+      <span className="sm:hidden">{control.compactLabel}</span>
     </button>
   );
+}
+
+function workspaceSaveControlState(saving: boolean, hasReferral: boolean, hasChanges: boolean, blocked: boolean, retry: boolean) {
+  const mode = hasReferral
+    ? { label: "Retry saving", compactLabel: "Retry", busyLabel: "Saving...", target: undefined }
+    : { label: "Create referral", compactLabel: "Create", busyLabel: "Creating...", target: "create-workspace" };
+  return {
+    ...mode,
+    visible: !hasReferral || retry,
+    disabled: saving || blocked || !hasChanges,
+    expandedLabel: saving ? mode.busyLabel : mode.label,
+    compactLabel: saving ? "Working..." : mode.compactLabel,
+  };
 }
 
 function hasReferralRecord(referral: Referral | null, referralId: number | undefined) {

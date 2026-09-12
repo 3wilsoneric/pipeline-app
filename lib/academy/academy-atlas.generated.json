@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:a0d55c9e6ac18433",
-  "fingerprint": "a0d55c9e6ac18433f024e48f15893057345c91dfd945d643359c2f283cfcd87e",
+  "generatedAt": "source-fingerprint:95b649ff1d0c70c9",
+  "fingerprint": "95b649ff1d0c70c9a68a3059e7230b639f763f2c9ddd6dc23d7ba5ceb77a86ba",
   "totals": {
     "files": 987,
-    "lines": 313520,
+    "lines": 313553,
     "coveredFiles": 987
   },
   "entries": [
@@ -1857,7 +1857,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 1800,
+      "lines": 1804,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -2241,7 +2241,7 @@
       "kind": "typescript-module",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 117,
+      "lines": 124,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2361,7 +2361,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3800,
+      "lines": 3817,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -10876,7 +10876,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 133,
+      "lines": 138,
       "moduleIds": [
         "operations-recovery-release",
         "threat-supply-chain"
