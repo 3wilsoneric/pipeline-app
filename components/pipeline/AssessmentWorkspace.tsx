@@ -598,7 +598,7 @@ export default function AssessmentWorkspace({
     setDraft(data);
     setDirtySections(new Set());
     setRemoteChange(null);
-    setScheduleStart(selected.scheduled_start_at ? isoToOperationalInput(selected.scheduled_start_at) : "");
+    setScheduleStart(isoToOperationalInput(selected.scheduled_start_at));
     setScheduleDuration(String(selected.scheduled_duration_minutes ?? 60));
     setScheduleMethod(normalizeScheduleMethod(selected.scheduled_method));
     setScheduleLocation(selected.scheduled_location ?? "");

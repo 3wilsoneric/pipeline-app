@@ -91,6 +91,11 @@ function renderDeferredWorkSurface<Props extends object>(
   return <Surface key={key} {...props} />;
 }
 
+function referralWorkspaceKey(referral: ReferralSelection | undefined, created: { id: number; key: string } | null, draftKey: string | undefined) {
+  if (!referral) return draftKey ?? "new";
+  return created?.id === referral.id ? created.key : `referral-${referral.id}`;
+}
+
 export default function PipelineOverviewRoute() {
   const { searchTerm, setSearchTerm, setSearchOpen } = usePipelineShell();
   const searchParams = useSearchParams();
@@ -241,9 +246,7 @@ export default function PipelineOverviewRoute() {
 
   let page: ReactNode;
   if (screen === "packet") {
-    const workspaceKey = selectedReferral
-      ? createdWorkspace?.id === selectedReferral.id ? createdWorkspace.key : `referral-${selectedReferral.id}`
-      : newReferralDraftKey ?? "new";
+    const workspaceKey = referralWorkspaceKey(selectedReferral, createdWorkspace, newReferralDraftKey);
     const stillViewingWorkspace = () => {
       const current = new URLSearchParams(window.location.search);
       if (getScreenFromParams(current) !== "packet") return false;

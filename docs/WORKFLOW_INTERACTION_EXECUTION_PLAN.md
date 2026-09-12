@@ -185,6 +185,15 @@ Verification on 2026-09-12:
   and focused ESLint: passed. The Notes Lab route, practice component, question
   specifications, examples, stores, and access rules have no diff in this pass.
 
+Release correction: the initial PR CI rejected three added complexity increases.
+The new conditions now live in the existing save-status component, one bounded
+workspace-key helper, and the canonical nullable Pacific date formatter. No
+complexity baseline or ceiling changed. The rebuilt correction passed the same
+13 workflow tests, TypeScript, focused ESLint, and the complexity ratchet. The
+local refactor-setup command separately encounters a pre-existing missing Git
+worktree; this is not a completed refactor certification or authority to prune
+another task's worktree. CI must certify the release candidate in its clean checkout.
+
 Initial failures were retained as diagnostic evidence during iteration: invalid
 synthetic PDF/name fixtures, stale tutorial selectors, missing synthetic roster
 and desktop-state setup, and faint resumed-intake metadata. Fixes address the

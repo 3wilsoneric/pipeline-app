@@ -1882,8 +1882,12 @@ export default function ReferralPacketCanvas({
             <WorkspaceSaveStatus
               status={saveStatus}
               error={saveError}
-              created={createdWorkspaceId !== null && createdWorkspaceId === editableReferralId}
-              confirmed={hasReferral && !isSaving && dirtyKeys.size === 0 && queuedFileCount === 0 && /^(Saved |All changes saved|Packet uploaded)/.test(saveStatus)}
+              createdWorkspaceId={createdWorkspaceId}
+              referralId={editableReferralId}
+              hasReferral={hasReferral}
+              saving={isSaving}
+              dirtyCount={dirtyKeys.size}
+              queuedFileCount={queuedFileCount}
             />
           ) : null}
         </div>
@@ -2395,7 +2399,12 @@ function WorkspaceStageButton({ page, label, numbered, selected, onOpen }: {
   </button>;
 }
 
-function WorkspaceSaveStatus({ status, error, created, confirmed }: { status: string; error: string; created: boolean; confirmed: boolean }) {
+function WorkspaceSaveStatus({ status, error, createdWorkspaceId, referralId, hasReferral, saving, dirtyCount, queuedFileCount }: {
+  status: string; error: string; createdWorkspaceId: number | null; referralId: number | null;
+  hasReferral: boolean; saving: boolean; dirtyCount: number; queuedFileCount: number;
+}) {
+  const created = createdWorkspaceId !== null && createdWorkspaceId === referralId;
+  const confirmed = hasReferral && !saving && dirtyCount === 0 && queuedFileCount === 0 && /^(Saved |All changes saved|Packet uploaded)/.test(status);
   return <div data-testid="workspace-save-status" className="flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1 py-1 text-[11px] font-medium" aria-live="polite">
     {created ? <span className="inline-flex items-center gap-1.5 rounded-sm bg-[#eaf5ef] px-2 py-1 font-bold text-[#0c705f]"><CheckCircle2 size={13} aria-hidden="true" />Workspace created</span> : null}
     {error ? <span role="alert" className="min-w-0 break-words text-[#a4473c]">{error}</span> : <span className={`inline-flex items-center gap-1.5 ${confirmed ? "text-[#0c705f]" : "text-[#68716c]"}`}>{confirmed && !created ? <CheckCircle2 size={13} aria-hidden="true" /> : null}{status}</span>}
