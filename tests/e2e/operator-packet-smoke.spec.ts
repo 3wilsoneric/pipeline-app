@@ -17,7 +17,7 @@ test("ingests an operator-supplied packet without pre-entered demographics", asy
   });
   await page.getByRole("button", { name: /^Create referral$/ }).click();
 
-  await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded and ready for review", { timeout: 120_000 });
   await expect(page.getByText(/source pages? preserved; confirm the stripped values below\./)).toBeVisible();
   const review = page.getByRole("region", { name: "Extraction review" });
   await expect(review).toBeVisible();

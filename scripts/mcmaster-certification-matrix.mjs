@@ -20,7 +20,7 @@ const evidence = [
   item("data.pagination", "Referral pagination is deterministic and conflict-safe", "tests/e2e/pipeline-smoke.spec.ts", "pages without duplicates and rejects a competing stale save"),
   item("cache.identity", "Startup identity requests are deduplicated", "tests/e2e/pipeline-smoke.spec.ts", "deduplicates startup identity and retries a transient referral read"),
   item("cache.last-good", "Refresh failures preserve the last useful snapshot", "tests/e2e/pipeline-smoke.spec.ts", "keeps the last successful referral snapshot when refresh fails"),
-  item("cache.client", "Clinical directory cache is bounded and user-scoped", "components/pipeline/ClientProfileDirectory.tsx", "MAX_DIRECTORY_CACHE_ENTRIES = 2"),
+  item("cache.client", "Clinical directory cache is bounded and user-scoped", "components/pipeline/ClientProfileDirectory.tsx", ["MAX_DIRECTORY_CACHE_ENTRIES = 8", "directoryCacheKey(userId:", "entry.generation !== getPipelineClientCacheGeneration()", "while (directoryCache.size > MAX_DIRECTORY_CACHE_ENTRIES)"]),
   item("interaction.search", "Typed search is coalesced and obsolete requests are aborted", "components/pipeline/PipelineSearchPanel.tsx", "controller.abort()"),
   item("interaction.search.progressive", "Local search renders without waiting for governed client search", "tests/e2e/pipeline-home.spec.ts", "shows local search results before governed client search completes"),
   item("interaction.history", "Back and forward restore the same work surface", "tests/e2e/performance-navigation.spec.ts", "await page.goBack()"),

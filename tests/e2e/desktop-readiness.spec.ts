@@ -194,7 +194,7 @@ test.describe("desktop feature enabled", () => {
     expect(draftId).toMatch(/^[0-9a-f-]{36}$/i);
     const draftEndpoint = `/api/me/referral-drafts/new-${draftId}`;
     await page.getByRole("textbox", { name: "NAME", exact: true }).fill("Casey Hartwell");
-    await expect(page.getByText("Draft saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("workspace-save-status")).toContainText("Draft saved", { timeout: 15_000 });
     const autosaved = await page.request.get(draftEndpoint);
     expect(await autosaved.json()).toMatchObject({
       draft: { fields: { name: { value: "Casey Hartwell" } } },
@@ -218,7 +218,7 @@ test.describe("desktop feature enabled", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from(`desktop-recovery-face-sheet-${Date.now()}`),
     });
-    await expect(page.getByText("Packet uploaded and ready for review", { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("workspace-save-status")).toContainText("Packet uploaded and ready for review", { timeout: 20_000 });
     await expect.poll(async () => {
       const response = await page.request.get(draftEndpoint);
       return (await response.json()) as { draft?: unknown; version?: number };

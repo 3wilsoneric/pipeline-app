@@ -47,7 +47,7 @@ export async function getHomeContinuity(
 
     return {
       resume_items: dedupeAndRankResumeItems(candidates).slice(0, 3),
-      new_assignments: (assignments?.items ?? []).filter((item) => !acknowledged.has(item.event_id)).slice(0, 6),
+      new_assignments: (assignments?.items ?? []).filter((item) => !acknowledged.has(item.event_id)),
       assignment_tracking_started_at: trackingStart,
       needs_assignment_tracking_initialization: !state.assignmentTrackingStartedAt,
       unavailable: !assignments,

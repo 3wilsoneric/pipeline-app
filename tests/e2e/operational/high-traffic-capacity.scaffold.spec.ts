@@ -33,6 +33,7 @@ import {
   type ProductDemoActor,
   type ProductDemoCase,
 } from "../support/product-demo-scenario";
+import { isoToOperationalInput } from "../../../components/pipeline/pipeline-calendar-model";
 
 test.describe("high-assurance 10x traffic scaffold", () => {
   test.skip(
@@ -215,7 +216,7 @@ test.describe("high-assurance 10x traffic scaffold", () => {
         url,
         requiredActor(scenario.operationsLeads, 0),
         testInfo,
-        reconciliation.referral_total,
+        assessments.length,
         productDemoCaseInput(requiredCase(scenario.cases, scenario.cases.length - 1)).name,
       );
       await testInfo.attach("100-user-product-demo-summary", {
@@ -348,7 +349,7 @@ async function verifyProductDemoSurfaces(
   baseURL: string,
   actor: PipelineActor,
   testInfo: TestInfo,
-  expectedMinimumTotal: number,
+  expectedMinimumAssessments: number,
   expectedClientName: string,
 ) {
   const context = await browser.newContext({
@@ -383,12 +384,19 @@ async function verifyProductDemoSurfaces(
           name: `Open ${expectedClientName} referral workspace`,
         }).first()).toBeVisible({ timeout: 15_000 });
       } else {
+        await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_schedule");
+        const reportMonth = page.getByRole("textbox", { name: "Report month", exact: true });
+        const scheduledMonth = isoToOperationalInput(new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString()).slice(0, 7);
+        if (await reportMonth.inputValue() !== scheduledMonth) {
+          await reportMonth.fill(scheduledMonth);
+          await page.getByRole("button", { name: "Apply", exact: true }).click();
+        }
         const results = page.getByRole("region", { name: "Report results" });
         await expect(results).toBeVisible({ timeout: 15_000 });
         const totalLabel = results.getByText(/^\d+ total$/).first();
         await expect(totalLabel).toBeVisible();
-        const total = Number((await totalLabel.textContent())?.match(/^\d+/)?.[0] ?? Number.NaN);
-        expect(total).toBeGreaterThanOrEqual(expectedMinimumTotal);
+        await expect.poll(async () => Number((await totalLabel.textContent())?.match(/^\d+/)?.[0] ?? Number.NaN))
+          .toBeGreaterThanOrEqual(expectedMinimumAssessments);
       }
       await expect(page.getByText("Application error", { exact: false })).toHaveCount(0);
       const horizontallyBounded = await page.evaluate(() => (

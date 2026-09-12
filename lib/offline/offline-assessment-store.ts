@@ -247,14 +247,14 @@ export async function flushOfflineAssessmentMutations(
     const mutation = await decryptPayload<OfflineAssessmentMutation>(key, principal, stored.id, stored);
     try {
       await sender(mutation);
-      await request(database.transaction(mutationsStore, "readwrite").objectStore(mutationsStore).delete(stored.id));
+      await removeFlushedMutation(database, stored);
       completed += 1;
     } catch (error) {
       if (statusFor(error) === 409) {
         // A stale write cannot become valid by replaying the same payload. The
         // editor keeps the local draft and reconciles it against the latest
         // server version before issuing a fresh mutation.
-        await request(database.transaction(mutationsStore, "readwrite").objectStore(mutationsStore).delete(stored.id));
+        await removeFlushedMutation(database, stored);
         conflicts += 1;
       }
       if (statusFor(error) === 0 || statusFor(error) >= 500) break;
@@ -264,6 +264,22 @@ export async function flushOfflineAssessmentMutations(
   database.close();
   notifyOfflineStateChanged();
   return { completed, conflicts, remaining };
+}
+
+async function removeFlushedMutation(database: IDBDatabase, flushed: StoredMutation) {
+  const transaction = database.transaction(mutationsStore, "readwrite");
+  const done = transactionDone(transaction);
+  const store = transaction.objectStore(mutationsStore);
+  const current = await request<StoredMutation | undefined>(store.get(flushed.id));
+  // The encryption nonce identifies the queued revision, even for same-ms edits.
+  const flushedIv = new Uint8Array(flushed.iv);
+  if (current?.principal === flushed.principal) {
+    const currentIv = new Uint8Array(current.iv);
+    if (currentIv.length === flushedIv.length && currentIv.every((byte, index) => byte === flushedIv[index])) {
+      store.delete(flushed.id);
+    }
+  }
+  await done;
 }
 
 export async function clearPipelineOfflineData() {
@@ -320,7 +336,17 @@ async function getOrCreateKey(database: IDBDatabase, principal: string) {
   const existing = await request<StoredKey | undefined>(database.transaction(keysStore).objectStore(keysStore).get(principal));
   if (existing?.key) return existing.key;
   const key = await window.crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
-  await request(database.transaction(keysStore, "readwrite").objectStore(keysStore).put({ id: principal, key, createdAt: Date.now() } satisfies StoredKey));
+  const transaction = database.transaction(keysStore, "readwrite");
+  const done = transactionDone(transaction);
+  const store = transaction.objectStore(keysStore);
+  // Key generation can overlap across tabs; select one key atomically before encryption.
+  const current = await request<StoredKey | undefined>(store.get(principal));
+  if (current?.key) {
+    await done;
+    return current.key;
+  }
+  store.put({ id: principal, key, createdAt: Date.now() } satisfies StoredKey);
+  await done;
   return key;
 }
 

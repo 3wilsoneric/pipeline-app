@@ -319,11 +319,11 @@ await measureJourney("calendar_to_operations", "navigation", async () => {
   await page.getByRole("main", { name: "Reports", exact: true }).waitFor({ state: "visible" });
 });
 await measureJourney("report_tab_change", "tab", async () => {
-  await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("document_coverage");
-  await waitForReport(page, "Documents");
+  await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessor_workload");
+  await waitForReport(page, "Assessor workload");
 });
-await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("workspace_inventory");
-await waitForReport(page, "Workspaces");
+await page.getByRole("combobox", { name: "Report", exact: true }).selectOption("assessment_schedule");
+await waitForReport(page, "Assessment calendar");
 await page.getByLabel("Report community", { exact: true }).selectOption("San Pablo");
 await measureJourney("report_filter_apply", "filter", async () => {
   const reportResponse = page.waitForResponse((candidate) => {

@@ -9,7 +9,7 @@ import type {
 } from "@/lib/training/operator-training-types";
 
 export const OPERATOR_TRAINING_VERSION = "2026.09.operator.1";
-export const OPERATOR_TRAINING_REVIEWED_AT = "2026-09-10";
+export const OPERATOR_TRAINING_REVIEWED_AT = "2026-09-12";
 
 const allRoles = ["admin", "assessment_coordinator", "reviewer", "viewer"] as const;
 const writeRoles = ["admin", "assessment_coordinator", "reviewer"] as const;

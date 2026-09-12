@@ -1,10 +1,17 @@
 import { expect, test } from "@playwright/test";
+import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
 
 const trainingUrl = process.env.PIPELINE_E2E_TRAINING_URL ?? "/training";
 const homeUrl = trainingUrl.startsWith("http") ? new URL("/", trainingUrl).toString() : "/";
 
 test.describe("Pipeline Learning Center", () => {
   test.beforeEach(async ({ page }) => {
+    // These guide tests do not certify delegated Alamo access or use its roster.
+    await page.route("**/api/profiles/directory**", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ...clientDirectoryFixture, clients: [], total: 0, next_cursor: null }),
+    }));
     await page.addInitScript(() => {
       if (window.sessionStorage.getItem("operator-training-e2e-initialized") === "true") return;
       for (const key of Object.keys(window.localStorage)) {
@@ -66,7 +73,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(page.getByRole("dialog", { name: /Check my work guided tutorial/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Check your queue" })).toBeVisible();
     await expect(page.locator('[data-guide-target="my-queue"]')).toBeVisible();
-    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("dialog", { name: /Check my work guided tutorial/ }).getByRole("button", { name: "Continue", exact: true }).click();
 
     await expect(page.getByRole("heading", { name: "Open Workspaces" })).toBeVisible();
     await page.getByLabel("Open referrals").click();
@@ -94,7 +101,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(assessmentSections.getByRole("button", { name: /Review/ })).toBeVisible();
 
     await assessmentSections.getByRole("button", { name: /Clinical/ }).click();
-    const currentSymptoms = assessment.getByLabel("Current symptoms");
+    const currentSymptoms = assessment.getByRole("textbox", { name: "Current symptoms *", exact: true });
     await expect(currentSymptoms).toBeEditable();
     await currentSymptoms.fill("Synthetic interview answer for autosave verification.");
     await expect(assessment.getByText("Practice changes saved locally", { exact: true })).toBeVisible({ timeout: 5_000 });
@@ -138,7 +145,7 @@ test.describe("Pipeline Learning Center", () => {
     await expect(schedule).toBeVisible();
     await schedule.getByLabel("Assessment date and time").fill(futureLocalDateTime());
     await schedule.getByLabel("Assessment method").selectOption("zoom");
-    await schedule.getByLabel("Assessment location or link").fill("https://example.invalid/pipeline-training");
+    await schedule.getByLabel("Zoom meeting link").fill("https://example.invalid/pipeline-training");
     await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
 
     const begin = page.getByRole("dialog", { name: "Begin assessment" });
@@ -193,7 +200,7 @@ test.describe("Pipeline Learning Center", () => {
       mimeType: "text/plain",
       buffer: Buffer.from("Not an accepted referral document"),
     });
-    await expect(page.getByRole("alert").filter({ hasText: "Upload a PDF, JPEG, PNG, TIFF, or HEIC referral document." })).toBeVisible();
+    await expect(page.getByTestId("document-checklist-panel").getByRole("alert").filter({ hasText: "Upload a PDF, JPEG, PNG, TIFF, or HEIC referral document." })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Upload the packet" })).toBeVisible();
 
     await dropTrainingPdf(upload, "training-referral.pdf");

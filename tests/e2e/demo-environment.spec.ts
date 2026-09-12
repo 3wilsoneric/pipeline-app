@@ -1,6 +1,16 @@
 import { expect, test, type Locator } from "@playwright/test";
+import { clientDirectoryFixture } from "./support/pipeline-clinical-fixtures";
 
 test.describe("Pipeline Demo Environment", () => {
+  test.beforeEach(async ({ page }) => {
+    // Rehearsals use synthetic data, not a delegated clinical roster.
+    await page.route("**/api/profiles/directory**", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ...clientDirectoryFixture, clients: [], total: 0, next_cursor: null }),
+    }));
+  });
+
   test("keeps practice scoped when leaving the Learning Center", async ({ page }) => {
     test.setTimeout(60_000);
     await page.addInitScript(() => sessionStorage.setItem("pipeline-demo-session", "active"));
@@ -202,8 +212,8 @@ test.describe("Pipeline Demo Environment", () => {
 
     await page.goto(`/?view=referrals&screen=packet&draftId=${crypto.randomUUID()}&trainingIntake=1&demo=1`);
     await page.locator('[data-workspace-field="name"] input').fill("Synthetic Intake Test");
-    await page.getByRole("button", { name: "Save practice" }).click();
-    await expect(page.getByText("Practice changes saved in this tab")).toBeVisible();
+    await page.getByRole("button", { name: "Create referral", exact: true }).click();
+    await expect(page.getByTestId("workspace-save-status")).toContainText("Practice changes saved in this tab");
     await page.waitForTimeout(500);
     expect(workflowWrites).toEqual([]);
   });
@@ -400,7 +410,7 @@ test.describe("Pipeline Demo Environment", () => {
     await expect(coach.getByRole("heading", { name: "Choose the interview method" })).toBeVisible();
     await schedule.getByLabel("Assessment method").selectOption("zoom");
     await expect(coach.getByRole("heading", { name: "Save the schedule" })).toBeVisible();
-    await schedule.getByLabel("Assessment location or link").fill("https://example.invalid/pipeline-training");
+    await schedule.getByLabel("Zoom meeting link").fill("https://example.invalid/pipeline-training");
     await schedule.getByRole("button", { name: "Schedule assessment", exact: true }).click();
 
     await expect(page).toHaveURL(/trainingAssessment=interview.*assessmentSection=identity/);
