@@ -85,9 +85,10 @@ function DeferredScreenLoading() {
 function renderDeferredWorkSurface<Props extends object>(
   Surface: ComponentType<Props> | undefined,
   props: Props,
+  key?: string,
 ) {
   if (!Surface) return <DeferredScreenLoading />;
-  return <Surface {...props} />;
+  return <Surface key={key} {...props} />;
 }
 
 export default function PipelineOverviewRoute() {
@@ -104,6 +105,7 @@ export default function PipelineOverviewRoute() {
     ? getNewReferralDraftKey(activeSearchParams)
     : undefined;
   const [referralDetails, setReferralDetails] = useState<ReferralSelection | undefined>(() => routeReferral);
+  const [createdWorkspace, setCreatedWorkspace] = useState<{ id: number; key: string } | null>(null);
   const [reportAccess, setReportAccess] = useState<boolean | null>(null);
   const deferredWorkSurfaces = useDeferredWorkSurfaces();
   const selectedReferral = routeReferral && referralDetails?.id === routeReferral.id
@@ -239,6 +241,15 @@ export default function PipelineOverviewRoute() {
 
   let page: ReactNode;
   if (screen === "packet") {
+    const workspaceKey = selectedReferral
+      ? createdWorkspace?.id === selectedReferral.id ? createdWorkspace.key : `referral-${selectedReferral.id}`
+      : newReferralDraftKey ?? "new";
+    const stillViewingWorkspace = () => {
+      const current = new URLSearchParams(window.location.search);
+      if (getScreenFromParams(current) !== "packet") return false;
+      const currentId = getReferralFromParams(current)?.id;
+      return selectedReferral ? currentId === selectedReferral.id : !currentId && getNewReferralDraftKey(current) === newReferralDraftKey;
+    };
     const trainingAssessmentMode = getTrainingAssessmentMode(activeSearchParams);
     const trainingIntakeMode = activeSearchParams.get("trainingIntake") === "1";
     const isDemoWorkspace = [activeSearchParams.get("demo") === "1", Boolean(trainingAssessmentMode), trainingIntakeMode].some(Boolean);
@@ -250,6 +261,7 @@ export default function PipelineOverviewRoute() {
       trainingAssessmentSection: getTrainingAssessmentSection(activeSearchParams),
       trainingIntakeMode,
       onWorkspaceLocationChange: (location) => {
+        if (!stillViewingWorkspace()) return;
         const params = new URLSearchParams(window.location.search);
         applyPipelineWorkspaceLocation(params, location);
         replacePipelineHistory(`/?${params.toString()}`);
@@ -261,6 +273,9 @@ export default function PipelineOverviewRoute() {
         }
       },
       onReferralSaved: (savedReferral) => {
+        if (!stillViewingWorkspace()) return;
+        // Preserve selected files through creation, but isolate a different client.
+        if (!selectedReferral) setCreatedWorkspace({ id: savedReferral.id, key: workspaceKey });
         setReferralDetails(savedReferral);
         const params = new URLSearchParams(activeSearchParams.toString());
         params.set("view", "referrals");
@@ -277,7 +292,7 @@ export default function PipelineOverviewRoute() {
       onReferralDeleted: () => navigate("referrals"),
       onOpenProfile: (clientId) => navigate("profile", undefined, clientId),
     };
-    page = renderDeferredWorkSurface(deferredWorkSurfaces?.ReferralPacketCanvas, packetProps);
+    page = renderDeferredWorkSurface(deferredWorkSurfaces?.ReferralPacketCanvas, packetProps, workspaceKey);
   } else if (screen === "profile" && selectedClientId) {
     const profileProps: ComponentProps<DeferredWorkSurfaces["ClientProfileView"]> = {
       residentKey: selectedClientId,

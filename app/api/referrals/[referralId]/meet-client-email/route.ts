@@ -92,23 +92,37 @@ async function deliverMeetClientEmail(input: {
   deliveryId: string;
   attachments: Awaited<ReturnType<typeof prepareMeetClientMailAttachments>>;
 }) {
+  let result: Awaited<ReturnType<typeof sendMeetClientMail>>;
   try {
-    const result = await sendMeetClientMail(input);
-    await completeMeetClientDelivery(input.audit, "sent");
-    recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "sent" });
-    return Response.json({
-      ok: true,
-      delivery_id: input.deliveryId,
-      accepted_at: result.acceptedAt,
-      recipient_count: input.recipients.length,
-      attachment_count: result.attachmentCount,
-      attachment_bytes: result.attachmentBytes,
-    }, { headers: privateHeaders() });
+    result = await sendMeetClientMail(input);
   } catch (error) {
-    await completeMeetClientDelivery(input.audit, "failed", deliveryErrorCode(error));
+    try {
+      await completeMeetClientDelivery(input.audit, "failed", deliveryErrorCode(error));
+    } catch {
+      recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failure_audit_pending" });
+    }
     recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "failed" });
     return jsonError(deliveryFailureMessage(error), 502);
   }
+  let auditPending = false;
+  try {
+    await completeMeetClientDelivery(input.audit, "sent");
+  } catch {
+    // Provider acceptance cannot be undone by a failed audit write. Retain the
+    // reservation and report acceptance, never invite a duplicate send.
+    auditPending = true;
+    recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "acceptance_audit_pending" });
+  }
+  recordPipelineMetric("pipeline.meet_client_email", 1, "count", { result: "sent" });
+  return Response.json({
+    ok: true,
+    delivery_id: input.deliveryId,
+    accepted_at: result.acceptedAt,
+    recipient_count: input.recipients.length,
+    attachment_count: result.attachmentCount,
+    attachment_bytes: result.attachmentBytes,
+    ...(auditPending ? { audit_pending: true } : {}),
+  }, { headers: privateHeaders() });
 }
 
 function meetClientStoreFailure() {
@@ -249,8 +263,9 @@ function buildDeliveryAudit({
 
 async function parseReferralId(context: { params: Promise<{ referralId: string }> }) {
   const { referralId } = await context.params;
-  const parsed = Number.parseInt(referralId, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  if (!/^[1-9]\d{0,14}$/.test(referralId)) return null;
+  const parsed = Number(referralId);
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -278,7 +293,7 @@ function deliveryFailureMessage(error: unknown) {
   if (error instanceof GraphMailDeliveryError && error.code.startsWith("attachment_source_")) {
     return "An admission packet file became unavailable before delivery. No email was sent.";
   }
-  return "The summary and admission packet were not accepted by Microsoft 365. No automatic retry was attempted.";
+  return "Microsoft 365 did not confirm acceptance of the summary and admission packet. No automatic retry was attempted. Check the send outcome before starting a new request.";
 }
 
 function privateHeaders() {

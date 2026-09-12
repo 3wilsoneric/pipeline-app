@@ -11,6 +11,13 @@ understanding.
 
 Engineering handoff: [`docs/ENGINEERING_DATA_ARCHITECTURE.md`](./ENGINEERING_DATA_ARCHITECTURE.md).
 
+Current interaction/reliability pass:
+[`Workflow And Interaction Execution Plan`](./WORKFLOW_INTERACTION_EXECUTION_PLAN.md).
+Eric authorized this bounded product pass on 2026-09-11. Its implementation record,
+current role/workflow contracts, bounded evidence, and remaining release work take
+precedence over historical descriptions below for that pass. Eric separately
+authorized deployment on 2026-09-12; a broad refactor remains outside this approval.
+
 ## Current State
 
 - Admitted-client profiles come only from the governed Alamo roster and resident

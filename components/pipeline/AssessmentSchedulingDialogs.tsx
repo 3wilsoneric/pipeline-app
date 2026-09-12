@@ -87,9 +87,9 @@ function ScheduleAssessmentDialog({ assessment, isBusy, error, scheduleStart, sc
             </header>
 
             <div data-guide-target="assessment-schedule-open" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
-              {assessment.scheduled_start_at ? <div className="mb-5 border-l-2 border-[#0f8b73] bg-[#f4f8f6] px-4 py-3 text-[11px] text-[#315e50]">Currently scheduled for <strong>{new Date(assessment.scheduled_start_at).toLocaleString()}</strong>.</div> : null}
+              {assessment.scheduled_start_at ? <div className="mb-5 border-l-2 border-[#0f8b73] bg-[#f4f8f6] px-4 py-3 text-[11px] text-[#315e50]">Currently scheduled for <strong>{new Date(assessment.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" })}</strong>.</div> : null}
               <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px]">
-                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Date and time</span><input data-guide-target="assessment-schedule-fields" aria-label="Assessment date and time" type="datetime-local" value={scheduleStart} onChange={(event) => onScheduleStartChange(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
+                <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Date and time (Pacific)</span><input data-guide-target="assessment-schedule-fields" aria-label="Assessment date and time" type="datetime-local" value={scheduleStart} onChange={(event) => onScheduleStartChange(event.target.value)} className="mt-1 h-11 w-full border border-[#c9ceca] bg-white px-3 text-[12px] outline-none focus:border-[#0f8b73]" /></label>
                 <label className="block"><span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#595959]">Duration</span><span className="relative mt-1 block"><select aria-label="Assessment duration" value={scheduleDuration} onChange={(event) => onScheduleDurationChange(event.target.value)} className="h-11 w-full appearance-none border border-[#c9ceca] bg-white px-3 pr-9 text-[12px] outline-none hover:border-[#8ca59c] focus:border-[#0f8b73]"><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120">2 hours</option></select><ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#737373]" /></span></label>
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -127,7 +127,7 @@ function BeginAssessmentDialog({ assessment, isBusy, error, canEditClinical, onC
             </header>
             <div className="px-6 py-5">
               <dl className="divide-y divide-[#e1e4e2] border-y border-[#e1e4e2]">
-                <BeginAssessmentDetail label="Scheduled" value={assessment.scheduled_start_at ? new Date(assessment.scheduled_start_at).toLocaleString() : "Not scheduled"} />
+                <BeginAssessmentDetail label="Scheduled" value={assessment.scheduled_start_at ? new Date(assessment.scheduled_start_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" }) : "Not scheduled"} />
                 <BeginAssessmentDetail label="Method" value={formatScheduleMethod(assessment.scheduled_method)} />
                 {assessment.scheduled_location && detailField ? <BeginAssessmentDetail label={detailField.label} value={assessment.scheduled_location} /> : null}
               </dl>

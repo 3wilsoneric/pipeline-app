@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, LoaderCircle, Mail, Paperclip, RefreshCw, Send, UserRound } from "lucide-react";
 
 import type {
@@ -47,6 +47,8 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false 
   const [message, setMessage] = useState("");
   const [recipients, setRecipients] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const sendRequest = useRef<{ key: string; mutationId: string } | null>(null);
+  const sendInFlight = useRef(false);
 
   const load = useCallback(async () => {
     if (!referralId) return;
@@ -70,29 +72,37 @@ export default function AssessmentChartWorkspace({ referralId, embedded = false 
   }, [load]);
 
   const emailMeetClient = async () => {
-    if (!payload?.email.ready || !confirmed) return;
+    if (!payload?.email.ready || !confirmed || sendInFlight.current) return;
     const recipientList = recipients.split(/[;,\n]/).map((value) => value.trim()).filter(Boolean);
+    const requestKey = JSON.stringify([
+      payload.referral.id, payload.report?.assessmentId, payload.report?.assessmentVersion,
+      [...new Set(recipientList.map((recipient) => recipient.toLowerCase()))].sort(),
+      payload.email.admission_packet.files.map((file) => file.document_id).sort(),
+    ]);
+    if (sendRequest.current?.key !== requestKey) sendRequest.current = { key: requestKey, mutationId: crypto.randomUUID() };
+    sendInFlight.current = true;
     setSending(true);
     setError("");
     setMessage("");
     try {
-      const result = await fetchPipelineJson<{ recipient_count: number; attachment_count: number }>(
+      const result = await fetchPipelineJson<{ recipient_count: number; attachment_count: number; delivery_id: string; audit_pending?: boolean }>(
         `/api/referrals/${payload.referral.id}/meet-client-email`,
         {
           method: "POST",
           body: JSON.stringify({
             recipients: recipientList,
             confirmed: true,
-            client_mutation_id: crypto.randomUUID(),
+            client_mutation_id: sendRequest.current.mutationId,
           }),
         },
         { timeoutMs: 300_000 },
       );
       setConfirmed(false);
-      setMessage(`Sent the summary and ${result.attachment_count} admission file${result.attachment_count === 1 ? "" : "s"} to ${result.recipient_count} recipient${result.recipient_count === 1 ? "" : "s"}.`);
+      setMessage(`Microsoft 365 accepted the summary and ${result.attachment_count} admission file${result.attachment_count === 1 ? "" : "s"} for ${result.recipient_count} recipient${result.recipient_count === 1 ? "" : "s"}.${result.audit_pending ? ` Send history is pending; do not resend. Reference: ${result.delivery_id}.` : ""}`);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Meet the Client could not be emailed.");
     } finally {
+      sendInFlight.current = false;
       setSending(false);
     }
   };

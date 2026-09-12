@@ -45,7 +45,7 @@ export default function ContinueWorkPanel({
             >
               <span className="min-w-0">
                 <span className="block truncate text-[12px] font-black text-[#25302b]">{item.client_name}</span>
-                <span className="block truncate text-[9px] font-semibold text-[#737c77]">{resumeMeta(item)}</span>
+                <span className="block truncate text-[9px] font-semibold text-[#647069]">{resumeMeta(item)}</span>
               </span>
               <ArrowRight size={13} className="shrink-0 text-[#0f8b73]" />
             </button>

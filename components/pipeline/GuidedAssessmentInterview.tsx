@@ -79,8 +79,11 @@ export default function GuidedAssessmentInterview({
     () => guidedAssessmentScreens.filter((screen) => screen.questions.some((question) => isAssessmentQuestionVisible(question, data))),
     [data],
   );
-  const [screenIndex, setScreenIndex] = useState(() => initialScreenIndex(visibleScreens, activeSection, data));
-  const boundedIndex = Math.min(screenIndex, Math.max(visibleScreens.length - 1, 0));
+  const [activeScreenId, setActiveScreenId] = useState(() => visibleScreens[initialScreenIndex(visibleScreens, activeSection, data)]?.id);
+  const currentIndex = visibleScreens.findIndex((candidate) => candidate.id === activeScreenId);
+  const originalIndex = guidedAssessmentScreens.findIndex((candidate) => candidate.id === activeScreenId);
+  const nextVisibleIndex = visibleScreens.findIndex((candidate) => guidedAssessmentScreens.indexOf(candidate) >= originalIndex);
+  const boundedIndex = currentIndex >= 0 ? currentIndex : nextVisibleIndex >= 0 ? nextVisibleIndex : Math.max(visibleScreens.length - 1, 0);
   const screen = visibleScreens[boundedIndex];
   const section = screen ? sectionByKey.get(screen.section) : undefined;
   const visibleQuestions = screen?.questions.filter((question) => isAssessmentQuestionVisible(question, data)) ?? [];
@@ -106,14 +109,15 @@ export default function GuidedAssessmentInterview({
       data-total-questions={guidedAssessmentQuestionCount}
       data-visible-screens={visibleScreens.length}
       data-screen-index={boundedIndex}
+      data-screen-section={screen.section}
       className="fixed inset-0 z-[90] flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-white text-[#181b19]"
     >
-      <header className="relative flex h-14 shrink-0 items-center border-b border-[#e0e4e1] px-4 sm:h-16 sm:px-6 lg:px-9">
+      <header className="relative flex min-h-14 shrink-0 flex-wrap items-center gap-y-1 border-b border-[#e0e4e1] px-4 py-2 sm:h-16 sm:flex-nowrap sm:px-6 lg:px-9">
         <div className="flex min-w-0 items-center gap-2.5">
           <PipelineLogoMark size={23} />
           <span className="hidden text-[11px] font-black uppercase tracking-[0.08em] text-[#0f7664] sm:inline">Assessment</span>
         </div>
-        <div className="pointer-events-none absolute inset-x-16 top-1/2 -translate-y-1/2 text-center">
+        <div className="pointer-events-none absolute inset-x-16 top-7 -translate-y-1/2 text-center sm:top-1/2">
           <div className="truncate text-[11px] font-bold text-[#454b47] sm:text-[12px]">
             {assessment.resident_name || "Client assessment"}
           </div>
@@ -121,10 +125,10 @@ export default function GuidedAssessmentInterview({
             {section.label}
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-3">
-          <span aria-live="polite" className={`hidden max-w-[180px] truncate text-right text-[10px] font-semibold sm:block ${saveToneClass(saveTone)}`}>
-            {saveStatus}
-          </span>
+        <span data-guide-target="assessment-save-status" aria-live="polite" className={`order-last flex min-w-0 basis-full items-center justify-end gap-1.5 text-[10px] font-semibold sm:order-none sm:ml-auto sm:max-w-[180px] sm:basis-auto ${saveToneClass(saveTone)}`}>
+          {saveTone === "saved" ? <Check size={12} className="shrink-0" aria-hidden="true" /> : null}<span className="truncate">{saveStatus}</span>
+        </span>
+        <div className="ml-auto flex items-center gap-3 sm:ml-3">
           <button
             type="button"
             onClick={onExitToChart}
@@ -136,14 +140,13 @@ export default function GuidedAssessmentInterview({
           </button>
         </div>
       </header>
-
       <div className="h-1 shrink-0 bg-[#e7ebe8]" aria-hidden="true">
         <div className="h-full bg-[#0f8b73] transition-[width] duration-200" style={{ width: `${coverage.percent}%` }} />
       </div>
 
       <GuidedAssessmentStatusBanner error={error} hasConflicts={hasConflicts} onExitToChart={onExitToChart} />
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:py-10">
+      <main key={screen.id} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:py-10">
         <div className="mx-auto w-full max-w-[650px] pb-5">
           <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#0f7664]">
             {section.label} <span className="text-[#a1a7a3]">·</span> {boundedIndex + 1} of {visibleScreens.length}
@@ -172,7 +175,7 @@ export default function GuidedAssessmentInterview({
         captured={coverage.captured}
         total={coverage.total}
         isLastScreen={isLastScreen}
-        setScreenIndex={setScreenIndex}
+        setScreenIndex={(index) => setActiveScreenId(visibleScreens[index]?.id)}
         onDone={onDone}
       />
     </section>
@@ -573,7 +576,10 @@ function buildGuidedAssessmentScreens() {
   const screens: GuidedAssessmentScreen[] = [];
   let current: { section: AssessmentToolSection; group: string; questions: AssessmentInterviewQuestion[]; weight: number } | null = null;
 
-  for (const question of assessmentInterviewQuestions) {
+  const orderedQuestions = assessmentInterviewSections.flatMap((section) => (
+    assessmentInterviewQuestions.filter((question) => definitionByField.get(question.field)?.section === section.key)
+  ));
+  for (const question of orderedQuestions) {
     const section = definitionByField.get(question.field)?.section;
     if (!section) continue;
     const weight = guidedQuestionWeight(question);

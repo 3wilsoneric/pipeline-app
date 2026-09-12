@@ -12,6 +12,7 @@ import {
   FileText,
   FolderOpen,
   History,
+  LoaderCircle,
   Plus,
   RefreshCw,
   Trash2,
@@ -365,6 +366,7 @@ export default function ReferralPacketCanvas({
   const serverDraftsEnabled = usesServerReferralDrafts() && !trainingIntakeMode;
   const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(serverDraftsEnabled);
   const [isSaving, setIsSaving] = useState(false);
+  const [createdWorkspaceId, setCreatedWorkspaceId] = useState<number | null>(null);
   const [schedulingReferralId, setSchedulingReferralId] = useState<number | null>(null);
   const [reviewBusyFieldKey, setReviewBusyFieldKey] = useState<string>();
   const [isBulkReviewing, setIsBulkReviewing] = useState(false);
@@ -1393,6 +1395,7 @@ export default function ReferralPacketCanvas({
       loadedReferralRef.current = savedReferral;
       setLoadedReferral(savedReferral);
       if (persisted.created) {
+        setCreatedWorkspaceId(savedReferral.id);
         recoveryDraftReferenceRef.current = savedReferral.id;
         onReferralSaved?.({ id: savedReferral.id, name: savedReferral.name, community: savedReferral.community });
         void clearSessionDraft(newDraftKey);
@@ -1427,6 +1430,7 @@ export default function ReferralPacketCanvas({
 
   const saveWorkspaceDraft = async (confirmedDistinctReferralIds: number[] = []): Promise<Referral | null> => {
     if (isSavingRef.current) return null;
+    setCreatedWorkspaceId(null);
     setSavedAt(loadedReferralRef.current ? "Saving changes..." : "Creating referral...");
     if (!trainingIntakeMode) return saveDraft(confirmedDistinctReferralIds);
     setSaveError("");
@@ -1875,7 +1879,12 @@ export default function ReferralPacketCanvas({
             </div>
           </div>
           {editingControlsVisible ? (
-            <WorkspaceSaveStatus status={saveStatus} error={saveError} />
+            <WorkspaceSaveStatus
+              status={saveStatus}
+              error={saveError}
+              created={createdWorkspaceId !== null && createdWorkspaceId === editableReferralId}
+              confirmed={hasReferral && !isSaving && dirtyKeys.size === 0 && queuedFileCount === 0 && /^(Saved |All changes saved|Packet uploaded)/.test(saveStatus)}
+            />
           ) : null}
         </div>
 
@@ -2386,9 +2395,10 @@ function WorkspaceStageButton({ page, label, numbered, selected, onOpen }: {
   </button>;
 }
 
-function WorkspaceSaveStatus({ status, error }: { status: string; error: string }) {
+function WorkspaceSaveStatus({ status, error, created, confirmed }: { status: string; error: string; created: boolean; confirmed: boolean }) {
   return <div data-testid="workspace-save-status" className="flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1 py-1 text-[11px] font-medium" aria-live="polite">
-    {error ? <span role="alert" className="min-w-0 break-words text-[#a4473c]">{error}</span> : <span className="text-[#68716c]">{status}</span>}
+    {created ? <span className="inline-flex items-center gap-1.5 rounded-sm bg-[#eaf5ef] px-2 py-1 font-bold text-[#0c705f]"><CheckCircle2 size={13} aria-hidden="true" />Workspace created</span> : null}
+    {error ? <span role="alert" className="min-w-0 break-words text-[#a4473c]">{error}</span> : <span className={`inline-flex items-center gap-1.5 ${confirmed ? "text-[#0c705f]" : "text-[#68716c]"}`}>{confirmed && !created ? <CheckCircle2 size={13} aria-hidden="true" /> : null}{status}</span>}
   </div>;
 }
 
@@ -2409,7 +2419,7 @@ function WorkspaceSaveControl({
 }) {
   const control = workspaceSaveControlState(saving, hasReferral, hasChanges, blocked, retry);
   if (!control.visible) return null;
-  const Icon = hasReferral ? RefreshCw : Plus;
+  const Icon = saving ? LoaderCircle : hasReferral ? RefreshCw : Plus;
   return (
     <button
       type="button"
@@ -2417,9 +2427,10 @@ function WorkspaceSaveControl({
       aria-label={control.label}
       onClick={onSave}
       disabled={control.disabled}
+      aria-busy={saving}
       className="flex h-10 shrink-0 items-center gap-2 bg-[#0b6f5d] px-3 text-[12px] font-bold text-white transition-colors hover:bg-[#075a4b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
     >
-      <Icon size={15} aria-hidden="true" />
+      <Icon size={15} aria-hidden="true" className={saving ? "motion-safe:animate-spin" : undefined} />
       <span className="hidden sm:inline">{control.expandedLabel}</span>
       <span className="sm:hidden">{control.compactLabel}</span>
     </button>
@@ -2513,7 +2524,7 @@ function IntakeDocumentChecklist({
 }) {
   const documentItems = [...requirements, ...attachments];
   const capturedDocuments = documentItems.filter((item) => (
-    getRequirementReviewValue(item, documents[item.id], referral)
+    !pendingDocuments[item.id] && !uploadingDocumentIds.has(item.id) && getRequirementReviewValue(item, documents[item.id], referral)
   )).length;
   const hasInitialPacket = Boolean(initialPacket || (recordedName && recordedStatus !== "Missing"));
 
@@ -2531,8 +2542,8 @@ function IntakeDocumentChecklist({
             <h2 className="text-[14px] font-black text-[#111111]">Documents</h2>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            <span className={`text-[10px] font-black ${hasInitialPacket ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
-              {hasInitialPacket ? "Packet added" : "Packet needed"}
+            <span className={`text-[10px] font-black ${hasInitialPacket && !initialPacket ? "text-[#0f8b73]" : "text-[#8a6a16]"}`}>
+              {initialPacket ? "Packet selected" : hasInitialPacket ? "Packet added" : "Packet needed"}
             </span>
             <span className={`text-[10px] font-black ${capturedDocuments === documentItems.length ? "text-[#0f8b73]" : "text-[#737373]"}`}>
               {capturedDocuments} / {documentItems.length} files

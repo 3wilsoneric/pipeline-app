@@ -105,6 +105,7 @@ import {
 } from "@/components/pipeline/AssessmentInterviewFields";
 import GuidedAssessmentInterview from "@/components/pipeline/GuidedAssessmentInterview";
 import { AssessmentSchedulingDialogs } from "@/components/pipeline/AssessmentSchedulingDialogs";
+import { isoToOperationalInput, operationalInputToIso } from "@/components/pipeline/pipeline-calendar-model";
 
 type AssessmentWorkspaceProps = {
   referralId?: number;
@@ -597,7 +598,7 @@ export default function AssessmentWorkspace({
     setDraft(data);
     setDirtySections(new Set());
     setRemoteChange(null);
-    setScheduleStart(toLocalDateTimeInput(selected.scheduled_start_at));
+    setScheduleStart(selected.scheduled_start_at ? isoToOperationalInput(selected.scheduled_start_at) : "");
     setScheduleDuration(String(selected.scheduled_duration_minutes ?? 60));
     setScheduleMethod(normalizeScheduleMethod(selected.scheduled_method));
     setScheduleLocation(selected.scheduled_location ?? "");
@@ -875,7 +876,7 @@ export default function AssessmentWorkspace({
         // polling to replace the user's offline edits.
         const queued = await pendingOfflineAssessmentMutations(offlinePrincipal);
         setPendingOfflineSaves(queued);
-        setNetworkOnline(false);
+        setNetworkOnline(window.navigator.onLine);
         setMessage(`${queued} offline change${queued === 1 ? "" : "s"} queued`);
         setError("");
         return;
@@ -1037,9 +1038,9 @@ export default function AssessmentWorkspace({
   const saveSchedule = async () => {
     const current = selectedRef.current;
     if (!hasAssessmentScheduleInput(current, scheduleStart)) return;
-    const start = new Date(scheduleStart);
-    if (Number.isNaN(start.getTime())) {
-      setError("Choose a valid assessment date and time.");
+    const start = operationalInputToIso(scheduleStart);
+    if (!start) {
+      setError("Choose a valid assessment date and time in Pacific Time.");
       return;
     }
     setIsBusy(true);
@@ -1048,7 +1049,7 @@ export default function AssessmentWorkspace({
     try {
       if (trainingAssessmentMode) {
         const updated = updateTrainingAssessment(current, {
-          scheduled_start_at: start.toISOString(),
+          scheduled_start_at: start,
           scheduled_duration_minutes: Number(scheduleDuration),
           scheduled_method: scheduleMethod,
           scheduled_location: scheduleMethod === "record_review" ? null : nullableTrimmedText(scheduleLocation),
@@ -1070,7 +1071,7 @@ export default function AssessmentWorkspace({
             client_mutation_id: mutationId("assessment-schedule"),
             schedule: {
               status: nextAssessmentScheduleStatus(current.schedule_status),
-              start_at: start.toISOString(),
+              start_at: start,
               duration_minutes: Number(scheduleDuration),
               method: scheduleMethod,
               location: scheduleMethod === "record_review" ? "" : scheduleLocation.trim(),
@@ -1310,7 +1311,7 @@ export default function AssessmentWorkspace({
         disabled={!canEditClinical}
         reviewDisabled={isBusy || !canEditClinical}
         saveStatus={saveStatus}
-        saveTone={error ? "error" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "pending" : "saved"}
+        saveTone={error ? "error" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "pending" : "saved"}
         error={error}
         hasConflicts={Boolean(remoteChange?.conflicts.length)}
         onChange={updateField}
@@ -1328,7 +1329,7 @@ export default function AssessmentWorkspace({
 
   return createPortal(
     <section role="dialog" aria-modal="true" aria-label="Assessment interview" data-assessment-view="chart" className="fixed inset-0 z-[90] flex h-[100dvh] flex-col overflow-hidden bg-white">
-      <header className="relative flex min-h-16 shrink-0 items-center gap-3 border-b border-[#d9dfdb] bg-white px-4 py-2 sm:px-6 lg:px-9">
+      <header className="relative flex min-h-16 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#d9dfdb] bg-white px-4 py-2 sm:flex-nowrap sm:px-6 lg:px-9">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate text-[17px] font-black">{formatClientIdentityTitle({ name: draft.resident_name || "Client", community: draft.community })} assessment</h2>
@@ -1339,7 +1340,10 @@ export default function AssessmentWorkspace({
             {canSupervise && selected.assessor_id !== viewer?.id ? <span className="sr-only">Supervisor access</span> : null}
           </div>
         </div>
-        <span data-guide-target="assessment-save-status" aria-live="polite" className={`sr-only max-w-[220px] shrink-0 truncate text-right text-[10px] sm:not-sr-only ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty ? "text-[#9a6115]" : "text-[#737373]"}`}>{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
+        <span data-guide-target="assessment-save-status" aria-live="polite" className={`order-last flex min-w-0 basis-full items-center justify-end gap-1.5 text-[10px] sm:order-none sm:max-w-[220px] sm:shrink-0 sm:basis-auto ${error ? "text-[#a63d2f]" : !networkOnline || pendingOfflineSaves > 0 || dirty || isBusy ? "text-[#9a6115]" : "text-[#0c705f]"}`}>
+          {!error && networkOnline && pendingOfflineSaves === 0 && !dirty && !isBusy ? <Check size={12} className="shrink-0" aria-hidden="true" /> : null}
+          <span className="truncate">{assessmentSaveStatus({ error, trainingAssessmentMode, dirty, message, networkOnline, pendingOfflineSaves })}</span>
+        </span>
         {!selected.signed_at && !selected.started_at && (canEditClinical || canSupervise) ? (
           <button type="button" data-guide-target={showScheduleDialog ? undefined : "assessment-schedule-open"} onClick={() => { setShowBeginDialog(false); setShowScheduleDialog(true); }} aria-label={selected.scheduled_start_at ? "Reschedule assessment" : "Schedule assessment"} className="flex h-10 shrink-0 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black text-[#444444] hover:border-[#0f8b73] hover:text-[#0f8b73]"><CalendarClock size={15} /><span className="hidden sm:inline">{selected.scheduled_start_at ? "Reschedule" : "Schedule"}</span></button>
         ) : null}
@@ -1352,11 +1356,10 @@ export default function AssessmentWorkspace({
         {selected.signed_at ? (
           canAddAddendum ? <button type="button" onClick={() => setShowAddendum((value) => !value)} disabled={isBusy} className="flex h-10 items-center gap-2 border border-[#c9ceca] px-3 text-[11px] font-black hover:border-[#0f8b73] hover:text-[#0f8b73]"><Plus size={14} /> Addendum</button> : <span className="text-[11px] font-black text-[#0f6f5e]">Signed</span>
         ) : selected.started_at && canEditClinical ? (
-          <button type="button" data-guide-target="assessment-sign" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-10 bg-[#111111] px-4 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35">Sign assessment</button>
+          <button type="button" data-guide-target="assessment-sign" aria-label="Sign assessment" onClick={() => window.confirm("Sign and lock this assessment?") && void signAssessment()} disabled={isBusy || completion.missing.length > 0} className="h-10 shrink-0 bg-[#111111] px-3 text-[11px] font-black text-white hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:opacity-35 sm:px-4"><span className="hidden sm:inline">Sign assessment</span><span className="sm:hidden">Sign</span></button>
         ) : null}
         <button type="button" onClick={() => { setShowScheduleDialog(false); setShowBeginDialog(false); setIsFocused(false); }} aria-label="Close assessment" title="Close assessment" className="flex h-10 w-10 shrink-0 items-center justify-center text-[#4d534f] transition-colors hover:bg-[#f1f4f2] hover:text-[#0f7664]"><X size={20} /></button>
       </header>
-
       <TrainingAssessmentBanner mode={trainingAssessmentMode} />
 
       <AssessmentReadiness
@@ -1792,12 +1795,4 @@ function formatDate(value: string | null) {
   return Number.isNaN(parsed.getTime())
     ? value
     : parsed.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
-}
-
-function toLocalDateTimeInput(value: string | null | undefined) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
 }

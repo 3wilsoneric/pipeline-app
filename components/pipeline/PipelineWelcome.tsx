@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, CalendarClock, CalendarPlus } from "lucide-react";
 
 import CurrentWorkOverlay from "@/components/pipeline/CurrentWorkOverlay";
@@ -9,7 +9,7 @@ import HomeModuleDashboard from "@/components/pipeline/HomeModuleDashboard";
 import PipelineSearchPanel from "@/components/pipeline/PipelineSearchPanel";
 import { SinceLastVisitAssignments } from "@/components/pipeline/WorkspaceActivityFeed";
 import { usePipelineShell } from "@/components/pipeline/pipeline-shell-context";
-import { fetchPipelineJson, readPipelineJsonCache } from "@/lib/auth/authenticated-fetch";
+import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { PipelineCalendarEvent, PipelineUnscheduledAssessment } from "@/lib/pipeline/calendar-types";
 import type { PipelineHomeModuleId } from "@/lib/pipeline/home-dashboard-layout";
 import type { HomeBriefingSnapshot } from "@/lib/pipeline/home-briefing-types";
@@ -44,36 +44,60 @@ export default function PipelineWelcome({
   onFinishEditingHome?: () => void;
   canAccessReports?: boolean;
 }) {
-  const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(() => readPipelineJsonCache<HomeBriefingSnapshot>("/api/operations/home") ?? null);
+  const [briefing, setBriefing] = useState<HomeBriefingSnapshot | null>(null);
   const [error, setError] = useState("");
+  const refreshController = useRef<AbortController | null>(null);
+  const pendingRefresh = useRef<Promise<void> | null>(null);
+  const acknowledgmentRevision = useRef(0);
   const { searchOpen, setSearchOpen } = usePipelineShell();
 
-  const loadBriefing = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const payload = await fetchPipelineJson<HomeBriefingSnapshot>("/api/operations/home", {
-        cache: "no-store",
-        signal,
-      }, { cacheTtlMs: 15_000 });
-      setBriefing(payload);
-      setError("");
-    } catch (loadError) {
-      if (!signal?.aborted) {
-        setError(loadError instanceof Error ? loadError.message : "Home is unavailable right now.");
+  const loadBriefing = useCallback(async () => {
+    if (pendingRefresh.current) return pendingRefresh.current;
+    const signal = refreshController.current?.signal;
+    if (!signal || signal.aborted) return;
+    const revision = acknowledgmentRevision.current;
+    const pending = (async () => {
+      try {
+        const payload = await fetchPipelineJson<HomeBriefingSnapshot>("/api/operations/home", {
+          cache: "no-store",
+          signal,
+        });
+        // A refresh started before an acknowledgment must not restore seen rows.
+        if (!signal.aborted && revision === acknowledgmentRevision.current) {
+          setBriefing(payload);
+          setError("");
+        }
+      } catch (loadError) {
+        if (!signal.aborted) {
+          setError(loadError instanceof Error ? loadError.message : "Home is unavailable right now.");
+        }
       }
+    })();
+    pendingRefresh.current = pending;
+    try {
+      await pending;
+    } finally {
+      if (pendingRefresh.current === pending) pendingRefresh.current = null;
     }
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    const initialLoad = window.setTimeout(() => void loadBriefing(controller.signal), 0);
-    const refreshOnFocus = () => void loadBriefing();
-    const interval = window.setInterval(() => void loadBriefing(), 60_000);
+    refreshController.current = controller;
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") void loadBriefing();
+    };
+    const initialLoad = window.setTimeout(refreshOnFocus, 0);
+    const interval = window.setInterval(refreshOnFocus, 30_000);
     window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
     return () => {
       controller.abort();
+      pendingRefresh.current = null;
       window.clearTimeout(initialLoad);
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
     };
   }, [loadBriefing]);
 
@@ -90,6 +114,7 @@ export default function PipelineWelcome({
 
   const acknowledgeAssignments = useCallback(async (ids: string[], through?: string) => {
     await acknowledgePipelineAssignments(ids, through);
+    acknowledgmentRevision.current += 1;
     const acknowledged = new Set(ids);
     setBriefing((current) => current ? {
       ...current,
@@ -147,7 +172,6 @@ export default function PipelineWelcome({
                     <SinceLastVisitAssignments
                       items={briefing.continuity.new_assignments}
                       unavailable={briefing.continuity.unavailable}
-                      generatedAt={briefing.generated_at}
                       onOpenPacket={onOpenPacket}
                       onAcknowledge={acknowledgeAssignments}
                     />
@@ -207,6 +231,7 @@ function CurrentWorkSummary({ briefing, onOpen, onOpenPacket }: {
         </div>
       )}
       <button type="button" aria-label="Open current work" onClick={onOpen} className="mt-2 flex min-h-9 w-full items-center justify-end gap-2 px-2 text-[10px] font-black uppercase tracking-[0.05em] text-[#176f60] hover:bg-[#f5faf8]">
+        {!unavailable && briefing.current_work.total > 5 ? <span className="mr-auto normal-case tracking-normal">{(briefing.current_work.total - Math.min(5, items.length)).toLocaleString()} more</span> : null}
         {briefing.scope === "team" ? "Open team work" : "Open all assigned work"}<ArrowRight size={14} />
       </button>
     </section>

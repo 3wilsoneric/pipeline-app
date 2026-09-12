@@ -124,24 +124,24 @@ export default function WorkspaceActivityFeed({
 export function SinceLastVisitAssignments({
   items,
   unavailable,
-  generatedAt,
   onOpenPacket,
   onAcknowledge,
 }: {
   items: WorkspaceActivityItem[];
   unavailable: boolean;
-  generatedAt: string;
   onOpenPacket: (referral: Pick<Referral, "id" | "name" | "community">, location?: PipelineWorkspaceLocation) => void;
   onAcknowledge: (ids: string[], through?: string) => Promise<void>;
 }) {
   const [acknowledging, setAcknowledging] = useState(false);
   const [acknowledgmentError, setAcknowledgmentError] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const visibleItems = showAll ? items : items.slice(0, 6);
 
   const acknowledgeAll = async () => {
     setAcknowledging(true);
     setAcknowledgmentError("");
     try {
-      await onAcknowledge(items.map((item) => item.event_id), generatedAt);
+      await onAcknowledge(visibleItems.map((item) => item.event_id));
     } catch {
       setAcknowledgmentError("Assignments could not be marked seen. Try again.");
     } finally {
@@ -155,7 +155,7 @@ export function SinceLastVisitAssignments({
         <h2 className="flex items-center gap-2.5 text-[15px] font-bold text-[#202723]"><UserPlus size={15} className="text-[#0f8b73]" />New assignments</h2>
         {items.length > 0 ? (
           <button type="button" disabled={acknowledging} onClick={() => void acknowledgeAll()} className="text-[10px] font-black text-[#0c705f] underline underline-offset-2 disabled:opacity-50">
-            {acknowledging ? "Saving" : "Mark all seen"}
+            {acknowledging ? "Saving" : "Mark shown seen"}
           </button>
         ) : <span className="text-[11px] font-bold text-[#626a65]">Since your last visit</span>}
       </div>
@@ -166,11 +166,13 @@ export function SinceLastVisitAssignments({
         <p className="border border-[#e0e5e2] px-5 py-10 text-center text-[13px] font-medium text-[#626a65]">No referrals were assigned since your last visit.</p>
       ) : (
         <div className="divide-y divide-[#e5e9e7] border-y border-[#dfe5e2]">
-          {items.slice(0, 6).map((item) => (
+          {visibleItems.map((item) => (
             <button key={item.event_id} type="button" onClick={() => {
-              void onAcknowledge([item.event_id]);
+              void onAcknowledge([item.event_id]).catch(() => {
+                setAcknowledgmentError("Assignment could not be marked seen. Try again.");
+              });
               openActivityItem(item, onOpenPacket);
-            }} className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-3 text-left hover:bg-[#f1f8f5] sm:px-4">
+            }} className="group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-l-2 border-[#0f8b73] bg-[#f5faf8] px-3 py-3 text-left hover:bg-[#eaf5ef] sm:px-4">
               <span className="min-w-0">
                 <span className="block truncate text-[14px] font-bold text-[#202723]">{item.workspace.client_name}</span>
                 <span className="mt-0.5 block truncate text-[12px] font-medium text-[#69716c]">{item.workspace.community}</span>
@@ -180,6 +182,11 @@ export function SinceLastVisitAssignments({
           ))}
         </div>
       )}
+      {!unavailable && items.length > 6 ? (
+        <button type="button" onClick={() => setShowAll((current) => !current)} aria-expanded={showAll} className="mt-2 min-h-10 w-full px-2 text-right text-[11px] font-bold text-[#176f60] hover:bg-[#f5faf8]">
+          {showAll ? "Show fewer" : `Show ${items.length - 6} more assignments`}
+        </button>
+      ) : null}
     </section>
   );
 }
