@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:a5a0ffc6f8b1c92e",
-  "fingerprint": "a5a0ffc6f8b1c92e15f53c7a06a27d3acaf94dddd98e2835d87e06d972b419e9",
+  "generatedAt": "source-fingerprint:791ebe81e1a6970a",
+  "fingerprint": "791ebe81e1a6970a708ee4dffe8b751091ef155d6ff9f63e2ee7982775cd1f13",
   "totals": {
     "files": 985,
-    "lines": 313108,
+    "lines": 313126,
     "coveredFiles": 985
   },
   "entries": [
@@ -1917,7 +1917,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 624,
+      "lines": 629,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2337,7 +2337,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 511,
+      "lines": 507,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -6363,7 +6363,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 329,
+      "lines": 331,
       "moduleIds": [
         "authorization-phi",
         "entra-session"
@@ -10336,7 +10336,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 134,
+      "lines": 149,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

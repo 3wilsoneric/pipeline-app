@@ -78,7 +78,7 @@ function ClientProfileLoader({
     fetchPipelineJson<UnifiedClientProfileResponse>(
       `/api/profiles/${encodeURIComponent(residentKey)}`,
       { cache: "no-store", signal: controller.signal, ...(reloadKey ? { headers: { "x-pipeline-refresh": "1" } } : {}) },
-      { cacheTtlMs: reloadKey ? 0 : 60_000 },
+      { cacheTtlMs: 60_000, bypassCache: reloadKey > 0 },
     )
       .then((payload) => {
         const identity = profileIdentity(payload);

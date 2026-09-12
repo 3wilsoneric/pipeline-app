@@ -56,6 +56,7 @@ type DirectoryCacheEntry = ClientDirectoryPayload & {
 };
 
 const directoryCache = new Map<string, DirectoryCacheEntry>();
+let profilePrefetchPending = false;
 
 export default function ClientProfileDirectory({
   onOpenProfile,
@@ -494,7 +495,11 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
 }
 
 function prefetchClientProfile(clientId: string) {
-  void fetchPipelineJson(`/api/profiles/${encodeURIComponent(clientId)}`, {}, { cacheTtlMs: 60_000 }).catch(() => undefined);
+  // Rapid scrolling or tabbing must not queue a chart request for every card.
+  if (profilePrefetchPending) return;
+  profilePrefetchPending = true;
+  void fetchPipelineJson(`/api/profiles/${encodeURIComponent(clientId)}`, {}, { cacheTtlMs: 60_000 })
+    .catch(() => undefined).finally(() => { profilePrefetchPending = false; });
 }
 
 function ChartPreviewCell({ label, value }: { label: string; value: string | null }) {
@@ -526,7 +531,7 @@ async function fetchClientPage(query: string, cursor: string | null, signal: Abo
     cache: "no-store",
     signal,
     ...(refresh ? { headers: { "x-pipeline-refresh": "1" } } : {}),
-  }, { cacheTtlMs: refresh ? 0 : 60_000 });
+  }, { cacheTtlMs: 60_000, bypassCache: refresh });
 }
 
 function collectCommunities(clients: DirectoryClient[]) {

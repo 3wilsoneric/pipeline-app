@@ -37,10 +37,6 @@ function shouldShowDirectoryLoading(silent: boolean, previousRequest: string) {
   return !silent && Boolean(previousRequest);
 }
 
-function directoryCacheTtl(silent: boolean) {
-  return silent ? 0 : 30_000;
-}
-
 type ReferralDirectoryPayload = {
   referrals?: Referral[];
   total?: number;
@@ -147,7 +143,7 @@ export default function ReferralHome({
       const payload = await fetchPipelineJson<ReferralDirectoryPayload>(
         `${includeSummary ? "/api/referrals/directory" : "/api/referrals"}?${params.toString()}`,
         { cache: "no-store", signal },
-        { cacheTtlMs: directoryCacheTtl(silent) },
+        { cacheTtlMs: 30_000, bypassCache: silent },
       );
       setReferrals(Array.isArray(payload.referrals) ? payload.referrals : []);
       setProgressByReferral(payload.progress ?? {});
