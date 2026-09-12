@@ -55,7 +55,6 @@ export async function POST(
     defaults.resident_name = referral.name.trim() || null;
     defaults.date_of_birth = isoDateOrNull(referral.dob);
     defaults.community = referral.community;
-    defaults.assessment_date = new Date().toISOString().slice(0, 10);
     defaults.assessor = assessmentAssignee.name;
 
     try {

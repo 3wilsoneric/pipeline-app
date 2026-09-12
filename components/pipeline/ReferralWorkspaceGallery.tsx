@@ -7,6 +7,8 @@ import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
 import type { Referral } from "@/lib/pipeline/referral-types";
 import { getWorkspaceCounty, isClientChartWorkspace, workspaceFileCount } from "@/lib/pipeline/workspace-presentation";
+import { getReferralProgress } from "@/lib/pipeline/referral-progress";
+import { WorkspaceChartThumbnail } from "@/components/pipeline/ReferralWorklist";
 
 export default function ReferralWorkspaceGallery({
   referrals,
@@ -56,7 +58,7 @@ function WorkspaceCard({
       aria-label={`Open ${identityTitle} referral workspace`}
       className="group min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >
-      {chartOnly ? <span className="flex items-center gap-3 border-b border-[#dfe5e2] bg-[#f4f8f6] px-4 py-5 text-[12px] text-[#59635f]"><FileText size={24} aria-hidden="true" />{workspaceFileCount(referral)} files</span> : <span aria-hidden="true" className="relative block min-h-[132px] overflow-hidden border-b border-[#dfe5e2] bg-[#f4f8f6] px-4 py-4">
+      {chartOnly ? <span className="flex items-center gap-3 border-b border-[#dfe5e2] bg-[#f4f8f6] px-4 py-5 text-[12px] text-[#59635f]"><WorkspaceChartThumbnail referral={referral} progress={progress ?? getReferralProgress(referral)} />{workspaceFileCount(referral)} files</span> : <span aria-hidden="true" className="relative block min-h-[132px] overflow-hidden border-b border-[#dfe5e2] bg-[#f4f8f6] px-4 py-4">
         <span className="flex items-end justify-between gap-4">
           <span>
             <strong className="block text-[24px] font-black leading-none tabular-nums text-[#17211d]">{percent}%</strong>

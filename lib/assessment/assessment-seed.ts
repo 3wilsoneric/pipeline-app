@@ -18,13 +18,12 @@ type AssessmentSeed = Pick<
 const canonicalReferralFields: ReadonlyArray<{
   target: AssessmentToolFieldKey;
   source: string;
-  value: (referral: Referral, assessorName: string, today: string) => string | string[] | null;
+  value: (referral: Referral, assessorName: string) => string | string[] | null;
   canvasSource?: keyof NonNullable<Referral["fieldSources"]>;
 }> = [
   { target: "resident_name", source: "referral.name", value: (referral) => referral.name.trim() || null, canvasSource: "name" },
   { target: "date_of_birth", source: "referral.dob", value: (referral) => isoDateOrNull(referral.dob), canvasSource: "dob" },
   { target: "community", source: "referral.community", value: (referral) => referral.community || null, canvasSource: "community" },
-  { target: "assessment_date", source: "system.assessment_date", value: (_referral, _assessor, today) => today },
   { target: "assessor", source: "assignment.assessor", value: (_referral, assessor) => assessor || null },
   { target: "referral_received_date", source: "referral.received_date", value: (referral) => isoDateOrNull(referral.date), canvasSource: "referralReceived" },
   { target: "referrer_name", source: "referral.source", value: (referral) => meaningfulSource(referral.source), canvasSource: "referent" },
@@ -35,7 +34,6 @@ const canonicalReferralFields: ReadonlyArray<{
 export function buildAssessmentSeedFromReferral(
   referral: Referral,
   assessorName: string,
-  now = new Date(),
 ): AssessmentSeed {
   const packetEvidence = (referral.packetFields ?? []).filter((field) => {
     const target = assessmentToolFieldForExtractionKey(field.field_key);
@@ -50,10 +48,9 @@ export function buildAssessmentSeedFromReferral(
     ...mapped.data,
   });
   const provenance = cloneProvenance(mapped.field_provenance);
-  const today = now.toISOString().slice(0, 10);
 
   for (const definition of canonicalReferralFields) {
-    const value = definition.value(referral, assessorName, today);
+    const value = definition.value(referral, assessorName);
     if (!value) continue;
     (data as Record<AssessmentToolFieldKey, unknown>)[definition.target] = value;
     appendProvenance(provenance, definition.target, {

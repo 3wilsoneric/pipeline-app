@@ -1,5 +1,7 @@
 import "server-only";
 
+import { listReferralFiles } from "@/lib/pipeline/referral-store";
+
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -93,7 +95,18 @@ export async function getHistoricalProfile(referral: Referral): Promise<Historic
 async function postgresProfileData(referral: Referral): Promise<HistoricalProfileData> {
   const candidates = await postgresCandidates(referral);
   const capturedSources = await postgresCapturedSources(referral);
-  const documents = await postgresDocuments(referral.id);
+  const [documents, files] = await Promise.all([
+    postgresDocuments(referral.id),
+    listReferralFiles({ referralId: referral.id, limit: 200 }),
+  ]);
+  const previewById = new Map(files.files.map((file) => [file.id, file]));
+  for (const document of documents) {
+    const preview = previewById.get(document.documentId);
+    if (!preview) continue;
+    document.thumbnailUrl = preview.thumbnailUrl;
+    document.previewUrl = preview.previewUrl;
+    document.downloadUrl = preview.downloadUrl;
+  }
   return { candidates, capturedSources, documents };
 }
 

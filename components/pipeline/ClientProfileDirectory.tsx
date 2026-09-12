@@ -349,8 +349,8 @@ export default function ClientProfileDirectory({
           {visibleClients.length > 0 ? (
             <div role="list" className="grid gap-4 md:grid-cols-2">
               {visibleClients.map((client) => (
-                <div role="listitem" key={client.canonical_client_id} className="min-w-0">
-                  <ClientDirectoryCard client={client} onOpen={() => onOpenProfile(client.canonical_client_id)} />
+                <div role="listitem" key={client.profile_key ?? client.canonical_client_id} className="min-w-0">
+                  <ClientDirectoryCard client={client} onOpen={() => onOpenProfile(client.profile_key ?? client.canonical_client_id)} />
                 </div>
               ))}
             </div>
@@ -396,7 +396,7 @@ function readInitialDirectory() {
   const user = readCachedPipelineSessionUser();
   if (!user) return undefined;
   return readDirectoryCache(directoryCacheKey(user.id ?? user.email, ""))
-    ?? readPipelineJsonCache<ClientDirectoryPayload>("/api/profiles/directory?limit=200");
+    ?? readPipelineJsonCache<ClientDirectoryPayload>("/api/profiles/directory?limit=200&scope=current");
 }
 
 function needsDirectoryLoading(previousQuery: string, query: string, initial: ClientDirectoryPayload | null | undefined) {
@@ -460,8 +460,8 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
       type="button"
       aria-label={`Open profile for ${identityTitle}`}
       onClick={onOpen}
-      onPointerEnter={() => prefetchClientProfile(client.canonical_client_id)}
-      onFocus={() => prefetchClientProfile(client.canonical_client_id)}
+      onPointerEnter={() => prefetchClientProfile(client.profile_key ?? client.canonical_client_id)}
+      onFocus={() => prefetchClientProfile(client.profile_key ?? client.canonical_client_id)}
       className="group w-full min-w-0 overflow-hidden border border-[#d9dfdc] bg-white text-left outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-[#80ae9f] hover:shadow-[0_10px_24px_rgba(25,55,45,0.09)] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
     >
       <span aria-hidden="true" className="block min-h-[156px] border-b border-[#dfe5e2] bg-[#f4f8f6] p-4">
@@ -484,11 +484,11 @@ function ClientDirectoryCard({ client, onOpen }: { client: DirectoryClient; onOp
           </span>
           <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[#0f8b73] transition-transform group-hover:translate-x-0.5"><ArrowRight size={17} /></span>
         </span>
-        <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#e7ebe8] pt-2.5 text-[10px] text-[#68716c]">
+        {!client.profile_key ? <span className="mt-3 flex items-center justify-between gap-3 border-t border-[#e7ebe8] pt-2.5 text-[10px] text-[#68716c]">
           <span className="flex min-w-0 items-center gap-1.5"><FileText size={12} className="shrink-0" /><span className="truncate">{countNoun(client.document_count, "document")}</span></span>
           <span className="flex min-w-0 items-center gap-1.5"><FolderOpen size={12} className="shrink-0" /><span className="truncate">{countNoun(client.referral_count, "workspace")}</span></span>
           <span className="shrink-0">{countNoun(client.episode_count, "stay")}</span>
-        </span>
+        </span> : null}
       </span>
     </button>
   );
@@ -524,7 +524,7 @@ function RosterSkeleton() {
 }
 
 async function fetchClientPage(query: string, cursor: string | null, signal: AbortSignal, refresh = false) {
-  const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+  const params = new URLSearchParams({ limit: String(PAGE_SIZE), scope: "current" });
   if (query) params.set("q", query);
   if (cursor) params.set("cursor", cursor);
   return fetchPipelineJson<ClientDirectoryPayload>(`/api/profiles/directory?${params}`, {
@@ -548,8 +548,8 @@ function collectCommunities(clients: DirectoryClient[]) {
 }
 
 function mergeClients(current: DirectoryClient[], incoming: DirectoryClient[]) {
-  const merged = new Map(current.map((client) => [client.canonical_client_id, client]));
-  for (const client of incoming) merged.set(client.canonical_client_id, client);
+  const merged = new Map(current.map((client) => [client.profile_key ?? client.canonical_client_id, client]));
+  for (const client of incoming) merged.set(client.profile_key ?? client.canonical_client_id, client);
   return [...merged.values()];
 }
 

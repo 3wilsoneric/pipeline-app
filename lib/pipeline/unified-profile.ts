@@ -344,6 +344,65 @@ async function getPipelineOnlyClientProfile(
   };
 }
 
+export async function getCurrentCensusClientProfile(
+  request: Request,
+  locator: string,
+  permissions: UnifiedClientProfileResponse["pipeline"]["permissions"],
+  user?: PipelineUser,
+  observability?: UnifiedProfileObservability,
+) {
+  const current = await getClinicalResident(request, locator.slice("resident:".length));
+  if (current.resident.canonical_client_id) {
+    return getUnifiedClientProfile(request, current.resident.canonical_client_id, permissions, user, observability);
+  }
+  return currentCensusProfile(current);
+}
+
+function currentCensusProfile(current: Awaited<ReturnType<typeof getClinicalResident>>): UnifiedClientProfileResponse {
+  const resident = current.resident;
+  // Keep an unlinked census resident openable without inventing a canonical
+  // person identity, joining by name, or projecting a referral as a live client.
+  const record = { ...resident };
+  return {
+    ...current,
+    profile_origin: "alamo_platform",
+    resident,
+    history: unavailableHistoricalProjection(),
+    client: {
+      canonical_client_id: "",
+      display_name: resident.display_name,
+      gender: null,
+      resident_numbers: resident.resident_number ? [resident.resident_number] : [],
+      current_resident: true,
+      community_names: [resident.community_name],
+      current_community: resident.community_name,
+      unit: resident.unit,
+      admit_date: resident.admit_date,
+      care_level: resident.care_level,
+      episode_count: 1,
+      resident_profile: record,
+      resident_profiles: [record],
+      resident_episode_history: [],
+      enrichment: record,
+      source_documents: [],
+      facts: [],
+    },
+    client_database: {
+      dataset: "alamo_current_census",
+      version: current.snapshot_id,
+      baseline_date: current.data_as_of,
+      generated_at: current.generated_at,
+      client_count: null,
+      fields: Object.keys(record),
+      field_count: Object.keys(record).length,
+    },
+    pipeline: unavailablePipelineProjection("The current platform record is available. No enhanced profile identity is linked.", {
+      can_create_identity_candidate: false,
+      can_review_identity: false,
+    }),
+  };
+}
+
 export function unifiedProfileErrorResponse(error: unknown) {
   if (error instanceof UnifiedProfileError) {
     return Response.json(
