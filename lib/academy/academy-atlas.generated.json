@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:9ee51dcfcac3ae3e",
-  "fingerprint": "9ee51dcfcac3ae3e8d54580d0026689b2971aefe0a3819319253eb5f429c1fd3",
+  "generatedAt": "source-fingerprint:3be9b9b95c3a7429",
+  "fingerprint": "3be9b9b95c3a74293898c414a6820de1d9a62381afa078ca738140309f9680d4",
   "totals": {
     "files": 991,
-    "lines": 315023,
+    "lines": 315103,
     "coveredFiles": 991
   },
   "entries": [
@@ -5919,7 +5919,7 @@
       "kind": "documentation",
       "runtime": "documentation",
       "risk": "standard",
-      "lines": 520,
+      "lines": 540,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6531,7 +6531,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 906,
+      "lines": 908,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -10384,7 +10384,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 149,
+      "lines": 165,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11682,7 +11682,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 843,
+      "lines": 848,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -11694,7 +11694,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2761,
+      "lines": 2798,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

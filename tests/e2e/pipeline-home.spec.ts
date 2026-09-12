@@ -9,6 +9,11 @@ import {
 
 test.describe("Pipeline home", () => {
   test("keeps the home surface calm and search-focused", async ({ page }) => {
+    await page.route("**/api/profiles/directory**", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ...clientDirectoryFixture, clients: [], total: 0, next_cursor: null }),
+    }));
     const errors: string[] = [];
     page.on("console", (message) => {
       if (message.type() === "error" && !message.text().includes("/_next/webpack-hmr")) {

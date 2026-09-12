@@ -132,6 +132,22 @@ await clinical.getClinicalClients(broken, { limit: 200 });
 assert.equal(clinicalCalls, 8);
 checks.push("rotating upstream authority invalidates prior clinical projections");
 
+payload = fixture.resident;
+const beforeIdentityRead = clinicalCalls;
+await clinical.getClinicalResident(operator, "337:R-100");
+payload = structuredClone(fixture.resident);
+payload.resident.date_of_birth = "1999-12-31";
+for (const method of ["POST", "PATCH"]) {
+  const resident = await clinical.getClinicalResident(new Request(operator, { method }), "337:R-100");
+  assert.equal(resident.resident.date_of_birth, "1999-12-31");
+}
+assert.equal(clinicalCalls, beforeIdentityRead + 3);
+checks.push("identity creation and confirmation read fresh upstream evidence despite a warmed chart cache");
+payload = { invalid: true };
+await assert.rejects(clinical.getClinicalResident(new Request(operator, { method: "PATCH" }), "337:R-100"));
+assert.equal(clinicalCalls, beforeIdentityRead + 4);
+checks.push("mutation revalidation rejects unavailable evidence instead of falling back to a cached chart");
+
 let warmed = 0;
 const identity = load("lib/pipeline/referral-clinical-identity.ts", {
   "@/lib/clinical/clinical-client-directory-index": {

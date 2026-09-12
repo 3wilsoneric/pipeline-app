@@ -210,6 +210,26 @@ graph in Reports; its domain fixtures remain separate. The personal Home case
 has a default-layout fixture rather than inheriting another case's customization.
 All 29 cases passed locally with a fresh disposable desktop-state path.
 
+The wider primary browser run exposed the same unconfigured delegated directory
+in the packet-suite setup. Those fixtures now cover the warm directory read;
+fault injection starts before prefetch, and packet status checks target the
+canonical save indicator. Imported-chart fixtures use the existing unified
+profile, while unfinished assessment drafts stay available through their API
+without appearing as signed clinical chart entries. Selected-state assertions
+use `aria-pressed`, not the retired black background class. The rebuilt primary
+run passed 131 cases, with 17 feature/profile-conditional skips; its final stale
+packet assertion was corrected and that entire case separately passed. CI still
+must run the desktop, access-isolation, cross-browser, and Linux visual profiles.
+
+That run also detected a real identity-confirmation defect: mutation validation
+could reuse a 15-second clinical display projection. The existing clinical TTL
+owner now admits only GET/HEAD reads to the cache. POST/PATCH confirmation reads
+fetch fresh governed evidence and fail closed when it is invalid; chart reads
+retain their original TTLs and operator/authority isolation. The existing VM
+contracts exercise warmed-cache mutation revalidation and invalid fresh evidence,
+and the browser DOB-conflict test passed against the rebuilt correction. No
+clinical matching policy, database schema, or Notes Lab UI changed.
+
 Initial failures were retained as diagnostic evidence during iteration: invalid
 synthetic PDF/name fixtures, stale tutorial selectors, missing synthetic roster
 and desktop-state setup, and faint resumed-intake metadata. Fixes address the
