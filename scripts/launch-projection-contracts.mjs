@@ -7,9 +7,9 @@ import { loadTypeScriptModule } from "./ts-module-loader.mjs";
 
 function load(file, stubs) {
   const output = ts.transpileModule(readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
-  const module = { exports: {} };
-  vm.runInNewContext(output, { module, exports: module.exports, require: (id) => stubs[id] ?? {}, Buffer, URL, URLSearchParams, Request, Response, Date, console, Map, Set }, { filename: file });
-  return module.exports;
+  const loaded = { exports: {} };
+  vm.runInNewContext(output, { module: loaded, exports: loaded.exports, require: (id) => stubs[id] ?? {}, Buffer, URL, URLSearchParams, Request, Response, Date, console, Map, Set }, { filename: file });
+  return loaded.exports;
 }
 const checks = [];
 let allowed = true;
