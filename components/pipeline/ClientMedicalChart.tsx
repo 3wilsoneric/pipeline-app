@@ -1,15 +1,14 @@
 import type { ClientChartFact, ClientMedicalChartModel } from "@/lib/pipeline/client-medical-chart";
+import ReadableChartText from "@/components/pipeline/ReadableChartText";
 
 export default function ClientMedicalChart({
   chart,
   dataAsOf,
   sourceLabel,
-  careTitle = "Care and support",
 }: {
   chart: ClientMedicalChartModel;
   dataAsOf: string;
   sourceLabel: string;
-  careTitle?: string;
 }) {
   return (
     <article aria-label="Client medical chart" className="overflow-hidden border border-[#aebbb5] bg-white">
@@ -26,17 +25,17 @@ export default function ClientMedicalChart({
         {chart.identity.map((fact) => <ChartCell key={fact.label} fact={fact} />)}
       </ChartGrid>
 
-      {chart.priorities.length > 0 ? <ChartBand title="Clinical priorities">
+      <ChartBand title="Clinical priorities">
         <ChartGrid ariaLabel="Clinical priorities" columns="priorities">
           {chart.priorities.map((fact) => <ChartCell key={fact.label} fact={fact} multiline />)}
         </ChartGrid>
-      </ChartBand> : null}
+      </ChartBand>
 
-      {chart.care.length > 0 ? <ChartBand title={careTitle}>
+      <ChartBand title="Care and support">
         <ChartGrid ariaLabel="Care and support" columns="care">
           {chart.care.map((fact) => <ChartCell key={fact.label} fact={fact} />)}
         </ChartGrid>
-      </ChartBand> : null}
+      </ChartBand>
 
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[#bfcac5] bg-[#f7faf8] px-5 py-3.5 text-[10px] leading-4 text-[#5f6b66] sm:px-7">
         <span>Missing means the field was not documented in the available record.</span>
@@ -90,7 +89,7 @@ function ChartCell({ fact, multiline = false }: { fact: ClientChartFact; multili
     <div className={`min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 ${multiline ? "md:min-h-[104px]" : ""} ${span} ${missing && fact.required ? "bg-[#fffaf0]" : ""}`}>
       <dt className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{fact.label}</dt>
       <dd className={`mt-1.5 break-words font-bold leading-6 ${fact.label === "Client" ? "text-[22px] tracking-[-0.025em] sm:text-[24px]" : multiline ? "text-[14px] sm:text-[15px]" : "text-[14px]"} ${multiline ? "whitespace-pre-line" : ""} ${missing ? "text-[#966715]" : "text-[#18211d]"}`}>
-        {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : fact.value}
+        {fact.label === "Client" ? <h2 data-testid="client-identity-title">{fact.value}</h2> : <ReadableChartText value={fact.value} />}
       </dd>
     </div>
   );

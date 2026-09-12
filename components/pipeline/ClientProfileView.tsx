@@ -43,6 +43,7 @@ import {
   IdentitySuggestionControls,
 } from "@/components/pipeline/ClientIdentityReview";
 import ClientMedicalChart from "@/components/pipeline/ClientMedicalChart";
+import ReadableChartText from "@/components/pipeline/ReadableChartText";
 
 export default function ClientProfileView({
   residentKey,
@@ -150,16 +151,37 @@ function profileLoadMessage(error: unknown) {
   return error instanceof Error ? error.message : "The admitted-client profile is unavailable.";
 }
 
+export function ClientChartRecord({ profile, supplementalSections, sourceSections, sourceLabel, children }: {
+  profile: UnifiedClientProfileResponse;
+  supplementalSections: ClientProfileSection[];
+  sourceSections: ClientProfileSection[];
+  sourceLabel: string;
+  children?: ReactNode;
+}) {
+  return <ResidentProfile profile={profile} onBack={() => {}} onOpenWorkspace={() => {}} onConnectionChanged={() => {}}
+    embedded supplementalSections={supplementalSections} sourceSections={sourceSections} sourceLabel={sourceLabel} additionalContent={children} />;
+}
+
 function ResidentProfile({
   profile,
   onBack,
   onOpenWorkspace,
   onConnectionChanged,
+  embedded = false,
+  supplementalSections,
+  sourceSections,
+  additionalContent,
+  sourceLabel,
 }: {
   profile: UnifiedClientProfileResponse;
   onBack: () => void;
   onOpenWorkspace: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onConnectionChanged: () => void;
+  embedded?: boolean;
+  supplementalSections?: ClientProfileSection[];
+  sourceSections?: ClientProfileSection[];
+  additionalContent?: ReactNode;
+  sourceLabel?: string;
 }) {
   const client = profile.client;
   const resident = profile.resident;
@@ -205,9 +227,8 @@ function ResidentProfile({
   const completedAssessments = profile.pipeline.assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at);
 
   return (
-    <main aria-label={`Client profile for ${identity.title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-white text-[#111111] [scrollbar-gutter:stable]">
-      <div data-testid="profile-workspace" className="mx-auto w-full max-w-[1480px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">
-        <BackButton onClick={onBack} />
+    <ClientChartContainer embedded={embedded} title={identity.title}>
+        <ClientChartBackButton embedded={embedded} onBack={onBack} />
 
         {profile.freshness.status === "stale" || profile.freshness.warning ? (
           <div className="mt-4 border-l-2 border-[#b07b21] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#5d4925]" role="status">
@@ -219,7 +240,7 @@ function ResidentProfile({
           <ClientMedicalChart
             chart={medicalChart}
             dataAsOf={profile.data_as_of}
-            sourceLabel={clientProfileSourceLabel(pipelineOnly)}
+            sourceLabel={clientChartSourceLabel(pipelineOnly, sourceLabel)}
           />
         </div>
 
@@ -256,7 +277,7 @@ function ResidentProfile({
           />
 
           <ProfileSection title="Client information" detail="Clinical, support, and stay details">
-            <CuratedClientRecord sections={chart.detailSections} />
+            <CuratedClientRecord sections={combineClientRecordSections(chart.detailSections, supplementalSections)} />
             {!pipelineOnly ? (
               <ClientStayHistory episodes={chart.episodes} history={history} />
             ) : null}
@@ -267,6 +288,7 @@ function ResidentProfile({
             sourceDocuments={client.source_documents}
             referralDocuments={profile.pipeline.documents}
           />
+          <ClientSourceNotes sections={sourceSections} />
 
           {client.facts.length > 0 ? (
             <ProfileSection title="Source-backed information" detail="Extracted packet facts">
@@ -283,10 +305,36 @@ function ResidentProfile({
               <RecordQualitySummary completeness={completeness} historyDataAsOf={history.data_as_of} />
             </ProfileSection>
           ) : null}
+          {additionalContent}
         </div>
-      </div>
-    </main>
+    </ClientChartContainer>
   );
+}
+
+function ClientChartContainer({ embedded, title, children }: { embedded: boolean; title: string; children: ReactNode }) {
+  if (embedded) return <div data-testid="profile-workspace" className="bg-white pb-6 text-[#111111]">{children}</div>;
+  return <main aria-label={`Client profile for ${title}`} className="h-full min-h-0 overflow-y-auto overscroll-y-contain bg-white text-[#111111] [scrollbar-gutter:stable]">
+    <div data-testid="profile-workspace" className="mx-auto w-full max-w-[1480px] px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:px-8">{children}</div>
+  </main>;
+}
+
+function ClientChartBackButton({ embedded, onBack }: { embedded: boolean; onBack: () => void }) {
+  return embedded ? null : <BackButton onClick={onBack} />;
+}
+
+function combineClientRecordSections(sections: ClientProfileSection[], supplemental?: ClientProfileSection[]) {
+  return [...sections, ...(supplemental ?? [])];
+}
+
+function clientChartSourceLabel(pipelineOnly: boolean, label?: string) {
+  return label ?? clientProfileSourceLabel(pipelineOnly);
+}
+
+function ClientSourceNotes({ sections }: { sections?: ClientProfileSection[] }) {
+  if (!sections?.length) return null;
+  return <ProfileSection title="Source notes"><details><summary className="cursor-pointer text-[12px] font-bold text-[#0f8b73]">Show original notes and sources</summary>
+    <div className="mt-4"><CuratedClientRecord sections={sections} /></div>
+  </details></ProfileSection>;
 }
 
 function ClientWorkspaceHistory({
@@ -1230,8 +1278,13 @@ function EmptyChartMessage({ children }: { children: React.ReactNode }) {
 function DataPoint({ label, value }: { label: string; value: string | number | null }) {
   const display = typeof value === "number" ? String(value) : value?.trim() || "Not reported";
   const present = display !== "Not reported";
-  return <div><div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#68706c]">{label}</div><div className={`mt-1.5 break-words text-[14px] font-semibold leading-5 ${present ? "text-[#111111]" : "text-[#9a6a18]"}`}>{display}</div></div>;
+  return <div className={chartFactLayout(display)}><div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#68706c]">{label}</div><div className={`mt-1.5 whitespace-pre-line break-words text-[14px] font-semibold leading-5 ${present ? "text-[#111111]" : "text-[#9a6a18]"}`}><ReadableChartText value={display} /></div></div>;
 }
+
+function chartFactLayout(value: string) {
+  return value.length > 160 ? "sm:col-span-2 2xl:col-span-3" : undefined;
+}
+
 
 function RecordQualitySummary({
   completeness,

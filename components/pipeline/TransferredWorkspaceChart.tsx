@@ -1,132 +1,140 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-import { CompleteAssessmentChart } from "@/components/pipeline/AssessmentChartWorkspace";
-import { buildAssessmentSummaryReport } from "@/lib/assessment/assessment-summary";
-import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
-import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
+import { useEffect, useState, type ReactNode } from "react";
+import { ClientChartRecord } from "@/components/pipeline/ClientProfileView";
+import { fetchPipelineJson, readPipelineJsonCache } from "@/lib/auth/authenticated-fetch";
 import type { ReferralCanvasPacketField } from "@/lib/pipeline/referral-canvas-extraction";
-import type { Referral, ReferralFile } from "@/lib/pipeline/referral-types";
-import { ClientDocumentGallery } from "@/components/pipeline/ClientProfileView";
-import ClientMedicalChart from "@/components/pipeline/ClientMedicalChart";
-import type { ClientChartFact, ClientMedicalChartModel } from "@/lib/pipeline/client-medical-chart";
-import { parseStructuredNarrative, structuredNarrativeSections } from "@/lib/pipeline/structured-narrative";
+import type { Referral } from "@/lib/pipeline/referral-types";
+import type { UnifiedClientProfileResponse } from "@/lib/pipeline/unified-profile-contracts";
+import type { HistoricalProfileResponse, HistoricalProfileSource } from "@/lib/pipeline/historical-profile-contracts";
+import type { ClientProfileSection } from "@/lib/pipeline/client-profile-presentation";
+import { normalizeOwnerName } from "@/lib/pipeline/referral-ownership";
+import { isImportedWorkspace } from "@/lib/pipeline/workspace-presentation";
 
-// Pre-launch Pipeline records retain their actual intake and saved assessments,
-// rather than being projected onto the ALLO source format or a new workflow.
-export default function TransferredWorkspaceChart({ referral, fields }: {
-  referral: Referral;
+export default function WorkspaceClientChart({ referral, fields, children }: {
+  referral: Referral | null;
   fields: ReferralCanvasPacketField[];
+  children?: ReactNode;
 }) {
-  const referralId = referral.id;
-  const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
+  const profilePath = referral ? `/api/profiles/${encodeURIComponent(`pipeline:${referral.clientId}`)}` : "";
+  const [profile, setProfile] = useState<UnifiedClientProfileResponse | null>(() => readPipelineJsonCache<UnifiedClientProfileResponse>(profilePath) ?? null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [files, setFiles] = useState<ReferralFile[]>([]);
-  const [fileError, setFileError] = useState("");
-
+  const source = useWorkspaceSource(referral);
   useEffect(() => {
+    if (!profilePath) return;
     const controller = new AbortController();
-    void fetchPipelineJson<{ pipeline: { documents: ReferralFile[] } }>(
-      `/api/profiles/${encodeURIComponent(`pipeline:${referral.clientId}`)}`,
-      { signal: controller.signal, cache: "no-store" },
-      { cacheTtlMs: 30_000 },
-    ).then((profile) => {
-      if (!controller.signal.aborted) setFiles(profile.pipeline.documents.filter((file) => file.referralId === referralId));
-    }).catch(() => { if (!controller.signal.aborted) setFileError("Chart files could not be loaded."); });
+    void fetchPipelineJson<UnifiedClientProfileResponse>(profilePath, { signal: controller.signal, cache: "no-store" }, { cacheTtlMs: 60_000 })
+      .then((value) => { if (!controller.signal.aborted) setProfile(value); })
+      .catch(() => { if (!controller.signal.aborted) setError("The client chart could not be loaded. Reopen this workspace to retry."); });
     return () => controller.abort();
-  }, [referral.clientId, referralId]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const load = async () => {
-      const records: PipelineAssessmentRecord[] = [];
-      let cursor: string | null = null;
-      do {
-        const params: URLSearchParams = new URLSearchParams({ limit: "100", ...(cursor ? { cursor } : {}) });
-        const page: AssessmentListResponse = await fetchPipelineJson<AssessmentListResponse>(`/api/referrals/${referralId}/assessments?${params}`, { signal: controller.signal, cache: "no-store" });
-        records.push(...page.assessments);
-        cursor = page.next_cursor;
-      } while (cursor);
-      if (!controller.signal.aborted) setAssessments(records);
-    };
-    void load().catch((reason) => {
-      if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Assessment records could not be loaded.");
-    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, [referralId]);
-
-  return (
-    <div className="space-y-6" data-testid="transferred-workspace-chart">
-      <ClientMedicalChart chart={buildTransferredClientChart(fields)} dataAsOf={referral.updatedAt ?? referral.createdAt} sourceLabel="Pipeline" careTitle="Referral information" />
-      {files.length ? <section aria-label="Chart files"><h2 className="mb-2 text-[13px] font-bold text-[#202522]">Files</h2><ClientDocumentGallery documents={files} /></section> : null}
-      {fileError ? <p role="alert" className="text-[12px] text-[#a4473c]">{fileError}</p> : null}
-      {fields.filter((field) => field.label === "Summary" && field.value.trim()).map((field) => <RecordedSummary key={field.label} field={field} />)}
-      {loading ? <p role="status" className="text-[12px] text-[#68716d]">Loading assessment records...</p> : null}
-      {error ? <p role="alert" className="text-[12px] text-[#a4473c]">{error}</p> : null}
-      {assessments.filter((assessment) => assessment.status === "complete" && assessment.signed_at).map((assessment) => (
-        <section key={assessment.assessment_id}>
-          <p className="mb-2 text-[11px] text-[#68716d]">
-            {assessment.signed_at ? "Signed" : "Saved, unsigned"} · {assessment.updated_by.name} · {new Date(assessment.updated_at).toLocaleDateString("en-US")}
-          </p>
-          <CompleteAssessmentChart report={buildAssessmentSummaryReport(assessment, referral)} />
-          {assessment.unmapped_fields.length ? <RecordedFields title="Additional recorded assessment information" fields={assessment.unmapped_fields.map((field) => ({ label: field.source_field_key, value: field.value ?? "" }))} /> : null}
-          {assessment.addenda?.length ? <RecordedFields title="Addenda" fields={assessment.addenda.map((addendum) => ({ label: addendum.authored_by_name, value: addendum.note }))} /> : null}
-        </section>
-      ))}
-    </div>
-  );
+  }, [profilePath]);
+  if (!referral) return <>{children}</>;
+  if (!profile) return <p role={error ? "alert" : "status"} className="py-4 text-[12px] text-[#68716d]">{error || "Loading client chart..."}</p>;
+  return <>
+    <ClientChartRecord profile={scopeWorkspaceClientProfile(profile, referral, fields, source.profile)}
+      supplementalSections={workspaceClientSections(referral, fields)}
+      sourceSections={workspaceSourceSections(source.profile)} sourceLabel={workspaceSourceLabel(referral)}>
+      {children}
+    </ClientChartRecord>
+    {source.error ? <p role="alert" className="mt-3 text-[12px] text-[#a4473c]">{source.error}</p> : null}
+  </>;
 }
 
-const identityLabels = new Set(["NAME", "GENDER", "AGE", "DOB", "SSN", "Community:"]);
-const chartLabels: Record<string, string> = {
-  NAME: "Client", GENDER: "Gender", AGE: "Age", DOB: "Date of birth",
-  "Owner (@name):": "Owner", "Referent:": "Referral source",
-};
+function useWorkspaceSource(referral: Referral | null) {
+  const path = referral && isImportedWorkspace(referral) ? `/api/referrals/${referral.id}/historical-profile` : "";
+  const [profile, setProfile] = useState<HistoricalProfileResponse | null>(() => readPipelineJsonCache<HistoricalProfileResponse>(path) ?? null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!path) return;
+    const controller = new AbortController();
+    void fetchPipelineJson<HistoricalProfileResponse>(path, { signal: controller.signal, cache: "no-store" }, { cacheTtlMs: 60_000 })
+      .then((value) => { if (!controller.signal.aborted) setProfile(value); })
+      .catch(() => { if (!controller.signal.aborted) setError("Original source notes could not be loaded. Files remain available in the client chart."); });
+    return () => controller.abort();
+  }, [path]);
+  return { profile, error };
+}
 
-export function buildTransferredClientChart(fields: ReferralCanvasPacketField[]): ClientMedicalChartModel {
-  const recorded = fields.filter((field) => field.value.trim());
+const clinicalFields: Record<string, string> = {
+  DOB: "date_of_birth", AGE: "age", GENDER: "gender",
+  "Client phone:": "phone", "Client email:": "email", "County:": "county",
+  "Current medications": "medications_at_intake", Conserved: "conservatorship",
+};
+const sourceClinicalFields: Record<string, string> = {
+  primary_diagnosis: "primary_diagnosis", medications_at_intake: "medications_at_intake",
+  allergies: "active_allergies", mobility: "mobility", adl_needs: "adl_needs",
+  conservatorship_type: "conservatorship",
+};
+const sourceIdentityFields: Record<string, string> = { dob: "date_of_birth", age: "age", gender: "gender", county: "county", admission_date: "admit_date" };
+
+export function scopeWorkspaceClientProfile(profile: UnifiedClientProfileResponse, referral: Referral, fields: ReferralCanvasPacketField[], source: HistoricalProfileResponse | null) {
+  const enrichment = { ...profile.client.enrichment, ...sourceClinicalRecord(source) };
+  for (const field of fields) {
+    const key = clinicalFields[field.label];
+    if (key && field.value.trim()) enrichment[key] = field.value;
+  }
   return {
-    identity: recorded.filter((field) => identityLabels.has(field.label)).map(recordedChartFact),
-    priorities: recorded.filter((field) => field.label === "Current medications").map(recordedChartFact),
-    care: recorded.filter((field) => !identityLabels.has(field.label) && field.label !== "Summary" && field.label !== "Current medications").map(recordedChartFact),
-    assessmentDate: null,
+    ...profile,
+    client: { ...profile.client, display_name: referral.name, gender: referral.gender ?? profile.client.gender,
+      current_community: referral.community || null, enrichment },
+    pipeline: { ...profile.pipeline,
+      referrals: [],
+      assessments: profile.pipeline.assessments.filter((assessment) => assessment.referral_id === referral.id),
+      documents: profile.pipeline.documents.filter((document) => document.referralId === referral.id),
+    },
   };
 }
 
-function recordedChartFact(field: ReferralCanvasPacketField): ClientChartFact {
-  const label = chartLabels[field.label] ?? field.label.replace(/:$/, "");
-  return { label, value: field.value, ...(label === "Client" || label === "Community" ? { span: "wide" as const } : {}) };
+function sourceClinicalRecord(source: HistoricalProfileResponse | null) {
+  const record: Record<string, string> = {};
+  for (const fact of source?.facts ?? []) {
+    const key = sourceIdentityFields[fact.key];
+    if (key && fact.value.trim()) record[key] = fact.value;
+  }
+  for (const field of source?.sections.flatMap((section) => section.fields) ?? []) {
+    const key = sourceClinicalFields[field.targetField];
+    const statements = field.evidence.filter((item) => item.confidence === "high").map((item) => item.text);
+    if (key && statements.length) record[key] = statements.join("\n\n");
+  }
+  return record;
 }
 
-function RecordedSummary({ field }: { field: ReferralCanvasPacketField }) {
-  const sections = structuredNarrativeSections.summary;
-  const values = parseStructuredNarrative(field.value, sections);
-  const headingPositions = sections.map((section) => field.value.indexOf(`## ${section.label}`)).filter((index) => index >= 0);
-  const preamble = headingPositions.length ? field.value.slice(0, Math.min(...headingPositions)).trim() : "";
-  return <section aria-label="Referral summary" className="border border-[#cfd7d4] bg-white px-5 py-4">
-    <h2 className="mb-3 text-[14px] font-bold text-[#202522]">Referral summary</h2>
-    {preamble ? <p className="mb-4 whitespace-pre-wrap break-words text-[13px] leading-6 text-[#303638]">{preamble}</p> : null}
-    <div className="space-y-4">
-      {sections.filter((section) => values[section.key]?.trim()).map((section) => <div key={section.key}>
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.07em] text-[#68716d]">{section.label}</h3>
-        <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-6 text-[#303638]">{values[section.key]}</p>
-      </div>)}
-    </div>
-  </section>;
+const promotedWorkspaceLabels = new Set(["NAME", "GENDER", "DOB", "Community:", "Current medications", "Owner (@name):"]);
+const workspaceLabels: Record<string, string> = { AGE: "Age", "Referent:": "Referral source", Summary: "Referral summary" };
+
+export function workspaceClientSections(referral: Referral, fields: ReferralCanvasPacketField[]): ClientProfileSection[] {
+  const facts = [
+    { label: "Owner", value: normalizeOwnerName(referral.owner) },
+    ...fields.filter((field) => field.value.trim() && !promotedWorkspaceLabels.has(field.label))
+      .map((field) => ({ label: workspaceLabels[field.label] ?? field.label.replace(/:$/, ""), value: field.value })),
+  ];
+  return [{ key: "workspace-referral", label: "Referral information", facts }];
 }
 
-function RecordedFields({ title, fields }: { title: string; fields: ReferralCanvasPacketField[] }) {
-  const recorded = fields.filter((field) => field.value.trim());
-  if (!recorded.length) return null;
-  return <section aria-label={title}>
-    <h2 className="mb-2 text-[13px] font-bold text-[#202522]">{title}</h2>
-    <dl className="grid border-l border-t border-[#d7ddd9] sm:grid-cols-2 lg:grid-cols-3">
-      {recorded.map((field, index) => <div key={`${field.label}:${index}`} className={`min-w-0 border-b border-r border-[#d7ddd9] px-4 py-3 ${field.value.length > 160 ? "sm:col-span-2 lg:col-span-3" : ""}`}>
-        <dt className="text-[10px] font-bold text-[#68716d]">{field.label}</dt>
-        <dd className="mt-1 whitespace-pre-wrap break-words text-[12px] leading-5 text-[#202522]">{field.value}</dd>
-      </div>)}
-    </dl>
-  </section>;
+function sourceDescription(source: HistoricalProfileSource) {
+  return [source.sourceCanvasName, source.sourceProjectName, source.capturedAt].filter(Boolean).join(" · ");
+}
+
+export function workspaceSourceSections(source: HistoricalProfileResponse | null): ClientProfileSection[] {
+  if (!source) return [];
+  return [
+    { key: "imported-facts", label: "Recorded source information", facts: source.facts.map((fact) => ({
+      label: fact.key === "assessment_date" ? "ALLO assessment date (imported)" : fact.label,
+      value: `${fact.value}\nSource: ${sourceDescription(fact.source)}`,
+    })) },
+    ...source.sections.map((section) => ({ key: `source:${section.section}`, label: section.label,
+      facts: section.fields.map((field) => ({ label: field.label, value: field.evidence.map((item) =>
+        `${item.text}\nSource: ${sourceDescription(item.source)}\n${item.confidence === "high" ? "Stronger field match" : "Possible field match"}`).join("\n\n") })),
+    })),
+    { key: "unmapped-source", label: "Other source notes", facts: source.unmappedEvidence.map((item, index) => ({
+      label: `Note ${index + 1}`, value: `${item.text}\nSource: ${sourceDescription(item.source)}`,
+    })) },
+    ...source.sourceSections.map((section) => ({ key: `blocks:${section.sectionId}`, label: section.label,
+      facts: section.blocks.map((block) => ({ label: `Source block ${block.ordinal}`, value: `${block.text}\nSource: ${sourceDescription(section.source)}` })),
+    })),
+  ].filter((section) => section.facts.length);
+}
+
+function workspaceSourceLabel(referral: Referral) {
+  return isImportedWorkspace(referral) ? "ALLO (imported)" : "Pipeline";
 }

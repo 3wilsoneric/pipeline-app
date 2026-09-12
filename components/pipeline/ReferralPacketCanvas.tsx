@@ -28,7 +28,6 @@ import {
 import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview";
 import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
-import ImportedWorkspaceProfile from "@/components/pipeline/HistoricalReferralProfile";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
 import type { AssessmentListResponse } from "@/lib/assessment/assessment-records";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
@@ -1732,7 +1731,7 @@ export default function ReferralPacketCanvas({
     admissionDocumentCount,
     attachmentCount,
   );
-  const { readOnly: historicalReadOnly, usesSourceProfile, steps: workspaceSteps } = workspacePresentation;
+  const { readOnly: historicalReadOnly, steps: workspaceSteps } = workspacePresentation;
   const displayedPage = visibleWorkspacePage(activePage, workspaceSteps);
   const editingControlsVisible = showWorkspaceEditingControls(trainingAssessmentMode, historicalReadOnly);
   const trashControlVisible = showWorkspaceTrashControl(loadedReferral, canSupervise, historicalReadOnly);
@@ -1976,11 +1975,7 @@ export default function ReferralPacketCanvas({
         />
 
         <div key={displayedPage} className="pipeline-step-enter">
-          {displayedPage === 1 && usesSourceProfile && loadedReferral ? (
-            <PacketPage id="source-profile" title="Chart">
-              <ImportedWorkspaceProfile key={loadedReferral.id} referral={loadedReferral} />
-            </PacketPage>
-          ) : displayedPage === 1 && historicalReadOnly && loadedReferral ? (
+          {displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart">
               <TransferredWorkspaceChart key={loadedReferral.id} referral={loadedReferral} fields={[
                 ...Object.values(fields),
@@ -2224,7 +2219,9 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           ) : displayedPage === 3 ? (
             <PacketPage id="packet-charts" title="Chart">
-              <AssessmentChartWorkspace referralId={referralWorkspaceId} />
+              <TransferredWorkspaceChart key={loadedReferral?.id} referral={loadedReferral} fields={[
+                ...Object.values(fields), { label: "Conserved", value: conserved },
+              ]}><AssessmentChartWorkspace referralId={referralWorkspaceId} embedded /></TransferredWorkspaceChart>
             </PacketPage>
           ) : (
             <PacketPage id="packet-activity" title="Activity">
