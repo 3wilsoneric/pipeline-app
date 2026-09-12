@@ -81,6 +81,7 @@ try {
       await page.getByText("Completing the directory. Results update as records arrive.", { exact: true }).waitFor({ state: "hidden" });
       await page.waitForFunction(() => window.__pipelineDirectoryTiming.complete_at !== null);
       const roster = await page.evaluate(() => window.__pipelineDirectoryTiming);
+      if (roster.total > 100) await page.getByText(new RegExp(`^Showing \\d+ of ${roster.total}$`)).waitFor();
       result.samples.push({ trial, home_ms: homeMs, workspace_first_row_ms: workspaceMs, clients_first_card_ms: clientsMs,
         complete_roster_from_start_ms: roster.complete_at - startedAt, roster_total: roster.total, roster_pages: roster.pages,
         clients_ready_before_click: clientsReadyBeforeClick, workspace_reads_on_click: workspaceReads - workspaceReadsBefore,
