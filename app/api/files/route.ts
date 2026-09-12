@@ -7,6 +7,7 @@ import {
 } from "@/lib/pipeline/referral-store";
 import { isKeysetCursor } from "@/lib/pipeline/keyset-cursor";
 import { scopeReferralListOptions } from "@/lib/pipeline/referral-access";
+import { isOptionalReferralWorkspaceScope, readReferralWorkspaceScope } from "@/lib/pipeline/referral-query";
 
 export const runtime = "nodejs";
 
@@ -18,11 +19,13 @@ export async function GET(request: Request) {
     if (!store.ok) return store.response;
 
     const url = new URL(request.url);
-    const query = url.searchParams.get("q")?.trim() ?? "";
+    const scope = readReferralWorkspaceScope(url.searchParams);
+    if (!isOptionalReferralWorkspaceScope(scope)) return jsonError("scope must be mine or team.");
+    const query = bounded(url.searchParams.get("q"), 200);
     const cursor = url.searchParams.get("cursor")?.trim() || undefined;
     const rawLimit = url.searchParams.get("limit")?.trim();
     const limit = rawLimit ? Number(rawLimit) : 100;
-    if (query.length > 200) return jsonError("q must be 200 characters or fewer.");
+    if (query === false) return jsonError("q must be 200 characters or fewer.");
     if (cursor && !isKeysetCursor(cursor)) return jsonError("cursor is invalid.");
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) return jsonError("limit must be a whole number between 1 and 200.");
     const identityStatus = url.searchParams.get("identity_status")?.trim() || undefined;
@@ -43,6 +46,7 @@ export async function GET(request: Request) {
     const category = bounded(url.searchParams.get("category"), 80);
     if (category === false) return jsonError("category must be 80 characters or fewer.");
     const result = await listReferralFiles(scopeReferralListOptions(auth.user, {
+      scope: scope as "mine" | "team" | undefined,
       query,
       limit,
       cursor,

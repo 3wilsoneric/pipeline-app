@@ -50,6 +50,7 @@ import type {
   ReferralFilter,
   WorkspaceLayout,
   WorkspaceSection,
+  WorkspaceScope,
 } from "@/components/pipeline/referral-home-directory-model";
 
 const fileCategories: ReferralFile["category"][] = [
@@ -75,6 +76,8 @@ type ReferralHomeDirectoryProps = {
   onOpenProfile: (canonicalClientId: string) => void;
   onResumeDraft: (draftKey: `new-${string}`) => void;
   canViewTeam: boolean;
+  scope: WorkspaceScope;
+  onScopeChange: (scope: WorkspaceScope) => void;
   workspaceSection: WorkspaceSection;
   onWorkspaceSectionChange: (section: WorkspaceSection) => void;
   workspaceLayout: WorkspaceLayout;
@@ -190,7 +193,19 @@ function DirectoryHeader(props: ReferralHomeDirectoryProps) {
           Activity
         </button>
       </div>
-      {props.workspaceSection === "workspaces" ? <LayoutSelector {...props} /> : null}
+      {props.workspaceSection === "workspaces" ? <div className="flex flex-wrap items-center gap-3"><WorkspaceScopeSelector {...props} /><LayoutSelector {...props} /></div> : null}
+    </div>
+  );
+}
+
+function WorkspaceScopeSelector(props: ReferralHomeDirectoryProps) {
+  const scopes: WorkspaceScope[] = props.canViewTeam ? ["mine", "team"] : ["mine"];
+  return (
+    <div className="mb-2 flex items-center gap-3">
+      <div role="group" aria-label="Workspace scope" className="flex border border-[#cfd7d3] bg-white p-0.5">
+        {scopes.map((scope) => <button key={scope} type="button" aria-pressed={props.scope === scope} onClick={() => props.onScopeChange(scope)} className={`h-8 px-3 text-[11px] font-bold ${props.scope === scope ? "bg-[#eaf5f1] text-[#0c705f]" : "text-[#68716c] hover:bg-[#f5f7f6]"}`}>{scope === "mine" ? "Mine" : "Team"}</button>)}
+      </div>
+      <span className="text-[10px] text-[#68716c]">Recently updated first</span>
     </div>
   );
 }
@@ -232,11 +247,12 @@ function WorkspaceDirectoryBody(props: ReferralHomeDirectoryProps) {
 
 function WorkspaceSearch(props: ReferralHomeDirectoryProps) {
   const filesActive = props.filter.kind === "files";
+  const workspaceSearchLabel = props.scope === "mine" ? "Search my workspaces" : "Search all workspaces";
   return (
     <div data-guide-target="workspace-search" className="flex h-11 min-w-0 items-center gap-3 border-b border-[#bdbdbd] px-2 focus-within:border-[#0f8b73] xl:h-10">
       <Search size={16} className="shrink-0 text-[#0f8b73]" />
-      <label htmlFor="workspace-directory-search" className="sr-only">{filesActive ? "Search all uploaded files" : "Search all workspaces"}</label>
-      <input id="workspace-directory-search" type="search" aria-label={filesActive ? "Search all uploaded files" : "Search all workspaces"} value={props.searchTerm} onChange={(event) => props.onSearchTermChange(event.target.value)} placeholder={filesActive ? "Search files by name, client, community, owner, or type" : "Search all workspaces by client, community, county, owner, or source"} className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111111] outline-none placeholder:text-[#8a8a8a]" />
+      <label htmlFor="workspace-directory-search" className="sr-only">{filesActive ? "Search all uploaded files" : workspaceSearchLabel}</label>
+      <input id="workspace-directory-search" type="search" aria-label={filesActive ? "Search all uploaded files" : workspaceSearchLabel} value={props.searchTerm} onChange={(event) => props.onSearchTermChange(event.target.value)} placeholder={filesActive ? "Search files by name, client, community, owner, or type" : `${workspaceSearchLabel} by client, community, county, owner, or source`} className="min-w-0 flex-1 bg-transparent text-[13px] text-[#111111] outline-none placeholder:text-[#8a8a8a]" />
       {props.searchTerm ? (
         <button type="button" aria-label="Clear workspace search" onClick={() => props.onSearchTermChange("")} className="flex h-8 w-8 shrink-0 items-center justify-center text-[#737373] hover:text-[#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f8b73]"><X size={15} /></button>
       ) : null}

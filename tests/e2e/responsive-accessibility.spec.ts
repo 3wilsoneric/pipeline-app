@@ -123,7 +123,7 @@ test.describe("Responsive and accessible application shell", () => {
         body: JSON.stringify({ error: "Referral refresh is temporarily unavailable." }),
       });
     });
-    await page.getByLabel("Search all workspaces").fill("trigger refresh failure");
+    await page.getByLabel("Search my workspaces").fill("trigger refresh failure");
     const failure = page.getByRole("alert").filter({ hasText: "Referral refresh is temporarily unavailable." });
     await expect(failure).toContainText("Referral refresh is temporarily unavailable.");
     await expect(failure.getByRole("button", { name: "Retry" })).toBeVisible();

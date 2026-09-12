@@ -176,7 +176,7 @@ test.describe("Referral home and packet canvas", () => {
     expect((await activeReferrals.boundingBox())?.width ?? 0).toBeGreaterThan(100);
     await expect(page.getByRole("tab", { name: "Kanban board" })).toHaveCount(0);
 
-    const workspaceSearch = page.getByLabel("Search all workspaces");
+    const workspaceSearch = page.getByLabel("Search my workspaces");
     await expect(workspaceSearch).toBeVisible();
     const searchedDirectory = page.waitForRequest((request) => {
       const url = new URL(request.url());

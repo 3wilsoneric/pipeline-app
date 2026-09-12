@@ -14,7 +14,7 @@ import {
   recentMonthKeys,
   referralFilterMonth,
 } from "@/components/pipeline/referral-home-directory-model";
-import type { ReferralFilter, WorkspaceLayout, WorkspaceSection } from "@/components/pipeline/referral-home-directory-model";
+import type { ReferralFilter, WorkspaceLayout, WorkspaceSection, WorkspaceScope } from "@/components/pipeline/referral-home-directory-model";
 import { fetchPipelineJson, readPipelineJsonCache } from "@/lib/auth/authenticated-fetch";
 import type { ClientFileImportReviewItem } from "@/lib/pipeline/client-file-import-contracts";
 import {
@@ -57,23 +57,33 @@ const emptyFacets: ReferralFacets = {
   months: [],
 };
 
-export default function ReferralHome({
-  searchTerm,
-  onSearchTermChange,
-  onOpenPacket,
-  onOpenProfile,
-  onResumeDraft,
-  canViewTeam = false,
-}: {
+type ReferralHomeProps = {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onOpenPacket: (referral?: Pick<Referral, "id" | "name" | "community">) => void;
   onOpenProfile: (canonicalClientId: string) => void;
   onResumeDraft: (draftKey: `new-${string}`) => void;
   canViewTeam?: boolean;
-}) {
+};
+
+export default function ScopedReferralHome(props: ReferralHomeProps) {
+  const [selectedScope, setSelectedScope] = useState<WorkspaceScope>("mine");
+  const scope = props.canViewTeam ? selectedScope : "mine";
+  return <ReferralHome key={scope} {...props} scope={scope} onScopeChange={setSelectedScope} />;
+}
+
+function ReferralHome({
+  searchTerm,
+  onSearchTermChange,
+  onOpenPacket,
+  onOpenProfile,
+  onResumeDraft,
+  canViewTeam = false,
+  scope,
+  onScopeChange,
+}: ReferralHomeProps & { scope: WorkspaceScope; onScopeChange: (scope: WorkspaceScope) => void }) {
   const [initialDirectory] = useState(() => readPipelineJsonCache<ReferralDirectoryPayload>(
-    `/api/referrals/directory?${buildReferralParams({ kind: "all" }, searchTerm)}`,
+    `/api/referrals/directory?${buildReferralParams({ kind: "all" }, searchTerm, undefined, scope)}`,
   ));
   const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>("workspaces");
   const [workspaceLayout, setWorkspaceLayout] = useState<WorkspaceLayout>("list");
@@ -135,16 +145,17 @@ export default function ReferralHome({
     setLoadError("");
     let requestKey = "";
     try {
-      const params = buildReferralParams(filter, requestSearchTerm, referralCursors[referralPage]);
+      const params = buildReferralParams(filter, requestSearchTerm, referralCursors[referralPage], scope);
       requestKey = params.toString();
       const normalizedSearch = requestSearchTerm.trim();
-      const summaryKey = `all:${normalizedSearch}`;
+      const summaryKey = `${scope}:${normalizedSearch}`;
       const includeSummary = referralPage === 0 && summaryQuery.current !== summaryKey;
       const payload = await fetchPipelineJson<ReferralDirectoryPayload>(
         `${includeSummary ? "/api/referrals/directory" : "/api/referrals"}?${params.toString()}`,
         { cache: "no-store", signal },
         { cacheTtlMs: 30_000, bypassCache: silent },
       );
+      signal?.throwIfAborted();
       setReferrals(Array.isArray(payload.referrals) ? payload.referrals : []);
       setProgressByReferral(payload.progress ?? {});
       setReferralTotal(typeof payload.total === "number" ? payload.total : 0);
@@ -168,7 +179,7 @@ export default function ReferralHome({
     } finally {
       if (!signal?.aborted && !silent) setIsLoading(false);
     }
-  }, [filter, referralCursors, referralPage, requestSearchTerm]);
+  }, [filter, referralCursors, referralPage, requestSearchTerm, scope]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -217,7 +228,7 @@ export default function ReferralHome({
   useEffect(() => {
     if (filter.kind !== "files" || reviewIdentity) return;
     let cancelled = false;
-    const params = new URLSearchParams({ limit: "100", q: requestSearchTerm, identity_status: "linked" });
+    const params = new URLSearchParams({ limit: "100", q: requestSearchTerm, identity_status: "linked", scope });
     if (fileCursors[filePage]) params.set("cursor", fileCursors[filePage]);
     if (fileCategory) params.set("category", fileCategory);
     if (fileCommunity) params.set("community", fileCommunity);
@@ -244,7 +255,7 @@ export default function ReferralHome({
         }
       });
     return () => { cancelled = true; };
-  }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, fileSource, filter.kind, requestSearchTerm, reviewIdentity]);
+  }, [fileCategory, fileCommunity, fileCursors, fileMonth, fileOwner, filePage, fileSource, filter.kind, requestSearchTerm, reviewIdentity, scope]);
 
   useEffect(() => {
     if (filter.kind !== "files" || !reviewIdentity) return;
@@ -320,6 +331,8 @@ export default function ReferralHome({
       onOpenProfile={onOpenProfile}
       onResumeDraft={onResumeDraft}
       canViewTeam={canViewTeam}
+      scope={scope}
+      onScopeChange={onScopeChange}
       workspaceSection={workspaceSection}
       onWorkspaceSectionChange={setWorkspaceSection}
       workspaceLayout={workspaceLayout}

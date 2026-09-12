@@ -31,12 +31,13 @@ export async function GET(request: Request) {
     const options = scopeReferralListOptions(auth.user, requestedOptions);
     const facetAccess = scopeReferralListOptions(auth.user, {
       workspaceStatus: "all",
+      scope: query.value.scope,
     });
 
     const [result, facets, files] = await Promise.all([
       listReferrals(options),
       listReferralFacets(query.value.query, facetAccess),
-      listReferralFiles(scopeReferralListOptions(auth.user, { limit: 1, identityStatus: "linked" })),
+      listReferralFiles(scopeReferralListOptions(auth.user, { limit: 1, identityStatus: "linked", scope: query.value.scope })),
     ]);
     const referrals = await applyReviewedClinicalIdentity(request, auth.user.id, result.referrals);
     const contexts = await getReferralWorkflowContexts(referrals);
