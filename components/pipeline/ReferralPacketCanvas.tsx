@@ -29,6 +29,7 @@ import PacketExtractionReview from "@/components/pipeline/PacketExtractionReview
 import AssessmentWorkspace, { assessmentOpenLabel } from "@/components/pipeline/AssessmentWorkspace";
 import AssessmentChartWorkspace from "@/components/pipeline/AssessmentChartWorkspace";
 import TransferredWorkspaceChart from "@/components/pipeline/TransferredWorkspaceChart";
+import { ClientChartFrame, ClientChartHeader, ChartHeaderCell, ChartBand } from "@/components/pipeline/ClientMedicalChart";
 import type { AssessmentListResponse } from "@/lib/assessment/assessment-records";
 import DeleteWorkspaceDialog from "@/components/pipeline/DeleteWorkspaceDialog";
 import ActionDetailDialog from "@/components/pipeline/ActionDetailDialog";
@@ -2017,16 +2018,20 @@ export default function ReferralPacketCanvas({
                 onEdit={(field, value) => reviewExtractedField(field, "edit", value)}
               />
             ) : null}
-            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_260px] xl:grid-cols-[minmax(0,1fr)_280px]">
-              <div className="min-w-0 space-y-5">
+            <ClientChartFrame label="Referral intake chart">
+              <ClientChartHeader title="Referral intake">
+                <ChartHeaderCell label="Details captured" value={`${fieldCount} / ${visibleChartFieldKeys.length}`} />
+                <ChartHeaderCell label="Save status" value={saveStatus} />
+              </ClientChartHeader>
+              <div className="min-w-0">
                 <ChartSection title="Identity" complete={countCompleteFields(fields, ["name", "gender", "age", "dob", "ssn"])} total={5}>
-                  <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 xl:grid-cols-6">
+                  <div className="grid grid-cols-2 gap-px overflow-hidden bg-[#bfcac5] lg:grid-cols-6">
                     {(["name", "gender", "age", "dob", "ssn"] as FieldKey[]).map((key) => (
                       <EditablePacketField
                         key={key}
                         fieldKey={key}
                         field={fields[key]}
-                        className={key === "name" ? "xl:col-span-2" : key === "ssn" ? "sm:col-span-2 xl:col-span-1" : undefined}
+                        className={key === "name" ? "col-span-2" : undefined}
                         onChange={(value) => updateField(key, value)}
                         onFocus={focusWorkspaceField}
                       />
@@ -2035,7 +2040,7 @@ export default function ReferralPacketCanvas({
                 </ChartSection>
 
                 <ChartSection title="Routing and assignment" complete={countCompleteFields(fields, ["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"])} total={7}>
-                  <div aria-label="Referral routing" className="grid overflow-hidden border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2 lg:grid-cols-3">
+                  <div aria-label="Referral routing" className="grid gap-px overflow-hidden bg-[#bfcac5] sm:grid-cols-2 lg:grid-cols-3">
                     {(["owner", "community", "county", "referralReceived", "admissionDate", "referent", "responsiblePerson"] as FieldKey[]).map((key) => (
                       key === "owner" ? (
                         <OwnerPacketField
@@ -2068,8 +2073,8 @@ export default function ReferralPacketCanvas({
                         />
                       )
                     ))}
-                    <div className="min-h-[86px] border-b border-r border-[#d7ddd9] bg-white p-3">
-                      <label htmlFor="packet-tags" className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">Tags</label>
+                    <div className="min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6">
+                      <label htmlFor="packet-tags" className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">Tags</label>
                       <input
                         id="packet-tags"
                         aria-label="Tags"
@@ -2080,13 +2085,13 @@ export default function ReferralPacketCanvas({
                           setSavedAt("Unsaved changes");
                         }}
                         placeholder="urgent, county-intake"
-                        className="mt-3 h-8 w-full border-0 bg-transparent p-0 text-[13px] font-semibold text-[#303638] outline-none placeholder:text-[#a0a0a0]"
+                        className="mt-1.5 h-8 w-full border-0 bg-transparent p-0 text-[14px] font-bold text-[#18211d] outline-none placeholder:text-[#a0a0a0] focus-visible:ring-2 focus-visible:ring-[#0f8b73]"
                       />
                       <div className="mt-1 text-[10px] text-[#737373]">Comma-separated; searchable everywhere.</div>
                     </div>
-                    <div className="flex min-h-[86px] flex-wrap items-center justify-between gap-3 border-b border-r border-[#d7ddd9] bg-white p-3">
+                    <div className="flex min-h-[82px] min-w-0 flex-wrap items-center justify-between gap-3 bg-white px-5 py-4 sm:px-6">
                       <div className="min-w-0">
-                        <div className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">Conserved</div>
+                        <div className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">Conserved</div>
                         <div className="mt-1 text-[10px] text-[#737373]">Record the current legal status.</div>
                       </div>
                       <div role="group" aria-label="Conserved" className="flex shrink-0 overflow-hidden border border-[#c9ceca] bg-white">
@@ -2103,7 +2108,7 @@ export default function ReferralPacketCanvas({
                             }}
                             className={`h-9 min-w-14 border-r border-[#d9ddda] px-3 text-[10px] font-black uppercase last:border-r-0 ${
                               conserved === value
-                                ? "bg-[#111111] text-white"
+                                ? "bg-[#2f8475] text-white"
                                 : "text-[#595959] hover:bg-[#f7faf9]"
                             }`}
                           >
@@ -2116,7 +2121,7 @@ export default function ReferralPacketCanvas({
                 </ChartSection>
 
                 <ChartSection title="Contact and coordination" complete={countCompleteFields(fields, ["phone", "email"])} total={2}>
-                  <div className="grid overflow-hidden border-l border-t border-[#d7ddd9] bg-white sm:grid-cols-2">
+                  <div className="grid gap-px overflow-hidden bg-[#bfcac5] sm:grid-cols-2">
                     {(["phone", "email"] as FieldKey[]).map((key) => (
                       <EditablePacketField
                         key={key}
@@ -2127,15 +2132,15 @@ export default function ReferralPacketCanvas({
                       />
                     ))}
                   </div>
-                  <ReferralContactsCard
+                  <div className="border-t border-[#bfcac5] px-5 py-4 sm:px-6"><ReferralContactsCard
                     referralId={editableReferralId ?? undefined}
                     clientPhone={fields.phone.value}
                     clientEmail={fields.email.value}
-                  />
+                  /></div>
                 </ChartSection>
 
                 <ChartSection title="Referral summary" complete={countCompleteFields(fields, ["summary"])} total={1}>
-                  <div data-workspace-field="summary" onFocusCapture={() => focusWorkspaceField("summary")}>
+                  <div className="px-5 py-4 sm:px-6" data-workspace-field="summary" onFocusCapture={() => focusWorkspaceField("summary")}>
                     <StructuredNarrativeField
                       field={fields.summary}
                       kind="summary"
@@ -2151,7 +2156,7 @@ export default function ReferralPacketCanvas({
                 </ChartSection>
 
                 <ChartSection title="Medication profile" complete={countCompleteFields(fields, ["currentMedications"])} total={1}>
-                  <div data-workspace-field="currentMedications" onFocusCapture={() => focusWorkspaceField("currentMedications")}>
+                  <div className="px-5 py-4 sm:px-6" data-workspace-field="currentMedications" onFocusCapture={() => focusWorkspaceField("currentMedications")}>
                     <MedicationProfileField
                       field={fields.currentMedications}
                       onChange={(value) => updateField("currentMedications", value)}
@@ -2160,7 +2165,7 @@ export default function ReferralPacketCanvas({
                 </ChartSection>
               </div>
 
-              <aside aria-label="Intake progress" className="space-y-4 lg:sticky lg:top-[86px]">
+              <aside aria-label="Intake progress" className="border-t border-[#bfcac5] bg-[#f7faf8]">
                 <ChartCompletionRail
                   fieldCount={fieldCount}
                   fieldTotal={visibleChartFieldKeys.length}
@@ -2171,7 +2176,7 @@ export default function ReferralPacketCanvas({
                   onContinue={() => void continueToAssessment()}
                 />
               </aside>
-            </div>
+            </ClientChartFrame>
           </PacketPage>
           ) : displayedPage === "files" ? (
             <WorkspaceFilesPage
@@ -2585,13 +2590,7 @@ function ChartSection({
 }) {
   return (
     <section data-guide-target={chartGuideTarget(title)} aria-label={`${title} chart section`}>
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 pt-3">
-        <h2 className="text-[14px] font-black text-[#111111]">{title}</h2>
-        <span className={`text-[11px] font-black ${complete === total ? "text-[#0f8b73]" : "text-[#737373]"}`}>
-          {complete} / {total}
-        </span>
-      </div>
-      {children}
+      <ChartBand title={title} detail={`${complete} / ${total}`}>{children}</ChartBand>
     </section>
   );
 }
@@ -2637,15 +2636,15 @@ function ChartCompletionRail({
   const status = assessmentSummary.signedAt ? "Signed" : assessmentSummary.startedAt ? "In progress" : assessmentSummary.scheduledStartAt ? "Scheduled" : "Not scheduled";
 
   return (
-    <section aria-label="Intake completion" className="pt-3">
-      <div className="flex items-center justify-between gap-4">
+    <section aria-label="Intake completion" className="grid items-center gap-x-8 gap-y-2 px-5 py-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="flex items-center justify-between gap-4 md:col-start-1">
         <h2 className="text-[14px] font-bold text-[#111111]">Intake</h2>
         <span className="text-[13px] font-bold tabular-nums text-[#5c6660]">{percent}%</span>
       </div>
-      <div role="progressbar" aria-label="Intake details captured" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} className="mt-3 h-1.5 overflow-hidden bg-[#e5e9e6]">
+      <div role="progressbar" aria-label="Intake details captured" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} className="h-1.5 overflow-hidden bg-[#e5e9e6] md:col-start-1">
         <div className="h-full bg-[#0f8b73] transition-[width] duration-300" style={{ width: `${percent}%` }} />
       </div>
-      <dl className="mt-3 space-y-1">
+      <dl className="flex flex-wrap gap-x-8 md:col-start-1">
         <ChartStatusRow label="Details captured" value={`${fieldCount.toLocaleString()} / ${fieldTotal.toLocaleString()}`} />
         <ChartStatusRow
           label="Assessment"
@@ -2657,7 +2656,7 @@ function ChartCompletionRail({
         type="button"
         onClick={onContinue}
         disabled={continuing || blocked}
-        className="mt-4 flex min-h-11 w-full items-center justify-between gap-3 bg-[#111111] px-4 py-3 text-left text-[13px] font-bold leading-5 text-white transition-colors hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d2d2d2]"
+        className="flex min-h-11 w-full items-center justify-between gap-3 bg-[#111111] px-4 py-3 text-left text-[13px] font-bold leading-5 text-white transition-colors hover:bg-[#0f8b73] disabled:cursor-not-allowed disabled:bg-[#d2d2d2] md:col-start-2 md:row-start-1 md:row-span-3"
       >
         <span>{action}</span><ArrowRight size={16} className="shrink-0" aria-hidden="true" />
       </button> : null}
@@ -2886,13 +2885,13 @@ function OwnerPacketField({
   const hasLegacyOwner = !ownerPrincipalId && !isUnassignedOwner(field.value);
   const hasCurrentOwnerOption = !ownerPrincipalId || members.some((member) => member.principal_id === ownerPrincipalId);
   return (
-    <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className="group relative min-h-[86px] border-b border-r border-[#d7ddd9] bg-white p-3 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73]">
-      <label className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">{field.label}</label>
+    <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className="group relative min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73]">
+      <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{field.label}</label>
       <select
         aria-label={field.label}
         value={ownerPrincipalId || (hasLegacyOwner ? "__unlinked" : "")}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-3 h-8 w-full border-0 bg-transparent p-0 text-[13px] font-semibold text-[#303638] outline-none"
+        className="mt-1.5 h-8 w-full border-0 bg-transparent p-0 text-[14px] font-bold text-[#18211d] outline-none"
       >
         <option value="">Unassigned</option>
         {hasLegacyOwner ? <option value="__unlinked" disabled>{field.value} (choose member)</option> : null}
@@ -2949,9 +2948,9 @@ function EditablePacketField({
   onFocus: (key: FieldKey) => void;
 }) {
   return (
-    <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className={`group relative min-h-[86px] border-b border-r border-[#d7ddd9] bg-white p-3 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
+    <div data-workspace-field={fieldKey} onFocusCapture={() => onFocus(fieldKey)} className={`group relative min-h-[82px] min-w-0 bg-white px-5 py-4 sm:px-6 focus-within:z-10 focus-within:outline focus-within:outline-2 focus-within:outline-[#0f8b73] ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-2">
-        <label className="text-[10px] font-black uppercase tracking-[0.08em] text-[#3f4745]">{field.label}</label>
+        <label className="text-[9px] font-black uppercase tracking-[0.09em] text-[#5f6b66] sm:text-[10px]">{field.label}</label>
         {field.sourceFile ? <span className="text-[9px] font-black uppercase text-[#317f8f]">Imported</span> : null}
       </div>
       {options ? (
@@ -2959,7 +2958,7 @@ function EditablePacketField({
           aria-label={field.label}
           value={field.value}
           onChange={(event) => onChange(event.target.value)}
-          className="mt-3 h-8 w-full border-0 bg-transparent p-0 text-[13px] font-semibold text-[#303638] outline-none"
+          className="mt-1.5 h-8 w-full border-0 bg-transparent p-0 text-[14px] font-bold text-[#18211d] outline-none"
         >
           <option value="">{field.placeholder || `Select ${field.label.replace(/:$/, "").toLowerCase()}`}</option>
           {options.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -2970,7 +2969,7 @@ function EditablePacketField({
           value={field.value}
           placeholder={field.placeholder}
           onChange={(event) => onChange(event.target.value)}
-          className="mt-3 h-8 w-full border-0 bg-transparent p-0 text-[13px] font-semibold text-[#303638] outline-none placeholder:text-[#a0a0a0]"
+          className={`mt-1.5 h-8 w-full border-0 bg-transparent p-0 font-bold text-[#18211d] outline-none placeholder:text-[#a0a0a0] ${fieldKey === "name" ? "text-[22px] tracking-[-0.025em] sm:text-[24px]" : "text-[14px]"}`}
         />
       )}
       {field.sourceFile ? (

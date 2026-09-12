@@ -9,8 +9,8 @@ import * as jsxRuntime from "react/jsx-runtime";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as icons from "lucide-react";
 
-function load(file, stubs) {
-  const output = ts.transpileModule(readFileSync(file, "utf8"), { fileName: file, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
+function load(file, stubs, source = readFileSync(file, "utf8")) {
+  const output = ts.transpileModule(source, { fileName: file, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   const loaded = { exports: {} };
   vm.runInNewContext(output, { module: loaded, exports: loaded.exports, require: (id) => stubs[id] ?? {}, Buffer, URL, URLSearchParams, Request, Response, Date, console, Map, Set }, { filename: file });
   return loaded.exports;
@@ -185,4 +185,53 @@ const assessmentChart = load("components/pipeline/AssessmentChartWorkspace.tsx",
 });
 assert.equal(renderToStaticMarkup(React.createElement(assessmentChart.default, { referralId: 71, embedded: true })), "");
 checks.push("an unsigned active referral does not append a second placeholder chart beneath its client chart");
+const canvasAst = ts.createSourceFile("intake.tsx", canvasSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const intakeNames = new Set(["EditablePacketField", "OwnerPacketField", "ChartSection", "chartGuideTarget"]);
+const intakeSource = [...canvasAst.statements].filter((node) => ts.isFunctionDeclaration(node) && intakeNames.has(node.name?.text))
+  .map((node) => `export ${node.getText(canvasAst)}`).join("\n");
+const intake = load("intake-render.tsx", { "react/jsx-runtime": jsxRuntime, chart: medicalChart, icons,
+  ownership: loadTypeScriptModule(process.cwd(), "lib/pipeline/referral-ownership.ts") },
+  `const ChartBand = require("chart").ChartBand; const CheckCircle2 = require("icons").CheckCircle2; const isUnassignedOwner = require("ownership").isUnassignedOwner;\n${intakeSource}`);
+function findControl(element, type) {
+  if (element.type === type) return element;
+  for (const child of React.Children.toArray(element.props?.children)) {
+    if (!React.isValidElement(child)) continue;
+    const found = findControl(child, type);
+    if (found) return found;
+  }
+  return null;
+}
+let edited = "";
+let focused = "";
+const editable = intake.EditablePacketField({ fieldKey: "name", field: { label: "NAME", value: "Fixture Person", placeholder: "First and last name" }, className: "col-span-2",
+  onChange: (value) => { edited = value; }, onFocus: (key) => { focused = key; } });
+findControl(editable, "input").props.onChange({ target: { value: "Updated Person" } });
+editable.props.onFocusCapture();
+assert.equal(edited, "Updated Person");
+assert.equal(focused, "name");
+assert.match(findControl(editable, "input").props.className, /text-\[22px\]/);
+const select = intake.EditablePacketField({ fieldKey: "county", field: { label: "County:", value: "", placeholder: "Select county" }, options: ["Source county"],
+  onChange: (value) => { edited = value; }, onFocus() {} });
+findControl(select, "select").props.onChange({ target: { value: "Source county" } });
+assert.equal(edited, "Source county");
+const owner = intake.OwnerPacketField({ fieldKey: "owner", field: { label: "Owner (@name):", value: "Original owner" }, ownerPrincipalId: "original", members: [{ principal_id: "original", display_name: "Original owner" }],
+  onChange: (value) => { edited = value; }, onFocus() {} });
+findControl(owner, "select").props.onChange({ target: { value: "replacement" } });
+assert.equal(edited, "replacement");
+const intakeHtml = renderToStaticMarkup(React.createElement(medicalChart.ClientChartFrame, { label: "Referral intake chart" },
+  React.createElement(medicalChart.ClientChartHeader, { title: "Referral intake" },
+    React.createElement(medicalChart.ChartHeaderCell, { label: "Details captured", value: "2 / 18" }),
+    React.createElement(medicalChart.ChartHeaderCell, { label: "Save status", value: "Unsaved changes" })),
+  React.createElement(intake.ChartSection, { title: "Identity", complete: 1, total: 5 }, editable),
+  React.createElement(intake.ChartSection, { title: "Routing and assignment", complete: 1, total: 7 }, owner, select)));
+assert.match(intakeHtml, /aria-label="Referral intake chart"/);
+assert.match(intakeHtml, /bg-\[#f3f7f5\]/);
+assert.match(intakeHtml, /bg-\[#eaf1ee\]/);
+assert.match(intakeHtml, /data-guide-target="intake-identity"/);
+assert.match(intakeHtml, /data-guide-target="intake-routing"/);
+assert.match(intakeHtml, /value="Fixture Person"/);
+assert.match(intakeHtml, /Unsaved changes/);
+assert.match(canvasSource, /<ClientChartFrame label="Referral intake chart"/);
+assert.doesNotMatch(canvasSource, /lg:grid-cols-\[minmax\(0,1fr\)_260px\]/);
+checks.push("editable intake uses the same Clients frame/header/bands at full width while text edits, selects, owner callbacks, focus recovery, and tutorial targets remain wired");
 console.log(JSON.stringify({ ok: true, checks }, null, 2));
