@@ -11,15 +11,11 @@ export default function ClientMedicalChart({
   sourceLabel: string;
 }) {
   return (
-    <article aria-label="Client medical chart" className="overflow-hidden border border-[#aebbb5] bg-white">
-      <header className="grid grid-cols-2 border-b-2 border-[#aebbb5] bg-[#f3f7f5] sm:grid-cols-[1fr_minmax(9rem,auto)_minmax(9rem,auto)]">
-        <div className="col-span-2 flex items-center gap-2.5 px-5 py-3.5 sm:col-span-1 sm:px-6">
-          <span aria-hidden="true" className="h-6 w-1 bg-[#2f8475]" />
-          <h1 className="text-[16px] font-black tracking-[-0.02em] text-[#1d2924] sm:text-[17px]">Client chart</h1>
-        </div>
+    <ClientChartFrame label="Client medical chart">
+      <ClientChartHeader title="Client chart">
         <ChartHeaderCell label="Source" value={sourceLabel} />
         <ChartHeaderCell label="Data through" value={formatDate(dataAsOf)} />
-      </header>
+      </ClientChartHeader>
 
       <ChartGrid ariaLabel="Client identity" columns="identity">
         {chart.identity.map((fact) => <ChartCell key={fact.label} fact={fact} />)}
@@ -41,11 +37,25 @@ export default function ClientMedicalChart({
         <span>Missing means the field was not documented in the available record.</span>
         {chart.assessmentDate ? <span>Latest assessment {formatDate(chart.assessmentDate)}</span> : null}
       </footer>
-    </article>
+    </ClientChartFrame>
   );
 }
 
-function ChartHeaderCell({ label, value }: { label: string; value: string }) {
+export function ClientChartFrame({ label, children }: { label: string; children: React.ReactNode }) {
+  return <article aria-label={label} className="overflow-hidden border border-[#aebbb5] bg-white">{children}</article>;
+}
+
+export function ClientChartHeader({ title, children }: { title: string; children: React.ReactNode }) {
+  return <header className="grid grid-cols-2 border-b-2 border-[#aebbb5] bg-[#f3f7f5] sm:grid-cols-[1fr_minmax(9rem,auto)_minmax(9rem,auto)]">
+    <div className="col-span-2 flex items-center gap-2.5 px-5 py-3.5 sm:col-span-1 sm:px-6">
+      <span aria-hidden="true" className="h-6 w-1 bg-[#2f8475]" />
+      <h1 className="text-[16px] font-black tracking-[-0.02em] text-[#1d2924] sm:text-[17px]">{title}</h1>
+    </div>
+    {children}
+  </header>;
+}
+
+export function ChartHeaderCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 border-t border-[#c3cec9] px-4 py-2.5 sm:border-l sm:border-t-0 sm:px-5">
       <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#66736d]">{label}</div>
@@ -54,11 +64,12 @@ function ChartHeaderCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ChartBand({ title, children }: { title: string; children: React.ReactNode }) {
+export function ChartBand({ title, detail, children }: { title: string; detail?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section aria-labelledby={`client-chart-${slug(title)}`}>
       <h2 id={`client-chart-${slug(title)}`} className="border-y-2 border-[#aebbb5] bg-[#eaf1ee] px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.09em] text-[#244b41] sm:px-7 sm:text-[12px]">
         {title}
+        {detail ? <span className="float-right ml-4 text-[10px] font-bold normal-case tracking-normal text-[#5f6b66]">{detail}</span> : null}
       </h2>
       {children}
     </section>

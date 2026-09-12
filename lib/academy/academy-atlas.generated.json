@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:71548c1e95c8a64a",
-  "fingerprint": "71548c1e95c8a64aefe9cd12eb0f82383e596c3d19b3458c5b61d5271418e917",
+  "generatedAt": "source-fingerprint:55a76137fd5c5d24",
+  "fingerprint": "55a76137fd5c5d240a7dadbe7f4df24d6ec05ed7796e4736587e53f2139acbc6",
   "totals": {
     "files": 988,
-    "lines": 313786,
+    "lines": 313845,
     "coveredFiles": 988
   },
   "entries": [
@@ -1905,7 +1905,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 108,
+      "lines": 119,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2373,7 +2373,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3814,
+      "lines": 3813,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -10300,7 +10300,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 189,
+      "lines": 238,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
