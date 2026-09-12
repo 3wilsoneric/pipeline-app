@@ -1771,6 +1771,10 @@ function assessmentValidationResults() {
         patch: { data: { resident_number: "EM-1001" }, status: "draft" },
       }));
       assertValid(assessmentValidation.validateAssessmentPatchRequest({
+        if_match: 2,
+        patch: { data: { assessment_date: "2026-09-12" } },
+      }));
+      assertValid(assessmentValidation.validateAssessmentPatchRequest({
         section: "functional_adl",
         if_match_section: 2,
         patch: { review_extraction: [{ field: "mobility", action: "accept" }] },

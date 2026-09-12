@@ -278,7 +278,7 @@ function ResidentProfile({
             </ProfileSection>
           ) : null}
 
-          {!pipelineOnly ? (
+          {!pipelineOnly && client.canonical_client_id ? (
             <ProfileSection title="Record quality" detail={`${completeness.complete} of ${completeness.total} tracked fields`}>
               <RecordQualitySummary completeness={completeness} historyDataAsOf={history.data_as_of} />
             </ProfileSection>

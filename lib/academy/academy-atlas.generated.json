@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:ece2675d37d4919a",
-  "fingerprint": "ece2675d37d4919ad53710b0e2faaca5a94871569146eb5826af8a7a473810cf",
+  "generatedAt": "source-fingerprint:f6a6482ec1024d46",
+  "fingerprint": "f6a6482ec1024d4685337cd8746a43854eb105b823be3ae95bef8e87270a82b2",
   "totals": {
     "files": 987,
-    "lines": 313445,
+    "lines": 313450,
     "coveredFiles": 987
   },
   "entries": [
@@ -6159,7 +6159,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 43,
+      "lines": 44,
       "moduleIds": [
         "assessment-lifecycle",
         "assessment-schema-ownership"
@@ -9172,7 +9172,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 2106,
+      "lines": 2110,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

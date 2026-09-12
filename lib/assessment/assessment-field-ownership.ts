@@ -20,6 +20,7 @@ const intakeInheritedFields = new Set<AssessmentToolFieldKey>([
 ]);
 
 const systemProvenanceFields = new Set<AssessmentToolFieldKey>([
+  "assessment_date",
   "assessor",
   "source_file",
   "match_confidence",
