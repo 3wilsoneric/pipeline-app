@@ -163,7 +163,7 @@ function ChartTab({ active, icon, label, onClick, guideTarget }: { active: boole
   );
 }
 
-function CompleteAssessmentChart({ report }: { report: AssessmentSummaryReport }) {
+export function CompleteAssessmentChart({ report }: { report: AssessmentSummaryReport }) {
   return (
     <article data-guide-target="chart-complete-record" aria-label="Complete assessment chart" className="border border-[#cfd7d2] bg-white">
       <ChartHeader report={report} title="Comprehensive Assessment Record" />
@@ -182,7 +182,7 @@ function ChartHeader({ report, title }: { report: AssessmentSummaryReport; title
     <header>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-[#183f37] px-5 py-4 text-white sm:px-7">
         <div><div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#aad0c5]">Pipeline clinical record</div><h2 className="mt-1 text-[18px] font-black tracking-[-0.02em]">{title}</h2></div>
-        <div className="border border-white/25 px-3 py-1 text-[9px] font-black uppercase tracking-[0.08em]">Signed assessment</div>
+        <div className="border border-white/25 px-3 py-1 text-[9px] font-black uppercase tracking-[0.08em]">{report.signed ? "Signed assessment" : "Saved, unsigned"}</div>
       </div>
       <div className="grid gap-px border-b border-[#cfd7d2] bg-[#cfd7d2] sm:grid-cols-2 lg:grid-cols-4">
         <HeaderFact label="Client" value={name} />
@@ -219,7 +219,7 @@ function ChartSourceFooter({ report }: { report: AssessmentSummaryReport }) {
   return (
     <footer className="flex flex-wrap justify-between gap-3 bg-[#f7faf8] px-5 py-4 text-[9px] leading-4 text-[#69736e] sm:px-7">
       <span>Assessment {report.assessmentId} | Version {report.assessmentVersion}</span>
-      <span>Signed {report.signedAt ? formatTimestamp(report.signedAt) : ""}{report.signedBy ? ` by ${report.signedBy}` : ""}</span>
+      <span>{report.signed ? `Signed ${report.signedAt ? formatTimestamp(report.signedAt) : ""}${report.signedBy ? ` by ${report.signedBy}` : ""}` : "Saved, unsigned"}</span>
     </footer>
   );
 }

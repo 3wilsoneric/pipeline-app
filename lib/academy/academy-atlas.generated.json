@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:0e6ce572e8ceab2b",
-  "fingerprint": "0e6ce572e8ceab2bdac5917b0f475a1c91caac982c2960b413c822a3ec7ffa91",
+  "generatedAt": "source-fingerprint:e7418d5aaf1efdcd",
+  "fingerprint": "e7418d5aaf1efdcd82c02ecc8422e43147c9ee4fbd3eb150850caea679e64412",
   "totals": {
     "files": 985,
-    "lines": 312697,
+    "lines": 312730,
     "coveredFiles": 985
   },
   "entries": [
@@ -2421,7 +2421,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 212,
+      "lines": 228,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2673,7 +2673,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 77,
+      "lines": 74,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -6495,7 +6495,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 807,
+      "lines": 813,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -9472,7 +9472,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 544,
+      "lines": 558,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

@@ -2021,7 +2021,7 @@ export default function ReferralPacketCanvas({
             </PacketPage>
           ) : displayedPage === 1 && historicalReadOnly && loadedReferral ? (
             <PacketPage id="transferred-chart" title="Chart">
-              <TransferredWorkspaceChart key={loadedReferral.id} referralId={loadedReferral.id} fields={[
+              <TransferredWorkspaceChart key={loadedReferral.id} referral={loadedReferral} fields={[
                 ...Object.values(fields),
                 { label: "Conserved", value: conserved },
               ]} />

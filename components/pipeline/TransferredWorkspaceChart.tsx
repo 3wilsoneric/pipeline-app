@@ -2,17 +2,20 @@
 
 import { useEffect, useState } from "react";
 
-import { assessmentToolFieldDefinitions } from "@/lib/assessment/assessment-tool-schema";
+import { CompleteAssessmentChart } from "@/components/pipeline/AssessmentChartWorkspace";
+import { buildAssessmentSummaryReport } from "@/lib/assessment/assessment-summary";
 import type { AssessmentListResponse, PipelineAssessmentRecord } from "@/lib/assessment/assessment-records";
 import { fetchPipelineJson } from "@/lib/auth/authenticated-fetch";
 import type { ReferralCanvasPacketField } from "@/lib/pipeline/referral-canvas-extraction";
+import type { Referral } from "@/lib/pipeline/referral-types";
 
 // Pre-launch Pipeline records retain their actual intake and saved assessments,
 // rather than being projected onto the ALLO source format or a new workflow.
-export default function TransferredWorkspaceChart({ referralId, fields }: {
-  referralId: number;
+export default function TransferredWorkspaceChart({ referral, fields }: {
+  referral: Referral;
   fields: ReferralCanvasPacketField[];
 }) {
+  const referralId = referral.id;
   const [assessments, setAssessments] = useState<PipelineAssessmentRecord[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -41,12 +44,12 @@ export default function TransferredWorkspaceChart({ referralId, fields }: {
       <RecordedFields title="Client information" fields={fields} />
       {loading ? <p role="status" className="text-[12px] text-[#68716d]">Loading assessment records...</p> : null}
       {error ? <p role="alert" className="text-[12px] text-[#a4473c]">{error}</p> : null}
-      {assessments.map((assessment, index) => (
+      {assessments.map((assessment) => (
         <section key={assessment.assessment_id}>
           <p className="mb-2 text-[11px] text-[#68716d]">
             {assessment.signed_at ? "Signed" : "Saved, unsigned"} · {assessment.updated_by.name} · {new Date(assessment.updated_at).toLocaleDateString("en-US")}
           </p>
-          <RecordedFields title={`Assessment ${index + 1}`} fields={assessmentToolFieldDefinitions.map(({ key, label }) => ({ label, value: displayValue(assessment[key]) }))} />
+          <CompleteAssessmentChart report={buildAssessmentSummaryReport(assessment, referral)} />
           {assessment.unmapped_fields.length ? <RecordedFields title="Additional recorded assessment information" fields={assessment.unmapped_fields.map((field) => ({ label: field.source_field_key, value: field.value ?? "" }))} /> : null}
           {assessment.addenda?.length ? <RecordedFields title="Addenda" fields={assessment.addenda.map((addendum) => ({ label: addendum.authored_by_name, value: addendum.note }))} /> : null}
         </section>
@@ -67,10 +70,4 @@ function RecordedFields({ title, fields }: { title: string; fields: ReferralCanv
       </div>)}
     </dl>
   </section>;
-}
-
-function displayValue(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  return String(value);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, FileText } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { getReferralProgress } from "@/lib/pipeline/referral-progress";
 import type { ReferralProgress } from "@/lib/pipeline/referral-progress";
@@ -73,7 +73,7 @@ export default function ReferralWorklist({
               className="grid w-full grid-cols-[minmax(260px,1.65fr)_170px_135px_90px_36px] items-center px-4 py-3.5 text-left hover:bg-[#f7faf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f8b73]"
             >
               <span className="flex min-w-0 items-start gap-3 pr-4">
-                <WorkspaceChartThumbnail />
+                <WorkspaceChartThumbnail referral={referral} progress={progress} />
                 <span className="min-w-0 pt-0.5">
                   <span className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
                   {workspaceIdentityDetail(referral, county) ? (
@@ -139,7 +139,7 @@ function CompactReferralRow({
     >
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="flex min-w-0 items-start gap-3">
-          <WorkspaceChartThumbnail />
+          <WorkspaceChartThumbnail referral={referral} progress={progress} />
           <span className="min-w-0 pt-0.5">
             <span className="block truncate text-[13px] font-bold text-[#111111]" title={identityTitle}>{identityTitle}</span>
             {workspaceIdentityDetail(referral, county) ? (
@@ -175,14 +175,30 @@ function CompactReferralRow({
   );
 }
 
-function WorkspaceChartThumbnail() {
+function WorkspaceChartThumbnail({ referral, progress }: { referral: Referral; progress: ReferralProgress }) {
+  const seed = Math.abs(referral.id) % 13;
+  const firstLine = 15 + seed;
+  const secondLine = 10 + ((seed * 3) % 17);
+  const accent = !isClientChartWorkspace(referral) && (referral.priority === "urgent" || referral.priority === "high") ? "#c85b4d" : "#0f8b73";
+  const progressWidth = Math.max(3, Math.round(progress.overall.percent * 0.32));
   return (
     <span
       aria-hidden="true"
       data-testid="workspace-chart-thumbnail"
       className="flex h-12 w-[58px] shrink-0 items-center justify-center overflow-hidden border border-[#cad4cf] bg-[#edf4f1] shadow-[0_2px_5px_rgba(29,52,43,0.08)]"
     >
-      <FileText size={22} className="text-[#0c705f]" />
+      <svg viewBox="0 0 58 48" className="h-full w-full" focusable="false">
+        <rect x="7" y="4" width="44" height="40" fill="#ffffff" stroke="#c7d3ce" />
+        <rect x="7" y="4" width="44" height="6" fill={accent} />
+        <rect x="11" y="14" width="8" height="8" fill="#dcebe5" />
+        <rect x="22" y="14" width={firstLine} height="2" fill="#90a29a" />
+        <rect x="22" y="19" width={secondLine} height="2" fill="#d0dad6" />
+        <rect x="11" y="27" width="32" height="2" fill="#d5dfdb" />
+        <rect x="11" y="32" width="26" height="2" fill="#d5dfdb" />
+        <rect x="11" y="38" width="32" height="3" fill="#e1e8e5" />
+        {!isClientChartWorkspace(referral) ? <rect x="11" y="38" width={progressWidth} height="3" fill={accent} /> : null}
+        <path d="M45 4h6v6z" fill="#e8efec" />
+      </svg>
     </span>
   );
 }
