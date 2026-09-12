@@ -93,6 +93,20 @@ const results = await Promise.all([
       "Older Alamo client payloads must remain compatible without fact metadata",
     );
   }),
+  run("detail metadata may omit directory totals without hiding charts or file previews", () => {
+    const detail = structuredClone(fixture.client);
+    delete detail.client_database.client_count;
+    const parsed = contracts.parseClinicalClientResponse(detail);
+    assert(parsed.client_database.client_count === null, "An omitted directory count must remain unknown");
+    assert(parsed.client.source_documents[0].thumbnail_available, "Chart thumbnails must remain available");
+    assert(parsed.client.source_documents[0].preview_available, "Full-file opening must remain available");
+    assert(parsed.client_database.fields.length === parsed.client_database.field_count, "Schema metadata must remain validated");
+    detail.client_database.client_count = "1329";
+    assertThrows(() => contracts.parseClinicalClientResponse(detail), "A supplied total must still be numeric");
+    const directory = structuredClone(fixture.clients);
+    delete directory.client_database.client_count;
+    assertThrows(() => contracts.parseClinicalClientDirectoryResponse(directory), "Directory totals are still required");
+  }),
   run("client evidence and document-search contracts remain bounded and source scoped", () => {
     const evidence = contracts.parseClinicalClientFactEvidenceResponse(fixture.client_fact_evidence);
     const search = contracts.parseClinicalClientDocumentSearchResponse(fixture.client_document_search);

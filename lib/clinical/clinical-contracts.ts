@@ -114,7 +114,8 @@ export type ClinicalClientDatabaseSummary = {
   field_count: number;
 };
 
-export type ClinicalClientDatabaseDetail = ClinicalClientDatabaseSummary & {
+export type ClinicalClientDatabaseDetail = Omit<ClinicalClientDatabaseSummary, "client_count"> & {
+  client_count: number | null;
   fields: string[];
 };
 
@@ -629,20 +630,25 @@ function parseClientDatabaseSummary(
   const version = typeof row.version === "number"
     ? numberValue(row.version, "client_database.version", 0)
     : stringValue(row.version, "client_database.version", 128);
-  const summary: ClinicalClientDatabaseSummary = {
+  const summary = {
     dataset: stringValue(row.dataset, "client_database.dataset", 256),
     version,
     baseline_date: date(row.baseline_date, "client_database.baseline_date"),
     generated_at: timestamp(row.generated_at, "client_database.generated_at"),
-    client_count: integer(row.client_count, "client_database.client_count", 0, 1_000_000),
     field_count: integer(row.field_count, "client_database.field_count", 0, 1000),
   };
-  if (!includeFields) return summary;
+  if (!includeFields) return { ...summary, client_count: integer(row.client_count, "client_database.client_count", 0, 1_000_000) };
   const fields = boundedStringArray(row.fields, "client_database.fields", 1000, 256);
   if (fields.length !== summary.field_count) {
     throw new Error("Clinical client database field metadata is inconsistent.");
   }
-  return { ...summary, fields };
+  return {
+    ...summary,
+    // Detail responses carry schema metadata, not necessarily directory totals.
+    // An omitted total is unknown, never zero or a reason to hide the chart.
+    client_count: row.client_count === undefined ? null : integer(row.client_count, "client_database.client_count", 0, 1_000_000),
+    fields,
+  };
 }
 
 function parseClinicalRecord(value: unknown, label: string): ClinicalClientRecord {
