@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:d8a951731f5b6309",
-  "fingerprint": "d8a951731f5b63097e15b5398f2855fb418aeea2cc37ea5cb5dbe6864635103f",
+  "generatedAt": "source-fingerprint:be49b30f59d8fa5e",
+  "fingerprint": "be49b30f59d8fa5e3118cdd2d65fcc31185070ce9222dc7e8dc2124bdbb150eb",
   "totals": {
-    "files": 992,
-    "lines": 315337,
-    "coveredFiles": 992
+    "files": 994,
+    "lines": 315672,
+    "coveredFiles": 994
   },
   "entries": [
     {
@@ -1917,7 +1917,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 629,
+      "lines": 623,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2217,7 +2217,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 106,
+      "lines": 116,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -4115,6 +4115,18 @@
       "runtime": "documentation",
       "risk": "standard",
       "lines": 87,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
+      "path": "docs/MCMASTER_LIVE_PERFORMANCE_REMEDIATION_2026-09-12.md",
+      "subsystem": "Documentation",
+      "kind": "documentation",
+      "runtime": "documentation",
+      "risk": "standard",
+      "lines": 90,
       "moduleIds": [
         "developer-toolchain",
         "vertical-change-capstone"
@@ -6543,7 +6555,7 @@
       "kind": "typescript-module",
       "runtime": "next-server",
       "risk": "critical",
-      "lines": 908,
+      "lines": 912,
       "moduleIds": [
         "clinical-adapter-profiles",
         "identity-matching-reconciliation"
@@ -7356,7 +7368,7 @@
       "kind": "typescript-module",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 68,
+      "lines": 83,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -8620,7 +8632,7 @@
       "kind": "configuration",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 245,
+      "lines": 246,
       "moduleIds": [
         "developer-toolchain",
         "system-map"
@@ -10396,7 +10408,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 263,
+      "lines": 318,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10444,7 +10456,7 @@
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 59,
+      "lines": 66,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"
@@ -10583,12 +10595,24 @@
       ]
     },
     {
+      "path": "scripts/pipeline-live-read-performance.mjs",
+      "subsystem": "Engineering tooling",
+      "kind": "tooling",
+      "runtime": "tooling",
+      "risk": "standard",
+      "lines": 90,
+      "moduleIds": [
+        "developer-toolchain",
+        "vertical-change-capstone"
+      ]
+    },
+    {
       "path": "scripts/pipeline-performance-scorecard.mjs",
       "subsystem": "Engineering tooling",
       "kind": "tooling",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 749,
+      "lines": 818,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

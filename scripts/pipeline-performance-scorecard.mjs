@@ -724,14 +724,14 @@ async function seedPerformanceReferral(api, origin, name, runId) {
   const now = new Date().toISOString();
   const mutationOrigin = new URL(origin);
   if (["127.0.0.1", "::1"].includes(mutationOrigin.hostname)) mutationOrigin.hostname = "localhost";
-  const membersResponse = await api.get(`${origin}/api/members`);
+  const membersResponse = await api.get(`${origin}/api/members?scope=assessors`);
   if (!membersResponse.ok()) {
     fail(`Could not resolve the isolated McMaster workspace member (status ${membersResponse.status()}).`);
   }
   const memberDirectory = await membersResponse.json();
   const currentMember = memberDirectory.members?.find(
     (member) => member.principal_id === memberDirectory.current_principal_id,
-  );
+  ) ?? memberDirectory.members?.[0];
   if (!currentMember?.principal_id || !currentMember?.display_name) {
     fail("The isolated McMaster identity is not an active workspace member.");
   }
