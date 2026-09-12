@@ -237,6 +237,32 @@ navigation and 249.3 ms localized interaction). These are failed local timing
 samples, not a performance certification. Limits remain unchanged; retain the
 Linux CI measurements before deciding release readiness.
 
+CI run `34699599112` for `9263b0c957475a8c22ac15e1b4db094accbb5964`
+passed verify/security, PostgreSQL, the 100-user rehearsal, primary browser,
+isolated Notes Lab access, the unchanged Linux performance budgets, desktop,
+and cross-browser stages. Its final visual stage failed on three stale cases:
+the profile case assumed an unconfigured upstream would yield an old warning,
+and the intake snapshots predated the existing chart layout and current header.
+The visual profile now uses the existing sanitized directory fixture and asserts
+the visible client and absence of an error. Reviewed snapshot updates must use
+the pinned Linux Playwright image; the pixel tolerance remains unchanged.
+
+The candidate also integrates `f8d33db93ef7b479dc4da0bcfdfa466ae6cac2bc`
+from PR #55, now live. Its bounded roster cache, intent prefetch, private-draft
+invalidation, and parallel authorized chart reads remain intact. The common
+mutation-evidence guard and its executable tests are consolidated, not duplicated.
+That live revision is the immediate application rollback target for this release;
+no database downgrade or deletion of saved work is part of rollback. Local merged
+candidate types, focused lint, complexity, and live-loading contracts passed;
+the final exact-commit CI still must pass before deployment.
+
+All six visual cases subsequently passed in the native Linux ARM build of the
+same pinned Playwright image, then passed again without snapshot regeneration.
+Only the three reviewed images above changed; the other three baselines and
+the pixel tolerance are unchanged. The local x86 emulation attempt failed before
+opening pages because Chromium crashed in QEMU; it is not a browser pass. The
+final x86 Linux CI must validate the updated images on its real runner.
+
 That run also detected a real identity-confirmation defect: mutation validation
 could reuse a 15-second clinical display projection. The existing clinical TTL
 owner now admits only GET/HEAD reads to the cache. POST/PATCH confirmation reads
