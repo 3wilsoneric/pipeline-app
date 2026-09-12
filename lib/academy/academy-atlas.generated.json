@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "source-fingerprint:a5aeb2f7f6706446",
-  "fingerprint": "a5aeb2f7f670644686bcbb92cb2e373a39266e1692352a4a035e3448e899d7aa",
+  "generatedAt": "source-fingerprint:27335ae70771d3d3",
+  "fingerprint": "27335ae70771d3d3e74bdce12c536662863ae4f7e77dadf9754b92bf606e6b07",
   "totals": {
-    "files": 982,
-    "lines": 312193,
-    "coveredFiles": 982
+    "files": 983,
+    "lines": 312398,
+    "coveredFiles": 983
   },
   "entries": [
     {
@@ -242,7 +242,7 @@
       "kind": "react-component",
       "runtime": "shared",
       "risk": "standard",
-      "lines": 36,
+      "lines": 38,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2157,7 +2157,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 344,
+      "lines": 353,
       "moduleIds": [
         "admissions-operating-model",
         "shell-navigation"
@@ -2193,7 +2193,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 445,
+      "lines": 448,
       "moduleIds": [
         "assessment-calendar-profiles-ui",
         "read-models-search-operations"
@@ -2361,7 +2361,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 3810,
+      "lines": 3824,
       "moduleIds": [
         "create-referral",
         "referral-workspace-ui"
@@ -2625,7 +2625,7 @@
       "kind": "react-component",
       "runtime": "browser",
       "risk": "standard",
-      "lines": 854,
+      "lines": 877,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -2638,6 +2638,18 @@
       "runtime": "browser",
       "risk": "standard",
       "lines": 687,
+      "moduleIds": [
+        "frontend-resilience",
+        "next-react-runtime"
+      ]
+    },
+    {
+      "path": "components/pipeline/training/PipelineProcessTester.tsx",
+      "subsystem": "Pipeline UI",
+      "kind": "react-component",
+      "runtime": "browser",
+      "risk": "standard",
+      "lines": 111,
       "moduleIds": [
         "frontend-resilience",
         "next-react-runtime"
@@ -11309,7 +11321,7 @@
       "kind": "browser-test",
       "runtime": "tooling",
       "risk": "standard",
-      "lines": 417,
+      "lines": 460,
       "moduleIds": [
         "operations-recovery-release",
         "test-assurance"

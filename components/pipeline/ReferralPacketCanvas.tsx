@@ -74,6 +74,7 @@ import {
   type ReviewFieldResponse,
 } from "@/lib/extraction/contracts";
 import type { TrainingAssessmentMode } from "@/lib/training/mock-assessment";
+import { toPipelinePath } from "@/lib/pipeline/base-path";
 import type { AssessmentToolSection } from "@/lib/assessment/assessment-tool-schema";
 import {
   createMutationId,
@@ -149,6 +150,7 @@ type ReferralPacketCanvasProps = {
   initialWorkspaceLocation?: PipelineWorkspaceLocation;
   trainingAssessmentMode?: TrainingAssessmentMode;
   trainingAssessmentSection?: AssessmentToolSection;
+  trainingIntakeMode?: boolean;
   onReferralSaved?: (referral: Pick<Referral, "id" | "name" | "community">) => void;
   onReferralDeleted?: () => void;
   onWorkspaceStageChange?: (stage: WorkspaceStageName) => void;
@@ -321,6 +323,7 @@ export default function ReferralPacketCanvas({
   initialWorkspaceLocation,
   trainingAssessmentMode,
   trainingAssessmentSection,
+  trainingIntakeMode = false,
   onReferralSaved,
   onReferralDeleted,
   onWorkspaceStageChange,
@@ -355,7 +358,7 @@ export default function ReferralPacketCanvas({
   });
   const [savedAt, setSavedAt] = useState(referral?.id ? "Loading workspace..." : "Add documents, then complete intake");
   const [loadedReferral, setLoadedReferral] = useState<Referral | null>(null);
-  const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(usesServerReferralDrafts());
+  const [draftRecoveryLoading, setDraftRecoveryLoading] = useState(usesServerReferralDrafts() && !trainingIntakeMode);
   const [isSaving, setIsSaving] = useState(false);
   const [reviewBusyFieldKey, setReviewBusyFieldKey] = useState<string>();
   const [isBulkReviewing, setIsBulkReviewing] = useState(false);
@@ -541,7 +544,7 @@ export default function ReferralPacketCanvas({
     if (!draft) return;
     const revision = draftRevisionRef.current;
     const reference = recoveryDraftReferenceRef.current;
-    if (usesServerReferralDrafts()) {
+    if (usesServerReferralDrafts() && !trainingIntakeMode) {
       void saveServerReferralDraft(reference, draft)
         .then(() => {
           if (reportStatus && draftRevisionRef.current === revision) setSavedAt("Recovery draft saved");
@@ -680,7 +683,7 @@ export default function ReferralPacketCanvas({
         setRecoveredDraftAt,
         setRecoveredPacketName,
       };
-      if (usesServerReferralDrafts()) {
+      if (usesServerReferralDrafts() && !trainingIntakeMode) {
         setDraftRecoveryLoading(true);
         void loadServerReferralDraft(newDraftKey).then((draft) => {
           if (cancelled) return;
@@ -703,7 +706,7 @@ export default function ReferralPacketCanvas({
     if (loadedReferralRef.current?.id === referral.id) return;
 
     let cancelled = false;
-    if (usesServerReferralDrafts()) setDraftRecoveryLoading(true);
+    if (usesServerReferralDrafts() && !trainingIntakeMode) setDraftRecoveryLoading(true);
     fetchPipelineJson<{ referral?: Referral }>(`/api/referrals/${referral.id}/canvas`, { cache: "no-store" }).then((canvasPayload) => {
       if (cancelled) return;
       const savedRecord = canvasPayload.referral ?? null;
@@ -770,7 +773,7 @@ export default function ReferralPacketCanvas({
           }
           if (recovered) setSavedAt("Recovered unsaved changes");
         };
-        if (usesServerReferralDrafts()) {
+        if (usesServerReferralDrafts() && !trainingIntakeMode) {
           setDraftRecoveryLoading(true);
           void loadServerReferralDraft(record.id)
             .then((draft) => {
@@ -799,7 +802,7 @@ export default function ReferralPacketCanvas({
     return () => {
       cancelled = true;
     };
-  }, [newDraftKey, referral?.id]);
+  }, [newDraftKey, referral?.id, trainingIntakeMode]);
 
   useEffect(() => {
     const extractedFields = loadedReferral?.packetFields;
@@ -1387,6 +1390,10 @@ export default function ReferralPacketCanvas({
 
   const saveDraft = async (confirmedDistinctReferralIds: number[] = []): Promise<Referral | null> => {
     setSaveError("");
+    if (trainingIntakeMode) {
+      setSavedAt("Practice changes saved in this tab");
+      return null;
+    }
     const blockedMessage = referralSaveBlockedMessage(uploadingDocumentIds.size, Boolean(remoteChange?.conflicts.length));
     if (blockedMessage) {
       setSaveError(blockedMessage);
@@ -1465,6 +1472,10 @@ export default function ReferralPacketCanvas({
   };
 
   const continueToAssessment = async () => {
+    if (trainingIntakeMode) {
+      window.location.assign(toPipelinePath("/?view=referrals&screen=packet&workspaceStage=assessment&trainingAssessment=schedule&demo=1"));
+      return;
+    }
     const hasPendingChanges = dirtyKeysRef.current.size > 0
       || Object.keys(pendingDocumentsRef.current).length > 0
       || Boolean(initialPacketRef.current);
@@ -1905,6 +1916,7 @@ export default function ReferralPacketCanvas({
                     hasChanges={hasPendingWorkspaceChanges}
                     blocked={workspaceSaveIsBlocked(uploadingDocumentIds, remoteChange)}
                     onSave={saveDraft}
+                    training={trainingIntakeMode}
                   />
                 </>
               ) : null}
@@ -1934,7 +1946,7 @@ export default function ReferralPacketCanvas({
           <section aria-label="Recovered draft" className="mb-3 flex flex-wrap items-center justify-between gap-3 border-l-2 border-[#0f8b73] bg-[#effaf5] px-4 py-3" aria-live="polite">
             <div>
               <div className="text-[12px] font-black text-[#174f43]">
-                {usesServerReferralDrafts() ? "Recovered changes from your account." : "Recovered changes from this browser tab."}
+                {usesServerReferralDrafts() && !trainingIntakeMode ? "Recovered changes from your account." : "Recovered changes from this browser tab."}
               </div>
               <div className="mt-1 text-[11px] text-[#3c665d]">
                 {recoveredPacketName
@@ -2191,7 +2203,7 @@ export default function ReferralPacketCanvas({
                       saveError={saveError}
                       saving={isSaving}
                       hasUnsavedChanges={hasPendingWorkspaceChanges}
-                      saveActionLabel={hasReferralRecord(loadedReferral, referral?.id) ? "Save now" : "Create workspace"}
+                      saveActionLabel={trainingIntakeMode ? "Save practice" : hasReferralRecord(loadedReferral, referral?.id) ? "Save now" : "Create workspace"}
                       onSave={() => void saveDraft()}
                     />
                   </div>
@@ -2398,12 +2410,14 @@ function WorkspaceSaveControl({
   hasChanges,
   blocked,
   onSave,
+  training = false,
 }: {
   saving: boolean;
   hasReferral: boolean;
   hasChanges: boolean;
   blocked: boolean;
   onSave: () => void;
+  training?: boolean;
 }) {
   return (
     <button
@@ -2414,8 +2428,8 @@ function WorkspaceSaveControl({
       className="flex h-9 items-center gap-2 bg-[#0b6f5d] px-3 text-[11px] font-bold text-white transition-colors hover:bg-[#075a4b] disabled:cursor-not-allowed disabled:bg-[#b8c3bf] sm:px-4"
     >
       <Save size={15} />
-      <span className="hidden sm:inline">{workspaceSaveLabel(saving, hasReferral, true)}</span>
-      <span className="sm:hidden">{workspaceSaveLabel(saving, hasReferral, false)}</span>
+      <span className="hidden sm:inline">{training ? "Save practice" : workspaceSaveLabel(saving, hasReferral, true)}</span>
+      <span className="sm:hidden">{training ? "Save" : workspaceSaveLabel(saving, hasReferral, false)}</span>
     </button>
   );
 }

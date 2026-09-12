@@ -15,9 +15,10 @@ export const metadata: Metadata = {
 export default async function PipelineDemoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ slide?: string | string[] }>;
+  searchParams: Promise<{ slide?: string | string[]; view?: string | string[] }>;
 }) {
-  const requestedSlide = (await searchParams).slide;
+  const requestedParams = await searchParams;
+  const requestedSlide = requestedParams.slide;
   const requestHeaders = await getServerComponentRequestHeaders();
   const [user, environment] = await Promise.all([
     getOperatorTrainingUser(requestHeaders),
@@ -30,6 +31,7 @@ export default async function PipelineDemoPage({
       actor={{ id: user.id, name: user.name, email: user.email, roles: user.roles }}
       environment={environment}
       initialPresentationSlide={typeof requestedSlide === "string" ? requestedSlide : undefined}
+      initialView={requestedParams.view === "tester" && user.roles.includes("admin") ? "tester" : undefined}
     />
   );
 }

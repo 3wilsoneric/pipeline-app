@@ -233,13 +233,15 @@ export default function PipelineOverviewRoute() {
   let page: ReactNode;
   if (screen === "packet") {
     const trainingAssessmentMode = getTrainingAssessmentMode(activeSearchParams);
-    const isDemoWorkspace = activeSearchParams.get("demo") === "1" || Boolean(trainingAssessmentMode);
+    const trainingIntakeMode = activeSearchParams.get("trainingIntake") === "1";
+    const isDemoWorkspace = activeSearchParams.get("demo") === "1" || Boolean(trainingAssessmentMode) || trainingIntakeMode;
     const packetProps: ComponentProps<DeferredWorkSurfaces["ReferralPacketCanvas"]> = {
       referral: selectedReferral,
       newDraftKey: newReferralDraftKey,
       initialWorkspaceLocation: pipelineWorkspaceLocationFromSearchParams(activeSearchParams),
       trainingAssessmentMode,
       trainingAssessmentSection: getTrainingAssessmentSection(activeSearchParams),
+      trainingIntakeMode,
       onWorkspaceLocationChange: (location) => {
         const params = new URLSearchParams(window.location.search);
         applyPipelineWorkspaceLocation(params, location);
@@ -320,6 +322,7 @@ function clearDestinationParams(params: URLSearchParams) {
   for (const key of [
     "work",
     "trainingAssessment",
+    "trainingIntake",
     "assessmentSection",
     "editHome",
     "workspaceStage",
